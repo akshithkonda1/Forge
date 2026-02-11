@@ -43,22 +43,22 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
 }
 
 // Mock HRV data around 45-58 range for 7 days
-const MOCK_HRV_VALUES = [48, 45, 55, 42, 58, 50, 52];
-const MOCK_RHR_VALUES = [60, 62, 57, 63, 56, 59, 58];
+const MOCK_HRV_VALUES = [44, 46, 52, 48, 41, 55, 50, 48, 45, 55, 42, 58, 50, 52];
+const MOCK_RHR_VALUES = [62, 60, 58, 61, 64, 57, 59, 60, 62, 57, 63, 56, 59, 58];
 
 export function RecoveryTrends() {
   const sleepData = useAppStore((s) => s.sleepData);
 
   const recoveryChartData = useMemo(() => {
-    // sleepData is newest first, reverse for chronological chart
-    return [...sleepData].reverse().map((d) => ({
+    // Show last 7 days, sleepData is newest first so slice then reverse
+    return sleepData.slice(0, 7).reverse().map((d) => ({
       day: getDayAbbr(d.date),
       score: d.score,
     }));
   }, [sleepData]);
 
   const hrvChartData = useMemo(() => {
-    return [...sleepData].reverse().map((d, i) => ({
+    return sleepData.slice(0, 7).reverse().map((d, i) => ({
       day: getDayAbbr(d.date),
       hrv: MOCK_HRV_VALUES[i] ?? 50,
       rhr: MOCK_RHR_VALUES[i] ?? 60,

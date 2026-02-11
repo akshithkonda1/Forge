@@ -8,9 +8,9 @@ import { BehavioralInsight } from "@/components/progress/behavioral-insight";
 
 export function ProgressPage() {
   return (
-    <div className="min-h-screen bg-[#0A0A0A] pt-12 px-4 pb-28 overflow-y-auto">
+    <div className="bg-[#0A0A0A] px-4 pb-8 overflow-y-auto">
       {/* Page title */}
-      <h1 className="text-2xl font-bold text-white mb-6">Progress</h1>
+      <h1 className="text-2xl font-bold text-white mb-6 pt-4">Progress</h1>
 
       {/* Sections */}
       <div className="flex flex-col gap-6">

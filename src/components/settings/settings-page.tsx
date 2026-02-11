@@ -229,7 +229,7 @@ export default function SettingsPage() {
 
   return (
     <motion.div
-      className="min-h-screen px-4 pb-24 pt-12"
+      className="px-4 pb-8 pt-4"
       variants={containerVariants}
       initial="hidden"
       animate="visible"

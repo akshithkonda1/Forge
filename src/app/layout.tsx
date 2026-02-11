@@ -4,6 +4,12 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Forge — Your AI Training Partner",
   description: "AI-powered personal fitness trainer that coaches you through every rep, adapts to your body, and builds a relationship over time.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Forge",
+  },
 };
 
 export const viewport: Viewport = {

@@ -9,8 +9,7 @@ import { HomePage } from "@/components/home/home-page";
 import { ChatPage } from "@/components/chat/chat-page";
 import { WorkoutPage } from "@/components/workout/workout-page";
 import { SleepPage } from "@/components/sleep/sleep-page";
-import { ProgressPage } from "@/components/progress/progress-page";
-import SettingsPage from "@/components/settings/settings-page";
+import { ProfileTab } from "@/components/profile/profile-tab";
 
 function TabRenderer({ activeTab }: { activeTab: string }) {
   switch (activeTab) {
@@ -23,7 +22,7 @@ function TabRenderer({ activeTab }: { activeTab: string }) {
     case "sleep":
       return <SleepPage />;
     case "profile":
-      return <SettingsPage />;
+      return <ProfileTab />;
     default:
       return <HomePage />;
   }
