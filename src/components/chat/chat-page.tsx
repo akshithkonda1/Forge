@@ -19,9 +19,8 @@ const QUICK_ACTIONS = [
   "I'm not feeling it",
   "Explain my sleep data",
   "Adjust my plan",
+  "I have an injury/pain",
 ] as const;
-
-type QuickAction = (typeof QUICK_ACTIONS)[number];
 
 // ---------------------------------------------------------------------------
 // Simulated AI response logic
@@ -125,6 +124,41 @@ function getTrainerResponse(
   ) {
     return {
       content: `Absolutely -- your plan should work for you, not the other way around. I can shift today's focus in a few directions: swap to a lower-body session, dial down the intensity for an active recovery day, or pivot to a HIIT conditioning workout if you want something shorter and explosive. What sounds right?`,
+    };
+  }
+
+  // Quick action: "I have an injury/pain"
+  if (
+    lower.includes("injury") ||
+    lower.includes("pain") ||
+    lower.includes("hurt") ||
+    lower.includes("sore") ||
+    lower.includes("tweaked")
+  ) {
+    return {
+      content: `I want to take this seriously. Tell me more -- where exactly is the pain? Is it sharp/acute or more of a dull ache? And when did it start? In the meantime, I'm pulling your workout plan and replacing any movements that could aggravate it. We'll work around it, not through it. If this feels like more than normal soreness, please see a physio -- I can track your recovery timeline once you get a diagnosis.`,
+    };
+  }
+
+  // Progress/PR related
+  if (
+    lower.includes("progress") ||
+    lower.includes("how am i doing") ||
+    lower.includes("pr") ||
+    lower.includes("personal record") ||
+    lower.includes("gains")
+  ) {
+    return {
+      content: `You've been putting in the work, ${profile.name}. Over the last 4 weeks: 18 workouts completed, 3 new personal records, and your recovery consistency is up 22%. Your bench went from 205 to 225, squat hit 315, and you knocked 12 seconds off your mile. The data says you're in a growth phase -- let's keep this momentum rolling.`,
+      richCard: {
+        type: "data-chart",
+        data: {
+          title: "Strength Progress (4 weeks)",
+          values: [185, 195, 205, 215, 225],
+          insight: "Bench press progression: +40 lbs over 4 weeks. Current 1RM estimate: 245 lbs.",
+          color: "#FF4D00",
+        },
+      },
     };
   }
 
