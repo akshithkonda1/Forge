@@ -463,7 +463,7 @@ export function ChatPage() {
         onScroll={handleScroll}
         className="relative flex-1 overflow-y-auto px-4 py-4"
       >
-        <div className="mx-auto flex max-w-2xl flex-col gap-4">
+        <div className="flex flex-col gap-4">
           <AnimatePresence initial={false}>
             {chatMessages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} />
@@ -495,7 +495,7 @@ export function ChatPage() {
       </div>
 
       {/* ---- Bottom input area ---- */}
-      <div className="glass border-t border-border">
+      <div className="glass border-t border-border pb-[env(safe-area-inset-bottom,0px)]">
         {/* Quick actions - horizontally scrollable */}
         <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 pt-3 pb-2">
           {QUICK_ACTIONS.map((action) => (

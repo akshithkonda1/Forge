@@ -129,7 +129,7 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
   };
 
   return (
-    <div className="flex min-h-screen flex-col px-6 pb-8 pt-12">
+    <div className="flex min-h-[100dvh] flex-col px-6 pb-8 pt-12">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}

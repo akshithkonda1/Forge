@@ -48,6 +48,8 @@
 
   html {
     color-scheme: dark;
+    overscroll-behavior: none;
+    height: 100%;
   }
 
   body {
@@ -57,6 +59,26 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    /* Mobile-native touch behavior */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    /* Prevent unwanted text selection on UI */
+    -webkit-user-select: none;
+    user-select: none;
+    /* Prevent overscroll bounce */
+    overscroll-behavior-y: contain;
+    /* Full height for mobile viewport */
+    min-height: 100%;
+    min-height: 100dvh;
+    /* Safe area padding for notched devices */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Allow text selection where it makes sense */
+  input, textarea, p, span, h1, h2, h3, h4, h5, h6 {
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   ::selection {
@@ -64,17 +86,13 @@
     color: white;
   }
 
+  /* Hide scrollbars on mobile */
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
   ::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: var(--color-border);
-    border-radius: var(--radius-full);
+    display: none;
   }
 }
 
@@ -98,5 +116,10 @@
     background: rgba(20, 20, 20, 0.8);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Utility for safe-area bottom padding */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
