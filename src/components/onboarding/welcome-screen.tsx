@@ -83,7 +83,7 @@ function ForgeFlameIcon() {
 
 export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6">
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center px-6">
       {/* Background ambient glow */}
       <div
         className="pointer-events-none fixed inset-0"
