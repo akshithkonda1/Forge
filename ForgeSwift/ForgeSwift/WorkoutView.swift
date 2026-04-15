@@ -347,7 +347,7 @@ struct ActiveWorkoutView: View {
                 // Notes
                 if let notes = exercise.notes {
                     Divider().background(Color.borderColor).padding(.vertical, 10)
-                    Text(""\(notes)"")
+                    Text("",tableName: \(notes),bundle: "")
                         .font(.system(size: 13).italic())
                         .foregroundColor(.textSecondary)
                         .lineSpacing(3)
