@@ -1,0 +1,17 @@
+aws_region   = "us-east-1"
+project_name = "forge"
+environment  = "dev"
+
+allowed_origins = [
+  "http://localhost:3000",
+]
+
+# Optional: set this only if you want to override the generated bucket name.
+# uploads_bucket_name = "forge-dev-123456789012-us-east-1-uploads"
+
+# Optional: seed the secret during apply.
+# ai_provider_secret_string = "{\"OPENAI_API_KEY\":\"replace-me\"}"
+
+tags = {
+  Owner = "Forge"
+}
