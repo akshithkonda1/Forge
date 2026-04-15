@@ -24,11 +24,12 @@ struct MainTabView: View {
             // Content area — pad bottom so content doesn't hide behind nav
             Group {
                 switch store.activeTab {
-                case .home:    HomeView()
-                case .chat:    ChatView()
-                case .workout: WorkoutView()
-                case .sleep:   SleepView()
-                case .profile: ProfileTabView()
+                case .home:     HomeView()
+                case .chat:     ChatView()
+                case .workout:  WorkoutView()
+                case .lifestyle: LifestyleView()
+                case .sleep:    SleepView()
+                case .profile:  ProfileTabView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

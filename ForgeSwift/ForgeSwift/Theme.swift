@@ -8,6 +8,7 @@ extension Color {
     static let surface       = Color(hex: "141414")
     static let surfaceElevated = Color(hex: "1A1A1A")
     static let surfaceHover  = Color(hex: "222222")
+    static let cardBackground = Color(hex: "141414") // Alias for surface
 
     // Borders
     static let borderColor   = Color(hex: "2A2A2A")

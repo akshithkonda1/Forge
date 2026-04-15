@@ -62,6 +62,17 @@ enum ExperienceLevel: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum Gender: String, Codable, CaseIterable, Identifiable {
+    case male = "Male"
+    case female = "Female"
+    case nonBinary = "Non-binary"
+    case preferNotToSay = "Prefer not to say"
+    case other = "Other"
+    
+    var id: String { rawValue }
+    var label: String { rawValue }
+}
+
 enum WorkoutType: String, Codable, CaseIterable, Identifiable {
     case strength, cardio, hiit, yoga, mobility
     case sportSpecific = "sport-specific"
@@ -104,6 +115,7 @@ enum MessageRole: String { case trainer, user }
 
 struct UserProfile: Codable {
     var name: String
+    var gender: Gender
     var fitnessGoals: [FitnessGoal]
     var experienceLevel: ExperienceLevel
     var preferredWorkouts: [WorkoutType]
@@ -133,6 +145,7 @@ struct DailyMetrics {
     var totalSleep: Int  // minutes
 }
 
+// Add video/3D model support to exercises
 struct Exercise: Identifiable {
     var id: String
     var name: String
@@ -141,6 +154,13 @@ struct Exercise: Identifiable {
     var weight: Int?
     var restSeconds: Int
     var notes: String?
+    var videoURL: URL?
+    var has3DModel: Bool
+    
+    // For AR/3D visualization
+    var modelName: String? {
+        has3DModel ? name.replacingOccurrences(of: " ", with: "_").lowercased() : nil
+    }
 }
 
 struct WorkoutPlan: Identifiable {
@@ -150,6 +170,17 @@ struct WorkoutPlan: Identifiable {
     var duration: Int
     var intensity: WorkoutIntensity
     var exercises: [Exercise]
+    var estimatedCalories: Int {
+        // Estimate based on duration and intensity
+        let baseCalories = duration * 5 // ~5 cal per minute base
+        let multiplier: Double = switch intensity {
+        case .low: 0.7
+        case .moderate: 1.0
+        case .high: 1.3
+        case .max: 1.5
+        }
+        return Int(Double(baseCalories) * multiplier)
+    }
 }
 
 // Rich card attached to a chat message
@@ -218,6 +249,7 @@ struct PersonalRecord: Identifiable {
 
 let mockProfile = UserProfile(
     name: "Akshith",
+    gender: .male,
     fitnessGoals: [.buildMuscle],
     experienceLevel: .intermediate,
     preferredWorkouts: [.strength, .hiit],
@@ -250,15 +282,16 @@ let mockWorkout = WorkoutPlan(
     duration: 55,
     intensity: .high,
     exercises: [
-        Exercise(id:"e1", name:"Barbell Bench Press",    sets:4, reps:"6-8",   weight:185, restSeconds:120, notes:"Focus on controlled eccentric"),
-        Exercise(id:"e2", name:"Weighted Pull-Ups",       sets:4, reps:"6-8",   weight:25,  restSeconds:120),
-        Exercise(id:"e3", name:"Overhead Press",          sets:3, reps:"8-10",  weight:115, restSeconds:90),
-        Exercise(id:"e4", name:"Barbell Rows",            sets:3, reps:"8-10",  weight:155, restSeconds:90),
-        Exercise(id:"e5", name:"Incline Dumbbell Press",  sets:3, reps:"10-12", weight:65,  restSeconds:60),
-        Exercise(id:"e6", name:"Face Pulls",              sets:3, reps:"15-20", weight:30,  restSeconds:60),
+        Exercise(id:"e1", name:"Barbell Bench Press",    sets:4, reps:"6-8",   weight:185, restSeconds:120, notes:"Focus on controlled eccentric", videoURL: URL(string: "https://example.com/bench-press.mp4"), has3DModel: true),
+        Exercise(id:"e2", name:"Weighted Pull-Ups",       sets:4, reps:"6-8",   weight:25,  restSeconds:120, videoURL: URL(string: "https://example.com/pullups.mp4"), has3DModel: true),
+        Exercise(id:"e3", name:"Overhead Press",          sets:3, reps:"8-10",  weight:115, restSeconds:90, videoURL: URL(string: "https://example.com/ohp.mp4"), has3DModel: true),
+        Exercise(id:"e4", name:"Barbell Rows",            sets:3, reps:"8-10",  weight:155, restSeconds:90, videoURL: URL(string: "https://example.com/rows.mp4"), has3DModel: true),
+        Exercise(id:"e5", name:"Incline Dumbbell Press",  sets:3, reps:"10-12", weight:65,  restSeconds:60, videoURL: URL(string: "https://example.com/incline.mp4"), has3DModel: true),
+        Exercise(id:"e6", name:"Face Pulls",              sets:3, reps:"15-20", weight:30,  restSeconds:60, videoURL: URL(string: "https://example.com/facepulls.mp4"), has3DModel: true),
     ]
 )
 
+// Lazy loading for expensive mock data
 let mockChatMessages: [ChatMessage] = {
     let now = Date()
     let d2 = now.addingTimeInterval(-86400 * 2)

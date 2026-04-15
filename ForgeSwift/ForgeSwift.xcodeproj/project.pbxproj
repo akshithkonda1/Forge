@@ -7,6 +7,19 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1E58C1F92F93097E002D3256 /* CHATVIEW_IMPROVEMENTS.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E58C1F82F93097D002D3256 /* CHATVIEW_IMPROVEMENTS.md */; };
+		1E58C1FB2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E58C1FA2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md */; };
+		1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */; };
+		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
+		1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */; };
+		1E9C571A2F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57192F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift */; };
+		1E9C571C2F9160F600F365E3 /* Info.plist.additions.xml in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C571B2F9160F600F365E3 /* Info.plist.additions.xml */; };
+		1E9C571E2F91615B00F365E3 /* README_VOICE_COACH.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C571D2F91615B00F365E3 /* README_VOICE_COACH.md */; };
+		1E9C57202F9161A900F365E3 /* INTEGRATION_VISUAL_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C571F2F9161A900F365E3 /* INTEGRATION_VISUAL_GUIDE.md */; };
+		1E9C57222F91620B00F365E3 /* AURORA_ORB_FEATURES.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C57212F91620B00F365E3 /* AURORA_ORB_FEATURES.md */; };
+		1E9C57242F91624B00F365E3 /* AURORA_ORB_COMPARISON.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C57232F91624B00F365E3 /* AURORA_ORB_COMPARISON.md */; };
+		1E9C57262F91628F00F365E3 /* AURORA_ORB_CUSTOMIZATION.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C57252F91628F00F365E3 /* AURORA_ORB_CUSTOMIZATION.md */; };
+		1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED842E22F90C15300693D3E /* LifestyleView.swift */; };
 		AA0001000000000000000001 /* ForgeSwiftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000001 /* ForgeSwiftApp.swift */; };
 		AA0001000000000000000002 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000002 /* Theme.swift */; };
 		AA0001000000000000000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000003 /* Models.swift */; };
@@ -22,6 +35,19 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1E58C1F82F93097D002D3256 /* CHATVIEW_IMPROVEMENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHATVIEW_IMPROVEMENTS.md; sourceTree = "<group>"; };
+		1E58C1FA2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHATVIEW_USAGE_GUIDE.md; sourceTree = "<group>"; };
+		1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachManager.swift; sourceTree = "<group>"; };
+		1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachViews.swift; sourceTree = "<group>"; };
+		1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachIntegration.swift; sourceTree = "<group>"; };
+		1E9C57192F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QUICK_INTEGRATION_SNIPPET.swift; sourceTree = "<group>"; };
+		1E9C571B2F9160F600F365E3 /* Info.plist.additions.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Info.plist.additions.xml; sourceTree = "<group>"; };
+		1E9C571D2F91615B00F365E3 /* README_VOICE_COACH.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README_VOICE_COACH.md; sourceTree = "<group>"; };
+		1E9C571F2F9161A900F365E3 /* INTEGRATION_VISUAL_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = INTEGRATION_VISUAL_GUIDE.md; sourceTree = "<group>"; };
+		1E9C57212F91620B00F365E3 /* AURORA_ORB_FEATURES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AURORA_ORB_FEATURES.md; sourceTree = "<group>"; };
+		1E9C57232F91624B00F365E3 /* AURORA_ORB_COMPARISON.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AURORA_ORB_COMPARISON.md; sourceTree = "<group>"; };
+		1E9C57252F91628F00F365E3 /* AURORA_ORB_CUSTOMIZATION.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AURORA_ORB_CUSTOMIZATION.md; sourceTree = "<group>"; };
+		1ED842E22F90C15300693D3E /* LifestyleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000001 /* ForgeSwiftApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSwiftApp.swift; sourceTree = "<group>"; };
 		AA0002000000000000000002 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		AA0002000000000000000003 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -63,6 +89,19 @@
 				AA000200000000000000000A /* SleepView.swift */,
 				AA000200000000000000000B /* ProfileView.swift */,
 				AA000200000000000000000C /* Assets.xcassets */,
+				1ED842E22F90C15300693D3E /* LifestyleView.swift */,
+				1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */,
+				1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */,
+				1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */,
+				1E9C57192F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift */,
+				1E9C571B2F9160F600F365E3 /* Info.plist.additions.xml */,
+				1E9C571D2F91615B00F365E3 /* README_VOICE_COACH.md */,
+				1E9C571F2F9161A900F365E3 /* INTEGRATION_VISUAL_GUIDE.md */,
+				1E9C57212F91620B00F365E3 /* AURORA_ORB_FEATURES.md */,
+				1E9C57232F91624B00F365E3 /* AURORA_ORB_COMPARISON.md */,
+				1E9C57252F91628F00F365E3 /* AURORA_ORB_CUSTOMIZATION.md */,
+				1E58C1F82F93097D002D3256 /* CHATVIEW_IMPROVEMENTS.md */,
+				1E58C1FA2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md */,
 			);
 			path = ForgeSwift;
 			sourceTree = "<group>";
@@ -111,7 +150,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1530;
-				LastUpgradeCheck = 1530;
+				LastUpgradeCheck = 2640;
 				TargetAttributes = {
 					AA0005000000000000000001 = {
 						CreatedOnToolsVersion = 15.3;
@@ -141,7 +180,15 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1E9C57202F9161A900F365E3 /* INTEGRATION_VISUAL_GUIDE.md in Resources */,
+				1E58C1FB2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md in Resources */,
+				1E9C571E2F91615B00F365E3 /* README_VOICE_COACH.md in Resources */,
+				1E58C1F92F93097E002D3256 /* CHATVIEW_IMPROVEMENTS.md in Resources */,
+				1E9C57222F91620B00F365E3 /* AURORA_ORB_FEATURES.md in Resources */,
 				AA000100000000000000000C /* Assets.xcassets in Resources */,
+				1E9C57242F91624B00F365E3 /* AURORA_ORB_COMPARISON.md in Resources */,
+				1E9C57262F91628F00F365E3 /* AURORA_ORB_CUSTOMIZATION.md in Resources */,
+				1E9C571C2F9160F600F365E3 /* Info.plist.additions.xml in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -152,14 +199,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */,
 				AA0001000000000000000001 /* ForgeSwiftApp.swift in Sources */,
 				AA0001000000000000000002 /* Theme.swift in Sources */,
+				1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */,
 				AA0001000000000000000003 /* Models.swift in Sources */,
 				AA0001000000000000000004 /* AppStore.swift in Sources */,
 				AA0001000000000000000005 /* ContentView.swift in Sources */,
 				AA0001000000000000000006 /* OnboardingView.swift in Sources */,
+				1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */,
+				1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */,
 				AA0001000000000000000007 /* HomeView.swift in Sources */,
 				AA0001000000000000000008 /* ChatView.swift in Sources */,
+				1E9C571A2F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift in Sources */,
 				AA0001000000000000000009 /* WorkoutView.swift in Sources */,
 				AA000100000000000000000A /* SleepView.swift in Sources */,
 				AA000100000000000000000B /* ProfileView.swift in Sources */,
@@ -293,6 +345,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = L85K85Q7MB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -323,6 +376,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = L85K85Q7MB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -367,7 +421,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
 	};
 	rootObject = AA0008000000000000000001 /* Project object */;
 }
