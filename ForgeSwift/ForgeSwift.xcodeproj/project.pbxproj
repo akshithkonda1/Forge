@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1E26215F2F9496930005B7B1 /* LIFESTYLE_VIEW_IMPROVEMENTS.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E26215E2F9496930005B7B1 /* LIFESTYLE_VIEW_IMPROVEMENTS.md */; };
 		1E58C1F92F93097E002D3256 /* CHATVIEW_IMPROVEMENTS.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E58C1F82F93097D002D3256 /* CHATVIEW_IMPROVEMENTS.md */; };
 		1E58C1FB2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E58C1FA2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md */; };
 		1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */; };
@@ -35,6 +36,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1E26215E2F9496930005B7B1 /* LIFESTYLE_VIEW_IMPROVEMENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = LIFESTYLE_VIEW_IMPROVEMENTS.md; sourceTree = "<group>"; };
 		1E58C1F82F93097D002D3256 /* CHATVIEW_IMPROVEMENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHATVIEW_IMPROVEMENTS.md; sourceTree = "<group>"; };
 		1E58C1FA2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHATVIEW_USAGE_GUIDE.md; sourceTree = "<group>"; };
 		1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachManager.swift; sourceTree = "<group>"; };
@@ -102,6 +104,7 @@
 				1E9C57252F91628F00F365E3 /* AURORA_ORB_CUSTOMIZATION.md */,
 				1E58C1F82F93097D002D3256 /* CHATVIEW_IMPROVEMENTS.md */,
 				1E58C1FA2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md */,
+				1E26215E2F9496930005B7B1 /* LIFESTYLE_VIEW_IMPROVEMENTS.md */,
 			);
 			path = ForgeSwift;
 			sourceTree = "<group>";
@@ -186,6 +189,7 @@
 				1E58C1F92F93097E002D3256 /* CHATVIEW_IMPROVEMENTS.md in Resources */,
 				1E9C57222F91620B00F365E3 /* AURORA_ORB_FEATURES.md in Resources */,
 				AA000100000000000000000C /* Assets.xcassets in Resources */,
+				1E26215F2F9496930005B7B1 /* LIFESTYLE_VIEW_IMPROVEMENTS.md in Resources */,
 				1E9C57242F91624B00F365E3 /* AURORA_ORB_COMPARISON.md in Resources */,
 				1E9C57262F91628F00F365E3 /* AURORA_ORB_CUSTOMIZATION.md in Resources */,
 				1E9C571C2F9160F600F365E3 /* Info.plist.additions.xml in Resources */,

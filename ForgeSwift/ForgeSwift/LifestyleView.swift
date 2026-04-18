@@ -1,17 +1,36 @@
 import SwiftUI
+import Combine
 
-// MARK: - Restaurant Data Models
+// MARK: - Domain Models
 
-struct Restaurant: Identifiable {
-    let id = UUID()
+/// Represents a restaurant with nutritional information
+struct Restaurant: Identifiable, Codable, Hashable {
+    let id: UUID
     let name: String
-    let logo: String // SF Symbol or emoji
+    let logo: String
     let items: [MenuItem]
     let category: RestaurantCategory
+    
+    init(id: UUID = UUID(), name: String, logo: String, items: [MenuItem], category: RestaurantCategory) {
+        self.id = id
+        self.name = name
+        self.logo = logo
+        self.items = items
+        self.category = category
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+    
+    static func == (lhs: Restaurant, rhs: Restaurant) -> Bool {
+        lhs.id == rhs.id
+    }
 }
 
-struct MenuItem: Identifiable {
-    let id = UUID()
+/// Represents a menu item with complete nutritional data
+struct MenuItem: Identifiable, Codable, Hashable {
+    let id: UUID
     let name: String
     let calories: Int
     let protein: Int
@@ -20,13 +39,57 @@ struct MenuItem: Identifiable {
     let serving: String
     let isHealthy: Bool
     
+    init(id: UUID = UUID(), name: String, calories: Int, protein: Int, carbs: Int, fat: Int, serving: String, isHealthy: Bool) {
+        self.id = id
+        self.name = name
+        self.calories = calories
+        self.protein = protein
+        self.carbs = carbs
+        self.fat = fat
+        self.serving = serving
+        self.isHealthy = isHealthy
+    }
+    
+    /// Calculates macro quality score (higher is better)
     var macroScore: Int {
-        // Higher protein, lower calories = better score
-        Int((Double(protein) / Double(calories) * 1000))
+        guard calories > 0 else { return 0 }
+        return Int((Double(protein) / Double(calories) * 1000))
+    }
+    
+    /// Returns nutritional density rating
+    var nutritionalRating: NutritionRating {
+        let score = macroScore
+        switch score {
+        case 150...: return .excellent
+        case 100..<150: return .good
+        case 50..<100: return .fair
+        default: return .poor
+        }
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+    
+    static func == (lhs: MenuItem, rhs: MenuItem) -> Bool {
+        lhs.id == rhs.id
     }
 }
 
-enum RestaurantCategory: String, CaseIterable {
+enum NutritionRating {
+    case excellent, good, fair, poor
+    
+    var color: Color {
+        switch self {
+        case .excellent: return .success
+        case .good: return .steel
+        case .fair: return .warning
+        case .poor: return .danger
+        }
+    }
+}
+
+enum RestaurantCategory: String, CaseIterable, Codable {
     case all = "All"
     case fastFood = "Fast Food"
     case chicken = "Chicken"
@@ -36,61 +99,370 @@ enum RestaurantCategory: String, CaseIterable {
     case healthy = "Healthy"
 }
 
+// MARK: - ViewModels
+
+/// Main ViewModel for Lifestyle tab with complete state management
+@MainActor
+final class LifestyleViewModel: ObservableObject {
+    // MARK: - Published Properties
+    @Published private(set) var lifestyleMetrics: LifestyleMetrics
+    @Published private(set) var aiRecommendations: [AIRecommendation]
+    @Published private(set) var isLoading = false
+    @Published private(set) var error: LifestyleError?
+    
+    // MARK: - Private Properties
+    private var cancellables = Set<AnyCancellable>()
+    private let analyticsService: AnalyticsServiceProtocol
+    private let nutritionService: NutritionServiceProtocol
+    
+    // MARK: - Initialization
+    init(
+        analyticsService: AnalyticsServiceProtocol = AnalyticsService.shared,
+        nutritionService: NutritionServiceProtocol = NutritionService.shared
+    ) {
+        self.analyticsService = analyticsService
+        self.nutritionService = nutritionService
+        self.lifestyleMetrics = LifestyleMetrics.default
+        self.aiRecommendations = []
+        
+        Task {
+            await loadInitialData()
+        }
+    }
+    
+    // MARK: - Public Methods
+    func loadInitialData() async {
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            async let metricsTask = loadLifestyleMetrics()
+            async let recommendationsTask = loadAIRecommendations()
+            
+            lifestyleMetrics = try await metricsTask
+            aiRecommendations = try await recommendationsTask
+            
+            error = nil
+        } catch {
+            self.error = error as? LifestyleError ?? .unknownError
+            print("Error loading lifestyle data: \(error.localizedDescription)")
+        }
+    }
+    
+    func refreshData() async {
+        await loadInitialData()
+    }
+    
+    // MARK: - Private Methods
+    private func loadLifestyleMetrics() async throws -> LifestyleMetrics {
+        // Simulate network call - replace with actual service call
+        try await Task.sleep(nanoseconds: 500_000_000)
+        return LifestyleMetrics.default
+    }
+    
+    private func loadAIRecommendations() async throws -> [AIRecommendation] {
+        // Simulate AI recommendation fetch - replace with actual service
+        try await Task.sleep(nanoseconds: 300_000_000)
+        return AIRecommendation.sampleRecommendations
+    }
+}
+
+// MARK: - Domain Models for Lifestyle
+
+struct LifestyleMetrics: Codable {
+    let sleepAverage: Double
+    let sleepTarget: Double
+    let nutritionQuality: Double
+    let dailySteps: Int
+    let stressLevel: StressLevel
+    let qualityOfLifeScore: Int
+    let physicalHealth: Int
+    let mentalWellbeing: Int
+    let energyLevels: Int
+    let sleepQuality: Int
+    let nutritionScore: Int
+    
+    static var `default`: LifestyleMetrics {
+        LifestyleMetrics(
+            sleepAverage: 7.2,
+            sleepTarget: 8.0,
+            nutritionQuality: 0.78,
+            dailySteps: 8400,
+            stressLevel: .medium,
+            qualityOfLifeScore: 82,
+            physicalHealth: 88,
+            mentalWellbeing: 75,
+            energyLevels: 82,
+            sleepQuality: 79,
+            nutritionScore: 85
+        )
+    }
+}
+
+enum StressLevel: String, Codable {
+    case low = "Low"
+    case medium = "Medium"
+    case high = "High"
+    
+    var color: Color {
+        switch self {
+        case .low: return .success
+        case .medium: return .warning
+        case .high: return .danger
+        }
+    }
+}
+
+struct AIRecommendation: Identifiable, Codable {
+    let id: UUID
+    let title: String
+    let description: String
+    let impact: ImpactLevel
+    let category: RecommendationCategory
+    
+    init(id: UUID = UUID(), title: String, description: String, impact: ImpactLevel, category: RecommendationCategory) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.impact = impact
+        self.category = category
+    }
+    
+    static var sampleRecommendations: [AIRecommendation] {
+        [
+            AIRecommendation(
+                title: "Increase protein intake by 30g",
+                description: "Your muscle recovery would improve with 180g daily protein. Currently at 150g.",
+                impact: .high,
+                category: .nutrition
+            ),
+            AIRecommendation(
+                title: "Earlier bedtime (9:30 PM)",
+                description: "Your deep sleep increases by 18% when you sleep before 10 PM based on your Oura data.",
+                impact: .high,
+                category: .sleep
+            ),
+            AIRecommendation(
+                title: "Add 10min morning sunlight",
+                description: "Cortisol regulation improves with early light exposure. Sets your circadian rhythm.",
+                impact: .medium,
+                category: .wellbeing
+            ),
+            AIRecommendation(
+                title: "Reduce caffeine after 2 PM",
+                description: "Late caffeine correlates with 40min less deep sleep in your tracking history.",
+                impact: .medium,
+                category: .sleep
+            )
+        ]
+    }
+}
+
+enum ImpactLevel: String, Codable {
+    case high = "High"
+    case medium = "Medium"
+    case low = "Low"
+    
+    var color: Color {
+        switch self {
+        case .high: return .ember
+        case .medium: return .warning
+        case .low: return .steel
+        }
+    }
+}
+
+enum RecommendationCategory: String, Codable {
+    case nutrition = "Nutrition"
+    case sleep = "Sleep"
+    case wellbeing = "Wellbeing"
+    case fitness = "Fitness"
+}
+
+enum LifestyleError: Error, LocalizedError {
+    case networkError
+    case dataParsingError
+    case unauthorizedAccess
+    case unknownError
+    
+    var errorDescription: String? {
+        switch self {
+        case .networkError:
+            return "Unable to connect to the server. Please check your internet connection."
+        case .dataParsingError:
+            return "Unable to process the data. Please try again."
+        case .unauthorizedAccess:
+            return "You don't have permission to access this data."
+        case .unknownError:
+            return "An unexpected error occurred. Please try again."
+        }
+    }
+}
+
+// MARK: - Service Protocols
+
+protocol AnalyticsServiceProtocol {
+    func trackEvent(_ event: AnalyticsEvent) async
+}
+
+protocol NutritionServiceProtocol {
+    func fetchNutritionData() async throws -> [Restaurant]
+}
+
+// Concrete implementations
+final class AnalyticsService: AnalyticsServiceProtocol {
+    static let shared = AnalyticsService()
+    private init() {}
+    
+    func trackEvent(_ event: AnalyticsEvent) async {
+        // Implement analytics tracking
+        print("📊 Analytics: \(event.name)")
+    }
+}
+
+final class NutritionService: NutritionServiceProtocol {
+    static let shared = NutritionService()
+    private init() {}
+    
+    func fetchNutritionData() async throws -> [Restaurant] {
+        // Simulate network delay
+        try await Task.sleep(nanoseconds: 500_000_000)
+        return popularRestaurants
+    }
+}
+
+enum AnalyticsEvent {
+    case viewLifestyleTab
+    case selectSegment(index: Int)
+    case viewAIInsights
+    case selectRestaurant(name: String)
+    
+    var name: String {
+        switch self {
+        case .viewLifestyleTab: return "view_lifestyle_tab"
+        case .selectSegment(let index): return "select_segment_\(index)"
+        case .viewAIInsights: return "view_ai_insights"
+        case .selectRestaurant(let name): return "select_restaurant_\(name)"
+        }
+    }
+}
+
 // MARK: - Lifestyle Tab (AI-Powered Life Optimization)
 
 struct LifestyleView: View {
+    // MARK: - Properties
     @EnvironmentObject var store: AppStore
-    @State private var selectedSegment = 0
+    @StateObject private var viewModel = LifestyleViewModel()
+    @State private var selectedSegment: LifestyleSegment = .aiOptimization
     @State private var showAIInsights = false
     
+    // MARK: - Body
     var body: some View {
         ZStack {
-            // Background gradient
-            LinearGradient(
-                colors: [
-                    Color.background,
-                    Color(hex: "0F1415"),
-                    Color.background
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            backgroundGradient
             
             VStack(spacing: 0) {
-                // Header
-                LifestyleHeaderView(showAIInsights: $showAIInsights)
-                    .padding(.top, 60)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 16)
-                
-                // Segment control
-                LifestyleSegmentedControl(selectedIndex: $selectedSegment)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
-                
-                // Content area
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
-                        if selectedSegment == 0 {
-                            AIOptimizationView()
-                        } else if selectedSegment == 1 {
-                            NutritionDatabaseView()
-                        } else if selectedSegment == 2 {
-                            DailyNutritionView()
-                        } else {
-                            WellbeingView()
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 100)
-                }
+                headerView
+                segmentControl
+                contentArea
             }
             
-            // AI Insights Modal
             if showAIInsights {
-                AIInsightsModal(isPresented: $showAIInsights)
+                AIInsightsModal(
+                    isPresented: $showAIInsights,
+                    recommendations: viewModel.aiRecommendations
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+        }
+        .task {
+            await Task {
+                await viewModel.loadInitialData()
+            }.value
+        }
+        .alert(
+            "Error",
+            isPresented: .constant(viewModel.error != nil),
+            presenting: viewModel.error
+        ) { _ in
+            Button("OK") {
+                // Error dismissed
+            }
+        } message: { error in
+            Text(error.localizedDescription)
+        }
+    }
+    
+    // MARK: - View Components
+    
+    private var backgroundGradient: some View {
+        LinearGradient(
+            colors: [
+                Color.background,
+                Color(hex: "0F1415"),
+                Color.background
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea()
+    }
+    
+    private var headerView: some View {
+        LifestyleHeaderView(showAIInsights: $showAIInsights)
+            .padding(.top, 60)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+    }
+    
+    private var segmentControl: some View {
+        LifestyleSegmentedControl(selectedSegment: $selectedSegment)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+    }
+    
+    private var contentArea: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 24) {
+                selectedSegmentView
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 100)
+        }
+        .refreshable {
+            await viewModel.refreshData()
+        }
+    }
+    
+    @ViewBuilder
+    private var selectedSegmentView: some View {
+        switch selectedSegment {
+        case .aiOptimization:
+            AIOptimizationView(viewModel: viewModel)
+        case .restaurants:
+            NutritionDatabaseView()
+        case .nutrition:
+            DailyNutritionView()
+        case .wellbeing:
+            WellbeingView()
+        }
+    }
+}
+
+// MARK: - Lifestyle Segments
+
+enum LifestyleSegment: Int, CaseIterable {
+    case aiOptimization = 0
+    case restaurants = 1
+    case nutrition = 2
+    case wellbeing = 3
+    
+    var title: String {
+        switch self {
+        case .aiOptimization: return "AI Optimize"
+        case .restaurants: return "Restaurants"
+        case .nutrition: return "Nutrition"
+        case .wellbeing: return "Wellbeing"
         }
     }
 }
@@ -101,92 +473,98 @@ struct LifestyleHeaderView: View {
     @Binding var showAIInsights: Bool
     
     var body: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Lifestyle")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(.textPrimary)
-                
-                Text("AI-Powered Optimization")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.textSecondary)
-            }
-            
+        HStack(alignment: .center, spacing: 16) {
+            headerTitle
             Spacer()
-            
-            // AI Insights button
-            Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    showAIInsights = true
-                }
-            } label: {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.ember)
-                    .frame(width: 44, height: 44)
-                    .background(Color.ember.opacity(0.15))
-                    .clipShape(Circle())
-            }
+            aiInsightsButton
         }
+        .accessibilityElement(children: .contain)
+    }
+    
+    private var headerTitle: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Lifestyle")
+                .font(.system(size: 32, weight: .bold))
+                .foregroundColor(.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+            
+            Text("AI-Powered Optimization")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.textSecondary)
+        }
+    }
+    
+    private var aiInsightsButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                showAIInsights = true
+            }
+        } label: {
+            Image(systemName: "sparkles")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundColor(.ember)
+                .frame(width: 44, height: 44)
+                .background(Color.ember.opacity(0.15))
+                .clipShape(Circle())
+        }
+        .accessibilityLabel("AI Insights")
+        .accessibilityHint("View personalized AI-powered insights")
     }
 }
 
 // MARK: - Segmented Control
 
 struct LifestyleSegmentedControl: View {
-    @Binding var selectedIndex: Int
-    let options = ["AI Optimize", "Restaurants", "Nutrition", "Wellbeing"]
+    @Binding var selectedSegment: LifestyleSegment
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
-                ForEach(0..<options.count, id: \.self) { index in
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            selectedIndex = index
-                        }
-                    } label: {
-                        Text(options[index])
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(selectedIndex == index ? .textPrimary : .textTertiary)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 10)
-                            .background(
-                                selectedIndex == index
-                                    ? Color.ember.opacity(0.15)
-                                    : Color.surface.opacity(0.5)
-                            )
-                            .cornerRadius(20)
-                    }
+                ForEach(LifestyleSegment.allCases, id: \.self) { segment in
+                    segmentButton(for: segment)
                 }
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Lifestyle categories")
+    }
+    
+    private func segmentButton(for segment: LifestyleSegment) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                selectedSegment = segment
+            }
+        } label: {
+            Text(segment.title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(selectedSegment == segment ? .textPrimary : .textTertiary)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .background(
+                    selectedSegment == segment
+                        ? Color.ember.opacity(0.15)
+                        : Color.surface.opacity(0.5)
+                )
+                .cornerRadius(20)
+        }
+        .accessibilityLabel(segment.title)
+        .accessibilityAddTraits(selectedSegment == segment ? .isSelected : [])
+        .accessibilityHint("Select \(segment.title) category")
     }
 }
 
 // MARK: - AI Optimization View
 
 struct AIOptimizationView: View {
-    @EnvironmentObject var store: AppStore
+    @ObservedObject var viewModel: LifestyleViewModel
     
     var body: some View {
-        VStack(spacing: 20) {
-            // AI Life Analysis Card
-            AILifeAnalysisCard()
-            
-            // Quality of Life Score
-            QualityOfLifeCard()
-            
-            // AI Recommendations
-            AIRecommendationsCard()
-            
-            // Mental Health Check
+        LazyVStack(spacing: 20) {
+            AILifeAnalysisCard(metrics: viewModel.lifestyleMetrics)
+            QualityOfLifeCard(metrics: viewModel.lifestyleMetrics)
+            AIRecommendationsCard(recommendations: viewModel.aiRecommendations)
             MentalHealthCard()
-            
-            // Physical Wellbeing
             PhysicalWellbeingCard()
-            
-            // Optimization Goals
             OptimizationGoalsCard()
         }
     }
@@ -195,81 +573,122 @@ struct AIOptimizationView: View {
 // MARK: - AI Life Analysis Card
 
 struct AILifeAnalysisCard: View {
+    let metrics: LifestyleMetrics
+    @State private var showFullAnalysis = false
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "brain.head.profile")
-                    .font(.system(size: 24))
-                    .foregroundColor(.ember)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("AI Life Analysis")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.textPrimary)
-                    
-                    Text("Based on your behavior patterns")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.textSecondary)
-                }
-                
-                Spacer()
-            }
-            
-            Divider()
-                .background(Color.borderColor)
-            
-            VStack(alignment: .leading, spacing: 12) {
-                AIInsightRow(
-                    icon: "moon.zzz.fill",
-                    label: "Sleep Pattern",
-                    current: "7.2h avg",
-                    optimal: "8h recommended",
-                    status: .warning
-                )
-                
-                AIInsightRow(
-                    icon: "fork.knife",
-                    label: "Nutrition Quality",
-                    current: "78% whole foods",
-                    optimal: "85%+ target",
-                    status: .good
-                )
-                
-                AIInsightRow(
-                    icon: "figure.walk",
-                    label: "Daily Movement",
-                    current: "8,400 steps",
-                    optimal: "10,000 steps",
-                    status: .good
-                )
-                
-                AIInsightRow(
-                    icon: "brain.fill",
-                    label: "Stress Level",
-                    current: "Medium",
-                    optimal: "Low target",
-                    status: .warning
-                )
-            }
-            
-            Button {
-                // View full analysis
-            } label: {
-                HStack {
-                    Image(systemName: "arrow.right.circle.fill")
-                    Text("View Full Analysis")
-                        .font(.system(size: 14, weight: .semibold))
-                }
-                .foregroundColor(.ember)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color.ember.opacity(0.1))
-                .cornerRadius(10)
-            }
+            cardHeader
+            Divider().background(Color.borderColor)
+            insightsGrid
+            viewFullAnalysisButton
         }
         .padding(20)
         .background(Color.surface)
         .cornerRadius(16)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("AI Life Analysis Card")
+    }
+    
+    private var cardHeader: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "brain.head.profile")
+                .font(.system(size: 24))
+                .foregroundColor(.ember)
+                .accessibilityHidden(true)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text("AI Life Analysis")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.textPrimary)
+                
+                Text("Based on your behavior patterns")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.textSecondary)
+            }
+            
+            Spacer()
+        }
+    }
+    
+    private var insightsGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            AIInsightRow(
+                icon: "moon.zzz.fill",
+                label: "Sleep Pattern",
+                current: String(format: "%.1fh avg", metrics.sleepAverage),
+                optimal: String(format: "%.0fh recommended", metrics.sleepTarget),
+                status: sleepStatus
+            )
+            
+            AIInsightRow(
+                icon: "fork.knife",
+                label: "Nutrition Quality",
+                current: "\(Int(metrics.nutritionQuality * 100))% whole foods",
+                optimal: "85%+ target",
+                status: nutritionStatus
+            )
+            
+            AIInsightRow(
+                icon: "figure.walk",
+                label: "Daily Movement",
+                current: "\(metrics.dailySteps.formatted()) steps",
+                optimal: "10,000 steps",
+                status: movementStatus
+            )
+            
+            AIInsightRow(
+                icon: "brain.fill",
+                label: "Stress Level",
+                current: metrics.stressLevel.rawValue,
+                optimal: "Low target",
+                status: stressStatus
+            )
+        }
+    }
+    
+    private var viewFullAnalysisButton: some View {
+        Button {
+            showFullAnalysis = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.right.circle.fill")
+                Text("View Full Analysis")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundColor(.ember)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(Color.ember.opacity(0.1))
+            .cornerRadius(10)
+        }
+        .accessibilityLabel("View full life analysis")
+        .accessibilityHint("Opens detailed breakdown of your lifestyle metrics")
+    }
+    
+    // MARK: - Computed Properties
+    
+    private var sleepStatus: AIInsightRow.InsightStatus {
+        metrics.sleepAverage >= metrics.sleepTarget ? .excellent :
+        metrics.sleepAverage >= metrics.sleepTarget * 0.9 ? .good : .warning
+    }
+    
+    private var nutritionStatus: AIInsightRow.InsightStatus {
+        metrics.nutritionQuality >= 0.85 ? .excellent :
+        metrics.nutritionQuality >= 0.75 ? .good : .warning
+    }
+    
+    private var movementStatus: AIInsightRow.InsightStatus {
+        metrics.dailySteps >= 10000 ? .excellent :
+        metrics.dailySteps >= 8000 ? .good : .warning
+    }
+    
+    private var stressStatus: AIInsightRow.InsightStatus {
+        switch metrics.stressLevel {
+        case .low: return .excellent
+        case .medium: return .warning
+        case .high: return .poor
+        }
     }
 }
 
@@ -291,6 +710,15 @@ struct AIInsightRow: View {
             case .poor: return .danger
             }
         }
+        
+        var accessibilityLabel: String {
+            switch self {
+            case .excellent: return "Excellent"
+            case .good: return "Good"
+            case .warning: return "Needs attention"
+            case .poor: return "Poor"
+            }
+        }
     }
     
     var body: some View {
@@ -299,6 +727,7 @@ struct AIInsightRow: View {
                 .font(.system(size: 18))
                 .foregroundColor(status.color)
                 .frame(width: 28)
+                .accessibilityHidden(true)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
@@ -313,6 +742,7 @@ struct AIInsightRow: View {
                     Text("→")
                         .font(.system(size: 10))
                         .foregroundColor(.textTertiary)
+                        .accessibilityHidden(true)
                     
                     Text(optimal)
                         .font(.system(size: 12, weight: .medium))
@@ -325,62 +755,102 @@ struct AIInsightRow: View {
             Circle()
                 .fill(status.color)
                 .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(current), target \(optimal), status \(status.accessibilityLabel)")
     }
 }
 
 // MARK: - Quality of Life Card
 
 struct QualityOfLifeCard: View {
-    let qolScore = 82 // Out of 100
+    let metrics: LifestyleMetrics
+    @State private var animateProgress = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Quality of Life Score")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.textPrimary)
+                .accessibilityAddTraits(.isHeader)
             
-            ZStack {
-                Circle()
-                    .stroke(Color.borderColor, lineWidth: 12)
-                    .frame(width: 140, height: 140)
-                
-                Circle()
-                    .trim(from: 0, to: CGFloat(qolScore) / 100)
-                    .stroke(
-                        LinearGradient(
-                            colors: [.success, .ember],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        style: StrokeStyle(lineWidth: 12, lineCap: .round)
-                    )
-                    .frame(width: 140, height: 140)
-                    .rotationEffect(.degrees(-90))
-                
-                VStack(spacing: 4) {
-                    Text("\(qolScore)")
-                        .font(.system(size: 48, weight: .bold))
-                        .foregroundColor(.textPrimary)
-                    
-                    Text("/ 100")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.textSecondary)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            
-            VStack(alignment: .leading, spacing: 8) {
-                QOLFactorRow(label: "Physical Health", value: 88, color: .success)
-                QOLFactorRow(label: "Mental Wellbeing", value: 75, color: .steel)
-                QOLFactorRow(label: "Energy Levels", value: 82, color: .ember)
-                QOLFactorRow(label: "Sleep Quality", value: 79, color: .warning)
-                QOLFactorRow(label: "Nutrition", value: 85, color: .success)
-            }
+            circularProgress
+            factorsBreakdown
         }
         .padding(20)
         .background(Color.surface)
         .cornerRadius(16)
+        .accessibilityElement(children: .contain)
+        .onAppear {
+            withAnimation(.easeOut(duration: 1.0).delay(0.2)) {
+                animateProgress = true
+            }
+        }
+    }
+    
+    private var circularProgress: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.borderColor, lineWidth: 12)
+                .frame(width: 140, height: 140)
+            
+            Circle()
+                .trim(from: 0, to: animateProgress ? CGFloat(metrics.qualityOfLifeScore) / 100 : 0)
+                .stroke(
+                    LinearGradient(
+                        colors: [.success, .ember],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                )
+                .frame(width: 140, height: 140)
+                .rotationEffect(.degrees(-90))
+            
+            VStack(spacing: 4) {
+                Text("\(metrics.qualityOfLifeScore)")
+                    .font(.system(size: 48, weight: .bold))
+                    .foregroundColor(.textPrimary)
+                
+                Text("/ 100")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Quality of life score: \(metrics.qualityOfLifeScore) out of 100")
+    }
+    
+    private var factorsBreakdown: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            QOLFactorRow(
+                label: "Physical Health",
+                value: metrics.physicalHealth,
+                color: .success
+            )
+            QOLFactorRow(
+                label: "Mental Wellbeing",
+                value: metrics.mentalWellbeing,
+                color: .steel
+            )
+            QOLFactorRow(
+                label: "Energy Levels",
+                value: metrics.energyLevels,
+                color: .ember
+            )
+            QOLFactorRow(
+                label: "Sleep Quality",
+                value: metrics.sleepQuality,
+                color: .warning
+            )
+            QOLFactorRow(
+                label: "Nutrition",
+                value: metrics.nutritionScore,
+                color: .success
+            )
+        }
     }
 }
 
@@ -388,29 +858,44 @@ struct QOLFactorRow: View {
     let label: String
     let value: Int
     let color: Color
+    @State private var animateWidth = false
     
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
             Text(label)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
             
-            Spacer()
-            
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.borderColor.opacity(0.3))
-                    .frame(width: 80, height: 6)
-                
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(color)
-                    .frame(width: CGFloat(value) * 0.8, height: 6)
-            }
+            progressBar
             
             Text("\(value)")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundColor(.textPrimary)
                 .frame(width: 28, alignment: .trailing)
+                .monospacedDigit()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value) percent")
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.8).delay(0.3)) {
+                animateWidth = true
+            }
+        }
+    }
+    
+    private var progressBar: some View {
+        ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.borderColor.opacity(0.3))
+                .frame(width: 80, height: 6)
+            
+            RoundedRectangle(cornerRadius: 4)
+                .fill(color)
+                .frame(
+                    width: animateWidth ? CGFloat(value) * 0.8 : 0,
+                    height: 6
+                )
         }
     }
 }
@@ -418,98 +903,125 @@ struct QOLFactorRow: View {
 // MARK: - AI Recommendations Card
 
 struct AIRecommendationsCard: View {
+    let recommendations: [AIRecommendation]
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
+            HStack(spacing: 12) {
                 Image(systemName: "lightbulb.fill")
                     .font(.system(size: 20))
                     .foregroundColor(.ember)
+                    .accessibilityHidden(true)
                 
                 Text("AI Recommendations")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
             }
             
-            VStack(spacing: 12) {
-                AIRecommendationItem(
-                    title: "Increase protein intake by 30g",
-                    description: "Your muscle recovery would improve with 180g daily protein. Currently at 150g.",
-                    impact: "High",
-                    category: "Nutrition"
-                )
-                
-                AIRecommendationItem(
-                    title: "Earlier bedtime (9:30 PM)",
-                    description: "Your deep sleep increases by 18% when you sleep before 10 PM based on your Oura data.",
-                    impact: "High",
-                    category: "Sleep"
-                )
-                
-                AIRecommendationItem(
-                    title: "Add 10min morning sunlight",
-                    description: "Cortisol regulation improves with early light exposure. Sets your circadian rhythm.",
-                    impact: "Medium",
-                    category: "Wellbeing"
-                )
-                
-                AIRecommendationItem(
-                    title: "Reduce caffeine after 2 PM",
-                    description: "Late caffeine correlates with 40min less deep sleep in your tracking history.",
-                    impact: "Medium",
-                    category: "Sleep"
-                )
+            if recommendations.isEmpty {
+                emptyState
+            } else {
+                recommendationsList
             }
         }
         .padding(20)
         .background(Color.surface)
         .cornerRadius(16)
     }
+    
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 48))
+                .foregroundColor(.success.opacity(0.6))
+            
+            Text("You're doing great!")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.textPrimary)
+            
+            Text("No new recommendations at this time")
+                .font(.system(size: 14))
+                .foregroundColor(.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .accessibilityElement(children: .combine)
+    }
+    
+    private var recommendationsList: some View {
+        LazyVStack(spacing: 12) {
+            ForEach(recommendations) { recommendation in
+                AIRecommendationItem(recommendation: recommendation)
+            }
+        }
+    }
 }
 
 struct AIRecommendationItem: View {
-    let title: String
-    let description: String
-    let impact: String
-    let category: String
-    
-    var impactColor: Color {
-        impact == "High" ? .ember : impact == "Medium" ? .warning : .steel
-    }
+    let recommendation: AIRecommendation
+    @State private var isExpanded = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.textPrimary)
-                
-                Spacer()
-                
-                Text(impact)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(impactColor)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(impactColor.opacity(0.15))
-                    .cornerRadius(6)
-            }
+            headerRow
             
-            Text(description)
+            Text(recommendation.description)
                 .font(.system(size: 12, weight: .regular))
                 .foregroundColor(.textSecondary)
-                .lineLimit(3)
+                .lineLimit(isExpanded ? nil : 3)
+                .animation(.easeInOut, value: isExpanded)
             
-            HStack {
-                Image(systemName: "tag.fill")
-                    .font(.system(size: 9))
-                Text(category)
-                    .font(.system(size: 11, weight: .medium))
-            }
-            .foregroundColor(.textTertiary)
+            categoryTag
         }
         .padding(12)
         .background(Color.surfaceElevated)
         .cornerRadius(10)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                isExpanded.toggle()
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityDescription)
+        .accessibilityHint("Tap to \(isExpanded ? "collapse" : "expand") details")
+    }
+    
+    private var headerRow: some View {
+        HStack {
+            Text(recommendation.title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.textPrimary)
+            
+            Spacer()
+            
+            impactBadge
+        }
+    }
+    
+    private var impactBadge: some View {
+        Text(recommendation.impact.rawValue)
+            .font(.system(size: 10, weight: .bold))
+            .foregroundColor(recommendation.impact.color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(recommendation.impact.color.opacity(0.15))
+            .cornerRadius(6)
+    }
+    
+    private var categoryTag: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "tag.fill")
+                .font(.system(size: 9))
+            Text(recommendation.category.rawValue)
+                .font(.system(size: 11, weight: .medium))
+        }
+        .foregroundColor(.textTertiary)
+    }
+    
+    private var accessibilityDescription: String {
+        "\(recommendation.title). Impact: \(recommendation.impact.rawValue). Category: \(recommendation.category.rawValue). \(recommendation.description)"
     }
 }
 
@@ -1977,142 +2489,192 @@ struct PlaceholderCard: View {
 
 struct AIInsightsModal: View {
     @Binding var isPresented: Bool
-    @EnvironmentObject var store: AppStore
+    let recommendations: [AIRecommendation]
+    @State private var scrollOffset: CGFloat = 0
+    
+    private let insights: [LifestyleInsight] = [
+        LifestyleInsight(
+            title: "Your Lifestyle Pattern",
+            insight: "Based on 30 days of tracking, you're most productive between 9 AM - 12 PM. Your workouts perform best when scheduled in this window. Energy dips at 3 PM correlate with lunch timing and composition.",
+            action: "Optimize schedule",
+            color: .ember
+        ),
+        LifestyleInsight(
+            title: "Nutrition Optimization",
+            insight: "You hit protein targets 6/7 days but carb intake is inconsistent (180-320g range). Stabilizing carbs at 250g would improve training performance and recovery consistency.",
+            action: "Adjust macros",
+            color: .steel
+        ),
+        LifestyleInsight(
+            title: "Sleep Quality Prediction",
+            insight: "When you train after 7 PM, deep sleep decreases by 22 minutes on average. Morning or midday sessions result in better recovery metrics.",
+            action: "Reschedule workouts",
+            color: Color(hex: "A855F7")
+        ),
+        LifestyleInsight(
+            title: "Stress Triggers",
+            insight: "HRV drops on Mondays and Thursdays. This pattern suggests work-related stress on these days. Consider light mobility work instead of heavy lifting.",
+            action: "Adjust weekly plan",
+            color: .warning
+        ),
+        LifestyleInsight(
+            title: "Recovery Optimization",
+            insight: "Your body responds best to a 48-hour recovery window for major muscle groups. Current 72-hour splits might be leaving gains on the table.",
+            action: "Update split",
+            color: .success
+        )
+    ]
     
     var body: some View {
         ZStack {
-            Color.black.opacity(0.7)
-                .ignoresSafeArea()
-                .onTapGesture {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        isPresented = false
-                    }
-                }
-            
-            VStack(spacing: 0) {
-                Spacer()
-                
-                VStack(spacing: 20) {
-                    // Handle
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.textTertiary)
-                        .frame(width: 40, height: 5)
-                        .padding(.top, 12)
-                    
-                    // Header
-                    HStack {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 24))
-                            .foregroundColor(.ember)
-                        
-                        Text("AI Life Insights")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(.textPrimary)
-                        
-                        Spacer()
-                        
-                        Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                isPresented = false
-                            }
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 28))
-                                .foregroundColor(.textTertiary)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 16) {
-                            AIInsightCard(
-                                title: "Your Lifestyle Pattern",
-                                insight: "Based on 30 days of tracking, you're most productive between 9 AM - 12 PM. Your workouts perform best when scheduled in this window. Energy dips at 3 PM correlate with lunch timing and composition.",
-                                action: "Optimize schedule",
-                                color: .ember
-                            )
-                            
-                            AIInsightCard(
-                                title: "Nutrition Optimization",
-                                insight: "You hit protein targets 6/7 days but carb intake is inconsistent (180-320g range). Stabilizing carbs at 250g would improve training performance and recovery consistency.",
-                                action: "Adjust macros",
-                                color: .steel
-                            )
-                            
-                            AIInsightCard(
-                                title: "Sleep Quality Prediction",
-                                insight: "When you train after 7 PM, deep sleep decreases by 22 minutes on average. Morning or midday sessions result in better recovery metrics.",
-                                action: "Reschedule workouts",
-                                color: Color(hex: "A855F7")
-                            )
-                            
-                            AIInsightCard(
-                                title: "Stress Triggers",
-                                insight: "HRV drops on Mondays and Thursdays. This pattern suggests work-related stress on these days. Consider light mobility work instead of heavy lifting.",
-                                action: "Adjust weekly plan",
-                                color: .warning
-                            )
-                            
-                            AIInsightCard(
-                                title: "Recovery Optimization",
-                                insight: "Your body responds best to a 48-hour recovery window for major muscle groups. Current 72-hour splits might be leaving gains on the table.",
-                                action: "Update split",
-                                color: .success
-                            )
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 40)
-                    }
-                }
-                .frame(maxHeight: UIScreen.main.bounds.height * 0.75)
-                .background(Color.surface)
-                .cornerRadius(24, corners: [.topLeft, .topRight])
-            }
+            overlayBackground
+            modalContent
         }
-        .transition(.move(edge: .bottom))
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .accessibilityElement(children: .contain)
+    }
+    
+    private var overlayBackground: some View {
+        Color.black.opacity(0.7)
+            .ignoresSafeArea()
+            .onTapGesture {
+                dismissModal()
+            }
+            .accessibilityHidden(true)
+    }
+    
+    private var modalContent: some View {
+        VStack(spacing: 0) {
+            Spacer()
+            
+            VStack(spacing: 20) {
+                dragHandle
+                modalHeader
+                insightsList
+            }
+            .frame(maxHeight: UIScreen.main.bounds.height * 0.75)
+            .background(Color.surface)
+            .cornerRadius(24, corners: [.topLeft, .topRight])
+        }
+    }
+    
+    private var dragHandle: some View {
+        RoundedRectangle(cornerRadius: 3)
+            .fill(Color.textTertiary)
+            .frame(width: 40, height: 5)
+            .padding(.top, 12)
+            .accessibilityHidden(true)
+    }
+    
+    private var modalHeader: some View {
+        HStack {
+            Image(systemName: "sparkles")
+                .font(.system(size: 24))
+                .foregroundColor(.ember)
+                .accessibilityHidden(true)
+            
+            Text("AI Life Insights")
+                .font(.system(size: 24, weight: .bold))
+                .foregroundColor(.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+            
+            Spacer()
+            
+            Button {
+                dismissModal()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(.textTertiary)
+            }
+            .accessibilityLabel("Close")
+            .accessibilityHint("Dismisses the AI insights modal")
+        }
+        .padding(.horizontal, 20)
+    }
+    
+    private var insightsList: some View {
+        ScrollView(showsIndicators: false) {
+            LazyVStack(spacing: 16) {
+                ForEach(insights) { insight in
+                    AIInsightCard(insight: insight)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 40)
+        }
+    }
+    
+    private func dismissModal() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            isPresented = false
+        }
     }
 }
 
-struct AIInsightCard: View {
+struct LifestyleInsight: Identifiable {
+    let id = UUID()
     let title: String
     let insight: String
     let action: String
     let color: Color
+}
+
+struct AIInsightCard: View {
+    let insight: LifestyleInsight
+    @State private var isExpanded = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(title)
+                Text(insight.title)
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.textPrimary)
                 
                 Spacer()
                 
                 Circle()
-                    .fill(color)
+                    .fill(insight.color)
                     .frame(width: 8, height: 8)
+                    .accessibilityHidden(true)
             }
             
-            Text(insight)
+            Text(insight.insight)
                 .font(.system(size: 13, weight: .regular))
                 .foregroundColor(.textSecondary)
                 .lineSpacing(4)
+                .lineLimit(isExpanded ? nil : 3)
+                .animation(.easeInOut, value: isExpanded)
             
-            Button {
-                // Take action
-            } label: {
-                HStack {
-                    Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: 14))
-                    Text(action)
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundColor(color)
-            }
+            actionButton
         }
         .padding(16)
         .background(Color.surfaceElevated)
         .cornerRadius(12)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                isExpanded.toggle()
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(insight.title). \(insight.insight)")
+        .accessibilityHint("Tap to \(isExpanded ? "collapse" : "expand") details")
+    }
+    
+    private var actionButton: some View {
+        Button {
+            // Handle action
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.system(size: 14))
+                Text(insight.action)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundColor(insight.color)
+        }
+        .accessibilityLabel(insight.action)
     }
 }
 
