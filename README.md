@@ -133,6 +133,8 @@ Each adapter implements the same `BaseAdapter` interface, mapping platform-speci
 
 #### 3. Two Native Frontends, One Reason Each
 
+Swift will have 2 Frontend Clients, one built in React Native and another built out in Swift. What happens in the Swift Frontend will happen in the React Native Client.There are multiple reasons for this and they come with their benefits and drawbacks.
+
 | Frontend | Platform | Why Native? |
 |---|---|---|
 | SwiftUI | iPhone (iOS 17+) | HealthKit access requires native iOS code — no web API exists |
@@ -159,6 +161,8 @@ The command center of your health. At a glance:
 
 FORGE's AI coach, ARIA (Adaptive Recovery & Intelligence Assistant), is powered by the Claude API and has access to your complete health history across all integrated platforms. Not a generic chatbot — a contextual, data-aware training partner.
 
+**What models will be used:**
+Forge's ARIA will use Claude Sonnet and Opus Family of Models as needed via AWS Bedrock.
 **What ARIA knows:**
 - Your training load trends over the past 30 days
 - Sleep quality and HRV patterns
