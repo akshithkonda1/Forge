@@ -21,9 +21,9 @@ const tabs: { id: TabId; label: string; icon: typeof Home }[] = [
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 pb-[env(safe-area-inset-bottom)]">
-      <div className="border-t border-[#2A2A2A] bg-[#0A0A0A]/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-lg items-center justify-around px-4">
+    <nav className="fixed bottom-0 left-0 right-0 z-50">
+      <div className="border-t border-[#2A2A2A] bg-[#0A0A0A]/90 backdrop-blur-xl pb-[env(safe-area-inset-bottom,0px)]">
+        <div className="flex h-16 items-center justify-around px-2">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             const isCenter = tab.id === "workout";
@@ -34,7 +34,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                 <button
                   key={tab.id}
                   onClick={() => onTabChange(tab.id)}
-                  className="relative -mt-6 flex flex-col items-center"
+                  className="relative -mt-6 flex flex-col items-center min-w-[3.5rem]"
                 >
                   <motion.div
                     className={cn(
@@ -64,7 +64,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className="flex flex-col items-center gap-1"
+                className="relative flex min-h-[3rem] min-w-[3.5rem] flex-col items-center justify-center gap-1"
               >
                 <motion.div
                   whileTap={{ scale: 0.9 }}

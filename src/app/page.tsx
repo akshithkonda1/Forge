@@ -43,21 +43,19 @@ export default function Page() {
   }
 
   return (
-    <div className="relative min-h-screen bg-background">
-      <div className="mx-auto max-w-md">
-        <div className="pb-24 min-h-screen overflow-y-auto">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25, ease: "easeInOut" }}
-            >
-              <TabRenderer activeTab={activeTab} />
-            </motion.div>
-          </AnimatePresence>
-        </div>
+    <div className="relative min-h-[100dvh] bg-background">
+      <div className="pb-[calc(5rem+env(safe-area-inset-bottom,0px))] min-h-[100dvh]">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+          >
+            <TabRenderer activeTab={activeTab} />
+          </motion.div>
+        </AnimatePresence>
       </div>
       <BottomNav
         activeTab={activeTab as "home" | "chat" | "workout" | "sleep" | "profile"}
