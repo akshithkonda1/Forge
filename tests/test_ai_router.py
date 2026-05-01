@@ -11,13 +11,26 @@ from ai_router import AIRouter, MAX_PACKAGE_BYTES, RouteRequest  # noqa: E402
 
 
 class FakeGateway:
-    def __init__(self, responses=None, previews=None, consensus_answer=None):
+    def __init__(
+        self,
+        responses=None,
+        previews=None,
+        consensus_answer=None,
+        preview_errors=None,
+        head_sizes=None,
+        head_errors=None,
+        consensus_error=None,
+    ):
         self.responses = responses or {}
         self.previews = previews or {}
         self.consensus_answer = consensus_answer
+        self.preview_errors = preview_errors or {}
+        self.head_sizes = head_sizes or {}
+        self.head_errors = head_errors or {}
+        self.consensus_error = consensus_error
         self.calls = []
 
-    def converse(self, *, model_id, system_prompt, user_prompt, max_tokens, temperature):
+    def converse(self, *, model_id, system_prompt, user_prompt, max_tokens, temperature, request_timeout_seconds=None):
         call_kind = "consensus" if "consensus finalizer" in system_prompt else "model"
         self.calls.append(
             {
@@ -27,9 +40,12 @@ class FakeGateway:
                 "user_prompt": user_prompt,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
+                "request_timeout_seconds": request_timeout_seconds,
             }
         )
         if call_kind == "consensus":
+            if self.consensus_error:
+                raise RuntimeError(self.consensus_error)
             return {
                 "answer": self.consensus_answer if self.consensus_answer is not None else "consensus answer",
                 "usage": {"inputTokens": 10, "outputTokens": 20},
@@ -44,7 +60,14 @@ class FakeGateway:
         }
 
     def load_preview(self, *, s3_key, max_bytes):
+        if s3_key in self.preview_errors:
+            raise RuntimeError(self.preview_errors[s3_key])
         return self.previews[s3_key][:max_bytes]
+
+    def head_object_size(self, *, s3_key):
+        if s3_key in self.head_errors:
+            raise RuntimeError(self.head_errors[s3_key])
+        return self.head_sizes[s3_key]
 
 
 class AIRouterTests(unittest.TestCase):
@@ -181,7 +204,138 @@ class AIRouterTests(unittest.TestCase):
 
         self.assertEqual(response["finalAnswer"], "opus answer")
         self.assertTrue(response["finalAnswerSource"]["fallbackUsed"])
+        self.assertEqual(response["finalAnswerSource"]["fallbackReason"], "consensus_failed")
         self.assertIn("Consensus finalization failed", response["warnings"][0])
+
+    def test_router_skips_consensus_when_remaining_budget_is_too_small(self):
+        gateway = FakeGateway(
+            responses={
+                "anthropic.claude-sonnet-4-6": {"delay": 0.35, "answer": "sonnet answer"},
+                "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "opus answer"},
+                "moonshotai.kimi-k2.5": {"delay": 0.01, "answer": "kimi answer"},
+            },
+            consensus_answer="should not be used",
+        )
+        router = AIRouter(gateway=gateway)
+        request = RouteRequest.from_payload(
+            {
+                "question": "What should I do next?",
+                "packageSizeBytes": 1024,
+                "settings": {
+                    "modelTimeoutSeconds": 0.1,
+                    "overallTimeoutSeconds": 0.5,
+                    "consensusWindowSeconds": 0.35,
+                },
+            }
+        )
+
+        response = router.route(request)
+
+        self.assertEqual(response["finalAnswer"], "opus answer")
+        self.assertTrue(response["finalAnswerSource"]["fallbackUsed"])
+        self.assertEqual(response["finalAnswerSource"]["fallbackReason"], "timeout_budget_exhausted")
+        self.assertNotEqual(gateway.calls[-1]["kind"], "consensus")
+        self.assertIn("remaining time budget was too small", response["warnings"][0])
+
+    def test_router_degrades_gracefully_when_s3_preview_load_fails(self):
+        gateway = FakeGateway(
+            responses={
+                "anthropic.claude-sonnet-4-6": {"delay": 0.01, "answer": "answer"},
+                "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "backup"},
+                "moonshotai.kimi-k2.5": {"delay": 0.01, "answer": "backup 2"},
+            },
+            preview_errors={
+                "private/user/metrics.txt": "missing key",
+            },
+        )
+        router = AIRouter(gateway=gateway)
+        request = RouteRequest.from_payload(
+            {
+                "question": "What stands out from this data?",
+                "packages": [
+                    {
+                        "id": "metrics",
+                        "bytes": 2048,
+                        "s3Key": "private/user/metrics.txt",
+                    }
+                ],
+            }
+        )
+
+        response = router.route(request)
+
+        self.assertEqual(response["finalAnswer"], "answer")
+        self.assertIn("Could not load preview for package 'metrics'", response["warnings"][0])
+
+    def test_router_uses_head_object_size_to_scale_initial_fanout(self):
+        gateway = FakeGateway(
+            responses={
+                "anthropic.claude-sonnet-4-6": {"delay": 0.04, "answer": "sonnet answer"},
+                "anthropic.claude-opus-4-7": {"delay": 0.02, "answer": "opus answer"},
+                "moonshotai.kimi-k2.5": {"delay": 0.03, "answer": "kimi answer"},
+            },
+            consensus_answer="consensus from inferred size",
+            head_sizes={
+                "private/user/export.csv": 9 * 1024 * 1024 * 1024,
+            },
+            previews={
+                "private/user/export.csv": "preview text",
+            },
+        )
+        router = AIRouter(gateway=gateway)
+        request = RouteRequest.from_payload(
+            {
+                "question": "Summarize the data.",
+                "packages": [
+                    {
+                        "id": "export",
+                        "s3Key": "private/user/export.csv",
+                    }
+                ],
+                "settings": {
+                    "overallTimeoutSeconds": 0.5,
+                    "consensusWindowSeconds": 0.05,
+                },
+            }
+        )
+
+        response = router.route(request)
+
+        self.assertEqual(response["routing"]["initialParallelism"], 3)
+        self.assertEqual(response["routing"]["packageSizeBytes"], 9 * 1024 * 1024 * 1024)
+        self.assertEqual(response["finalAnswer"], "consensus from inferred size")
+
+    def test_router_warns_when_s3_object_size_inference_fails(self):
+        gateway = FakeGateway(
+            responses={
+                "anthropic.claude-sonnet-4-6": {"delay": 0.01, "answer": "answer"},
+                "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "backup"},
+                "moonshotai.kimi-k2.5": {"delay": 0.01, "answer": "backup 2"},
+            },
+            head_errors={
+                "private/user/export.csv": "access denied",
+            },
+            previews={
+                "private/user/export.csv": "preview text",
+            },
+        )
+        router = AIRouter(gateway=gateway)
+        request = RouteRequest.from_payload(
+            {
+                "question": "Summarize the data.",
+                "packages": [
+                    {
+                        "id": "export",
+                        "s3Key": "private/user/export.csv",
+                    }
+                ],
+            }
+        )
+
+        response = router.route(request)
+
+        self.assertEqual(response["routing"]["initialParallelism"], 1)
+        self.assertIn("Could not infer size for package 'export'", response["warnings"][0])
 
     def test_request_rejects_packages_over_ten_gigabytes(self):
         with self.assertRaises(Exception) as context:

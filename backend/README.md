@@ -62,13 +62,13 @@ Final answer rules:
 
 ### 10 GB behavior
 
-The 10 GB limit is a routing limit, not a raw prompt size. Large datasets should be passed as:
+The 10 GB limit is the total amount of data the router can gather for a single request. It is a routing limit, not a raw prompt-size limit. Large datasets should be passed as:
 
 - package metadata,
 - short inline previews, or
 - S3 object references that the router can sample for a lightweight preview.
 
-This avoids trying to push multi-GB payloads directly through API Gateway, Lambda, or a single model context window.
+The router uses declared package sizes, per-package byte counts, and S3 object metadata to estimate how much data is being gathered in one go and to decide how many models should share the load. This avoids trying to push multi-GB payloads directly through API Gateway, Lambda, or a single model context window.
 
 ### Model configuration
 

@@ -18,6 +18,10 @@ DEFAULT_TEMPERATURE = 0.2
 DEFAULT_PREVIEW_BYTES = 2048
 DEFAULT_MAX_PROMPT_CHARS = 12000
 DEFAULT_CONSENSUS_INPUT_CHARS = 12000
+DEFAULT_BEDROCK_CONNECT_TIMEOUT_SECONDS = 3.0
+DEFAULT_BEDROCK_READ_TIMEOUT_SECONDS = max(10.0, DEFAULT_OVERALL_TIMEOUT_SECONDS * 2)
+MIN_CONSENSUS_BUDGET_SECONDS = 0.2
+CONSENSUS_TIMEOUT_BUFFER_SECONDS = 0.25
 
 
 class RoutingError(Exception):
@@ -144,7 +148,7 @@ class BedrockGateway:
     def __init__(self, *, region_name: str | None = None, uploads_bucket_name: str | None = None) -> None:
         self.region_name = region_name or os.getenv("AWS_REGION") or "us-east-1"
         self.uploads_bucket_name = uploads_bucket_name or os.getenv("UPLOADS_BUCKET_NAME")
-        self._bedrock_client = None
+        self._bedrock_clients: dict[tuple[float, float], Any] = {}
         self._s3_client = None
 
     def converse(
@@ -155,8 +159,9 @@ class BedrockGateway:
         user_prompt: str,
         max_tokens: int,
         temperature: float,
+        request_timeout_seconds: float | None = None,
     ) -> dict[str, Any]:
-        client = self._get_bedrock_client()
+        client = self._get_bedrock_client(request_timeout_seconds=request_timeout_seconds)
         response = client.converse(
             modelId=model_id,
             system=[{"text": system_prompt}],
@@ -188,8 +193,19 @@ class BedrockGateway:
         )
         return response["Body"].read().decode("utf-8", errors="ignore")
 
-    def _get_bedrock_client(self):
-        if self._bedrock_client is None:
+    def head_object_size(self, *, s3_key: str) -> int:
+        if not self.uploads_bucket_name:
+            raise RoutingError(500, "UPLOADS_BUCKET_NAME is not configured for S3-backed package metadata.")
+
+        response = self._get_s3_client().head_object(
+            Bucket=self.uploads_bucket_name,
+            Key=s3_key,
+        )
+        return int(response["ContentLength"])
+
+    def _get_bedrock_client(self, *, request_timeout_seconds: float | None = None):
+        timeout_key = self._timeout_key(request_timeout_seconds)
+        if timeout_key not in self._bedrock_clients:
             try:
                 import boto3
                 from botocore.config import Config
@@ -199,16 +215,17 @@ class BedrockGateway:
                     "boto3 is required to call Amazon Bedrock from this runtime.",
                 ) from exc
 
-            self._bedrock_client = boto3.client(
+            connect_timeout, read_timeout = timeout_key
+            self._bedrock_clients[timeout_key] = boto3.client(
                 "bedrock-runtime",
                 region_name=self.region_name,
                 config=Config(
-                    connect_timeout=3,
-                    read_timeout=max(10, int(DEFAULT_OVERALL_TIMEOUT_SECONDS * 2)),
+                    connect_timeout=connect_timeout,
+                    read_timeout=read_timeout,
                     retries={"max_attempts": 1, "mode": "standard"},
                 ),
             )
-        return self._bedrock_client
+        return self._bedrock_clients[timeout_key]
 
     def _get_s3_client(self):
         if self._s3_client is None:
@@ -225,6 +242,19 @@ class BedrockGateway:
         parts = [block.get("text", "") for block in content_blocks if isinstance(block, dict) and block.get("text")]
         return "\n".join(parts).strip()
 
+    @staticmethod
+    def _timeout_key(request_timeout_seconds: float | None) -> tuple[float, float]:
+        if request_timeout_seconds is None:
+            return (
+                DEFAULT_BEDROCK_CONNECT_TIMEOUT_SECONDS,
+                DEFAULT_BEDROCK_READ_TIMEOUT_SECONDS,
+            )
+
+        remaining_budget = max(0.1, float(request_timeout_seconds))
+        read_timeout = round(min(DEFAULT_BEDROCK_READ_TIMEOUT_SECONDS, remaining_budget), 2)
+        connect_timeout = round(min(DEFAULT_BEDROCK_CONNECT_TIMEOUT_SECONDS, max(0.1, read_timeout / 2)), 2)
+        return connect_timeout, read_timeout
+
 
 class AIRouter:
     def __init__(self, gateway: BedrockGateway | Any | None = None, *, region_name: str | None = None) -> None:
@@ -232,15 +262,30 @@ class AIRouter:
         self.models = default_models()
 
     def route(self, request: RouteRequest) -> dict[str, Any]:
-        initial_parallelism = self.model_count_for_package_size(request.package_size_bytes)
-        package_summaries = self._hydrate_package_summaries(request.packages)
+        started_at = time.monotonic()
+        deadline_seconds = started_at + request.settings.overall_timeout_seconds
+        route_warnings: list[str] = []
+
+        self._enrich_packages_with_s3_metadata(request.packages, route_warnings)
+        effective_package_size_bytes = self._effective_package_size_bytes(request)
+        if effective_package_size_bytes > MAX_PACKAGE_BYTES:
+            raise RoutingError(
+                413,
+                "Package size exceeds the 10 GB routing limit.",
+                details={
+                    "maxPackageBytes": MAX_PACKAGE_BYTES,
+                    "requestedPackageBytes": effective_package_size_bytes,
+                },
+            )
+
+        initial_parallelism = self.model_count_for_package_size(effective_package_size_bytes)
+        package_summaries = self._hydrate_package_summaries(request.packages, route_warnings)
         result_queue: Queue[ModelResult] = Queue()
         launched_slots: list[ModelConfig] = []
         results: list[ModelResult] = []
         launched_indexes: set[int] = set()
         first_success_received_at: float | None = None
 
-        started_at = time.monotonic()
         next_launch_index = 0
 
         def launch_model(index: int) -> None:
@@ -254,12 +299,14 @@ class AIRouter:
             system_prompt = self._build_system_prompt(model, initial_parallelism)
             user_prompt = self._build_user_prompt(
                 request=request,
+                package_size_bytes=effective_package_size_bytes,
                 package_summaries=package_summaries,
                 launched_parallelism=max(initial_parallelism, len(launched_slots)),
             )
 
             def worker() -> None:
                 model_started_at = time.monotonic()
+                remaining_budget_seconds = max(0.1, deadline_seconds - model_started_at)
                 try:
                     payload = self.gateway.converse(
                         model_id=model.model_id,
@@ -267,6 +314,7 @@ class AIRouter:
                         user_prompt=user_prompt,
                         max_tokens=request.settings.max_tokens,
                         temperature=request.settings.temperature,
+                        request_timeout_seconds=remaining_budget_seconds,
                     )
                     result_queue.put(
                         ModelResult(
@@ -296,17 +344,20 @@ class AIRouter:
             launch_model(next_launch_index)
             next_launch_index += 1
 
+        initial_launch_at = time.monotonic()
         next_escalation_at = (
-            started_at + request.settings.model_timeout_seconds if next_launch_index < len(self.models) else None
+            initial_launch_at + request.settings.model_timeout_seconds
+            if next_launch_index < len(self.models)
+            else None
         )
 
         while True:
             now = time.monotonic()
-            elapsed = now - started_at
-            if elapsed >= request.settings.overall_timeout_seconds:
+            remaining_overall_seconds = deadline_seconds - now
+            if remaining_overall_seconds <= 0:
                 break
 
-            wait_candidates = [request.settings.overall_timeout_seconds - elapsed]
+            wait_candidates = [remaining_overall_seconds]
             if next_escalation_at is not None:
                 wait_candidates.append(max(0.0, next_escalation_at - now))
             if first_success_received_at is not None:
@@ -359,6 +410,7 @@ class AIRouter:
         final_answer, finalization = self._build_final_answer(
             request=request,
             used_results=used_results,
+            deadline_seconds=deadline_seconds,
         )
         supporting = [
             self._serialize_result(result)
@@ -373,8 +425,8 @@ class AIRouter:
             "selectedModel": self._model_descriptor(primary.model),
             "finalAnswerSource": finalization,
             "routing": {
-                "packageSizeBytes": request.package_size_bytes,
-                "packageSizeHuman": humanize_bytes(request.package_size_bytes),
+                "packageSizeBytes": effective_package_size_bytes,
+                "packageSizeHuman": humanize_bytes(effective_package_size_bytes),
                 "initialParallelism": initial_parallelism,
                 "launchedModelCount": len(launched_slots),
                 "launchedModels": [self._model_descriptor(model) for model in launched_slots],
@@ -388,13 +440,16 @@ class AIRouter:
             "supportingAnswers": supporting,
         }
 
-        warnings: list[str] = []
-        if finalization.get("fallbackUsed"):
+        warnings = list(route_warnings)
+        fallback_reason = finalization.get("fallbackReason")
+        if fallback_reason == "timeout_budget_exhausted":
+            warnings.append(
+                "Consensus finalization skipped because the remaining time budget was too small; returning the fastest successful model answer."
+            )
+        elif fallback_reason == "consensus_failed":
             warnings.append(
                 "Consensus finalization failed, so the router fell back to the fastest successful model answer."
             )
-        if package_summaries and any(item["previewSource"] == "missing" for item in package_summaries):
-            warnings.append("One or more packages had no inline preview or S3 preview, so routing used metadata only.")
         if warnings:
             response["warnings"] = warnings
 
@@ -406,7 +461,22 @@ class AIRouter:
         per_model_band = MAX_PACKAGE_BYTES / len(self.models)
         return max(1, min(len(self.models), math.ceil(package_size_bytes / per_model_band)))
 
-    def _hydrate_package_summaries(self, packages: list[DataPackage]) -> list[dict[str, Any]]:
+    def _enrich_packages_with_s3_metadata(self, packages: list[DataPackage], warnings: list[str]) -> None:
+        for package in packages:
+            if package.size_bytes > 0 or not package.s3_key:
+                continue
+            try:
+                package.size_bytes = max(0, self.gateway.head_object_size(s3_key=package.s3_key))
+            except Exception:
+                warnings.append(
+                    f"Could not infer size for package '{package.package_id}' from S3 metadata; routing used the remaining request metadata only."
+                )
+
+    @staticmethod
+    def _effective_package_size_bytes(request: RouteRequest) -> int:
+        return max(request.package_size_bytes, sum(package.size_bytes for package in request.packages))
+
+    def _hydrate_package_summaries(self, packages: list[DataPackage], warnings: list[str]) -> list[dict[str, Any]]:
         summaries: list[dict[str, Any]] = []
         remaining_chars = DEFAULT_MAX_PROMPT_CHARS
 
@@ -415,8 +485,15 @@ class AIRouter:
             preview = package.preview
 
             if not preview and package.s3_key:
-                preview = self.gateway.load_preview(s3_key=package.s3_key, max_bytes=DEFAULT_PREVIEW_BYTES)
-                preview_source = "s3"
+                try:
+                    preview = self.gateway.load_preview(s3_key=package.s3_key, max_bytes=DEFAULT_PREVIEW_BYTES)
+                    preview_source = "s3"
+                except Exception:
+                    preview = ""
+                    preview_source = "unavailable"
+                    warnings.append(
+                        f"Could not load preview for package '{package.package_id}' from S3; routing continued with package metadata only."
+                    )
 
             preview = normalize_excerpt(preview, min(remaining_chars, 1600))
             remaining_chars -= len(preview)
@@ -450,6 +527,7 @@ class AIRouter:
         self,
         *,
         request: RouteRequest,
+        package_size_bytes: int,
         package_summaries: list[dict[str, Any]],
         launched_parallelism: int,
     ) -> str:
@@ -457,7 +535,7 @@ class AIRouter:
             f"Question:\n{request.question}",
             (
                 "Routing context:\n"
-                f"- Package size: {humanize_bytes(request.package_size_bytes)} ({request.package_size_bytes} bytes)\n"
+                f"- Package size: {humanize_bytes(package_size_bytes)} ({package_size_bytes} bytes)\n"
                 f"- Active model fanout: {launched_parallelism}\n"
                 f"- Max supported package size: {humanize_bytes(MAX_PACKAGE_BYTES)}"
             ),
@@ -492,6 +570,7 @@ class AIRouter:
         *,
         request: RouteRequest,
         used_results: list[ModelResult],
+        deadline_seconds: float,
     ) -> tuple[str, dict[str, Any]]:
         if len(used_results) == 1:
             only_result = used_results[0]
@@ -505,6 +584,18 @@ class AIRouter:
             }
 
         finalizer = used_results[0]
+        remaining_budget_seconds = deadline_seconds - time.monotonic()
+        if remaining_budget_seconds <= MIN_CONSENSUS_BUDGET_SECONDS:
+            return finalizer.answer, {
+                "mode": f"{len(used_results)}-model-consensus",
+                "usedModelCount": len(used_results),
+                "usedModels": [self._model_descriptor(result.model) for result in used_results],
+                "usedResults": [self._serialize_result(result) for result in used_results],
+                "finalizedByModel": self._model_descriptor(finalizer.model),
+                "fallbackUsed": True,
+                "fallbackReason": "timeout_budget_exhausted",
+            }
+
         try:
             payload = self.gateway.converse(
                 model_id=finalizer.model.model_id,
@@ -512,6 +603,7 @@ class AIRouter:
                 user_prompt=self._build_consensus_user_prompt(request, used_results),
                 max_tokens=request.settings.max_tokens,
                 temperature=min(request.settings.temperature, 0.2),
+                request_timeout_seconds=max(0.1, remaining_budget_seconds - CONSENSUS_TIMEOUT_BUFFER_SECONDS),
             )
             consensus_answer = str(payload.get("answer") or "").strip()
             if consensus_answer:
@@ -533,6 +625,7 @@ class AIRouter:
             "usedResults": [self._serialize_result(result) for result in used_results],
             "finalizedByModel": self._model_descriptor(finalizer.model),
             "fallbackUsed": True,
+            "fallbackReason": "consensus_failed",
         }
 
     def _build_consensus_system_prompt(self, used_results: list[ModelResult]) -> str:
