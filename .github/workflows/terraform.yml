@@ -26,6 +26,9 @@ jobs:
     env:
       AWS_EC2_METADATA_DISABLED: "true"
       TF_VAR_skip_aws_provider_checks: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+      AWS_ACCESS_KEY_ID: ${{ github.event_name == 'pull_request' && 'terraform-ci-placeholder' || secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ github.event_name == 'pull_request' && 'terraform-ci-placeholder' || secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ github.event_name == 'pull_request' && 'terraform-ci-placeholder' || secrets.AWS_SESSION_TOKEN }}
 
     defaults:
       run:
@@ -46,6 +49,9 @@ jobs:
 
       - name: Terraform Format
         run: terraform fmt -check -no-color
+
+      - name: Terraform Validate
+        run: terraform validate -no-color
 
       - name: Terraform Plan
         run: terraform plan -input=false -no-color
