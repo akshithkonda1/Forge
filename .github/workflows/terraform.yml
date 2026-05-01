@@ -19,8 +19,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  terraform:
-    name: 'Terraform'
+  terraform-checks:
+    name: 'Terraform Checks'
+    runs-on: ubuntu-latest
+    env:
+      AWS_EC2_METADATA_DISABLED: "true"
+      TF_VAR_skip_aws_provider_checks: "true"
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: infra/terraform
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.15.0
+
+      - name: Terraform Init
+        run: terraform init -backend=false -input=false -lockfile=readonly -no-color
+
+      - name: Terraform Format
+        run: terraform fmt -check -diff -recursive -no-color
+
+      - name: Terraform Validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        run: terraform plan -input=false -no-color
+
+  terraform-apply:
+    name: 'Terraform Apply'
+    if: github.ref == 'refs/heads/claude/forge-fitness-frontend-TwlOQ' && github.event_name == 'push'
+    needs: terraform-checks
     runs-on: ubuntu-latest
     environment: production
     env:
