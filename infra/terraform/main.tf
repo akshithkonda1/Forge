@@ -345,6 +345,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "uploads" {
     id     = "abort-incomplete-multipart-uploads"
     status = "Enabled"
 
+    filter {}
+
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
     }
@@ -506,16 +508,16 @@ resource "aws_apigatewayv2_stage" "default" {
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_access.arn
     format = jsonencode({
-      requestId          = "$context.requestId"
-      sourceIp           = "$context.identity.sourceIp"
-      requestTime        = "$context.requestTime"
-      protocol           = "$context.protocol"
-      httpMethod         = "$context.httpMethod"
-      routeKey           = "$context.routeKey"
-      status             = "$context.status"
-      responseLength     = "$context.responseLength"
-      integrationError   = "$context.integration.error"
-      integrationStatus  = "$context.integration.integrationStatus"
+      requestId         = "$context.requestId"
+      sourceIp          = "$context.identity.sourceIp"
+      requestTime       = "$context.requestTime"
+      protocol          = "$context.protocol"
+      httpMethod        = "$context.httpMethod"
+      routeKey          = "$context.routeKey"
+      status            = "$context.status"
+      responseLength    = "$context.responseLength"
+      integrationError  = "$context.integration.error"
+      integrationStatus = "$context.integration.integrationStatus"
     })
   }
 

@@ -22,6 +22,12 @@ variable "allowed_origins" {
   default     = ["http://localhost:3000"]
 }
 
+variable "skip_aws_provider_checks" {
+  description = "Whether to bypass AWS credential/account validation for read-only CI planning."
+  type        = bool
+  default     = false
+}
+
 variable "uploads_bucket_name" {
   description = "Optional override for the Forge uploads bucket name."
   type        = string
