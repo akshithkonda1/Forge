@@ -10,7 +10,6 @@ on:
     paths:
       - '.github/workflows/terraform.yml'
       - 'infra/terraform/**'
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -61,10 +60,10 @@ jobs:
     environment: production
     env:
       AWS_EC2_METADATA_DISABLED: "true"
-      TF_VAR_skip_aws_provider_checks: "false"
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      TF_VAR_skip_aws_provider_checks: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+      AWS_ACCESS_KEY_ID: ${{ github.event_name == 'pull_request' && 'terraform-ci-placeholder' || secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ github.event_name == 'pull_request' && 'terraform-ci-placeholder' || secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ github.event_name == 'pull_request' && 'terraform-ci-placeholder' || secrets.AWS_SESSION_TOKEN }}
 
     defaults:
       run:
@@ -78,10 +77,20 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: 1.15.0
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
       - name: Terraform Init
         run: terraform init -input=false -no-color
 
+      - name: Terraform Format
+        run: terraform fmt -check -no-color
+
+      - name: Terraform Validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        run: terraform plan -input=false -no-color
+
       - name: Terraform Apply
+        if: github.ref == 'refs/heads/claude/forge-fitness-frontend-TwlOQ' && github.event_name == 'push'
         run: terraform apply -auto-approve -input=false -no-color

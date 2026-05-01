@@ -23,7 +23,7 @@ variable "allowed_origins" {
 }
 
 variable "skip_aws_provider_checks" {
-  description = "Whether to bypass live AWS credential validation for speculative plans and CI checks."
+  description = "Whether to bypass AWS credential/account validation for read-only CI planning."
   type        = bool
   default     = false
 }
