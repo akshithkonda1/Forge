@@ -17,6 +17,7 @@ DEFAULT_MAX_TOKENS = 1000
 DEFAULT_TEMPERATURE = 0.2
 DEFAULT_PREVIEW_BYTES = 2048
 DEFAULT_MAX_PROMPT_CHARS = 12000
+DEFAULT_CONSENSUS_INPUT_CHARS = 12000
 
 
 class RoutingError(Exception):
@@ -353,17 +354,24 @@ class AIRouter:
                 },
             )
 
-        primary = min(successes, key=lambda item: (item.completed_at, item.model.slot))
+        used_results = sorted(successes, key=lambda item: (item.completed_at, item.model.slot))
+        primary = used_results[0]
+        final_answer, finalization = self._build_final_answer(
+            request=request,
+            used_results=used_results,
+        )
         supporting = [
             self._serialize_result(result)
-            for result in sorted(successes, key=lambda item: (item.completed_at, item.model.slot))
+            for result in used_results
             if result.model.slot != primary.model.slot
         ]
 
         response: dict[str, Any] = {
             "status": "ok",
-            "answer": primary.answer,
+            "answer": final_answer,
+            "finalAnswer": final_answer,
             "selectedModel": self._model_descriptor(primary.model),
+            "finalAnswerSource": finalization,
             "routing": {
                 "packageSizeBytes": request.package_size_bytes,
                 "packageSizeHuman": humanize_bytes(request.package_size_bytes),
@@ -381,6 +389,10 @@ class AIRouter:
         }
 
         warnings: list[str] = []
+        if finalization.get("fallbackUsed"):
+            warnings.append(
+                "Consensus finalization failed, so the router fell back to the fastest successful model answer."
+            )
         if package_summaries and any(item["previewSource"] == "missing" for item in package_summaries):
             warnings.append("One or more packages had no inline preview or S3 preview, so routing used metadata only.")
         if warnings:
@@ -472,6 +484,91 @@ class AIRouter:
             "1. Give the best direct answer you can.\n"
             "2. Mention any assumptions or missing data.\n"
             "3. Keep it concise and operational."
+        )
+        return "\n\n".join(sections)
+
+    def _build_final_answer(
+        self,
+        *,
+        request: RouteRequest,
+        used_results: list[ModelResult],
+    ) -> tuple[str, dict[str, Any]]:
+        if len(used_results) == 1:
+            only_result = used_results[0]
+            return only_result.answer, {
+                "mode": "single-model",
+                "usedModelCount": 1,
+                "usedModels": [self._model_descriptor(only_result.model)],
+                "usedResults": [self._serialize_result(only_result)],
+                "finalizedByModel": self._model_descriptor(only_result.model),
+                "fallbackUsed": False,
+            }
+
+        finalizer = used_results[0]
+        try:
+            payload = self.gateway.converse(
+                model_id=finalizer.model.model_id,
+                system_prompt=self._build_consensus_system_prompt(used_results),
+                user_prompt=self._build_consensus_user_prompt(request, used_results),
+                max_tokens=request.settings.max_tokens,
+                temperature=min(request.settings.temperature, 0.2),
+            )
+            consensus_answer = str(payload.get("answer") or "").strip()
+            if consensus_answer:
+                return consensus_answer, {
+                    "mode": f"{len(used_results)}-model-consensus",
+                    "usedModelCount": len(used_results),
+                    "usedModels": [self._model_descriptor(result.model) for result in used_results],
+                    "usedResults": [self._serialize_result(result) for result in used_results],
+                    "finalizedByModel": self._model_descriptor(finalizer.model),
+                    "fallbackUsed": False,
+                }
+        except Exception:
+            pass
+
+        return finalizer.answer, {
+            "mode": f"{len(used_results)}-model-consensus",
+            "usedModelCount": len(used_results),
+            "usedModels": [self._model_descriptor(result.model) for result in used_results],
+            "usedResults": [self._serialize_result(result) for result in used_results],
+            "finalizedByModel": self._model_descriptor(finalizer.model),
+            "fallbackUsed": True,
+        }
+
+    def _build_consensus_system_prompt(self, used_results: list[ModelResult]) -> str:
+        return (
+            "You are Forge's consensus finalizer. "
+            f"You must produce one final answer from the {len(used_results)} model answers provided. "
+            "Use only the content in those model answers. "
+            "Keep what clearly agrees across them, preserve non-conflicting useful details, "
+            "and if they disagree, state the safest common-ground answer without inventing anything new."
+        )
+
+    def _build_consensus_user_prompt(self, request: RouteRequest, used_results: list[ModelResult]) -> str:
+        sections = [
+            f"Original question:\n{request.question}",
+        ]
+
+        if request.context:
+            sections.append(f"Original context:\n{normalize_excerpt(request.context, 3000)}")
+
+        remaining_chars = DEFAULT_CONSENSUS_INPUT_CHARS
+        answer_sections: list[str] = []
+        for result in used_results:
+            answer_text = normalize_excerpt(result.answer, min(remaining_chars, 3500))
+            remaining_chars -= len(answer_text)
+            answer_sections.append(
+                f"{result.model.name} (slot {result.model.slot}):\n{answer_text}"
+            )
+            if remaining_chars <= 0:
+                break
+
+        sections.append("Model answers to reconcile:\n" + "\n\n".join(answer_sections))
+        sections.append(
+            "Return format:\n"
+            "1. Write one final answer only.\n"
+            "2. Do not mention model names.\n"
+            "3. Do not add facts that are not present in the supplied answers."
         )
         return "\n\n".join(sections)
 

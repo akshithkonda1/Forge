@@ -46,11 +46,19 @@ The primary default model is Claude Sonnet 4.6. Kimi K2.5 is only used as the th
 
 The router returns:
 
-- `answer`: the first successful answer returned inside the routing window,
-- `selectedModel`: the model slot and Bedrock model ID that won,
+- `answer`: an alias of `finalAnswer` for backward compatibility,
+- `finalAnswer`: the answer actually returned to the caller,
+- `finalAnswerSource`: how the final answer was produced,
+- `selectedModel`: the first successful model that answered inside the routing window,
 - `routing`: package size, initial fanout, launched models, and timeout policy,
 - `results`: per-model latency and outcome metadata,
 - `supportingAnswers`: any additional successful answers received inside the consensus window.
+
+Final answer rules:
+
+- if 1 model answer is used, `finalAnswer` is that model's answer,
+- if 2 model answers are used, `finalAnswer` is the consensus built from those 2 answers,
+- if 3 model answers are used, `finalAnswer` is the consensus built from all 3 answers.
 
 ### 10 GB behavior
 
