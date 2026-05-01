@@ -52,7 +52,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.25, "answer": "late sonnet answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "opus fallback answer"},
-                "moonshot.kimi-k2-thinking": {"delay": 0.01, "answer": "kimi answer"},
+                "moonshotai.kimi-k2.5": {"delay": 0.01, "answer": "kimi answer"},
             }
         )
         router = AIRouter(gateway=gateway)
@@ -79,7 +79,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.1, "answer": "sonnet answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.05, "answer": "opus answer"},
-                "moonshot.kimi-k2-thinking": {"delay": 0.08, "answer": "kimi answer"},
+                "moonshotai.kimi-k2.5": {"delay": 0.08, "answer": "kimi answer"},
             }
         )
         router = AIRouter(gateway=gateway)
@@ -106,7 +106,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.01, "answer": "answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "backup"},
-                "moonshot.kimi-k2-thinking": {"delay": 0.01, "answer": "backup 2"},
+                "moonshotai.kimi-k2.5": {"delay": 0.01, "answer": "backup 2"},
             },
             previews={
                 "private/user/metrics.txt": "resting HR 52, HRV 71, sleep efficiency 92%",
