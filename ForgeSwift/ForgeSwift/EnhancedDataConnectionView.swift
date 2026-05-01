@@ -200,32 +200,40 @@ struct EnhancedDataConnectionView: View {
     private func connectHealthKit() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         Task {
-            await dataManager.requestHealthKitPermission()
-            await dataManager.fetchHealthData()
+            let granted = await dataManager.requestHealthKitPermission()
+            if granted {
+                await dataManager.fetchHealthData()
+            }
         }
     }
     
     private func connectCalendar() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         Task {
-            await dataManager.requestCalendarPermission()
-            await dataManager.analyzeCalendarForWorkoutSlots()
+            let granted = await dataManager.requestCalendarPermission()
+            if granted {
+                await dataManager.analyzeCalendarForWorkoutSlots()
+            }
         }
     }
     
     private func connectNotifications() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         Task {
-            await dataManager.requestNotificationPermission()
-            await dataManager.scheduleInitialWorkoutReminders()
+            let granted = await dataManager.requestNotificationPermission()
+            if granted {
+                await dataManager.scheduleInitialWorkoutReminders()
+            }
         }
     }
     
     private func connectContacts() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         Task {
-            await dataManager.requestContactsPermission()
-            await dataManager.findFitnessContacts()
+            let granted = await dataManager.requestContactsPermission()
+            if granted {
+                await dataManager.findFitnessContacts()
+            }
         }
     }
 }

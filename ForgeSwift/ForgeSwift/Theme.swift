@@ -58,7 +58,7 @@ extension Color {
 // MARK: - Gradient helpers
 
 extension LinearGradient {
-    static var ember: LinearGradient {
+    static var emberGradient: LinearGradient {
         LinearGradient(colors: [.ember, .emberLight],
                        startPoint: .topLeading, endPoint: .bottomTrailing)
     }
@@ -66,22 +66,6 @@ extension LinearGradient {
         LinearGradient(colors: [.steel, .steelLight, .steel],
                        startPoint: .topLeading, endPoint: .bottomTrailing)
     }
-}
-
-// MARK: - Readiness helpers
-
-func readinessColor(_ score: Int) -> Color {
-    if score >= 80 { return .success }
-    if score >= 60 { return .warning }
-    return .danger
-}
-
-func readinessLabel(_ score: Int) -> String {
-    if score >= 80 { return "Peak" }
-    if score >= 70 { return "Good" }
-    if score >= 60 { return "Moderate" }
-    if score >= 40 { return "Low" }
-    return "Poor"
 }
 
 // MARK: - HR Zone helper (mirrors getHRZone in active-workout-view.tsx)

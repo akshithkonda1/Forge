@@ -1,10 +1,11 @@
 import SwiftUI
 import FoundationModels
 
-// MARK: - App Entry Point with AI Setup
+// MARK: - Example App Entry Point with AI Setup
+// NOTE: This is an example. Remove @main if you're using ForgeSwiftApp as your actual entry point.
 
-@main
-struct ForgeApp: App {
+// Example app structure showing how to integrate AI features
+struct ForgeApp_Example: App {
     @StateObject private var appStore = AppStore()
     
     var body: some Scene {
@@ -142,21 +143,21 @@ struct MessagesScrollView: View {
             ScrollView {
                 LazyVStack(spacing: 16) {
                     ForEach(messages) { message in
-                        MessageBubbleView(message: message)
+                        ExampleMessageBubbleView(message: message)
                             .id(message.id)
                     }
                     
                     if isGenerating {
-                        TypingIndicatorView()
+                        ExampleTypingIndicatorView()
                             .id("typing")
                     }
                 }
                 .padding()
             }
-            .onChange(of: messages.count) { _ in
+            .onChange(of: messages.count) {
                 scrollToBottom(proxy: proxy)
             }
-            .onChange(of: isGenerating) { _ in
+            .onChange(of: isGenerating) {
                 scrollToBottom(proxy: proxy)
             }
             .onAppear {
@@ -178,7 +179,7 @@ struct MessagesScrollView: View {
 
 // MARK: - Message Bubble
 
-struct MessageBubbleView: View {
+struct ExampleMessageBubbleView: View {
     let message: ChatMessage
     
     var body: some View {
@@ -205,7 +206,7 @@ struct MessageBubbleView: View {
                 
                 // Rich card if present
                 if let richCard = message.richCard {
-                    RichCardView(card: richCard)
+                    ExampleRichCardView(card: richCard)
                         .transition(.scale.combined(with: .opacity))
                 }
                 
@@ -225,7 +226,7 @@ struct MessageBubbleView: View {
 
 // MARK: - Typing Indicator
 
-struct TypingIndicatorView: View {
+struct ExampleTypingIndicatorView: View {
     @State private var animationPhase = 0
     
     var body: some View {
@@ -279,7 +280,7 @@ struct ChatInputArea: View {
             Button(action: onSend) {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 32))
-                    .foregroundStyle(messageText.isEmpty || isGenerating ? .secondary : .blue)
+                    .foregroundStyle(messageText.isEmpty || isGenerating ? Color.secondary : Color.blue)
             }
             .disabled(messageText.isEmpty || isGenerating)
         }
@@ -290,7 +291,7 @@ struct ChatInputArea: View {
 
 // MARK: - Rich Card View
 
-struct RichCardView: View {
+struct ExampleRichCardView: View {
     let card: RichCardData
     
     var body: some View {

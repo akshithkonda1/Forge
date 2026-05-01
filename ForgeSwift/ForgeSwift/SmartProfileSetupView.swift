@@ -18,7 +18,7 @@ struct SmartProfileSetupView: View {
     @State private var age: Int?
     @State private var weight: Double?
     @State private var height: Double?
-    @State private var dataLoadedFrom HealthKit = false
+    @State private var dataLoadedFromHealthKit = false
 
     private let totalSections = 5
 
@@ -106,7 +106,8 @@ struct SmartProfileSetupView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 48)
         }
-        .background(Color.background.ignoresSafeArea())
+        .background(Color.background)
+        .ignoresSafeArea()
         .task {
             await loadHealthKitData()
         }
@@ -138,6 +139,7 @@ struct SmartProfileSetupView: View {
             withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) { section += 1 }
         } else {
             store.userProfile.name = name.trimmingCharacters(in: .whitespaces)
+            store.userProfile.gender = selectedGender
             store.userProfile.fitnessGoals = Array(selectedGoals)
             store.userProfile.experienceLevel = experienceLevel ?? .intermediate
             store.userProfile.preferredWorkouts = Array(selectedWorkouts)
@@ -156,7 +158,8 @@ struct SmartProfileSetupView: View {
     private var nameAndBasicsSection: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
-                SectionHeader(
+                ForgeSectionHeader(
+                    eyebrow: "Profile",
                     title: "Tell us about yourself",
                     subtitle: "We'll use this to personalize your training."
                 )
@@ -202,7 +205,8 @@ struct SmartProfileSetupView: View {
     private var genderSection: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                SectionHeader(
+                ForgeSectionHeader(
+                    eyebrow: "Identity",
                     title: "How do you identify?",
                     subtitle: "Helps us personalize training and nutrition recommendations."
                 )
@@ -227,7 +231,8 @@ struct SmartProfileSetupView: View {
     private var goalsSection: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                SectionHeader(
+                ForgeSectionHeader(
+                    eyebrow: "Goals",
                     title: "What are your goals?",
                     subtitle: "Select all that apply — we'll tailor your program."
                 )
@@ -248,7 +253,8 @@ struct SmartProfileSetupView: View {
     private var smartExperienceSection: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                SectionHeader(
+                ForgeSectionHeader(
+                    eyebrow: "Experience",
                     title: "Experience level?",
                     subtitle: "Calibrates intensity and progression speed."
                 )
@@ -283,7 +289,8 @@ struct SmartProfileSetupView: View {
     private var workoutsSection: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                SectionHeader(
+                ForgeSectionHeader(
+                    eyebrow: "Training",
                     title: "Preferred workouts?",
                     subtitle: "Pick the training you enjoy most."
                 )

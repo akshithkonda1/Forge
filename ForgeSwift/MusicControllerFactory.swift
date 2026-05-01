@@ -20,6 +20,15 @@ enum MusicService: String, CaseIterable, Equatable {
     }
 }
 
+// MARK: - Now Playing Track
+
+struct NowPlayingTrack: Equatable {
+    let title: String
+    let artist: String
+    let bpm: Int?
+    let isPlaying: Bool
+}
+
 // MARK: - Protocol & Type Erasure
 
 @MainActor protocol MusicControlling: ObservableObject {
@@ -35,7 +44,7 @@ enum MusicService: String, CaseIterable, Equatable {
 }
 
 /// Type-erased wrapper so views don't depend on concrete controller types
-@MainActor final class AnyMusicController: MusicControlling {
+@MainActor final class AnyMusicController: ObservableObject, MusicControlling {
     let service: MusicService
 
     @Published var nowPlaying: NowPlayingTrack? = nil
@@ -49,22 +58,28 @@ enum MusicService: String, CaseIterable, Equatable {
 
     private var cancellables: Set<AnyCancellable> = []
 
-    init<C: MusicControlling>(_ base: C) {
+    init<C>(_ base: C) where C: MusicControlling {
         self.service = base.service
-        // Mirror base's publishers into our own @Published vars
-        base.publisher(for: \C.nowPlaying)
-            .sink { [weak self] in self?.nowPlaying = $0 }
-            .store(in: &cancellables)
+        
+        // Set initial values
+        self.nowPlaying = base.nowPlaying
+        self.isAuthorized = base.isAuthorized
 
-        base.publisher(for: \C.isAuthorized)
-            .sink { [weak self] in self?.isAuthorized = $0 }
-            .store(in: &cancellables)
-
+        // Initialize closures
         self._refresh = { base.refresh() }
         self._requestAccess = { await base.requestAccess() }
         self._togglePlayPause = { base.togglePlayPause() }
         self._skipForward = { base.skipForward() }
         self._skipBack = { base.skipBack() }
+        
+        // Mirror base's publishers into our own @Published vars
+        // (Now that all stored properties are initialized)
+        base.objectWillChange
+            .sink { [weak self] _ in
+                self?.nowPlaying = base.nowPlaying
+                self?.isAuthorized = base.isAuthorized
+            }
+            .store(in: &cancellables)
     }
 
     func refresh() { _refresh() }
@@ -91,7 +106,7 @@ private extension ObservableObject {
 // MARK: - Concrete Apple Music Controller
 
 @MainActor
-final class AppleMusicController: MusicControlling {
+final class AppleMusicController: ObservableObject, MusicControlling {
     @Published var nowPlaying: NowPlayingTrack? = nil
     @Published var isAuthorized: Bool = false
 

@@ -238,7 +238,7 @@ class OnboardingDataManager: ObservableObject {
         async let calendar = analyzeCalendarForWorkoutSlots()
         async let contacts = findFitnessContacts()
         
-        await (health, calendar, contacts)
+        _ = await (health, calendar, contacts)
     }
     
     // MARK: - Smart Recommendations
