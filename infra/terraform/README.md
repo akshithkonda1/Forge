@@ -1,6 +1,6 @@
 # Forge Terraform
 
-This Terraform stack creates a shared AWS backend foundation for Forge so the Next.js app and the Swift app can talk to the same services.
+This Terraform stack creates a shared AWS backend foundation for Forge, so the Next.js app and the Swift app can communicate with the same services without additional adapters. 
 
 ## What it provisions
 
@@ -15,9 +15,9 @@ This Terraform stack creates a shared AWS backend foundation for Forge so the Ne
 
 ## Why this shape
 
-The repo currently contains two client apps but no backend implementation yet. This stack sets up the shared primitives both clients will need without locking you into one specific handler layout too early.
+The repo currently contains two client apps, but no backend implementation yet. This stack sets up the shared primitives both clients will need without locking you into one specific handler layout too early.
 
-The DynamoDB table uses a single-table pattern with `pk`, `sk`, `gsi1pk`, and `gsi1sk` so you can store:
+The DynamoDB table uses a single-table pattern with `pk`, `sk`, `gsi1pk`, and `gsi1sk`, so you can store:
 
 - user profiles
 - readiness snapshots
