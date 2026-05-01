@@ -2,39 +2,46 @@ name: 'Terraform'
 
 on:
   push:
+    paths:
+      - '.github/workflows/terraform.yml'
+      - 'infra/terraform/**'
   pull_request:
+    paths:
+      - '.github/workflows/terraform.yml'
+      - 'infra/terraform/**'
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   terraform:
     name: 'Terraform'
     runs-on: ubuntu-latest
 
-    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
     defaults:
       run:
         shell: bash
         working-directory: infra/terraform
 
     steps:
-    # Checkout the repository to the GitHub Actions runner
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    # Install Terraform for formatting and validation.
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.0
 
-    # Initialize the local working directory without any remote backend.
-    - name: Terraform Init
-      run: terraform init -backend=false -input=false
+      - name: Terraform Init
+        run: terraform init -backend=false -input=false -lockfile=readonly -no-color
 
-    # Checks that all Terraform configuration files adhere to a canonical format
-    - name: Terraform Format
-      run: terraform fmt -check -recursive
+      - name: Terraform Format
+        run: terraform fmt -check -diff -recursive
 
-    # Validates the Terraform configuration without requiring AWS credentials.
-    - name: Terraform Validate
-      run: terraform validate
+      - name: Terraform Validate
+        run: terraform validate -no-color
