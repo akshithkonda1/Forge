@@ -41,7 +41,7 @@ The DynamoDB table uses a single-table pattern with `pk`, `sk`, `gsi1pk`, and `g
 1. Copy `terraform.tfvars.example` to `terraform.tfvars`.
 2. Fill in any environment-specific values.
 3. Run `terraform init`.
-4. Run `terraform plan`.
+4. Run `TF_VAR_skip_aws_provider_checks=true terraform plan` for speculative planning without live AWS credentials.
 5. Run `terraform apply`.
 6. Seed the AI provider secret out-of-band with `aws secretsmanager put-secret-value` so the key never lands in Terraform state.
 
