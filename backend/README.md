@@ -11,6 +11,8 @@ The shared Lambda now exposes `POST /ai/router`, a Python-based Bedrock router t
 - escalates again to Kimi K2 Thinking if needed,
 - activates more models immediately as `packageSizeBytes` grows toward the 10 GB cap.
 
+The primary default model is Claude Sonnet 4.6. Kimi K2 Thinking is only used as the third-slot fallback.
+
 ### Request shape
 
 ```json
@@ -64,8 +66,8 @@ This avoids trying to push multi-GB payloads directly through API Gateway, Lambd
 
 Defaults:
 
-- Slot 1: `anthropic.claude-sonnet-4-6`
+- Default start model / Slot 1: `anthropic.claude-sonnet-4-6`
 - Slot 2: `anthropic.claude-opus-4-7`
-- Slot 3: `moonshot.kimi-k2-thinking`
+- Slot 3 fallback: `moonshot.kimi-k2-thinking`
 
-The third slot is configurable with `AI_ROUTER_MODEL_3_ID`. As of May 1, 2026, AWS Bedrock documents `moonshot.kimi-k2-thinking` as the runtime model ID for Kimi K2 Thinking, so that is now the router's default third model.
+The third slot is configurable with `AI_ROUTER_MODEL_3_ID`. As of May 1, 2026, AWS Bedrock documents `moonshot.kimi-k2-thinking` as the runtime model ID for Kimi K2 Thinking, so that is the router's default third-slot fallback model. The router still starts with Claude Sonnet 4.6 by default.

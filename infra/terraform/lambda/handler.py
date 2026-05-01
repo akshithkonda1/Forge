@@ -40,6 +40,7 @@ def handler(event, _context):
     path = http_context.get("path", "/")
 
     if method == "GET" and path == "/health":
+        models = default_models()
         return _response(
             200,
             {
@@ -55,13 +56,18 @@ def handler(event, _context):
                 "router": {
                     "maxPackageBytes": 10 * 1024 * 1024 * 1024,
                     "maxPackageHuman": humanize_bytes(10 * 1024 * 1024 * 1024),
+                    "defaultStartModel": {
+                        "slot": models[0].slot,
+                        "name": models[0].name,
+                        "modelId": models[0].model_id,
+                    },
                     "models": [
                         {
                             "slot": model.slot,
                             "name": model.name,
                             "modelId": model.model_id,
                         }
-                        for model in default_models()
+                        for model in models
                     ],
                 },
             },
