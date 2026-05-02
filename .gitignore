@@ -43,3 +43,7 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 infra/terraform/build/*.zip
+
+# xcode
+*.xcuserdata/
+*.xcuserstate

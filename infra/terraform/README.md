@@ -1,6 +1,6 @@
 # Forge Terraform
 
-This Terraform stack creates a shared AWS backend foundation for Forge so the Next.js app and the Swift app can talk to the same services.
+This Terraform stack creates a shared AWS backend foundation for Forge, so the Next.js app and the Swift app can communicate with the same services without additional adapters. 
 
 ## What it provisions
 
@@ -15,9 +15,9 @@ This Terraform stack creates a shared AWS backend foundation for Forge so the Ne
 
 ## Why this shape
 
-The repo currently contains two client apps but no backend implementation yet. This stack sets up the shared primitives both clients will need without locking you into one specific handler layout too early.
+The repo currently contains two client apps, but no backend implementation yet. This stack sets up the shared primitives both clients will need without locking you into one specific handler layout too early.
 
-The DynamoDB table uses a single-table pattern with `pk`, `sk`, `gsi1pk`, and `gsi1sk` so you can store:
+The DynamoDB table uses a single-table pattern with `pk`, `sk`, `gsi1pk`, and `gsi1sk`, so you can store:
 
 - user profiles
 - readiness snapshots
@@ -41,7 +41,7 @@ The DynamoDB table uses a single-table pattern with `pk`, `sk`, `gsi1pk`, and `g
 1. Copy `terraform.tfvars.example` to `terraform.tfvars`.
 2. Fill in any environment-specific values.
 3. Run `terraform init`.
-4. Run `terraform plan`.
+4. Run `TF_VAR_skip_aws_provider_checks=true terraform plan` for speculative planning without live AWS credentials.
 5. Run `terraform apply`.
 6. Seed the AI provider secret out-of-band with `aws secretsmanager put-secret-value` so the key never lands in Terraform state.
 

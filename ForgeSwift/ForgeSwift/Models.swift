@@ -8,7 +8,7 @@ enum CoachingStyle: String, Codable, CaseIterable, Identifiable {
     case balanced    = "balanced"
     case patient     = "patient"
     case dataDriven  = "data-driven"
-
+    case ultraElite  = "athletic"
     var id: String { rawValue }
 
     var label: String {
@@ -17,6 +17,7 @@ enum CoachingStyle: String, Codable, CaseIterable, Identifiable {
         case .balanced:   return "Keep It Balanced"
         case .patient:    return "Be Patient With Me"
         case .dataDriven: return "Data-Driven & Precise"
+        case .ultraElite: return "Data-Driven & Precise but on a higher level. "
         }
     }
     var description: String {
@@ -25,11 +26,32 @@ enum CoachingStyle: String, Codable, CaseIterable, Identifiable {
         case .balanced:   return "Smart training — push when ready, recover when needed."
         case .patient:    return "Encouraging, supportive, and habit-focused."
         case .dataDriven: return "Optimized by metrics. Numbers guide everything."
+        case .ultraElite: return "Designed for athletes of all levels and types, numbers and personal data guide every step."
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .pushHard:   return "flame.fill"
+        case .balanced:   return "chart.xyaxis.line"
+        case .patient:    return "heart.fill"
+        case .dataDriven: return "brain.head.profile"
+        case .ultraElite: return "star.fill"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .pushHard:   return .ember
+        case .balanced:   return .cyan
+        case .patient:    return .green
+        case .dataDriven: return .purple
+        case .ultraElite: return .orange
         }
     }
 }
 
-enum FitnessGoal: String, Codable, CaseIterable, Identifiable {
+enum UserFitnessGoal: String, Codable, CaseIterable, Identifiable {
     case buildMuscle         = "build-muscle"
     case loseFat             = "lose-fat"
     case improveEndurance    = "improve-endurance"
@@ -71,6 +93,15 @@ enum Gender: String, Codable, CaseIterable, Identifiable {
     
     var id: String { rawValue }
     var label: String { rawValue }
+    var icon: String {
+        switch self {
+        case .male: return "person.fill"
+        case .female: return "person.fill"
+        case .nonBinary: return "person.fill"
+        case .preferNotToSay: return "person.fill.questionmark"
+        case .other: return "person.fill"
+        }
+    }
 }
 
 enum WorkoutType: String, Codable, CaseIterable, Identifiable {
@@ -116,12 +147,17 @@ enum MessageRole: String { case trainer, user }
 struct UserProfile: Codable {
     var name: String
     var gender: Gender
-    var fitnessGoals: [FitnessGoal]
+    var fitnessGoals: [UserFitnessGoal]
     var experienceLevel: ExperienceLevel
     var preferredWorkouts: [WorkoutType]
     var coachingStyle: CoachingStyle
     var connectedDevices: [String]
     var weeklySchedule: [Int]
+    
+    // HealthKit-derived health metrics
+    var age: Int?
+    var weight: Double?  // in kg
+    var height: Double?  // in cm
 
     var initials: String {
         name.split(separator: " ").compactMap { $0.first.map { String($0).uppercased() } }.joined().prefix(2).description
@@ -249,11 +285,11 @@ struct PersonalRecord: Identifiable {
 
 let mockProfile = UserProfile(
     name: "Akshith",
-    gender: .male,
-    fitnessGoals: [.buildMuscle],
-    experienceLevel: .intermediate,
-    preferredWorkouts: [.strength, .hiit],
-    coachingStyle: .pushHard,
+    gender: Gender.male,
+    fitnessGoals: [UserFitnessGoal.buildMuscle],
+    experienceLevel: ExperienceLevel.intermediate,
+    preferredWorkouts: [WorkoutType.strength, WorkoutType.hiit],
+    coachingStyle: CoachingStyle.pushHard,
     connectedDevices: ["Apple Watch", "Oura Ring"],
     weeklySchedule: [1, 3, 5]
 )
@@ -278,9 +314,9 @@ let mockMetrics = DailyMetrics(
 let mockWorkout = WorkoutPlan(
     id: "w1",
     name: "Upper Body Power",
-    type: .strength,
+    type: WorkoutType.strength,
     duration: 55,
-    intensity: .high,
+    intensity: WorkoutIntensity.high,
     exercises: [
         Exercise(id:"e1", name:"Barbell Bench Press",    sets:4, reps:"6-8",   weight:185, restSeconds:120, notes:"Focus on controlled eccentric", videoURL: URL(string: "https://example.com/bench-press.mp4"), has3DModel: true),
         Exercise(id:"e2", name:"Weighted Pull-Ups",       sets:4, reps:"6-8",   weight:25,  restSeconds:120, videoURL: URL(string: "https://example.com/pullups.mp4"), has3DModel: true),
@@ -298,21 +334,21 @@ let mockChatMessages: [ChatMessage] = {
     let d1 = now.addingTimeInterval(-86400)
     let h1 = now.addingTimeInterval(-3600)
     return [
-        ChatMessage(id:"m1",  role:.trainer, content:"Hey Akshith, welcome to Forge. I'm your AI training partner. I've synced up with your Apple Watch and Oura Ring — already pulling in your biometrics. Let's build something serious together.", timestamp: d2),
-        ChatMessage(id:"m2",  role:.user,    content:"Excited to get started. I've been training for about 2 years but feel like I've plateaued.", timestamp: d2.addingTimeInterval(60)),
-        ChatMessage(id:"m3",  role:.trainer, content:"Plateaus are normal — and breakable. Your training history shows solid consistency but your programming might need periodization. I'll structure progressive overload cycles and track your recovery so we push at the right times. First things first: let's establish your baseline this week.", timestamp: d2.addingTimeInterval(120)),
-        ChatMessage(id:"m4",  role:.user,    content:"Sounds good. What should I focus on today?", timestamp: d1.addingTimeInterval(30)),
-        ChatMessage(id:"m5",  role:.trainer, content:"Yesterday was a rest day and your HRV bounced back nicely — 48ms up to 52ms. Deep sleep hit 1hr 42min which is solid for recovery. I'd say you're primed for a strength session. How about lower body? Your squat has been progressing well.", timestamp: d1.addingTimeInterval(90)),
-        ChatMessage(id:"m6",  role:.user,    content:"Actually I'm a bit sore from the hike over the weekend. Can we do upper body instead?", timestamp: d1.addingTimeInterval(150)),
-        ChatMessage(id:"m7",  role:.trainer, content:"Smart call — listening to your body is part of the game. I'll slot in Upper Body Power today and shift legs to Wednesday when you'll be fully recovered. Your bench has been stuck at 225 — today we're going to attack that with heavy triples and back-off sets.", timestamp: d1.addingTimeInterval(210)),
-        ChatMessage(id:"m8",  role:.user,    content:"Let's do it. Also, I've been waking up at like 3am lately. Any idea why?", timestamp: d1.addingTimeInterval(270)),
-        ChatMessage(id:"m9",  role:.trainer, content:"I noticed that in your Oura data — you've had 3 wake-ups between 2–4am this week. A few things could cause this: cortisol spikes from late training, screen time before bed, or caffeine after 2pm. Your deep sleep is still decent but your awake time has crept up 40% this week. Try cutting screens 45 min before bed and see if it helps. I'll track the trend.", timestamp: d1.addingTimeInterval(330)),
-        ChatMessage(id:"m10", role:.user,    content:"Good catch. I have been scrolling before bed more lately.", timestamp: d1.addingTimeInterval(390)),
-        ChatMessage(id:"m11", role:.trainer, content:"There it is. Small habit, big impact on recovery. Your muscles literally rebuild during deep sleep — protecting that window is as important as the workout itself. I'll check in on this next week to see if the numbers improve.", timestamp: d1.addingTimeInterval(450)),
-        ChatMessage(id:"m12", role:.trainer, content:"Morning Akshith! Your deep sleep was solid last night — 1hr 42min. HRV is up 12% from yesterday. You're primed for a heavy session today. Ready to hit upper body?", timestamp: h1),
-        ChatMessage(id:"m13", role:.user,    content:"Yeah I'm feeling good today. What's the plan?", timestamp: h1.addingTimeInterval(100)),
+        ChatMessage(id:"m1",  role: MessageRole.trainer, content:"Hey Akshith, welcome to Forge. I'm your AI training partner. I've synced up with your Apple Watch and Oura Ring — already pulling in your biometrics. Let's build something serious together.", timestamp: d2),
+        ChatMessage(id:"m2",  role: MessageRole.user,    content:"Excited to get started. I've been training for about 2 years but feel like I've plateaued.", timestamp: d2.addingTimeInterval(60)),
+        ChatMessage(id:"m3",  role: MessageRole.trainer, content:"Plateaus are normal — and breakable. Your training history shows solid consistency but your programming might need periodization. I'll structure progressive overload cycles and track your recovery so we push at the right times. First things first: let's establish your baseline this week.", timestamp: d2.addingTimeInterval(120)),
+        ChatMessage(id:"m4",  role: MessageRole.user,    content:"Sounds good. What should I focus on today?", timestamp: d1.addingTimeInterval(30)),
+        ChatMessage(id:"m5",  role: MessageRole.trainer, content:"Yesterday was a rest day and your HRV bounced back nicely — 48ms up to 52ms. Deep sleep hit 1hr 42min which is solid for recovery. I'd say you're primed for a strength session. How about lower body? Your squat has been progressing well.", timestamp: d1.addingTimeInterval(90)),
+        ChatMessage(id:"m6",  role: MessageRole.user,    content:"Actually I'm a bit sore from the hike over the weekend. Can we do upper body instead?", timestamp: d1.addingTimeInterval(150)),
+        ChatMessage(id:"m7",  role: MessageRole.trainer, content:"Smart call — listening to your body is part of the game. I'll slot in Upper Body Power today and shift legs to Wednesday when you'll be fully recovered. Your bench has been stuck at 225 — today we're going to attack that with heavy triples and back-off sets.", timestamp: d1.addingTimeInterval(210)),
+        ChatMessage(id:"m8",  role: MessageRole.user,    content:"Let's do it. Also, I've been waking up at like 3am lately. Any idea why?", timestamp: d1.addingTimeInterval(270)),
+        ChatMessage(id:"m9",  role: MessageRole.trainer, content:"I noticed that in your Oura data — you've had 3 wake-ups between 2–4am this week. A few things could cause this: cortisol spikes from late training, screen time before bed, or caffeine after 2pm. Your deep sleep is still decent but your awake time has crept up 40% this week. Try cutting screens 45 min before bed and see if it helps. I'll track the trend.", timestamp: d1.addingTimeInterval(330)),
+        ChatMessage(id:"m10", role: MessageRole.user,    content:"Good catch. I have been scrolling before bed more lately.", timestamp: d1.addingTimeInterval(390)),
+        ChatMessage(id:"m11", role: MessageRole.trainer, content:"There it is. Small habit, big impact on recovery. Your muscles literally rebuild during deep sleep — protecting that window is as important as the workout itself. I'll check in on this next week to see if the numbers improve.", timestamp: d1.addingTimeInterval(450)),
+        ChatMessage(id:"m12", role: MessageRole.trainer, content:"Morning Akshith! Your deep sleep was solid last night — 1hr 42min. HRV is up 12% from yesterday. You're primed for a heavy session today. Ready to hit upper body?", timestamp: h1),
+        ChatMessage(id:"m13", role: MessageRole.user,    content:"Yeah I'm feeling good today. What's the plan?", timestamp: h1.addingTimeInterval(100)),
         ChatMessage(
-            id:"m14", role:.trainer,
+            id:"m14", role: MessageRole.trainer,
             content:"Love the energy. I've got an Upper Body Power session lined up — bench press, weighted pull-ups, OHP, rows. About 55 minutes, high intensity. Your recovery metrics say you can handle it. Want me to break down the full workout?",
             timestamp: h1.addingTimeInterval(200),
             richCard: RichCardData(
@@ -329,7 +365,7 @@ let mockChatMessages: [ChatMessage] = {
                 ]
             )
         ),
-        ChatMessage(id:"m15", role:.user, content:"Looks perfect. Let's go!", timestamp: h1.addingTimeInterval(300)),
+        ChatMessage(id:"m15", role: MessageRole.user, content:"Looks perfect. Let's go!", timestamp: h1.addingTimeInterval(300)),
     ]
 }()
 
@@ -351,16 +387,16 @@ let mockSleepData: [SleepData] = [
 ]
 
 let mockWorkoutHistory: [WorkoutHistory] = [
-    WorkoutHistory(id:"h1",  date:"2026-02-10", name:"Lower Body Strength",    type:.strength, duration:62, volume:18500, intensity:.high),
-    WorkoutHistory(id:"h2",  date:"2026-02-08", name:"HIIT Conditioning",       type:.hiit,     duration:30, volume:0,     intensity:.max),
-    WorkoutHistory(id:"h3",  date:"2026-02-07", name:"Upper Body Hypertrophy",  type:.strength, duration:58, volume:22400, intensity:.moderate),
-    WorkoutHistory(id:"h4",  date:"2026-02-05", name:"Full Body Power",          type:.strength, duration:65, volume:24000, intensity:.high),
-    WorkoutHistory(id:"h5",  date:"2026-02-03", name:"Cardio + Core",            type:.cardio,   duration:45, volume:0,     intensity:.moderate),
-    WorkoutHistory(id:"h6",  date:"2026-02-01", name:"Push Day",                 type:.strength, duration:52, volume:19800, intensity:.high),
-    WorkoutHistory(id:"h7",  date:"2026-01-31", name:"Pull Day",                 type:.strength, duration:55, volume:21000, intensity:.high),
-    WorkoutHistory(id:"h8",  date:"2026-01-29", name:"Leg Day",                  type:.strength, duration:60, volume:26500, intensity:.high),
-    WorkoutHistory(id:"h9",  date:"2026-01-28", name:"HIIT Sprint Intervals",    type:.hiit,     duration:25, volume:0,     intensity:.max),
-    WorkoutHistory(id:"h10", date:"2026-01-27", name:"Mobility & Recovery",      type:.mobility, duration:35, volume:0,     intensity:.low),
+    WorkoutHistory(id:"h1",  date:"2026-02-10", name:"Lower Body Strength",    type: WorkoutType.strength, duration:62, volume:18500, intensity: WorkoutIntensity.high),
+    WorkoutHistory(id:"h2",  date:"2026-02-08", name:"HIIT Conditioning",       type: WorkoutType.hiit,     duration:30, volume:0,     intensity: WorkoutIntensity.max),
+    WorkoutHistory(id:"h3",  date:"2026-02-07", name:"Upper Body Hypertrophy",  type: WorkoutType.strength, duration:58, volume:22400, intensity: WorkoutIntensity.moderate),
+    WorkoutHistory(id:"h4",  date:"2026-02-05", name:"Full Body Power",          type: WorkoutType.strength, duration:65, volume:24000, intensity: WorkoutIntensity.high),
+    WorkoutHistory(id:"h5",  date:"2026-02-03", name:"Cardio + Core",            type: WorkoutType.cardio,   duration:45, volume:0,     intensity: WorkoutIntensity.moderate),
+    WorkoutHistory(id:"h6",  date:"2026-02-01", name:"Push Day",                 type: WorkoutType.strength, duration:52, volume:19800, intensity: WorkoutIntensity.high),
+    WorkoutHistory(id:"h7",  date:"2026-01-31", name:"Pull Day",                 type: WorkoutType.strength, duration:55, volume:21000, intensity: WorkoutIntensity.high),
+    WorkoutHistory(id:"h8",  date:"2026-01-29", name:"Leg Day",                  type: WorkoutType.strength, duration:60, volume:26500, intensity: WorkoutIntensity.high),
+    WorkoutHistory(id:"h9",  date:"2026-01-28", name:"HIIT Sprint Intervals",    type: WorkoutType.hiit,     duration:25, volume:0,     intensity: WorkoutIntensity.max),
+    WorkoutHistory(id:"h10", date:"2026-01-27", name:"Mobility & Recovery",      type: WorkoutType.mobility, duration:35, volume:0,     intensity: WorkoutIntensity.low),
 ]
 
 let mockPersonalRecords: [PersonalRecord] = [

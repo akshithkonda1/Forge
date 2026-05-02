@@ -4,45 +4,90 @@ import SwiftUI
 
 struct ProfileTabView: View {
     @State private var subTab: SubTab = .progress
+    @Namespace private var tabAnimation
 
-    enum SubTab: String, CaseIterable { case progress = "Progress"; case settings = "Settings" }
+    enum SubTab: String, CaseIterable { 
+        case progress = "Progress"
+        case lifestyle = "Lifestyle"
+        case settings = "Settings"
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Sticky sub-tab bar
+            // Enhanced sticky sub-tab bar with matched geometry effect
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
                     ForEach(SubTab.allCases, id: \.self) { tab in
-                        Button(action: { withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { subTab = tab } }) {
+                        Button(action: { 
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { 
+                                subTab = tab 
+                            }
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        }) {
                             ZStack {
                                 if subTab == tab {
                                     RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.surfaceElevated)
+                                        .fill(Color.ember)
+                                        .matchedGeometryEffect(id: "tab", in: tabAnimation)
+                                        .shadow(color: Color.ember.opacity(0.3), radius: 8, y: 2)
                                 }
                                 Text(tab.rawValue)
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(subTab == tab ? .textPrimary : .textTertiary)
+                                    .font(.system(size: 14, weight: subTab == tab ? .semibold : .medium))
+                                    .foregroundColor(subTab == tab ? .white : .textTertiary)
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 36)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(4)
                 .background(Color.surface)
                 .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
             }
             .padding(.horizontal, 16)
             .padding(.top, 60)
             .padding(.bottom, 8)
-            .background(Color.background.opacity(0.9))
+            .background(
+                ZStack {
+                    Color.background.opacity(0.95)
+                    Rectangle()
+                        .fill(LinearGradient(
+                            colors: [Color.clear, Color.borderColor.opacity(0.1)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ))
+                        .frame(height: 1)
+                        .offset(y: 50)
+                }
+            )
 
-            // Content
-            if subTab == .progress {
-                ProgressPageView()
-            } else {
-                SettingsPageView()
+            // Content with transitions
+            Group {
+                switch subTab {
+                case .progress:
+                    ProgressPageView()
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        ))
+                case .lifestyle:
+                    LifestyleView()
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        ))
+                case .settings:
+                    SettingsPageView()
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        ))
+                }
             }
+            .id(subTab)
         }
         .background(Color.background.ignoresSafeArea())
     }
@@ -127,50 +172,99 @@ struct ProgressPageView: View {
 // MARK: - Monthly Summary (mirrors monthly-summary.tsx)
 
 struct MonthlySummaryView: View {
+    @State private var appeared = false
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top gradient accent bar
-            LinearGradient(colors: [.ember, .emberLight, .ember], startPoint: .leading, endPoint: .trailing)
-                .frame(height: 2)
+            // Top gradient accent bar with shimmer
+            ZStack {
+                LinearGradient(colors: [.ember, .emberLight, .ember], startPoint: .leading, endPoint: .trailing)
+                    .frame(height: 3)
+                
+                LinearGradient(colors: [.clear, .white.opacity(0.3), .clear], startPoint: .leading, endPoint: .trailing)
+                    .frame(height: 3)
+                    .offset(x: appeared ? 400 : -400)
+                    .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: appeared)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 1.5))
 
-            VStack(alignment: .leading, spacing: 16) {
-                Text("THIS MONTH")
-                    .font(.system(size: 11, weight: .medium))
+            VStack(alignment: .leading, spacing: 18) {
+                HStack {
+                    Text("THIS MONTH")
+                        .font(.system(size: 11, weight: .black))
+                        .foregroundColor(.ember)
+                        .tracking(2)
+                    
+                    Spacer()
+                    
+                    // Month indicator
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 10))
+                        Text("February")
+                            .font(.system(size: 11, weight: .medium))
+                    }
                     .foregroundColor(.textTertiary)
-                    .tracking(1.2)
+                }
 
                 HStack(spacing: 10) {
-                    StatPillCard(value: "18", label: "Workouts")
-                    StatPillCard(value: "3",  label: "New PRs")
-                    StatPillCard(value: "+22%", label: "Recovery")
+                    StatPillCard(value: "18", label: "Workouts", appeared: appeared, delay: 0.1)
+                    StatPillCard(value: "3", label: "New PRs", appeared: appeared, delay: 0.15)
+                    StatPillCard(value: "+22%", label: "Recovery", appeared: appeared, delay: 0.2)
                 }
 
                 Text("Strong month. You've been consistent with your Mon/Wed/Fri schedule and hit 3 new personal records. Recovery consistency improved 22% — your sleep habits are paying off.")
                     .font(.system(size: 14))
                     .foregroundColor(.textSecondary)
-                    .lineSpacing(3)
+                    .lineSpacing(5)
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 8)
+                    .animation(.easeOut(duration: 0.5).delay(0.3), value: appeared)
             }
             .padding(20)
         }
         .background(Color.surface)
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .cornerRadius(18)
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.ember.opacity(0.15), lineWidth: 1))
+        .shadow(color: Color.ember.opacity(0.08), radius: 20, y: 8)
+        .onAppear { appeared = true }
     }
 }
 
 struct StatPillCard: View {
     let value: String
     let label: String
+    var appeared: Bool = false
+    var delay: Double = 0
+    
     var body: some View {
-        VStack(spacing: 4) {
-            Text(value).font(.system(size: 20, weight: .bold)).foregroundColor(.textPrimary)
-            Text(label).font(.system(size: 11)).foregroundColor(.textSecondary).fixedSize()
+        VStack(spacing: 6) {
+            Text(value)
+                .font(.system(size: 22, weight: .black, design: .rounded))
+                .foregroundColor(.textPrimary)
+                .contentTransition(.numericText())
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.textSecondary)
+                .fixedSize()
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(Color.surfaceElevated)
+        .padding(.vertical, 14)
+        .background(
+            ZStack {
+                Color.surfaceElevated
+                LinearGradient(
+                    colors: [Color.ember.opacity(0.03), .clear],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        )
         .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
+        .scaleEffect(appeared ? 1 : 0.9)
+        .opacity(appeared ? 1 : 0)
+        .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(delay), value: appeared)
     }
 }
 
@@ -398,7 +492,7 @@ struct PersonalRecordsBoardView: View {
 struct WorkoutHistoryListView: View {
     @EnvironmentObject var store: AppStore
     @State private var searchText = ""
-    @State private var filterType: WorkoutType?
+    @State private var selectedFilterType: WorkoutType? = nil
     @State private var showFilters = false
     @State private var selectedWorkout: WorkoutHistory?
 
@@ -412,7 +506,7 @@ struct WorkoutHistoryListView: View {
     var filteredWorkouts: [WorkoutHistory] {
         var workouts = store.workoutHistory
         
-        if let filterType = filterType {
+        if let filterType = selectedFilterType {
             workouts = workouts.filter { $0.type == filterType }
         }
         
@@ -462,12 +556,12 @@ struct WorkoutHistoryListView: View {
                     // Type filters
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            FilterChip(title: "All", isSelected: filterType == nil) {
-                                filterType = nil
+                            FilterChip(title: "All", isSelected: selectedFilterType == nil) {
+                                selectedFilterType = nil
                             }
-                            ForEach(WorkoutType.allCases, id: \.self) { type in
-                                FilterChip(title: type.label, isSelected: filterType == type) {
-                                    filterType = type
+                            ForEach(Array(WorkoutType.allCases), id: \.self) { (type: WorkoutType) in
+                                FilterChip(title: type.label, isSelected: selectedFilterType == type) {
+                                    selectedFilterType = type
                                 }
                             }
                         }
@@ -1013,26 +1107,41 @@ struct ForgeToggle: View {
 
 struct TimeRangePicker: View {
     @Binding var selection: ProgressPageView.TimeRange
+    @Namespace private var pickerAnimation
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             ForEach(ProgressPageView.TimeRange.allCases, id: \.self) { range in
                 Button(action: {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                         selection = range
                     }
+                    UISelectionFeedbackGenerator().selectionChanged()
                 }) {
-                    Text(range.rawValue)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(selection == range ? .white : .textSecondary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(selection == range ? Color.ember : Color.surfaceElevated)
-                        .cornerRadius(8)
+                    ZStack {
+                        if selection == range {
+                            Capsule()
+                                .fill(Color.ember)
+                                .matchedGeometryEffect(id: "picker", in: pickerAnimation)
+                                .shadow(color: Color.ember.opacity(0.3), radius: 8, y: 2)
+                        }
+                        
+                        Text(range.rawValue)
+                            .font(.system(size: 13, weight: selection == range ? .semibold : .medium))
+                            .foregroundColor(selection == range ? .white : .textSecondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
         }
+        .padding(4)
+        .background(Color.surface)
+        .cornerRadius(100)
+        .overlay(Capsule().stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
     }
 }
 
@@ -1041,14 +1150,28 @@ struct QuickStatsOverviewView: View {
     @State private var appear = false
     
     var body: some View {
-        HStack(spacing: 12) {
-            QuickStatCard(icon: "figure.strengthtraining.traditional", value: "24", label: "Workouts", trend: "+12%", trendUp: true)
-            QuickStatCard(icon: "flame.fill", value: "18.5k", label: "Calories", trend: "+8%", trendUp: true)
-            QuickStatCard(icon: "timer", value: "42", label: "Avg Time", trend: "-5m", trendUp: false)
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "chart.bar.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.ember)
+                Text("OVERVIEW")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.textTertiary)
+                    .tracking(2)
+                Spacer()
+            }
+            .padding(.bottom, 14)
+            
+            HStack(spacing: 12) {
+                QuickStatCard(icon: "figure.strengthtraining.traditional", value: "24", label: "Workouts", trend: "+12%", trendUp: true, appeared: appear, delay: 0.1)
+                QuickStatCard(icon: "flame.fill", value: "18.5k", label: "Calories", trend: "+8%", trendUp: true, appeared: appear, delay: 0.15)
+                QuickStatCard(icon: "timer", value: "42", label: "Avg Time", trend: "-5m", trendUp: false, appeared: appear, delay: 0.2)
+            }
         }
-        .opacity(appear ? 1 : 0)
-        .offset(y: appear ? 0 : 10)
-        .onAppear { withAnimation(.easeOut(duration: 0.4)) { appear = true } }
+        .onAppear { 
+            withAnimation { appear = true }
+        }
     }
 }
 
@@ -1058,34 +1181,55 @@ struct QuickStatCard: View {
     let label: String
     let trend: String
     let trendUp: Bool
+    var appeared: Bool = false
+    var delay: Double = 0
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 16))
-                .foregroundColor(.ember)
-            
-            Text(value)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.textPrimary)
-            
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundColor(.textTertiary)
-            
-            HStack(spacing: 3) {
-                Image(systemName: trendUp ? "arrow.up.right" : "arrow.down.right")
-                    .font(.system(size: 9))
-                Text(trend)
-                    .font(.system(size: 10, weight: .medium))
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundColor(.ember)
+                Spacer()
+                HStack(spacing: 3) {
+                    Image(systemName: trendUp ? "arrow.up.right" : "arrow.down.right")
+                        .font(.system(size: 9, weight: .bold))
+                    Text(trend)
+                        .font(.system(size: 10, weight: .bold))
+                }
+                .foregroundColor(trendUp ? .success : .ember)
+                .padding(.horizontal, 7).padding(.vertical, 4)
+                .background((trendUp ? Color.success : Color.ember).opacity(0.12))
+                .cornerRadius(6)
             }
-            .foregroundColor(trendUp ? .success : .danger)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.system(size: 20, weight: .black, design: .rounded))
+                    .foregroundColor(.textPrimary)
+                
+                Text(label)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.textTertiary)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color.surface)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor, lineWidth: 1))
+        .padding(14)
+        .background(
+            ZStack {
+                Color.surface
+                LinearGradient(
+                    colors: [Color.ember.opacity(0.02), .clear],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        )
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
+        .scaleEffect(appeared ? 1 : 0.9)
+        .opacity(appeared ? 1 : 0)
+        .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(delay), value: appeared)
     }
 }
 
