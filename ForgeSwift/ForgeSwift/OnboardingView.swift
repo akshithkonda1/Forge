@@ -1,14 +1,6 @@
 import SwiftUI
 import AuthenticationServices
 
-// ╔════════════════════════════════════════════════════════════════╗
-// ║  FORGE ONBOARDING — Perfect Merged Version                    ║
-// ║  A's architecture: OnboardingProfile · toCoreProfile()        ║
-// ║     tempOnboardingProfile · DeviceCard · type-safe enums      ║
-// ║  B's polish: FDS.* tokens · forgePress · inner speculars      ║
-// ║     PulsingRingView · reduceMotion · level-specific colors     ║
-// ╚════════════════════════════════════════════════════════════════╝
-
 // MARK: - LinearGradient Extensions
 
 extension LinearGradient {
@@ -26,11 +18,7 @@ extension LinearGradient {
 
 enum AuthenticationState { case unauthenticated, authenticated }
 
-// ============================================================
-// MARK: - A's Architecture: Onboarding-specific type layer
-// ============================================================
-// These deliberately separate onboarding UI types from core
-// Models.swift types, enabling toCoreProfile() conversion.
+// MARK: - Onboarding-scoped enums (separate from core Models.swift types)
 
 enum OnboardingFitnessGoal: String, CaseIterable, Identifiable {
     case loseWeight, buildMuscle, improveEndurance, increaseFlexibility,
@@ -77,12 +65,18 @@ enum OnboardingWorkoutType: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .weightlifting: return "Weightlifting";  case .hiit:       return "HIIT"
-        case .running:       return "Running";         case .cycling:    return "Cycling"
-        case .yoga:          return "Yoga";            case .swimming:   return "Swimming"
-        case .boxing:        return "Boxing";          case .calisthenics: return "Calisthenics"
-        case .crossfit:      return "CrossFit";        case .pilates:    return "Pilates"
-        case .climbing:      return "Climbing";        case .martial_arts: return "Martial Arts"
+        case .weightlifting:  return "Weightlifting"
+        case .hiit:           return "HIIT"
+        case .running:        return "Running"
+        case .cycling:        return "Cycling"
+        case .yoga:           return "Yoga"
+        case .swimming:       return "Swimming"
+        case .boxing:         return "Boxing"
+        case .calisthenics:   return "Calisthenics"
+        case .crossfit:       return "CrossFit"
+        case .pilates:        return "Pilates"
+        case .climbing:       return "Climbing"
+        case .martial_arts:   return "Martial Arts"
         }
     }
     var coreType: WorkoutType {
@@ -97,64 +91,68 @@ enum OnboardingWorkoutType: String, CaseIterable, Identifiable {
 }
 
 enum OnboardingCoachingStyle: String, CaseIterable, Identifiable {
-    case drill_sergeant, balanced, supportive, scientist
+    case driven, balanced, supportive, scientist, elite
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .drill_sergeant: return "Drill Sergeant"
-        case .balanced:       return "Balanced"
-        case .supportive:     return "Supportive"
-        case .scientist:      return "The Scientist"
+        case .driven:    return "Driven"
+        case .balanced:  return "Balanced"
+        case .supportive: return "Supportive"
+        case .scientist: return "The Scientist"
+        case .elite:     return "Elite"
         }
     }
     var description: String {
         switch self {
-        case .drill_sergeant: return "No excuses. Intense accountability. ARIA pushes you past every limit."
-        case .balanced:       return "Science-backed intensity with room to breathe. Optimal for long-term results."
-        case .supportive:     return "Encouraging, patient coaching that celebrates every win, big or small."
-        case .scientist:      return "Data-first coaching with deep analytics and periodization theory."
+        case .driven:    return "No excuses. Intense accountability. ARIA pushes you past every limit."
+        case .balanced:  return "Science-backed intensity with room to breathe. Optimal for long-term results."
+        case .supportive: return "Encouraging, patient coaching that celebrates every win, big or small."
+        case .scientist: return "Data-first coaching with deep analytics and periodization theory."
+        case .elite:     return "Designed for high performers. Readiness, output, and adaptation — tracked."
         }
     }
     var icon: String {
         switch self {
-        case .drill_sergeant: return "bolt.fill"
-        case .balanced:       return "scale.3d"
-        case .supportive:     return "heart.fill"
-        case .scientist:      return "waveform.path.ecg"
+        case .driven:    return "bolt.fill"
+        case .balanced:  return "scale.3d"
+        case .supportive: return "heart.fill"
+        case .scientist: return "waveform.path.ecg"
+        case .elite:     return "crown.fill"
         }
     }
     var color: Color {
         switch self {
-        case .drill_sergeant: return .ember
-        case .balanced:       return .steel
-        case .supportive:     return Color(hex: "22C55E")
-        case .scientist:      return Color(hex: "A855F7")
+        case .driven:    return .ember
+        case .balanced:  return .steel
+        case .supportive: return Color(hex: "22C55E")
+        case .scientist: return Color(hex: "A855F7")
+        case .elite:     return Color(hex: "F59E0B")
         }
     }
     var coreStyle: CoachingStyle {
         switch self {
-        case .drill_sergeant: return .pushHard
-        case .balanced:       return .balanced
-        case .supportive:     return .patient
-        case .scientist:      return .dataDriven
+        case .driven:    return .pushHard
+        case .balanced:  return .balanced
+        case .supportive: return .patient
+        case .scientist: return .dataDriven
+        case .elite:     return .ultraElite
         }
     }
 }
 
-// MARK: - A's Architecture: OnboardingProfile staging model
+// MARK: - OnboardingProfile (staging model)
 
 struct OnboardingProfile {
-    var name:              String                    = ""
-    var birthday:          Date                      = Calendar.current.date(byAdding: .year, value: -25, to: Date()) ?? Date()
-    var gender:            Gender                    = .preferNotToSay
-    var heightCm:          Double                    = 170
-    var weightKg:          Double                    = 70
-    var fitnessGoals:      [OnboardingFitnessGoal]   = []
-    var experienceLevel:   ExperienceLevel           = .intermediate
-    var preferredWorkouts: [OnboardingWorkoutType]   = []
-    var coachingStyle:     OnboardingCoachingStyle   = .balanced
+    var name:              String                   = ""
+    var birthday:          Date                     = Calendar.current.date(byAdding: .year, value: -25, to: Date()) ?? Date()
+    var gender:            Gender                   = .preferNotToSay
+    var heightCm:          Double                   = 170
+    var weightKg:          Double                   = 70
+    var fitnessGoals:      [OnboardingFitnessGoal]  = []
+    var experienceLevel:   ExperienceLevel          = .intermediate
+    var preferredWorkouts: [OnboardingWorkoutType]  = []
+    var coachingStyle:     OnboardingCoachingStyle  = .balanced
 
-    /// Commit staged onboarding data to the core UserProfile
     func toCoreProfile() -> UserProfile {
         UserProfile(
             name:              name,
@@ -172,7 +170,7 @@ struct OnboardingProfile {
     }
 }
 
-// MARK: - A's Architecture: AppStore staging extension
+// MARK: - AppStore staging extension
 
 extension AppStore {
     private static var _tempOnboardingProfile: OnboardingProfile?
@@ -182,371 +180,1323 @@ extension AppStore {
     }
 }
 
-// MARK: - ForgeAmbientBackground
-
-struct ForgeAmbientBackground: View {
-    let step: Int
-    @State private var phase: Double = 0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    
-    var body: some View {
-        ZStack {
-            // Base gradient that shifts with each step
-            RadialGradient(
-                colors: gradientColors,
-                center: .center,
-                startRadius: 0,
-                endRadius: 600
-            )
-            .blur(radius: 80)
-            .opacity(0.3)
-            
-            // Animated secondary layer
-            if !reduceMotion {
-                RadialGradient(
-                    colors: [
-                        Color.ember.opacity(0.15),
-                        Color.ember.opacity(0.05),
-                        .clear
-                    ],
-                    center: UnitPoint(
-                        x: 0.5 + 0.3 * cos(phase),
-                        y: 0.5 + 0.3 * sin(phase)
-                    ),
-                    startRadius: 0,
-                    endRadius: 400
-                )
-                .blur(radius: 60)
-                .opacity(step >= 0 ? 0.4 : 0)
-            }
-        }
-        .onAppear {
-            if !reduceMotion {
-                withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
-                    phase = .pi * 2
-                }
-            }
-        }
-    }
-    
-    private var gradientColors: [Color] {
-        if step < 0 {
-            // Pre-auth state
-            return [
-                Color.ember.opacity(0.1),
-                Color(hex: "1A0800").opacity(0.3),
-                .clear
-            ]
-        }
-        
-        // Subtle color shifts per step
-        switch step {
-        case 0, 1: // Age & Profile
-            return [Color(hex: "FF6A00").opacity(0.08), Color(hex: "1A0800").opacity(0.2), .clear]
-        case 2, 3: // Metrics & Devices
-            return [Color.steel.opacity(0.12), Color(hex: "0A0A0A").opacity(0.3), .clear]
-        case 4, 5: // Goals & Experience
-            return [Color.ember.opacity(0.15), Color(hex: "1A0800").opacity(0.25), .clear]
-        case 6, 7: // Workouts & Coaching
-            return [Color.ember.opacity(0.18), Color(hex: "FF2200").opacity(0.08), .clear]
-        default:
-            return [Color.ember.opacity(0.1), .clear]
-        }
-    }
-}
-
-// MARK: - Age Gate Helpers
-
-private func calculateAge(from birthday: Date) -> Int {
-    Calendar.current.dateComponents([.year], from: birthday, to: Date()).year ?? 0
-}
-private var minimumBirthday: Date {
-    Calendar.current.date(byAdding: .year, value: -120, to: Date()) ?? Date()
-}
-
-// MARK: - Root Onboarding Container
+// MARK: - Root
 
 struct OnboardingView: View {
-    @EnvironmentObject var store: AppStore
-    @State private var authState:      AuthenticationState = .unauthenticated
-    @State private var step:           Int                 = 0
-    @State private var showAgeBlocked: Bool                = false
+    @EnvironmentObject private var store: AppStore
+    @State private var coordinator = OnboardingCoordinator()
 
     var body: some View {
+        @Bindable var coordinator = coordinator
+
         ZStack {
             Color.background.ignoresSafeArea()
-            ForgeAmbientBackground(step: authState == .authenticated ? step : -1)
+            ForgeAmbientBackground(step: coordinator.route.rawValue)
                 .ignoresSafeArea()
 
-            if showAgeBlocked {
-                AgeBlockedView()
-                    .transition(.asymmetric(
-                        insertion: AnyTransition.scale(scale: 0.94).combined(with: .opacity),
-                        removal:   .opacity
-                    ))
-            } else if authState == .unauthenticated {
-                AuthenticationScreen(onAuthenticated: {
-                    withAnimation(FDS.Spring.hero) { authState = .authenticated }
-                })
-                .transition(.asymmetric(
-                    insertion: .opacity,
-                    removal:   AnyTransition.scale(scale: 0.92).combined(with: .opacity)
-                ))
+            if coordinator.showAgeBlocked {
+                AgeBlockedView {
+                    coordinator.resetAfterAgeBlock()
+                }
+                .transition(.scale(scale: 0.96).combined(with: .opacity))
             } else {
-                OnboardingStepHost(
-                    step: $step,
-                    onFinish:     { store.isOnboarded = true },
-                    onAgeBlocked: {
-                        withAnimation(FDS.Spring.hero) { showAgeBlocked = true }
+                routeView(coordinator: coordinator)
+                    .id(coordinator.route)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
+            }
+
+            // Dev bypass — only compiled in debug builds
+            #if DEBUG
+            DevSkipButton(coordinator: coordinator)
+            #endif
+        }
+        .animation(FDS.Spring.page, value: coordinator.route)
+        .animation(FDS.Spring.hero, value: coordinator.showAgeBlocked)
+    }
+
+    @ViewBuilder
+    private func routeView(coordinator: OnboardingCoordinator) -> some View {
+        switch coordinator.route {
+        case .welcome:
+            WelcomeStage(coordinator: coordinator)
+        case .auth:
+            AuthStage(coordinator: coordinator)
+        case .profile:
+            ProfileMetricsStage(coordinator: coordinator)
+        case .health:
+            HealthConsentStage(coordinator: coordinator)
+        case .training:
+            TrainingPreferencesStage(coordinator: coordinator)
+        case .coach:
+            CoachRevealStage(coordinator: coordinator) {
+                coordinator.complete(in: store)
+            }
+        }
+    }
+}
+
+// MARK: - Dev Skip Button (DEBUG only)
+
+#if DEBUG
+private struct DevSkipButton: View {
+    var coordinator: OnboardingCoordinator
+    @EnvironmentObject private var store: AppStore
+    @State private var expanded = false
+
+    var body: some View {
+        VStack {
+            HStack {
+                Spacer()
+                if expanded {
+                    HStack(spacing: 8) {
+                        Button("Skip All →") {
+                            coordinator.devSkipToEnd(in: store)
+                        }
+                        .font(.caption.weight(.black))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.ember)
+                        .clipShape(Capsule())
+
+                        Button {
+                            withAnimation(FDS.Spring.snap) { expanded = false }
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.caption.weight(.bold))
+                                .foregroundColor(.textMuted)
+                                .frame(width: 28, height: 28)
+                                .background(Color.surface)
+                                .clipShape(Circle())
+                        }
                     }
-                )
-                .transition(.asymmetric(
-                    insertion: AnyTransition.scale(scale: 0.96).combined(with: .opacity),
-                    removal:   .opacity
-                ))
-            }
-        }
-        .animation(FDS.Spring.hero, value: authState == .authenticated)
-        .animation(FDS.Spring.hero, value: showAgeBlocked)
-    }
-}
-
-// MARK: - Step Host
-
-struct OnboardingStepHost: View {
-    @Binding var step: Int
-    @EnvironmentObject var store: AppStore
-    let onFinish:     () -> Void
-    let onAgeBlocked: () -> Void
-
-    private let totalSteps = 8
-
-    var body: some View {
-        Group {
-            switch step {
-            case 0: AgeAndBirthdayView(onNext: { birthday in
-                store.tempOnboardingProfile.birthday = birthday
-                calculateAge(from: birthday) < 13 ? onAgeBlocked() : advance()
-            })
-            case 1: ProfileSetupView(onNext:       { advance() })
-            case 2: BodyMetricsView(onNext:        { advance() })
-            case 3: DeviceConnectionView(onNext:   { advance() })
-            case 4: GoalsView(onNext:              { advance() })
-            case 5: ExperienceLevelView(onNext:    { advance() })
-            case 6: WorkoutTypesView(onNext:       { advance() })
-            case 7: CoachingStyleView(onFinish:    { onFinish() })
-            default: EmptyView()
-            }
-        }
-        .id(step)
-        .transition(.asymmetric(
-            insertion: AnyTransition.move(edge: .trailing).combined(with: .opacity),
-            removal:   AnyTransition.move(edge: .leading).combined(with: .opacity)
-        ))
-        .animation(FDS.Spring.page, value: step)
-    }
-
-    private func advance() {
-        FDS.haptic(.light)
-        withAnimation(FDS.Spring.page) { step += 1 }
-    }
-}
-
-// ============================================================
-// MARK: - Progress Header  (B polish on A skeleton)
-// ============================================================
-
-struct ForgeProgressHeader: View {
-    let currentStep: Int
-    let totalSteps:  Int
-    let onBack:      () -> Void
-    @State private var appeared = false
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 0) {
-            // Back button — B's forgePress + shadow
-            Button(action: { FDS.haptic(.light); onBack() }) {
-                ZStack {
-                    Circle()
-                        .fill(Color.surface)
-                        .frame(width: 38, height: 38)
-                        .overlay(Circle().stroke(Color.borderColor, lineWidth: 0.5))
-                        .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.textSecondary)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                } else {
+                    Button {
+                        withAnimation(FDS.Spring.snap) { expanded = true }
+                    } label: {
+                        Text("DEV")
+                            .font(.system(size: 9, weight: .black))
+                            .tracking(1.5)
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(Color.warning)
+                            .clipShape(Capsule())
+                    }
+                    .transition(.opacity)
                 }
             }
-            .opacity(currentStep > 0 ? 1 : 0)
-            .scaleEffect(currentStep > 0 ? 1 : 0.7)
-            .disabled(currentStep == 0)
-            .animation(FDS.Spring.snap, value: currentStep)
-            .forgePress()
-
+            .padding(.horizontal, FDS.Spacing.xl)
+            .padding(.top, 12)
             Spacer()
-
-            // Segmented pill progress — B's complete/active/inactive logic
-            HStack(spacing: 5) {
-                ForEach(0..<totalSteps, id: \.self) { i in
-                    let isActive   = i == currentStep
-                    let isComplete = i < currentStep
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(isActive || isComplete ? Color.ember : Color.white.opacity(0.10))
-                        .frame(width: isActive ? 26 : (isComplete ? 16 : 12), height: 3)
-                        .animation(FDS.Spring.standard, value: currentStep)
-                }
-            }
-
-            Spacer()
-
-            Text("\(currentStep + 1) / \(totalSteps)")
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundColor(.textMuted)
-                .frame(width: 38, alignment: .trailing)
         }
-        .padding(.horizontal, FDS.Spacing.lg)
-        .padding(.top, 56)
-        .padding(.bottom, 24)
-        .opacity(appeared ? 1 : 0)
-        .animation(.easeOut(duration: 0.3), value: appeared)
-        .onAppear { appeared = true }
+        .animation(FDS.Spring.snap, value: expanded)
     }
 }
+#endif
 
-// ============================================================
-// MARK: - Section Header  (B's animated rule + FDS tokens)
-// ============================================================
+// MARK: - Scaffold
 
-struct ForgeSectionHeader: View {
-    let eyebrow:     String
-    let title:       String
-    let subtitle:    String
-    var accentColor: Color = .ember
-    @State private var appeared = false
+private struct OnboardingScaffold<Content: View>: View {
+    @Bindable var coordinator: OnboardingCoordinator
+    let eyebrow: String
+    let title: String
+    let subtitle: String
+    let ctaTitle: String
+    let ctaIcon: String
+    let ctaEnabled: Bool
+    var secondaryTitle: String?
+    var secondaryAction: (() -> Void)?
+    let ctaAction: () -> Void
+    let content: Content
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 7) {
-                Rectangle()
-                    .fill(accentColor)
-                    .frame(width: appeared ? 18 : 0, height: 2)
-                    .animation(FDS.Spring.hero.delay(0.04), value: appeared)
-                Text(eyebrow.uppercased())
-                    .font(.system(size: 10, weight: .black))
-                    .tracking(3.2)
-                    .foregroundColor(accentColor)
-                    .opacity(appeared ? 1 : 0)
-                    .animation(FDS.Spring.hero.delay(0.06), value: appeared)
-            }
-            Text(title)
-                .font(.system(size: 38, weight: .black, design: .rounded))
-                .foregroundStyle(LinearGradient(
-                    colors: [.white, Color.white.opacity(0.78)],
-                    startPoint: .top, endPoint: .bottom
-                ))
-                .lineSpacing(1)
-                .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 16)
-                .animation(FDS.Spring.hero.delay(0.12), value: appeared)
-            Text(subtitle)
-                .font(.system(size: 15))
-                .foregroundColor(.textSecondary)
-                .lineSpacing(5)
-                .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 10)
-                .animation(FDS.Spring.hero.delay(0.20), value: appeared)
-        }
-        .onAppear { appeared = true }
+    init(
+        coordinator: OnboardingCoordinator,
+        eyebrow: String,
+        title: String,
+        subtitle: String,
+        ctaTitle: String,
+        ctaIcon: String,
+        ctaEnabled: Bool,
+        secondaryTitle: String? = nil,
+        secondaryAction: (() -> Void)? = nil,
+        ctaAction: @escaping () -> Void,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.coordinator = coordinator
+        self.eyebrow = eyebrow
+        self.title = title
+        self.subtitle = subtitle
+        self.ctaTitle = ctaTitle
+        self.ctaIcon = ctaIcon
+        self.ctaEnabled = ctaEnabled
+        self.secondaryTitle = secondaryTitle
+        self.secondaryAction = secondaryAction
+        self.ctaAction = ctaAction
+        self.content = content()
     }
-}
-
-// ============================================================
-// MARK: - CTA Button  (B's inner specular + double shadow)
-// ============================================================
-
-struct ForgeCtaButton: View {
-    let label:     String
-    let icon:      String
-    let isEnabled: Bool
-    let action:    () -> Void
-    @State private var pressed = false
 
     var body: some View {
         VStack(spacing: 0) {
+            OnboardingProgressBar(
+                currentStep: coordinator.currentStep,
+                totalSteps: coordinator.totalSteps,
+                title: coordinator.route.title,
+                canGoBack: coordinator.canGoBack,
+                onBack: coordinator.goBack
+            )
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 28) {
+                    ForgeSectionHeader(
+                        eyebrow: eyebrow,
+                        title: title,
+                        subtitle: subtitle
+                    )
+                    content
+                }
+                .padding(.horizontal, FDS.Spacing.xl)
+                .padding(.bottom, 128)
+                .frame(maxWidth: 680, alignment: .leading)
+                .frame(maxWidth: .infinity)
+            }
+
+            OnboardingBottomBar(
+                title: ctaTitle,
+                icon: ctaIcon,
+                isEnabled: ctaEnabled,
+                secondaryTitle: secondaryTitle,
+                secondaryAction: secondaryAction,
+                action: ctaAction
+            )
+        }
+        .background(Color.background)
+        .ignoresSafeArea(edges: .bottom)
+    }
+}
+
+private struct OnboardingProgressBar: View {
+    let currentStep: Int
+    let totalSteps: Int
+    let title: String
+    let canGoBack: Bool
+    let onBack: () -> Void
+
+    var body: some View {
+        HStack(spacing: 16) {
+            Button(action: onBack) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(canGoBack ? .textPrimary : .clear)
+                    .frame(width: 40, height: 40)
+                    .background(Color.surface.opacity(canGoBack ? 1 : 0))
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.borderColor.opacity(canGoBack ? 1 : 0), lineWidth: 0.5))
+            }
+            .disabled(!canGoBack)
+            .accessibilityLabel("Back")
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(title.uppercased())
+                        .font(.caption2.weight(.black))
+                        .tracking(2)
+                        .foregroundColor(.ember)
+                    Spacer()
+                    Text("\(currentStep)/\(totalSteps)")
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundColor(.textMuted)
+                }
+
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.white.opacity(0.08))
+                        Capsule()
+                            .fill(FDS.Gradient.ember)
+                            .frame(width: max(8, geo.size.width * CGFloat(currentStep) / CGFloat(totalSteps)))
+                            .animation(FDS.Spring.standard, value: currentStep)
+                    }
+                }
+                .frame(height: 4)
+            }
+        }
+        .padding(.horizontal, FDS.Spacing.xl)
+        .padding(.top, 56)
+        .padding(.bottom, 28)
+    }
+}
+
+private struct OnboardingBottomBar: View {
+    let title: String
+    let icon: String
+    let isEnabled: Bool
+    var secondaryTitle: String?
+    var secondaryAction: (() -> Void)?
+    let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pressed = false
+
+    var body: some View {
+        VStack(spacing: 12) {
             LinearGradient(
                 colors: [Color.background.opacity(0), Color.background],
-                startPoint: .top, endPoint: .bottom
+                startPoint: .top,
+                endPoint: .bottom
             )
-            .frame(height: 36)
+            .frame(height: 28)
             .allowsHitTesting(false)
 
-            Button(action: { guard isEnabled else { return }; FDS.haptic(.medium); action() }) {
+            Button {
+                guard isEnabled else { return }
+                FDS.haptic(.medium)
+                action()
+            } label: {
                 HStack(spacing: 10) {
-                    Text(label)
-                        .font(.system(size: 16, weight: .bold))
+                    Text(title)
+                        .font(.headline.weight(.bold))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.85)
+                        .minimumScaleFactor(0.78)
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.subheadline.weight(.bold))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .frame(height: 60)
-                .background(
-                    isEnabled
-                        ? AnyShapeStyle(FDS.Gradient.emberDeep)
-                        : AnyShapeStyle(Color.white.opacity(0.05))
-                )
-                .cornerRadius(FDS.Radius.lg)
+                .frame(minHeight: 58)
+                .background(isEnabled ? AnyShapeStyle(FDS.Gradient.emberDeep) : AnyShapeStyle(Color.white.opacity(0.06)))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: FDS.Radius.lg)
-                        .stroke(
-                            isEnabled ? Color.ember.opacity(0.2) : Color.white.opacity(0.07),
-                            lineWidth: 0.5
-                        )
+                    RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                        .stroke(isEnabled ? Color.ember.opacity(0.25) : Color.white.opacity(0.07), lineWidth: 0.7)
                 )
-                // B's inner top specular
                 .overlay(alignment: .top) {
-                    if isEnabled {
-                        RoundedRectangle(cornerRadius: FDS.Radius.lg)
-                            .fill(LinearGradient(
-                                colors: [Color.white.opacity(0.12), .clear],
-                                startPoint: .top, endPoint: .center
-                            ))
-                            .frame(height: 30)
-                    }
+                    RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                        .fill(LinearGradient(
+                            colors: [Color.white.opacity(isEnabled ? 0.12 : 0.04), .clear],
+                            startPoint: .top,
+                            endPoint: .center
+                        ))
+                        .frame(height: 28)
                 }
-                // B's double ember shadow
-                .shadow(color: isEnabled ? Color.ember.opacity(0.50) : .clear, radius: 22, y: 8)
-                .shadow(color: isEnabled ? Color.ember.opacity(0.22) : .clear, radius: 44, y: 16)
-                .scaleEffect(pressed ? 0.97 : 1.0)
-                .animation(FDS.Spring.snap, value: pressed)
+                .shadow(color: isEnabled ? Color.ember.opacity(0.30) : .clear, radius: reduceMotion ? 0 : 22, y: 8)
+                .shadow(color: isEnabled ? Color.ember.opacity(0.14) : .clear, radius: reduceMotion ? 0 : 44, y: 16)
+                .scaleEffect(pressed ? 0.98 : 1)
             }
             .disabled(!isEnabled)
+            .buttonStyle(.plain)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
-                    .onChanged { _ in pressed = true  }
-                    .onEnded   { _ in pressed = false }
+                    .onChanged { _ in pressed = true }
+                    .onEnded { _ in pressed = false }
             )
-            .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.bottom, 44)
+            .animation(FDS.Spring.snap, value: pressed)
             .animation(FDS.Spring.standard, value: isEnabled)
+
+            if let secondaryTitle, let secondaryAction {
+                Button(action: secondaryAction) {
+                    Text(secondaryTitle)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 38)
+                }
+                .buttonStyle(.plain)
+            }
         }
+        .padding(.horizontal, FDS.Spacing.xl)
+        .padding(.bottom, 34)
         .background(Color.background)
     }
 }
 
-// ============================================================
-// MARK: - Age Blocked  (A's shake, COPPA note, red tint)
-// ============================================================
+// MARK: - Stage 1: Welcome + Age Gate
 
-struct AgeBlockedView: View {
-    @State private var appeared     = false
+private var minimumBirthday: Date {
+    Calendar.current.date(byAdding: .year, value: -120, to: Date()) ?? Date()
+}
+
+private struct WelcomeStage: View {
+    @Bindable var coordinator: OnboardingCoordinator
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulse = false
+
+    private var ageStatus: String {
+        coordinator.isUnderage ? "Must be 13 or older" : "\(coordinator.age) years old"
+    }
+
+    var body: some View {
+        OnboardingScaffold(
+            coordinator: coordinator,
+            eyebrow: "FORGE",
+            title: "Build the version of you that keeps showing up.",
+            subtitle: "First, confirm your age. Then ARIA will shape your plan from your goals, body metrics, and recovery data.",
+            ctaTitle: coordinator.isUnderage ? "Age requirement not met" : "Begin setup",
+            ctaIcon: coordinator.isUnderage ? "lock.fill" : "arrow.right",
+            ctaEnabled: !coordinator.isUnderage,
+            ctaAction: coordinator.continueFromWelcome
+        ) {
+            VStack(spacing: 22) {
+                ZStack {
+                    if !reduceMotion {
+                        PulsingRingView(index: 0, color: .ember, isAnimating: pulse)
+                        PulsingRingView(index: 1, color: .ember, isAnimating: pulse)
+                    }
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 78, weight: .black))
+                        .foregroundStyle(LinearGradient(
+                            colors: [.white, .emberLight, .ember],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ))
+                        .shadow(color: Color.ember.opacity(0.42), radius: 30, y: 8)
+                        .accessibilityHidden(true)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 190)
+
+                VStack(spacing: 0) {
+                    HStack {
+                        Label("Date of Birth", systemImage: "birthday.cake.fill")
+                            .font(.caption.weight(.bold))
+                            .tracking(1.3)
+                            .textCase(.uppercase)
+                            .foregroundColor(.textMuted)
+                        Spacer()
+                        Text(ageStatus)
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(coordinator.isUnderage ? .danger : .success)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 18)
+                    .padding(.bottom, 10)
+
+                    Divider().overlay(Color.white.opacity(0.08))
+
+                    DatePicker(
+                        "Date of Birth",
+                        selection: $coordinator.profile.birthday,
+                        in: minimumBirthday...Date(),
+                        displayedComponents: [.date]
+                    )
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
+                    .colorScheme(.dark)
+                    .tint(.ember)
+                    .padding(.vertical, 4)
+                    .accessibilityHint("FORGE uses this for age eligibility and fitness calculations.")
+
+                    Divider().overlay(Color.white.opacity(0.08))
+
+                    // Age milestone tracker
+                    HStack(spacing: 0) {
+                        ForEach(Array([13, 18, 25, 40, 65].enumerated()), id: \.offset) { _, milestone in
+                            let reached = coordinator.age >= milestone
+                            VStack(spacing: 4) {
+                                Circle()
+                                    .fill(reached ? Color.ember : Color.white.opacity(0.1))
+                                    .frame(width: 8, height: 8)
+                                    .overlay(Circle().stroke(reached ? Color.ember.opacity(0.4) : .clear, lineWidth: 4))
+                                Text(milestone == 65 ? "65+" : "\(milestone)")
+                                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                                    .foregroundColor(reached ? .ember : .textMuted)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .animation(FDS.Spring.snap, value: coordinator.age)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+
+                    Divider().overlay(Color.white.opacity(0.08))
+
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "lock.shield.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(.textMuted)
+                        Text("Your birthday stays in your profile and is used for eligibility and training calculations.")
+                            .font(.footnote)
+                            .foregroundColor(.textMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(18)
+                }
+                .background(Color.surface)
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                        .stroke(coordinator.isUnderage ? Color.danger.opacity(0.45) : Color.borderColor, lineWidth: 1)
+                )
+
+                if coordinator.isUnderage {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 13))
+                            .foregroundColor(.warning)
+                        Text("Users must be 13 or older to use FORGE.")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.warning)
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 12)
+                    .background(Color.warning.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous)
+                        .stroke(Color.warning.opacity(0.2), lineWidth: 1))
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        removal: .opacity
+                    ))
+                }
+
+                ARIACoachCard(
+                    title: "ARIA setup starts clean",
+                    message: "Once your age is confirmed, we will only ask for details that change your training plan.",
+                    accent: .ember,
+                    icon: "sparkles"
+                )
+            }
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeOut(duration: 2.4).repeatForever(autoreverses: false)) {
+                    pulse = true
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Stage 2: Auth
+
+private struct AuthStage: View {
+    @Bindable var coordinator: OnboardingCoordinator
+    @State private var selectedProvider: AuthProvider?
+
+    var body: some View {
+        OnboardingScaffold(
+            coordinator: coordinator,
+            eyebrow: "Account",
+            title: "Save the plan ARIA builds for you.",
+            subtitle: "Sign in with Apple to secure your profile. Google and email slots are ready and will unlock when the production auth backend is connected.",
+            ctaTitle: "Use Sign in with Apple below",
+            ctaIcon: "apple.logo",
+            ctaEnabled: false,
+            ctaAction: {}
+        ) {
+            VStack(spacing: 16) {
+                SignInWithAppleButton(.signUp) { request in
+                    request.requestedScopes = [.fullName, .email]
+                } onCompletion: { result in
+                    if case .success = result {
+                        coordinator.markAuthenticated()
+                    }
+                }
+                .signInWithAppleButtonStyle(.white)
+                .frame(height: 58)
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+                .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
+
+                ProviderSlotButton(
+                    icon: "globe",
+                    title: "Continue with Google",
+                    subtitle: "Provider slot ready",
+                    state: "Connect backend",
+                    action: { selectedProvider = .google }
+                )
+
+                ProviderSlotButton(
+                    icon: "envelope.fill",
+                    title: "Continue with Email",
+                    subtitle: "Production form prepared",
+                    state: "Connect backend",
+                    action: { selectedProvider = .email }
+                )
+
+                ARIACoachCard(
+                    title: "No fake sign-ins",
+                    message: "These options stay visible so the screen is production-shaped, but they will not authenticate until the real providers are wired.",
+                    accent: .steel,
+                    icon: "checkmark.shield.fill"
+                )
+
+                // Debug-only direct bypass on the auth screen itself
+                #if DEBUG
+                Button {
+                    coordinator.markAuthenticated()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "chevron.right.2")
+                            .font(.caption.weight(.black))
+                        Text("Dev: Skip Auth")
+                            .font(.caption.weight(.bold))
+                    }
+                    .foregroundColor(.textMuted)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+                    .background(Color.surface.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                            .stroke(Color.borderColor.opacity(0.5), lineWidth: 0.7)
+                    )
+                }
+                .buttonStyle(.plain)
+                #endif
+            }
+        }
+        .sheet(item: $selectedProvider) { provider in
+            AuthProviderPreparationSheet(provider: provider)
+        }
+    }
+}
+
+private enum AuthProvider: String, Identifiable {
+    case google, email
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .google: return "Google Sign-In"
+        case .email:  return "Email Sign-In"
+        }
+    }
+}
+
+private struct ProviderSlotButton: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let state: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.headline.weight(.bold))
+                    .foregroundColor(.textPrimary)
+                    .frame(width: 42, height: 42)
+                    .background(Color.surfaceElevated)
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundColor(.textPrimary)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundColor(.textTertiary)
+                }
+
+                Spacer()
+
+                Text(state)
+                    .font(.caption2.weight(.black))
+                    .tracking(0.8)
+                    .foregroundColor(.warning)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.warning.opacity(0.10))
+                    .clipShape(Capsule())
+            }
+            .padding(14)
+            .background(Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                    .stroke(Color.borderColor, lineWidth: 0.7)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("This provider is prepared but does not sign in until backend wiring is complete.")
+    }
+}
+
+private struct AuthProviderPreparationSheet: View {
+    let provider: AuthProvider
+    @Environment(\.dismiss) private var dismiss
+    @State private var email = ""
+    @State private var password = ""
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.background.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        ForgeSectionHeader(
+                            eyebrow: "Provider Slot",
+                            title: provider.title,
+                            subtitle: "This screen is ready for production wiring. Authentication is intentionally blocked until the provider backend is connected."
+                        )
+
+                        if provider == .email {
+                            VStack(spacing: 12) {
+                                ForgeTextField(placeholder: "Email", text: $email, icon: "envelope.fill", keyboardType: .emailAddress)
+                                ForgeTextField(placeholder: "Password", text: $password, icon: "lock.fill", isSecure: true)
+                            }
+                        }
+
+                        ARIACoachCard(
+                            title: "Implementation checkpoint",
+                            message: "Wire this action to the real auth provider, then route success back into onboarding.",
+                            accent: .warning,
+                            icon: "wrench.adjustable.fill"
+                        )
+                    }
+                    .padding(FDS.Spacing.xl)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close") { dismiss() }
+                        .foregroundColor(.textSecondary)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Stage 3: Profile + Metrics
+
+private struct ProfileMetricsStage: View {
+    @Bindable var coordinator: OnboardingCoordinator
+    @State private var useImperial = false
+
+    private var heightDisplay: String {
+        if useImperial {
+            let inches = Int(coordinator.profile.heightCm / 2.54)
+            return "\(inches / 12)' \(inches % 12)\""
+        }
+        return "\(Int(coordinator.profile.heightCm)) cm"
+    }
+
+    private var weightDisplay: String {
+        useImperial ? "\(Int(coordinator.profile.weightKg * 2.20462)) lb" : "\(Int(coordinator.profile.weightKg)) kg"
+    }
+
+    private var bmi: Double { coordinator.profile.weightKg / pow(coordinator.profile.heightCm / 100, 2) }
+    private var bmiCategory: (label: String, color: Color) {
+        switch bmi {
+        case ..<18.5: return ("Underweight", .warning)
+        case 18.5..<25: return ("Healthy", .success)
+        case 25..<30:   return ("Overweight", .warning)
+        default:        return ("Obese", .danger)
+        }
+    }
+
+    var body: some View {
+        OnboardingScaffold(
+            coordinator: coordinator,
+            eyebrow: "Profile",
+            title: "Give ARIA the calibration points.",
+            subtitle: "Name, identity, height, and weight tune intensity, calorie estimates, and coaching language.",
+            ctaTitle: coordinator.profileCanContinue ? "Save profile" : "Enter your name",
+            ctaIcon: "arrow.right",
+            ctaEnabled: coordinator.profileCanContinue,
+            ctaAction: coordinator.continueFromProfile
+        ) {
+            VStack(spacing: 18) {
+                ForgeTextField(
+                    placeholder: "Preferred name",
+                    text: $coordinator.profile.name,
+                    icon: "person.fill"
+                )
+
+                if !coordinator.profile.trimmedName.isEmpty {
+                    Text("Hey, \(coordinator.profile.trimmedName) 👋")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.ember)
+                        .padding(.leading, 4)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+
+                VStack(spacing: 10) {
+                    ForEach(Gender.allCases) { gender in
+                        GenderSelectionCard(
+                            gender: gender,
+                            isSelected: coordinator.profile.gender == gender,
+                            action: { coordinator.profile.gender = gender }
+                        )
+                    }
+                }
+
+                HStack {
+                    Spacer()
+                    UnitToggle(useImperial: $useImperial)
+                }
+
+                MetricSliderCard(
+                    title: "Height",
+                    icon: "ruler.fill",
+                    displayValue: heightDisplay,
+                    sliderValue: $coordinator.profile.heightCm,
+                    range: 120...220,
+                    step: 1
+                )
+
+                MetricSliderCard(
+                    title: "Weight",
+                    icon: "scalemass.fill",
+                    displayValue: weightDisplay,
+                    sliderValue: $coordinator.profile.weightKg,
+                    range: 35...220,
+                    step: 0.5
+                )
+
+                // BMI readout
+                HStack(spacing: 14) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("BMI")
+                            .font(.system(size: 11, weight: .bold)).tracking(1.5)
+                            .foregroundColor(.textMuted).textCase(.uppercase)
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(String(format: "%.1f", bmi))
+                                .font(.system(size: 28, weight: .black, design: .monospaced))
+                                .foregroundColor(.textPrimary)
+                                .contentTransition(.numericText())
+                            Text(bmiCategory.label)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(bmiCategory.color)
+                        }
+                    }
+                    Spacer()
+                    HStack(spacing: 2) {
+                        ForEach(0..<4, id: \.self) { i in
+                            let cols: [Color] = [.steel, .success, .warning, .danger]
+                            let active = (i == 0 && bmi < 18.5) || (i == 1 && bmi >= 18.5 && bmi < 25)
+                                || (i == 2 && bmi >= 25 && bmi < 30) || (i == 3 && bmi >= 30)
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(cols[i].opacity(active ? 1 : 0.25))
+                                .frame(width: 32, height: active ? 8 : 4)
+                                .animation(FDS.Spring.standard, value: bmi)
+                        }
+                    }
+                }
+                .padding(.horizontal, 20).padding(.vertical, 18)
+                .background(Color.surface)
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                    .stroke(Color.borderColor, lineWidth: 0.5))
+                .animation(FDS.Spring.standard, value: bmi)
+
+                if coordinator.hasHealthData {
+                    HealthPrefillSummary(coordinator: coordinator)
+                } else {
+                    ARIACoachCard(
+                        title: "Manual is perfectly fine",
+                        message: "HealthKit on the next screen can prefill and improve this, but your manual profile is enough to begin.",
+                        accent: .steel,
+                        icon: "slider.horizontal.3"
+                    )
+                }
+            }
+            .task {
+                await coordinator.refreshHealthPrefillIfAvailable()
+            }
+        }
+    }
+}
+
+private struct UnitToggle: View {
+    @Binding var useImperial: Bool
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach([false, true], id: \.self) { imperial in
+                Button {
+                    FDS.selectionHaptic()
+                    withAnimation(FDS.Spring.snap) { useImperial = imperial }
+                } label: {
+                    Text(imperial ? "Imperial" : "Metric")
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(useImperial == imperial ? .white : .textMuted)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(useImperial == imperial ? Color.ember : .clear)
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+            .stroke(Color.borderColor, lineWidth: 0.7))
+    }
+}
+
+private struct HealthPrefillSummary: View {
+    @Bindable var coordinator: OnboardingCoordinator
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("HealthKit prefill applied", systemImage: "heart.text.square.fill")
+                .font(.subheadline.weight(.bold))
+                .foregroundColor(.success)
+
+            if let profile = coordinator.healthProfile {
+                VStack(spacing: 8) {
+                    if let height = profile.heightCm {
+                        HealthDataRow(label: "Height", value: "\(Int(height)) cm", icon: "ruler")
+                    }
+                    if let weight = profile.weightKg {
+                        HealthDataRow(label: "Weight", value: "\(Int(weight)) kg", icon: "scalemass")
+                    }
+                    if let vo2 = profile.vo2Max {
+                        HealthDataRow(label: "VO2 Max", value: String(format: "%.0f", vo2), icon: "lungs.fill")
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.success.opacity(0.07))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+            .stroke(Color.success.opacity(0.26), lineWidth: 1))
+    }
+}
+
+// MARK: - Stage 4: Health Consent
+
+private struct HealthConsentStage: View {
+    @Bindable var coordinator: OnboardingCoordinator
+
+    var body: some View {
+        OnboardingScaffold(
+            coordinator: coordinator,
+            eyebrow: "Health",
+            title: "Let recovery shape the work.",
+            subtitle: "HealthKit helps ARIA adapt around heart rate, sleep, activity, and recent workouts. You can skip this and connect later.",
+            ctaTitle: ctaTitle,
+            ctaIcon: "arrow.right",
+            ctaEnabled: ctaEnabled,
+            secondaryTitle: secondaryTitle,
+            secondaryAction: secondaryAction,
+            ctaAction: { coordinator.continueFromHealth() }
+        ) {
+            VStack(spacing: 18) {
+                HealthPermissionCard(coordinator: coordinator)
+
+                if let snapshot = coordinator.healthSnapshot {
+                    HealthDataPreviewCard(snapshot: snapshot)
+                }
+
+                WearableInfoGrid()
+
+                ARIACoachCard(
+                    title: "Why this matters",
+                    message: "Readiness data lets ARIA reduce volume when recovery is low and push performance when your body is prepared.",
+                    accent: .ember,
+                    icon: "waveform.path.ecg"
+                )
+            }
+        }
+    }
+
+    private var ctaTitle: String {
+        switch coordinator.healthKitState {
+        case .authorized:            return "Continue with HealthKit"
+        case .denied:                return "Continue without HealthKit"
+        case .unavailable:           return "Continue"
+        case .unknown, .requesting:  return "Connect HealthKit first"
+        }
+    }
+
+    private var ctaEnabled: Bool {
+        switch coordinator.healthKitState {
+        case .authorized, .denied, .unavailable: return true
+        case .unknown, .requesting:              return false
+        }
+    }
+
+    private var secondaryTitle: String? {
+        coordinator.healthKitState == .authorized ? nil : "Skip HealthKit for now"
+    }
+
+    private var secondaryAction: (() -> Void)? {
+        guard coordinator.healthKitState != .authorized else { return nil }
+        return { coordinator.skipHealthKit() }
+    }
+}
+
+private struct HealthPermissionCard: View {
+    @Bindable var coordinator: OnboardingCoordinator
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.title2.weight(.bold))
+                    .foregroundColor(color)
+                    .frame(width: 54, height: 54)
+                    .background(color.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("HealthKit")
+                        .font(.headline.weight(.bold))
+                        .foregroundColor(.textPrimary)
+                    Text(statusText)
+                        .font(.subheadline)
+                        .foregroundColor(.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+            }
+
+            Button {
+                Task { await coordinator.requestHealthKit() }
+            } label: {
+                HStack(spacing: 8) {
+                    if coordinator.healthKitState == .requesting {
+                        ProgressView().tint(.white)
+                    } else {
+                        Image(systemName: "heart.text.square.fill")
+                    }
+                    Text(buttonTitle)
+                        .font(.subheadline.weight(.bold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background(buttonEnabled ? AnyShapeStyle(FDS.Gradient.ember) : AnyShapeStyle(Color.white.opacity(0.08)))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+            }
+            .disabled(!buttonEnabled)
+            .buttonStyle(.plain)
+        }
+        .padding(18)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+            .stroke(color.opacity(0.28), lineWidth: 1))
+    }
+
+    private var icon: String {
+        switch coordinator.healthKitState {
+        case .authorized:           return "checkmark.seal.fill"
+        case .denied, .unavailable: return "exclamationmark.triangle.fill"
+        case .unknown, .requesting: return "heart.text.square.fill"
+        }
+    }
+
+    private var color: Color {
+        switch coordinator.healthKitState {
+        case .authorized:           return .success
+        case .denied, .unavailable: return .warning
+        case .unknown, .requesting: return .ember
+        }
+    }
+
+    private var statusText: String {
+        switch coordinator.healthKitState {
+        case .unknown:    return "Optional, private, and used only to personalize your plan."
+        case .requesting: return "Waiting for HealthKit authorization."
+        case .authorized: return "Connected. ARIA can use recovery and activity signals."
+        case .denied:     return "Not connected. You can continue and enable this later."
+        case .unavailable: return "Health data is unavailable on this device."
+        }
+    }
+
+    private var buttonTitle: String {
+        switch coordinator.healthKitState {
+        case .authorized:  return "Connected"
+        case .requesting:  return "Requesting Access"
+        case .denied:      return "Try Again in Settings"
+        case .unavailable: return "Unavailable"
+        case .unknown:     return "Connect HealthKit"
+        }
+    }
+
+    private var buttonEnabled: Bool {
+        coordinator.healthKitState == .unknown
+    }
+}
+
+private struct WearableInfoGrid: View {
+    private let wearables: [(String, String, String)] = [
+        ("Apple Watch",  "applewatch",          "HealthKit syncs workouts, heart rate, and activity."),
+        ("Oura Ring",    "circle.circle.fill",   "Sleep and recovery can flow through HealthKit."),
+        ("WHOOP",        "waveform.path.ecg",    "Connect later when provider support is live."),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Wearables")
+                .font(.caption.weight(.black))
+                .tracking(1.4)
+                .foregroundColor(.textMuted)
+                .textCase(.uppercase)
+
+            VStack(spacing: 10) {
+                ForEach(wearables, id: \.0) { item in
+                    HStack(spacing: 12) {
+                        Image(systemName: item.1)
+                            .foregroundColor(.steel)
+                            .frame(width: 34, height: 34)
+                            .background(Color.steel.opacity(0.10))
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.0)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(.textPrimary)
+                            Text(item.2)
+                                .font(.caption)
+                                .foregroundColor(.textTertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Color.surface.opacity(0.55))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Stage 5: Training Preferences
+
+private struct TrainingPreferencesStage: View {
+    @Bindable var coordinator: OnboardingCoordinator
+
+    var body: some View {
+        OnboardingScaffold(
+            coordinator: coordinator,
+            eyebrow: "Training",
+            title: "Shape the program around real life.",
+            subtitle: "Choose your targets, your training language, and what you actually like doing. ARIA will build around both ambition and adherence.",
+            ctaTitle: coordinator.trainingCanContinue ? "Build my plan" : "Choose goals and training",
+            ctaIcon: "arrow.right",
+            ctaEnabled: coordinator.trainingCanContinue,
+            ctaAction: coordinator.continueFromTraining
+        ) {
+            VStack(alignment: .leading, spacing: 28) {
+                PreferenceSection(title: "Goals", subtitle: "Pick every outcome that matters.") {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 142), spacing: 12)], spacing: 12) {
+                        ForEach(OnboardingFitnessGoal.allCases) { goal in
+                            GoalCard(
+                                goal: goal,
+                                isSelected: coordinator.profile.fitnessGoals.contains(goal),
+                                action: { coordinator.toggleGoal(goal) }
+                            )
+                        }
+                    }
+                }
+
+                PreferenceSection(title: "Experience", subtitle: "This controls starting intensity.") {
+                    VStack(spacing: 10) {
+                        ForEach(ExperienceLevel.allCases) { level in
+                            ExperienceLevelButton(
+                                level: level,
+                                isSelected: coordinator.profile.experienceLevel == level,
+                                action: { coordinator.profile.experienceLevel = level }
+                            )
+                        }
+                    }
+                }
+
+                PreferenceSection(title: "Training You Enjoy", subtitle: "Sustainable beats perfect.") {
+                    OnboardingFlowLayout(spacing: 10) {
+                        ForEach(OnboardingWorkoutType.allCases) { workout in
+                            TogglePill(
+                                label: workout.label,
+                                isSelected: coordinator.profile.preferredWorkouts.contains(workout),
+                                onTap: { coordinator.toggleWorkout(workout) }
+                            )
+                        }
+                    }
+                }
+
+                ARIACoachCard(
+                    title: trainingSummaryTitle,
+                    message: trainingSummaryMessage,
+                    accent: .ember,
+                    icon: "brain.head.profile"
+                )
+            }
+        }
+    }
+
+    private var trainingSummaryTitle: String {
+        coordinator.profile.fitnessGoals.isEmpty ? "ARIA is listening" : "ARIA has enough signal"
+    }
+
+    private var trainingSummaryMessage: String {
+        if coordinator.profile.fitnessGoals.isEmpty {
+            return "Select at least one goal and one training style so your first plan feels specific."
+        }
+        let goal = coordinator.profile.fitnessGoals.first?.label ?? "your goal"
+        let level = coordinator.profile.experienceLevel.label.lowercased()
+        return "Starting as \(level), your first block will prioritize \(goal.lowercased()) while keeping recovery visible."
+    }
+}
+
+private struct PreferenceSection<Content: View>: View {
+    let title: String
+    let subtitle: String
+    let content: Content
+
+    init(title: String, subtitle: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.subtitle = subtitle
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.title3.weight(.bold))
+                    .foregroundColor(.textPrimary)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundColor(.textTertiary)
+            }
+            content
+        }
+    }
+}
+
+// MARK: - Stage 6: Coach Reveal
+
+private struct CoachRevealStage: View {
+    @Bindable var coordinator: OnboardingCoordinator
+    let onFinish: () -> Void
+
+    var body: some View {
+        OnboardingScaffold(
+            coordinator: coordinator,
+            eyebrow: "ARIA",
+            title: "Choose the voice that keeps you moving.",
+            subtitle: "This shapes every check-in, plan adjustment, and recovery nudge.",
+            ctaTitle: coordinator.isCompleting ? "Launching ARIA…" : "Start training with ARIA",
+            ctaIcon: "flame.fill",
+            ctaEnabled: !coordinator.isCompleting,
+            ctaAction: onFinish
+        ) {
+            VStack(spacing: 18) {
+                VStack(spacing: 12) {
+                    ForEach(OnboardingCoachingStyle.allCases) { style in
+                        CoachingStyleCard(
+                            style: style,
+                            isSelected: coordinator.profile.coachingStyle == style,
+                            action: { coordinator.profile.coachingStyle = style }
+                        )
+                    }
+                }
+
+                PlanRevealCard(coordinator: coordinator)
+            }
+        }
+    }
+}
+
+private struct PlanRevealCard: View {
+    @Bindable var coordinator: OnboardingCoordinator
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(FDS.Gradient.ember)
+                    .frame(width: 34, height: 34)
+                    .overlay(
+                        Text("A")
+                            .font(.caption.weight(.black))
+                            .foregroundColor(.white)
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("ARIA Preview")
+                        .font(.caption.weight(.black))
+                        .tracking(1.2)
+                        .foregroundColor(.textMuted)
+                    Text(coordinator.profile.coachingStyle.label)
+                        .font(.headline.weight(.bold))
+                        .foregroundColor(coordinator.profile.coachingStyle.color)
+                }
+            }
+
+            Text(previewMessage)
+                .font(.body)
+                .foregroundColor(.textSecondary)
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                SummaryPill(icon: "target", label: coordinator.profile.fitnessGoals.first?.label ?? "Goal")
+                SummaryPill(icon: "bolt.fill", label: coordinator.profile.experienceLevel.label)
+                if coordinator.healthKitState == .authorized {
+                    SummaryPill(icon: "heart.text.square.fill", label: "HealthKit")
+                }
+            }
+        }
+        .padding(18)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                .stroke(coordinator.profile.coachingStyle.color.opacity(0.35), lineWidth: 1)
+        )
+        .id(coordinator.profile.coachingStyle.rawValue)
+        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+        .animation(FDS.Spring.standard, value: coordinator.profile.coachingStyle)
+    }
+
+    private var previewMessage: String {
+        let name = coordinator.profile.trimmedName.isEmpty ? "you" : coordinator.profile.trimmedName
+        let goal = coordinator.profile.fitnessGoals.first?.label.lowercased() ?? "general fitness"
+        let healthLine = coordinator.healthKitState == .authorized
+            ? " I will also watch recovery signals before pushing intensity."
+            : " We can add recovery data later when you connect HealthKit."
+
+        switch coordinator.profile.coachingStyle {
+        case .driven:
+            return "\(name), we start with clear standards: show up, execute the plan, and earn progression. First block focuses on \(goal).\(healthLine)"
+        case .balanced:
+            return "\(name), your first week will balance progressive overload with recovery, built around \(goal).\(healthLine)"
+        case .supportive:
+            return "\(name), we will make this feel doable from day one. Small wins, clear next steps, and steady progress toward \(goal).\(healthLine)"
+        case .scientist:
+            return "\(name), I will explain the why behind your work: intensity, volume, and recovery decisions all tied back to \(goal).\(healthLine)"
+        case .elite:
+            return "\(name), your plan will treat performance like a system: readiness, output, recovery, and adaptation toward \(goal).\(healthLine)"
+        }
+    }
+}
+
+private struct SummaryPill: View {
+    let icon: String
+    let label: String
+
+    var body: some View {
+        Label(label, systemImage: icon)
+            .font(.caption.weight(.bold))
+            .lineLimit(1)
+            .foregroundColor(.textSecondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(Color.surfaceElevated)
+            .clipShape(Capsule())
+    }
+}
+
+// MARK: - Age Block
+
+private struct AgeBlockedView: View {
+    let onReset: () -> Void
+    @State private var appeared = false
     @State private var shakeOffset: CGFloat = 0
 
     var body: some View {
         ZStack {
-            Color(hex: "0A0A0A").ignoresSafeArea()
+            Color.background.ignoresSafeArea()
             RadialGradient(
                 colors: [Color.danger.opacity(0.12), .clear],
                 center: .center, startRadius: 0, endRadius: 300
@@ -558,7 +1508,7 @@ struct AgeBlockedView: View {
                 VStack(spacing: 32) {
                     ZStack {
                         Circle().fill(Color.danger.opacity(0.08)).frame(width: 120, height: 120)
-                        Circle().stroke(Color.danger.opacity(0.2), lineWidth: 1.5).frame(width: 120, height: 120)
+                        Circle().stroke(Color.danger.opacity(0.22), lineWidth: 1.5).frame(width: 120, height: 120)
                         Image(systemName: "lock.shield.fill")
                             .font(.system(size: 46))
                             .foregroundStyle(LinearGradient(
@@ -587,30 +1537,37 @@ struct AgeBlockedView: View {
                             .opacity(appeared ? 1 : 0)
                             .animation(.easeOut(duration: 0.4).delay(0.4), value: appeared)
 
-                        HStack(spacing: 8) {
-                            Image(systemName: "person.badge.shield.checkmark.fill")
-                                .font(.system(size: 13))
-                                .foregroundColor(.danger)
-                            Text("Minimum age: 13 years")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.danger)
-                        }
-                        .padding(.horizontal, 20).padding(.vertical, 10)
-                        .background(Color.danger.opacity(0.08))
-                        .cornerRadius(FDS.Radius.pill)
-                        .overlay(Capsule().stroke(Color.danger.opacity(0.25), lineWidth: 1))
-                        .opacity(appeared ? 1 : 0)
-                        .animation(.easeOut(duration: 0.4).delay(0.5), value: appeared)
+                        Label("Minimum age: 13 years", systemImage: "person.badge.shield.checkmark.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.danger)
+                            .padding(.horizontal, 20).padding(.vertical, 10)
+                            .background(Color.danger.opacity(0.08))
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(Color.danger.opacity(0.25), lineWidth: 1))
+                            .opacity(appeared ? 1 : 0)
+                            .animation(.easeOut(duration: 0.4).delay(0.5), value: appeared)
                     }
                 }
                 Spacer()
-                VStack(spacing: 8) {
+
+                VStack(spacing: 12) {
+                    Button(action: onReset) {
+                        Text("Review birthday")
+                            .font(.headline.weight(.bold))
+                            .foregroundColor(.textPrimary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .background(Color.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                                .stroke(Color.borderColor, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, FDS.Spacing.xl)
+
                     Text("Protected under COPPA & GDPR-K")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.caption)
                         .foregroundColor(.textMuted)
-                    Text("Children's Online Privacy Protection Act")
-                        .font(.system(size: 11))
-                        .foregroundColor(.textMuted.opacity(0.6))
                 }
                 .padding(.bottom, 52)
                 .opacity(appeared ? 1 : 0)
@@ -619,7 +1576,6 @@ struct AgeBlockedView: View {
         }
         .onAppear {
             appeared = true
-            // A's 4-beat shake sequence
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 withAnimation(.spring(response: 0.08, dampingFraction: 0.2)) { shakeOffset =  12 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -627,7 +1583,7 @@ struct AgeBlockedView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         withAnimation(.spring(response: 0.08, dampingFraction: 0.2)) { shakeOffset =   7 }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            withAnimation(.spring(response: 0.3,  dampingFraction: 0.7 )) { shakeOffset =   0 }
+                            withAnimation(.spring(response: 0.3,  dampingFraction: 0.7 )) { shakeOffset = 0 }
                         }
                     }
                 }
@@ -636,458 +1592,246 @@ struct AgeBlockedView: View {
     }
 }
 
-// ============================================================
-// MARK: - Age & Birthday  (A's full logic + B's FDS polish)
-// ============================================================
+// MARK: - Ambient Background
 
-struct AgeAndBirthdayView: View {
-    let onNext: (Date) -> Void
-    @State private var birthday:  Date = Calendar.current.date(byAdding: .year, value: -25, to: Date()) ?? Date()
-    @State private var appeared   = false
-    @State private var didChange  = false
-
-    private var age:       Int  { calculateAge(from: birthday) }
-    private var isUnderage: Bool { age < 13 }
-    private var tooOld:    Bool  { age > 120 }
-    private var isValid:   Bool  { !isUnderage && !tooOld }
-
-    private var ageStatusText:  String {
-        if tooOld    { return "Invalid date" }
-        if isUnderage { return "Must be 13 or older" }
-        return "\(age) years old"
-    }
-    private var ageStatusColor: Color { (isUnderage || tooOld) ? .danger : .success }
+struct ForgeAmbientBackground: View {
+    let step: Int
+    @State private var phase: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Top ember accent bar
-            Rectangle()
-                .fill(FDS.Gradient.emberDeep)
-                .frame(height: 3)
-                .ignoresSafeArea(edges: .top)
+        ZStack {
+            LinearGradient(
+                colors: [Color.background, Color(hex: "140A06").opacity(0.78), Color.background],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
 
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
-                    // Mini wordmark
-                    HStack {
-                        Text("FORGE")
-                            .font(.system(size: 11, weight: .black))
-                            .tracking(5)
-                            .foregroundColor(.ember)
-                        Spacer()
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.ember)
+            RadialGradient(
+                colors: [routeColor.opacity(0.18), routeColor.opacity(0.05), .clear],
+                center: UnitPoint(x: 0.32, y: 0.18),
+                startRadius: 10,
+                endRadius: 520
+            )
+            .blur(radius: 44)
+
+            if !reduceMotion {
+                RadialGradient(
+                    colors: [Color.ember.opacity(0.09), .clear],
+                    center: UnitPoint(x: 0.5 + 0.24 * cos(phase), y: 0.48 + 0.18 * sin(phase)),
+                    startRadius: 0,
+                    endRadius: 360
+                )
+                .blur(radius: 60)
+                .onAppear {
+                    withAnimation(.linear(duration: FDS.Duration.ambient).repeatForever(autoreverses: false)) {
+                        phase = .pi * 2
                     }
-                    .padding(.top, 24)
-                    .padding(.horizontal, FDS.Spacing.lg)
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Before we\nbegin.")
-                            .font(.system(size: 44, weight: .black, design: .rounded))
-                            .foregroundStyle(LinearGradient(
-                                colors: [.white, Color.white.opacity(0.75)],
-                                startPoint: .top, endPoint: .bottom
-                            ))
-                            .lineSpacing(2)
-                            .opacity(appeared ? 1 : 0)
-                            .offset(y: appeared ? 0 : 20)
-                            .animation(FDS.Spring.hero.delay(0.1), value: appeared)
-
-                        Text("We need to verify your age before accessing FORGE. This is required to keep our community safe.")
-                            .font(.system(size: 15))
-                            .foregroundColor(.textSecondary)
-                            .lineSpacing(5)
-                            .opacity(appeared ? 1 : 0)
-                            .offset(y: appeared ? 0 : 12)
-                            .animation(FDS.Spring.hero.delay(0.2), value: appeared)
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .padding(.top, 24)
-                    .padding(.bottom, 44)
-
-                    // Birthday card
-                    VStack(spacing: 0) {
-                        HStack {
-                            HStack(spacing: 8) {
-                                Image(systemName: "birthday.cake.fill")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.ember)
-                                Text("Date of Birth")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .tracking(1.5)
-                                    .foregroundColor(.textMuted)
-                                    .textCase(.uppercase)
-                            }
-                            Spacer()
-                            if didChange {
-                                HStack(spacing: 6) {
-                                    Circle().fill(ageStatusColor).frame(width: 6, height: 6)
-                                    Text(ageStatusText)
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(ageStatusColor)
-                                }
-                                .transition(AnyTransition.opacity.combined(with: AnyTransition.scale(scale: 0.85)))
-                            }
-                        }
-                        .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 12)
-
-                        Divider().background(Color.white.opacity(0.06))
-
-                        DatePicker("", selection: $birthday, in: minimumBirthday...Date(), displayedComponents: [.date])
-                            .datePickerStyle(.wheel)
-                            .labelsHidden()
-                            .colorScheme(.dark)
-                            .tint(.ember)
-                            .padding(.vertical, 8)
-
-                        Divider().background(Color.white.opacity(0.06))
-
-                        // Age milestone visualizer
-                        HStack(spacing: 0) {
-                            ForEach(Array([13, 18, 25, 40, 65].enumerated()), id: \.offset) { i, milestone in
-                                let reached = age >= milestone
-                                VStack(spacing: 4) {
-                                    Circle()
-                                        .fill(reached ? Color.ember : Color.white.opacity(0.1))
-                                        .frame(width: 8, height: 8)
-                                        .overlay(Circle().stroke(reached ? Color.ember.opacity(0.4) : .clear, lineWidth: 4))
-                                    Text(milestone == 65 ? "65+" : "\(milestone)")
-                                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                                        .foregroundColor(reached ? .ember : .textMuted)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .animation(FDS.Spring.snap, value: age)
-                            }
-                        }
-                        .padding(.horizontal, 20).padding(.vertical, 16)
-                    }
-                    .background(Color.surface)
-                    .cornerRadius(FDS.Radius.lg)
-                    .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg)
-                        .stroke(isUnderage && didChange ? Color.danger.opacity(0.4) : Color.white.opacity(0.07), lineWidth: 1))
-                    .shadow(color: isUnderage && didChange ? Color.danger.opacity(0.12) : .black.opacity(0.3), radius: 20, y: 8)
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 16)
-                    .animation(FDS.Spring.hero.delay(0.3), value: appeared)
-
-                    // Underage warning banner
-                    if isUnderage && didChange {
-                        HStack(spacing: 10) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 13))
-                                .foregroundColor(.warning)
-                            Text("Users must be 13 or older to use FORGE.")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.warning)
-                        }
-                        .padding(.horizontal, 16).padding(.vertical, 12)
-                        .background(Color.warning.opacity(0.08))
-                        .cornerRadius(FDS.Radius.sm)
-                        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.sm).stroke(Color.warning.opacity(0.2), lineWidth: 1))
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.top, 16)
-                        .transition(.asymmetric(
-                            insertion: AnyTransition.move(edge: .bottom).combined(with: .opacity),
-                            removal: .opacity
-                        ))
-                    }
-
-                    // Privacy note
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 11))
-                            .foregroundColor(.textMuted)
-                            .padding(.top, 1)
-                        Text("Your date of birth is encrypted and used only for age verification and fitness calculations. It will never be shared with third parties.")
-                            .font(.system(size: 12))
-                            .foregroundColor(.textMuted)
-                            .lineSpacing(4)
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg).padding(.top, 20)
-                    .opacity(appeared ? 1 : 0)
-                    .animation(.easeOut(duration: 0.4).delay(0.5), value: appeared)
-
-                    Spacer(minLength: 100)
                 }
             }
+        }
+    }
 
-            // Bottom CTA (inline — not ForgeCtaButton so we can morph label/color)
-            VStack(spacing: 0) {
-                Divider().background(Color.white.opacity(0.06))
-                Button(action: {
-                    withAnimation(FDS.Spring.snap) { didChange = true }
-                    if isValid { onNext(birthday) }
-                }) {
-                    HStack(spacing: 10) {
-                        Text(isUnderage && didChange ? "Access Denied" : "Confirm Age")
-                            .font(.system(size: 17, weight: .bold))
-                        Image(systemName: isUnderage && didChange ? "xmark.circle.fill" : "arrow.right")
-                            .font(.system(size: 15, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(
-                        isUnderage && didChange
-                            ? AnyShapeStyle(Color.danger.opacity(0.3))
-                            : AnyShapeStyle(FDS.Gradient.ember)
-                    )
-                    .cornerRadius(FDS.Radius.md)
-                    // B's inner specular on this too
-                    .overlay(alignment: .top) {
-                        if isValid || !didChange {
-                            RoundedRectangle(cornerRadius: FDS.Radius.md)
-                                .fill(LinearGradient(
-                                    colors: [Color.white.opacity(0.10), .clear],
-                                    startPoint: .top, endPoint: .center
-                                ))
-                                .frame(height: 26)
-                        }
-                    }
-                    .shadow(color: isValid ? Color.ember.opacity(0.4) : .clear, radius: 18, y: 6)
-                }
-                .padding(.horizontal, FDS.Spacing.lg)
-                .padding(.top, 16).padding(.bottom, 40)
-                .animation(FDS.Spring.standard, value: isUnderage && didChange)
-            }
-            .background(Color.background.overlay(
-                LinearGradient(colors: [Color.background.opacity(0), Color.background], startPoint: .top, endPoint: .bottom)
-            ))
+    private var routeColor: Color {
+        switch step {
+        case 0, 1: return .ember
+        case 2, 3: return .steel
+        case 4:    return .success
+        default:   return Color(hex: "A855F7")
         }
-        .background(Color.background)
-        .ignoresSafeArea(edges: .bottom)
-        .onChange(of: birthday) { _, _ in
-            withAnimation(FDS.Spring.snap) { didChange = true }
-        }
-        .onAppear { withAnimation { appeared = true } }
     }
 }
 
-// ============================================================
-// MARK: - Profile Setup  (A's store integration + B's polish)
-// ============================================================
+// MARK: - Section Header
 
-struct ProfileSetupView: View {
-    let onNext: () -> Void
-    @EnvironmentObject var store: AppStore
-    @State private var name:           String = ""
-    @State private var selectedGender: Gender = .preferNotToSay
-    @State private var subStep         = 0
-    @State private var appeared        = false
-
-    var canContinue: Bool {
-        subStep == 0 ? !name.trimmingCharacters(in: .whitespaces).isEmpty : true
-    }
+struct ForgeSectionHeader: View {
+    let eyebrow: String
+    let title: String
+    let subtitle: String
+    var accentColor: Color = .ember
+    @State private var appeared = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            ForgeProgressHeader(currentStep: 1, totalSteps: 8) {
-                if subStep > 0 { withAnimation(FDS.Spring.page) { subStep -= 1 } }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(accentColor)
+                    .frame(width: appeared ? 22 : 8, height: 3)
+                Text(eyebrow.uppercased())
+                    .font(.caption2.weight(.black))
+                    .tracking(2.8)
+                    .foregroundColor(accentColor)
             }
+            .opacity(appeared ? 1 : 0)
 
-            ScrollView(showsIndicators: false) {
-                Group {
-                    if subStep == 0 {
-                        VStack(alignment: .leading, spacing: 32) {
-                            ForgeSectionHeader(
-                                eyebrow: "Identity",
-                                title: "What should\nARIA call you?",
-                                subtitle: "Your AI coach uses your name to make every interaction feel personal."
-                            )
-                            VStack(spacing: 8) {
-                                ForgeTextField(placeholder: "Enter your name", text: $name, icon: "person.fill")
-                                if !name.isEmpty {
-                                    Text("Hello, \(name.trimmingCharacters(in: .whitespaces)) 👋")
-                                        .font(.system(size: 13, weight: .medium))
-                                        .foregroundColor(.ember)
-                                        .padding(.leading, 4)
-                                        .transition(AnyTransition.opacity.combined(with: AnyTransition.move(edge: .top)))
-                                }
-                            }
-                            .animation(FDS.Spring.standard, value: name.isEmpty)
-                        }
-                        .transition(.asymmetric(
-                            insertion: AnyTransition.move(edge: .trailing).combined(with: .opacity),
-                            removal:   AnyTransition.move(edge: .leading).combined(with: .opacity)
-                        ))
-                    } else {
-                        VStack(alignment: .leading, spacing: 32) {
-                            ForgeSectionHeader(
-                                eyebrow: "Profile",
-                                title: "How do\nyou identify?",
-                                subtitle: "Used to personalize training and nutrition recommendations."
-                            )
-                            VStack(spacing: 10) {
-                                ForEach(Gender.allCases) { gender in
-                                    GenderSelectionCard(
-                                        gender: gender,
-                                        isSelected: selectedGender == gender,
-                                        action: { selectedGender = gender; FDS.selectionHaptic() }
-                                    )
-                                }
-                            }
-                        }
-                        .transition(.asymmetric(
-                            insertion: AnyTransition.move(edge: .trailing).combined(with: .opacity),
-                            removal:   AnyTransition.move(edge: .leading).combined(with: .opacity)
-                        ))
-                    }
+            Text(title)
+                .font(.system(.largeTitle, design: .rounded, weight: .black))
+                .foregroundStyle(LinearGradient(
+                    colors: [.white, Color.white.opacity(0.76)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ))
+                .fixedSize(horizontal: false, vertical: true)
+                .lineSpacing(2)
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 12)
+
+            Text(subtitle)
+                .font(.body)
+                .foregroundColor(.textSecondary)
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 8)
+        }
+        .animation(FDS.Spring.hero, value: appeared)
+        .onAppear { appeared = true }
+    }
+}
+
+// MARK: - ARIA Coach Card
+
+struct ARIACoachCard: View {
+    let title: String
+    let message: String
+    var accent: Color
+    let icon: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: icon)
+                .font(.subheadline.weight(.bold))
+                .foregroundColor(accent)
+                .frame(width: 32, height: 32)
+                .background(accent.opacity(0.12))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundColor(.textPrimary)
+                Text(message)
+                    .font(.footnote)
+                    .foregroundColor(.textTertiary)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(16)
+        .background(Color.surface.opacity(0.88))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                .stroke(accent.opacity(0.22), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Text Field
+
+struct ForgeTextField: View {
+    let placeholder: String
+    @Binding var text: String
+    let icon: String
+    var keyboardType: UIKeyboardType = .default
+    var isSecure: Bool = false
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(focused ? .ember : .textMuted)
+                .frame(width: 22)
+                .scaleEffect(focused ? 1.1 : 1.0)
+                .animation(FDS.Spring.snap, value: focused)
+
+            ZStack(alignment: .leading) {
+                if text.isEmpty {
+                    Text(placeholder).foregroundColor(.textMuted)
                 }
-                .id(subStep)
-                .animation(FDS.Spring.page, value: subStep)
-                .padding(.horizontal, FDS.Spacing.lg)
-                .padding(.bottom, 120)
-            }
-
-            ForgeCtaButton(
-                label:     subStep == 0 ? "Continue"     : "Save Profile",
-                icon:      subStep == 0 ? "arrow.right"  : "checkmark",
-                isEnabled: canContinue
-            ) {
-                if subStep == 0 {
-                    store.tempOnboardingProfile.name = name.trimmingCharacters(in: .whitespaces)
-                    withAnimation(FDS.Spring.page) { subStep = 1 }
+                if isSecure {
+                    SecureField("", text: $text).focused($focused)
                 } else {
-                    store.tempOnboardingProfile.gender = selectedGender
-                    onNext()
+                    TextField("", text: $text)
+                        .focused($focused)
+                        .keyboardType(keyboardType)
+                        .textInputAutocapitalization(keyboardType == .emailAddress ? .never : .words)
+                        .autocorrectionDisabled(keyboardType == .emailAddress)
                 }
             }
+            .font(.body)
+            .foregroundColor(.textPrimary)
+            .tint(.ember)
         }
-        .background(Color.background).ignoresSafeArea(edges: .bottom)
-        .opacity(appeared ? 1 : 0)
-        .onAppear { withAnimation(.easeOut(duration: 0.35)) { appeared = true } }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 17)
+        .background(focused ? Color.ember.opacity(0.05) : Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                .stroke(focused ? Color.ember.opacity(0.60) : Color.borderColor, lineWidth: focused ? 1.4 : 0.7)
+        )
+        .animation(FDS.Spring.standard, value: focused)
     }
 }
 
-// ============================================================
-// MARK: - Body Metrics  (A's store + BMI, B's FDS tokens)
-// ============================================================
+// MARK: - Gender Selection Card
 
-struct BodyMetricsView: View {
-    let onNext: () -> Void
-    @EnvironmentObject var store: AppStore
-    @State private var heightCm:   Double = 170
-    @State private var weightKg:   Double = 70
-    @State private var useImperial = false
-    @State private var appeared    = false
-
-    private var heightDisplay: String {
-        if useImperial {
-            let total = Int(heightCm / 2.54); return "\(total / 12)' \(total % 12)\""
-        }
-        return "\(Int(heightCm)) cm"
-    }
-    private var weightDisplay: String {
-        useImperial ? "\(Int(weightKg * 2.20462)) lbs" : "\(Int(weightKg)) kg"
-    }
-    private var bmi: Double { weightKg / pow(heightCm / 100, 2) }
-    private var bmiCategory: (label: String, color: Color) {
-        switch bmi {
-        case ..<18.5: return ("Underweight", .warning)
-        case 18.5..<25: return ("Healthy",   .success)
-        case 25..<30:   return ("Overweight", .warning)
-        default:        return ("Obese",      .danger)
-        }
-    }
+struct GenderSelectionCard: View {
+    let gender: Gender
+    let isSelected: Bool
+    let action: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            ForgeProgressHeader(currentStep: 2, totalSteps: 8) {}
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForgeSectionHeader(eyebrow: "Biometrics", title: "Your body\nmetrics",
-                        subtitle: "Used to calibrate workout intensity, calorie burn, and nutritional targets.")
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 36)
-
-                    // Unit toggle
-                    HStack {
-                        Spacer()
-                        HStack(spacing: 0) {
-                            ForEach(["Metric", "Imperial"], id: \.self) { unit in
-                                let selected = unit == (useImperial ? "Imperial" : "Metric")
-                                Button(action: {
-                                    withAnimation(FDS.Spring.snap) { useImperial = unit == "Imperial" }
-                                    FDS.selectionHaptic()
-                                }) {
-                                    Text(unit)
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(selected ? .white : .textMuted)
-                                        .padding(.horizontal, 14).padding(.vertical, 7)
-                                        .background(selected ? Color.ember : .clear)
-                                        .cornerRadius(FDS.Radius.xs)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(3).background(Color.surface).cornerRadius(11)
-                        .overlay(RoundedRectangle(cornerRadius: 11).stroke(Color.borderColor, lineWidth: 0.5))
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 24)
-
-                    MetricSliderCard(title: "Height", icon: "arrow.up.and.down",
-                        displayValue: heightDisplay, sliderValue: $heightCm, range: 120...220, step: 1)
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 16)
-
-                    MetricSliderCard(title: "Weight", icon: "scalemass.fill",
-                        displayValue: weightDisplay, sliderValue: $weightKg, range: 30...200, step: 0.5)
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 24)
-
-                    // BMI readout
-                    HStack(spacing: 14) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("BMI").font(.system(size: 11, weight: .bold)).tracking(1.5)
-                                .foregroundColor(.textMuted).textCase(.uppercase)
-                            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                Text(String(format: "%.1f", bmi))
-                                    .font(.system(size: 28, weight: .black, design: .monospaced))
-                                    .foregroundColor(.textPrimary)
-                                Text(bmiCategory.label)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(bmiCategory.color)
-                            }
-                        }
-                        Spacer()
-                        VStack(spacing: 4) {
-                            HStack(spacing: 2) {
-                                ForEach(0..<4, id: \.self) { i in
-                                    let cols: [Color] = [.steel, .success, .warning, .danger]
-                                    let active = (i==0 && bmi<18.5)||(i==1 && bmi>=18.5 && bmi<25)||(i==2 && bmi>=25 && bmi<30)||(i==3 && bmi>=30)
-                                    RoundedRectangle(cornerRadius: 2)
-                                        .fill(cols[i].opacity(active ? 1 : 0.25))
-                                        .frame(width: 32, height: active ? 8 : 4)
-                                        .animation(FDS.Spring.standard, value: bmi)
-                                }
-                            }
-                            Text("BMI Scale").font(.system(size: 9, weight: .medium)).foregroundColor(.textMuted)
-                        }
-                    }
-                    .padding(.horizontal, 20).padding(.vertical, 18)
-                    .background(Color.surface).cornerRadius(FDS.Radius.md)
-                    .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.borderColor, lineWidth: 0.5))
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .animation(FDS.Spring.standard, value: bmi)
-
-                    Text("BMI is a general reference, not a diagnosis. ARIA uses your full biometric profile for personalized recommendations.")
-                        .font(.system(size: 11)).foregroundColor(.textMuted).lineSpacing(3)
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.top, 12).padding(.bottom, 120)
+        Button {
+            action()
+            FDS.selectionHaptic()
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(isSelected ? Color.ember.opacity(0.16) : Color.surfaceElevated).frame(width: 48, height: 48)
+                    if isSelected { Circle().stroke(Color.ember.opacity(0.4), lineWidth: 1.5).frame(width: 48, height: 48) }
+                    Image(systemName: gender.icon)
+                        .font(.system(size: 18))
+                        .foregroundColor(isSelected ? .ember : .textSecondary)
+                        .scaleEffect(isSelected ? 1.1 : 1.0)
+                        .animation(FDS.Spring.snap, value: isSelected)
                 }
+                Text(gender.label)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(isSelected ? .ember : .textPrimary)
+                Spacer()
+                ZStack {
+                    Circle().stroke(isSelected ? Color.ember : Color.borderColor, lineWidth: 1.5).frame(width: 22, height: 22)
+                    if isSelected { Circle().fill(Color.ember).frame(width: 12, height: 12).transition(.scale.combined(with: .opacity)) }
+                }
+                .animation(FDS.Spring.snap, value: isSelected)
             }
-            ForgeCtaButton(label: "Continue", icon: "arrow.right", isEnabled: true) {
-                store.tempOnboardingProfile.heightCm = heightCm
-                store.tempOnboardingProfile.weightKg = weightKg
-                onNext()
-            }
+            .padding(16)
+            .background(ZStack {
+                Color.surface
+                if isSelected { RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous).fill(Color.ember.opacity(0.04)) }
+            })
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                .stroke(isSelected ? Color.ember.opacity(0.5) : Color.borderColor, lineWidth: isSelected ? 1.5 : 0.5))
+            .shadow(color: isSelected ? Color.ember.opacity(0.14) : .black.opacity(0.04), radius: isSelected ? 12 : 4, y: 3)
         }
-        .background(Color.background).ignoresSafeArea(edges: .bottom)
-        .opacity(appeared ? 1 : 0)
-        .onAppear { withAnimation(.easeOut(duration: 0.35)) { appeared = true } }
+        .buttonStyle(.plain)
+        .animation(FDS.Spring.standard, value: isSelected)
     }
 }
+
+// MARK: - Metric Slider Card
 
 struct MetricSliderCard: View {
-    let title: String; let icon: String; let displayValue: String
-    @Binding var sliderValue: Double; let range: ClosedRange<Double>; let step: Double
+    let title: String
+    let icon: String
+    let displayValue: String
+    @Binding var sliderValue: Double
+    let range: ClosedRange<Double>
+    let step: Double
 
     var body: some View {
         VStack(spacing: 16) {
@@ -1097,202 +1841,37 @@ struct MetricSliderCard: View {
                     Text(title).font(.system(size: 12, weight: .bold)).tracking(1.2).foregroundColor(.textMuted).textCase(.uppercase)
                 }
                 Spacer()
-                Text(displayValue).font(.system(size: 22, weight: .black, design: .monospaced)).foregroundColor(.textPrimary)
+                Text(displayValue)
+                    .font(.system(size: 22, weight: .black, design: .monospaced))
+                    .foregroundColor(.textPrimary)
+                    .contentTransition(.numericText())
             }
-            Slider(value: $sliderValue, in: range, step: step).tint(.ember)
+            Slider(value: $sliderValue, in: range, step: step)
+                .tint(.ember)
+                .accessibilityLabel(title)
+                .accessibilityValue(displayValue)
         }
-        .padding(20).background(Color.surface).cornerRadius(FDS.Radius.md)
-        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.borderColor, lineWidth: 0.5))
+        .padding(20)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+            .stroke(Color.borderColor, lineWidth: 0.5))
     }
 }
 
-// ============================================================
-// MARK: - Device Connection  (A's full DeviceCard + store)
-// ============================================================
-
-struct DeviceConnectionView: View {
-    let onNext: () -> Void
-    @State private var connectedDevices: Set<String> = []
-    @State private var appeared = false
-
-    private let devices: [(name: String, icon: String, desc: String)] = [
-        ("Apple Watch", "applewatch",            "Heart rate, activity rings & workouts"),
-        ("Oura Ring",   "circle.circle.fill",    "Sleep stages, HRV & readiness score"),
-        ("WHOOP",       "waveform.path.ecg",     "Strain, recovery & sleep performance"),
-        ("Garmin",      "figure.run",             "Training load, VO2 max & performance"),
-        ("Fitbit",      "heart.text.square.fill", "Daily activity, heart rate & sleep"),
-        ("Polar",       "waveform",               "Advanced HR monitoring & training zones"),
-    ]
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ForgeProgressHeader(currentStep: 3, totalSteps: 8) {}
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForgeSectionHeader(eyebrow: "Sync", title: "Connect\nyour devices",
-                        subtitle: "FORGE syncs real biometric data from your wearables to power ARIA's coaching.")
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 24)
-
-                    if !connectedDevices.isEmpty {
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark.circle.fill").font(.system(size: 13)).foregroundColor(.success)
-                            Text("\(connectedDevices.count) device\(connectedDevices.count == 1 ? "" : "s") syncing")
-                                .font(.system(size: 13, weight: .semibold)).foregroundColor(.success)
-                        }
-                        .padding(.horizontal, 14).padding(.vertical, 8)
-                        .background(Color.success.opacity(0.09)).cornerRadius(FDS.Radius.pill)
-                        .overlay(Capsule().stroke(Color.success.opacity(0.25), lineWidth: 1))
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 20)
-                        .transition(AnyTransition.opacity.combined(with: AnyTransition.scale(scale: 0.9)))
-                    }
-
-                    VStack(spacing: 10) {
-                        ForEach(Array(devices.enumerated()), id: \.element.name) { index, device in
-                            DeviceCard(
-                                name: device.name, icon: device.icon, desc: device.desc,
-                                isConnected: Binding(
-                                    get: { connectedDevices.contains(device.name) },
-                                    set: { if $0 { connectedDevices.insert(device.name) } else { connectedDevices.remove(device.name) } }
-                                ),
-                                index: index
-                            )
-                        }
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg)
-
-                    HStack(spacing: 8) {
-                        Image(systemName: "info.circle").font(.system(size: 11)).foregroundColor(.textMuted)
-                        Text("You can connect more devices later in Settings → Integrations")
-                            .font(.system(size: 11)).foregroundColor(.textMuted)
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg).padding(.top, 16).padding(.bottom, 120)
-                }
-            }
-            ForgeCtaButton(
-                label: connectedDevices.isEmpty ? "Skip for now" : "Continue",
-                icon:  connectedDevices.isEmpty ? "arrow.right"  : "checkmark",
-                isEnabled: true
-            ) { onNext() }
-        }
-        .background(Color.background).ignoresSafeArea(edges: .bottom)
-        .animation(FDS.Spring.standard, value: connectedDevices.count)
-        .opacity(appeared ? 1 : 0)
-        .onAppear { withAnimation(.easeOut(duration: 0.35)) { appeared = true } }
-    }
-}
-
-// A's DeviceCard — tappable button, staggered entrance, B's FDS polish
-struct DeviceCard: View {
-    let name: String; let icon: String; let desc: String
-    @Binding var isConnected: Bool; let index: Int
-    @State private var appeared = false
-
-    var body: some View {
-        Button(action: {
-            withAnimation(FDS.Spring.standard) { isConnected.toggle() }
-            FDS.selectionHaptic()
-        }) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(isConnected ? Color.success.opacity(0.15) : Color.surfaceElevated)
-                        .frame(width: 46, height: 46)
-                    Image(systemName: icon)
-                        .font(.system(size: 18))
-                        .foregroundColor(isConnected ? .success : .textTertiary)
-                }
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(name)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(isConnected ? .success : .textPrimary)
-                    Text(desc).font(.system(size: 12)).foregroundColor(.textTertiary).lineLimit(2)
-                }
-                Spacer()
-                if isConnected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20)).foregroundColor(.success)
-                        .transition(.scale.combined(with: .opacity))
-                } else {
-                    Image(systemName: "plus.circle")
-                        .font(.system(size: 20)).foregroundColor(.textMuted)
-                }
-            }
-            .padding(14)
-            .background(isConnected ? Color.success.opacity(0.06) : Color.surface)
-            .cornerRadius(FDS.Radius.md)
-            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md)
-                .stroke(isConnected ? Color.success.opacity(0.45) : Color.borderColor,
-                        lineWidth: isConnected ? 1.5 : 0.5))
-            .shadow(color: isConnected ? Color.success.opacity(0.12) : .black.opacity(0.04), radius: 8, y: 3)
-        }
-        .buttonStyle(.plain)
-        .animation(FDS.Spring.standard, value: isConnected)
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 12)
-        .onAppear {
-            withAnimation(FDS.Spring.hero.delay(Double(index) * 0.08)) { appeared = true }
-        }
-    }
-}
-
-// ============================================================
-// MARK: - Goals  (A's store, B's FDS + forgeEntrance)
-// ============================================================
-
-struct GoalsView: View {
-    let onNext: () -> Void
-    @EnvironmentObject var store: AppStore
-    @State private var selectedGoals: Set<OnboardingFitnessGoal> = []
-    @State private var appeared = false
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ForgeProgressHeader(currentStep: 4, totalSteps: 8) {}
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForgeSectionHeader(eyebrow: "Goals", title: "What are you\ntraining for?",
-                        subtitle: "Select all that apply. ARIA prioritizes your program around these targets.")
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 32)
-
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                        ForEach(Array(OnboardingFitnessGoal.allCases.enumerated()), id: \.element) { i, goal in
-                            GoalCard(
-                                goal: goal,
-                                isSelected: selectedGoals.contains(goal),
-                                action: {
-                                    if selectedGoals.contains(goal) { selectedGoals.remove(goal) }
-                                    else { selectedGoals.insert(goal) }
-                                    FDS.selectionHaptic()
-                                }
-                            )
-                            .forgeEntrance(index: i, appeared: appeared)
-                        }
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 120)
-                }
-            }
-            ForgeCtaButton(
-                label: selectedGoals.isEmpty ? "Select at least one" : "Continue — \(selectedGoals.count) goal\(selectedGoals.count == 1 ? "" : "s")",
-                icon: "arrow.right", isEnabled: !selectedGoals.isEmpty
-            ) {
-                store.tempOnboardingProfile.fitnessGoals = Array(selectedGoals)
-                onNext()
-            }
-        }
-        .background(Color.background).ignoresSafeArea(edges: .bottom)
-        .onAppear { withAnimation(.easeOut(duration: 0.2)) { appeared = true } }
-    }
-}
+// MARK: - Goal Card
 
 struct GoalCard: View {
-    let goal: OnboardingFitnessGoal; let isSelected: Bool; let action: () -> Void
+    let goal: OnboardingFitnessGoal
+    let isSelected: Bool
+    let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 10)
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .fill(isSelected ? Color.ember.opacity(0.18) : Color.surfaceElevated)
                             .frame(width: 38, height: 38)
                         Image(systemName: goal.icon)
@@ -1305,7 +1884,7 @@ struct GoalCard: View {
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 16)).foregroundColor(.ember)
-                            .transition(AnyTransition.scale.combined(with: .opacity))
+                            .transition(.scale.combined(with: .opacity))
                     }
                 }
                 Text(goal.label)
@@ -1315,412 +1894,32 @@ struct GoalCard: View {
             }
             .padding(16).frame(maxWidth: .infinity, alignment: .leading)
             .background(isSelected ? Color.ember.opacity(0.06) : Color.surface)
-            .cornerRadius(FDS.Radius.md)
-            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md)
-                .stroke(isSelected ? Color.ember.opacity(0.45) : Color.borderColor,
-                        lineWidth: isSelected ? 1.5 : 0.5))
-            .shadow(color: isSelected ? Color.ember.opacity(0.12) : .black.opacity(0.06),
-                    radius: isSelected ? 12 : 4, y: 3)
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                .stroke(isSelected ? Color.ember.opacity(0.45) : Color.borderColor, lineWidth: isSelected ? 1.5 : 0.5))
+            .shadow(color: isSelected ? Color.ember.opacity(0.12) : .black.opacity(0.06), radius: isSelected ? 12 : 4, y: 3)
         }
-        .buttonStyle(.plain).forgePress()
+        .buttonStyle(.plain)
         .animation(FDS.Spring.standard, value: isSelected)
     }
 }
 
-// ============================================================
-// MARK: - Experience Level  (A's store + B's level-specific colors)
-// ============================================================
+// MARK: - Experience Level Button
 
-struct ExperienceLevelView: View {
-    let onNext: () -> Void
-    @EnvironmentObject var store: AppStore
-    @State private var experienceLevel: ExperienceLevel? = nil
-    @State private var appeared = false
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ForgeProgressHeader(currentStep: 5, totalSteps: 8) {}
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForgeSectionHeader(eyebrow: "Experience", title: "Where are you\nright now?",
-                        subtitle: "Honest self-assessment unlocks the right starting intensity and progression speed.")
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 32)
-
-                    VStack(spacing: 12) {
-                        ForEach(ExperienceLevel.allCases) { level in
-                            ExperienceLevelButton(
-                                level: level, isSelected: experienceLevel == level,
-                                action: { experienceLevel = level; FDS.selectionHaptic() }
-                            )
-                        }
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 120)
-                }
-            }
-            ForgeCtaButton(
-                label: experienceLevel == nil ? "Select your level" : "Continue",
-                icon: "arrow.right", isEnabled: experienceLevel != nil
-            ) {
-                store.tempOnboardingProfile.experienceLevel = experienceLevel ?? .intermediate
-                onNext()
-            }
-        }
-        .background(Color.background).ignoresSafeArea(edges: .bottom)
-        .opacity(appeared ? 1 : 0)
-        .onAppear { withAnimation(.easeOut(duration: 0.35)) { appeared = true } }
-    }
-}
-
-// ============================================================
-// MARK: - Workout Types  (A's OnboardingWorkoutType store)
-// ============================================================
-
-struct WorkoutTypesView: View {
-    let onNext: () -> Void
-    @EnvironmentObject var store: AppStore
-    @State private var selectedWorkouts: Set<OnboardingWorkoutType> = []
-    @State private var appeared = false
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ForgeProgressHeader(currentStep: 6, totalSteps: 8) {}
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForgeSectionHeader(eyebrow: "Training", title: "What do you\nlove training?",
-                        subtitle: "ARIA builds programs around what you already enjoy — sustainability is the key to results.")
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 32)
-
-                    OnboardingFlowLayout(spacing: 10) {
-                        ForEach(OnboardingWorkoutType.allCases) { type in
-                            TogglePill(label: type.label, isSelected: selectedWorkouts.contains(type)) {
-                                if selectedWorkouts.contains(type) { selectedWorkouts.remove(type) }
-                                else { selectedWorkouts.insert(type) }
-                                FDS.selectionHaptic()
-                            }
-                        }
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 120)
-                }
-            }
-            ForgeCtaButton(
-                label: selectedWorkouts.isEmpty ? "Pick your favorites" : "Continue — \(selectedWorkouts.count) selected",
-                icon: "arrow.right", isEnabled: !selectedWorkouts.isEmpty
-            ) {
-                store.tempOnboardingProfile.preferredWorkouts = Array(selectedWorkouts)
-                onNext()
-            }
-        }
-        .background(Color.background).ignoresSafeArea(edges: .bottom)
-        .opacity(appeared ? 1 : 0)
-        .onAppear { withAnimation(.easeOut(duration: 0.35)) { appeared = true } }
-    }
-}
-
-// ============================================================
-// MARK: - Coaching Style  (A's toCoreProfile commit + B's polish)
-// ============================================================
-
-struct CoachingStyleView: View {
-    let onFinish: () -> Void
-    @EnvironmentObject var store: AppStore
-    @State private var selected:       OnboardingCoachingStyle = .balanced
-    @State private var appeared        = false
-    @State private var readyToLaunch   = false
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ForgeProgressHeader(currentStep: 7, totalSteps: 8) {}
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForgeSectionHeader(eyebrow: "ARIA Setup", title: "Choose your\ncoach.",
-                        subtitle: "How should ARIA push you? This shapes every message, plan, and check-in.")
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 32)
-
-                    VStack(spacing: 12) {
-                        ForEach(OnboardingCoachingStyle.allCases) { style in
-                            CoachingStyleCard(style: style, isSelected: selected == style) {
-                                selected = style; FDS.selectionHaptic()
-                            }
-                        }
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg)
-
-                    // ARIA live preview
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(FDS.Gradient.ember)
-                                .frame(width: 28, height: 28)
-                                .overlay(Text("A").font(.system(size: 12, weight: .black)).foregroundColor(.white))
-                            Text("ARIA Preview")
-                                .font(.system(size: 11, weight: .bold)).tracking(1.2)
-                                .foregroundColor(.textMuted).textCase(.uppercase)
-                        }
-                        Text(ariaPreviewMessage)
-                            .font(.system(size: 14)).foregroundColor(.textSecondary).lineSpacing(5)
-                            .padding(16).background(Color.surface).cornerRadius(FDS.Radius.md)
-                            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md)
-                                .stroke(selected.color.opacity(0.3), lineWidth: 1))
-                            .id(selected.rawValue)
-                            .transition(AnyTransition.opacity.combined(with: AnyTransition.scale(scale: 0.97)))
-                            .animation(FDS.Spring.standard, value: selected)
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg).padding(.top, 28).padding(.bottom, 120)
-                }
-            }
-
-            // Launch button — A's toCoreProfile() commit + B's double shadow + inner specular
-            VStack(spacing: 0) {
-                LinearGradient(colors: [Color.background.opacity(0), Color.background], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 32)
-
-                Button(action: {
-                    store.tempOnboardingProfile.coachingStyle = selected
-                    store.userProfile = store.tempOnboardingProfile.toCoreProfile()  // A's commit
-                    FDS.haptic(.heavy)
-                    withAnimation(FDS.Spring.snap) { readyToLaunch = true }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { onFinish() }
-                }) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "flame.fill").font(.system(size: 16))
-                        Text("Start Training with ARIA").font(.system(size: 16, weight: .bold))
-                        Image(systemName: "arrow.right").font(.system(size: 14, weight: .semibold))
-                    }
-                    .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 60)
-                    .background(FDS.Gradient.emberDeep)
-                    .cornerRadius(FDS.Radius.lg)
-                    .overlay(alignment: .top) {
-                        RoundedRectangle(cornerRadius: FDS.Radius.lg)
-                            .fill(LinearGradient(
-                                colors: [Color.white.opacity(0.14), .clear],
-                                startPoint: .top, endPoint: .center
-                            ))
-                            .frame(height: 30)
-                    }
-                    .shadow(color: Color.ember.opacity(0.55), radius: 24, y: 10)
-                    .shadow(color: Color.ember.opacity(0.25), radius: 48, y: 18)
-                    .scaleEffect(readyToLaunch ? 0.97 : 1.0)
-                    .animation(FDS.Spring.snap, value: readyToLaunch)
-                }
-                .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 44)
-            }
-            .background(Color.background)
-        }
-        .background(Color.background).ignoresSafeArea(edges: .bottom)
-        .opacity(appeared ? 1 : 0)
-        .onAppear { withAnimation(.easeOut(duration: 0.35)) { appeared = true } }
-    }
-
-    private var ariaPreviewMessage: String {
-        switch selected {
-        case .drill_sergeant: return "Day one starts NOW. No warm-up to failure philosophy — we push hard from the gate. You said you wanted results. Prove it."
-        case .balanced:       return "Great choice on your goals. I've built this week's plan around progressive overload with smart recovery windows. Let's get after it."
-        case .supportive:     return "I'm so proud of you for starting this journey. Every step counts, and I'm here with you for all of it. You've got this! 🌟"
-        case .scientist:      return "Based on your HRV baseline (62ms) and training load from the past 7 days, I'm prescribing a Zone 2 session today with a target of 140-155 bpm."
-        }
-    }
-}
-
-// ============================================================
-// MARK: - Auth Screen  (B's FDS + reduceMotion + PulsingRingView)
-// ============================================================
-
-struct AuthenticationScreen: View {
-    let onAuthenticated: () -> Void
-    @State private var appeared  = false
-    @State private var pulseRing = false
-    @State private var orbGlow   = false
-    @State private var showEmail = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                StarFieldView(size: geo.size)
-                VStack(spacing: 0) {
-                    Spacer()
-
-                    // Hero orb
-                    ZStack {
-                        if !reduceMotion {
-                            ForEach(0..<3, id: \.self) { i in
-                                PulsingRingView(index: i, color: .ember, isAnimating: pulseRing)
-                            }
-                        }
-                        Circle()
-                            .fill(RadialGradient(
-                                colors: [Color.ember.opacity(orbGlow ? 0.38 : 0.16), .clear],
-                                center: .center, startRadius: 0, endRadius: 120
-                            ))
-                            .frame(width: 240, height: 240).blur(radius: 36)
-
-                        // B's screen-blend bloom
-                        Circle()
-                            .fill(RadialGradient(
-                                colors: [Color.white.opacity(orbGlow ? 0.08 : 0.02), .clear],
-                                center: .center, startRadius: 0, endRadius: 100
-                            ))
-                            .frame(width: 200, height: 200).blur(radius: 20)
-                            .blendMode(.screen)
-
-                        ZStack {
-                            Image(systemName: "flame.fill")
-                                .font(.system(size: 92, weight: .black))
-                                .foregroundColor(.black.opacity(0.3)).blur(radius: 14).offset(y: 12)
-                            Image(systemName: "flame.fill")
-                                .font(.system(size: 92, weight: .black))
-                                .foregroundStyle(LinearGradient(
-                                    colors: [.white, Color(hex: "FF6A00"), Color(hex: "FF2200")],
-                                    startPoint: .top, endPoint: .bottom
-                                ))
-                                .shadow(color: Color.ember.opacity(0.95), radius: 44)
-                                .shadow(color: Color(hex: "FF2200").opacity(0.5), radius: 80)
-                                .shadow(color: Color.white.opacity(0.3), radius: 12)
-                        }
-                        .scaleEffect(appeared ? 1 : 0.35)
-                        .rotationEffect(.degrees(appeared ? 0 : -95))
-                        .opacity(appeared ? 1 : 0)
-                        .animation(FDS.adaptiveAnimation(FDS.Spring.floaty).delay(0.15), value: appeared)
-                    }
-                    .padding(.bottom, 44)
-
-                    // Wordmark
-                    VStack(spacing: 10) {
-                        Text("FORGE")
-                            .font(.system(size: 72, weight: .black, design: .rounded)).tracking(22)
-                            .foregroundStyle(LinearGradient(
-                                colors: [.white, Color.ember, Color(hex: "FF6A00"), .white.opacity(0.9)],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            ))
-                            .shadow(color: Color.ember.opacity(0.6), radius: 30, y: 5)
-                            .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 26)
-                            .animation(FDS.Spring.hero.delay(0.28), value: appeared)
-                        Text("Forge Your Strongest Self")
-                            .font(.system(size: 17, weight: .semibold)).tracking(1.2)
-                            .foregroundColor(.textSecondary)
-                            .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 16)
-                            .animation(FDS.Spring.hero.delay(0.36), value: appeared)
-                    }
-                    .padding(.bottom, 18)
-
-                    // Ember rule
-                    HStack(spacing: 10) {
-                        Rectangle()
-                            .fill(LinearGradient(colors: [.clear, Color.ember.opacity(0.65)], startPoint: .leading, endPoint: .trailing))
-                            .frame(width: appeared ? 60 : 0, height: 1.5)
-                        Circle().fill(Color.ember).frame(width: 5, height: 5)
-                            .shadow(color: Color.ember.opacity(0.8), radius: 6).opacity(appeared ? 1 : 0)
-                        Rectangle()
-                            .fill(LinearGradient(colors: [Color.ember.opacity(0.65), .clear], startPoint: .leading, endPoint: .trailing))
-                            .frame(width: appeared ? 60 : 0, height: 1.5)
-                    }
-                    .animation(FDS.Spring.hero.delay(0.44), value: appeared).padding(.bottom, 22)
-
-                    HStack(spacing: 8) {
-                        ForEach(["AI Coach", "Biometrics", "Adaptive Plans"], id: \.self) { feat in
-                            Text(feat).font(.system(size: 11, weight: .semibold)).foregroundColor(.textMuted)
-                                .padding(.horizontal, 10).padding(.vertical, 5)
-                                .background(Color.white.opacity(0.05)).cornerRadius(FDS.Radius.pill)
-                                .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 0.5))
-                        }
-                    }
-                    .opacity(appeared ? 1 : 0).animation(.easeOut(duration: 0.4).delay(0.50), value: appeared)
-
-                    Spacer()
-
-                    VStack(spacing: 14) {
-                        SignInWithAppleButton(.signUp) { req in req.requestedScopes = [.fullName, .email] }
-                        onCompletion: { result in if case .success = result { onAuthenticated() } }
-                            .signInWithAppleButtonStyle(.white).frame(height: 58).cornerRadius(18)
-                            .shadow(color: .black.opacity(0.25), radius: 28, y: 10)
-                            .shadow(color: Color.ember.opacity(0.15), radius: 16, y: 4)
-                            .padding(.horizontal, FDS.Spacing.lg)
-                            .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 30)
-                            .animation(FDS.Spring.hero.delay(0.60), value: appeared)
-
-                        HStack(spacing: 14) {
-                            Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5)
-                            Text("or continue with").font(.system(size: 12, weight: .medium)).foregroundColor(.textMuted).fixedSize()
-                            Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5)
-                        }
-                        .padding(.horizontal, FDS.Spacing.lg)
-                        .opacity(appeared ? 0.8 : 0).animation(.easeOut(duration: 0.35).delay(0.68), value: appeared)
-
-                        HStack(spacing: 12) {
-                            OAuthRowButton(icon: "globe", label: "Google",
-                                action: { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { onAuthenticated() } })
-                            OAuthRowButton(icon: "envelope.fill", label: "Email", action: { showEmail = true })
-                        }
-                        .padding(.horizontal, FDS.Spacing.lg)
-                        .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 24)
-                        .animation(FDS.Spring.hero.delay(0.72), value: appeared)
-
-                        Text("By continuing you agree to our Terms & Privacy Policy.")
-                            .font(.system(size: 11)).foregroundColor(.textMuted.opacity(0.5))
-                            .multilineTextAlignment(.center).padding(.horizontal, 44)
-                            .opacity(appeared ? 1 : 0).animation(.easeOut(duration: 0.3).delay(0.82), value: appeared)
-                    }
-                    .padding(.bottom, 52)
-                }
-            }
-        }
-        .sheet(isPresented: $showEmail) { EmailAuthSheet(onAuthenticated: onAuthenticated) }
-        .onAppear {
-            appeared = true
-            if !reduceMotion {
-                withAnimation(.easeOut(duration: 2.4).repeatForever(autoreverses: false))  { pulseRing = true }
-                withAnimation(.easeInOut(duration: FDS.Duration.breathe).repeatForever(autoreverses: true)) { orbGlow = true }
-            }
-        }
-    }
-}
-
-// ============================================================
-// MARK: - Shared Components  (B's FDS polish throughout)
-// ============================================================
-
-// GenderSelectionCard — B's radio ring + inner fill animation
-struct GenderSelectionCard: View {
-    let gender: Gender; let isSelected: Bool; let action: () -> Void
-    var body: some View {
-        Button(action: { action(); FDS.selectionHaptic() }) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle().fill(isSelected ? Color.ember.opacity(0.16) : Color.surfaceElevated).frame(width: 48, height: 48)
-                    if isSelected { Circle().stroke(Color.ember.opacity(0.4), lineWidth: 1.5).frame(width: 48, height: 48) }
-                    Image(systemName: gender.icon).font(.system(size: 18))
-                        .foregroundColor(isSelected ? .ember : .textSecondary)
-                        .scaleEffect(isSelected ? 1.1 : 1.0).animation(FDS.Spring.snap, value: isSelected)
-                }
-                Text(gender.label).font(.system(size: 15, weight: .medium)).foregroundColor(isSelected ? .ember : .textPrimary)
-                Spacer()
-                ZStack {
-                    Circle().stroke(isSelected ? Color.ember : Color.borderColor, lineWidth: 1.5).frame(width: 22, height: 22)
-                    if isSelected { Circle().fill(Color.ember).frame(width: 12, height: 12).transition(.scale.combined(with: .opacity)) }
-                }
-                .animation(FDS.Spring.snap, value: isSelected)
-            }
-            .padding(16)
-            .background(ZStack {
-                Color.surface
-                if isSelected { RoundedRectangle(cornerRadius: FDS.Radius.md).fill(Color.ember.opacity(0.04)) }
-            })
-            .cornerRadius(FDS.Radius.md)
-            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md)
-                .stroke(isSelected ? Color.ember.opacity(0.5) : Color.borderColor, lineWidth: isSelected ? 1.5 : 0.5))
-            .shadow(color: isSelected ? Color.ember.opacity(0.14) : .black.opacity(0.04), radius: isSelected ? 12 : 4, y: 3)
-        }
-        .buttonStyle(.plain).animation(FDS.Spring.standard, value: isSelected)
-    }
-}
-
-// ExperienceLevelButton — B's level-specific colors per tier
 struct ExperienceLevelButton: View {
-    let level: ExperienceLevel; let isSelected: Bool; let action: () -> Void
+    let level: ExperienceLevel
+    let isSelected: Bool
+    let action: () -> Void
+
     private var icon: String {
-        switch level { case .beginner: "leaf.fill"; case .intermediate: "bolt.fill"; case .advanced: "flame.fill"; case .elite: "crown.fill" }
+        switch level {
+        case .beginner:     return "leaf.fill"
+        case .intermediate: return "bolt.fill"
+        case .advanced:     return "flame.fill"
+        case .elite:        return "crown.fill"
+        }
     }
-    // B's per-level color system
+
     private var levelColor: Color {
         switch level {
         case .beginner:     return .steel
@@ -1729,15 +1928,18 @@ struct ExperienceLevelButton: View {
         case .elite:        return Color(hex: "A855F7")
         }
     }
+
     var body: some View {
         Button(action: { action(); FDS.selectionHaptic() }) {
             HStack(spacing: 14) {
                 ZStack {
                     Circle().fill(isSelected ? levelColor.opacity(0.16) : Color.surfaceElevated).frame(width: 50, height: 50)
                     if isSelected { Circle().stroke(levelColor.opacity(0.35), lineWidth: 1.5).frame(width: 50, height: 50) }
-                    Image(systemName: icon).font(.system(size: 20))
+                    Image(systemName: icon)
+                        .font(.system(size: 20))
                         .foregroundColor(isSelected ? levelColor : .textTertiary)
-                        .scaleEffect(isSelected ? 1.1 : 1.0).animation(FDS.Spring.snap, value: isSelected)
+                        .scaleEffect(isSelected ? 1.1 : 1.0)
+                        .animation(FDS.Spring.snap, value: isSelected)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(level.label).font(.system(size: 15, weight: .semibold)).foregroundColor(isSelected ? levelColor : .textPrimary)
@@ -1749,244 +1951,141 @@ struct ExperienceLevelButton: View {
                         .transition(.scale.combined(with: .opacity))
                 }
             }
-            .padding(15)
-            .background(ZStack {
-                Color.surface
-                if isSelected { RoundedRectangle(cornerRadius: FDS.Radius.md).fill(levelColor.opacity(0.05)) }
-            })
-            .cornerRadius(FDS.Radius.md)
-            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md)
+            .padding(14)
+            .background(isSelected ? levelColor.opacity(0.06) : Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                 .stroke(isSelected ? levelColor.opacity(0.45) : Color.borderColor, lineWidth: isSelected ? 1.5 : 0.5))
-            .shadow(color: isSelected ? levelColor.opacity(0.15) : .black.opacity(0.04), radius: isSelected ? 14 : 4, y: 3)
         }
-        .buttonStyle(.plain).animation(FDS.Spring.standard, value: isSelected)
+        .buttonStyle(.plain)
+        .animation(FDS.Spring.standard, value: isSelected)
     }
 }
 
-// CoachingStyleCard — A's OnboardingCoachingStyle type + B's blurred ring glow
+// MARK: - Coaching Style Card
+
 struct CoachingStyleCard: View {
-    let style: OnboardingCoachingStyle; let isSelected: Bool; let action: () -> Void
+    let style: OnboardingCoachingStyle
+    let isSelected: Bool
+    let action: () -> Void
+
     var body: some View {
-        Button(action: { action(); FDS.selectionHaptic() }) {
-            HStack(spacing: 16) {
+        Button(action: action) {
+            HStack(spacing: 14) {
                 ZStack {
-                    Circle().fill(isSelected ? style.color.opacity(0.20) : Color.surfaceElevated).frame(width: 52, height: 52)
-                    if isSelected { Circle().stroke(style.color.opacity(0.4), lineWidth: 1.5).frame(width: 52, height: 52).blur(radius: 1) }
-                    Image(systemName: style.icon).font(.system(size: 21))
+                    Circle().fill(isSelected ? style.color.opacity(0.15) : Color.surfaceElevated).frame(width: 50, height: 50)
+                    if isSelected { Circle().stroke(style.color.opacity(0.35), lineWidth: 1.5).frame(width: 50, height: 50) }
+                    Image(systemName: style.icon)
+                        .font(.headline.weight(.bold))
                         .foregroundColor(isSelected ? style.color : .textTertiary)
-                        .scaleEffect(isSelected ? 1.08 : 1.0).animation(FDS.Spring.snap, value: isSelected)
+                        .scaleEffect(isSelected ? 1.1 : 1.0)
+                        .animation(FDS.Spring.snap, value: isSelected)
                 }
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(style.label).font(.system(size: 15, weight: .semibold)).foregroundColor(isSelected ? style.color : .textPrimary)
-                    Text(style.description).font(.system(size: 12)).foregroundColor(.textTertiary).lineLimit(2).lineSpacing(3)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(style.label)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundColor(isSelected ? style.color : .textPrimary)
+                    Text(style.description)
+                        .font(.caption)
+                        .foregroundColor(.textTertiary)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
                 ZStack {
-                    Circle().stroke(isSelected ? style.color : Color.borderColor, lineWidth: 2).frame(width: 22, height: 22)
+                    Circle().stroke(isSelected ? style.color : Color.borderColor, lineWidth: 1.5).frame(width: 22, height: 22)
                     if isSelected { Circle().fill(style.color).frame(width: 12, height: 12).transition(.scale.combined(with: .opacity)) }
                 }
                 .animation(FDS.Spring.snap, value: isSelected)
             }
-            .padding(16)
-            .background(ZStack {
-                Color.surface
-                if isSelected { RoundedRectangle(cornerRadius: FDS.Radius.lg).fill(style.color.opacity(0.06)) }
-            })
-            .cornerRadius(FDS.Radius.lg)
-            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg)
-                .stroke(isSelected ? style.color.opacity(0.55) : Color.borderColor, lineWidth: isSelected ? 1.5 : 0.5))
-            .shadow(color: isSelected ? style.color.opacity(0.18) : .black.opacity(0.04),
-                    radius: isSelected ? 16 : 4, y: isSelected ? 6 : 2)
+            .padding(15)
+            .background(isSelected ? style.color.opacity(0.06) : Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                .stroke(isSelected ? style.color.opacity(0.48) : Color.borderColor, lineWidth: isSelected ? 1.4 : 0.7))
         }
-        .buttonStyle(.plain).animation(FDS.Spring.standard, value: isSelected)
+        .buttonStyle(.plain)
+        .animation(FDS.Spring.standard, value: isSelected)
     }
 }
 
-// TogglePill — B's forgePress drag gesture + scaleEffect
+// MARK: - Toggle Pill
+
 struct TogglePill: View {
-    let label: String; let isSelected: Bool; let onTap: () -> Void
-    @State private var pressed = false
+    let label: String
+    let isSelected: Bool
+    let onTap: () -> Void
+
     var body: some View {
-        Button(action: { onTap(); FDS.selectionHaptic() }) {
-            Text(label).font(.system(size: 14, weight: .medium))
+        Button(action: onTap) {
+            Text(label)
+                .font(.subheadline.weight(.semibold))
                 .foregroundColor(isSelected ? .ember : .textSecondary)
-                .padding(.horizontal, 18).padding(.vertical, 10)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
                 .background(isSelected ? Color.ember.opacity(0.13) : Color.surface)
-                .cornerRadius(FDS.Radius.pill)
-                .overlay(Capsule().stroke(isSelected ? Color.ember.opacity(0.6) : Color.borderColor, lineWidth: isSelected ? 1.5 : 0.5))
-                .shadow(color: isSelected ? Color.ember.opacity(0.18) : .clear, radius: 8, y: 2)
-                .scaleEffect(pressed ? 0.95 : 1.0)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(isSelected ? Color.ember.opacity(0.55) : Color.borderColor, lineWidth: isSelected ? 1.4 : 0.7))
         }
         .buttonStyle(.plain)
-        .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in pressed = true }.onEnded { _ in pressed = false })
         .animation(FDS.Spring.snap, value: isSelected)
-        .animation(FDS.Spring.snap, value: pressed)
     }
 }
 
-// OAuthRowButton — B's inner specular
-struct OAuthRowButton: View {
-    let icon: String; let label: String; let action: () -> Void
-    @State private var pressed = false
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundColor(.textPrimary)
-                Text(label).font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-            }
-            .frame(maxWidth: .infinity).frame(height: 54)
-            .background(Color.surface).cornerRadius(FDS.Radius.md)
-            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.borderColor, lineWidth: 0.5))
-            .overlay(alignment: .top) {
-                RoundedRectangle(cornerRadius: FDS.Radius.md)
-                    .fill(LinearGradient(colors: [Color.white.opacity(0.07), .clear], startPoint: .top, endPoint: .center))
-                    .frame(height: 20)
-            }
-            .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
-            .scaleEffect(pressed ? 0.96 : 1.0).animation(FDS.Spring.snap, value: pressed)
-        }
-        .buttonStyle(.plain)
-        .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in pressed = true }.onEnded { _ in pressed = false })
-    }
-}
+// MARK: - Flow Layout
 
-// ForgeTextField — B's icon scale on focus
-struct ForgeTextField: View {
-    let placeholder: String; @Binding var text: String; let icon: String
-    var keyboardType: UIKeyboardType = .default; var isSecure: Bool = false
-    @FocusState private var focused: Bool
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon).font(.system(size: 16))
-                .foregroundColor(focused ? .ember : .textMuted).frame(width: 22)
-                .scaleEffect(focused ? 1.1 : 1.0).animation(FDS.Spring.snap, value: focused)
-            ZStack(alignment: .leading) {
-                if text.isEmpty { Text(placeholder).font(.system(size: 16)).foregroundColor(.textMuted).allowsHitTesting(false) }
-                if isSecure { SecureField("", text: $text).font(.system(size: 16)).foregroundColor(.textPrimary).tint(.ember).focused($focused) }
-                else { TextField("", text: $text).font(.system(size: 16)).foregroundColor(.textPrimary).tint(.ember)
-                        .focused($focused).keyboardType(keyboardType).autocapitalization(.none).disableAutocorrection(true) }
-            }
-        }
-        .padding(.horizontal, 18).padding(.vertical, 18)
-        .background(ZStack {
-            Color.surface
-            if focused { RoundedRectangle(cornerRadius: FDS.Radius.md).fill(Color.ember.opacity(0.04)) }
-        })
-        .cornerRadius(FDS.Radius.md)
-        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md)
-            .stroke(focused ? Color.ember.opacity(0.65) : Color.borderColor, lineWidth: focused ? 1.5 : 0.5))
-        .shadow(color: focused ? Color.ember.opacity(0.12) : .clear, radius: 12, y: 4)
-        .animation(FDS.Spring.standard, value: focused)
-    }
-}
-
-// StarFieldView — B's 65-star optimized version
-private struct StarDatum: Identifiable {
-    let id: Int; let x, y, size: CGFloat; let baseOpacity, phaseOffset: Double
-}
-struct StarFieldView: View {
-    let size: CGSize
-    @State private var stars: [StarDatum] = []
-    @State private var globalPhase: Double = 0
-    var body: some View {
-        ZStack {
-            ForEach(stars) { star in
-                Circle().fill(Color.white).frame(width: star.size, height: star.size)
-                    .position(x: star.x, y: star.y)
-                    .opacity(star.baseOpacity * (0.3 + 0.7 * abs(sin(globalPhase + star.phaseOffset))))
-            }
-        }
-        .onAppear {
-            stars = (0..<65).map { i in
-                StarDatum(id: i, x: .random(in: 0...size.width), y: .random(in: 0...size.height),
-                          size: .random(in: 0.7...3.2), baseOpacity: .random(in: 0.08...0.5),
-                          phaseOffset: .random(in: 0...(.pi * 2)))
-            }
-            withAnimation(.linear(duration: FDS.Duration.ambient * 0.5).repeatForever(autoreverses: false)) { globalPhase = .pi * 2 }
-        }
-    }
-}
-
-// Email auth sheet
-struct EmailAuthSheet: View {
-    let onAuthenticated: () -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var isSignUp = true
-    @State private var email = ""; @State private var password = ""; @State private var name = ""
-    @State private var isLoading = false
-    var isValid: Bool { !email.isEmpty && !password.isEmpty && (isSignUp ? !name.isEmpty : true) }
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.background.ignoresSafeArea()
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 32) {
-                        VStack(spacing: 12) {
-                            Image(systemName: "flame.fill").font(.system(size: 44, weight: .black))
-                                .foregroundStyle(FDS.Gradient.ember).shadow(color: Color.ember.opacity(0.5), radius: 16)
-                            Text(isSignUp ? "Create Account" : "Welcome Back")
-                                .font(.system(size: 30, weight: .bold)).foregroundColor(.textPrimary)
-                            Text(isSignUp ? "Start your transformation" : "Continue your journey")
-                                .font(.system(size: 15)).foregroundColor(.textSecondary)
-                        }.padding(.top, 32)
-                        VStack(spacing: 14) {
-                            if isSignUp { ForgeTextField(placeholder: "Full Name", text: $name, icon: "person.fill") }
-                            ForgeTextField(placeholder: "Email", text: $email, icon: "envelope.fill", keyboardType: .emailAddress)
-                            ForgeTextField(placeholder: "Password", text: $password, icon: "lock.fill", isSecure: true)
-                        }.padding(.horizontal, FDS.Spacing.lg)
-                        Button(action: {
-                            isLoading = true
-                            Task {
-                                try? await Task.sleep(nanoseconds: 1_200_000_000)
-                                isLoading = false; dismiss(); onAuthenticated()
-                            }
-                        }) {
-                            HStack(spacing: 8) {
-                                if isLoading { ProgressView().tint(.white) }
-                                else {
-                                    Text(isSignUp ? "Create Account" : "Sign In").font(.system(size: 17, weight: .semibold))
-                                    Image(systemName: "arrow.right").font(.system(size: 15, weight: .semibold))
-                                }
-                            }
-                            .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 54)
-                            .background(isValid ? AnyShapeStyle(FDS.Gradient.ember) : AnyShapeStyle(Color.borderColor.opacity(0.4)))
-                            .cornerRadius(FDS.Radius.sm)
-                            .shadow(color: isValid ? Color.ember.opacity(0.4) : .clear, radius: 14, y: 4)
-                        }.disabled(!isValid || isLoading).padding(.horizontal, FDS.Spacing.lg)
-                        Button(action: { withAnimation(FDS.Spring.standard) { isSignUp.toggle() } }) {
-                            HStack(spacing: 4) {
-                                Text(isSignUp ? "Already have an account?" : "Don't have an account?").foregroundColor(.textSecondary)
-                                Text(isSignUp ? "Sign In" : "Sign Up").foregroundColor(.ember).fontWeight(.semibold)
-                            }.font(.system(size: 15))
-                        }.padding(.bottom, 24)
-                    }
-                }
-            }
-            .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() }.foregroundColor(.textSecondary) } }
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-}
-
-// Flow layout for workout pills
 struct OnboardingFlowLayout: Layout {
     var spacing: CGFloat = 8
+
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         layout(in: proposal.replacingUnspecifiedDimensions().width, subviews: subviews).size
     }
+
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         let result = layout(in: bounds.width, subviews: subviews)
-        for (i, sv) in subviews.enumerated() {
-            sv.place(at: CGPoint(x: bounds.minX + result.positions[i].x, y: bounds.minY + result.positions[i].y), proposal: .unspecified)
+        for (index, subview) in subviews.enumerated() {
+            subview.place(
+                at: CGPoint(x: bounds.minX + result.positions[index].x, y: bounds.minY + result.positions[index].y),
+                proposal: .unspecified
+            )
         }
     }
+
     private func layout(in maxWidth: CGFloat, subviews: Subviews) -> (size: CGSize, positions: [CGPoint]) {
-        var x: CGFloat = 0; var y: CGFloat = 0; var lineH: CGFloat = 0; var positions: [CGPoint] = []
-        for sv in subviews {
-            let sz = sv.sizeThatFits(.unspecified)
-            if x + sz.width > maxWidth && x > 0 { x = 0; y += lineH + spacing; lineH = 0 }
-            positions.append(CGPoint(x: x, y: y)); lineH = max(lineH, sz.height); x += sz.width + spacing
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var lineHeight: CGFloat = 0
+        var positions: [CGPoint] = []
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > maxWidth && x > 0 {
+                x = 0
+                y += lineHeight + spacing
+                lineHeight = 0
+            }
+            positions.append(CGPoint(x: x, y: y))
+            lineHeight = max(lineHeight, size.height)
+            x += size.width + spacing
         }
-        return (CGSize(width: maxWidth, height: y + lineH), positions)
+
+        return (CGSize(width: maxWidth, height: y + lineHeight), positions)
     }
+}
+
+// MARK: - Previews
+
+#Preview("Welcome") {
+    OnboardingView()
+        .environmentObject(AppStore())
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Large Type") {
+    OnboardingView()
+        .environmentObject(AppStore())
+        .environment(\.sizeCategory, .accessibilityExtraExtraExtraLarge)
+        .preferredColorScheme(.dark)
 }
