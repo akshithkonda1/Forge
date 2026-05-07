@@ -34,6 +34,7 @@ enum OnboardingFitnessGoal: String, CaseIterable, Identifiable {
         case .reducStress:          return "Reduce Stress"
         case .athleticPerformance:  return "Athletic Performance"
         case .generalHealth:        return "General Health"
+
         }
     }
     var icon: String {
@@ -46,6 +47,7 @@ enum OnboardingFitnessGoal: String, CaseIterable, Identifiable {
         case .reducStress:          return "brain.head.profile"
         case .athleticPerformance:  return "trophy.fill"
         case .generalHealth:        return "heart.fill"
+
         }
     }
     var coreGoal: UserFitnessGoal {
@@ -297,7 +299,7 @@ private struct DevSkipButton: View {
         .animation(FDS.Spring.snap, value: expanded)
     }
 }
-#endif
+
 
 // MARK: - Scaffold
 
@@ -2089,3 +2091,4 @@ struct OnboardingFlowLayout: Layout {
         .environment(\.sizeCategory, .accessibilityExtraExtraExtraLarge)
         .preferredColorScheme(.dark)
 }
+#endif
