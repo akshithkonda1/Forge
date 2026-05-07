@@ -32,6 +32,7 @@
 		1E58C1FB2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E58C1FA2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md */; };
 		1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */; };
 		1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */; };
+		1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator 2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator 2.swift */; };
 		1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */; };
 		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
 		1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */; };
@@ -84,6 +85,7 @@
 		1E58C1FA2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHATVIEW_USAGE_GUIDE.md; sourceTree = "<group>"; };
 		1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeDesignSystem.swift; sourceTree = "<group>"; };
 		1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+ForgeCardShadow.swift"; sourceTree = "<group>"; };
+		1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator 2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OnboardingCoordinator 2.swift"; sourceTree = "<group>"; };
 		1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachManager.swift; sourceTree = "<group>"; };
 		1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachViews.swift; sourceTree = "<group>"; };
 		1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachIntegration.swift; sourceTree = "<group>"; };
@@ -173,6 +175,7 @@
 				1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */,
 				1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */,
 				1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */,
+				1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator 2.swift */,
 			);
 			path = ForgeSwift;
 			sourceTree = "<group>";
@@ -221,7 +224,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1530;
-				LastUpgradeCheck = 2640;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					AA0005000000000000000001 = {
 						CreatedOnToolsVersion = 15.3;
@@ -303,6 +306,7 @@
 				AA0001000000000000000007 /* HomeView.swift in Sources */,
 				AA0001000000000000000008 /* ChatView.swift in Sources */,
 				1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */,
+				1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator 2.swift in Sources */,
 				1E9C571A2F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift in Sources */,
 				1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */,
 				AA0001000000000000000009 /* WorkoutView.swift in Sources */,
@@ -339,6 +343,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_CYCLE = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
@@ -350,6 +355,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = L85K85Q7MB;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -372,6 +378,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -401,6 +408,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_CYCLE = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
@@ -412,6 +420,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = L85K85Q7MB;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -427,6 +436,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -441,16 +451,16 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = L85K85Q7MB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Forge ";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -474,16 +484,16 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = L85K85Q7MB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Forge ";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -508,7 +518,7 @@
 				AA0009000000000000000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		AA0006000000000000000002 /* Build configuration list for PBXNativeTarget "ForgeSwift" */ = {
 			isa = XCConfigurationList;
@@ -517,7 +527,7 @@
 				AA0009000000000000000004 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 	};

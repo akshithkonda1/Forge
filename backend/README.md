@@ -2,6 +2,63 @@
 
 Shared AWS-backed backend for both Forge clients.
 
+## Implementation Plan
+
+See `IMPLEMENTATION_PLAN.md` for the backend build plan derived from the current frontend surfaces and AWS infrastructure.
+
+The important current decision: the working backend is the Python Lambda under `infra/terraform/lambda`, even though the root README still describes a future TypeScript backend folder. New backend implementation should extend the Lambda route/service modules first, then revisit runtime migration once the API is stable.
+
+## Implemented Routes
+
+Phase 1 — client-unblocking reads:
+
+- `GET /me`
+- `PUT /me/profile`
+- `GET /dashboard/today`
+- `GET /sleep?days=14`
+- `GET /workouts/today`
+- `GET /workouts/history?days=30`
+- `GET /progress/summary?days=30`
+- `GET /chat/threads/current`
+- `POST /chat/threads/current/messages`
+
+Phase 2 — ingestion:
+
+- `POST /health/batch` — normalized metric writes
+- `POST /sleep/sessions`
+- `POST /workouts/logs`
+- `POST /integrations/{provider}/sync` — queues a sync job and flips the connection to `syncing`
+
+Phase 4 — AI coach (wraps `POST /ai/router`):
+
+- `POST /coach/messages`
+- `POST /coach/workout-plan`
+- `POST /coach/sleep-insight`
+- `POST /coach/progress-review`
+
+Each coach route gathers a bounded user-context package via `services/coach_context.py` and falls back to a deterministic answer if Bedrock is unreachable, so clients and tests can run without AWS credentials.
+
+All routes return deterministic seed data when no persisted data exists, so clients can move from local mocks to API calls before ingestion pipelines are populated.
+
+## User Category Organizer
+
+`organize_users.py` groups user JSON by the same profile dimensions shown in the iOS onboarding app:
+
+- fitness goals
+- experience level
+- preferred workout types
+- coaching style
+- connected devices
+- weekly schedule
+
+Example:
+
+```bash
+python3 backend/organize_users.py users.json --category fitness-goal --pretty
+```
+
+Use `--category all` to emit every grouping at once.
+
 ## AI Router
 
 The shared Lambda now exposes `POST /ai/router`, a Python-based Bedrock router that:
