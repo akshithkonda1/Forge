@@ -34,6 +34,7 @@ enum OnboardingFitnessGoal: String, CaseIterable, Identifiable {
         case .reducStress:          return "Reduce Stress"
         case .athleticPerformance:  return "Athletic Performance"
         case .generalHealth:        return "General Health"
+
         }
     }
     var icon: String {
@@ -46,6 +47,7 @@ enum OnboardingFitnessGoal: String, CaseIterable, Identifiable {
         case .reducStress:          return "brain.head.profile"
         case .athleticPerformance:  return "trophy.fill"
         case .generalHealth:        return "heart.fill"
+
         }
     }
     var coreGoal: UserFitnessGoal {
@@ -104,11 +106,11 @@ enum OnboardingCoachingStyle: String, CaseIterable, Identifiable {
     }
     var description: String {
         switch self {
-        case .driven:    return "No excuses. Intense accountability. ARIA pushes you past every limit."
-        case .balanced:  return "Science-backed intensity with room to breathe. Optimal for long-term results."
+        case .driven:    return "No excuses. Intense accountability. ARIA pushes you past every limit and makes you do better."
+        case .balanced:  return "This option is a science-backed intensity with room to breathe and develop. Optimal for long-term results and for low-stress, high impact results."
         case .supportive: return "Encouraging, patient coaching that celebrates every win, big or small."
-        case .scientist: return "Data-first coaching with deep analytics and periodization theory."
-        case .elite:     return "Designed for high performers. Readiness, output, and adaptation — tracked."
+        case .scientist: return "This approach encourages a data-first coaching with deep analytics and periodization theory."
+        case .elite:     return "This approach is designed for high performers. Gym Rats, Bodybuilders, and Athletes. This approach focuses on  impact, recovery, high level muscle development, readiness,  high level output, and  extreme mental and physical adaptation —  all tracked and ready to help."
         }
     }
     var icon: String {
@@ -297,7 +299,7 @@ private struct DevSkipButton: View {
         .animation(FDS.Spring.snap, value: expanded)
     }
 }
-#endif
+
 
 // MARK: - Scaffold
 
@@ -2089,3 +2091,4 @@ struct OnboardingFlowLayout: Layout {
         .environment(\.sizeCategory, .accessibilityExtraExtraExtraLarge)
         .preferredColorScheme(.dark)
 }
+#endif

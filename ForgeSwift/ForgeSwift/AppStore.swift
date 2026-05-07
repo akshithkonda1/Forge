@@ -527,6 +527,7 @@ final class AppStore: ObservableObject {
 
     // Navigation
     @Published var activeTab: TabItem = .home
+    @Published var pendingProfileSubTab: String? = nil
     
     // Streak tracking
     @Published var currentStreak: Int = 7

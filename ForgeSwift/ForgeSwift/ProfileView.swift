@@ -3,10 +3,11 @@ import SwiftUI
 // MARK: - Profile Tab (mirrors profile-tab.tsx)
 
 struct ProfileTabView: View {
+    @EnvironmentObject var store: AppStore
     @State private var subTab: SubTab = .progress
     @Namespace private var tabAnimation
 
-    enum SubTab: String, CaseIterable { 
+    enum SubTab: String, CaseIterable {
         case progress = "Progress"
         case lifestyle = "Lifestyle"
         case settings = "Settings"
@@ -18,9 +19,9 @@ struct ProfileTabView: View {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
                     ForEach(SubTab.allCases, id: \.self) { tab in
-                        Button(action: { 
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { 
-                                subTab = tab 
+                        Button(action: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                subTab = tab
                             }
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         }) {
@@ -90,22 +91,38 @@ struct ProfileTabView: View {
             .id(subTab)
         }
         .background(Color.background.ignoresSafeArea())
+        .onAppear { applyPendingProfileSubTab() }
+        .onChange(of: store.pendingProfileSubTab) { _, _ in applyPendingProfileSubTab() }
+    }
+
+    private func applyPendingProfileSubTab() {
+        guard let pending = store.pendingProfileSubTab,
+              let match = SubTab.allCases.first(where: { $0.rawValue == pending }) else { return }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            subTab = match
+        }
+        store.pendingProfileSubTab = nil
     }
 }
 
 // MARK: - Progress Page (mirrors progress-page.tsx)
 
 struct ProgressPageView: View {
-    @State private var isRefreshing = false
+    @EnvironmentObject var store: AppStore
     @State private var showShareSheet = false
     @State private var selectedTimeRange: TimeRange = .month
-    
+
     enum TimeRange: String, CaseIterable {
         case week = "Week"
         case month = "Month"
         case year = "Year"
     }
-    
+
+    // Skeletons only on first load — during pull-to-refresh existing content stays put.
+    private var isInitialLoading: Bool {
+        store.dataLoadState == .loading && store.workoutHistory.isEmpty && store.progressSummary == nil
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
@@ -120,7 +137,7 @@ struct ProgressPageView: View {
                             .foregroundColor(.textSecondary)
                     }
                     Spacer()
-                    
+
                     // Share progress button
                     Button(action: { showShareSheet = true }) {
                         ZStack {
@@ -133,54 +150,80 @@ struct ProgressPageView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Share progress")
                 }
                 .padding(.top, 16)
-                
-                // Time range selector
-                TimeRangePicker(selection: $selectedTimeRange)
-                
-                // Quick Stats Overview
-                QuickStatsOverviewView(timeRange: selectedTimeRange)
 
-                MonthlySummaryView()
-                CalendarHeatmapView()
-                PersonalRecordsBoardView()
-                WorkoutHistoryListView()
-                BehavioralInsightView()
-                
-                // Streaks & Milestones
-                StreaksAndMilestonesView()
+                if isInitialLoading {
+                    ForgeSkeletonBlock(height: 88, cornerRadius: 16)
+                    ForgeSkeletonBlock(height: 160, cornerRadius: 16)
+                    ForgeSkeletonBlock(height: 220, cornerRadius: 16)
+                    ForgeSkeletonBlock(height: 160, cornerRadius: 16)
+                } else {
+                    // Time range selector
+                    TimeRangePicker(selection: $selectedTimeRange)
+
+                    // Quick Stats Overview
+                    QuickStatsOverviewView(timeRange: selectedTimeRange)
+
+                    MonthlySummaryView()
+                    CalendarHeatmapView()
+                    PersonalRecordsBoardView()
+                    WorkoutHistoryListView()
+                    BehavioralInsightView()
+
+                    // Streaks & Milestones
+                    StreaksAndMilestonesView()
+                }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 32)
         }
         .refreshable {
-            await refreshData()
+            await store.loadDashboardFromAPI()
         }
         .sheet(isPresented: $showShareSheet) {
             ShareProgressView()
         }
-    }
-    
-    func refreshData() async {
-        isRefreshing = true
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        isRefreshing = false
     }
 }
 
 // MARK: - Monthly Summary (mirrors monthly-summary.tsx)
 
 struct MonthlySummaryView: View {
+    @EnvironmentObject var store: AppStore
     @State private var appeared = false
-    
+
+    private var monthLabel: String {
+        Date().formatted(.dateTime.month(.wide))
+    }
+
+    private var workoutsCompleted: String {
+        String(store.progressSummary?.workoutsCompleted ?? store.workoutHistory.count)
+    }
+
+    private var newPRs: String {
+        String(store.progressSummary?.newPRCount ?? store.personalRecords.count)
+    }
+
+    private var recoveryDelta: String {
+        guard let delta = store.progressSummary?.recoveryDelta else { return "—" }
+        let sign = delta > 0 ? "+" : ""
+        return "\(sign)\(Int(delta.rounded()))%"
+    }
+
+    private var summaryText: String {
+        store.progressSummary?.summary
+            ?? "Keep training consistently and Forge will surface your monthly progress here."
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Top gradient accent bar with shimmer
             ZStack {
                 LinearGradient(colors: [.ember, .emberLight, .ember], startPoint: .leading, endPoint: .trailing)
                     .frame(height: 3)
-                
+
                 LinearGradient(colors: [.clear, .white.opacity(0.3), .clear], startPoint: .leading, endPoint: .trailing)
                     .frame(height: 3)
                     .offset(x: appeared ? 400 : -400)
@@ -194,26 +237,26 @@ struct MonthlySummaryView: View {
                         .font(.system(size: 11, weight: .black))
                         .foregroundColor(.ember)
                         .tracking(2)
-                    
+
                     Spacer()
-                    
+
                     // Month indicator
                     HStack(spacing: 4) {
                         Image(systemName: "calendar")
                             .font(.system(size: 10))
-                        Text("February")
+                        Text(monthLabel)
                             .font(.system(size: 11, weight: .medium))
                     }
                     .foregroundColor(.textTertiary)
                 }
 
                 HStack(spacing: 10) {
-                    StatPillCard(value: "18", label: "Workouts", appeared: appeared, delay: 0.1)
-                    StatPillCard(value: "3", label: "New PRs", appeared: appeared, delay: 0.15)
-                    StatPillCard(value: "+22%", label: "Recovery", appeared: appeared, delay: 0.2)
+                    StatPillCard(value: workoutsCompleted, label: "Workouts", appeared: appeared, delay: 0.1)
+                    StatPillCard(value: newPRs, label: "New PRs", appeared: appeared, delay: 0.15)
+                    StatPillCard(value: recoveryDelta, label: "Recovery", appeared: appeared, delay: 0.2)
                 }
 
-                Text("Strong month. You've been consistent with your Mon/Wed/Fri schedule and hit 3 new personal records. Recovery consistency improved 22% — your sleep habits are paying off.")
+                Text(summaryText)
                     .font(.system(size: 14))
                     .foregroundColor(.textSecondary)
                     .lineSpacing(5)
@@ -236,7 +279,7 @@ struct StatPillCard: View {
     let label: String
     var appeared: Bool = false
     var delay: Double = 0
-    
+
     var body: some View {
         VStack(spacing: 6) {
             Text(value)
@@ -293,18 +336,36 @@ struct CalendarHeatmapView: View {
         var level: Int
     }
 
+    private var displayMonth: Date {
+        Date()
+    }
+
+    var monthTitle: String {
+        ForgeDates.monthYearTitle(for: displayMonth)
+    }
+
     var weeks: [[DayCell]] {
-        // February 2026 — first day is Sunday (index 0), Mon-based layout
-        // Feb 1 2026 is Sunday → start offset = 6 (Mon=0)
-        var cells: [DayCell] = []
-        let startOffset = 6 // Feb 1 2026 is Sunday
-        for _ in 0..<startOffset { cells.append(DayCell(id: UUID().uuidString, day: nil, date: "", level: 0)) }
-        for d in 1...28 {
-            let dateStr = String(format: "2026-02-%02d", d)
-            cells.append(DayCell(id: dateStr, day: d, date: dateStr, level: dateMap[dateStr] ?? 0))
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month], from: displayMonth)
+        guard let firstOfMonth = calendar.date(from: components),
+              let dayRange = calendar.range(of: .day, in: .month, for: firstOfMonth) else {
+            return []
         }
-        while cells.count % 7 != 0 { cells.append(DayCell(id: UUID().uuidString, day: nil, date: "", level: 0)) }
-        return stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0..<min($0+7, cells.count)]) }
+
+        var cells: [DayCell] = []
+        let startOffset = ForgeDates.mondayBasedStartOffset(for: firstOfMonth, calendar: calendar)
+        for index in 0..<startOffset {
+            cells.append(DayCell(id: "lead-\(index)", day: nil, date: "", level: 0))
+        }
+        for day in dayRange {
+            guard let date = calendar.date(byAdding: .day, value: day - 1, to: firstOfMonth) else { continue }
+            let dateStr = ForgeDates.yyyyMMdd(from: date)
+            cells.append(DayCell(id: dateStr, day: day, date: dateStr, level: dateMap[dateStr] ?? 0))
+        }
+        while cells.count % 7 != 0 {
+            cells.append(DayCell(id: "trail-\(cells.count)", day: nil, date: "", level: 0))
+        }
+        return stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0..<min($0 + 7, cells.count)]) }
     }
 
     func heatColor(_ level: Int) -> Color {
@@ -318,7 +379,7 @@ struct CalendarHeatmapView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("February 2026")
+            Text(monthTitle)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.textPrimary)
 
@@ -376,14 +437,12 @@ struct CalendarHeatmapView: View {
 struct PersonalRecordsBoardView: View {
     @EnvironmentObject var store: AppStore
     @State private var appear = false
-    @State private var selectedPR: PersonalRecord?
     @State private var showAllPRs = false
 
-    func formatDate(_ str: String) -> String {
-        let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
-        guard let d = fmt.date(from: str) else { return str }
-        let out = DateFormatter(); out.dateFormat = "MMM d, yyyy"
-        return out.string(from: d)
+    private static let collapsedCount = 3
+
+    private var visibleRecords: [PersonalRecord] {
+        showAllPRs ? store.personalRecords : Array(store.personalRecords.prefix(Self.collapsedCount))
     }
 
     var body: some View {
@@ -392,94 +451,54 @@ struct PersonalRecordsBoardView: View {
                 Image(systemName: "trophy.fill").font(.system(size: 18)).foregroundColor(.ember)
                 Text("Personal Records").font(.system(size: 18, weight: .semibold)).foregroundColor(.textPrimary)
                 Spacer()
-                Button(action: { withAnimation(.spring()) { showAllPRs.toggle() } }) {
-                    Text(showAllPRs ? "Show Less" : "View All")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.ember)
+                if store.personalRecords.count > Self.collapsedCount {
+                    Button(action: { withAnimation(.spring()) { showAllPRs.toggle() } }) {
+                        Text(showAllPRs ? "Show Less" : "View All (\(store.personalRecords.count))")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.ember)
+                    }
                 }
             }
 
-            VStack(spacing: 10) {
-                ForEach(Array(store.personalRecords.prefix(showAllPRs ? 10 : 3).enumerated()), id: \.element.id) { idx, pr in
-                    Button(action: {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                            selectedPR = selectedPR?.id == pr.id ? nil : pr
-                        }
-                    }) {
-                        VStack(spacing: 0) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(pr.exercise)
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(.textPrimary)
-                                    Text(formatDate(pr.date))
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.textTertiary)
-                                }
-                                Spacer()
-                                HStack(alignment: .firstTextBaseline, spacing: 3) {
-                                    Text(pr.formattedValue)
-                                        .font(.system(size: 22, weight: .bold))
-                                        .foregroundColor(.ember)
-                                    Text(pr.unit)
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(.textSecondary)
-                                }
-                                Image(systemName: selectedPR?.id == pr.id ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 12, weight: .medium))
+            if store.personalRecords.isEmpty {
+                ForgeEmptyState(
+                    icon: "trophy",
+                    title: "No records yet",
+                    message: "Finish a few workouts and your personal bests will show up here."
+                )
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(Array(visibleRecords.enumerated()), id: \.element.id) { idx, pr in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(pr.exercise)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.textPrimary)
+                                Text(ForgeDates.displayDate(pr.date))
+                                    .font(.system(size: 11))
                                     .foregroundColor(.textTertiary)
-                                    .padding(.leading, 8)
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
-                            
-                            // Expandable details
-                            if selectedPR?.id == pr.id {
-                                VStack(alignment: .leading, spacing: 10) {
-                                    Divider().background(Color.borderColor)
-                                    
-                                    HStack(spacing: 20) {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Previous PR")
-                                                .font(.system(size: 11))
-                                                .foregroundColor(.textTertiary)
-                                            Text("245 \(pr.unit)")
-                                                .font(.system(size: 14, weight: .semibold))
-                                                .foregroundColor(.textSecondary)
-                                        }
-                                        
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Improvement")
-                                                .font(.system(size: 11))
-                                                .foregroundColor(.textTertiary)
-                                            HStack(spacing: 4) {
-                                                Image(systemName: "arrow.up.right")
-                                                    .font(.system(size: 10))
-                                                    .foregroundColor(.success)
-                                                Text("+10 \(pr.unit)")
-                                                    .font(.system(size: 14, weight: .semibold))
-                                                    .foregroundColor(.success)
-                                            }
-                                        }
-                                    }
-                                    .padding(.horizontal, 16)
-                                    .padding(.bottom, 12)
-                                }
-                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            Spacer()
+                            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                                Text(pr.formattedValue)
+                                    .font(.system(size: 22, weight: .bold))
+                                    .foregroundColor(.ember)
+                                Text(pr.unit)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.textSecondary)
                             }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                         .background(Color.surface)
                         .cornerRadius(14)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .stroke(selectedPR?.id == pr.id ? Color.ember : Color.borderColor, lineWidth: selectedPR?.id == pr.id ? 2 : 1)
-                        )
-                        .shadow(color: selectedPR?.id == pr.id ? Color.ember.opacity(0.2) : .clear, radius: 8)
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
+                        .opacity(appear ? 1 : 0)
+                        .offset(x: appear ? 0 : -12)
+                        .animation(.easeOut(duration: 0.35).delay(Double(idx) * 0.07), value: appear)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(pr.exercise), \(pr.formattedValue) \(pr.unit), set \(ForgeDates.displayDate(pr.date))")
                     }
-                    .buttonStyle(.plain)
-                    .opacity(appear ? 1 : 0)
-                    .offset(x: appear ? 0 : -12)
-                    .animation(.easeOut(duration: 0.35).delay(Double(idx) * 0.07), value: appear)
                 }
             }
         }
@@ -494,27 +513,43 @@ struct WorkoutHistoryListView: View {
     @State private var searchText = ""
     @State private var selectedFilterType: WorkoutType? = nil
     @State private var showFilters = false
+    @State private var showAllWorkouts = false
     @State private var selectedWorkout: WorkoutHistory?
 
-    func formatDate(_ str: String) -> String {
-        let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
-        guard let d = fmt.date(from: str) else { return str }
-        let out = DateFormatter(); out.dateFormat = "EEE, MMM d"
-        return out.string(from: d)
+    private static let collapsedCount = 6
+
+    private var isFiltering: Bool {
+        selectedFilterType != nil || !searchText.isEmpty
     }
-    
+
     var filteredWorkouts: [WorkoutHistory] {
         var workouts = store.workoutHistory
-        
+
         if let filterType = selectedFilterType {
             workouts = workouts.filter { $0.type == filterType }
         }
-        
+
         if !searchText.isEmpty {
             workouts = workouts.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
         }
-        
+
         return workouts
+    }
+
+    // Cap the list when browsing; searching or filtering always shows every match.
+    private var visibleWorkouts: [WorkoutHistory] {
+        if isFiltering || showAllWorkouts { return filteredWorkouts }
+        return Array(filteredWorkouts.prefix(Self.collapsedCount))
+    }
+
+    private func shareText(for workout: WorkoutHistory) -> String {
+        var parts = ["\(workout.name) — \(ForgeDates.displayWeekdayDate(workout.date))",
+                     "\(workout.duration) min \(workout.type.label.lowercased())"]
+        if workout.volume > 0 {
+            parts.append(String(format: "%.1fk lbs total volume", Double(workout.volume) / 1000))
+        }
+        parts.append("Logged with Forge 🔥")
+        return parts.joined(separator: "\n")
     }
 
     var body: some View {
@@ -529,8 +564,9 @@ struct WorkoutHistoryListView: View {
                         .font(.system(size: 20))
                         .foregroundColor(.ember)
                 }
+                .accessibilityLabel(showFilters ? "Hide workout filters" : "Show workout filters")
             }
-            
+
             // Search and filter
             if showFilters {
                 VStack(spacing: 12) {
@@ -552,7 +588,7 @@ struct WorkoutHistoryListView: View {
                     .padding(12)
                     .background(Color.surfaceElevated)
                     .cornerRadius(10)
-                    
+
                     // Type filters
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
@@ -571,13 +607,15 @@ struct WorkoutHistoryListView: View {
             }
 
             VStack(spacing: 10) {
-                ForEach(filteredWorkouts) { workout in
-                    Button(action: {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                            selectedWorkout = selectedWorkout?.id == workout.id ? nil : workout
-                        }
-                    }) {
-                        VStack(spacing: 0) {
+                ForEach(visibleWorkouts) { workout in
+                    // Only the header row toggles expansion — the expanded section holds
+                    // its own ShareLink, and nesting buttons would fire both on tap.
+                    VStack(spacing: 0) {
+                        Button(action: {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                selectedWorkout = selectedWorkout?.id == workout.id ? nil : workout
+                            }
+                        }) {
                             HStack(spacing: 12) {
                                 // Intensity dot
                                 Circle()
@@ -598,7 +636,7 @@ struct WorkoutHistoryListView: View {
                                             .cornerRadius(100)
                                     }
                                     HStack(spacing: 10) {
-                                        Text(formatDate(workout.date))
+                                        Text(ForgeDates.displayWeekdayDate(workout.date))
                                             .font(.system(size: 11)).foregroundColor(.textTertiary)
                                         Text("\(workout.duration) min")
                                             .font(.system(size: 11)).foregroundColor(.textSecondary)
@@ -614,78 +652,90 @@ struct WorkoutHistoryListView: View {
                                     .foregroundColor(selectedWorkout?.id == workout.id ? .ember : .textTertiary)
                             }
                             .padding(.horizontal, 16).padding(.vertical, 14)
-                            
-                            // Expanded details
-                            if selectedWorkout?.id == workout.id {
-                                VStack(spacing: 0) {
-                                    Divider().background(Color.borderColor)
-                                    
-                                    VStack(alignment: .leading, spacing: 12) {
-                                        HStack(spacing: 20) {
-                                            StatBadge(label: "Volume", value: "\(Int(workout.volume / 1000))k", unit: "lbs")
-                                            StatBadge(label: "Sets", value: "24", unit: "")
-                                            StatBadge(label: "Reps", value: "186", unit: "")
-                                        }
-                                        
-                                        HStack {
-                                            Button(action: {}) {
-                                                HStack(spacing: 6) {
-                                                    Image(systemName: "arrow.clockwise")
-                                                        .font(.system(size: 12))
-                                                    Text("Repeat Workout")
-                                                        .font(.system(size: 13, weight: .medium))
-                                                }
-                                                .foregroundColor(.ember)
-                                                .frame(maxWidth: .infinity)
-                                                .padding(.vertical, 10)
-                                                .background(Color.ember.opacity(0.1))
-                                                .cornerRadius(8)
-                                            }
-                                            
-                                            Button(action: {}) {
-                                                HStack(spacing: 6) {
-                                                    Image(systemName: "square.and.arrow.up")
-                                                        .font(.system(size: 12))
-                                                    Text("Share")
-                                                        .font(.system(size: 13, weight: .medium))
-                                                }
-                                                .foregroundColor(.steel)
-                                                .frame(maxWidth: .infinity)
-                                                .padding(.vertical, 10)
-                                                .background(Color.steel.opacity(0.1))
-                                                .cornerRadius(8)
-                                            }
-                                        }
-                                    }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 12)
-                                }
-                                .transition(.opacity.combined(with: .move(edge: .top)))
-                            }
+                            .contentShape(Rectangle())
                         }
-                        .background(Color.surface)
-                        .cornerRadius(14)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .stroke(selectedWorkout?.id == workout.id ? Color.ember : Color.borderColor, 
-                                       lineWidth: selectedWorkout?.id == workout.id ? 2 : 1)
-                        )
+                        .buttonStyle(.plain)
+
+                        // Expanded details
+                        if selectedWorkout?.id == workout.id {
+                            VStack(spacing: 0) {
+                                Divider().background(Color.borderColor)
+
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack(spacing: 20) {
+                                        StatBadge(label: "Duration", value: "\(workout.duration)", unit: "min")
+                                        StatBadge(
+                                            label: "Volume",
+                                            value: workout.volume > 0 ? String(format: "%.1fk", Double(workout.volume) / 1000) : "—",
+                                            unit: workout.volume > 0 ? "lbs" : ""
+                                        )
+                                        StatBadge(label: "Intensity", value: workout.intensity.label, unit: "")
+                                    }
+
+                                    ShareLink(item: shareText(for: workout)) {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "square.and.arrow.up")
+                                                .font(.system(size: 12))
+                                            Text("Share Workout")
+                                                .font(.system(size: 13, weight: .medium))
+                                        }
+                                        .foregroundColor(.ember)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .background(Color.ember.opacity(0.1))
+                                        .cornerRadius(8)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                            }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
                     }
-                    .buttonStyle(.plain)
+                    .background(Color.surface)
+                    .cornerRadius(14)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(selectedWorkout?.id == workout.id ? Color.ember : Color.borderColor,
+                                   lineWidth: selectedWorkout?.id == workout.id ? 2 : 1)
+                    )
                 }
             }
-            
-            if filteredWorkouts.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 40))
-                        .foregroundColor(.textTertiary)
-                    Text("No workouts found")
-                        .font(.system(size: 14))
-                        .foregroundColor(.textSecondary)
+
+            if !isFiltering && filteredWorkouts.count > Self.collapsedCount {
+                Button(action: { withAnimation(.spring()) { showAllWorkouts.toggle() } }) {
+                    Text(showAllWorkouts ? "Show Less" : "View All (\(filteredWorkouts.count))")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.ember)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.surface)
+                        .cornerRadius(12)
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor, lineWidth: 1))
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 40)
+                .buttonStyle(.plain)
+            }
+
+            if filteredWorkouts.isEmpty {
+                if store.workoutHistory.isEmpty {
+                    ForgeEmptyState(
+                        icon: "figure.strengthtraining.traditional",
+                        title: "No workouts yet",
+                        message: "Your completed workouts will appear here."
+                    )
+                } else {
+                    VStack(spacing: 12) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 40))
+                            .foregroundColor(.textTertiary)
+                        Text("No workouts match your search")
+                            .font(.system(size: 14))
+                            .foregroundColor(.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
+                }
             }
         }
     }
@@ -695,7 +745,7 @@ struct FilterChip: View {
     let title: String
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             Text(title)
@@ -714,7 +764,7 @@ struct StatBadge: View {
     let label: String
     let value: String
     let unit: String
-    
+
     var body: some View {
         VStack(spacing: 4) {
             Text(label)
@@ -741,6 +791,22 @@ struct StatBadge: View {
 // MARK: - Behavioral Insight
 
 struct BehavioralInsightView: View {
+    @EnvironmentObject var store: AppStore
+
+    private var insightTitle: String {
+        store.primaryTrainingInsight?.title ?? "Pattern Insight"
+    }
+
+    private var insightBody: String {
+        if let insight = store.primaryTrainingInsight {
+            return "\(insight.observation) \(insight.recommendation)"
+        }
+        if let summary = store.progressSummary?.summary, !summary.isEmpty {
+            return summary
+        }
+        return "Complete a few workouts and Forge will start surfacing training patterns here."
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "chart.line.uptrend.xyaxis")
@@ -749,10 +815,10 @@ struct BehavioralInsightView: View {
                 .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Pattern Insight")
+                Text(insightTitle)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.textPrimary)
-                Text("Your best workouts happen on Mondays — likely from weekend rest. Your consistency drops on Fridays after high-stress work weeks. Consider keeping Friday sessions shorter and more flexible.")
+                Text(insightBody)
                     .font(.system(size: 13))
                     .foregroundColor(.textSecondary)
                     .lineSpacing(3)
@@ -767,17 +833,28 @@ struct BehavioralInsightView: View {
 
 // MARK: - Settings Page (mirrors settings-page.tsx)
 
+private enum ForgeLegalConfig {
+    static let privacyPolicyURLString = ""
+    static var privacyPolicyURL: URL? { URL(string: privacyPolicyURLString) }
+}
+
 struct SettingsPageView: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.openURL) private var openURL
 
-    @State private var workoutReminders = true
-    @State private var aiInsights = true
-    @State private var recoveryAlerts = true
-    @State private var weeklySummary = false
+    @State private var showDevicesSheet = false
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
+    @State private var showPrivacyPolicyURLAlert = false
+    @State private var showTermsSheet = false
+    @State private var showMyChartPlaceholderSheet = false
+    @State private var briefSettings: BriefNotificationSettings
 
     let dayLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+
+    init() {
+        _briefSettings = State(initialValue: ForgePersistence.loadBriefNotificationSettings())
+    }
 
     var scheduleDays: String {
         store.userProfile.weeklySchedule.map { dayLabels[$0] }.joined(separator: " / ")
@@ -811,7 +888,7 @@ struct SettingsPageView: View {
                                     trailingText: store.userProfile.coachingStyle.label, showChevron: true)
                     }
                     .buttonStyle(.plain)
-                    
+
                     Divider().background(Color.borderColor)
                     VStack(alignment: .leading, spacing: 0) {
                         Text(store.userProfile.coachingStyle.description)
@@ -842,24 +919,37 @@ struct SettingsPageView: View {
                 // Connected Devices
                 sectionHeader("Connected Devices")
                 SectionCard {
+                    if store.userProfile.connectedDevices.isEmpty {
+                        HStack(spacing: 10) {
+                            Image(systemName: "link.badge.plus")
+                                .font(.system(size: 16))
+                                .foregroundColor(.textTertiary)
+                            Text("No devices connected yet")
+                                .font(.system(size: 14))
+                                .foregroundColor(.textSecondary)
+                        }
+                        .padding(.horizontal, 16).padding(.vertical, 12)
+                        Divider().background(Color.borderColor)
+                    }
                     ForEach(Array(store.userProfile.connectedDevices.enumerated()), id: \.element) { idx, device in
                         if idx > 0 { Divider().background(Color.borderColor) }
-                        SettingsRow(icon: "applewatch", iconColor: .steel, label: device,
-                                    trailing: AnyView(
-                                        HStack(spacing: 5) {
-                                            Circle().fill(Color.success).frame(width: 8, height: 8)
-                                            Text("Connected").font(.system(size: 12)).foregroundColor(.textSecondary)
-                                        }
-                                    ))
+                        SettingsRow(icon: "applewatch", iconColor: .steel, label: device) {
+                            HStack(spacing: 5) {
+                                Circle().fill(Color.success).frame(width: 8, height: 8)
+                                Text("Connected").font(.system(size: 12)).foregroundColor(.textSecondary)
+                            }
+                        }
                     }
                     Divider().background(Color.borderColor)
-                    Button(action: {}) {
+                    Button { showDevicesSheet = true } label: {
                         HStack(spacing: 10) {
                             ZStack {
                                 Circle().stroke(Color.borderLight, style: StrokeStyle(lineWidth: 1, dash: [4])).frame(width: 32, height: 32)
                                 Image(systemName: "plus").font(.system(size: 13)).foregroundColor(.textTertiary)
                             }
-                            Text("Add Device").font(.system(size: 14, weight: .medium)).foregroundColor(.ember)
+                            Text("Add or Manage Devices")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.ember)
                         }
                         .padding(.horizontal, 16).padding(.vertical, 12)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -892,51 +982,114 @@ struct SettingsPageView: View {
                 // Notifications
                 sectionHeader("Notifications")
                 SectionCard {
-                    SettingsRow(icon: "bell.fill", iconColor: .ember, label: "Workout Reminders",
-                                trailing: AnyView(ForgeToggle(isOn: $workoutReminders)))
+                    SettingsRow(icon: "bell.fill", iconColor: .ember, label: "Workout Reminders") {
+                        ForgeToggle(isOn: notificationBinding(\.workoutReminders))
+                    }
                     Divider().background(Color.borderColor)
-                    SettingsRow(icon: "bell.fill", iconColor: .steel, label: "AI Insights",
-                                trailing: AnyView(ForgeToggle(isOn: $aiInsights)))
+                    SettingsRow(icon: "bell.fill", iconColor: .steel, label: "ARIA Proactive Briefs") {
+                        ForgeToggle(isOn: Binding(
+                            get: { store.briefNotificationsEnabled },
+                            set: { store.setBriefNotificationsEnabled($0) }
+                        ))
+                    }
+                    if store.briefNotificationsEnabled {
+                        Divider().background(Color.borderColor)
+                        briefTimeRow(label: "Morning brief", hour: $briefSettings.morningHour, minute: $briefSettings.morningMinute)
+                        Divider().background(Color.borderColor)
+                        briefTimeRow(label: "Evening brief", hour: $briefSettings.eveningHour, minute: $briefSettings.eveningMinute)
+                    }
                     Divider().background(Color.borderColor)
-                    SettingsRow(icon: "bell.fill", iconColor: .success, label: "Recovery Alerts",
-                                trailing: AnyView(ForgeToggle(isOn: $recoveryAlerts)))
+                    SettingsRow(icon: "bell.fill", iconColor: .success, label: "Recovery Alerts") {
+                        ForgeToggle(isOn: notificationBinding(\.recoveryAlerts))
+                    }
                     Divider().background(Color.borderColor)
-                    SettingsRow(icon: "bell.fill", iconColor: .textSecondary, label: "Weekly Summary",
-                                trailing: AnyView(ForgeToggle(isOn: $weeklySummary)))
+                    SettingsRow(icon: "bell.fill", iconColor: .textSecondary, label: "Weekly Summary") {
+                        ForgeToggle(isOn: notificationBinding(\.weeklySummary))
+                    }
+                    Divider().background(Color.borderColor)
+                    SettingsRow(icon: "drop.fill", iconColor: Color(hex: "38BDF8"), label: "Lifestyle Reminders") {
+                        ForgeToggle(isOn: notificationBinding(\.lifestyleReminders))
+                    }
                 }
+
+                // Clinical Integrations
+                sectionHeader("Clinical Integrations")
+                Button { showMyChartPlaceholderSheet = true } label: {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.ember.opacity(0.14))
+                                .frame(width: 42, height: 42)
+                            Image(systemName: "cross.case.fill")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.ember)
+                        }
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("MyChart")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.textPrimary)
+                            Text("Native API placeholder")
+                                .font(.system(size: 12))
+                                .foregroundColor(.textSecondary)
+                        }
+
+                        Spacer()
+
+                        Text("Filler")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.textSecondary)
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.textMuted)
+                    }
+                    .padding(16)
+                    .background(Color.surface)
+                    .cornerRadius(14)
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
 
                 // More
                 sectionHeader("More")
                 SectionCard {
-                    Button(action: {}) {
-                        SettingsRow(icon: "lock.shield.fill", iconColor: .textSecondary, label: "Data & Privacy", showChevron: true)
-                    }
-                    .buttonStyle(.plain)
-                    
+                    SettingsRow(icon: "lock.shield.fill", iconColor: .textSecondary, label: "Data & Privacy",
+                                trailingText: "HealthKit + Clinical")
                     Divider().background(Color.borderColor)
-                    
-                    Button(action: {}) {
-                        SettingsRow(icon: "creditcard.fill", iconColor: .textSecondary, label: "Subscription", showChevron: true)
+                    Button {
+                        if let privacyPolicyURL = ForgeLegalConfig.privacyPolicyURL {
+                            openURL(privacyPolicyURL)
+                        } else {
+                            showPrivacyPolicyURLAlert = true
+                        }
+                    } label: {
+                        SettingsRow(icon: "doc.text.fill", iconColor: .textSecondary, label: "Privacy Policy",
+                                    trailingText: ForgeLegalConfig.privacyPolicyURL == nil ? "Required" : nil,
+                                    showChevron: ForgeLegalConfig.privacyPolicyURL != nil)
                     }
                     .buttonStyle(.plain)
-                    
                     Divider().background(Color.borderColor)
-                    
-                    Button(action: {}) {
-                        SettingsRow(icon: "questionmark.circle.fill", iconColor: .textSecondary, label: "Help & Support", showChevron: true)
+                    Button { showTermsSheet = true } label: {
+                        SettingsRow(icon: "doc.plaintext.fill", iconColor: .textSecondary, label: "Terms & Conditions",
+                                    trailingText: "Local-first", showChevron: true)
                     }
                     .buttonStyle(.plain)
-                    
                     Divider().background(Color.borderColor)
-                    
-                    Button(action: {}) {
-                        SettingsRow(icon: "info.circle.fill", iconColor: .textSecondary, label: "About Forge", showChevron: true)
-                    }
-                    .buttonStyle(.plain)
+                    SettingsRow(icon: "creditcard.fill", iconColor: .textSecondary, label: "Subscription",
+                                trailingText: "Coming soon")
+                    Divider().background(Color.borderColor)
+                    SettingsRow(icon: "questionmark.circle.fill", iconColor: .textSecondary, label: "Help & Support",
+                                trailingText: "support@forge.health")
+                    Divider().background(Color.borderColor)
+                    SettingsRow(icon: "info.circle.fill", iconColor: .textSecondary, label: "About Forge",
+                                trailingText: "v1.0")
                 }
 
                 // Log Out
-                Button(action: {}) {
+                Button {
+                    store.signOut()
+                } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "rectangle.portrait.and.arrow.right").font(.system(size: 16))
                         Text("Log Out").font(.system(size: 14, weight: .semibold))
@@ -958,6 +1111,61 @@ struct SettingsPageView: View {
         .sheet(isPresented: $showCoachingStylePicker) {
             CoachingStylePickerView()
         }
+        .sheet(isPresented: $showDevicesSheet) {
+            ConnectedDevicesSheet()
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showTermsSheet) {
+            ForgeTermsAndConditionsView()
+        }
+        .sheet(isPresented: $showMyChartPlaceholderSheet) {
+            MyChartNativeAPIPlaceholderView()
+        }
+        .alert("Privacy Policy Required", isPresented: $showPrivacyPolicyURLAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Add Forge's production privacy policy URL before enabling clinical health records in release builds.")
+        }
+        .onChange(of: briefSettings) { _, updated in
+            ForgePersistence.saveBriefNotificationSettings(updated)
+            store.updateBriefNotificationSchedule(
+                morningHour: updated.morningHour,
+                morningMinute: updated.morningMinute,
+                eveningHour: updated.eveningHour,
+                eveningMinute: updated.eveningMinute
+            )
+        }
+    }
+
+    private func notificationBinding(_ keyPath: WritableKeyPath<AppNotificationSettings, Bool>) -> Binding<Bool> {
+        Binding(
+            get: { store.notificationSettings[keyPath: keyPath] },
+            set: { newValue in
+                var settings = store.notificationSettings
+                settings[keyPath: keyPath] = newValue
+                store.updateNotificationSettings(settings)
+            }
+        )
+    }
+
+    private func briefTimeRow(label: String, hour: Binding<Int>, minute: Binding<Int>) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.textPrimary)
+            Spacer()
+            Stepper(value: hour, in: 0...23) {
+                Text(String(format: "%02d:%02d", hour.wrappedValue, minute.wrappedValue))
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.textSecondary)
+            }
+            Stepper(value: minute, in: 0...59, step: 15) {
+                EmptyView()
+            }
+            .labelsHidden()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
     var profileCard: some View {
@@ -973,7 +1181,7 @@ struct SettingsPageView: View {
                             .font(.system(size: 28, weight: .bold))
                             .foregroundColor(.white)
                     }
-                    
+
                     ZStack {
                         Circle()
                             .fill(Color.background)
@@ -992,13 +1200,13 @@ struct SettingsPageView: View {
                     Text(store.userProfile.name)
                         .font(.system(size: 20, weight: .bold))
                         .foregroundColor(.textPrimary)
-                    
+
                     Text("Tap to edit profile")
                         .font(.system(size: 12))
                         .foregroundColor(.ember)
                 }
 
-                // Experience + member since
+                // Experience + current streak
                 HStack(spacing: 12) {
                     Text(store.userProfile.experienceLevel.label)
                         .font(.system(size: 12, weight: .medium))
@@ -1006,9 +1214,16 @@ struct SettingsPageView: View {
                         .padding(.horizontal, 12).padding(.vertical, 5)
                         .background(Color.ember.opacity(0.12))
                         .cornerRadius(100)
-                    Text("Member since Jan 2026")
-                        .font(.system(size: 12))
-                        .foregroundColor(.textTertiary)
+                    if store.currentStreak > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "flame.fill")
+                                .font(.system(size: 11))
+                                .foregroundColor(.warning)
+                            Text("\(store.currentStreak)-day streak")
+                                .font(.system(size: 12))
+                                .foregroundColor(.textTertiary)
+                        }
+                    }
                 }
             }
             .frame(maxWidth: .infinity)
@@ -1031,6 +1246,422 @@ struct SettingsPageView: View {
     }
 }
 
+struct ForgeTermsAndConditionsView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("Forge is built around local-first health and lifestyle data. You and only you have access to your personal data. Forge never sees, sells, rents, or shares your data in any way whatsoever.")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                        .lineSpacing(3)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        legalPoint("Your Apple Health, clinical, cycle, sexual health, workout, sleep, nutrition, and lifestyle data stays under your control.")
+                        legalPoint("Forge uses HealthKit permissions only for features you enable and only through Apple's permission system.")
+                        legalPoint("Clinical records from providers or apps such as MyChart remain read-only through Apple Health unless a future native connection is explicitly added and authorized by you.")
+                        legalPoint("Forge does not sell personal information, health information, clinical records, or lifestyle data.")
+                        legalPoint("You can revoke Health permissions at any time in the iOS Settings app or Apple Health.")
+                    }
+                }
+                .padding(20)
+            }
+            .background(Color.background.ignoresSafeArea())
+            .navigationTitle("Terms & Conditions")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func legalPoint(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 15))
+                .foregroundColor(.success)
+                .padding(.top, 2)
+            Text(text)
+                .font(.system(size: 14))
+                .foregroundColor(.textSecondary)
+                .lineSpacing(2)
+        }
+    }
+}
+
+struct MyChartNativeAPIPlaceholderView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                Image(systemName: "cross.case.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(.ember)
+
+                Text("MyChart Native API")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.textPrimary)
+
+                Text("This is a filler destination for a future native MyChart connection. Until the API credentials, patient authorization flow, and provider scope are added, Forge reads clinical records through Apple Health as read-only data from connected sources.")
+                    .font(.system(size: 15))
+                    .foregroundColor(.textSecondary)
+                    .lineSpacing(3)
+
+                SettingsRow(icon: "heart.text.square.fill", iconColor: .textSecondary, label: "Current clinical path", trailingText: "Apple Health")
+                    .background(Color.surface)
+                    .cornerRadius(14)
+
+                SettingsRow(icon: "key.fill", iconColor: .textSecondary, label: "Native API status", trailingText: "Filler")
+                    .background(Color.surface)
+                    .cornerRadius(14)
+
+                Spacer()
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.background.ignoresSafeArea())
+            .navigationTitle("MyChart")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Settings Persistence
+
+struct AppNotificationSettings: Codable, Equatable {
+    var workoutReminders: Bool = true
+    var recoveryAlerts: Bool = true
+    var weeklySummary: Bool = true
+    var lifestyleReminders: Bool = true
+}
+
+struct BriefNotificationSettings: Codable, Equatable {
+    var morningHour: Int = 8
+    var morningMinute: Int = 0
+    var eveningHour: Int = 20
+    var eveningMinute: Int = 0
+}
+
+struct ProgressSummary: Equatable {
+    var workoutsCompleted: Int
+    var newPRCount: Int
+    var recoveryDelta: Double
+    var summary: String
+}
+
+struct TrainingInsight: Equatable {
+    var title: String
+    var observation: String
+    var recommendation: String
+}
+
+enum DataLoadState: Equatable {
+    case idle
+    case loading
+    case loaded
+    case failed
+}
+
+enum ForgeDates {
+    private static let isoFormatter = ISO8601DateFormatter()
+
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = .current
+        formatter.locale = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    private static let displayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
+
+    private static let weekdayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("EEE, MMM d")
+        return formatter
+    }()
+
+    private static let monthFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("MMMM yyyy")
+        return formatter
+    }()
+
+    static func parse(_ value: String) -> Date? {
+        isoFormatter.date(from: value) ?? dayFormatter.date(from: value)
+    }
+
+    static func yyyyMMdd(from date: Date) -> String {
+        dayFormatter.string(from: date)
+    }
+
+    static func displayDate(_ value: String) -> String {
+        guard let date = parse(value) else { return value }
+        return displayFormatter.string(from: date)
+    }
+
+    static func displayWeekdayDate(_ value: String) -> String {
+        guard let date = parse(value) else { return value }
+        return weekdayFormatter.string(from: date)
+    }
+
+    static func monthYearTitle(for date: Date) -> String {
+        monthFormatter.string(from: date)
+    }
+
+    static func mondayBasedStartOffset(for date: Date, calendar: Calendar = .current) -> Int {
+        let weekday = calendar.component(.weekday, from: date)
+        return (weekday + 5) % 7
+    }
+}
+
+enum ForgePersistence {
+    private static let notificationSettingsKey = "forge.notificationSettings"
+    private static let briefNotificationSettingsKey = "forge.briefNotificationSettings"
+    private static let briefNotificationsEnabledKey = "forge.briefNotificationsEnabled"
+
+    static func loadNotificationSettings() -> AppNotificationSettings {
+        load(AppNotificationSettings.self, forKey: notificationSettingsKey) ?? AppNotificationSettings()
+    }
+
+    static func saveNotificationSettings(_ settings: AppNotificationSettings) {
+        save(settings, forKey: notificationSettingsKey)
+    }
+
+    static func loadBriefNotificationSettings() -> BriefNotificationSettings {
+        load(BriefNotificationSettings.self, forKey: briefNotificationSettingsKey) ?? BriefNotificationSettings()
+    }
+
+    static func saveBriefNotificationSettings(_ settings: BriefNotificationSettings) {
+        save(settings, forKey: briefNotificationSettingsKey)
+    }
+
+    static func loadBriefNotificationsEnabled() -> Bool {
+        guard UserDefaults.standard.object(forKey: briefNotificationsEnabledKey) != nil else { return true }
+        return UserDefaults.standard.bool(forKey: briefNotificationsEnabledKey)
+    }
+
+    static func saveBriefNotificationsEnabled(_ isEnabled: Bool) {
+        UserDefaults.standard.set(isEnabled, forKey: briefNotificationsEnabledKey)
+    }
+
+    private static func load<T: Decodable>(_ type: T.Type, forKey key: String) -> T? {
+        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
+    }
+
+    private static func save<T: Encodable>(_ value: T, forKey key: String) {
+        guard let data = try? JSONEncoder().encode(value) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+}
+
+extension AppStore {
+    var notificationSettings: AppNotificationSettings {
+        ForgePersistence.loadNotificationSettings()
+    }
+
+    var briefNotificationsEnabled: Bool {
+        ForgePersistence.loadBriefNotificationsEnabled()
+    }
+
+    var dataLoadState: DataLoadState {
+        .loaded
+    }
+
+    var progressSummary: ProgressSummary? {
+        guard !workoutHistory.isEmpty || !personalRecords.isEmpty else { return nil }
+
+        let calendar = Calendar.current
+        let now = Date()
+        let monthStart = calendar.dateInterval(of: .month, for: now)?.start ?? now
+        let monthlyWorkouts = workoutHistory.filter { workout in
+            guard let date = ForgeDates.parse(workout.date) else { return false }
+            return date >= monthStart && date <= now
+        }
+        let monthlyRecords = personalRecords.filter { record in
+            guard let date = ForgeDates.parse(record.date) else { return false }
+            return date >= monthStart && date <= now
+        }
+        let recoveryDelta = Double(readiness.recoveryScore - readiness.sleepQuality)
+        let summary = "You completed \(monthlyWorkouts.count) workouts this month with \(monthlyRecords.count) new PRs. Recovery is \(readiness.recoveryScore >= readiness.sleepQuality ? "trending up" : "asking for more attention")."
+
+        return ProgressSummary(
+            workoutsCompleted: monthlyWorkouts.count,
+            newPRCount: monthlyRecords.count,
+            recoveryDelta: recoveryDelta,
+            summary: summary
+        )
+    }
+
+    var primaryTrainingInsight: TrainingInsight? {
+        guard !workoutHistory.isEmpty else { return nil }
+
+        switch readinessTrend {
+        case .improving:
+            return TrainingInsight(
+                title: "Recovery Trend Improving",
+                observation: "Your readiness is running above your recent sleep-score baseline.",
+                recommendation: "This is a good window for progressive overload if soreness is manageable."
+            )
+        case .declining:
+            return TrainingInsight(
+                title: "Recovery Needs Attention",
+                observation: "Your readiness is trailing your recent sleep-score baseline.",
+                recommendation: "Keep intensity controlled and prioritize sleep before the next hard session."
+            )
+        case .stable:
+            return TrainingInsight(
+                title: "Consistency Pattern",
+                observation: "Your training and recovery signals are holding steady.",
+                recommendation: "Maintain the current rhythm and look for small weekly volume increases."
+            )
+        }
+    }
+
+    func updateNotificationSettings(_ settings: AppNotificationSettings) {
+        ForgePersistence.saveNotificationSettings(settings)
+        objectWillChange.send()
+    }
+
+    func setBriefNotificationsEnabled(_ isEnabled: Bool) {
+        ForgePersistence.saveBriefNotificationsEnabled(isEnabled)
+        objectWillChange.send()
+    }
+
+    func updateBriefNotificationSchedule(
+        morningHour: Int,
+        morningMinute: Int,
+        eveningHour: Int,
+        eveningMinute: Int
+    ) {
+        let settings = BriefNotificationSettings(
+            morningHour: morningHour,
+            morningMinute: morningMinute,
+            eveningHour: eveningHour,
+            eveningMinute: eveningMinute
+        )
+        ForgePersistence.saveBriefNotificationSettings(settings)
+        objectWillChange.send()
+    }
+
+    func loadDashboardFromAPI() async {
+        await Task.yield()
+        objectWillChange.send()
+    }
+
+    func signOut() {
+        isOnboarded = false
+        activeTab = .home
+    }
+
+    func updateProfile(name: String? = nil, age: Int? = nil, weightKg: Double? = nil) {
+        if let name { userProfile.name = name }
+        if let age { userProfile.age = age }
+        if let weightKg { userProfile.weight = weightKg }
+    }
+}
+
+// MARK: - Shared Profile Helpers
+
+struct ForgeSkeletonBlock: View {
+    var height: CGFloat
+    var cornerRadius: CGFloat
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color.surfaceElevated)
+            .overlay(
+                LinearGradient(
+                    colors: [.clear, .white.opacity(0.08), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .redacted(reason: .placeholder)
+            .accessibilityHidden(true)
+    }
+}
+
+struct ForgeEmptyState: View {
+    var icon: String
+    var title: String
+    var message: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 32, weight: .medium))
+                .foregroundColor(.textTertiary)
+            VStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                Text(message)
+                    .font(.system(size: 12))
+                    .foregroundColor(.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
+        .padding(.horizontal, 16)
+        .background(Color.surface)
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
+    }
+}
+
+struct ConnectedDevicesSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if store.userProfile.connectedDevices.isEmpty {
+                    Text("No connected devices")
+                        .foregroundColor(.textSecondary)
+                } else {
+                    ForEach(store.userProfile.connectedDevices, id: \.self) { device in
+                        Label(device, systemImage: icon(for: device))
+                    }
+                }
+            }
+            .navigationTitle("Connected Devices")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func icon(for device: String) -> String {
+        let normalized = device.lowercased()
+        if normalized.contains("watch") { return "applewatch" }
+        if normalized.contains("ring") { return "circle" }
+        return "sensor.tag.radiowaves.forward"
+    }
+}
+
 // MARK: - Settings sub-components
 
 struct SectionCard<Content: View>: View {
@@ -1044,13 +1675,29 @@ struct SectionCard<Content: View>: View {
     }
 }
 
-struct SettingsRow: View {
-    var icon: String?
-    var iconColor: Color?
-    var label: String
-    var trailingText: String? = nil
-    var trailing: AnyView? = nil
-    var showChevron: Bool = false
+struct SettingsRow<Trailing: View>: View {
+    private let icon: String?
+    private let iconColor: Color?
+    private let label: String
+    private let trailingText: String?
+    private let showChevron: Bool
+    private let trailing: Trailing
+
+    init(
+        icon: String? = nil,
+        iconColor: Color? = nil,
+        label: String,
+        trailingText: String? = nil,
+        showChevron: Bool = false,
+        @ViewBuilder trailing: () -> Trailing
+    ) {
+        self.icon = icon
+        self.iconColor = iconColor
+        self.label = label
+        self.trailingText = trailingText
+        self.showChevron = showChevron
+        self.trailing = trailing()
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -1072,7 +1719,7 @@ struct SettingsRow: View {
                     .truncationMode(.tail)
                     .frame(maxWidth: 160, alignment: .trailing)
             }
-            if let t = trailing { t }
+            trailing
             if showChevron {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .medium))
@@ -1081,6 +1728,24 @@ struct SettingsRow: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+    }
+}
+
+extension SettingsRow where Trailing == EmptyView {
+    init(
+        icon: String? = nil,
+        iconColor: Color? = nil,
+        label: String,
+        trailingText: String? = nil,
+        showChevron: Bool = false
+    ) {
+        self.init(
+            icon: icon,
+            iconColor: iconColor,
+            label: label,
+            trailingText: trailingText,
+            showChevron: showChevron
+        ) { EmptyView() }
     }
 }
 
@@ -1100,6 +1765,8 @@ struct ForgeToggle: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(.isToggle)
+        .accessibilityValue(isOn ? "On" : "Off")
     }
 }
 
@@ -1108,7 +1775,7 @@ struct ForgeToggle: View {
 struct TimeRangePicker: View {
     @Binding var selection: ProgressPageView.TimeRange
     @Namespace private var pickerAnimation
-    
+
     var body: some View {
         HStack(spacing: 6) {
             ForEach(ProgressPageView.TimeRange.allCases, id: \.self) { range in
@@ -1125,7 +1792,7 @@ struct TimeRangePicker: View {
                                 .matchedGeometryEffect(id: "picker", in: pickerAnimation)
                                 .shadow(color: Color.ember.opacity(0.3), radius: 8, y: 2)
                         }
-                        
+
                         Text(range.rawValue)
                             .font(.system(size: 13, weight: selection == range ? .semibold : .medium))
                             .foregroundColor(selection == range ? .white : .textSecondary)
@@ -1146,9 +1813,45 @@ struct TimeRangePicker: View {
 }
 
 struct QuickStatsOverviewView: View {
+    @EnvironmentObject var store: AppStore
     let timeRange: ProgressPageView.TimeRange
     @State private var appear = false
-    
+
+    private var filteredWorkouts: [WorkoutHistory] {
+        let days: Int
+        switch timeRange {
+        case .week: days = 7
+        case .month: days = 30
+        case .year: days = 365
+        }
+        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        return store.workoutHistory.filter { workout in
+            guard let date = ForgeDates.parse(workout.date) else { return false }
+            return date >= cutoff
+        }
+    }
+
+    private var workoutCountText: String {
+        if let completed = store.progressSummary?.workoutsCompleted, timeRange == .month {
+            return String(completed)
+        }
+        return String(filteredWorkouts.count)
+    }
+
+    private var caloriesText: String {
+        let calories = filteredWorkouts.reduce(0) { $0 + ($1.duration * 5) }
+        if calories >= 1000 {
+            return String(format: "%.1fk", Double(calories) / 1000.0)
+        }
+        return String(calories)
+    }
+
+    private var avgDurationText: String {
+        guard !filteredWorkouts.isEmpty else { return "—" }
+        let avg = filteredWorkouts.reduce(0) { $0 + $1.duration } / filteredWorkouts.count
+        return String(avg)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
@@ -1162,14 +1865,14 @@ struct QuickStatsOverviewView: View {
                 Spacer()
             }
             .padding(.bottom, 14)
-            
+
             HStack(spacing: 12) {
-                QuickStatCard(icon: "figure.strengthtraining.traditional", value: "24", label: "Workouts", trend: "+12%", trendUp: true, appeared: appear, delay: 0.1)
-                QuickStatCard(icon: "flame.fill", value: "18.5k", label: "Calories", trend: "+8%", trendUp: true, appeared: appear, delay: 0.15)
-                QuickStatCard(icon: "timer", value: "42", label: "Avg Time", trend: "-5m", trendUp: false, appeared: appear, delay: 0.2)
+                QuickStatCard(icon: "figure.strengthtraining.traditional", value: workoutCountText, label: "Workouts", trend: nil, trendUp: true, appeared: appear, delay: 0.1)
+                QuickStatCard(icon: "flame.fill", value: caloriesText, label: "Calories", trend: nil, trendUp: true, appeared: appear, delay: 0.15)
+                QuickStatCard(icon: "timer", value: avgDurationText, label: "Avg Min", trend: nil, trendUp: true, appeared: appear, delay: 0.2)
             }
         }
-        .onAppear { 
+        .onAppear {
             withAnimation { appear = true }
         }
     }
@@ -1179,11 +1882,11 @@ struct QuickStatCard: View {
     let icon: String
     let value: String
     let label: String
-    let trend: String
+    let trend: String?
     let trendUp: Bool
     var appeared: Bool = false
     var delay: Double = 0
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -1191,23 +1894,25 @@ struct QuickStatCard: View {
                     .font(.system(size: 16))
                     .foregroundColor(.ember)
                 Spacer()
-                HStack(spacing: 3) {
-                    Image(systemName: trendUp ? "arrow.up.right" : "arrow.down.right")
-                        .font(.system(size: 9, weight: .bold))
-                    Text(trend)
-                        .font(.system(size: 10, weight: .bold))
+                if let trend, !trend.isEmpty {
+                    HStack(spacing: 3) {
+                        Image(systemName: trendUp ? "arrow.up.right" : "arrow.down.right")
+                            .font(.system(size: 9, weight: .bold))
+                        Text(trend)
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .foregroundColor(trendUp ? .success : .ember)
+                    .padding(.horizontal, 7).padding(.vertical, 4)
+                    .background((trendUp ? Color.success : Color.ember).opacity(0.12))
+                    .cornerRadius(6)
                 }
-                .foregroundColor(trendUp ? .success : .ember)
-                .padding(.horizontal, 7).padding(.vertical, 4)
-                .background((trendUp ? Color.success : Color.ember).opacity(0.12))
-                .cornerRadius(6)
             }
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
                     .font(.system(size: 20, weight: .black, design: .rounded))
                     .foregroundColor(.textPrimary)
-                
+
                 Text(label)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.textTertiary)
@@ -1234,9 +1939,60 @@ struct QuickStatCard: View {
 }
 
 struct StreaksAndMilestonesView: View {
+    @EnvironmentObject var store: AppStore
     @State private var appear = false
-    
+
+    // Longest run of consecutive workout days in the loaded history.
+    private var longestStreak: Int {
+        let calendar = Calendar.current
+        let days = Set(store.workoutHistory.compactMap { workout in
+            ForgeDates.parse(workout.date).map { calendar.startOfDay(for: $0) }
+        })
+        var longest = 0
+        for day in days {
+            // Only walk forward from the first day of each run.
+            if let previous = calendar.date(byAdding: .day, value: -1, to: day), days.contains(previous) { continue }
+            var length = 1
+            var cursor = day
+            while let next = calendar.date(byAdding: .day, value: 1, to: cursor), days.contains(next) {
+                length += 1
+                cursor = next
+            }
+            longest = max(longest, length)
+        }
+        return max(longest, store.currentStreak)
+    }
+
+    private var streakMessage: String {
+        let current = store.currentStreak
+        let best = longestStreak
+        if current == 0 {
+            return "Complete a workout today to start a new streak."
+        }
+        if current >= best {
+            return "This is your longest streak yet — keep it going!"
+        }
+        let remaining = best - current + 1
+        return "\(remaining) more \(remaining == 1 ? "day" : "days") to beat your \(best)-day record."
+    }
+
+    private func nextTarget(above value: Int, ladder: [Int]) -> Int {
+        ladder.first { value < $0 } ?? ladder[ladder.count - 1]
+    }
+
+    private func compact(_ value: Int) -> String {
+        value >= 1000 ? String(format: "%.1fk", Double(value) / 1000) : String(value)
+    }
+
     var body: some View {
+        let workoutCount = store.workoutHistory.count
+        let workoutTarget = nextTarget(above: workoutCount, ladder: [10, 25, 50, 100, 250, 500])
+        let totalVolume = store.workoutHistory.reduce(0) { $0 + $1.volume }
+        let volumeTarget = nextTarget(above: totalVolume, ladder: [50_000, 100_000, 250_000, 500_000, 1_000_000])
+        let prCount = store.personalRecords.count
+        let prTarget = nextTarget(above: prCount, ladder: [3, 5, 10, 25, 50])
+        let streakTarget = nextTarget(above: longestStreak, ladder: [7, 14, 30, 60, 90])
+
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "flame.fill")
@@ -1246,7 +2002,7 @@ struct StreaksAndMilestonesView: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.textPrimary)
             }
-            
+
             VStack(spacing: 12) {
                 // Current streak
                 HStack(spacing: 12) {
@@ -1255,20 +2011,20 @@ struct StreaksAndMilestonesView: View {
                             .fill(LinearGradient(colors: [.warning, .ember], startPoint: .topLeading, endPoint: .bottomTrailing))
                             .frame(width: 50, height: 50)
                         VStack(spacing: 0) {
-                            Text("7")
+                            Text("\(store.currentStreak)")
                                 .font(.system(size: 18, weight: .bold))
                                 .foregroundColor(.white)
-                            Text("days")
+                            Text(store.currentStreak == 1 ? "day" : "days")
                                 .font(.system(size: 8))
                                 .foregroundColor(.white.opacity(0.9))
                         }
                     }
-                    
+
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Current Streak")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.textPrimary)
-                        Text("Keep it up! 3 more days to beat your record.")
+                        Text(streakMessage)
                             .font(.system(size: 12))
                             .foregroundColor(.textSecondary)
                             .lineLimit(2)
@@ -1279,13 +2035,39 @@ struct StreaksAndMilestonesView: View {
                 .background(Color.surface)
                 .cornerRadius(12)
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.warning.opacity(0.3), lineWidth: 2))
-                
-                // Milestones grid
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Current streak: \(store.currentStreak) days. \(streakMessage)")
+
+                // Milestones grid — next goal scales with actual progress
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    MilestoneCard(icon: "trophy.fill", title: "100 Workouts", subtitle: "82/100", progress: 0.82, color: .ember)
-                    MilestoneCard(icon: "flame.fill", title: "50k Calories", subtitle: "38.5k/50k", progress: 0.77, color: .warning)
-                    MilestoneCard(icon: "figure.strengthtraining.traditional", title: "1000 Sets", subtitle: "743/1000", progress: 0.74, color: .steel)
-                    MilestoneCard(icon: "chart.line.uptrend.xyaxis", title: "90 Day Streak", subtitle: "Best: 10", progress: 0.11, color: .success)
+                    MilestoneCard(
+                        icon: "trophy.fill",
+                        title: "\(workoutTarget) Workouts",
+                        subtitle: "\(workoutCount)/\(workoutTarget)",
+                        progress: min(1, Double(workoutCount) / Double(workoutTarget)),
+                        color: .ember
+                    )
+                    MilestoneCard(
+                        icon: "scalemass.fill",
+                        title: "\(compact(volumeTarget)) lbs Lifted",
+                        subtitle: "\(compact(totalVolume))/\(compact(volumeTarget))",
+                        progress: min(1, Double(totalVolume) / Double(volumeTarget)),
+                        color: .warning
+                    )
+                    MilestoneCard(
+                        icon: "figure.strengthtraining.traditional",
+                        title: "\(prTarget) Personal Records",
+                        subtitle: "\(prCount)/\(prTarget)",
+                        progress: min(1, Double(prCount) / Double(prTarget)),
+                        color: .steel
+                    )
+                    MilestoneCard(
+                        icon: "chart.line.uptrend.xyaxis",
+                        title: "\(streakTarget)-Day Streak",
+                        subtitle: "Best: \(longestStreak)",
+                        progress: min(1, Double(longestStreak) / Double(streakTarget)),
+                        color: .success
+                    )
                 }
             }
         }
@@ -1302,7 +2084,7 @@ struct MilestoneCard: View {
     let progress: Double
     let color: Color
     @State private var animatedProgress: CGFloat = 0
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -1314,15 +2096,15 @@ struct MilestoneCard: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(color)
             }
-            
+
             Text(title)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(.textPrimary)
-            
+
             Text(subtitle)
                 .font(.system(size: 11))
                 .foregroundColor(.textSecondary)
-            
+
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule()
@@ -1349,33 +2131,76 @@ struct MilestoneCard: View {
 
 struct ShareProgressView: View {
     @Environment(\.dismiss) var dismiss
-    
+    @EnvironmentObject var store: AppStore
+    @State private var copied = false
+
+    private var summaryText: String {
+        var lines = ["My Forge progress 🔥"]
+        let workouts = store.progressSummary?.workoutsCompleted ?? store.workoutHistory.count
+        if workouts > 0 {
+            lines.append("• \(workouts) workouts this month")
+        }
+        if store.currentStreak > 0 {
+            lines.append("• \(store.currentStreak)-day streak")
+        }
+        for pr in store.personalRecords.prefix(3) {
+            lines.append("• \(pr.exercise) PR: \(pr.formattedValue) \(pr.unit)")
+        }
+        return lines.joined(separator: "\n")
+    }
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 24) {
                 VStack(spacing: 12) {
                     Image(systemName: "square.and.arrow.up.circle.fill")
                         .font(.system(size: 60))
                         .foregroundColor(.ember)
-                    
+
                     Text("Share Your Progress")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundColor(.textPrimary)
-                    
+
                     Text("Show off your achievements and inspire others!")
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.top, 40)
-                
+
+                // Preview of what gets shared
+                Text(summaryText)
+                    .font(.system(size: 14))
+                    .foregroundColor(.textSecondary)
+                    .lineSpacing(5)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(Color.surface)
+                    .cornerRadius(14)
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
+                    .padding(.horizontal)
+
                 VStack(spacing: 12) {
-                    ShareOptionButton(icon: "photo.fill", title: "Share as Image", subtitle: "Create a shareable graphic")
-                    ShareOptionButton(icon: "text.quote", title: "Share as Text", subtitle: "Copy stats to clipboard")
-                    ShareOptionButton(icon: "link", title: "Share Link", subtitle: "Share your profile")
+                    ShareLink(item: summaryText) {
+                        ShareOptionRow(icon: "square.and.arrow.up", title: "Share", subtitle: "Send your stats anywhere")
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        UIPasteboard.general.string = summaryText
+                        withAnimation { copied = true }
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    } label: {
+                        ShareOptionRow(
+                            icon: copied ? "checkmark" : "doc.on.doc",
+                            title: copied ? "Copied!" : "Copy to Clipboard",
+                            subtitle: "Paste your stats anywhere"
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal)
-                
+
                 Spacer()
             }
             .background(Color.background.ignoresSafeArea())
@@ -1390,44 +2215,41 @@ struct ShareProgressView: View {
     }
 }
 
-struct ShareOptionButton: View {
+struct ShareOptionRow: View {
     let icon: String
     let title: String
     let subtitle: String
-    
+
     var body: some View {
-        Button(action: {}) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(Color.ember.opacity(0.15))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: icon)
-                        .font(.system(size: 18))
-                        .foregroundColor(.ember)
-                }
-                
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.textPrimary)
-                    Text(subtitle)
-                        .font(.system(size: 12))
-                        .foregroundColor(.textSecondary)
-                }
-                
-                Spacer()
-                
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14))
-                    .foregroundColor(.textTertiary)
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.ember.opacity(0.15))
+                    .frame(width: 44, height: 44)
+                Image(systemName: icon)
+                    .font(.system(size: 18))
+                    .foregroundColor(.ember)
             }
-            .padding(16)
-            .background(Color.surface)
-            .cornerRadius(14)
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundColor(.textSecondary)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14))
+                .foregroundColor(.textTertiary)
         }
-        .buttonStyle(.plain)
+        .padding(16)
+        .background(Color.surface)
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
     }
 }
 // MARK: - Profile Editor View
@@ -1438,9 +2260,23 @@ struct ProfileEditorView: View {
     @State private var name = ""
     @State private var age = ""
     @State private var weight = ""
-    
+
+    private static let lbsPerKg = 2.20462
+
+    private func save() {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newName = (trimmedName.isEmpty || trimmedName == store.userProfile.name) ? nil : trimmedName
+        let newAge = Int(age.trimmingCharacters(in: .whitespaces))
+        let newWeightKg = Double(weight.trimmingCharacters(in: .whitespaces)).map { $0 / Self.lbsPerKg }
+
+        if newName != nil || newAge != nil || newWeightKg != nil {
+            store.updateProfile(name: newName, age: newAge, weightKg: newWeightKg)
+        }
+        dismiss()
+    }
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
                     // Avatar editor
@@ -1454,7 +2290,7 @@ struct ProfileEditorView: View {
                                         .font(.system(size: 36, weight: .bold))
                                         .foregroundColor(.white)
                                 )
-                            
+
                             Button(action: {}) {
                                 ZStack {
                                     Circle()
@@ -1466,22 +2302,22 @@ struct ProfileEditorView: View {
                                 }
                             }
                         }
-                        
+
                         Text("Change Photo")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.ember)
                     }
                     .padding(.top, 20)
-                    
+
                     // Form fields
                     VStack(spacing: 16) {
-                        ProfileFieldRow(label: "Name", placeholder: store.userProfile.name, text: $name)
-                        ProfileFieldRow(label: "Age", placeholder: "28", text: $age, keyboardType: .numberPad)
-                        ProfileFieldRow(label: "Weight", placeholder: "175 lbs", text: $weight)
+                        ProfileFieldRow(label: "Name", placeholder: "Your name", text: $name)
+                        ProfileFieldRow(label: "Age", placeholder: "Age", text: $age, keyboardType: .numberPad)
+                        ProfileFieldRow(label: "Weight (lbs)", placeholder: "Weight", text: $weight, keyboardType: .decimalPad)
                     }
-                    
+
                     // Save button
-                    Button(action: { dismiss() }) {
+                    Button(action: save) {
                         Text("Save Changes")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.white)
@@ -1503,6 +2339,11 @@ struct ProfileEditorView: View {
                         .foregroundColor(.textSecondary)
                 }
             }
+            .onAppear {
+                name = store.userProfile.name
+                age = store.userProfile.age.map(String.init) ?? ""
+                weight = store.userProfile.weight.map { String(Int(($0 * Self.lbsPerKg).rounded())) } ?? ""
+            }
         }
     }
 }
@@ -1512,13 +2353,13 @@ struct ProfileFieldRow: View {
     let placeholder: String
     @Binding var text: String
     var keyboardType: UIKeyboardType = .default
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.textSecondary)
-            
+
             TextField(placeholder, text: $text)
                 .font(.system(size: 15))
                 .padding(14)
@@ -1535,10 +2376,17 @@ struct ProfileFieldRow: View {
 struct CoachingStylePickerView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var store: AppStore
-    @State private var selectedStyle: CoachingStyle = .pushHard
-    
+    @State private var selectedStyle: CoachingStyle = .balanced
+
+    private func save() {
+        if selectedStyle != store.userProfile.coachingStyle {
+            store.updateProfile(coachingStyle: selectedStyle)
+        }
+        dismiss()
+    }
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
                     Text("Choose how Forge AI interacts with you during workouts and provides feedback.")
@@ -1547,7 +2395,7 @@ struct CoachingStylePickerView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                         .padding(.top, 8)
-                    
+
                     VStack(spacing: 12) {
                         ForEach(CoachingStyle.allCases, id: \.self) { style in
                             Button(action: {
@@ -1555,28 +2403,31 @@ struct CoachingStylePickerView: View {
                                     selectedStyle = style
                                 }
                             }) {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(style.label)
-                                                .font(.system(size: 16, weight: .semibold))
-                                                .foregroundColor(.textPrimary)
-                                            Text(style.description)
-                                                .font(.system(size: 13))
-                                                .foregroundColor(.textSecondary)
-                                                .lineLimit(3)
-                                        }
-                                        Spacer()
-                                        
-                                        ZStack {
+                                HStack(spacing: 12) {
+                                    Image(systemName: style.icon)
+                                        .font(.system(size: 18))
+                                        .foregroundColor(style.color)
+                                        .frame(width: 28)
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(style.label)
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(.textPrimary)
+                                        Text(style.description)
+                                            .font(.system(size: 13))
+                                            .foregroundColor(.textSecondary)
+                                            .lineLimit(3)
+                                    }
+                                    Spacer()
+
+                                    ZStack {
+                                        Circle()
+                                            .stroke(selectedStyle == style ? Color.ember : Color.borderColor, lineWidth: 2)
+                                            .frame(width: 24, height: 24)
+                                        if selectedStyle == style {
                                             Circle()
-                                                .stroke(selectedStyle == style ? Color.ember : Color.borderColor, lineWidth: 2)
-                                                .frame(width: 24, height: 24)
-                                            if selectedStyle == style {
-                                                Circle()
-                                                    .fill(Color.ember)
-                                                    .frame(width: 14, height: 14)
-                                            }
+                                                .fill(Color.ember)
+                                                .frame(width: 14, height: 14)
                                         }
                                     }
                                 }
@@ -1592,8 +2443,8 @@ struct CoachingStylePickerView: View {
                         }
                     }
                     .padding(.horizontal)
-                    
-                    Button(action: { dismiss() }) {
+
+                    Button(action: save) {
                         Text("Save Selection")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.white)
@@ -1611,11 +2462,12 @@ struct CoachingStylePickerView: View {
             .navigationTitle("Coaching Style")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .foregroundColor(.ember)
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(.textSecondary)
                 }
             }
+            .onAppear { selectedStyle = store.userProfile.coachingStyle }
         }
     }
 }
