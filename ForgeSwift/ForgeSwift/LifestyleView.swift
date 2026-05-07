@@ -1172,8 +1172,8 @@ struct LiveHealthDashboard: View {
                     
                     HStack(spacing: 4) {
                         ForEach(Array(trends.enumerated()), id: \.offset) { i, trend in
-                            let maxSteps = trends.map { $0.steps }.max() ?? 1
-                            let height = CGFloat(trend.steps) / CGFloat(maxSteps) * 60
+                            let maxSteps = max(trends.map { $0.steps }.max() ?? 0, 1)
+                            let height = max(CGFloat(trend.steps), 0) / CGFloat(maxSteps) * 60
                             
                             VStack(spacing: 4) {
                                 Spacer()
