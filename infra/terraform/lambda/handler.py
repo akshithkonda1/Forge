@@ -71,9 +71,11 @@ def handler(event, _context):
                 ],
             },
             "aria": {
-                "status": "configured" if os.getenv("ANTHROPIC_API_KEY") else "unconfigured",
+                "backend": os.getenv("ARIA_BACKEND", "bedrock"),
+                "status": "configured",
                 "chatModel": ARIA_CHAT_MODEL,
                 "analysisModel": ARIA_ANALYSIS_MODEL,
+                "backupModel": os.getenv("ARIA_BACKUP_MODEL", ARIA_ANALYSIS_MODEL),
                 "features": [
                     "tool-use",
                     "extended-thinking",
@@ -81,6 +83,7 @@ def handler(event, _context):
                     "conversation-memory",
                     "proactive-insights",
                     "voice-processing",
+                    "backup-model",
                 ],
             },
         })

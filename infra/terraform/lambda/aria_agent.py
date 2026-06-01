@@ -1,25 +1,46 @@
 """ARIA – Adaptive Reasoning Intelligence Architecture.
 
-The elite AI performance coach for Forge, powered by Claude directly via the
-Anthropic API. Features:
+Supports two inference backends selectable via ARIA_BACKEND env var:
+  - "bedrock"   (default) – uses Lambda IAM role via boto3, no API key needed
+  - "anthropic"           – uses Anthropic SDK, requires ANTHROPIC_API_KEY
+
+Features:
   - Claude Sonnet 4.6 for real-time agentic chat with tool use
   - Claude Opus 4.8 for deep analysis with extended thinking
-  - Prompt caching on the system prompt and conversation history
+  - Prompt caching on system prompt and conversation history
   - Tool-augmented responses grounded in the user's real health data
-  - Graceful fallback when the API is unreachable
+  - Automatic fallback to ARIA_BACKUP_MODEL if the primary call fails
 """
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Any, Callable
 
-ARIA_CHAT_MODEL = os.getenv("ARIA_CHAT_MODEL", "claude-sonnet-4-6")
-ARIA_ANALYSIS_MODEL = os.getenv("ARIA_ANALYSIS_MODEL", "claude-opus-4-8")
+logger = logging.getLogger(__name__)
+
+ARIA_BACKEND = os.getenv("ARIA_BACKEND", "bedrock")
+
+_BD_CHAT = "anthropic.claude-sonnet-4-6"
+_BD_ANALYSIS = "anthropic.claude-opus-4-8"
+_AN_CHAT = "claude-sonnet-4-6"
+_AN_ANALYSIS = "claude-opus-4-8"
+
+if ARIA_BACKEND == "anthropic":
+    ARIA_CHAT_MODEL = os.getenv("ARIA_CHAT_MODEL", _AN_CHAT)
+    ARIA_ANALYSIS_MODEL = os.getenv("ARIA_ANALYSIS_MODEL", _AN_ANALYSIS)
+    ARIA_BACKUP_MODEL = os.getenv("ARIA_BACKUP_MODEL", _AN_ANALYSIS)
+else:
+    ARIA_CHAT_MODEL = os.getenv("ARIA_CHAT_MODEL", _BD_CHAT)
+    ARIA_ANALYSIS_MODEL = os.getenv("ARIA_ANALYSIS_MODEL", _BD_ANALYSIS)
+    ARIA_BACKUP_MODEL = os.getenv("ARIA_BACKUP_MODEL", _BD_ANALYSIS)
+
 ARIA_MAX_TOOL_ITERATIONS = int(os.getenv("ARIA_MAX_TOOL_ITERATIONS", "5"))
 ARIA_CHAT_MAX_TOKENS = int(os.getenv("ARIA_CHAT_MAX_TOKENS", "2048"))
 ARIA_ANALYSIS_MAX_TOKENS = int(os.getenv("ARIA_ANALYSIS_MAX_TOKENS", "8192"))
 ARIA_THINKING_BUDGET = int(os.getenv("ARIA_THINKING_BUDGET", "10000"))
+_AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
 
 ARIA_SYSTEM_PROMPT = """\
@@ -74,157 +95,328 @@ class ARIAError(Exception):
 ToolHandler = Callable[[str, str, dict[str, Any]], Any]
 
 
-class ARIAAgent:
-    """
-    Core ARIA agent. Drives all AI-powered coaching interactions.
+# ---------------------------------------------------------------------------
+# Format conversion helpers (module-level, stateless)
+# ---------------------------------------------------------------------------
 
-    tool_handler: callable(user_id, tool_name, tool_input) -> Any
+def _norm_to_bedrock_blocks(block: dict[str, Any]) -> list[dict[str, Any]]:
+    """Translate one normalized content block into Bedrock converse block(s).
+
+    Thinking blocks are input-only from Bedrock (they come back in responses)
+    and cannot be round-tripped in the conversation history, so they are dropped.
     """
+    btype = block.get("type")
+    if btype == "text":
+        return [{"text": block["text"]}]
+    if btype == "tool_use":
+        return [{"toolUse": {
+            "toolUseId": block["id"],
+            "name": block["name"],
+            "input": block.get("input", {}),
+        }}]
+    if btype == "tool_result":
+        content_val = block.get("content", "")
+        status = "error" if block.get("is_error") else "success"
+        return [{"toolResult": {
+            "toolUseId": block["tool_use_id"],
+            "content": [{"text": str(content_val)}],
+            "status": status,
+        }}]
+    # "thinking" and unknown types: skip
+    return []
+
+
+def _bedrock_block_to_norm(block: dict[str, Any]) -> dict[str, Any] | None:
+    """Translate one Bedrock response content block to normalized format."""
+    if "text" in block:
+        return {"type": "text", "text": block["text"]}
+    if "toolUse" in block:
+        tu = block["toolUse"]
+        return {"type": "tool_use", "id": tu["toolUseId"], "name": tu["name"], "input": tu.get("input", {})}
+    if "reasoningContent" in block:
+        text = block["reasoningContent"].get("reasoningText", {}).get("text", "")
+        return {"type": "thinking", "thinking": text}
+    return None
+
+
+def _messages_to_bedrock(
+    messages: list[dict[str, Any]],
+    *,
+    cache_prefix_end: bool = False,
+) -> list[dict[str, Any]]:
+    """Convert normalized message list to Bedrock converse format.
+
+    If cache_prefix_end is True a cachePoint block is appended to the last
+    message's content, instructing Bedrock to cache everything up to that point.
+    """
+    result: list[dict[str, Any]] = []
+    for i, msg in enumerate(messages):
+        raw = msg.get("content", [])
+        if isinstance(raw, str):
+            raw = [{"type": "text", "text": raw}]
+        blocks: list[dict[str, Any]] = []
+        for b in raw:
+            blocks.extend(_norm_to_bedrock_blocks(b))
+        if cache_prefix_end and i == len(messages) - 1 and blocks:
+            blocks.append({"cachePoint": {"type": "default"}})
+        result.append({"role": msg["role"], "content": blocks})
+    return result
+
+
+def _messages_to_anthropic(
+    messages: list[dict[str, Any]],
+    *,
+    cache_prefix_end: bool = False,
+) -> list[dict[str, Any]]:
+    """Convert normalized message list to Anthropic SDK format.
+
+    If cache_prefix_end is True the last block of the last message gets a
+    cache_control ephemeral marker.
+    """
+    result: list[dict[str, Any]] = []
+    for i, msg in enumerate(messages):
+        raw = msg.get("content", [])
+        if isinstance(raw, str):
+            raw = [{"type": "text", "text": raw}]
+        content = [dict(b) for b in raw]
+        if cache_prefix_end and i == len(messages) - 1 and content:
+            last = dict(content[-1])
+            last["cache_control"] = {"type": "ephemeral"}
+            content[-1] = last
+        result.append({"role": msg["role"], "content": content})
+    return result
+
+
+def _tools_to_bedrock(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Convert Anthropic-format tool defs to Bedrock toolConfig tools list."""
+    return [
+        {"toolSpec": {
+            "name": t["name"],
+            "description": t["description"],
+            "inputSchema": {"json": t["input_schema"]},
+        }}
+        for t in tools
+    ]
+
+
+def _serialize_sdk_content(content: Any) -> list[dict[str, Any]]:
+    """Convert Anthropic SDK content objects (with .type etc.) to plain dicts."""
+    if isinstance(content, str):
+        return [{"type": "text", "text": content}]
+    if not isinstance(content, list):
+        return []
+    result: list[dict[str, Any]] = []
+    for block in content:
+        if isinstance(block, dict):
+            result.append(block)
+        elif hasattr(block, "type"):
+            bt = block.type
+            if bt == "text":
+                result.append({"type": "text", "text": block.text})
+            elif bt == "tool_use":
+                result.append({"type": "tool_use", "id": block.id, "name": block.name, "input": block.input})
+            elif bt == "thinking":
+                result.append({"type": "thinking", "thinking": block.thinking})
+            elif bt == "tool_result":
+                result.append({"type": "tool_result", "tool_use_id": block.tool_use_id, "content": block.content})
+    return result
+
+
+# ---------------------------------------------------------------------------
+# ARIAAgent
+# ---------------------------------------------------------------------------
+
+class ARIAAgent:
+    """Core ARIA agent. Drives all AI-powered coaching interactions."""
 
     def __init__(self, tool_handler: ToolHandler | None = None) -> None:
-        self._client: Any = None
+        self._bedrock_client: Any = None
+        self._anthropic_client: Any = None
         self.tool_handler = tool_handler
 
-    # ------------------------------------------------------------------
-    # Client
-    # ------------------------------------------------------------------
+    # ── Client accessors ──────────────────────────────────────────────────────
 
-    def _get_client(self) -> Any:
-        if self._client is not None:
-            return self._client
+    def _get_bedrock_client(self) -> Any:
+        if self._bedrock_client is not None:
+            return self._bedrock_client
+        try:
+            import boto3
+        except ImportError as exc:
+            raise ARIAError(503, "boto3 is required for the Bedrock backend. Add boto3 to requirements.txt.") from exc
+        self._bedrock_client = boto3.client("bedrock-runtime", region_name=_AWS_REGION)
+        return self._bedrock_client
 
+    def _get_anthropic_client(self) -> Any:
+        if self._anthropic_client is not None:
+            return self._anthropic_client
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             raise ARIAError(
                 503,
                 "ARIA is not configured: ANTHROPIC_API_KEY environment variable is missing.",
             )
-
         try:
             import anthropic
         except ImportError as exc:
-            raise ARIAError(
-                503,
-                "ARIA requires the anthropic SDK. Add 'anthropic' to requirements.txt.",
-            ) from exc
+            raise ARIAError(503, "anthropic SDK is required for ARIA_BACKEND=anthropic.") from exc
+        self._anthropic_client = anthropic.Anthropic(api_key=api_key)
+        return self._anthropic_client
 
-        self._client = anthropic.Anthropic(api_key=api_key)
-        return self._client
+    def _get_client(self) -> Any:
+        """Compatibility shim — returns the active backend client."""
+        if ARIA_BACKEND == "anthropic":
+            return self._get_anthropic_client()
+        return self._get_bedrock_client()
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
-    def _system_blocks(self) -> list[dict[str, Any]]:
-        """System prompt blocks with cache_control on the large static block."""
-        return [
-            {
-                "type": "text",
-                "text": ARIA_SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ]
+    # ── System prompt blocks ──────────────────────────────────────────────────
 
     @staticmethod
-    def _serialize_content(content: Any) -> list[dict[str, Any]]:
-        """Convert SDK content blocks to JSON-serializable dicts."""
-        if isinstance(content, str):
-            return [{"type": "text", "text": content}]
-        if isinstance(content, list):
-            result = []
-            for block in content:
-                if isinstance(block, dict):
-                    result.append(block)
-                elif hasattr(block, "type"):
-                    block_type = block.type
-                    if block_type == "text":
-                        result.append({"type": "text", "text": block.text})
-                    elif block_type == "tool_use":
-                        result.append(
-                            {
-                                "type": "tool_use",
-                                "id": block.id,
-                                "name": block.name,
-                                "input": block.input,
-                            }
-                        )
-                    elif block_type == "thinking":
-                        result.append({"type": "thinking", "thinking": block.thinking})
-                    elif block_type == "tool_result":
-                        result.append(
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": block.tool_use_id,
-                                "content": block.content,
-                            }
-                        )
-            return result
-        return []
+    def _bedrock_system() -> list[dict[str, Any]]:
+        return [{"text": ARIA_SYSTEM_PROMPT}, {"cachePoint": {"type": "default"}}]
 
     @staticmethod
-    def _extract_text(content: Any) -> str:
-        """Pull all text parts from content blocks."""
-        parts: list[str] = []
-        if isinstance(content, str):
-            return content
-        if isinstance(content, list):
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "text":
-                    parts.append(str(block.get("text", "")))
-                elif hasattr(block, "type") and block.type == "text":
-                    parts.append(block.text)
-        return "\n".join(parts).strip()
+    def _anthropic_system() -> list[dict[str, Any]]:
+        return [{"type": "text", "text": ARIA_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}]
 
-    def _build_messages(
+    # ── Low-level single-turn calls ───────────────────────────────────────────
+
+    def _one_turn_bedrock(
         self,
-        conversation: list[dict[str, Any]],
-        new_user_content: str,
-        inject_context: str | None = None,
-    ) -> list[dict[str, Any]]:
+        model: str,
+        working: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None,
+        max_tokens: int,
+        extra_fields: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Single Bedrock converse() call. Returns normalized result."""
+        client = self._get_bedrock_client()
+
+        # Split history (all but last) from the new user turn (last)
+        history = working[:-1]
+        current = [working[-1]]
+        bedrock_msgs = (
+            _messages_to_bedrock(history, cache_prefix_end=bool(history))
+            + _messages_to_bedrock(current)
+        )
+
+        kwargs: dict[str, Any] = {
+            "modelId": model,
+            "system": self._bedrock_system(),
+            "messages": bedrock_msgs,
+            "inferenceConfig": {"maxTokens": max_tokens},
+        }
+        if tools:
+            kwargs["toolConfig"] = {"tools": _tools_to_bedrock(tools)}
+        if extra_fields:
+            kwargs["additionalModelRequestFields"] = extra_fields
+
+        response = client.converse(**kwargs)
+
+        stop_reason = response.get("stopReason", "end_turn")
+        raw = response.get("output", {}).get("message", {}).get("content", [])
+        norm_content = [b for b in (_bedrock_block_to_norm(b) for b in raw) if b is not None]
+        u = response.get("usage", {})
+        usage = {
+            "inputTokens": u.get("inputTokens", 0),
+            "outputTokens": u.get("outputTokens", 0),
+            "cacheReadTokens": u.get("cacheReadInputTokens", 0),
+            "cacheCreationTokens": u.get("cacheWriteInputTokens", 0),
+        }
+        return {"stop_reason": stop_reason, "content": norm_content, "usage": usage}
+
+    def _one_turn_anthropic(
+        self,
+        model: str,
+        working: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None,
+        max_tokens: int,
+        thinking: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Single Anthropic messages.create() call. Returns normalized result."""
+        client = self._get_anthropic_client()
+
+        history = working[:-1]
+        current = [working[-1]]
+        sdk_msgs = (
+            _messages_to_anthropic(history, cache_prefix_end=bool(history))
+            + _messages_to_anthropic(current)
+        )
+
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": self._anthropic_system(),
+            "messages": sdk_msgs,
+        }
+        if tools:
+            kwargs["tools"] = tools
+            kwargs["tool_choice"] = {"type": "auto"}
+        if thinking:
+            kwargs["thinking"] = thinking
+
+        response = client.messages.create(**kwargs)
+
+        norm_content = _serialize_sdk_content(response.content)
+        u = response.usage
+        usage = {
+            "inputTokens": getattr(u, "input_tokens", 0),
+            "outputTokens": getattr(u, "output_tokens", 0),
+            "cacheReadTokens": getattr(u, "cache_read_input_tokens", 0),
+            "cacheCreationTokens": getattr(u, "cache_creation_input_tokens", 0),
+        }
+        return {"stop_reason": response.stop_reason, "content": norm_content, "usage": usage}
+
+    def _one_turn(
+        self,
+        model: str,
+        working: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None,
+        max_tokens: int,
+        *,
+        bedrock_extra: dict[str, Any] | None = None,
+        anthropic_thinking: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Single-turn call with automatic backup-model fallback.
+
+        Tries `model` first. On any non-ARIAError exception, retries with
+        ARIA_BACKUP_MODEL (if different) before raising ARIAError(503).
         """
-        Build the messages list for the API.
+        def call(m: str) -> dict[str, Any]:
+            if ARIA_BACKEND == "anthropic":
+                return self._one_turn_anthropic(m, working, tools, max_tokens, anthropic_thinking)
+            return self._one_turn_bedrock(m, working, tools, max_tokens, bedrock_extra)
 
-        Applies cache_control to the last historical message to persist the
-        conversation prefix in the cache between turns.
-        """
-        messages: list[dict[str, Any]] = []
+        try:
+            return call(model)
+        except ARIAError:
+            raise
+        except Exception as primary_exc:
+            if ARIA_BACKUP_MODEL and ARIA_BACKUP_MODEL != model:
+                logger.warning(
+                    "ARIA primary model %s failed (%s); retrying with backup %s",
+                    model, primary_exc, ARIA_BACKUP_MODEL,
+                )
+                try:
+                    result = call(ARIA_BACKUP_MODEL)
+                    result["usedBackup"] = True
+                    result["backupModel"] = ARIA_BACKUP_MODEL
+                    return result
+                except Exception as backup_exc:
+                    raise ARIAError(
+                        503,
+                        f"ARIA primary ({model}) and backup ({ARIA_BACKUP_MODEL}) both failed: {backup_exc}",
+                    ) from backup_exc
+            raise ARIAError(503, f"ARIA model call failed: {primary_exc}") from primary_exc
 
-        # Stamp the last historical message with a cache breakpoint so turns
-        # after the first benefit from cached prompt tokens.
-        for i, msg in enumerate(conversation):
-            if i == len(conversation) - 1 and msg.get("role") == "assistant":
-                msg_copy = dict(msg)
-                content = list(msg_copy.get("content", []))
-                if content:
-                    last = dict(content[-1]) if isinstance(content[-1], dict) else {"type": "text", "text": str(content[-1])}
-                    last["cache_control"] = {"type": "ephemeral"}
-                    content[-1] = last
-                msg_copy["content"] = content
-                messages.append(msg_copy)
-            else:
-                messages.append(msg)
+    # ── Helpers ───────────────────────────────────────────────────────────────
 
-        # Build the new user turn.
-        if inject_context and not conversation:
-            # On the first message inject a cached context block so subsequent
-            # turns reuse those tokens without re-sending the context.
-            user_content: list[dict[str, Any]] = [
-                {
-                    "type": "text",
-                    "text": f"[MY HEALTH & TRAINING CONTEXT]\n{inject_context}",
-                    "cache_control": {"type": "ephemeral"},
-                },
-                {"type": "text", "text": new_user_content},
-            ]
-        else:
-            user_content = [{"type": "text", "text": new_user_content}]
+    @staticmethod
+    def _extract_text(content: list[dict[str, Any]]) -> str:
+        return "\n".join(
+            b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"
+        ).strip()
 
-        messages.append({"role": "user", "content": user_content})
-        return messages
-
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
+    # ── Public API ────────────────────────────────────────────────────────────
 
     def chat(
         self,
@@ -235,52 +427,50 @@ class ARIAAgent:
         tools: list[dict[str, Any]] | None = None,
         inject_context: str | None = None,
     ) -> dict[str, Any]:
-        """
-        Run one real-time chat turn with optional tool use.
+        """Run one real-time chat turn with optional tool use.
 
-        Returns a dict containing:
-          answer          – the final assistant text
-          toolCallsMade   – list of tool calls executed
-          model           – model ID used
-          usage           – token counts including cache stats
-          updatedConversation – the full conversation after this turn (serializable)
+        Returns:
+          answer              – final assistant text
+          toolCallsMade       – list of tool calls executed
+          model               – model ID used
+          usage               – cumulative token counts
+          updatedConversation – full conversation after this turn (serializable)
+          usedBackup          – True if backup model was used (optional)
+          backupModel         – backup model ID if used (optional)
         """
-        client = self._get_client()
-        messages = self._build_messages(conversation, user_message, inject_context)
+        new_user_content: list[dict[str, Any]] = []
+        if inject_context and not conversation:
+            new_user_content.append({"type": "text", "text": f"[MY HEALTH & TRAINING CONTEXT]\n{inject_context}"})
+        new_user_content.append({"type": "text", "text": user_message})
+
+        working: list[dict[str, Any]] = list(conversation) + [
+            {"role": "user", "content": new_user_content}
+        ]
         tool_calls_made: list[dict[str, Any]] = []
-        total_in = total_out = cache_read = cache_create = 0
+        total_usage = {"inputTokens": 0, "outputTokens": 0, "cacheReadTokens": 0, "cacheCreationTokens": 0}
+        used_backup = False
+        backup_model_used: str | None = None
 
         for _ in range(ARIA_MAX_TOOL_ITERATIONS):
-            kwargs: dict[str, Any] = {
-                "model": ARIA_CHAT_MODEL,
-                "max_tokens": ARIA_CHAT_MAX_TOKENS,
-                "system": self._system_blocks(),
-                "messages": messages,
-            }
-            if tools:
-                kwargs["tools"] = tools
-                kwargs["tool_choice"] = {"type": "auto"}
+            result = self._one_turn(ARIA_CHAT_MODEL, working, tools, ARIA_CHAT_MAX_TOKENS)
 
-            response = client.messages.create(**kwargs)
+            if result.get("usedBackup"):
+                used_backup = True
+                backup_model_used = result.get("backupModel")
 
-            usage = response.usage
-            total_in += getattr(usage, "input_tokens", 0)
-            total_out += getattr(usage, "output_tokens", 0)
-            cache_read += getattr(usage, "cache_read_input_tokens", 0)
-            cache_create += getattr(usage, "cache_creation_input_tokens", 0)
+            for k in total_usage:
+                total_usage[k] += result["usage"].get(k, 0)
 
-            serialized_content = self._serialize_content(response.content)
-
-            if response.stop_reason == "tool_use":
-                messages.append({"role": "assistant", "content": response.content})
+            if result["stop_reason"] == "tool_use":
+                working.append({"role": "assistant", "content": result["content"]})
 
                 tool_result_blocks: list[dict[str, Any]] = []
-                for block in response.content:
-                    if not (hasattr(block, "type") and block.type == "tool_use"):
+                for block in result["content"]:
+                    if block.get("type") != "tool_use":
                         continue
-                    tool_name = block.name
-                    tool_input = block.input
-                    tool_use_id = block.id
+                    tool_name = block["name"]
+                    tool_input = block["input"]
+                    tool_use_id = block["id"]
 
                     if self.tool_handler is not None:
                         try:
@@ -294,49 +484,33 @@ class ARIAAgent:
                         result_str = json.dumps({"note": "no tool handler"})
                         is_error = False
 
-                    tool_calls_made.append(
-                        {
-                            "tool": tool_name,
-                            "input": tool_input,
-                            "success": not is_error,
-                        }
-                    )
-                    tool_result_blocks.append(
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": tool_use_id,
-                            "content": result_str,
-                            "is_error": is_error,
-                        }
-                    )
+                    tool_calls_made.append({"tool": tool_name, "input": tool_input, "success": not is_error})
+                    tool_result_blocks.append({
+                        "type": "tool_result",
+                        "tool_use_id": tool_use_id,
+                        "content": result_str,
+                        "is_error": is_error,
+                    })
 
-                messages.append({"role": "user", "content": tool_result_blocks})
+                working.append({"role": "user", "content": tool_result_blocks})
                 continue
 
-            # end_turn or max_tokens — extract the final answer
-            answer = self._extract_text(response.content)
+            # end_turn or max_tokens — finalize
+            answer = self._extract_text(result["content"])
+            working.append({"role": "assistant", "content": result["content"]})
 
-            # Build the serializable conversation snapshot
-            updated: list[dict[str, Any]] = []
-            for m in messages:
-                mc = dict(m)
-                if isinstance(mc.get("content"), list):
-                    mc["content"] = self._serialize_content(mc["content"])
-                updated.append(mc)
-            updated.append({"role": "assistant", "content": serialized_content})
-
-            return {
+            model_used = backup_model_used if used_backup else ARIA_CHAT_MODEL
+            resp: dict[str, Any] = {
                 "answer": answer,
                 "toolCallsMade": tool_calls_made,
-                "model": ARIA_CHAT_MODEL,
-                "usage": {
-                    "inputTokens": total_in,
-                    "outputTokens": total_out,
-                    "cacheReadTokens": cache_read,
-                    "cacheCreationTokens": cache_create,
-                },
-                "updatedConversation": updated,
+                "model": model_used,
+                "usage": total_usage,
+                "updatedConversation": working,
             }
+            if used_backup:
+                resp["usedBackup"] = True
+                resp["backupModel"] = backup_model_used
+            return resp
 
         raise ARIAError(500, "ARIA exceeded the maximum tool iteration limit without a final answer.")
 
@@ -347,68 +521,52 @@ class ARIAAgent:
         context: str,
         thinking_budget: int = ARIA_THINKING_BUDGET,
     ) -> dict[str, Any]:
+        """Deep analysis using Claude Opus with extended thinking.
+
+        Best for periodization decisions, injury risk assessment, sleep
+        pattern root-cause analysis, and other multi-step reasoning tasks.
         """
-        Deep analysis using Claude Opus with extended thinking.
-
-        Best for complex, multi-faceted questions that benefit from careful
-        multi-step reasoning: periodization decisions, injury risk assessment,
-        sleep pattern root-cause analysis.
-
-        Returns answer, thinking trace, model used, and token counts.
-        """
-        client = self._get_client()
-
         prompt = (
             f"[USER HEALTH & TRAINING CONTEXT]\n{context}\n\n"
             f"[ANALYSIS QUESTION]\n{question}"
         )
+        messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
 
-        response = client.messages.create(
-            model=ARIA_ANALYSIS_MODEL,
-            max_tokens=ARIA_ANALYSIS_MAX_TOKENS,
-            thinking={
-                "type": "enabled",
-                "budget_tokens": thinking_budget,
-            },
-            system=self._system_blocks(),
-            messages=[{"role": "user", "content": prompt}],
-        )
+        if ARIA_BACKEND == "anthropic":
+            result = self._one_turn(
+                ARIA_ANALYSIS_MODEL, messages, None, ARIA_ANALYSIS_MAX_TOKENS,
+                anthropic_thinking={"type": "enabled", "budget_tokens": thinking_budget},
+            )
+        else:
+            result = self._one_turn(
+                ARIA_ANALYSIS_MODEL, messages, None, ARIA_ANALYSIS_MAX_TOKENS,
+                bedrock_extra={"thinking": {"type": "enabled", "budget_tokens": thinking_budget}},
+            )
 
         thinking_text = ""
         answer_text = ""
-        for block in response.content:
-            if hasattr(block, "type"):
-                if block.type == "thinking":
-                    thinking_text = block.thinking
-                elif block.type == "text":
-                    answer_text += block.text
+        for block in result["content"]:
+            bt = block.get("type")
+            if bt == "thinking":
+                thinking_text = block.get("thinking", "")
+            elif bt == "text":
+                answer_text += block.get("text", "")
 
-        usage = response.usage
-        return {
+        model_used = result.get("backupModel", ARIA_ANALYSIS_MODEL) if result.get("usedBackup") else ARIA_ANALYSIS_MODEL
+        resp: dict[str, Any] = {
             "answer": answer_text.strip(),
             "thinking": thinking_text,
-            "model": ARIA_ANALYSIS_MODEL,
+            "model": model_used,
             "thinkingBudget": thinking_budget,
-            "usage": {
-                "inputTokens": getattr(usage, "input_tokens", 0),
-                "outputTokens": getattr(usage, "output_tokens", 0),
-                "cacheReadTokens": getattr(usage, "cache_read_input_tokens", 0),
-                "cacheCreationTokens": getattr(usage, "cache_creation_input_tokens", 0),
-            },
+            "usage": result["usage"],
         }
+        if result.get("usedBackup"):
+            resp["usedBackup"] = True
+            resp["backupModel"] = result.get("backupModel")
+        return resp
 
-    def generate_insights(
-        self,
-        *,
-        context: str,
-    ) -> dict[str, Any]:
-        """
-        Generate 3-5 proactive coaching insights from the user's data patterns.
-
-        Returns a structured list of insight objects.
-        """
-        client = self._get_client()
-
+    def generate_insights(self, *, context: str) -> dict[str, Any]:
+        """Generate 3-5 proactive coaching insights from the user's data patterns."""
         prompt = f"""\
 Analyze the following user health and training data and identify 3-5 proactive \
 coaching insights.
@@ -430,41 +588,23 @@ Return ONLY a JSON array — no other text — in this exact structure:
   }}
 ]\
 """
-
-        response = client.messages.create(
-            model=ARIA_CHAT_MODEL,
-            max_tokens=2048,
-            system=self._system_blocks(),
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        raw = self._extract_text(response.content)
+        messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+        result = self._one_turn(ARIA_CHAT_MODEL, messages, None, 2048)
+        raw = self._extract_text(result["content"])
         insights = _parse_json_array(raw)
-
-        usage = response.usage
-        return {
+        model_used = result.get("backupModel", ARIA_CHAT_MODEL) if result.get("usedBackup") else ARIA_CHAT_MODEL
+        resp: dict[str, Any] = {
             "insights": insights,
-            "model": ARIA_CHAT_MODEL,
-            "usage": {
-                "inputTokens": getattr(usage, "input_tokens", 0),
-                "outputTokens": getattr(usage, "output_tokens", 0),
-            },
+            "model": model_used,
+            "usage": {"inputTokens": result["usage"]["inputTokens"], "outputTokens": result["usage"]["outputTokens"]},
         }
+        if result.get("usedBackup"):
+            resp["usedBackup"] = True
+            resp["backupModel"] = result.get("backupModel")
+        return resp
 
-    def process_voice(
-        self,
-        *,
-        transcript: str,
-        context: str,
-    ) -> dict[str, Any]:
-        """
-        Turn a raw voice transcript into a coaching response.
-
-        Handles natural speech patterns, filler words, and incomplete sentences.
-        Returns a concise, conversational answer suitable for text-to-speech.
-        """
-        client = self._get_client()
-
+    def process_voice(self, *, transcript: str, context: str) -> dict[str, Any]:
+        """Turn a raw voice transcript into a coaching response."""
         prompt = f"""\
 The following is a voice transcript from the user. Interpret it as a natural \
 spoken coaching query, correct any voice-to-text artifacts, and respond as \
@@ -479,25 +619,20 @@ VOICE TRANSCRIPT:
 Respond in 2-4 conversational sentences. Use their actual data where relevant. \
 Keep your answer suitable for reading aloud.\
 """
-
-        response = client.messages.create(
-            model=ARIA_CHAT_MODEL,
-            max_tokens=512,
-            system=self._system_blocks(),
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        answer = self._extract_text(response.content)
-        usage = response.usage
-        return {
+        messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+        result = self._one_turn(ARIA_CHAT_MODEL, messages, None, 512)
+        answer = self._extract_text(result["content"])
+        model_used = result.get("backupModel", ARIA_CHAT_MODEL) if result.get("usedBackup") else ARIA_CHAT_MODEL
+        resp: dict[str, Any] = {
             "answer": answer,
             "processedTranscript": transcript.strip(),
-            "model": ARIA_CHAT_MODEL,
-            "usage": {
-                "inputTokens": getattr(usage, "input_tokens", 0),
-                "outputTokens": getattr(usage, "output_tokens", 0),
-            },
+            "model": model_used,
+            "usage": {"inputTokens": result["usage"]["inputTokens"], "outputTokens": result["usage"]["outputTokens"]},
         }
+        if result.get("usedBackup"):
+            resp["usedBackup"] = True
+            resp["backupModel"] = result.get("backupModel")
+        return resp
 
 
 # ---------------------------------------------------------------------------

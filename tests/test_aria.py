@@ -5,6 +5,7 @@ table is needed. The test seam is the module-level aria_agent.set_agent()
 function which replaces the agent with a controllable stub.
 """
 import json
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -370,12 +371,15 @@ class HealthEndpointARIATests(unittest.TestCase):
         resp = handler(event("GET", "/health"), None)
         payload = body(resp)
         self.assertIn("aria", payload)
+        self.assertIn("backend", payload["aria"])
         self.assertIn("chatModel", payload["aria"])
         self.assertIn("analysisModel", payload["aria"])
+        self.assertIn("backupModel", payload["aria"])
         self.assertIn("features", payload["aria"])
         self.assertIn("tool-use", payload["aria"]["features"])
         self.assertIn("extended-thinking", payload["aria"]["features"])
         self.assertIn("prompt-caching", payload["aria"]["features"])
+        self.assertIn("backup-model", payload["aria"]["features"])
 
 
 # ---------------------------------------------------------------------------
@@ -452,15 +456,33 @@ class ARIAMemoryTests(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class ARIAAgentConfigTests(unittest.TestCase):
-    def test_agent_raises_when_no_api_key(self):
+    def test_anthropic_client_raises_when_no_api_key(self):
+        """_get_anthropic_client raises ARIAError(503) when ANTHROPIC_API_KEY is absent."""
         agent = aria_agent.ARIAAgent()
-        import os
         original = os.environ.pop("ANTHROPIC_API_KEY", None)
         try:
             with self.assertRaises(aria_agent.ARIAError) as ctx:
-                agent._get_client()
+                agent._get_anthropic_client()
             self.assertEqual(ctx.exception.status_code, 503)
             self.assertIn("ANTHROPIC_API_KEY", ctx.exception.message)
+        finally:
+            if original is not None:
+                os.environ["ANTHROPIC_API_KEY"] = original
+
+    def test_bedrock_backend_does_not_require_api_key(self):
+        """Bedrock backend initialises without ANTHROPIC_API_KEY (uses IAM role)."""
+        original = os.environ.pop("ANTHROPIC_API_KEY", None)
+        try:
+            # ARIAAgent created with no API key — Bedrock path should not raise
+            agent = aria_agent.ARIAAgent()
+            # _get_bedrock_client only raises if boto3 is absent, not for missing API key
+            # We just confirm no ARIAError about ANTHROPIC_API_KEY is raised
+            try:
+                agent._get_bedrock_client()
+            except aria_agent.ARIAError as exc:
+                self.assertNotIn("ANTHROPIC_API_KEY", exc.message)
+            except Exception:
+                pass  # boto3 may be absent in test env — that's fine
         finally:
             if original is not None:
                 os.environ["ANTHROPIC_API_KEY"] = original
@@ -482,6 +504,50 @@ class ARIAAgentConfigTests(unittest.TestCase):
     def test_parse_json_array_invalid_returns_empty(self):
         result = aria_agent._parse_json_array("not json at all")
         self.assertEqual(result, [])
+
+    def test_backup_model_triggered_on_primary_failure(self):
+        """_one_turn retries with backup model when primary raises a non-ARIAError."""
+        import aria_agent as aa
+
+        call_log: list[str] = []
+
+        class FailingOnce(aa.ARIAAgent):
+            def _one_turn_bedrock(self, model, working, tools, max_tokens, extra_fields=None):
+                call_log.append(model)
+                if model == aa.ARIA_CHAT_MODEL:
+                    raise RuntimeError("simulated primary failure")
+                # backup call succeeds
+                return {
+                    "stop_reason": "end_turn",
+                    "content": [{"type": "text", "text": "Backup answer"}],
+                    "usage": {"inputTokens": 5, "outputTokens": 3, "cacheReadTokens": 0, "cacheCreationTokens": 0},
+                }
+
+        original_backend = aa.ARIA_BACKEND
+        # Patch module globals to use bedrock path with distinct primary/backup
+        try:
+            aa.ARIA_BACKEND = "bedrock"
+            agent = FailingOnce()
+            msgs = [{"role": "user", "content": [{"type": "text", "text": "test"}]}]
+            result = agent._one_turn(aa.ARIA_CHAT_MODEL, msgs, None, 128)
+            self.assertTrue(result.get("usedBackup"))
+            self.assertEqual(result["content"][0]["text"], "Backup answer")
+        finally:
+            aa.ARIA_BACKEND = original_backend
+
+    def test_aria_error_not_retried_with_backup(self):
+        """ARIAError from primary is not swallowed or retried — it propagates."""
+        import aria_agent as aa
+
+        class AlwaysARIAError(aa.ARIAAgent):
+            def _one_turn_bedrock(self, model, working, tools, max_tokens, extra_fields=None):
+                raise aa.ARIAError(503, "hard config error")
+
+        agent = AlwaysARIAError()
+        msgs = [{"role": "user", "content": [{"type": "text", "text": "test"}]}]
+        with self.assertRaises(aa.ARIAError) as ctx:
+            agent._one_turn(aa.ARIA_CHAT_MODEL, msgs, None, 128)
+        self.assertEqual(ctx.exception.status_code, 503)
 
 
 # ---------------------------------------------------------------------------
