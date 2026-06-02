@@ -39,3 +39,16 @@ def chat_message_key(user_id: str, thread_id: str, created_at: str) -> dict:
 
 def user_pk(user_id: str) -> str:
     return f"USER#{user_id}"
+
+
+# ARIA-specific keys
+def aria_conversation_key(user_id: str, thread_id: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"ARIA#{thread_id}#CONV"}
+
+
+def aria_insight_key(user_id: str, date: str, insight_id: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"ARIA#INSIGHT#{date}#{insight_id}"}
+
+
+def aria_summary_key(user_id: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": "ARIA#SUMMARY"}

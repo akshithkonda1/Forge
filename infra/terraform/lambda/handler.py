@@ -4,9 +4,10 @@ from base64 import b64decode
 from datetime import datetime, timezone
 
 from ai_router import AIRouter, RouteRequest, RoutingError, default_models, humanize_bytes
+from aria_agent import ARIA_ANALYSIS_MODEL, ARIA_CHAT_MODEL
 from auth import extract_user_id
 from responses import RouteError, error_response, not_found, ok
-from routes import chat, coach, dashboard, health, integrations, profile, progress, sleep, workouts
+from routes import aria, chat, coach, dashboard, health, integrations, profile, progress, sleep, workouts
 
 
 def _parse_json_body(event: dict) -> dict:
@@ -67,6 +68,22 @@ def handler(event, _context):
                 "models": [
                     {"slot": m.slot, "name": m.name, "modelId": m.model_id}
                     for m in models
+                ],
+            },
+            "aria": {
+                "backend": os.getenv("ARIA_BACKEND", "bedrock"),
+                "status": "configured",
+                "chatModel": ARIA_CHAT_MODEL,
+                "analysisModel": ARIA_ANALYSIS_MODEL,
+                "backupModel": os.getenv("ARIA_BACKUP_MODEL", ARIA_ANALYSIS_MODEL),
+                "features": [
+                    "tool-use",
+                    "extended-thinking",
+                    "prompt-caching",
+                    "conversation-memory",
+                    "proactive-insights",
+                    "voice-processing",
+                    "backup-model",
                 ],
             },
         })
@@ -141,6 +158,34 @@ def handler(event, _context):
             provider = path[len("/integrations/"):-len("/sync")]
             if provider and "/" not in provider:
                 return integrations.handle_post_integration_sync(user_id, provider, body)
+
+        # --- ARIA routes ---
+        if method == "POST" and path == "/aria/chat":
+            return aria.handle_post_aria_chat(user_id, body)
+
+        if method == "POST" and path == "/aria/analyze":
+            return aria.handle_post_aria_analyze(user_id, body)
+
+        if method == "POST" and path == "/aria/plan":
+            return aria.handle_post_aria_plan(user_id, body)
+
+        if method == "POST" and path == "/aria/voice":
+            return aria.handle_post_aria_voice(user_id, body)
+
+        if method == "POST" and path == "/aria/insights/generate":
+            return aria.handle_post_aria_insights_generate(user_id, body)
+
+        if method == "GET" and path == "/aria/insights":
+            days = _query_int(event, "days", 7, minimum=1, maximum=30)
+            return aria.handle_get_aria_insights(user_id, days)
+
+        if method == "GET" and path == "/aria/conversation":
+            thread_id = (event.get("queryStringParameters") or {}).get("threadId", "current")
+            return aria.handle_get_aria_conversation(user_id, thread_id)
+
+        if method == "DELETE" and path == "/aria/conversation":
+            thread_id = (event.get("queryStringParameters") or {}).get("threadId", "current")
+            return aria.handle_delete_aria_conversation(user_id, thread_id)
 
     except RouteError as exc:
         return error_response(exc)
