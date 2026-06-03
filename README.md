@@ -282,20 +282,17 @@ npm run dev
 
 ### 4. iOS client setup
 
-1. Open Xcode
-2. Navigate to `clients/ios/Forge/`
-3. Open `Forge.xcodeproj` (or `Forge.xcworkspace` if using CocoaPods)
-4. Select your target device or simulator (iOS 17+)
-5. Add your API URL to `Config.swift`:
+The native SwiftUI app lives in `ForgeSwift/` and is the project referenced by the workspace at the repo root.
 
-```swift
-enum Config {
-    static let apiBaseURL = "http://localhost:3001/api"
-    static let claudeAPIKey = "your_key_here" // Development only
-}
+1. Open `Forge.xcworkspace` at the repo root in Xcode (it references `ForgeSwift/ForgeSwift.xcodeproj`).
+2. Select the **ForgeSwift** scheme and a simulator or device (iOS 17+).
+3. Provide your Anthropic API key. The app reads `ANTHROPIC_API_KEY` from its Info.plist (see `VoiceCoachManager.swift`). Because the Info.plist is generated (`GENERATE_INFOPLIST_FILE = YES`), add the key as a build setting on the ForgeSwift target rather than a `Config.swift`:
+
+```
+INFOPLIST_KEY_ANTHROPIC_API_KEY = your_key_here   # development only — do not commit real keys
 ```
 
-6. Build and run (`⌘R`)
+4. Build and run (`⌘R`)
 
 ### 5. Environment Variables
 
