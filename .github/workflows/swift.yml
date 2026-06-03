@@ -16,6 +16,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+    - name: Select Xcode 26
+      # AppStore.swift imports FoundationModels, which requires the iOS 26 SDK.
+      # The runner defaults to Xcode 16.4, so pick the newest installed Xcode 26.x.
+      run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n1)"
     - name: Build
       run: |
         xcodebuild build \
