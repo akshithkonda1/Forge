@@ -9,6 +9,9 @@
     "backend:test": "python3 scripts/run_tests.py",
     "backend:package": "python3 scripts/package_lambda.py",
     "backend:smoke": "FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 scripts/smoke_test.py",
-    "test:unit": "python3 scripts/run_tests.py"
+    "test:unit": "python3 scripts/run_tests.py",
+    "ci:test": "python3 scripts/run_tests.py && FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 scripts/smoke_test.py",
+    "ci:fix": "python3 scripts/ci_fix_improve.py",
+    "ci:deploy": "cd infra/terraform && terraform apply -auto-approve"
   }
 }

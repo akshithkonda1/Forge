@@ -70,6 +70,24 @@ aws secretsmanager put-secret-value \
   --secret-string '{"ANTHROPIC_API_KEY":"replace-me"}'
 ```
 
+## Deploy chain (CI)
+
+GitHub Actions runs a three-phase pipeline (`.github/workflows/deploy-chain.yml`):
+
+| Phase | Job | What it does |
+|---|---|---|
+| **1 · Test** | `phase1-test-*` | Unit tests, smoke test, `terraform plan`, optional Swift build |
+| **2 · Fix/Improve** | `phase2-fix-improve` | Package Lambda zip, compile checks, `terraform fmt/validate` |
+| **3 · Deploy** | `phase3-deploy` | `terraform apply` + health check + smoke test (default branch only) |
+
+Run locally:
+
+```bash
+npm run ci:test    # Phase 1
+npm run ci:fix     # Phase 2
+npm run ci:deploy  # Phase 3 (needs AWS credentials)
+```
+
 ## Testing
 
 ```bash
