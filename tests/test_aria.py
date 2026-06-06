@@ -13,8 +13,8 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 
-LAMBDA_DIR = Path(__file__).resolve().parents[1] / "infra" / "terraform" / "lambda"
-sys.path.insert(0, str(LAMBDA_DIR))
+API_DIR = Path(__file__).resolve().parents[1] / "backend" / "api"
+sys.path.insert(0, str(API_DIR))
 
 import aria_agent
 import aria_memory

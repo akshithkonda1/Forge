@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 
 
-LAMBDA_DIR = Path(__file__).resolve().parents[1] / "infra" / "terraform" / "lambda"
-sys.path.insert(0, str(LAMBDA_DIR))
+API_DIR = Path(__file__).resolve().parents[1] / "backend" / "api"
+sys.path.insert(0, str(API_DIR))
 
 from handler import handler  # noqa: E402
 from routes import coach as coach_routes  # noqa: E402
