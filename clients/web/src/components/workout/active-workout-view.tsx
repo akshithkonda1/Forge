@@ -202,7 +202,7 @@ export function ActiveWorkoutView() {
   const strokeDashoffset = circumference * (1 - restProgress);
 
   return (
-    <div className="flex flex-col h-full min-h-screen bg-[#0A0A0A]">
+    <div className="flex flex-col h-full min-h-[100dvh] bg-[#0A0A0A]">
       {/* Header Bar */}
       <div className="flex items-center justify-between px-5 pt-4 pb-2">
         <div className="flex flex-col">
@@ -467,7 +467,7 @@ export function ActiveWorkoutView() {
       </div>
 
       {/* AI Coach Bar - Fixed at bottom */}
-      <div className="px-5 pb-5 pt-2">
+      <div className="px-5 pb-5 pt-2 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]">
         <div className="rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] p-4">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 mt-0.5 w-8 h-8 rounded-full bg-[#FF4D00]/10 flex items-center justify-center">

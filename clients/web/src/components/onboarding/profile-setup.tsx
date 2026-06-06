@@ -119,7 +119,7 @@ export default function ProfileSetup({ onNext }: ProfileSetupProps) {
   };
 
   return (
-    <div className="flex min-h-screen flex-col px-6 pb-8 pt-12">
+    <div className="flex min-h-[100dvh] flex-col px-6 pb-8 pt-12">
       {/* Section indicator */}
       <div className="mb-2 flex items-center justify-center gap-2">
         {[0, 1, 2, 3].map((i) => (

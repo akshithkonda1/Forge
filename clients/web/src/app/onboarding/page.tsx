@@ -40,7 +40,7 @@ export default function OnboardingPage() {
   }, [router]);
 
   return (
-    <div className="relative min-h-screen bg-background">
+    <div className="relative min-h-[100dvh] bg-background">
       {/* Progress dots — visible on steps 1-3 (not on welcome) */}
       {onboardingStep > 0 && (
         <motion.div

@@ -2,6 +2,6 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "group:clients/ios/ForgeSwift/ForgeSwift/ForgeSwift.xcodeproj">
+      location = "group:ForgeSwift/ForgeSwift.xcodeproj">
    </FileRef>
 </Workspace>

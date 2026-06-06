@@ -15,17 +15,9 @@ backend/
 ## Quick start
 
 ```bash
-# Install dependencies (optional — local dev works without Bedrock)
 pip install -r backend/requirements.txt
-
-# Start local API
-python3 backend/dev_server.py
-# → http://127.0.0.1:3001
-
-# Run unit tests
-python3 scripts/run_tests.py
-
-# Smoke test (with dev server running)
+python3 backend/dev_server.py          # → http://127.0.0.1:3001
+python3 scripts/run_tests.py           # unit tests
 FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 scripts/smoke_test.py
 ```
 
@@ -35,9 +27,7 @@ Set `FORGE_TEST_USER_ID` to control the dev user identity (default: `test-user-0
 
 See `IMPLEMENTATION_PLAN.md` for the full route map. Core client routes:
 
-- `GET /health`
-- `GET /dashboard/today`
-- `GET /me` / `PUT /me/profile`
+- `GET /health`, `GET /dashboard/today`, `GET /me`, `PUT /me/profile`
 - `GET /sleep`, `GET /workouts/history`, `GET /progress/summary`
 - `POST /aria/chat`, `POST /health/batch`, `POST /workouts/logs`
 
@@ -46,11 +36,19 @@ See `IMPLEMENTATION_PLAN.md` for the full route map. Core client routes:
 Terraform packages `backend/api` into the Lambda zip:
 
 ```bash
-cd infra/terraform
-terraform apply
+cd infra/terraform && terraform apply
 ```
 
-The old `infra/terraform/lambda/` folder is deprecated — all source lives here in `backend/api/`.
+## AI Router
+
+`POST /ai/router` is a Python-based Bedrock router that:
+
+- starts with Claude Sonnet 4.6
+- escalates to Claude Opus 4.7 if no answer arrives within the SLA window
+- escalates again to Kimi K2.5 if needed
+- activates more models as `packageSizeBytes` grows toward the 10 GB cap
+
+Default models: Sonnet 4.6 → Opus 4.7 → Kimi K2.5 (configurable via `AI_ROUTER_MODEL_3_ID`).
 
 ## AI / ARIA
 
