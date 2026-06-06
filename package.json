@@ -4,6 +4,9 @@
   "scripts": {
     "web:dev": "pnpm --dir clients/web dev",
     "web:build": "pnpm --dir clients/web build",
-    "web:lint": "pnpm --dir clients/web lint"
+    "web:lint": "pnpm --dir clients/web lint",
+    "backend:dev": "python3 backend/dev_server.py",
+    "backend:test": "python3 scripts/run_tests.py",
+    "backend:smoke": "FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 scripts/smoke_test.py"
   }
 }
