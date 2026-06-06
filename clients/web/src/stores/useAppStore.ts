@@ -35,6 +35,7 @@ import type {
 type DataLoadState = "idle" | "loading" | "loaded" | "offline" | "error";
 
 interface AppState {
+  hydrate: () => void;
   isOnboarded: boolean;
   onboardingStep: number;
   setOnboarded: (val: boolean) => void;
@@ -114,8 +115,14 @@ function applyOfflineDemo(set: (partial: Partial<AppState>) => void) {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  isOnboarded: forgePersistence.getIsOnboarded(),
-  onboardingStep: forgePersistence.getOnboardingStep(),
+  hydrate: () => {
+    set({
+      isOnboarded: forgePersistence.getIsOnboarded(),
+      onboardingStep: forgePersistence.getOnboardingStep(),
+    });
+  },
+  isOnboarded: false,
+  onboardingStep: 0,
   setOnboarded: (val) => {
     forgePersistence.setIsOnboarded(val);
     set({ isOnboarded: val });

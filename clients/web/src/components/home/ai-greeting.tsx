@@ -66,10 +66,12 @@ export function AiGreeting() {
   const dailyMetrics = useAppStore((s) => s.dailyMetrics);
   const todayWorkout = useAppStore((s) => s.todayWorkout);
   const setActiveTab = useAppStore((s) => s.setActiveTab);
-  const primaryInsight = useAppStore((s) => s.primaryInsight);
+  const coachingInsights = useAppStore((s) => s.coachingInsights);
 
   const greeting = useMemo(() => {
-    const insight = primaryInsight();
+    const insight =
+      coachingInsights.find((i) => i.type === "training" || i.type === "recovery") ??
+      coachingInsights[0];
     if (insight) {
       return `${insight.title}. ${insight.observation} ${insight.recommendation}`;
     }
@@ -79,7 +81,7 @@ export function AiGreeting() {
       dailyMetrics,
       todayWorkout?.name,
     );
-  }, [userProfile.name, readiness, dailyMetrics, todayWorkout?.name, primaryInsight]);
+  }, [coachingInsights, userProfile.name, readiness, dailyMetrics, todayWorkout?.name]);
 
   const containerVariants = {
     hidden: { opacity: 0 },

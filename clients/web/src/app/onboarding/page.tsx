@@ -33,10 +33,17 @@ const pageVariants = {
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const isOnboarded = useAppStore((s) => s.isOnboarded);
   const onboardingStep = useAppStore((s) => s.onboardingStep);
   const setOnboardingStep = useAppStore((s) => s.setOnboardingStep);
   const updateProfile = useAppStore((s) => s.updateProfile);
   const refreshProfileFromAPI = useAppStore((s) => s.refreshProfileFromAPI);
+
+  useEffect(() => {
+    if (isOnboarded) {
+      router.replace("/");
+    }
+  }, [isOnboarded, router]);
 
   useEffect(() => {
     const draft = readOnboardingDraft();
@@ -53,8 +60,12 @@ export default function OnboardingPage() {
   }, [onboardingStep, setOnboardingStep]);
 
   const handleComplete = useCallback(() => {
-    router.push("/");
+    router.replace("/");
   }, [router]);
+
+  if (isOnboarded) {
+    return null;
+  }
 
   return (
     <div className="relative min-h-[100dvh] bg-background">
