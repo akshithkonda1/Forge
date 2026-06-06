@@ -473,6 +473,9 @@ struct ChatView: View {
         .onAppear {
             ariaMood = ARIAMood.derive(readiness: store.readiness.overall)
         }
+        .task {
+            await store.ensureChatHistoryLoaded()
+        }
         .onChange(of: store.readiness.overall) { _, val in
             withAnimation(FDS.Spring.standard) { ariaMood = ARIAMood.derive(readiness: val) }
         }

@@ -17,7 +17,7 @@ struct DataStatusBanner: View {
         case .offlineFallback:
             banner(
                 icon: "wifi.slash",
-                title: "Offline mode — showing sample data",
+                title: "Can't reach \(APIConfig.displayHost) — showing sample data. Run `npm run backend:dev`.",
                 tint: .warning,
                 actionTitle: "Retry",
                 action: onRetry

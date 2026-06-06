@@ -133,10 +133,20 @@ final class OnboardingCoordinator {
     func complete(in store: AppStore) {
         guard !isCompleting else { return }
         isCompleting = true
-        store.userProfile = profile.toCoreProfile()
+
+        var coreProfile = profile.toCoreProfile()
+        if healthKitState == .authorized, !coreProfile.connectedDevices.contains("Apple Health") {
+            coreProfile.connectedDevices.append("Apple Health")
+        }
+        store.userProfile = coreProfile
+        if let snapshot = healthSnapshot {
+            store.applyOnboardingHealthSnapshot(snapshot)
+        }
+
+        let shouldSyncHealth = healthKitState == .authorized
         FDS.haptic(.heavy)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-            store.completeOnboarding()
+            store.completeOnboarding(syncHealth: shouldSyncHealth)
         }
     }
 

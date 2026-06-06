@@ -768,6 +768,20 @@ struct StatBadge: View {
 struct BehavioralInsightView: View {
     @EnvironmentObject var store: AppStore
 
+    private var insightTitle: String {
+        store.primaryTrainingInsight?.title ?? "Pattern Insight"
+    }
+
+    private var insightBody: String {
+        if let insight = store.primaryTrainingInsight {
+            return "\(insight.observation) \(insight.recommendation)"
+        }
+        if let summary = store.progressSummary?.summary, !summary.isEmpty {
+            return summary
+        }
+        return "Complete a few workouts and Forge will start surfacing training patterns here."
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "chart.line.uptrend.xyaxis")
@@ -776,10 +790,10 @@ struct BehavioralInsightView: View {
                 .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Pattern Insight")
+                Text(insightTitle)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.textPrimary)
-                Text(store.progressSummary?.summary ?? "Complete a few workouts and Forge will start surfacing training patterns here.")
+                Text(insightBody)
                     .font(.system(size: 13))
                     .foregroundColor(.textSecondary)
                     .lineSpacing(3)
@@ -870,6 +884,18 @@ struct SettingsPageView: View {
                 // Connected Devices
                 sectionHeader("Connected Devices")
                 SectionCard {
+                    if store.userProfile.connectedDevices.isEmpty {
+                        HStack(spacing: 10) {
+                            Image(systemName: "link.badge.plus")
+                                .font(.system(size: 16))
+                                .foregroundColor(.textTertiary)
+                            Text("No devices connected yet")
+                                .font(.system(size: 14))
+                                .foregroundColor(.textSecondary)
+                        }
+                        .padding(.horizontal, 16).padding(.vertical, 12)
+                        Divider().background(Color.borderColor)
+                    }
                     ForEach(Array(store.userProfile.connectedDevices.enumerated()), id: \.element) { idx, device in
                         if idx > 0 { Divider().background(Color.borderColor) }
                         SettingsRow(icon: "applewatch", iconColor: .steel, label: device,

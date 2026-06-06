@@ -607,10 +607,52 @@ final class AppStore: ObservableObject {
             await syncHealthKitIfAvailable()
             dataLoadState = .loaded
         } catch {
-            loadMockFallback()
-            dataLoadState = .offlineFallback
-            print("Forge API unavailable, using offline data: \(error)")
+            if sleepData.isEmpty && workoutHistory.isEmpty {
+                loadMockFallback()
+                dataLoadState = .offlineFallback
+            } else {
+                dataLoadState = .error(Self.userFacingAPIError(error))
+            }
+            print("Forge API unavailable: \(error)")
         }
+    }
+
+    func ensureChatHistoryLoaded() async {
+        guard chatMessages.isEmpty else { return }
+        if let conversation = try? await repository.fetchConversation(), !conversation.isEmpty {
+            chatMessages = conversation
+        }
+    }
+
+    func applyOnboardingHealthSnapshot(_ snapshot: HealthDataSnapshot) {
+        updateMetrics(
+            steps: snapshot.steps,
+            activeCalories: snapshot.activeCalories,
+            hrv: snapshot.hrv.map { Int($0.rounded()) },
+            restingHR: snapshot.restingHeartRate
+        )
+        if let hours = snapshot.sleepHours {
+            dailyMetrics.totalSleep = Int(hours * 60)
+            recalculateReadiness()
+        }
+    }
+
+    private static func userFacingAPIError(_ error: Error) -> String {
+        if let apiError = error as? ForgeAPIError {
+            return apiError.errorDescription ?? "Request failed"
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain {
+            switch nsError.code {
+            case NSURLErrorCannotConnectToHost, NSURLErrorNetworkConnectionLost:
+                return "Can't connect to \(APIConfig.displayHost). Start the backend with npm run backend:dev."
+            case NSURLErrorTimedOut:
+                return "Request timed out reaching \(APIConfig.displayHost)."
+            default:
+                break
+            }
+        }
+        return error.localizedDescription
     }
 
     func refreshConnections() async {
@@ -1011,14 +1053,23 @@ final class AppStore: ObservableObject {
         }
     }
 
-    func completeOnboarding() {
+    func completeOnboarding(syncHealth: Bool = false) {
         isOnboarded = true
         ForgePersistence.setOnboarded(true)
         Task {
             do {
                 try await repository.saveProfile(userProfile)
+                if syncHealth {
+                    try? await repository.syncHealthMetrics(
+                        steps: dailyMetrics.steps,
+                        activeCalories: dailyMetrics.activeCalories,
+                        hrv: dailyMetrics.hrv,
+                        restingHR: dailyMetrics.restingHR
+                    )
+                }
                 await loadDashboardFromAPI()
             } catch {
+                dataLoadState = .error(Self.userFacingAPIError(error))
                 print("Failed to persist onboarding profile: \(error)")
             }
         }
@@ -1102,6 +1153,11 @@ final class AppStore: ObservableObject {
 // MARK: - AppStore Extensions
 
 extension AppStore {
+    var primaryTrainingInsight: CoachingInsight? {
+        coachingInsights.first { $0.type == "training" || $0.type == "recovery" }
+            ?? coachingInsights.first
+    }
+
     enum MetricTrendKind {
         case steps, activeCalories, hrv, restingHR
     }
