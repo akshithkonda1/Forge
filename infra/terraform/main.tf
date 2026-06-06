@@ -109,7 +109,24 @@ data "aws_iam_policy_document" "backend_lambda" {
 
     resources = [
       aws_secretsmanager_secret.ai_provider.arn,
+      aws_secretsmanager_secret.terra.arn,
     ]
+  }
+
+  statement {
+    sid = "TerraSelfHealMetrics"
+
+    actions = [
+      "cloudwatch:PutMetricData",
+    ]
+
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+      values   = ["Forge/Terra"]
+    }
   }
 
   statement {
@@ -374,6 +391,14 @@ resource "aws_secretsmanager_secret" "ai_provider" {
   tags = local.common_tags
 }
 
+resource "aws_secretsmanager_secret" "terra" {
+  name                    = "${local.name_prefix}/integrations/terra"
+  description             = "Terra API credentials and webhook signing secret for Forge middleware."
+  recovery_window_in_days = 7
+
+  tags = local.common_tags
+}
+
 resource "aws_cloudwatch_log_group" "backend_lambda" {
   name              = "/aws/lambda/${local.name_prefix}-api"
   retention_in_days = var.log_retention_days
@@ -441,8 +466,16 @@ resource "aws_lambda_function" "backend" {
       APP_DATA_TABLE_NAME    = aws_dynamodb_table.app_data.name
       ARIA_BACKEND           = "bedrock"
       ENVIRONMENT            = var.environment
-      UPLOADS_BUCKET_NAME    = aws_s3_bucket.uploads.bucket
-      USER_POOL_ID           = aws_cognito_user_pool.forge.id
+      EMIT_TERRA_METRICS            = tostring(var.enable_terra_self_healing)
+      FORGE_API_BASE_URL            = aws_apigatewayv2_api.http.api_endpoint
+      OPS_SELF_HEAL_TOKEN           = var.ops_self_heal_token
+      TERRA_METRIC_NAMESPACE        = "Forge/Terra"
+      TERRA_SECRET_ARN              = aws_secretsmanager_secret.terra.arn
+      TERRA_SELF_HEAL_STALE_HOURS    = "24"
+      TERRA_SELF_HEAL_SYNCING_STUCK_MINUTES = "90"
+      TERRA_WEBHOOK_URL             = "${aws_apigatewayv2_api.http.api_endpoint}/integrations/terra/webhook"
+      UPLOADS_BUCKET_NAME           = aws_s3_bucket.uploads.bucket
+      USER_POOL_ID                  = aws_cognito_user_pool.forge.id
     }
   }
 
@@ -475,7 +508,7 @@ resource "aws_apigatewayv2_api" "http" {
 
   cors_configuration {
     allow_credentials = false
-    allow_headers     = ["authorization", "content-type", "x-amz-date", "x-api-key", "x-amz-security-token"]
+    allow_headers     = ["authorization", "content-type", "terra-signature", "x-forge-ops-token", "x-amz-date", "x-api-key", "x-amz-security-token"]
     allow_methods     = ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"]
     allow_origins     = var.allowed_origins
     expose_headers    = ["content-type"]
@@ -513,6 +546,30 @@ resource "aws_apigatewayv2_route" "proxy" {
 resource "aws_apigatewayv2_route" "health" {
   api_id    = aws_apigatewayv2_api.http.id
   route_key = "GET /health"
+  target    = "integrations/${aws_apigatewayv2_integration.backend.id}"
+}
+
+resource "aws_apigatewayv2_route" "terra_webhook" {
+  api_id    = aws_apigatewayv2_api.http.id
+  route_key = "POST /integrations/terra/webhook"
+  target    = "integrations/${aws_apigatewayv2_integration.backend.id}"
+}
+
+resource "aws_apigatewayv2_route" "terra_health" {
+  api_id    = aws_apigatewayv2_api.http.id
+  route_key = "GET /integrations/terra/health"
+  target    = "integrations/${aws_apigatewayv2_integration.backend.id}"
+}
+
+resource "aws_apigatewayv2_route" "terra_self_heal" {
+  api_id    = aws_apigatewayv2_api.http.id
+  route_key = "POST /integrations/terra/self-heal"
+  target    = "integrations/${aws_apigatewayv2_integration.backend.id}"
+}
+
+resource "aws_apigatewayv2_route" "terra_self_integrate" {
+  api_id    = aws_apigatewayv2_api.http.id
+  route_key = "POST /integrations/terra/self-integrate"
   target    = "integrations/${aws_apigatewayv2_integration.backend.id}"
 }
 

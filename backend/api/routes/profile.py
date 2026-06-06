@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from responses import RouteError, ok
+from routes._connections import public_connection
 from seed_data import default_connections, default_profile
 from storage import dynamodb, keys
 
@@ -17,7 +18,7 @@ def _load_profile(user_id: str) -> dict[str, Any]:
 def _load_connections(user_id: str) -> list[dict[str, Any]]:
     items = dynamodb.query_prefix(keys.user_pk(user_id), "CONNECTION#")
     if items:
-        return [{k: v for k, v in i.items() if k not in ("pk", "sk")} for i in items]
+        return [public_connection(i) for i in items]
     return default_connections()
 
 

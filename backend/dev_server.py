@@ -32,7 +32,7 @@ class ForgeDevHandler(BaseHTTPRequestHandler):
     def _cors_headers(self) -> dict[str, str]:
         return {
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "authorization,content-type",
+            "Access-Control-Allow-Headers": "authorization,content-type,terra-signature",
             "Access-Control-Allow-Methods": "DELETE,GET,OPTIONS,PATCH,POST,PUT",
         }
 

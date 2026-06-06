@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
+from integrations.terra_sync import request_user_backfill
 from responses import RouteError, ok
 from storage import dynamodb, keys
 
@@ -15,6 +16,31 @@ def handle_post_integration_sync(user_id: str, provider: str, _body: dict) -> di
 
     now = datetime.now(timezone.utc).isoformat()
     job_id = uuid.uuid4().hex[:16]
+
+    terra_result = request_user_backfill(user_id, provider=provider)
+    if terra_result.get("queued"):
+        return ok(
+            {
+                "provider": provider,
+                "jobId": job_id,
+                "status": "queued",
+                "queuedAt": now,
+                "requested": terra_result.get("requested", []),
+                "errors": terra_result.get("errors", []),
+            }
+        )
+    if terra_result.get("reason") not in {None, "not_configured", "no_terra_user"} or terra_result.get("errors"):
+        return ok(
+            {
+                "provider": provider,
+                "jobId": job_id,
+                "status": "error",
+                "queuedAt": now,
+                "requested": terra_result.get("requested", []),
+                "errors": terra_result.get("errors", []),
+                "reason": terra_result.get("reason"),
+            }
+        )
 
     item = {
         **keys.connection_key(user_id, provider),

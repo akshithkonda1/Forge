@@ -17,10 +17,20 @@ allowed_origins = [
 # aws secretsmanager put-secret-value \
 #   --secret-id forge-dev/ai/provider \
 #   --secret-string '{"OPENAI_API_KEY":"replace-me"}'
+#
+# Terra middleware (after apply):
+# aws secretsmanager put-secret-value \
+#   --secret-id forge-dev/integrations/terra \
+#   --secret-string '{"dev_id":"your-terra-dev-id","api_key":"your-terra-api-key","webhook_secret":"your-webhook-signing-secret"}'
+#
+# Then register the webhook URL from: terraform output -raw terra_webhook_url
 
 # Self-healing (no Kubernetes): health probes, CloudWatch alarms, S3 artifact redeploy.
 enable_self_healing           = true
 health_check_interval_minutes = 5
+enable_terra_self_healing     = true
+terra_self_heal_interval_minutes = 60
+# ops_self_heal_token = "set-a-long-random-token-for-manual-self-heal"
 # alert_email = "ops@example.com"
 
 tags = {

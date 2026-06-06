@@ -52,3 +52,23 @@ def aria_insight_key(user_id: str, date: str, insight_id: str) -> dict:
 
 def aria_summary_key(user_id: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": "ARIA#SUMMARY"}
+
+
+def terra_user_key(terra_user_id: str) -> dict:
+    return {"pk": f"TERRA#USER#{terra_user_id}", "sk": "MAPPING"}
+
+
+def terra_ref_key(user_id: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": "TERRA#REF"}
+
+
+def terra_system_key() -> dict:
+    return {"pk": "SYSTEM#TERRA", "sk": "INTEGRATION"}
+
+
+def terra_heal_run_key(run_at: str) -> dict:
+    return {"pk": "SYSTEM#TERRA", "sk": f"HEAL#{run_at}"}
+
+
+def terra_user_heal_key(user_id: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": "TERRA#HEAL"}

@@ -6,6 +6,26 @@ export type ExperienceLevel = "beginner" | "intermediate" | "advanced" | "elite"
 
 export type WorkoutType = "strength" | "cardio" | "hiit" | "yoga" | "mobility" | "sport-specific";
 
+export type SourceProvider =
+  | "apple-health"
+  | "oura"
+  | "whoop"
+  | "garmin"
+  | "strava"
+  | "manual";
+
+export type IntegrationMiddleware = "terra" | "native";
+
+export interface IntegrationConnection {
+  provider: SourceProvider;
+  displayName: string;
+  status: "connected" | "needs-auth" | "syncing" | "error";
+  lastSyncedAt?: string;
+  errorMessage?: string;
+  middleware?: IntegrationMiddleware;
+  terraUserId?: string;
+}
+
 export interface UserProfile {
   name: string;
   fitnessGoals: FitnessGoal[];

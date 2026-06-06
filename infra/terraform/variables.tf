@@ -101,6 +101,31 @@ variable "alert_email" {
   nullable    = true
 }
 
+variable "enable_terra_self_healing" {
+  description = "Enable scheduled Terra integration health checks and stale-connection repair on the API Lambda."
+  type        = bool
+  default     = true
+}
+
+variable "terra_self_heal_interval_minutes" {
+  description = "How often EventBridge triggers Terra self-healing on the backend Lambda."
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = var.terra_self_heal_interval_minutes >= 15 && var.terra_self_heal_interval_minutes <= 1440
+    error_message = "terra_self_heal_interval_minutes must be between 15 and 1440."
+  }
+}
+
+variable "ops_self_heal_token" {
+  description = "Optional bearer token for manual POST /integrations/terra/self-heal and /self-integrate."
+  type        = string
+  default     = null
+  nullable    = true
+  sensitive   = true
+}
+
 variable "tags" {
   description = "Additional tags applied to all resources."
   type        = map(string)

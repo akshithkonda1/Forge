@@ -85,6 +85,57 @@ def query_prefix_desc(pk: str, sk_prefix: str, limit: int = 100) -> list[dict]:
     return result.get("Items", [])
 
 
+def scan_sk(sk: str, *, limit: int = 200) -> list[dict]:
+    """Return items with an exact sort key (cross-partition scan)."""
+    if not _TABLE_NAME:
+        results = [v for v in _local_store.values() if v.get("sk") == sk]
+        results.sort(key=lambda item: item.get("pk", ""))
+        return results[:limit]
+
+    from boto3.dynamodb.conditions import Attr  # type: ignore[import]
+
+    table = _get_table()
+    response = table.scan(FilterExpression=Attr("sk").eq(sk), Limit=limit)
+    items = response.get("Items", [])
+    while "LastEvaluatedKey" in response and len(items) < limit:
+        response = table.scan(
+            FilterExpression=Attr("sk").eq(sk),
+            ExclusiveStartKey=response["LastEvaluatedKey"],
+            Limit=limit - len(items),
+        )
+        items.extend(response.get("Items", []))
+    return items[:limit]
+
+
+def scan_pk_prefix(pk_prefix: str, *, limit: int = 200) -> list[dict]:
+    """Return items whose partition key starts with pk_prefix."""
+    if not _TABLE_NAME:
+        results = [
+            v
+            for key, v in _local_store.items()
+            if v.get("pk", "").startswith(pk_prefix)
+        ]
+        results.sort(key=lambda item: item.get("sk", ""))
+        return results[:limit]
+
+    from boto3.dynamodb.conditions import Attr  # type: ignore[import]
+
+    table = _get_table()
+    response = table.scan(
+        FilterExpression=Attr("pk").begins_with(pk_prefix),
+        Limit=limit,
+    )
+    items = response.get("Items", [])
+    while "LastEvaluatedKey" in response and len(items) < limit:
+        response = table.scan(
+            FilterExpression=Attr("pk").begins_with(pk_prefix),
+            ExclusiveStartKey=response["LastEvaluatedKey"],
+            Limit=limit - len(items),
+        )
+        items.extend(response.get("Items", []))
+    return items[:limit]
+
+
 def clear_local_store() -> None:
     """Test helper: reset the in-memory store between test runs."""
     _local_store.clear()
