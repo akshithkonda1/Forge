@@ -6,6 +6,7 @@ import HealthKit
 struct HealthDataSnapshot: Identifiable {
     let id = UUID()
     let restingHeartRate: Int?
+    let hrv: Double?
     let activeCalories: Int?
     let steps: Int?
     let sleepHours: Double?
@@ -14,7 +15,7 @@ struct HealthDataSnapshot: Identifiable {
     let timestamp: Date = Date()
     
     var hasData: Bool {
-        restingHeartRate != nil || activeCalories != nil || steps != nil || sleepHours != nil
+        restingHeartRate != nil || hrv != nil || activeCalories != nil || steps != nil || sleepHours != nil
     }
 }
 
@@ -60,6 +61,7 @@ struct WeeklyHealthTrend: Identifiable, Codable {
     let activeCalories: Int
     let sleepHours: Double
     let avgHRV: Double
+    let avgRestingHR: Double
 }
 
 // MARK: - Meal Log
@@ -164,15 +166,17 @@ class HealthKitManager: ObservableObject {
         guard isAuthorized else { return nil }
         
         async let restingHR = fetchMostRecentRestingHeartRate()
+        async let hrv = fetchTodayHRV()
         async let calories = fetchTodayActiveCalories()
         async let steps = fetchTodaySteps()
         async let sleep = fetchLastNightSleep()
         async let workouts = fetchRecentWorkouts()
         
-        let (hr, cal, st, sl, wo) = await (restingHR, calories, steps, sleep, workouts)
+        let (hr, hrvValue, cal, st, sl, wo) = await (restingHR, hrv, calories, steps, sleep, workouts)
         
         return HealthDataSnapshot(
             restingHeartRate: hr,
+            hrv: hrvValue,
             activeCalories: cal,
             steps: st,
             sleepHours: sl,
@@ -378,15 +382,18 @@ class HealthKitManager: ObservableObject {
             async let calories = fetchActiveCalories(from: startOfDay, to: endOfDay)
             async let sleep = fetchSleep(from: startOfDay, to: endOfDay)
             async let hrv = fetchAverageHRV(from: startOfDay, to: endOfDay)
+            async let restingHR = fetchAverageRestingHR(from: startOfDay, to: endOfDay)
             
-            let (stepsValue, caloriesValue, sleepValue, hrvValue) = await (steps, calories, sleep, hrv)
+            let (stepsValue, caloriesValue, sleepValue, hrvValue, restingHRValue) =
+                await (steps, calories, sleep, hrv, restingHR)
             
             trends.append(WeeklyHealthTrend(
                 date: startOfDay,
                 steps: stepsValue ?? 0,
                 activeCalories: caloriesValue ?? 0,
                 sleepHours: sleepValue ?? 0,
-                avgHRV: hrvValue ?? 0
+                avgHRV: hrvValue ?? 0,
+                avgRestingHR: restingHRValue ?? 0
             ))
         }
         
@@ -648,6 +655,27 @@ class HealthKitManager: ObservableObject {
                 }
                 let hrv = avg.doubleValue(for: .secondUnit(with: .milli))
                 continuation.resume(returning: hrv)
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    private func fetchAverageRestingHR(from start: Date, to end: Date) async -> Double? {
+        guard let type = HKQuantityType.quantityType(forIdentifier: .restingHeartRate) else { return nil }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(
+                quantityType: type,
+                quantitySamplePredicate: predicate,
+                options: .discreteAverage
+            ) { _, statistics, _ in
+                guard let avg = statistics?.averageQuantity() else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let bpm = avg.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+                continuation.resume(returning: bpm)
             }
             healthStore.execute(query)
         }

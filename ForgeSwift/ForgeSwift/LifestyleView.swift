@@ -376,6 +376,10 @@ final class LifestyleViewModel: ObservableObject {
     
     init() {}
 
+    func requestHealthAccess() {
+        Task { await load() }
+    }
+
     func load() async {
         guard !isLoading else { return }
         isLoading = true
@@ -881,6 +885,19 @@ struct AIOptimizationContent: View {
 
     var body: some View {
         LazyVStack(spacing: 20) {
+            if vm.isLoading {
+                ForgeSkeletonBlock(height: 160, cornerRadius: 20)
+                ForgeSkeletonBlock(height: 120)
+                ForgeSkeletonBlock(height: 200)
+            } else if vm.healthStats == nil {
+                ForgeEmptyState(
+                    icon: "heart.text.square.fill",
+                    title: "Connect Apple Health",
+                    message: "Enable HealthKit to power Today's Focus, live metrics, and AI workout suggestions.",
+                    actionTitle: "Open Settings",
+                    action: { vm.requestHealthAccess() }
+                )
+            } else {
             // NEW: AI-powered daily focus card
             TodaysFocusCard(vm: vm)
             
@@ -902,6 +919,7 @@ struct AIOptimizationContent: View {
             // NEW: Recovery & Performance
             if let stats = vm.healthStats {
                 RecoveryMetricsCard(stats: stats)
+            }
             }
         }
     }

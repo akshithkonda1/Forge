@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum DataLoadState: Equatable {
     case idle
@@ -39,9 +40,85 @@ final class ForgeRepository: ObservableObject {
         return (response.workouts.map(mapWorkoutHistory), response.personalRecords.map(mapPersonalRecord))
     }
 
-    func sendChatMessage(_ content: String) async throws -> ChatMessage {
+    func sendChatMessage(_ content: String) async throws -> (message: ChatMessage, toolCalls: [String]) {
         let response = try await api.sendARIAChat(content: content)
-        return mapChatMessage(response.message)
+        let tools = response.toolCallsMade ?? response.message.toolCallsMade ?? []
+        return (mapChatMessage(response.message), tools)
+    }
+
+    func generateDailyPlan(focus: String = "auto") async throws -> String {
+        let response = try await api.generateARIAPlan(focus: focus)
+        return response.plan
+    }
+
+    func refreshCoachWorkoutPlan() async throws -> WorkoutPlan? {
+        let response = try await api.fetchCoachWorkoutPlan()
+        return response.todayPlan.map(mapWorkoutPlan)
+    }
+
+    func sendVoiceTranscript(_ transcript: String) async throws -> String {
+        let response = try await api.sendARIAVoice(transcript: transcript)
+        return response.response
+    }
+
+    func regenerateInsights() async throws {
+        try await api.generateARIAInsights()
+    }
+
+    func fetchConversation() async throws -> [ChatMessage] {
+        let response = try await api.getARIAConversation()
+        let formatter = ISO8601DateFormatter()
+        return response.messages.compactMap { message in
+            let trimmed = message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            if trimmed.hasPrefix("[ARIA CONVERSATION SUMMARY") { return nil }
+
+            let role: MessageRole = message.role == "user" ? .user : .trainer
+            let timestamp = message.timestamp.flatMap { formatter.date(from: $0) } ?? Date()
+            return ChatMessage(
+                id: message.id ?? UUID().uuidString,
+                role: role,
+                content: trimmed,
+                timestamp: timestamp,
+                richCard: nil,
+                toolCallsMade: nil
+            )
+        }
+    }
+
+    func fetchProgressSummary(days: Int = 30) async throws -> ProgressSummarySnapshot {
+        let response = try await api.getProgressSummary(days: days)
+        return ProgressSummarySnapshot(
+            periodDays: response.periodDays,
+            workoutsCompleted: response.workoutsCompleted,
+            newPRCount: response.newPersonalRecords.count,
+            recoveryDelta: response.recoveryConsistencyDelta,
+            summary: response.summary
+        )
+    }
+
+    func fetchInsights(days: Int = 7) async throws -> [CoachingInsight] {
+        let response = try await api.getARIAInsights(days: days)
+        return response.insights.compactMap { row in
+            var dict: [String: Any] = [:]
+            row.forEach { key, value in
+                dict[key] = value.value
+            }
+            return CoachingInsight(dictionary: dict)
+        }
+    }
+
+    func fetchConnections() async throws -> [IntegrationConnection] {
+        let response = try await api.getMe()
+        return response.connections.map(IntegrationConnection.init(apiConnection:))
+    }
+
+    func fetchDeviceServiceStatus() async throws -> DeviceServiceStatus {
+        try await api.getDeviceConnectionStatus()
+    }
+
+    func fetchExtendedSleep(days: Int = 14) async throws -> [SleepData] {
+        try await fetchSleep(days: days)
     }
 
     func saveProfile(_ profile: UserProfile) async throws {
@@ -102,6 +179,14 @@ struct DashboardSnapshot {
     var sleepData: [SleepData]
     var workoutHistory: [WorkoutHistory]
     var personalRecords: [PersonalRecord]
+}
+
+struct ProgressSummarySnapshot {
+    let periodDays: Int
+    let workoutsCompleted: Int
+    let newPRCount: Int
+    let recoveryDelta: Double
+    let summary: String
 }
 
 // MARK: - Mapping
@@ -202,6 +287,50 @@ private func mapChatMessage(_ message: APIChatMessage) -> ChatMessage {
         role: message.role == "user" ? .user : .trainer,
         content: message.content,
         timestamp: formatter.date(from: message.timestamp) ?? Date(),
-        richCard: nil
+        richCard: mapRichCard(message.richCard),
+        toolCallsMade: message.toolCallsMade
     )
+}
+
+private func mapRichCard(_ payload: APIRichCardPayload?) -> RichCardData? {
+    guard let payload else { return nil }
+    switch payload.type {
+    case "workout-plan":
+        guard let data = payload.data else { return nil }
+        let exercises = (data.exercises ?? []).map { exercise in
+            (
+                name: exercise.name,
+                sets: exercise.sets ?? 3,
+                reps: exercise.reps?.display ?? "8-10"
+            )
+        }
+        return RichCardData(
+            type: .workoutPlan,
+            workoutName: data.name,
+            workoutDuration: data.duration,
+            workoutExercises: exercises.isEmpty ? nil : exercises
+        )
+    case "data-chart":
+        guard let data = payload.data else { return nil }
+        let colorHex = data.color?.replacingOccurrences(of: "#", with: "") ?? "3B82F6"
+        return RichCardData(
+            type: .dataChart,
+            chartTitle: data.title,
+            chartValues: data.values,
+            chartInsight: data.insight,
+            chartColor: Color(hex: colorHex)
+        )
+    case "progress-comparison":
+        guard let data = payload.data else { return nil }
+        let values = [data.previous ?? 0, data.current ?? 0]
+        return RichCardData(
+            type: .dataChart,
+            chartTitle: data.title ?? "Progress",
+            chartValues: values,
+            chartInsight: data.insight ?? "",
+            chartColor: Color.ember
+        )
+    default:
+        return nil
+    }
 }

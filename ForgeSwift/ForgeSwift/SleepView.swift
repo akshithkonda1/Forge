@@ -158,6 +158,9 @@ struct SleepView: View {
         .sheet(isPresented: $showStreakDetail) {
             SleepStreakDetailView(streak: currentStreak)
         }
+        .task {
+            await store.refreshSleepData(days: 14)
+        }
     }
 }
 
@@ -289,6 +292,30 @@ struct SleepOverviewTab: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 22) {
+                if store.dataLoadState == .loading {
+                    ForgeSkeletonBlock(height: 180, cornerRadius: 20)
+                    ForgeSkeletonBlock(height: 120)
+                    ForgeSkeletonBlock(height: 220)
+                } else if store.sleepData.isEmpty {
+                    ForgeEmptyState(
+                        icon: "moon.zzz.fill",
+                        title: "No sleep data yet",
+                        message: "Connect Apple Health or a wearable to unlock sleep scores, stage breakdowns, and recovery trends.",
+                        actionTitle: "Connect in Settings",
+                        action: { store.activeTab = .profile }
+                    )
+                } else {
+                sleepContent
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 120)
+        }
+    }
+
+    @ViewBuilder
+    private var sleepContent: some View {
+        VStack(spacing: 22) {
                 // Hero score ring
                 SleepScoreHeroCard()
 
@@ -330,9 +357,6 @@ struct SleepOverviewTab: View {
 
                 // Quick actions
                 SleepQuickActionsBar(onAITap: { showAIChat = true })
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 120)
         }
     }
 }
@@ -1941,14 +1965,6 @@ struct SleepBreakdownCard: View {
 struct AISleepInsightView: View {
     @EnvironmentObject var store: AppStore
 
-    var insight: String {
-        let d = store.sleepData[0]
-        let s = "\(d.deepMinutes >= 60 ? "\(d.deepMinutes/60)hr " : "")\(d.deepMinutes % 60)min"
-        if d.score >= 85 { return "Excellent recovery. \(s) of deep sleep has fully topped up muscle repair. You're primed for a heavy session today." }
-        else if d.score >= 70 { return "Good sleep — \(s) deep sleep. HRV reflects adequate recovery. Cut screens 45 min before bed to push this score higher." }
-        else { return "Only \(s) of deep sleep last night. Recovery is below target. Consider a lighter session and an earlier bedtime tonight." }
-    }
-
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             ZStack {
@@ -1958,7 +1974,7 @@ struct AISleepInsightView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("AI Sleep Insight")
                     .font(.system(size: 12, weight: .bold)).foregroundColor(.steel).tracking(0.5)
-                Text(insight)
+                Text(store.sleepInsightText)
                     .font(.system(size: 14)).foregroundColor(.textPrimary).lineSpacing(5)
             }
         }
@@ -1983,19 +1999,43 @@ struct RecoveryTrendsView: View {
         let df = DateFormatter(); df.dateFormat = "EEE"; return df.string(from: d)
     }
 
-    private func estimatedHRV(for score: Int) -> Double {
-        let baseline = Double(store.dailyMetrics.hrv)
-        return baseline * (0.82 + Double(score) / 500.0)
+    private var usesHealthKitTrends: Bool {
+        store.weeklyHealthTrends.count >= 3
     }
 
-    private func estimatedRHR(for score: Int) -> Double {
+    private func trendDayLabel(_ date: Date) -> String {
+        let df = DateFormatter()
+        df.dateFormat = "EEE"
+        return df.string(from: date)
+    }
+
+    var scorePoints: [Pt] {
+        store.sleepData.prefix(7).reversed().map { Pt(day: dayAbbr($0.date), value: Double($0.score), series: "Score") }
+    }
+
+    var hrvPoints: [Pt] {
+        if usesHealthKitTrends {
+            return store.weeklyHealthTrends.suffix(7).map {
+                Pt(day: trendDayLabel($0.date), value: $0.avgHRV, series: "HRV")
+            }
+        }
+        return store.sleepData.prefix(7).reversed().map {
+            Pt(day: dayAbbr($0.date), value: Double(store.dailyMetrics.hrv), series: "HRV")
+        }
+    }
+
+    var rhrPoints: [Pt] {
+        if usesHealthKitTrends {
+            return store.weeklyHealthTrends.suffix(7).compactMap { trend in
+                guard trend.avgRestingHR > 0 else { return nil }
+                return Pt(day: trendDayLabel(trend.date), value: trend.avgRestingHR, series: "RHR")
+            }
+        }
         let baseline = Double(store.dailyMetrics.restingHR)
-        return baseline + Double(100 - score) * 0.12
+        return store.sleepData.prefix(7).reversed().map {
+            Pt(day: dayAbbr($0.date), value: baseline, series: "RHR")
+        }
     }
-
-    var scorePoints: [Pt] { store.sleepData.prefix(7).reversed().enumerated().map { Pt(day: dayAbbr($1.date), value: Double($1.score), series: "Score") }}
-    var hrvPoints:   [Pt] { store.sleepData.prefix(7).reversed().enumerated().map { _, d in Pt(day: dayAbbr(d.date), value: estimatedHRV(for: d.score), series: "HRV") }}
-    var rhrPoints:   [Pt] { store.sleepData.prefix(7).reversed().enumerated().map { _, d in Pt(day: dayAbbr(d.date), value: estimatedRHR(for: d.score), series: "RHR") }}
 
     var body: some View {
         VStack(spacing: 16) {

@@ -473,6 +473,9 @@ struct ChatView: View {
         .onAppear {
             ariaMood = ARIAMood.derive(readiness: store.readiness.overall)
         }
+        .task {
+            await store.ensureChatHistoryLoaded()
+        }
         .onChange(of: store.readiness.overall) { _, val in
             withAnimation(FDS.Spring.standard) { ariaMood = ARIAMood.derive(readiness: val) }
         }
@@ -483,57 +486,40 @@ struct ChatView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await store.refreshDailyData() } }
         }
+        .onChange(of: store.isGeneratingResponse) { _, generating in
+            isTyping = generating
+        }
     }
 
     // ── Send ──────────────────────────────────────────────────────
 
     func sendMessage(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, !isTyping else { return }
+        guard !trimmed.isEmpty, !isTyping, !store.isGeneratingResponse else { return }
 
         choreographedHaptic(.messageSent)
 
-        // Handle mood shift on "not feeling it"
         if trimmed.lowercased().contains("not feeling") {
             withAnimation(FDS.Spring.standard) { ariaMood = .pushed }
         }
 
-        store.addMessage(ChatMessage(
-            id:        "user-\(Date().timeIntervalSince1970)",
-            role:      .user, content: trimmed, timestamp: Date()
-        ))
-        inputText        = ""
-        isTyping         = true
+        inputText = ""
+        isTyping = true
         showQuickActions = false
         swipeReplyTarget = nil
 
-        // Award XP for sending
         let xpGain = trimmed.split(separator: " ").count > 5 ? 15 : 10
         momentum.award(xp: xpGain)
 
-        let (responseContent, richCard) = store.trainerResponse(for: trimmed)
-
-        let words     = trimmed.split(separator: " ").count
-        let isComplex = ["why","how","explain","what","should","analyze"]
-            .contains(where: { trimmed.lowercased().contains($0) })
-        let delay: Double = isComplex      ? Double.random(in: 2.2...3.4)
-                          : words <= 3     ? Double.random(in: 0.65...1.05)
-                          : Double.random(in: 1.1...2.0)
+        let trainerCountBefore = store.chatMessages.filter { $0.role == .trainer }.count
 
         Task {
-            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-            guard !Task.isCancelled else { return }
-            store.addMessage(ChatMessage(
-                id:        "trainer-\(Date().timeIntervalSince1970)",
-                role:      .trainer, content: responseContent,
-                timestamp: Date(), richCard: richCard
-            ))
+            await store.sendMessage(trimmed)
             isTyping = false
             choreographedHaptic(.messageReceived)
 
-            // Milestone check
-            let count = store.chatMessages.filter { $0.role == .trainer }.count
-            if [5, 10, 25, 50].contains(count) {
+            let trainerCount = store.chatMessages.filter { $0.role == .trainer }.count
+            if trainerCount > trainerCountBefore, [5, 10, 25, 50].contains(trainerCount) {
                 choreographedHaptic(.milestone)
                 withAnimation(FDS.Spring.hero) { showMilestone = true }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
@@ -1136,6 +1122,13 @@ struct MessageBubbleView: View {
                     // Rich card
                     if let card = message.richCard {
                         RichCardView(card: card).padding(.top, 4)
+                    }
+
+                    if isTrainer, let tools = message.toolCallsMade, !tools.isEmpty {
+                        Text("ARIA used: \(tools.joined(separator: ", "))")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.textMuted)
+                            .padding(.top, 2)
                     }
 
                     // Timestamp
@@ -1911,7 +1904,9 @@ struct WorkoutRichCardView: View {
             Divider().background(Color.borderColor.opacity(0.3))
 
             Button {
-                store.startWorkout(); store.activeTab = .workout
+                store.applyWorkoutFromRichCard(card)
+                store.startWorkout()
+                store.activeTab = .workout
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "play.fill").font(.system(size: 13, weight: .bold))

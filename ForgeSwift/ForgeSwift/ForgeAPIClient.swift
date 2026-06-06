@@ -123,6 +123,11 @@ struct APIUserProfile: Decodable {
     let weeklySchedule: [Int]
 }
 
+struct MeResponse: Decodable {
+    let profile: APIUserProfile
+    let connections: [APIIntegrationConnection]
+}
+
 struct DashboardTodayResponse: Decodable {
     let profile: APIUserProfile
     let readiness: APIReadinessData
@@ -150,9 +155,64 @@ struct ProgressSummaryResponse: Decodable {
     let summary: String
 }
 
+struct ARIAConversationMessage: Decodable {
+    let role: String
+    let content: String
+    let id: String?
+    let timestamp: String?
+}
+
+struct ARIAConversationResponse: Decodable {
+    let threadId: String
+    let messages: [ARIAConversationMessage]
+    let messageCount: Int
+}
+
 struct ARIAChatResponse: Decodable {
     let threadId: String
     let message: APIChatMessage
+    let toolCallsMade: [String]?
+}
+
+struct ARIAPlanResponse: Decodable {
+    let focus: String
+    let plan: String
+    let generatedAt: String
+}
+
+struct CoachWorkoutPlanResponse: Decodable {
+    let todayPlan: APIWorkoutPlan?
+    let explanation: String
+}
+
+struct ARIAVoiceResponse: Decodable {
+    let transcript: String
+    let response: String
+    let suitableForTTS: Bool?
+}
+
+struct APIRichCardPayload: Decodable {
+    let type: String
+    let data: APIRichCardData?
+}
+
+struct APIRichCardData: Decodable {
+    let name: String?
+    let duration: Int?
+    let exercises: [APIRichCardExercise]?
+    let title: String?
+    let values: [Double]?
+    let insight: String?
+    let color: String?
+    let current: Double?
+    let previous: Double?
+    let unit: String?
+}
+
+struct APIRichCardExercise: Decodable {
+    let name: String
+    let sets: Int?
+    let reps: StringOrNumber?
 }
 
 struct APIChatMessage: Decodable {
@@ -160,6 +220,8 @@ struct APIChatMessage: Decodable {
     let role: String
     let content: String
     let timestamp: String
+    let richCard: APIRichCardPayload?
+    let toolCallsMade: [String]?
 }
 
 struct HealthMetricInput: Encodable {
@@ -200,8 +262,15 @@ final class ForgeAPIClient {
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
 
-    init(session: URLSession = .shared) {
-        self.session = session
+    init(session: URLSession? = nil) {
+        if let session {
+            self.session = session
+        } else {
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 15
+            config.timeoutIntervalForResource = 30
+            self.session = URLSession(configuration: config)
+        }
         self.decoder = JSONDecoder()
         self.encoder = JSONEncoder()
     }
@@ -222,8 +291,77 @@ final class ForgeAPIClient {
         try await request(path: "/progress/summary", query: ["days": String(days)])
     }
 
+    func getARIAConversation(threadId: String = "current") async throws -> ARIAConversationResponse {
+        try await request(path: "/aria/conversation", query: ["threadId": threadId])
+    }
+
+    func getARIAInsights(days: Int = 7) async throws -> ARIAInsightsResponse {
+        try await request(path: "/aria/insights", query: ["days": String(days)])
+    }
+
+    func getMe() async throws -> MeResponse {
+        try await request(path: "/me")
+    }
+
+    func getDeviceConnectionStatus() async throws -> DeviceServiceStatus {
+        try await request(path: "/integrations/terra/status")
+    }
+
+    func createWearableWidgetSession(
+        successRedirectUrl: String,
+        failureRedirectUrl: String,
+        language: String = "en"
+    ) async throws -> WidgetSessionResponse {
+        struct Body: Encodable {
+            let successRedirectUrl: String
+            let failureRedirectUrl: String
+            let language: String
+        }
+        return try await request(
+            path: "/integrations/terra/widget",
+            method: "POST",
+            body: Body(
+                successRedirectUrl: successRedirectUrl,
+                failureRedirectUrl: failureRedirectUrl,
+                language: language
+            )
+        )
+    }
+
+    func syncIntegration(provider: String) async throws -> IntegrationSyncResponse {
+        struct EmptyBody: Encodable {}
+        return try await request(
+            path: "/integrations/\(provider)/sync",
+            method: "POST",
+            body: EmptyBody()
+        )
+    }
+
     func sendARIAChat(content: String) async throws -> ARIAChatResponse {
         try await request(path: "/aria/chat", method: "POST", body: ["content": content])
+    }
+
+    func generateARIAPlan(focus: String = "auto") async throws -> ARIAPlanResponse {
+        try await request(path: "/aria/plan", method: "POST", body: ["focus": focus])
+    }
+
+    func fetchCoachWorkoutPlan() async throws -> CoachWorkoutPlanResponse {
+        struct EmptyBody: Encodable {}
+        return try await request(path: "/coach/workout-plan", method: "POST", body: EmptyBody())
+    }
+
+    func sendARIAVoice(transcript: String) async throws -> ARIAVoiceResponse {
+        try await request(path: "/aria/voice", method: "POST", body: ["transcript": transcript])
+    }
+
+    func generateARIAInsights() async throws {
+        struct EmptyBody: Encodable {}
+        struct InsightsGenerateResponse: Decodable { let status: String? }
+        let _: InsightsGenerateResponse = try await request(
+            path: "/aria/insights/generate",
+            method: "POST",
+            body: EmptyBody()
+        )
     }
 
     func updateProfile(_ profile: [String: AnyEncodable]) async throws -> APIUserProfile {

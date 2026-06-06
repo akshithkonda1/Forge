@@ -4,7 +4,10 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var auth = CognitoAuthManager.shared
     @State private var showSplash = true
+    @State private var showAuthSheet = false
 
     var body: some View {
         ZStack {
@@ -12,6 +15,11 @@ struct ContentView: View {
                 MainTabView()
             } else {
                 OnboardingView()
+            }
+
+            if store.isOnboarded && auth.requiresSignIn {
+                AuthRequiredOverlay(showAuthSheet: $showAuthSheet)
+                    .zIndex(50)
             }
             
             // Epic splash screen
@@ -26,6 +34,12 @@ struct ContentView: View {
                 withAnimation(.easeOut(duration: 0.6)) {
                     showSplash = false
                 }
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, store.isOnboarded else { return }
+            Task {
+                await store.refreshConnections()
             }
         }
     }
@@ -98,6 +112,37 @@ struct ForgeSplashScreen: View {
 
 // MARK: - Main Tab Container
 
+private struct AuthRequiredOverlay: View {
+    @Binding var showAuthSheet: Bool
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "person.crop.circle.badge.checkmark")
+                .font(.system(size: 40, weight: .semibold))
+                .foregroundColor(.ember)
+            Text("Sign in to sync your data")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.textPrimary)
+            Text("Forge uses Cognito in production so your workouts, readiness, and ARIA history stay tied to your account.")
+                .font(.system(size: 14))
+                .foregroundColor(.textSecondary)
+                .multilineTextAlignment(.center)
+            Button("Sign In") { showAuthSheet = true }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 22)
+                .padding(.vertical, 12)
+                .background(Color.ember)
+                .cornerRadius(12)
+        }
+        .padding(28)
+        .background(Color.background.opacity(0.94))
+        .sheet(isPresented: $showAuthSheet) {
+            CognitoSignInSheet()
+        }
+    }
+}
+
 struct MainTabView: View {
     @EnvironmentObject var store: AppStore
     @Namespace private var namespace
@@ -105,7 +150,8 @@ struct MainTabView: View {
     @State private var dragOffset: CGFloat = 0
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: .top) {
+            ZStack(alignment: .bottom) {
             // Background with subtle gradient
             LinearGradient(
                 colors: [
@@ -142,8 +188,17 @@ struct MainTabView: View {
             .id(store.activeTab)
 
             ForgeBottomNav(namespace: namespace, dragOffset: $dragOffset)
+            }
+            .ignoresSafeArea(edges: .bottom)
+
+            VStack(spacing: 0) {
+                DataStatusBanner(state: store.dataLoadState) {
+                    Task { await store.loadDashboardFromAPI() }
+                }
+                .padding(.top, 52)
+                Spacer()
+            }
         }
-        .ignoresSafeArea(edges: .bottom)
         .onChange(of: store.activeTab) { old, new in
             previousTab = old
         }

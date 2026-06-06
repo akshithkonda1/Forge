@@ -2,11 +2,26 @@ import Foundation
 
 enum APIConfig {
     static var baseURL: URL {
-        if let value = Bundle.main.object(forInfoDictionaryKey: "FORGE_API_BASE_URL") as? String,
-           let url = URL(string: value) {
-            return url
+        let raw = (Bundle.main.object(forInfoDictionaryKey: "FORGE_API_BASE_URL") as? String)
+            ?? "http://127.0.0.1:3001"
+        return resolveURL(raw)
+    }
+
+    static var displayHost: String {
+        let host = baseURL.host ?? baseURL.absoluteString
+        if let port = baseURL.port, port != 80 && port != 443 {
+            return "\(host):\(port)"
         }
-        return URL(string: "http://localhost:3001")!
+        return host
+    }
+
+    private static func resolveURL(_ raw: String) -> URL {
+        var value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.hasPrefix("localhost") {
+            value = value.replacingOccurrences(of: "localhost", with: "127.0.0.1")
+        }
+        if let url = URL(string: value) { return url }
+        return URL(string: "http://127.0.0.1:3001")!
     }
 
     static var usesAuth: Bool {

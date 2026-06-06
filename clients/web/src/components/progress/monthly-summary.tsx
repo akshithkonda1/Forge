@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useAppStore } from "@/stores/useAppStore";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -34,51 +35,69 @@ function StatPill({ value, label, className }: StatPillProps) {
     <motion.div
       variants={itemVariants}
       className={cn(
-        "flex flex-col items-center gap-1 rounded-xl bg-[#1A1A1A] px-4 py-3 flex-1",
-        className
+        "flex flex-1 flex-col items-center gap-1 rounded-xl bg-surface-elevated px-4 py-3",
+        className,
       )}
     >
-      <span className="text-xl font-bold text-white">{value}</span>
-      <span className="text-[11px] text-[#A1A1AA] whitespace-nowrap">{label}</span>
+      <span className="text-xl font-bold text-text-primary">{value}</span>
+      <span className="whitespace-nowrap text-[11px] text-text-tertiary">{label}</span>
     </motion.div>
   );
 }
 
+function formatRecoveryDelta(delta: number): string {
+  const sign = delta >= 0 ? "+" : "";
+  return `${sign}${Math.round(delta)}%`;
+}
+
 export function MonthlySummary() {
+  const progressSummary = useAppStore((s) => s.progressSummary);
+  const workoutHistory = useAppStore((s) => s.workoutHistory);
+  const personalRecords = useAppStore((s) => s.personalRecords);
+  const dataLoadState = useAppStore((s) => s.dataLoadState);
+
+  const workouts =
+    progressSummary?.workoutsCompleted ?? workoutHistory.length;
+  const newPRs =
+    progressSummary?.newPersonalRecords.length ?? personalRecords.length;
+  const recoveryDelta = progressSummary?.recoveryConsistencyDelta;
+  const summary =
+    progressSummary?.summary ??
+    (dataLoadState === "offline"
+      ? "You're viewing demo data. Start the backend to see your real progress."
+      : "Complete a few workouts and connect a wearable to unlock your monthly summary.");
+
   return (
     <motion.div
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="relative overflow-hidden rounded-2xl border border-[#2A2A2A] bg-[#141414]"
+      className="relative overflow-hidden rounded-2xl border border-border bg-surface"
     >
-      {/* Gradient top border accent */}
-      <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-[#FF4D00] via-[#FF6B2C] to-[#FF4D00]" />
+      <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-ember via-ember-light to-ember" />
 
       <div className="p-5">
-        {/* Label */}
         <motion.p
           variants={itemVariants}
-          className="text-xs font-medium uppercase tracking-wider text-[#71717A] mb-4"
+          className="mb-4 text-xs font-medium uppercase tracking-wider text-text-tertiary"
         >
-          This Month
+          Last {progressSummary?.periodDays ?? 30} Days
         </motion.p>
 
-        {/* Stats row */}
-        <div className="flex gap-2.5 mb-4">
-          <StatPill value="18" label="Workouts" />
-          <StatPill value="3" label="New PRs" />
-          <StatPill value="+22%" label="Recovery" />
+        <div className="mb-4 flex gap-2.5">
+          <StatPill value={String(workouts)} label="Workouts" />
+          <StatPill value={String(newPRs)} label="New PRs" />
+          <StatPill
+            value={recoveryDelta != null ? formatRecoveryDelta(recoveryDelta) : "—"}
+            label="Recovery"
+          />
         </div>
 
-        {/* AI summary */}
         <motion.p
           variants={itemVariants}
-          className="text-sm leading-relaxed text-[#A1A1AA]"
+          className="text-sm leading-relaxed text-text-secondary"
         >
-          Strong month. You&apos;ve been consistent with your Mon/Wed/Fri schedule
-          and hit 3 new personal records. Recovery consistency improved 22%
-          &mdash; your sleep habits are paying off.
+          {summary}
         </motion.p>
       </div>
     </motion.div>

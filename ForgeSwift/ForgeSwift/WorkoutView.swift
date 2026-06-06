@@ -733,8 +733,8 @@ struct ActiveWorkoutView: View {
     @State private var isResting:      Bool   = false
     @State private var restTimeLeft:   Int    = 0
 
-    // Coach
-    @State private var coachIndex:     Int    = 0
+    // Voice coach
+    @State private var voiceCoach = VoiceCoachManager()
 
     // Set logging
     @State private var setLog:         [SetLogEntry] = []
@@ -767,8 +767,6 @@ struct ActiveWorkoutView: View {
     @State private var calTask:     Task<Void, Never>? = nil
     @State private var o2Task:      Task<Void, Never>? = nil
     @State private var restTask:    Task<Void, Never>? = nil
-    @State private var coachTask:   Task<Void, Never>? = nil
-
     private var exercises:       [Exercise] { store.todayWorkout?.exercises ?? [] }
     private var currentExercise: Exercise?  { exercises.indices.contains(store.currentExerciseIndex) ? exercises[store.currentExerciseIndex] : nil }
     private var currentZone: WorkoutHRZone { workoutHRZone(for: simulatedHR) }
@@ -785,7 +783,10 @@ struct ActiveWorkoutView: View {
                     MusicControlBar(controller: music, compact: true)
                         .padding(.horizontal, 16).padding(.vertical, 6)
                     mainContent(exercise: exercise)
-                    coachBar
+                    VoiceCoachBar(coach: voiceCoach)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 20)
+                        .padding(.top, 6)
                 }
             }
 
@@ -832,8 +833,24 @@ struct ActiveWorkoutView: View {
                 .zIndex(15)
             }
         }
-        .onAppear  { startTasks(); setupCurrentWeight() }
-        .onDisappear { cancelTasks() }
+        .onAppear {
+            startTasks()
+            setupCurrentWeight()
+            syncVoiceCoachContext()
+            if currentExercise != nil {
+                voiceCoach.announceWorkoutStart()
+            }
+        }
+        .onDisappear {
+            cancelTasks()
+            voiceCoach.stopListening()
+        }
+        .onChange(of: store.currentExerciseIndex) { _, _ in syncVoiceCoachContext() }
+        .onChange(of: store.currentSet) { _, _ in syncVoiceCoachContext() }
+        .onChange(of: elapsedSecs) { _, _ in syncVoiceCoachContext() }
+        .onChange(of: simulatedHR) { _, _ in syncVoiceCoachContext() }
+        .onChange(of: isResting) { _, _ in syncVoiceCoachContext() }
+        .onChange(of: restTimeLeft) { _, _ in syncVoiceCoachContext() }
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: showPRBanner)
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: showO2Warning)
         .animation(.spring(response: 0.45, dampingFraction: 0.85), value: showSetLogger)
@@ -1330,9 +1347,14 @@ struct ActiveWorkoutView: View {
 
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.easeInOut(duration: 0.4)) { coachIndex += 1 }
+                    if voiceCoach.isListening {
+                        voiceCoach.stopListening()
+                    } else {
+                        voiceCoach.startListening()
+                    }
                 } label: {
-                    Image(systemName: "brain.head.profile").font(.system(size: 14))
+                    Image(systemName: voiceCoach.isListening ? "stop.fill" : "mic.fill")
+                        .font(.system(size: 14))
                         .foregroundColor(.ember).frame(width: 46, height: 46)
                         .background(Color.ember.opacity(0.1)).cornerRadius(14)
                         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.ember.opacity(0.3), lineWidth: 1))
@@ -1341,55 +1363,39 @@ struct ActiveWorkoutView: View {
         }
     }
 
-    // MARK: Coach Bar — Bevel-tier with animated left border
-
-    private var coachBar: some View {
-        HStack(spacing: 0) {
-            // Animated left-border pulse
-            TimelineView(.animation(minimumInterval: 0.05)) { tl in
-                let t = tl.date.timeIntervalSinceReferenceDate
-                let p = (sin(t * 1.8) + 1) / 2
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.ember.opacity(0.5 + p * 0.5))
-                    .frame(width: 3)
-                    .shadow(color: Color.ember.opacity(0.4 + p * 0.4), radius: 4 + p * 4)
-            }
-            .frame(width: 3)
-
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle().fill(Color.ember.opacity(0.12)).frame(width: 36, height: 36)
-                    Image(systemName: "brain.head.profile").font(.system(size: 14, weight: .semibold)).foregroundColor(.ember)
-                }
-                ZStack {
-                    Text(coachMessages[coachIndex % coachMessages.count])
-                        .font(.system(size: 13))
-                        .foregroundColor(.textSecondary)
-                        .lineSpacing(3)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .id(coachIndex)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .bottom).combined(with: .opacity),
-                            removal:   .move(edge: .top).combined(with: .opacity)
-                        ))
-                }
-                .animation(.easeInOut(duration: 0.4), value: coachIndex)
-            }
-            .padding(.horizontal, 14).padding(.vertical, 14)
-        }
-        .background(
-            ZStack {
-                Color.surfaceElevated
-                LinearGradient(colors: [Color.ember.opacity(0.04), .clear],
-                               startPoint: .leading, endPoint: .trailing)
-            }
-        )
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.ember.opacity(0.12), lineWidth: 1))
-        .padding(.horizontal, 16).padding(.bottom, 20).padding(.top, 6)
-    }
-
     // MARK: Logic Helpers
+
+    private func syncVoiceCoachContext() {
+        guard let exercise = currentExercise else { return }
+        voiceCoach.updateContext(
+            WorkoutContext(
+                workoutName: store.todayWorkout?.name ?? "",
+                exerciseName: exercise.name,
+                currentSet: store.currentSet,
+                sets: exercise.sets,
+                reps: exercise.reps,
+                weight: exercise.weight.map { "\($0) lbs" } ?? "BW",
+                elapsedTime: formatTime(elapsedSecs, flashColon: false),
+                heartRate: simulatedHR,
+                hrZone: workoutHRZones.firstIndex(where: { $0.label == currentZone.label }) ?? 0 + 1,
+                calories: Int(estimatedCals),
+                restSeconds: exercise.restSeconds,
+                notes: exercise.notes ?? ""
+            )
+        )
+        WorkoutLiveActivityManager.update(
+            WorkoutActivityAttributes.ContentState(
+                exerciseName: exercise.name,
+                currentSet: store.currentSet,
+                totalSets: exercise.sets,
+                restSecondsRemaining: restTimeLeft,
+                isResting: isResting,
+                elapsedSeconds: elapsedSecs,
+                heartRate: simulatedHR,
+                hrZoneLabel: currentZone.label
+            )
+        )
+    }
 
     private func rpeColor(_ rpe: Int) -> Color {
         rpe <= 4 ? .success : rpe <= 7 ? Color(hex: "F59E0B") : .danger
@@ -1422,7 +1428,11 @@ struct ActiveWorkoutView: View {
         } else {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
-        if loggedRPE >= 9 { withAnimation(.easeInOut(duration: 0.4)) { coachIndex += 1 } }
+        voiceCoach.announceSetComplete(
+            setNumber: store.currentSet,
+            totalSets: exercise.sets,
+            restSeconds: exercise.restSeconds
+        )
 
         let isLastSet = store.currentSet >= exercise.sets
         let isLastEx  = store.currentExerciseIndex >= exercises.count - 1
@@ -1556,18 +1566,11 @@ struct ActiveWorkoutView: View {
                 }
             }
         }
-        coachTask = Task {
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 9_000_000_000)
-                guard !Task.isCancelled else { return }
-                withAnimation(.easeInOut(duration: 0.4)) { coachIndex += 1 }
-            }
-        }
     }
 
     private func cancelTasks() {
-        [elapsedTask, hrTask, calTask, o2Task, restTask, coachTask].forEach { $0?.cancel() }
-        elapsedTask = nil; hrTask = nil; calTask = nil; o2Task = nil; restTask = nil; coachTask = nil
+        [elapsedTask, hrTask, calTask, o2Task, restTask].forEach { $0?.cancel() }
+        elapsedTask = nil; hrTask = nil; calTask = nil; o2Task = nil; restTask = nil
     }
 
     private func formatTime(_ s: Int, flashColon: Bool = true) -> String {

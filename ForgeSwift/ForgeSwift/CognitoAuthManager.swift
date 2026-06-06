@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum CognitoAuthError: LocalizedError {
     case notConfigured
@@ -36,6 +37,12 @@ final class CognitoAuthManager: ObservableObject {
         self.session = session
         if !APIConfig.usesAuth {
             isAuthenticated = true
+        } else {
+            let saved = ForgePersistence.loadAuthTokens()
+            idToken = saved.id
+            accessToken = saved.access
+            refreshToken = saved.refresh
+            isAuthenticated = saved.id != nil
         }
     }
 
@@ -45,6 +52,9 @@ final class CognitoAuthManager: ObservableObject {
         self.refreshToken = refreshToken
         isAuthenticated = idToken != nil || !APIConfig.usesAuth
         lastError = nil
+        if APIConfig.usesAuth {
+            ForgePersistence.saveAuthTokens(idToken: idToken, accessToken: accessToken, refreshToken: refreshToken)
+        }
     }
 
     func signOut() {
@@ -53,6 +63,11 @@ final class CognitoAuthManager: ObservableObject {
         refreshToken = nil
         isAuthenticated = !APIConfig.usesAuth
         lastError = nil
+        ForgePersistence.clearAuthTokens()
+    }
+
+    var requiresSignIn: Bool {
+        APIConfig.usesAuth && !isAuthenticated
     }
 
     var authorizationHeader: String? {
@@ -138,5 +153,90 @@ final class CognitoAuthManager: ObservableObject {
         let message = (body["message"] as? String) ?? "Cognito request failed (\(http.statusCode))"
         lastError = message
         throw CognitoAuthError.service(message)
+    }
+}
+
+struct CognitoSignInSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var auth = CognitoAuthManager.shared
+    @State private var email = ""
+    @State private var password = ""
+    @State private var confirmationCode = ""
+    @State private var mode: AuthMode = .signIn
+    @State private var isLoading = false
+    @State private var statusMessage: String?
+
+    private enum AuthMode: String, CaseIterable {
+        case signIn = "Sign In"
+        case signUp = "Sign Up"
+        case confirm = "Confirm"
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Picker("Mode", selection: $mode) {
+                    ForEach(AuthMode.allCases, id: \.self) { item in
+                        Text(item.rawValue).tag(item)
+                    }
+                }
+                TextField("Email", text: $email)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.emailAddress)
+                SecureField("Password", text: $password)
+                if mode == .confirm {
+                    TextField("Confirmation code", text: $confirmationCode)
+                        .keyboardType(.numberPad)
+                }
+                if let statusMessage {
+                    Text(statusMessage).font(.footnote).foregroundColor(.secondary)
+                }
+                if let lastError = auth.lastError {
+                    Text(lastError).font(.footnote).foregroundColor(.red)
+                }
+            }
+            .navigationTitle("Forge Account")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(primaryActionTitle) { Task { await submit() } }
+                        .disabled(isLoading || email.isEmpty || password.isEmpty)
+                }
+            }
+        }
+    }
+
+    private var primaryActionTitle: String {
+        switch mode {
+        case .signIn: return "Sign In"
+        case .signUp: return "Create Account"
+        case .confirm: return "Confirm"
+        }
+    }
+
+    @MainActor
+    private func submit() async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            switch mode {
+            case .signIn:
+                _ = try await auth.signIn(email: email, password: password)
+                statusMessage = "Signed in successfully."
+                dismiss()
+            case .signUp:
+                try await auth.signUp(email: email, password: password)
+                statusMessage = "Check your email for a confirmation code."
+                mode = .confirm
+            case .confirm:
+                try await auth.confirmSignUp(email: email, code: confirmationCode)
+                statusMessage = "Email confirmed. You can sign in now."
+                mode = .signIn
+            }
+        } catch {
+            statusMessage = nil
+        }
     }
 }

@@ -96,6 +96,7 @@ struct ProfileTabView: View {
 // MARK: - Progress Page (mirrors progress-page.tsx)
 
 struct ProgressPageView: View {
+    @EnvironmentObject var store: AppStore
     @State private var isRefreshing = false
     @State private var showShareSheet = false
     @State private var selectedTimeRange: TimeRange = .month
@@ -136,6 +137,12 @@ struct ProgressPageView: View {
                 }
                 .padding(.top, 16)
                 
+                if store.dataLoadState == .loading {
+                    ForgeSkeletonBlock(height: 88, cornerRadius: 16)
+                    ForgeSkeletonBlock(height: 160, cornerRadius: 16)
+                    ForgeSkeletonBlock(height: 220, cornerRadius: 16)
+                }
+
                 // Time range selector
                 TimeRangePicker(selection: $selectedTimeRange)
                 
@@ -164,7 +171,7 @@ struct ProgressPageView: View {
     
     func refreshData() async {
         isRefreshing = true
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        await store.loadDashboardFromAPI()
         isRefreshing = false
     }
 }
@@ -172,7 +179,31 @@ struct ProgressPageView: View {
 // MARK: - Monthly Summary (mirrors monthly-summary.tsx)
 
 struct MonthlySummaryView: View {
+    @EnvironmentObject var store: AppStore
     @State private var appeared = false
+
+    private var monthLabel: String {
+        Date().formatted(.dateTime.month(.wide))
+    }
+
+    private var workoutsCompleted: String {
+        String(store.progressSummary?.workoutsCompleted ?? store.workoutHistory.count)
+    }
+
+    private var newPRs: String {
+        String(store.progressSummary?.newPRCount ?? store.personalRecords.count)
+    }
+
+    private var recoveryDelta: String {
+        guard let delta = store.progressSummary?.recoveryDelta else { return "—" }
+        let sign = delta > 0 ? "+" : ""
+        return "\(sign)\(Int(delta.rounded()))%"
+    }
+
+    private var summaryText: String {
+        store.progressSummary?.summary
+            ?? "Keep training consistently and Forge will surface your monthly progress here."
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -201,19 +232,19 @@ struct MonthlySummaryView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "calendar")
                             .font(.system(size: 10))
-                        Text("February")
+                        Text(monthLabel)
                             .font(.system(size: 11, weight: .medium))
                     }
                     .foregroundColor(.textTertiary)
                 }
 
                 HStack(spacing: 10) {
-                    StatPillCard(value: "18", label: "Workouts", appeared: appeared, delay: 0.1)
-                    StatPillCard(value: "3", label: "New PRs", appeared: appeared, delay: 0.15)
-                    StatPillCard(value: "+22%", label: "Recovery", appeared: appeared, delay: 0.2)
+                    StatPillCard(value: workoutsCompleted, label: "Workouts", appeared: appeared, delay: 0.1)
+                    StatPillCard(value: newPRs, label: "New PRs", appeared: appeared, delay: 0.15)
+                    StatPillCard(value: recoveryDelta, label: "Recovery", appeared: appeared, delay: 0.2)
                 }
 
-                Text("Strong month. You've been consistent with your Mon/Wed/Fri schedule and hit 3 new personal records. Recovery consistency improved 22% — your sleep habits are paying off.")
+                Text(summaryText)
                     .font(.system(size: 14))
                     .foregroundColor(.textSecondary)
                     .lineSpacing(5)
@@ -741,6 +772,22 @@ struct StatBadge: View {
 // MARK: - Behavioral Insight
 
 struct BehavioralInsightView: View {
+    @EnvironmentObject var store: AppStore
+
+    private var insightTitle: String {
+        store.primaryTrainingInsight?.title ?? "Pattern Insight"
+    }
+
+    private var insightBody: String {
+        if let insight = store.primaryTrainingInsight {
+            return "\(insight.observation) \(insight.recommendation)"
+        }
+        if let summary = store.progressSummary?.summary, !summary.isEmpty {
+            return summary
+        }
+        return "Complete a few workouts and Forge will start surfacing training patterns here."
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "chart.line.uptrend.xyaxis")
@@ -749,10 +796,10 @@ struct BehavioralInsightView: View {
                 .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Pattern Insight")
+                Text(insightTitle)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.textPrimary)
-                Text("Your best workouts happen on Mondays — likely from weekend rest. Your consistency drops on Fridays after high-stress work weeks. Consider keeping Friday sessions shorter and more flexible.")
+                Text(insightBody)
                     .font(.system(size: 13))
                     .foregroundColor(.textSecondary)
                     .lineSpacing(3)
@@ -770,6 +817,7 @@ struct BehavioralInsightView: View {
 struct SettingsPageView: View {
     @EnvironmentObject var store: AppStore
 
+    @State private var showDevicesSheet = false
     @State private var workoutReminders = true
     @State private var aiInsights = true
     @State private var recoveryAlerts = true
@@ -842,6 +890,18 @@ struct SettingsPageView: View {
                 // Connected Devices
                 sectionHeader("Connected Devices")
                 SectionCard {
+                    if store.userProfile.connectedDevices.isEmpty {
+                        HStack(spacing: 10) {
+                            Image(systemName: "link.badge.plus")
+                                .font(.system(size: 16))
+                                .foregroundColor(.textTertiary)
+                            Text("No devices connected yet")
+                                .font(.system(size: 14))
+                                .foregroundColor(.textSecondary)
+                        }
+                        .padding(.horizontal, 16).padding(.vertical, 12)
+                        Divider().background(Color.borderColor)
+                    }
                     ForEach(Array(store.userProfile.connectedDevices.enumerated()), id: \.element) { idx, device in
                         if idx > 0 { Divider().background(Color.borderColor) }
                         SettingsRow(icon: "applewatch", iconColor: .steel, label: device,
@@ -853,13 +913,15 @@ struct SettingsPageView: View {
                                     ))
                     }
                     Divider().background(Color.borderColor)
-                    Button(action: {}) {
+                    Button { showDevicesSheet = true } label: {
                         HStack(spacing: 10) {
                             ZStack {
                                 Circle().stroke(Color.borderLight, style: StrokeStyle(lineWidth: 1, dash: [4])).frame(width: 32, height: 32)
                                 Image(systemName: "plus").font(.system(size: 13)).foregroundColor(.textTertiary)
                             }
-                            Text("Add Device").font(.system(size: 14, weight: .medium)).foregroundColor(.ember)
+                            Text("Add or Manage Devices")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.ember)
                         }
                         .padding(.horizontal, 16).padding(.vertical, 12)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -936,7 +998,9 @@ struct SettingsPageView: View {
                 }
 
                 // Log Out
-                Button(action: {}) {
+                Button {
+                    store.signOut()
+                } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "rectangle.portrait.and.arrow.right").font(.system(size: 16))
                         Text("Log Out").font(.system(size: 14, weight: .semibold))
@@ -957,6 +1021,10 @@ struct SettingsPageView: View {
         }
         .sheet(isPresented: $showCoachingStylePicker) {
             CoachingStylePickerView()
+        }
+        .sheet(isPresented: $showDevicesSheet) {
+            ConnectedDevicesSheet()
+                .environmentObject(store)
         }
     }
 

@@ -21,6 +21,9 @@
 		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
 		1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */; };
 		1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED842E22F90C15300693D3E /* LifestyleView.swift */; };
+		431257DB19094CB18CB7E678 /* ForgeAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECF1DD20A49A46198C376D8F /* ForgeAPIClient.swift */; };
+		431C4CCF7EA64BD0B0A10886 /* APIConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED6B6344B1694DB7B524EFEC /* APIConfig.swift */; };
+		6F602A203C4547B4B4CCBAE8 /* CognitoAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1C55D909AC4D60BF6969D3 /* CognitoAuthManager.swift */; };
 		AA0001000000000000000001 /* ForgeSwiftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000001 /* ForgeSwiftApp.swift */; };
 		AA0001000000000000000002 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000002 /* Theme.swift */; };
 		AA0001000000000000000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000003 /* Models.swift */; };
@@ -33,11 +36,20 @@
 		AA000100000000000000000A /* SleepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000A /* SleepView.swift */; };
 		AA000100000000000000000B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000B /* ProfileView.swift */; };
 		AA000100000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000C /* Assets.xcassets */; };
-		431C4CCF7EA64BD0B0A10886 /* APIConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED6B6344B1694DB7B524EFEC /* APIConfig.swift */; };
-		6F602A203C4547B4B4CCBAE8 /* CognitoAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1C55D909AC4D60BF6969D3 /* CognitoAuthManager.swift */; };
-		431257DB19094CB18CB7E678 /* ForgeAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECF1DD20A49A46198C376D8F /* ForgeAPIClient.swift */; };
-		E48AF49526D542AAB9F538A3 /* ForgeRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EAE4121ECA14B139B76210A /* ForgeRepository.swift */; };
 		AA000100000000000000000D /* OnboardingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000E /* OnboardingCoordinator.swift */; };
+		B1A2C3D42FAA000100000001 /* ForgePersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A2C3D32FAA000100000001 /* ForgePersistence.swift */; };
+		B1A2C3D62FAA000100000001 /* DataStatusBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A2C3D52FAA000100000001 /* DataStatusBanner.swift */; };
+		B1A2C3D82FAA000100000002 /* IntegrationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A2C3D72FAA000100000002 /* IntegrationModels.swift */; };
+		B1A2C3DA2FAA000100000002 /* DeviceConnectManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A2C3D92FAA000100000002 /* DeviceConnectManager.swift */; };
+		B1A2C3DC2FAA000100000002 /* ConnectedDevicesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A2C3DB2FAA000100000002 /* ConnectedDevicesSheet.swift */; };
+		E48AF49526D542AAB9F538A3 /* ForgeRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EAE4121ECA14B139B76210A /* ForgeRepository.swift */; };
+		WGT1001000000000000000001 /* ForgeSharedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = WGT1002000000000000000001 /* ForgeSharedData.swift */; };
+		WGT1001000000000000000002 /* ForgeEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = WGT1002000000000000000002 /* ForgeEmptyState.swift */; };
+		WGT1001000000000000000003 /* ForgeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = WGT1002000000000000000003 /* ForgeActivityAttributes.swift */; };
+		WGT1001000000000000000010 /* ForgeWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = WGT1002000000000000000010 /* ForgeWidgets.swift */; };
+		WGT1001000000000000000011 /* ForgeWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = WGT1002000000000000000011 /* ForgeWidgetShared.swift */; };
+		WGT1001000000000000000012 /* ForgeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = WGT1002000000000000000012 /* ForgeActivityAttributes.swift */; };
+		WGT1001000000000000000020 /* ForgeWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = WGT100200000000000000000D /* ForgeWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -56,6 +68,7 @@
 		1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachViews.swift; sourceTree = "<group>"; };
 		1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachIntegration.swift; sourceTree = "<group>"; };
 		1ED842E22F90C15300693D3E /* LifestyleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleView.swift; sourceTree = "<group>"; };
+		5EAE4121ECA14B139B76210A /* ForgeRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeRepository.swift; sourceTree = "<group>"; };
 		AA0002000000000000000001 /* ForgeSwiftApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSwiftApp.swift; sourceTree = "<group>"; };
 		AA0002000000000000000002 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		AA0002000000000000000003 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -69,15 +82,52 @@
 		AA000200000000000000000B /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		AA000200000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA000200000000000000000D /* ForgeSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForgeSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA000200000000000000000E /* OnboardingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCoordinator.swift; sourceTree = "<group>"; };
+		B1A2C3D32FAA000100000001 /* ForgePersistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgePersistence.swift; sourceTree = "<group>"; };
+		B1A2C3D52FAA000100000001 /* DataStatusBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStatusBanner.swift; sourceTree = "<group>"; };
+		B1A2C3D72FAA000100000002 /* IntegrationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationModels.swift; sourceTree = "<group>"; };
+		B1A2C3D92FAA000100000002 /* DeviceConnectManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceConnectManager.swift; sourceTree = "<group>"; };
+		B1A2C3DB2FAA000100000002 /* ConnectedDevicesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectedDevicesSheet.swift; sourceTree = "<group>"; };
+		B1A2C3DD2FAA000100000002 /* Forge-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Forge-Info.plist"; sourceTree = "<group>"; };
+		C0NFIG01F0RGEDEBUG00000001 /* Forge-Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Forge-Debug.xcconfig"; sourceTree = "<group>"; };
+		C0NFIG01FORGERELEASE0000001 /* Forge-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Forge-Release.xcconfig"; sourceTree = "<group>"; };
+		ECF1DD20A49A46198C376D8F /* ForgeAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAPIClient.swift; sourceTree = "<group>"; };
 		ED6B6344B1694DB7B524EFEC /* APIConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIConfig.swift; sourceTree = "<group>"; };
 		FA1C55D909AC4D60BF6969D3 /* CognitoAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CognitoAuthManager.swift; sourceTree = "<group>"; };
-		ECF1DD20A49A46198C376D8F /* ForgeAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAPIClient.swift; sourceTree = "<group>"; };
-		5EAE4121ECA14B139B76210A /* ForgeRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeRepository.swift; sourceTree = "<group>"; };
-		AA000200000000000000000E /* OnboardingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCoordinator.swift; sourceTree = "<group>"; };
+		WGT1002000000000000000001 /* ForgeSharedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSharedData.swift; sourceTree = "<group>"; };
+		WGT1002000000000000000002 /* ForgeEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeEmptyState.swift; sourceTree = "<group>"; };
+		WGT1002000000000000000003 /* ForgeActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeActivityAttributes.swift; sourceTree = "<group>"; };
+		WGT100200000000000000000D /* ForgeWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ForgeWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		WGT1002000000000000000010 /* ForgeWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWidgets.swift; sourceTree = "<group>"; };
+		WGT1002000000000000000011 /* ForgeWidgetShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWidgetShared.swift; sourceTree = "<group>"; };
+		WGT1002000000000000000012 /* ForgeActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeActivityAttributes.swift; sourceTree = "<group>"; };
+		WGT1002000000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		WGT1002000000000000000014 /* ForgeWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeWidgetExtension.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		WGT1007000000000000000003 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				WGT1001000000000000000020 /* ForgeWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		AA0003000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		WGT1003000000000000000002 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -91,10 +141,16 @@
 			isa = PBXGroup;
 			children = (
 				1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */,
+				B1A2C3DD2FAA000100000002 /* Forge-Info.plist */,
 				AA0002000000000000000001 /* ForgeSwiftApp.swift */,
 				AA0002000000000000000002 /* Theme.swift */,
 				AA0002000000000000000003 /* Models.swift */,
 				AA0002000000000000000004 /* AppStore.swift */,
+				B1A2C3D32FAA000100000001 /* ForgePersistence.swift */,
+				B1A2C3D52FAA000100000001 /* DataStatusBanner.swift */,
+				B1A2C3D72FAA000100000002 /* IntegrationModels.swift */,
+				B1A2C3D92FAA000100000002 /* DeviceConnectManager.swift */,
+				B1A2C3DB2FAA000100000002 /* ConnectedDevicesSheet.swift */,
 				5EAE4121ECA14B139B76210A /* ForgeRepository.swift */,
 				ECF1DD20A49A46198C376D8F /* ForgeAPIClient.swift */,
 				FA1C55D909AC4D60BF6969D3 /* CognitoAuthManager.swift */,
@@ -122,14 +178,30 @@
 				1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */,
 				1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */,
 				1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */,
+				WGT1002000000000000000001 /* ForgeSharedData.swift */,
+				WGT1002000000000000000002 /* ForgeEmptyState.swift */,
+				WGT1002000000000000000003 /* ForgeActivityAttributes.swift */,
 			);
 			path = ForgeSwift;
+			sourceTree = "<group>";
+		};
+		WGT1004000000000000000002 /* ForgeWidgetExtension */ = {
+			isa = PBXGroup;
+			children = (
+				WGT1002000000000000000010 /* ForgeWidgets.swift */,
+				WGT1002000000000000000011 /* ForgeWidgetShared.swift */,
+				WGT1002000000000000000012 /* ForgeActivityAttributes.swift */,
+				WGT1002000000000000000013 /* Info.plist */,
+				WGT1002000000000000000014 /* ForgeWidgetExtension.entitlements */,
+			);
+			path = ForgeWidgetExtension;
 			sourceTree = "<group>";
 		};
 		AA0004000000000000000002 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				AA000200000000000000000D /* ForgeSwift.app */,
+				WGT100200000000000000000D /* ForgeWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -137,9 +209,20 @@
 		AA0004000000000000000003 = {
 			isa = PBXGroup;
 			children = (
+				C0NFIGGROUP000000000000001 /* Config */,
 				AA0004000000000000000001 /* ForgeSwift */,
+				WGT1004000000000000000002 /* ForgeWidgetExtension */,
 				AA0004000000000000000002 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		C0NFIGGROUP000000000000001 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				C0NFIG01F0RGEDEBUG00000001 /* Forge-Debug.xcconfig */,
+				C0NFIG01FORGERELEASE0000001 /* Forge-Release.xcconfig */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -152,15 +235,34 @@
 				AA0007000000000000000001 /* Sources */,
 				AA0003000000000000000001 /* Frameworks */,
 				AA0007000000000000000002 /* Resources */,
+				WGT1007000000000000000003 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				WGT1009000000000000000001 /* PBXTargetDependency */,
 			);
 			name = ForgeSwift;
 			productName = ForgeSwift;
 			productReference = AA000200000000000000000D /* ForgeSwift.app */;
 			productType = "com.apple.product-type.application";
+		};
+		WGT1005000000000000000002 /* ForgeWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = WGT1006000000000000000003 /* Build configuration list for PBXNativeTarget "ForgeWidgetExtension" */;
+			buildPhases = (
+				WGT1007000000000000000002 /* Sources */,
+				WGT1003000000000000000002 /* Frameworks */,
+				WGT1007000000000000000004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ForgeWidgetExtension;
+			productName = ForgeWidgetExtension;
+			productReference = WGT100200000000000000000D /* ForgeWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -170,9 +272,12 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1530;
-				LastUpgradeCheck = 2640;
+				LastUpgradeCheck = 2650;
 				TargetAttributes = {
 					AA0005000000000000000001 = {
+						CreatedOnToolsVersion = 15.3;
+					};
+					WGT1005000000000000000002 = {
 						CreatedOnToolsVersion = 15.3;
 					};
 				};
@@ -191,6 +296,7 @@
 			projectRoot = "";
 			targets = (
 				AA0005000000000000000001 /* ForgeSwift */,
+				WGT1005000000000000000002 /* ForgeWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -201,6 +307,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA000100000000000000000C /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		WGT1007000000000000000004 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -220,6 +333,11 @@
 				1E4DF71E2F9FFAE1004091AA /* SmartProfileSetupView.swift in Sources */,
 				AA0001000000000000000003 /* Models.swift in Sources */,
 				AA0001000000000000000004 /* AppStore.swift in Sources */,
+				B1A2C3D42FAA000100000001 /* ForgePersistence.swift in Sources */,
+				B1A2C3D62FAA000100000001 /* DataStatusBanner.swift in Sources */,
+				B1A2C3D82FAA000100000002 /* IntegrationModels.swift in Sources */,
+				B1A2C3DA2FAA000100000002 /* DeviceConnectManager.swift in Sources */,
+				B1A2C3DC2FAA000100000002 /* ConnectedDevicesSheet.swift in Sources */,
 				E48AF49526D542AAB9F538A3 /* ForgeRepository.swift in Sources */,
 				431257DB19094CB18CB7E678 /* ForgeAPIClient.swift in Sources */,
 				6F602A203C4547B4B4CCBAE8 /* CognitoAuthManager.swift in Sources */,
@@ -241,10 +359,41 @@
 				AA000100000000000000000A /* SleepView.swift in Sources */,
 				AA000100000000000000000B /* ProfileView.swift in Sources */,
 				1E4DF7242F9FFB29004091AA /* ColorExtensions.swift in Sources */,
+				WGT1001000000000000000001 /* ForgeSharedData.swift in Sources */,
+				WGT1001000000000000000002 /* ForgeEmptyState.swift in Sources */,
+				WGT1001000000000000000003 /* ForgeActivityAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		WGT1007000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				WGT1001000000000000000010 /* ForgeWidgets.swift in Sources */,
+				WGT1001000000000000000011 /* ForgeWidgetShared.swift in Sources */,
+				WGT1001000000000000000012 /* ForgeActivityAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		WGT1009000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = WGT1005000000000000000002 /* ForgeWidgetExtension */;
+			targetProxy = WGT1009000000000000000002 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXContainerItemProxy section */
+		WGT1009000000000000000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0008000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = WGT1005000000000000000002;
+			remoteInfo = ForgeWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin XCBuildConfiguration section */
 		AA0009000000000000000001 /* Debug */ = {
@@ -271,6 +420,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_CYCLE = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
@@ -282,6 +432,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = L85K85Q7MB;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -304,6 +455,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -333,6 +485,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_CYCLE = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
@@ -344,6 +497,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = L85K85Q7MB;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -359,6 +513,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -366,6 +521,7 @@
 		};
 		AA0009000000000000000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0NFIG01F0RGEDEBUG00000001 /* Forge-Debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -373,15 +529,23 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = L85K85Q7MB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ForgeSwift/Forge-Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Forge;
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads your steps, sleep, heart rate, and workouts to personalize training and recovery recommendations.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge can log workouts and nutrition to Apple Health so your fitness data stays in one place.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Forge connects to the local development API on your Mac while you are testing the app.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses your microphone for hands-free voice coaching during workouts.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Forge uses speech recognition so you can talk to your AI coach without touching your phone.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDarkContent;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -399,6 +563,7 @@
 		};
 		AA0009000000000000000004 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0NFIG01FORGERELEASE0000001 /* Forge-Release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -406,15 +571,23 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = L85K85Q7MB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ForgeSwift/Forge-Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Forge;
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads your steps, sleep, heart rate, and workouts to personalize training and recovery recommendations.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge can log workouts and nutrition to Apple Health so your fitness data stays in one place.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Forge connects to the local development API on your Mac while you are testing the app.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses your microphone for hands-free voice coaching during workouts.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Forge uses speech recognition so you can talk to your AI coach without touching your phone.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDarkContent;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -424,6 +597,56 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		WGT1009000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ForgeWidgetExtension/ForgeWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ForgeWidgetExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		WGT1009000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ForgeWidgetExtension/ForgeWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ForgeWidgetExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -447,6 +670,15 @@
 			buildConfigurations = (
 				AA0009000000000000000003 /* Debug */,
 				AA0009000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		WGT1006000000000000000003 /* Build configuration list for PBXNativeTarget "ForgeWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				WGT1009000000000000000003 /* Debug */,
+				WGT1009000000000000000004 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

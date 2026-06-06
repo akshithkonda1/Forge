@@ -10,7 +10,10 @@ import type {
   WorkoutPlan,
 } from "@/types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001";
+
+export const API_DISPLAY_HOST = API_BASE_URL.replace(/^https?:\/\//, "");
 
 export class ForgeAPIError extends Error {
   constructor(
@@ -48,14 +51,49 @@ export interface ARIAChatResponse {
   };
 }
 
+export interface ARIAConversationMessage {
+  id?: string;
+  role: string;
+  content: string;
+  timestamp?: string;
+}
+
+export interface ARIAConversationResponse {
+  threadId: string;
+  messages: ARIAConversationMessage[];
+  messageCount: number;
+}
+
+export interface CoachingInsight {
+  insightId?: string;
+  type: string;
+  priority: string;
+  title: string;
+  observation: string;
+  recommendation: string;
+  metric?: string;
+}
+
+export interface ProgressSummary {
+  periodDays: number;
+  workoutsCompleted: number;
+  newPersonalRecords: { exercise: string; value: number; unit: string; date: string }[];
+  recoveryConsistencyDelta: number;
+  summary: string;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
+    signal: controller.signal,
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
-  });
+  }).finally(() => clearTimeout(timeout));
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({ message: response.statusText }));
@@ -74,11 +112,13 @@ export const forgeAPI = {
       `/workouts/history?days=${days}`,
     ),
   getProgressSummary: (days = 30) =>
-    request<{
-      periodDays: number;
-      workoutsCompleted: number;
-      summary: string;
-    }>(`/progress/summary?days=${days}`),
+    request<ProgressSummary>(`/progress/summary?days=${days}`),
+  getARIAConversation: (threadId = "current") =>
+    request<ARIAConversationResponse>(`/aria/conversation?threadId=${threadId}`),
+  getARIAInsights: (days = 7) =>
+    request<{ insights: CoachingInsight[]; count: number; periodDays: number }>(
+      `/aria/insights?days=${days}`,
+    ),
   sendARIAChat: (content: string) =>
     request<ARIAChatResponse>("/aria/chat", {
       method: "POST",
@@ -142,4 +182,18 @@ export function mapARIAMessage(response: ARIAChatResponse): ChatMessage {
     content: response.message.content,
     timestamp: new Date(response.message.timestamp),
   };
+}
+
+export function mapConversation(messages: ARIAConversationMessage[]): ChatMessage[] {
+  return messages
+    .filter((message) => {
+      const trimmed = message.content.trim();
+      return trimmed.length > 0 && !trimmed.startsWith("[ARIA CONVERSATION SUMMARY");
+    })
+    .map((message) => ({
+      id: message.id ?? `msg-${message.timestamp ?? Date.now()}`,
+      role: message.role === "user" ? "user" : "trainer",
+      content: message.content.trim(),
+      timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
+    }));
 }

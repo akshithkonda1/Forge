@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import FoundationModels
+import HealthKit
 
 // MARK: - Tab Enum
 
@@ -496,7 +497,7 @@ final class AppStore: ObservableObject {
     // MARK: - Published State
     
     // Onboarding
-    @Published var isOnboarded: Bool = false
+    @Published var isOnboarded: Bool = ForgePersistence.isOnboarded
     @Published var onboardingStep: Int = 0
 
     // User Profile
@@ -508,6 +509,7 @@ final class AppStore: ObservableObject {
 
     // Today's Workout
     @Published var todayWorkout: WorkoutPlan? = mockWorkout
+    @Published var planInsightText: String?
 
     // Active Workout State
     @Published var isWorkoutActive: Bool = false
@@ -517,6 +519,7 @@ final class AppStore: ObservableObject {
     // Chat
     @Published var chatMessages: [ChatMessage] = []
     @Published var isGeneratingResponse: Bool = false
+    @Published var lastARIAToolCalls: [String] = []
 
     // Sleep
     @Published var sleepData: [SleepData] = []
@@ -529,8 +532,15 @@ final class AppStore: ObservableObject {
     @Published var activeTab: TabItem = .home
     
     // Streak tracking
-    @Published var currentStreak: Int = 7
-    
+    @Published var currentStreak: Int = 0
+
+    // Progress insights
+    @Published var progressSummary: ProgressSummarySnapshot?
+    @Published var coachingInsights: [CoachingInsight] = []
+    @Published var connections: [IntegrationConnection] = []
+    @Published var deviceServiceStatus: DeviceServiceStatus?
+    @Published var weeklyHealthTrends: [WeeklyHealthTrend] = []
+
     // AI Configuration
     @Published var aiModelAvailable: Bool = false
     @Published var dataLoadState: DataLoadState = .idle
@@ -555,8 +565,10 @@ final class AppStore: ObservableObject {
             self.aiModelAvailable = false
         }
         
-        Task { @MainActor in
-            await self.loadDashboardFromAPI()
+        if isOnboarded {
+            Task { @MainActor in
+                await self.loadDashboardFromAPI()
+            }
         }
     }
 
@@ -565,14 +577,201 @@ final class AppStore: ObservableObject {
     func loadDashboardFromAPI() async {
         dataLoadState = .loading
         do {
-            let snapshot = try await repository.fetchDashboard()
+            async let dashboardTask = repository.fetchDashboard()
+            async let conversationTask = repository.fetchConversation()
+            async let progressTask = repository.fetchProgressSummary(days: 30)
+            async let insightsTask = repository.fetchInsights(days: 7)
+            async let connectionsTask = repository.fetchConnections()
+            async let deviceStatusTask = repository.fetchDeviceServiceStatus()
+
+            let snapshot = try await dashboardTask
             applyDashboardSnapshot(snapshot)
+
+            if let conversation = try? await conversationTask, !conversation.isEmpty {
+                chatMessages = conversation
+            }
+
+            if let summary = try? await progressTask {
+                progressSummary = summary
+            }
+
+            if let insights = try? await insightsTask {
+                coachingInsights = insights
+            }
+
+            if let linked = try? await connectionsTask {
+                connections = linked
+                syncConnectedDevicesFromConnections(linked)
+            }
+
+            deviceServiceStatus = try? await deviceStatusTask
+
+            await syncHealthKitIfAvailable()
+            ForgeSharedData.syncFromStore(self)
             dataLoadState = .loaded
         } catch {
-            loadMockFallback()
-            dataLoadState = .offlineFallback
-            print("Forge API unavailable, using offline data: \(error)")
+            if sleepData.isEmpty && workoutHistory.isEmpty {
+                loadMockFallback()
+                dataLoadState = .offlineFallback
+            } else {
+                dataLoadState = .error(Self.userFacingAPIError(error))
+            }
+            print("Forge API unavailable: \(error)")
         }
+    }
+
+    func ensureChatHistoryLoaded() async {
+        guard chatMessages.isEmpty else { return }
+        if let conversation = try? await repository.fetchConversation(), !conversation.isEmpty {
+            chatMessages = conversation
+        }
+    }
+
+    func applyOnboardingHealthSnapshot(_ snapshot: HealthDataSnapshot) {
+        updateMetrics(
+            steps: snapshot.steps,
+            activeCalories: snapshot.activeCalories,
+            hrv: snapshot.hrv.map { Int($0.rounded()) },
+            restingHR: snapshot.restingHeartRate
+        )
+        if let hours = snapshot.sleepHours {
+            dailyMetrics.totalSleep = Int(hours * 60)
+            recalculateReadiness()
+        }
+    }
+
+    private static func userFacingAPIError(_ error: Error) -> String {
+        if let apiError = error as? ForgeAPIError {
+            return apiError.errorDescription ?? "Request failed"
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain {
+            switch nsError.code {
+            case NSURLErrorCannotConnectToHost, NSURLErrorNetworkConnectionLost:
+                return "Can't connect to \(APIConfig.displayHost). Start the backend with npm run backend:dev."
+            case NSURLErrorTimedOut:
+                return "Request timed out reaching \(APIConfig.displayHost)."
+            default:
+                break
+            }
+        }
+        return error.localizedDescription
+    }
+
+    func refreshConnections() async {
+        do {
+            let linked = try await repository.fetchConnections()
+            connections = linked
+            syncConnectedDevicesFromConnections(linked)
+            deviceServiceStatus = try? await repository.fetchDeviceServiceStatus()
+        } catch {
+            print("Failed to refresh connections: \(error)")
+        }
+    }
+
+    func refreshSleepData(days: Int = 14) async {
+        do {
+            sleepData = try await repository.fetchExtendedSleep(days: days)
+        } catch {
+            print("Failed to refresh sleep data: \(error)")
+        }
+    }
+
+    func syncHealthKitIfAvailable() async {
+        guard HKHealthStore.isHealthDataAvailable() else { return }
+        await HealthKitManager.shared.fetchWeeklyTrends()
+        weeklyHealthTrends = HealthKitManager.shared.weeklyTrends
+
+        let snapshot = await HealthKitManager.shared.fetchRecentSnapshot()
+        updateMetrics(
+            steps: snapshot?.steps,
+            activeCalories: snapshot?.activeCalories,
+            hrv: snapshot?.hrv.map { Int($0.rounded()) },
+            restingHR: snapshot?.restingHeartRate
+        )
+
+        do {
+            try await repository.syncHealthMetrics(
+                steps: snapshot?.steps,
+                activeCalories: snapshot?.activeCalories,
+                hrv: snapshot?.hrv.map { Int($0.rounded()) } ?? dailyMetrics.hrv,
+                restingHR: snapshot?.restingHeartRate
+            )
+            if let refreshed = try? await repository.fetchDashboard() {
+                applyDashboardSnapshot(refreshed)
+                ForgeSharedData.syncFromStore(self)
+            }
+        } catch {
+            print("HealthKit sync failed: \(error)")
+        }
+    }
+
+    func refreshTodayWorkoutPlan() async {
+        do {
+            if let plan = try await repository.refreshCoachWorkoutPlan() {
+                todayWorkout = plan
+            } else if let planText = try? await repository.generateDailyPlan(focus: "auto"),
+                      !planText.isEmpty {
+                planInsightText = planText
+            }
+        } catch {
+            print("Failed to refresh workout plan: \(error)")
+        }
+    }
+
+    func applyWorkoutFromRichCard(_ card: RichCardData) {
+        guard card.type == .workoutPlan,
+              let name = card.workoutName,
+              let exercises = card.workoutExercises else { return }
+        todayWorkout = WorkoutPlan(
+            id: UUID().uuidString,
+            name: name,
+            type: .strength,
+            duration: card.workoutDuration ?? 45,
+            intensity: readiness.overall >= 75 ? .high : .moderate,
+            exercises: exercises.enumerated().map { index, item in
+                Exercise(
+                    id: "rich-\(index)",
+                    name: item.name,
+                    sets: item.sets,
+                    reps: item.reps,
+                    weight: nil,
+                    restSeconds: 90,
+                    notes: nil,
+                    videoURL: nil,
+                    has3DModel: false
+                )
+            }
+        )
+    }
+
+    private func syncConnectedDevicesFromConnections(_ linked: [IntegrationConnection]) {
+        let names = linked
+            .filter { $0.status == .connected || $0.status == .syncing }
+            .map(\.displayName)
+        if !names.isEmpty {
+            userProfile.connectedDevices = names
+        }
+    }
+
+    var sleepInsightText: String {
+        if let sleepInsight = coachingInsights.first(where: { $0.type == "sleep" }) {
+            return "\(sleepInsight.observation) \(sleepInsight.recommendation)"
+        }
+        if let summary = progressSummary?.summary, !summary.isEmpty {
+            return summary
+        }
+        guard let latest = sleepData.first else {
+            return "Connect a device or Apple Health to unlock personalized sleep coaching."
+        }
+        let deep = "\(latest.deepMinutes / 60 > 0 ? "\(latest.deepMinutes / 60)hr " : "")\(latest.deepMinutes % 60)min"
+        if latest.score >= 85 {
+            return "Excellent recovery. \(deep) of deep sleep has you primed for a heavy session today."
+        }
+        if latest.score >= 70 {
+            return "Good sleep — \(deep) of deep sleep. Cut screens 45 minutes before bed to push this score higher."
+        }
+        return "Only \(deep) of deep sleep last night. Consider a lighter session and an earlier bedtime tonight."
     }
 
     private func applyDashboardSnapshot(_ snapshot: DashboardSnapshot) {
@@ -583,13 +782,53 @@ final class AppStore: ObservableObject {
         sleepData = snapshot.sleepData
         workoutHistory = snapshot.workoutHistory
         personalRecords = snapshot.personalRecords
+        currentStreak = calculateWorkoutStreak(from: snapshot.workoutHistory)
     }
 
     private func loadMockFallback() {
+        userProfile = mockProfile
+        readiness = mockReadiness
+        dailyMetrics = mockMetrics
+        todayWorkout = mockWorkout
         chatMessages = mockChatMessages
         sleepData = mockSleepData
         workoutHistory = mockWorkoutHistory
         personalRecords = mockPersonalRecords
+        currentStreak = calculateWorkoutStreak(from: mockWorkoutHistory)
+        progressSummary = ProgressSummarySnapshot(
+            periodDays: 30,
+            workoutsCompleted: mockWorkoutHistory.count,
+            newPRCount: mockPersonalRecords.count,
+            recoveryDelta: 22,
+            summary: "Strong month. You've been consistent with your Mon/Wed/Fri schedule and hit new personal records."
+        )
+    }
+
+    private func calculateWorkoutStreak(from history: [WorkoutHistory]) -> Int {
+        let formatter = ISO8601DateFormatter()
+        let calendar = Calendar.current
+        let workoutDays = Set(
+            history.compactMap { item -> Date? in
+                if let date = formatter.date(from: item.date) {
+                    return calendar.startOfDay(for: date)
+                }
+                let parts = item.date.split(separator: "-")
+                guard parts.count == 3,
+                      let year = Int(parts[0]),
+                      let month = Int(parts[1]),
+                      let day = Int(parts[2]) else { return nil }
+                return calendar.date(from: DateComponents(year: year, month: month, day: day))
+            }
+        )
+
+        var streak = 0
+        var cursor = calendar.startOfDay(for: Date())
+        while workoutDays.contains(cursor) {
+            streak += 1
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = previous
+        }
+        return streak
     }
 
     // MARK: - Workout Actions
@@ -598,6 +837,13 @@ final class AppStore: ObservableObject {
         currentExerciseIndex = 0
         currentSet = 1
         isWorkoutActive = true
+        if let workout = todayWorkout, let first = workout.exercises.first {
+            WorkoutLiveActivityManager.start(
+                workoutName: workout.name,
+                exerciseName: first.name,
+                totalSets: first.sets
+            )
+        }
     }
 
     func nextSet() {
@@ -613,8 +859,7 @@ final class AppStore: ObservableObject {
         isWorkoutActive = false
         currentExerciseIndex = 0
         currentSet = 1
-        currentStreak += 1
-
+        WorkoutLiveActivityManager.end()
         guard let workout = todayWorkout else { return }
         let volume = workout.exercises.reduce(0) { $0 + ($1.sets * ($1.weight ?? 0)) }
         let history = WorkoutHistory(
@@ -627,6 +872,7 @@ final class AppStore: ObservableObject {
             intensity: workout.intensity
         )
         workoutHistory.insert(history, at: 0)
+        currentStreak = calculateWorkoutStreak(from: workoutHistory)
 
         Task {
             do {
@@ -658,8 +904,13 @@ final class AppStore: ObservableObject {
         isGeneratingResponse = true
         
         do {
-            let trainerMessage = try await repository.sendChatMessage(text)
+            let result = try await repository.sendChatMessage(text)
+            var trainerMessage = result.message
+            if trainerMessage.toolCallsMade == nil, !result.toolCalls.isEmpty {
+                trainerMessage.toolCallsMade = result.toolCalls
+            }
             chatMessages.append(trainerMessage)
+            lastARIAToolCalls = result.toolCalls
         } catch {
             do {
                 let context = TrainerContext(
@@ -727,17 +978,8 @@ final class AppStore: ObservableObject {
     // MARK: - Data Management
     
     func refreshDailyData() async {
+        await syncHealthKitIfAvailable()
         await loadDashboardFromAPI()
-        do {
-            try await repository.syncHealthMetrics(
-                steps: dailyMetrics.steps,
-                activeCalories: dailyMetrics.activeCalories,
-                hrv: dailyMetrics.hrv,
-                restingHR: dailyMetrics.restingHR
-            )
-        } catch {
-            print("Health sync failed: \(error)")
-        }
     }
     
     /// Update user metrics (typically from HealthKit integration)
@@ -861,14 +1103,61 @@ final class AppStore: ObservableObject {
         }
     }
 
-    func completeOnboarding() {
+    func completeOnboarding(syncHealth: Bool = false) {
         isOnboarded = true
+        ForgePersistence.setOnboarded(true)
         Task {
             do {
                 try await repository.saveProfile(userProfile)
+                if syncHealth {
+                    try? await repository.syncHealthMetrics(
+                        steps: dailyMetrics.steps,
+                        activeCalories: dailyMetrics.activeCalories,
+                        hrv: dailyMetrics.hrv,
+                        restingHR: dailyMetrics.restingHR
+                    )
+                }
+                await loadDashboardFromAPI()
             } catch {
+                dataLoadState = .error(Self.userFacingAPIError(error))
                 print("Failed to persist onboarding profile: \(error)")
             }
+        }
+    }
+
+    func signOut() {
+        CognitoAuthManager.shared.signOut()
+        ForgePersistence.resetOnboarding()
+        isOnboarded = false
+        onboardingStep = 0
+        loadMockFallback()
+        dataLoadState = .idle
+    }
+
+    func connectAppleHealth() async {
+        do {
+            try await HealthKitManager.shared.requestAuthorization()
+            let snapshot = await HealthKitManager.shared.fetchRecentSnapshot()
+            updateMetrics(
+                steps: snapshot?.steps,
+                activeCalories: snapshot?.activeCalories,
+                hrv: snapshot?.hrv.map { Int($0.rounded()) },
+                restingHR: snapshot?.restingHeartRate
+            )
+
+            if !userProfile.connectedDevices.contains("Apple Health") {
+                userProfile.connectedDevices.append("Apple Health")
+            }
+            try await repository.saveProfile(userProfile)
+            try await repository.syncHealthMetrics(
+                steps: snapshot?.steps,
+                activeCalories: snapshot?.activeCalories,
+                hrv: snapshot?.hrv.map { Int($0.rounded()) } ?? dailyMetrics.hrv,
+                restingHR: snapshot?.restingHeartRate
+            )
+            await loadDashboardFromAPI()
+        } catch {
+            print("Apple Health connection failed: \(error)")
         }
     }
     
@@ -914,6 +1203,57 @@ final class AppStore: ObservableObject {
 // MARK: - AppStore Extensions
 
 extension AppStore {
+    var primaryTrainingInsight: CoachingInsight? {
+        coachingInsights.first { $0.type == "training" || $0.type == "recovery" }
+            ?? coachingInsights.first
+    }
+
+    enum MetricTrendKind {
+        case steps, activeCalories, hrv, restingHR
+    }
+
+    func metricTrend(for kind: MetricTrendKind) -> (TrendDir, String)? {
+        guard weeklyHealthTrends.count >= 2 else { return nil }
+
+        let latest = weeklyHealthTrends.last!
+        let prior = weeklyHealthTrends.dropLast()
+        guard !prior.isEmpty else { return nil }
+
+        let current: Double
+        let average: Double
+        let lowerIsBetter: Bool
+
+        switch kind {
+        case .steps:
+            current = Double(latest.steps)
+            average = Double(prior.map(\.steps).reduce(0, +)) / Double(prior.count)
+            lowerIsBetter = false
+        case .activeCalories:
+            current = Double(latest.activeCalories)
+            average = Double(prior.map(\.activeCalories).reduce(0, +)) / Double(prior.count)
+            lowerIsBetter = false
+        case .hrv:
+            current = latest.avgHRV
+            average = prior.map(\.avgHRV).reduce(0, +) / Double(prior.count)
+            lowerIsBetter = false
+        case .restingHR:
+            current = latest.avgRestingHR > 0 ? latest.avgRestingHR : Double(dailyMetrics.restingHR)
+            let restingSamples = prior.filter { $0.avgRestingHR > 0 }
+            guard !restingSamples.isEmpty else { return nil }
+            average = restingSamples.map(\.avgRestingHR).reduce(0, +) / Double(restingSamples.count)
+            lowerIsBetter = true
+        }
+
+        guard average > 0 else { return nil }
+        let delta = ((current - average) / average) * 100
+        guard abs(delta) >= 1 else { return nil }
+
+        let improved = lowerIsBetter ? delta < 0 : delta > 0
+        let direction: TrendDir = improved ? .up : .down
+        let sign = delta > 0 ? "+" : ""
+        return (direction, "\(sign)\(Int(delta.rounded()))%")
+    }
+
     /// Calculate weekly workout frequency
     var weeklyWorkoutFrequency: Int {
         let calendar = Calendar.current
