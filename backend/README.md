@@ -1,81 +1,55 @@
-# FORGE Backend
+# FORGE Backend (Python)
 
-Shared AWS-backed backend for both Forge clients.
+Canonical Python backend for Forge — runs locally for development and deploys to AWS Lambda via Terraform.
+
+## Layout
+
+```
+backend/
+├── api/              # Lambda-compatible API package (routes, services, ARIA, storage)
+├── dev_server.py     # Local HTTP server for iOS/web clients (port 3001)
+├── organize_users.py # CLI utility for grouping user profiles
+└── requirements.txt
+```
+
+## Quick start
+
+```bash
+pip install -r backend/requirements.txt
+python3 backend/dev_server.py          # → http://127.0.0.1:3001
+python3 scripts/run_tests.py           # unit tests
+FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 scripts/smoke_test.py
+```
+
+Set `FORGE_TEST_USER_ID` to control the dev user identity (default: `test-user-00000000`).
+
+## API routes
+
+See `IMPLEMENTATION_PLAN.md` for the full route map. Core client routes:
+
+- `GET /health`, `GET /dashboard/today`, `GET /me`, `PUT /me/profile`
+- `GET /sleep`, `GET /workouts/history`, `GET /progress/summary`
+- `POST /aria/chat`, `POST /health/batch`, `POST /workouts/logs`
+
+## Deployment
+
+Terraform packages `backend/api` into the Lambda zip:
+
+```bash
+cd infra/terraform && terraform apply
+```
 
 ## AI Router
 
-The shared Lambda now exposes `POST /ai/router`, a Python-based Bedrock router that:
+`POST /ai/router` is a Python-based Bedrock router that:
 
-- starts with Claude Sonnet 4.6,
-- escalates to Claude Opus 4.7 if no answer arrives within the configured SLA window,
-- escalates again to Kimi K2.5 if needed,
-- activates more models immediately as `packageSizeBytes` grows toward the 10 GB cap.
+- starts with Claude Sonnet 4.6
+- escalates to Claude Opus 4.7 if no answer arrives within the SLA window
+- escalates again to Kimi K2.5 if needed
+- activates more models as `packageSizeBytes` grows toward the 10 GB cap
 
-The primary default model is Claude Sonnet 4.6. Kimi K2.5 is only used as the third-slot fallback.
+Default models: Sonnet 4.6 → Opus 4.7 → Kimi K2.5 (configurable via `AI_ROUTER_MODEL_3_ID`).
 
-### Request shape
+## AI / ARIA
 
-```json
-{
-  "question": "What should today's training plan be?",
-  "context": "User is recovering from a hard long run and slept 6h 20m.",
-  "packageSizeBytes": 3221225472,
-  "packages": [
-    {
-      "id": "sleep-summary",
-      "bytes": 15360,
-      "preview": "Sleep efficiency 91%, REM 1h 40m, HRV 68..."
-    },
-    {
-      "id": "whoop-export",
-      "bytes": 734003200,
-      "s3Key": "private/user-123/whoop/export.csv"
-    }
-  ],
-  "settings": {
-    "modelTimeoutSeconds": 5,
-    "overallTimeoutSeconds": 14,
-    "consensusWindowSeconds": 1,
-    "maxTokens": 1000,
-    "temperature": 0.2
-  }
-}
-```
-
-### Response shape
-
-The router returns:
-
-- `answer`: an alias of `finalAnswer` for backward compatibility,
-- `finalAnswer`: the answer actually returned to the caller,
-- `finalAnswerSource`: how the final answer was produced,
-- `selectedModel`: the first successful model that answered inside the routing window,
-- `routing`: package size, initial fanout, launched models, and timeout policy,
-- `results`: per-model latency and outcome metadata,
-- `supportingAnswers`: any additional successful answers received inside the consensus window.
-
-Final answer rules:
-
-- if 1 model answer is used, `finalAnswer` is that model's answer,
-- if 2 model answers are used, `finalAnswer` is the consensus built from those 2 answers,
-- if 3 model answers are used, `finalAnswer` is the consensus built from all 3 answers.
-
-### 10 GB behavior
-
-The 10 GB limit is the total amount of data the router can gather for a single request. It is a routing limit, not a raw prompt-size limit. Large datasets should be passed as:
-
-- package metadata,
-- short inline previews, or
-- S3 object references that the router can sample for a lightweight preview.
-
-The router uses declared package sizes, per-package byte counts, and S3 object metadata to estimate how much data is being gathered in one go and to decide how many models should share the load. This avoids trying to push multi-GB payloads directly through API Gateway, Lambda, or a single model context window.
-
-### Model configuration
-
-Defaults:
-
-- Default start model / Slot 1: `anthropic.claude-sonnet-4-6`
-- Slot 2: `anthropic.claude-opus-4-7`
-- Slot 3 fallback: `moonshotai.kimi-k2.5`
-
-The third slot is configurable with `AI_ROUTER_MODEL_3_ID`. As of May 1, 2026, AWS Bedrock documents `moonshotai.kimi-k2.5` as the runtime model ID for Kimi K2.5, so that is the router's default third-slot fallback model. The router still starts with Claude Sonnet 4.6 by default.
+`POST /aria/chat` requires AWS Bedrock credentials in deployed environments. Locally it may return `503` without credentials; other routes return deterministic seed data via the in-memory DynamoDB store.

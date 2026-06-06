@@ -1,6 +1,6 @@
 data "archive_file" "backend_lambda" {
   type        = "zip"
-  source_dir  = "${path.module}/lambda"
+  source_dir  = "${path.module}/../../backend/api"
   output_path = "${path.module}/build/forge-backend.zip"
 }
 
@@ -109,6 +109,19 @@ data "aws_iam_policy_document" "backend_lambda" {
 
     resources = [
       aws_secretsmanager_secret.ai_provider.arn,
+    ]
+  }
+
+  statement {
+    sid = "BedrockInference"
+
+    actions = [
+      "bedrock:InvokeModel",
+      "bedrock:InvokeModelWithResponseStream",
+    ]
+
+    resources = [
+      "arn:aws:bedrock:*::foundation-model/anthropic.claude-*",
     ]
   }
 }
@@ -425,6 +438,7 @@ resource "aws_lambda_function" "backend" {
     variables = {
       AI_PROVIDER_SECRET_ARN = aws_secretsmanager_secret.ai_provider.arn
       APP_DATA_TABLE_NAME    = aws_dynamodb_table.app_data.name
+      ARIA_BACKEND           = "bedrock"
       ENVIRONMENT            = var.environment
       UPLOADS_BUCKET_NAME    = aws_s3_bucket.uploads.bucket
       USER_POOL_ID           = aws_cognito_user_pool.forge.id

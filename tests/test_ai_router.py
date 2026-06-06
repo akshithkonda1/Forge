@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 
 
-LAMBDA_DIR = Path(__file__).resolve().parents[1] / "infra" / "terraform" / "lambda"
-sys.path.insert(0, str(LAMBDA_DIR))
+API_DIR = Path(__file__).resolve().parents[1] / "backend" / "api"
+sys.path.insert(0, str(API_DIR))
 
 from ai_router import AIRouter, MAX_PACKAGE_BYTES, RouteRequest  # noqa: E402
 

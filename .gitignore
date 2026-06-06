@@ -1,17 +1,19 @@
 # dependencies
-/node_modules
-/.pnp
+node_modules/
+.pnp
 .pnp.js
 
 # testing
-/coverage
+coverage/
+__pycache__/
+*.py[cod]
 
 # next.js
-/.next/
-/out/
+.next/
+out/
 
 # production
-/build
+build/
 
 # misc
 .DS_Store
@@ -47,3 +49,4 @@ infra/terraform/build/*.zip
 # xcode
 *.xcuserdata/
 *.xcuserstate
+DerivedData/
