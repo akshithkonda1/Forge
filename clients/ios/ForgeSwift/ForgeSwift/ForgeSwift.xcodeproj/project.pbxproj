@@ -225,7 +225,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "echo \"error: This Xcode project under clients/ios is deprecated and cannot build. Open the repo-root Forge.xcworkspace instead (npm run ios:open).\"\\nexit 1\\n";
+			shellScript = "echo \"error: This Xcode project under clients/ios is deprecated. Open repo-root Forge.xcworkspace instead (npm run ios:open).\"; exit 1;\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
