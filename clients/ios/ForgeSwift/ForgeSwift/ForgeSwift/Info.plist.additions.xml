@@ -20,6 +20,12 @@
     <key>FORGE_API_BASE_URL</key>
     <string>http://localhost:3001</string>
 
+    <key>FORGE_COGNITO_REGION</key>
+    <string>us-east-1</string>
+
+    <key>FORGE_COGNITO_CLIENT_ID</key>
+    <string>YOUR_COGNITO_IOS_CLIENT_ID</string>
+
     <key>FORGE_USE_AUTH</key>
     <string>false</string>
 

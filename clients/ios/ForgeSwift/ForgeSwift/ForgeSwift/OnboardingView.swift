@@ -679,7 +679,7 @@ private struct AuthStage: View {
             coordinator: coordinator,
             eyebrow: "Account",
             title: "Save the plan ARIA builds for you.",
-            subtitle: "Sign in with Apple to secure your profile. Google and email slots are ready and will unlock when the production auth backend is connected.",
+            subtitle: "Sign in with Apple or email to secure your profile and sync with the Forge backend.",
             ctaTitle: "Use Sign in with Apple below",
             ctaIcon: "apple.logo",
             ctaEnabled: false,
@@ -702,7 +702,7 @@ private struct AuthStage: View {
                     icon: "globe",
                     title: "Continue with Google",
                     subtitle: "Provider slot ready",
-                    state: "Connect backend",
+                    state: "Ready",
                     action: { selectedProvider = .google }
                 )
 
@@ -710,13 +710,13 @@ private struct AuthStage: View {
                     icon: "envelope.fill",
                     title: "Continue with Email",
                     subtitle: "Production form prepared",
-                    state: "Connect backend",
+                    state: "Ready",
                     action: { selectedProvider = .email }
                 )
 
                 ARIACoachCard(
                     title: "No fake sign-ins",
-                    message: "These options stay visible so the screen is production-shaped, but they will not authenticate until the real providers are wired.",
+                    message: "Email sign-in uses Cognito. Apple and Google slots remain visible for upcoming provider wiring.",
                     accent: .steel,
                     icon: "checkmark.shield.fill"
                 )
@@ -747,7 +747,7 @@ private struct AuthStage: View {
             }
         }
         .sheet(item: $selectedProvider) { provider in
-            AuthProviderPreparationSheet(provider: provider)
+            AuthProviderPreparationSheet(provider: provider, coordinator: coordinator)
         }
     }
 }
@@ -815,9 +815,21 @@ private struct ProviderSlotButton: View {
 
 private struct AuthProviderPreparationSheet: View {
     let provider: AuthProvider
+    var coordinator: OnboardingCoordinator
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var auth = CognitoAuthManager.shared
     @State private var email = ""
     @State private var password = ""
+    @State private var confirmationCode = ""
+    @State private var mode: AuthMode = .signIn
+    @State private var isLoading = false
+    @State private var statusMessage: String?
+
+    private enum AuthMode: String, CaseIterable {
+        case signIn = "Sign In"
+        case signUp = "Sign Up"
+        case confirm = "Confirm"
+    }
 
     var body: some View {
         NavigationStack {
@@ -826,24 +838,62 @@ private struct AuthProviderPreparationSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         ForgeSectionHeader(
-                            eyebrow: "Provider Slot",
+                            eyebrow: "Forge Account",
                             title: provider.title,
-                            subtitle: "This screen is ready for production wiring. Authentication is intentionally blocked until the provider backend is connected."
+                            subtitle: "Sign in with Cognito to sync your profile, workouts, and ARIA coaching across devices."
                         )
 
                         if provider == .email {
+                            Picker("Mode", selection: $mode) {
+                                ForEach(AuthMode.allCases, id: \.self) { item in
+                                    Text(item.rawValue).tag(item)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+
                             VStack(spacing: 12) {
                                 ForgeTextField(placeholder: "Email", text: $email, icon: "envelope.fill", keyboardType: .emailAddress)
                                 ForgeTextField(placeholder: "Password", text: $password, icon: "lock.fill", isSecure: true)
+                                if mode == .confirm {
+                                    ForgeTextField(placeholder: "Confirmation code", text: $confirmationCode, icon: "number", keyboardType: .numberPad)
+                                }
                             }
-                        }
 
-                        ARIACoachCard(
-                            title: "Implementation checkpoint",
-                            message: "Wire this action to the real auth provider, then route success back into onboarding.",
-                            accent: .warning,
-                            icon: "wrench.adjustable.fill"
-                        )
+                            if let statusMessage {
+                                Text(statusMessage)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.textSecondary)
+                            }
+
+                            if let lastError = auth.lastError {
+                                Text(lastError)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.danger)
+                            }
+
+                            Button(action: { Task { await submit() } }) {
+                                HStack {
+                                    if isLoading {
+                                        ProgressView().tint(.white)
+                                    }
+                                    Text(primaryActionTitle)
+                                        .font(.system(size: 16, weight: .bold))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(FDS.Gradient.ember)
+                                .foregroundColor(.white)
+                                .cornerRadius(FDS.Radius.lg)
+                            }
+                            .disabled(isLoading || !canSubmit)
+                        } else {
+                            ARIACoachCard(
+                                title: "Coming soon",
+                                message: "Google sign-in will be enabled after OAuth provider wiring in Cognito.",
+                                accent: .warning,
+                                icon: "globe"
+                            )
+                        }
                     }
                     .padding(FDS.Spacing.xl)
                 }
@@ -854,6 +904,47 @@ private struct AuthProviderPreparationSheet: View {
                         .foregroundColor(.textSecondary)
                 }
             }
+        }
+    }
+
+    private var primaryActionTitle: String {
+        switch mode {
+        case .signIn: return "Sign In"
+        case .signUp: return "Create Account"
+        case .confirm: return "Confirm Email"
+        }
+    }
+
+    private var canSubmit: Bool {
+        !email.trimmingCharacters(in: .whitespaces).isEmpty &&
+        (mode == .confirm || password.count >= 12)
+    }
+
+    private func submit() async {
+        isLoading = true
+        statusMessage = nil
+        defer { isLoading = false }
+
+        do {
+            switch mode {
+            case .signIn:
+                _ = try await auth.signIn(email: email, password: password)
+                statusMessage = "Signed in successfully."
+                coordinator.markAuthenticated()
+                dismiss()
+            case .signUp:
+                try await auth.signUp(email: email, password: password)
+                mode = .confirm
+                statusMessage = "Account created. Enter the confirmation code from your email."
+            case .confirm:
+                try await auth.confirmSignUp(email: email, code: confirmationCode)
+                _ = try await auth.signIn(email: email, password: password)
+                statusMessage = "Email confirmed. You're signed in."
+                coordinator.markAuthenticated()
+                dismiss()
+            }
+        } catch {
+            statusMessage = nil
         }
     }
 }

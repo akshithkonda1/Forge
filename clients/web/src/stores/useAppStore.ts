@@ -315,12 +315,49 @@ export const useAppStore = create<AppState>((set) => ({
       },
     })),
   endWorkout: () =>
-    set((state) => ({
-      activeWorkout: {
-        ...state.activeWorkout,
-        isActive: false,
-      },
-    })),
+    set((state) => {
+      if (state.todayWorkout) {
+        const volume = state.todayWorkout.exercises.reduce(
+          (sum, exercise) => sum + exercise.sets * (exercise.weight ?? 0),
+          0,
+        );
+        const historyItem: WorkoutHistory = {
+          id: `workout-${Date.now()}`,
+          date: new Date().toISOString().slice(0, 10),
+          name: state.todayWorkout.name,
+          type: state.todayWorkout.type,
+          duration: state.todayWorkout.duration,
+          volume,
+          intensity: state.todayWorkout.intensity,
+        };
+
+        void forgeAPI.postWorkoutLog({
+          name: state.todayWorkout.name,
+          type: state.todayWorkout.type,
+          duration: state.todayWorkout.duration,
+          volume,
+          intensity: state.todayWorkout.intensity,
+          startedAt: new Date().toISOString(),
+        }).catch((error) => {
+          console.warn("Failed to log workout", error);
+        });
+
+        return {
+          activeWorkout: {
+            ...state.activeWorkout,
+            isActive: false,
+          },
+          workoutHistory: [historyItem, ...state.workoutHistory],
+        };
+      }
+
+      return {
+        activeWorkout: {
+          ...state.activeWorkout,
+          isActive: false,
+        },
+      };
+    }),
 
   chatMessages: mockChatMessages,
   addMessage: (msg) =>
