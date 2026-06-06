@@ -205,10 +205,8 @@ jobs:
     needs: phase2-fix-improve
     if: |
       needs.phase2-fix-improve.result == 'success' &&
-      (
-        (github.ref == 'refs/heads/claude/forge-fitness-frontend-TwlOQ' && github.event_name == 'push') ||
-        (github.event_name == 'workflow_dispatch' && inputs.run_deploy == true)
-      )
+      github.event_name == 'workflow_dispatch' &&
+      inputs.run_deploy == true
     environment: production
     env:
       AWS_EC2_METADATA_DISABLED: 'true'
@@ -238,13 +236,21 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Write Terraform backend config
+        run: |
+          cat > backend.hcl <<EOF
+          bucket         = "${{ vars.TF_STATE_BUCKET }}"
+          key            = "forge/dev/terraform.tfstate"
+          region         = "${{ env.AWS_REGION }}"
+          dynamodb_table = "${{ vars.TF_STATE_LOCK_TABLE }}"
+          encrypt        = true
+          EOF
+
       - name: Terraform init
-        run: terraform init -input=false -no-color
+        run: terraform init -backend-config=backend.hcl -input=false -no-color
 
       - name: Terraform apply
         run: terraform apply -auto-approve -input=false -no-color

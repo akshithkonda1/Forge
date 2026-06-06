@@ -58,7 +58,14 @@ terraform output -raw terra_webhook_url    # register in Terra dashboard
 terraform output -raw terra_health_url     # ops health probe
 ```
 
-Scheduled Terra self-healing runs on the API Lambda (`enable_terra_self_healing`, default `true`). Set `ops_self_heal_token` in `terraform.tfvars` to trigger manual `POST /integrations/terra/self-heal` over HTTP.
+Scheduled Terra self-healing runs on the API Lambda (`enable_terra_self_healing`, default `true`). `wire_production.sh` generates `ops_self_heal_token` in `terraform.tfvars` for manual `POST /integrations/terra/self-heal` over HTTP.
+
+Seed runtime credentials after the first apply:
+
+```bash
+TERRA_DEV_ID=... TERRA_API_KEY=... TERRA_WEBHOOK_SECRET=... ./scripts/seed_secrets.sh
+ANTHROPIC_API_KEY=... ./scripts/seed_secrets.sh
+```
 
 ## Files
 
@@ -69,12 +76,26 @@ Scheduled Terra self-healing runs on the API Lambda (`enable_terra_self_healing`
 - `healer/handler.py` — health probe and S3 redeploy logic
 - `variables.tf` / `outputs.tf` / `locals.tf` — configuration
 
+## Production wiring (no deploy)
+
+Run once with AWS admin credentials. This bootstraps remote state, creates a GitHub OIDC deploy role, sets GitHub `production` secrets/variables, and initializes the main stack — **without** `terraform apply`:
+
+```bash
+./scripts/wire_production.sh
+```
+
+After wiring, deploy manually when ready:
+
+```bash
+gh workflow run deploy-chain.yml --repo akshithkonda1/Forge -f run_deploy=true
+```
+
 ## Usage
 
 ```bash
 cd infra/terraform
 cp terraform.tfvars.example terraform.tfvars
-terraform init
+terraform init -backend-config=backend.hcl   # after wire_production.sh
 TF_VAR_skip_aws_provider_checks=true terraform plan   # CI / no credentials
 terraform apply
 ```
@@ -95,7 +116,7 @@ GitHub Actions runs a three-phase pipeline (`.github/workflows/deploy-chain.yml`
 |---|---|---|
 | **1 · Test** | `phase1-test-*` | Unit tests, smoke test, `terraform plan`, optional Swift build |
 | **2 · Fix/Improve** | `phase2-fix-improve` | Package Lambda zip, compile checks, `terraform fmt/validate` |
-| **3 · Deploy** | `phase3-deploy` | `terraform apply` + health check + smoke test (default branch only) |
+| **3 · Deploy** | `phase3-deploy` | `terraform apply` + health check + smoke test (**manual** `workflow_dispatch` only) |
 
 Run locally:
 

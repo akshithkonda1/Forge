@@ -44,6 +44,11 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+infra/terraform/terraform.tfvars
+infra/terraform/backend.hcl
+infra/bootstrap/.terraform/
+infra/bootstrap/*.tfstate
+infra/bootstrap/*.tfstate.*
 infra/terraform/build/*.zip
 
 # xcode

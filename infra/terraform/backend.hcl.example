@@ -1,0 +1,8 @@
+# Copy to backend.hcl after running scripts/wire_production.sh (gitignored).
+# terraform init -backend-config=backend.hcl
+
+bucket         = "forge-terraform-state-ACCOUNT_ID"
+key            = "forge/dev/terraform.tfstate"
+region         = "us-east-1"
+dynamodb_table = "forge-terraform-locks"
+encrypt        = true
