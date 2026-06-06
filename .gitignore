@@ -47,6 +47,6 @@ override.tf.json
 infra/terraform/build/*.zip
 
 # xcode
-*.xcuserdata/
+xcuserdata/
 *.xcuserstate
 DerivedData/

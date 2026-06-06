@@ -11,12 +11,14 @@
 # 4. Start using the GitHub actions by generating the GitHub events matching the defined criteria in your workflow.
 
 name: Validate AWS IAM policies in Terraform templates using Policy Validator
+# NOTE: This is an unconfigured AWS sample workflow. The env values below are
+# still placeholders (MY_ROLE, MY_AWS_REGION, ...), so the configure-aws-credentials
+# step fails with "Region is not valid". Until the setup steps above are completed
+# (AWS OIDC role, region, terraform plan path, reference policy), it runs on manual
+# dispatch only so it does not fail every push/PR. Restore the push/pull_request
+# triggers once it is configured.
 on:
-  push:
-    branches: ["claude/forge-fitness-frontend-TwlOQ" ]
-  pull_request:
-    # The branches below must be a subset of the branches above
-    branches: ["claude/forge-fitness-frontend-TwlOQ"]
+  workflow_dispatch:
 env:
   AWS_ROLE: MY_ROLE # set this with the role ARN which has permissions to invoke access-analyzer:ValidatePolicy,access-analyzer:CheckNoNewAccess, access-analyzer:CheckAccessNotGranted and can be used in GitHub actions
   REGION: MY_AWS_REGION # set this to your preferred AWS region where you plan to deploy your policies, e.g. us-west-1

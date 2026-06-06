@@ -1521,8 +1521,11 @@ struct ActiveWorkoutView: View {
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
                 guard !Task.isCancelled else { return }
                 let target = isResting ? (108 + Double.random(in: 0...18)) : (140 + Double.random(in: 0...26))
-                simulatedHR = Int((Double(simulatedHR) + (target - Double(simulatedHR)) * 0.12 + Double.random(in: -4...4))
-                    .rounded().clamped(to: 55...200))
+                let current = Double(simulatedHR)
+                let drift = (target - current) * 0.12
+                let noise = Double.random(in: -4...4)
+                let nextHR = (current + drift + noise).rounded().clamped(to: 55.0...200.0)
+                simulatedHR = Int(nextHR)
                 hrHistory.append(simulatedHR)
                 if simulatedHR > peakHR { peakHR = simulatedHR }
             }

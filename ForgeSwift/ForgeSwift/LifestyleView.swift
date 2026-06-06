@@ -2282,80 +2282,12 @@ struct AINutritionCoachCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle().fill(Color.ember.opacity(0.15)).frame(width: 40, height: 40)
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.ember)
-                        // Fixed: single animation, not chained state changes
-                        .scaleEffect(isAnalyzing ? sparkleScale : 1.0)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("AI Nutrition Coach").font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
-                    Text(isAnalyzing ? "Analyzing today's intake…" : "Insight ready")
-                        .font(.system(size: 11, weight: .medium)).foregroundColor(.textTertiary)
-                }
-                Spacer()
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { tipIndex += 1 }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.textTertiary)
-                        .frame(width: 32, height: 32)
-                        .background(Color.surfaceElevated)
-                        .clipShape(Circle())
-                }
-            }
+            header
 
             if !isAnalyzing {
                 Divider().background(Color.borderColor)
-
-                HStack(alignment: .top, spacing: 14) {
-                    Image(systemName: tip.icon)
-                        .font(.system(size: 22))
-                        .foregroundColor(tip.color)
-                        .frame(width: 28)
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(tip.headline)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.textPrimary)
-                        Text(tip.body)
-                            .font(.system(size: 13))
-                            .foregroundColor(.textSecondary)
-                            .lineSpacing(4)
-                    }
-                }
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-                .id(tipIndex)
-
-                // Macro snapshot chips
-                HStack(spacing: 0) {
-                    ForEach([
-                        ("Protein", 145, 180, Color.ember),
-                        ("Carbs",   220, 280, Color.steel),
-                        ("Fats",    58,  70,  Color(hex: "FFB84D")),
-                        ("Cal",    2140, 2600, Color(hex: "A855F7")),
-                    ], id: \.0) { label, filled, total, color in
-                        VStack(spacing: 3) {
-                            Text(label)
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.textTertiary)
-                            Text("\(Int(Double(filled) / Double(total) * 100))%")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(color)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(color.opacity(0.08))
-                        if label != "Cal" {
-                            Divider().frame(height: 28).background(Color.borderColor)
-                        }
-                    }
-                }
-                .cornerRadius(12)
-                .transition(.opacity)
+                tipRow
+                macroChips
             }
         }
         .padding(20)
@@ -2375,6 +2307,88 @@ struct AINutritionCoachCard: View {
                 }
             }
         }
+    }
+
+    // Split out of `body` so the type-checker handles each sub-view
+    // independently; the combined expression timed out the compiler.
+    private var header: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle().fill(Color.ember.opacity(0.15)).frame(width: 40, height: 40)
+                Image(systemName: "sparkles")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.ember)
+                    // Fixed: single animation, not chained state changes
+                    .scaleEffect(isAnalyzing ? sparkleScale : 1.0)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("AI Nutrition Coach").font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
+                Text(isAnalyzing ? "Analyzing today's intake…" : "Insight ready")
+                    .font(.system(size: 11, weight: .medium)).foregroundColor(.textTertiary)
+            }
+            Spacer()
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { tipIndex += 1 }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.textTertiary)
+                    .frame(width: 32, height: 32)
+                    .background(Color.surfaceElevated)
+                    .clipShape(Circle())
+            }
+        }
+    }
+
+    private var tipRow: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: tip.icon)
+                .font(.system(size: 22))
+                .foregroundColor(tip.color)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(tip.headline)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                Text(tip.body)
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+                    .lineSpacing(4)
+            }
+        }
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
+        .id(tipIndex)
+    }
+
+    // Macro snapshot chips
+    private var macroChips: some View {
+        let macros: [(label: String, filled: Int, total: Int, color: Color)] = [
+            ("Protein", 145, 180, Color.ember),
+            ("Carbs",   220, 280, Color.steel),
+            ("Fats",    58,  70,  Color(hex: "FFB84D")),
+            ("Cal",    2140, 2600, Color(hex: "A855F7")),
+        ]
+        return HStack(spacing: 0) {
+            ForEach(macros, id: \.label) { macro in
+                let percent = Int(Double(macro.filled) / Double(macro.total) * 100)
+                VStack(spacing: 3) {
+                    Text(macro.label)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.textTertiary)
+                    Text("\(percent)%")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(macro.color)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(macro.color.opacity(0.08))
+                if macro.label != "Cal" {
+                    Divider().frame(height: 28).background(Color.borderColor)
+                }
+            }
+        }
+        .cornerRadius(12)
+        .transition(.opacity)
     }
 }
 
