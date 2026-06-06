@@ -1,0 +1,4 @@
+// Local development — simulator talks to the Mac backend on port 3001.
+// On a physical device, set FORGE_API_BASE_URL in Forge-Info.plist to your Mac's LAN IP.
+FORGE_API_BASE_URL = http:/\/127.0.0.1:3001
+FORGE_USE_AUTH = false

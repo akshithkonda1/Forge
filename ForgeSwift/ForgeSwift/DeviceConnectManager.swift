@@ -68,6 +68,13 @@ final class DeviceConnectManager: NSObject, ObservableObject {
     static func widgetCallbackURLs() -> (success: String, failure: String) {
         if let base = Bundle.main.object(forInfoDictionaryKey: "FORGE_WEB_CALLBACK_BASE_URL") as? String,
            !base.isEmpty {
+            if base.hasPrefix("forge://") {
+                let trimmed = base.hasSuffix("/") ? String(base.dropLast()) : base
+                return (
+                    success: "\(trimmed)/success",
+                    failure: "\(trimmed)/failure"
+                )
+            }
             let trimmed = base.hasSuffix("/") ? String(base.dropLast()) : base
             return (
                 success: "\(trimmed)/integrations/terra/callback/success",

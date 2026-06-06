@@ -14,6 +14,9 @@
     "ci:fix": "python3 scripts/ci_fix_improve.py",
     "ci:deploy": "cd infra/terraform && terraform apply -auto-approve",
     "wire:production": "./scripts/wire_production.sh",
-    "seed:secrets": "./scripts/seed_secrets.sh"
+    "seed:secrets": "./scripts/seed_secrets.sh",
+    "ios:open": "./scripts/ios_dev.sh open",
+    "ios:backend": "./scripts/ios_dev.sh backend",
+    "ios:build": "xcodebuild build -project ForgeSwift/ForgeSwift.xcodeproj -scheme ForgeSwift -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO"
   }
 }
