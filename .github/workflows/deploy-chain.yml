@@ -37,27 +37,32 @@ jobs:
     name: Detect Changes
     runs-on: ubuntu-latest
     outputs:
-      swift: ${{ steps.filter.outputs.swift }}
-      backend: ${{ steps.filter.outputs.backend }}
-      terraform: ${{ steps.filter.outputs.terraform }}
+      swift: ${{ steps.changes.outputs.swift }}
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-      - uses: dorny/paths-filter@v3
-        id: filter
         with:
-          filters: |
-            swift:
-              - 'ForgeSwift/**'
-              - 'Forge.xcworkspace/**'
-            backend:
-              - 'backend/**'
-              - 'scripts/**'
-              - 'tests/**'
-              - 'package.json'
-            terraform:
-              - 'infra/terraform/**'
-              - 'backend/api/**'
-              - '.github/workflows/deploy-chain.yml'
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="${{ github.event.before }}"
+          else
+            BASE_SHA="$(git rev-parse HEAD~1)"
+          fi
+
+          CHANGED="$(git diff --name-only "${BASE_SHA}" HEAD || true)"
+          echo "Changed files:"
+          echo "${CHANGED}"
+
+          if echo "${CHANGED}" | grep -qE '^(ForgeSwift/|Forge\.xcworkspace/)'; then
+            echo "swift=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "swift=false" >> "${GITHUB_OUTPUT}"
+          fi
 
   # ═══════════════════════════════════════════════════════════════════
   # PHASE 1 — TEST
