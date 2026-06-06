@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Trophy } from "lucide-react";
 import { useAppStore } from "@/stores/useAppStore";
+import { ForgeEmptyState } from "@/components/shared/forge-empty-state";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -53,7 +54,13 @@ export function PersonalRecordsBoard() {
         <h2 className="text-lg font-semibold text-white">Personal Records</h2>
       </div>
 
-      {/* PR cards */}
+      {personalRecords.length === 0 ? (
+        <ForgeEmptyState
+          icon={Trophy}
+          title="No personal records yet"
+          description="Log workouts and push your limits — PRs will show up here automatically."
+        />
+      ) : (
       <motion.div
         variants={containerVariants}
         initial="hidden"
@@ -88,6 +95,7 @@ export function PersonalRecordsBoard() {
           </motion.div>
         ))}
       </motion.div>
+      )}
     </div>
   );
 }

@@ -219,6 +219,8 @@ Long-term performance tracking:
 
 ## 🚀 Getting Started
 
+> **Quick local dev guide:** see [docs/DEV.md](docs/DEV.md) for backend, web, and iOS setup in one place.
+
 ### Prerequisites
 
 | Requirement | Version |

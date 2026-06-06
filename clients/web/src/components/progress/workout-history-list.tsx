@@ -1,7 +1,9 @@
 "use client";
 
+import { Dumbbell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
+import { ForgeEmptyState } from "@/components/shared/forge-empty-state";
 
 function formatWorkoutDate(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00");
@@ -46,15 +48,23 @@ function typePillColor(type: string): { bg: string; text: string } {
 
 export function WorkoutHistoryList() {
   const workoutHistory = useAppStore((s) => s.workoutHistory);
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
 
   return (
     <div>
-      {/* Header */}
-      <h2 className="text-lg font-semibold text-white mb-3">
+      <h2 className="mb-3 text-lg font-semibold text-text-primary">
         Recent Workouts
       </h2>
 
-      {/* Workout entries */}
+      {workoutHistory.length === 0 ? (
+        <ForgeEmptyState
+          icon={Dumbbell}
+          title="No workouts logged"
+          description="Complete your first session from the Workout tab — it'll sync here instantly."
+          actionLabel="Go to Workout"
+          onAction={() => setActiveTab("workout")}
+        />
+      ) : (
       <div className="flex flex-col gap-2.5">
         {workoutHistory.map((workout) => {
           const pillStyle = typePillColor(workout.type);
@@ -106,6 +116,7 @@ export function WorkoutHistoryList() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

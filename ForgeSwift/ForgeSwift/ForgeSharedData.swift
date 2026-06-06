@@ -1,0 +1,48 @@
+import Foundation
+import WidgetKit
+
+/// App Group payload for widgets and Live Activities.
+enum ForgeSharedData {
+    static let appGroupID = "group.com.forge.health"
+    private static let readinessKey = "forge.readiness.overall"
+    private static let workoutNameKey = "forge.workout.name"
+    private static let hrvKey = "forge.metrics.hrv"
+    private static let streakKey = "forge.streak"
+    private static let lastSyncedKey = "forge.lastSyncedAt"
+
+    private static var defaults: UserDefaults? {
+        UserDefaults(suiteName: appGroupID) ?? UserDefaults.standard
+    }
+
+    @MainActor
+    static func syncFromStore(_ store: AppStore) {
+        guard let defaults else { return }
+        defaults.set(store.readiness.overall, forKey: readinessKey)
+        defaults.set(store.todayWorkout?.name ?? "", forKey: workoutNameKey)
+        defaults.set(store.dailyMetrics.hrv, forKey: hrvKey)
+        defaults.set(store.currentStreak, forKey: streakKey)
+        defaults.set(Date().timeIntervalSince1970, forKey: lastSyncedKey)
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    static var readinessScore: Int {
+        defaults?.integer(forKey: readinessKey) ?? 0
+    }
+
+    static var workoutName: String {
+        defaults?.string(forKey: workoutNameKey) ?? "Rest Day"
+    }
+
+    static var hrv: Int {
+        defaults?.integer(forKey: hrvKey) ?? 0
+    }
+
+    static var streak: Int {
+        defaults?.integer(forKey: streakKey) ?? 0
+    }
+
+    static var lastSyncedAt: Date? {
+        guard let ts = defaults?.double(forKey: lastSyncedKey), ts > 0 else { return nil }
+        return Date(timeIntervalSince1970: ts)
+    }
+}

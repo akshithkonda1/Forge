@@ -509,6 +509,7 @@ final class AppStore: ObservableObject {
 
     // Today's Workout
     @Published var todayWorkout: WorkoutPlan? = mockWorkout
+    @Published var planInsightText: String?
 
     // Active Workout State
     @Published var isWorkoutActive: Bool = false
@@ -518,6 +519,7 @@ final class AppStore: ObservableObject {
     // Chat
     @Published var chatMessages: [ChatMessage] = []
     @Published var isGeneratingResponse: Bool = false
+    @Published var lastARIAToolCalls: [String] = []
 
     // Sleep
     @Published var sleepData: [SleepData] = []
@@ -605,6 +607,7 @@ final class AppStore: ObservableObject {
             deviceServiceStatus = try? await deviceStatusTask
 
             await syncHealthKitIfAvailable()
+            ForgeSharedData.syncFromStore(self)
             dataLoadState = .loaded
         } catch {
             if sleepData.isEmpty && workoutHistory.isEmpty {
@@ -694,9 +697,52 @@ final class AppStore: ObservableObject {
                 hrv: snapshot?.hrv.map { Int($0.rounded()) } ?? dailyMetrics.hrv,
                 restingHR: snapshot?.restingHeartRate
             )
+            if let refreshed = try? await repository.fetchDashboard() {
+                applyDashboardSnapshot(refreshed)
+                ForgeSharedData.syncFromStore(self)
+            }
         } catch {
             print("HealthKit sync failed: \(error)")
         }
+    }
+
+    func refreshTodayWorkoutPlan() async {
+        do {
+            if let plan = try await repository.refreshCoachWorkoutPlan() {
+                todayWorkout = plan
+            } else if let planText = try? await repository.generateDailyPlan(focus: "auto"),
+                      !planText.isEmpty {
+                planInsightText = planText
+            }
+        } catch {
+            print("Failed to refresh workout plan: \(error)")
+        }
+    }
+
+    func applyWorkoutFromRichCard(_ card: RichCardData) {
+        guard card.type == .workoutPlan,
+              let name = card.workoutName,
+              let exercises = card.workoutExercises else { return }
+        todayWorkout = WorkoutPlan(
+            id: UUID().uuidString,
+            name: name,
+            type: .strength,
+            duration: card.workoutDuration ?? 45,
+            intensity: readiness.overall >= 75 ? .high : .moderate,
+            exercises: exercises.enumerated().map { index, item in
+                Exercise(
+                    id: "rich-\(index)",
+                    name: item.name,
+                    sets: item.sets,
+                    reps: item.reps,
+                    weight: nil,
+                    restSeconds: 90,
+                    notes: nil,
+                    videoURL: nil,
+                    has3DModel: false
+                )
+            }
+        )
     }
 
     private func syncConnectedDevicesFromConnections(_ linked: [IntegrationConnection]) {
@@ -791,6 +837,13 @@ final class AppStore: ObservableObject {
         currentExerciseIndex = 0
         currentSet = 1
         isWorkoutActive = true
+        if let workout = todayWorkout, let first = workout.exercises.first {
+            WorkoutLiveActivityManager.start(
+                workoutName: workout.name,
+                exerciseName: first.name,
+                totalSets: first.sets
+            )
+        }
     }
 
     func nextSet() {
@@ -806,6 +859,7 @@ final class AppStore: ObservableObject {
         isWorkoutActive = false
         currentExerciseIndex = 0
         currentSet = 1
+        WorkoutLiveActivityManager.end()
         guard let workout = todayWorkout else { return }
         let volume = workout.exercises.reduce(0) { $0 + ($1.sets * ($1.weight ?? 0)) }
         let history = WorkoutHistory(
@@ -850,8 +904,13 @@ final class AppStore: ObservableObject {
         isGeneratingResponse = true
         
         do {
-            let trainerMessage = try await repository.sendChatMessage(text)
+            let result = try await repository.sendChatMessage(text)
+            var trainerMessage = result.message
+            if trainerMessage.toolCallsMade == nil, !result.toolCalls.isEmpty {
+                trainerMessage.toolCallsMade = result.toolCalls
+            }
             chatMessages.append(trainerMessage)
+            lastARIAToolCalls = result.toolCalls
         } catch {
             do {
                 let context = TrainerContext(
@@ -919,17 +978,8 @@ final class AppStore: ObservableObject {
     // MARK: - Data Management
     
     func refreshDailyData() async {
+        await syncHealthKitIfAvailable()
         await loadDashboardFromAPI()
-        do {
-            try await repository.syncHealthMetrics(
-                steps: dailyMetrics.steps,
-                activeCalories: dailyMetrics.activeCalories,
-                hrv: dailyMetrics.hrv,
-                restingHR: dailyMetrics.restingHR
-            )
-        } catch {
-            print("Health sync failed: \(error)")
-        }
     }
     
     /// Update user metrics (typically from HealthKit integration)

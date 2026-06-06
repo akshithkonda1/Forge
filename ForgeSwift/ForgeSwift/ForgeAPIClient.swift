@@ -171,6 +171,48 @@ struct ARIAConversationResponse: Decodable {
 struct ARIAChatResponse: Decodable {
     let threadId: String
     let message: APIChatMessage
+    let toolCallsMade: [String]?
+}
+
+struct ARIAPlanResponse: Decodable {
+    let focus: String
+    let plan: String
+    let generatedAt: String
+}
+
+struct CoachWorkoutPlanResponse: Decodable {
+    let todayPlan: APIWorkoutPlan?
+    let explanation: String
+}
+
+struct ARIAVoiceResponse: Decodable {
+    let transcript: String
+    let response: String
+    let suitableForTTS: Bool?
+}
+
+struct APIRichCardPayload: Decodable {
+    let type: String
+    let data: APIRichCardData?
+}
+
+struct APIRichCardData: Decodable {
+    let name: String?
+    let duration: Int?
+    let exercises: [APIRichCardExercise]?
+    let title: String?
+    let values: [Double]?
+    let insight: String?
+    let color: String?
+    let current: Double?
+    let previous: Double?
+    let unit: String?
+}
+
+struct APIRichCardExercise: Decodable {
+    let name: String
+    let sets: Int?
+    let reps: StringOrNumber?
 }
 
 struct APIChatMessage: Decodable {
@@ -178,6 +220,8 @@ struct APIChatMessage: Decodable {
     let role: String
     let content: String
     let timestamp: String
+    let richCard: APIRichCardPayload?
+    let toolCallsMade: [String]?
 }
 
 struct HealthMetricInput: Encodable {
@@ -295,6 +339,29 @@ final class ForgeAPIClient {
 
     func sendARIAChat(content: String) async throws -> ARIAChatResponse {
         try await request(path: "/aria/chat", method: "POST", body: ["content": content])
+    }
+
+    func generateARIAPlan(focus: String = "auto") async throws -> ARIAPlanResponse {
+        try await request(path: "/aria/plan", method: "POST", body: ["focus": focus])
+    }
+
+    func fetchCoachWorkoutPlan() async throws -> CoachWorkoutPlanResponse {
+        struct EmptyBody: Encodable {}
+        return try await request(path: "/coach/workout-plan", method: "POST", body: EmptyBody())
+    }
+
+    func sendARIAVoice(transcript: String) async throws -> ARIAVoiceResponse {
+        try await request(path: "/aria/voice", method: "POST", body: ["transcript": transcript])
+    }
+
+    func generateARIAInsights() async throws {
+        struct EmptyBody: Encodable {}
+        struct InsightsGenerateResponse: Decodable { let status: String? }
+        let _: InsightsGenerateResponse = try await request(
+            path: "/aria/insights/generate",
+            method: "POST",
+            body: EmptyBody()
+        )
     }
 
     func updateProfile(_ profile: [String: AnyEncodable]) async throws -> APIUserProfile {

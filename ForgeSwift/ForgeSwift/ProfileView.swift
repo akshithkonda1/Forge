@@ -137,6 +137,12 @@ struct ProgressPageView: View {
                 }
                 .padding(.top, 16)
                 
+                if store.dataLoadState == .loading {
+                    ForgeSkeletonBlock(height: 88, cornerRadius: 16)
+                    ForgeSkeletonBlock(height: 160, cornerRadius: 16)
+                    ForgeSkeletonBlock(height: 220, cornerRadius: 16)
+                }
+
                 // Time range selector
                 TimeRangePicker(selection: $selectedTimeRange)
                 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/stores/useAppStore";
 import { BottomNav } from "@/components/shared/bottom-nav";
+import { DataStatusBanner } from "@/components/shared/data-status-banner";
 import { HomePage } from "@/components/home/home-page";
 import { ChatPage } from "@/components/chat/chat-page";
 import { WorkoutPage } from "@/components/workout/workout-page";
@@ -50,6 +51,7 @@ export default function Page() {
 
   return (
     <div className="relative min-h-[100dvh] bg-background">
+      <DataStatusBanner />
       <div className="pb-[calc(5rem+env(safe-area-inset-bottom,0px))] min-h-[100dvh]">
         <AnimatePresence mode="wait">
           <motion.div

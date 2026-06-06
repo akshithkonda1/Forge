@@ -141,8 +141,8 @@ struct HomeView: View {
     @MainActor
     func refreshData() async {
         FDS.haptic(.light)
-        try? await Task.sleep(nanoseconds: 1_500_000_000)
         await store.refreshDailyData()
+        await store.refreshTodayWorkoutPlan()
         FDS.notificationHaptic(.success)
         if store.readiness.overall >= 85 { triggerCelebration() }
     }
@@ -1405,7 +1405,9 @@ struct TodayPlanCardView: View {
 
                 HStack(spacing: 12) {
                     SecondaryButton(icon: "arrow.triangle.2.circlepath", label: "Change Plan") {
-                        FDS.haptic(.light); store.activeTab = .chat
+                        FDS.haptic(.light)
+                        Task { await store.refreshTodayWorkoutPlan() }
+                        store.activeTab = .chat
                     }
                     SecondaryButton(icon: "square.and.arrow.up", label: "Share") {}
                 }
@@ -1622,29 +1624,30 @@ struct InsightsSectionView: View {
                 title: item.title,
                 description: "\(item.observation) \(item.recommendation)",
                 color: colorForPriority(item.priority),
-                priority: priorityFor(item.priority)
+                priority: priorityFor(item.priority),
+                destination: destinationForInsightType(item.type)
             )
         }
 
         if store.readiness.overall >= 85 {
             r.append(Insight(icon: "crown.fill", title: "Peak Readiness Window 👑",
                 description: "You're in elite territory. This is your best time to PR or go heavy.",
-                color: Color(hex: "22C55E"), priority: .high))
+                color: Color(hex: "22C55E"), priority: .high, destination: .workout))
         }
         if store.readiness.overall < 70 {
             r.append(Insight(icon: "bed.double.fill", title: "Consider a Rest Day",
                 description: "Recovery below optimal. A lighter session or full rest will pay off tomorrow.",
-                color: .steel, priority: .high))
+                color: .steel, priority: .high, destination: .sleep))
         }
         if store.dailyMetrics.hrv < 40 {
             r.append(Insight(icon: "waveform.path.ecg.rectangle.fill", title: "Low HRV Detected",
                 description: "Nervous system under stress. Prioritize sleep and calm recovery work.",
-                color: .danger, priority: .high))
+                color: .danger, priority: .high, destination: .sleep))
         }
         if store.currentStreak >= 7 {
             r.append(Insight(icon: "flame.fill", title: "\(store.currentStreak)-Day Streak 🔥",
                 description: "You're on a roll. Stay consistent and let recovery guide your intensity.",
-                color: .ember, priority: .medium))
+                color: .ember, priority: .medium, destination: .profile))
         }
         return Array(r.prefix(4))
     }
@@ -1675,6 +1678,15 @@ struct InsightsSectionView: View {
         }
     }
 
+    private func destinationForInsightType(_ type: String) -> TabItem? {
+        switch type {
+        case "sleep", "recovery": return .sleep
+        case "nutrition": return .lifestyle
+        case "mindset": return .chat
+        default: return .workout
+        }
+    }
+
     var body: some View {
         if !insights.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
@@ -1696,13 +1708,20 @@ struct Insight: Identifiable {
     let id = UUID()
     let icon: String; let title: String; let description: String
     let color: Color; let priority: Priority
+    var destination: TabItem? = nil
     enum Priority { case high, medium, low }
 }
 
 struct InsightCard: View {
     let insight: Insight
+    @EnvironmentObject var store: AppStore
     var body: some View {
-        Button { FDS.haptic(.light) } label: {
+        Button {
+            FDS.haptic(.light)
+            if let destination = insight.destination {
+                store.activeTab = destination
+            }
+        } label: {
             HStack(spacing: 14) {
                 ZStack {
                     Circle().fill(insight.color.opacity(0.14)).frame(width: 46, height: 46)

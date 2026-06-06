@@ -240,6 +240,7 @@ struct ChatMessage: Identifiable {
     var content: String
     var timestamp: Date
     var richCard: RichCardData?
+    var toolCallsMade: [String]?
 }
 
 struct SleepData: Identifiable {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, type Variants } from "framer-motion";
 import {
   User,
@@ -199,7 +200,9 @@ function Pill({ children, variant = "default" }: { children: React.ReactNode; va
 // ---------- Main Component ----------
 
 export default function SettingsPage() {
-  const { userProfile } = useAppStore();
+  const router = useRouter();
+  const userProfile = useAppStore((s) => s.userProfile);
+  const signOut = useAppStore((s) => s.signOut);
 
   // Local toggle states for notification switches
   const [toggles, setToggles] = useState({
@@ -435,6 +438,10 @@ export default function SettingsPage() {
       <motion.div variants={itemVariants} className="mt-6">
         <button
           type="button"
+          onClick={() => {
+            signOut();
+            router.push("/onboarding");
+          }}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-surface px-4 py-3.5 transition-colors active:bg-surface-hover"
         >
           <LogOut size={18} className="text-danger" />

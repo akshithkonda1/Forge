@@ -292,6 +292,30 @@ struct SleepOverviewTab: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 22) {
+                if store.dataLoadState == .loading {
+                    ForgeSkeletonBlock(height: 180, cornerRadius: 20)
+                    ForgeSkeletonBlock(height: 120)
+                    ForgeSkeletonBlock(height: 220)
+                } else if store.sleepData.isEmpty {
+                    ForgeEmptyState(
+                        icon: "moon.zzz.fill",
+                        title: "No sleep data yet",
+                        message: "Connect Apple Health or a wearable to unlock sleep scores, stage breakdowns, and recovery trends.",
+                        actionTitle: "Connect in Settings",
+                        action: { store.activeTab = .profile }
+                    )
+                } else {
+                sleepContent
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 120)
+        }
+    }
+
+    @ViewBuilder
+    private var sleepContent: some View {
+        VStack(spacing: 22) {
                 // Hero score ring
                 SleepScoreHeroCard()
 
@@ -333,9 +357,6 @@ struct SleepOverviewTab: View {
 
                 // Quick actions
                 SleepQuickActionsBar(onAITap: { showAIChat = true })
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 120)
         }
     }
 }

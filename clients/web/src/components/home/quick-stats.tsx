@@ -6,33 +6,51 @@ import { useAppStore } from "@/stores/useAppStore";
 import { MetricPill } from "@/components/shared/metric-pill";
 import { formatNumber } from "@/lib/utils";
 
+function metricTrend(
+  value: number,
+  lowerIsBetter = false,
+): "up" | "down" | "neutral" | undefined {
+  if (value <= 0) return undefined;
+  return lowerIsBetter ? "down" : "up";
+}
+
 export function QuickStats() {
   const dailyMetrics = useAppStore((s) => s.dailyMetrics);
+  const dataLoadState = useAppStore((s) => s.dataLoadState);
+  const hasData =
+    dailyMetrics.steps > 0 ||
+    dailyMetrics.hrv > 0 ||
+    dailyMetrics.restingHR > 0 ||
+    dataLoadState === "loaded" ||
+    dataLoadState === "offline";
 
   const metrics = [
     {
       icon: <Footprints size={14} />,
       label: "Steps",
-      value: formatNumber(dailyMetrics.steps),
-      trend: "up" as const,
+      value: dailyMetrics.steps > 0 ? formatNumber(dailyMetrics.steps) : "—",
+      trend: metricTrend(dailyMetrics.steps),
     },
     {
       icon: <Flame size={14} />,
       label: "Calories",
-      value: `${dailyMetrics.activeCalories} cal`,
-      trend: "up" as const,
+      value:
+        dailyMetrics.activeCalories > 0
+          ? `${formatNumber(dailyMetrics.activeCalories)} cal`
+          : "—",
+      trend: metricTrend(dailyMetrics.activeCalories),
     },
     {
       icon: <Activity size={14} />,
       label: "HRV",
-      value: `${dailyMetrics.hrv} ms`,
-      trend: "up" as const,
+      value: dailyMetrics.hrv > 0 ? `${dailyMetrics.hrv} ms` : "—",
+      trend: metricTrend(dailyMetrics.hrv),
     },
     {
       icon: <Heart size={14} />,
       label: "Resting HR",
-      value: `${dailyMetrics.restingHR} bpm`,
-      trend: "down" as const,
+      value: dailyMetrics.restingHR > 0 ? `${dailyMetrics.restingHR} bpm` : "—",
+      trend: metricTrend(dailyMetrics.restingHR, true),
     },
   ];
 
@@ -56,13 +74,15 @@ export function QuickStats() {
     },
   };
 
+  if (!hasData) return null;
+
   return (
     <div>
-      <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">
+      <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-tertiary">
         Today&apos;s Metrics
       </p>
       <motion.div
-        className="flex gap-2.5 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide"
+        className="scrollbar-hide -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2"
         style={{ WebkitOverflowScrolling: "touch" }}
         variants={containerVariants}
         initial="hidden"

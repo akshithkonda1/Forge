@@ -5,7 +5,9 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var auth = CognitoAuthManager.shared
     @State private var showSplash = true
+    @State private var showAuthSheet = false
 
     var body: some View {
         ZStack {
@@ -13,6 +15,11 @@ struct ContentView: View {
                 MainTabView()
             } else {
                 OnboardingView()
+            }
+
+            if store.isOnboarded && auth.requiresSignIn {
+                AuthRequiredOverlay(showAuthSheet: $showAuthSheet)
+                    .zIndex(50)
             }
             
             // Epic splash screen
@@ -104,6 +111,37 @@ struct ForgeSplashScreen: View {
 }
 
 // MARK: - Main Tab Container
+
+private struct AuthRequiredOverlay: View {
+    @Binding var showAuthSheet: Bool
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "person.crop.circle.badge.checkmark")
+                .font(.system(size: 40, weight: .semibold))
+                .foregroundColor(.ember)
+            Text("Sign in to sync your data")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.textPrimary)
+            Text("Forge uses Cognito in production so your workouts, readiness, and ARIA history stay tied to your account.")
+                .font(.system(size: 14))
+                .foregroundColor(.textSecondary)
+                .multilineTextAlignment(.center)
+            Button("Sign In") { showAuthSheet = true }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 22)
+                .padding(.vertical, 12)
+                .background(Color.ember)
+                .cornerRadius(12)
+        }
+        .padding(28)
+        .background(Color.background.opacity(0.94))
+        .sheet(isPresented: $showAuthSheet) {
+            CognitoSignInSheet()
+        }
+    }
+}
 
 struct MainTabView: View {
     @EnvironmentObject var store: AppStore
