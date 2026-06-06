@@ -5,7 +5,6 @@ import { motion, type Variants } from "framer-motion";
 import {
   User,
   Dumbbell,
-  Watch,
   Bell,
   Shield,
   CreditCard,
@@ -13,10 +12,10 @@ import {
   Info,
   LogOut,
   ChevronRight,
-  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
+import { ConnectedDevicesSection } from "@/components/integrations/connected-devices-section";
 import type { CoachingStyle, FitnessGoal, WorkoutType } from "@/types";
 
 // ---------- Mappings ----------
@@ -317,35 +316,11 @@ export default function SettingsPage() {
         </div>
       </SectionCard>
 
-      {/* ===== 3. Connected Devices ===== */}
-      <SectionHeader>Connected Devices</SectionHeader>
-      <SectionCard>
-        {userProfile.connectedDevices.map((device) => (
-          <SettingsRow
-            key={device}
-            icon={<Watch size={18} />}
-            iconColor="text-steel"
-            label={device}
-            value={
-              <span className="inline-flex items-center gap-1.5 text-xs">
-                <span className="inline-block h-2 w-2 rounded-full bg-success" />
-                Connected
-              </span>
-            }
-            showChevron
-          />
-        ))}
-        {/* Add Device */}
-        <button
-          type="button"
-          className="flex w-full items-center gap-3 px-4 py-3 transition-colors active:bg-surface-hover"
-        >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-border-light">
-            <Plus size={16} className="text-text-tertiary" />
-          </span>
-          <span className="text-sm font-medium text-ember">Add Device</span>
-        </button>
-      </SectionCard>
+      <ConnectedDevicesSection
+        SectionHeader={SectionHeader}
+        SectionCard={SectionCard}
+        SettingsRow={SettingsRow}
+      />
 
       {/* ===== 4. Workout Preferences ===== */}
       <SectionHeader>Workout Preferences</SectionHeader>

@@ -1,6 +1,7 @@
 import type {
   ChatMessage,
   DailyMetrics,
+  IntegrationConnection,
   PersonalRecord,
   ReadinessData,
   SleepData,
@@ -29,6 +30,12 @@ export interface DashboardTodayResponse {
   recentSleep: SleepData[];
   recentWorkouts: WorkoutHistory[];
   personalRecords: PersonalRecord[];
+  connections: IntegrationConnection[];
+}
+
+export interface ProfileResponse {
+  profile: UserProfile;
+  connections: IntegrationConnection[];
 }
 
 export interface ARIAChatResponse {
@@ -59,6 +66,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const forgeAPI = {
+  getMe: () => request<ProfileResponse>("/me"),
   getDashboardToday: () => request<DashboardTodayResponse>("/dashboard/today"),
   getSleep: (days = 14) => request<{ sleep: SleepData[] }>(`/sleep?days=${days}`),
   getWorkoutHistory: (days = 30) =>
@@ -92,6 +100,38 @@ export const forgeAPI = {
     request("/workouts/logs", {
       method: "POST",
       body: JSON.stringify({ workout }),
+    }),
+  getDeviceConnectionStatus: () =>
+    request<{
+      configured: boolean;
+      connected: boolean;
+      provider?: string;
+    }>("/integrations/terra/status"),
+  createWearableWidgetSession: (payload: {
+    successRedirectUrl: string;
+    failureRedirectUrl: string;
+    language?: string;
+  }) =>
+    request<{
+      referenceId: string;
+      sessionId?: string;
+      url?: string;
+      expiresAt?: string;
+      status: string;
+    }>("/integrations/terra/widget", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  syncIntegration: (provider: string) =>
+    request<{
+      provider: string;
+      jobId: string;
+      status: string;
+      queuedAt: string;
+      requested?: string[];
+    }>(`/integrations/${provider}/sync`, {
+      method: "POST",
+      body: JSON.stringify({}),
     }),
 };
 

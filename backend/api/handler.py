@@ -6,8 +6,24 @@ from datetime import datetime, timezone
 from ai_router import AIRouter, RouteRequest, RoutingError, default_models, humanize_bytes
 from aria_agent import ARIA_ANALYSIS_MODEL, ARIA_CHAT_MODEL
 from auth import extract_user_id
+from integrations import terra_config
+from integrations.terra_self_integration import get_integration_state
+from ops_auth import require_ops_token
 from responses import RouteError, error_response, not_found, ok
-from routes import aria, chat, coach, dashboard, health, integrations, profile, progress, sleep, workouts
+from routes import aria, chat, coach, dashboard, health, integrations, profile, progress, sleep, terra, workouts
+
+
+def _raw_body(event: dict) -> str:
+    body = event.get("body")
+    if not body:
+        return ""
+
+    if event.get("isBase64Encoded"):
+        return b64decode(body).decode("utf-8")
+
+    if isinstance(body, dict):
+        return json.dumps(body)
+    return str(body)
 
 
 def _parse_json_body(event: dict) -> dict:
@@ -27,6 +43,25 @@ def _parse_json_body(event: dict) -> dict:
         raise RouteError(400, "Request body must be valid JSON.") from exc
 
 
+def _terra_health_summary() -> dict:
+    state = get_integration_state()
+    return {
+        "configured": terra_config.is_configured(),
+        "webhookConfigured": terra_config.is_webhook_configured(),
+        "webhookPath": "/integrations/terra/webhook",
+        "status": state.get("status", "unknown"),
+        "apiReachable": state.get("apiReachable", False),
+        "selfIntegration": {
+            "lastBootstrapAt": state.get("lastBootstrapAt"),
+            "webhookUrl": state.get("webhookUrl"),
+        },
+        "selfHealing": {
+            "enabled": True,
+            "path": "/integrations/terra/self-heal",
+        },
+    }
+
+
 def _query_int(event: dict, name: str, default: int, *, minimum: int = 1, maximum: int = 365) -> int:
     params = event.get("queryStringParameters") or {}
     try:
@@ -37,6 +72,9 @@ def _query_int(event: dict, name: str, default: int, *, minimum: int = 1, maximu
 
 
 def handler(event, _context):
+    if event.get("forgeAction") == "terra-self-heal":
+        return terra.handle_scheduled_self_heal()
+
     request_context = event.get("requestContext", {})
     http_context = request_context.get("http", {})
     method = http_context.get("method", "GET")
@@ -86,7 +124,34 @@ def handler(event, _context):
                     "backup-model",
                 ],
             },
+            "integrations": {
+                "terra": _terra_health_summary(),
+            },
         })
+
+    if method == "GET" and path == "/integrations/terra/health":
+        return terra.handle_get_integration_health()
+
+    if method == "POST" and path == "/integrations/terra/self-integrate":
+        try:
+            require_ops_token(event)
+            return terra.handle_post_self_integrate()
+        except RouteError as exc:
+            return error_response(exc)
+
+    if method == "POST" and path == "/integrations/terra/self-heal":
+        try:
+            require_ops_token(event)
+            return terra.handle_post_self_heal()
+        except RouteError as exc:
+            return error_response(exc)
+
+    # --- Terra webhook (signature verified, no JWT) ---
+    if method == "POST" and path == "/integrations/terra/webhook":
+        try:
+            return terra.handle_post_webhook(_raw_body(event), event.get("headers") or {})
+        except RouteError as exc:
+            return error_response(exc)
 
     # --- AI router (no user-scoped data required) ---
     if method == "POST" and path == "/ai/router":
@@ -158,6 +223,12 @@ def handler(event, _context):
             provider = path[len("/integrations/"):-len("/sync")]
             if provider and "/" not in provider:
                 return integrations.handle_post_integration_sync(user_id, provider, body)
+
+        if method == "POST" and path == "/integrations/terra/widget":
+            return terra.handle_post_widget(user_id, body)
+
+        if method == "GET" and path == "/integrations/terra/status":
+            return terra.handle_get_status(user_id)
 
         # --- ARIA routes ---
         if method == "POST" and path == "/aria/chat":

@@ -63,6 +63,26 @@ output "ai_provider_secret_arn" {
   value       = aws_secretsmanager_secret.ai_provider.arn
 }
 
+output "terra_secret_arn" {
+  description = "Secrets Manager ARN for Terra API credentials and webhook signing secret."
+  value       = aws_secretsmanager_secret.terra.arn
+}
+
+output "terra_webhook_url" {
+  description = "Public Terra webhook destination URL (configure in Terra dashboard)."
+  value       = "${aws_apigatewayv2_api.http.api_endpoint}/integrations/terra/webhook"
+}
+
+output "terra_health_url" {
+  description = "Terra integration health endpoint for ops dashboards."
+  value       = "${aws_apigatewayv2_api.http.api_endpoint}/integrations/terra/health"
+}
+
+output "terra_self_healing_enabled" {
+  description = "Whether scheduled Terra self-healing is active."
+  value       = var.enable_self_healing && var.enable_terra_self_healing
+}
+
 output "client_configuration" {
   description = "Convenient shared config object for wiring both frontends."
   value = {

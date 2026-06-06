@@ -1,10 +1,15 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/stores/useAppStore";
 import { cn } from "@/lib/utils";
+import {
+  clearOnboardingDraft,
+  readOnboardingDraft,
+} from "@/lib/device-connect";
+import type { UserProfile } from "@/types";
 import WelcomeScreen from "@/components/onboarding/welcome-screen";
 import ProfileSetup from "@/components/onboarding/profile-setup";
 import DeviceConnection from "@/components/onboarding/device-connection";
@@ -30,6 +35,18 @@ export default function OnboardingPage() {
   const router = useRouter();
   const onboardingStep = useAppStore((s) => s.onboardingStep);
   const setOnboardingStep = useAppStore((s) => s.setOnboardingStep);
+  const updateProfile = useAppStore((s) => s.updateProfile);
+  const refreshProfileFromAPI = useAppStore((s) => s.refreshProfileFromAPI);
+
+  useEffect(() => {
+    const draft = readOnboardingDraft();
+    if (!draft) return;
+
+    setOnboardingStep(draft.step);
+    updateProfile(draft.profile as Partial<UserProfile>);
+    clearOnboardingDraft();
+    void refreshProfileFromAPI();
+  }, [refreshProfileFromAPI, setOnboardingStep, updateProfile]);
 
   const handleNext = useCallback(() => {
     setOnboardingStep(onboardingStep + 1);

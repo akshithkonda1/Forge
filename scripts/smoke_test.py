@@ -47,6 +47,20 @@ def main() -> int:
     code, health = request("GET", "/health")
     passed &= check("GET /health", code == 200 and health.get("status") == "ok", f"status={code}")
 
+    terra = (health.get("integrations") or {}).get("terra") or {}
+    passed &= check(
+        "GET /health integrations.terra",
+        "configured" in terra and "selfHealing" in terra,
+        f"status={terra.get('status', 'n/a')}",
+    )
+
+    code, terra_health = request("GET", "/integrations/terra/health")
+    passed &= check(
+        "GET /integrations/terra/health",
+        code == 200 and "healthy" in terra_health and "integration" in terra_health,
+        f"status={code}",
+    )
+
     code, dashboard = request("GET", "/dashboard/today")
     passed &= check(
         "GET /dashboard/today",

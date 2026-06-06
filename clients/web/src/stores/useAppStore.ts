@@ -9,6 +9,7 @@ import type {
   SleepData,
   WorkoutHistory,
   PersonalRecord,
+  IntegrationConnection,
 } from "@/types";
 
 interface AppState {
@@ -20,6 +21,7 @@ interface AppState {
 
   // User Profile
   userProfile: UserProfile;
+  connections: IntegrationConnection[];
   updateProfile: (profile: Partial<UserProfile>) => void;
 
   // Readiness
@@ -65,6 +67,7 @@ interface AppState {
   dataLoadState: "idle" | "loading" | "loaded" | "offline";
   isGeneratingResponse: boolean;
   loadDashboardFromAPI: () => Promise<void>;
+  refreshProfileFromAPI: () => Promise<void>;
   sendChatMessage: (text: string) => Promise<void>;
   completeOnboarding: () => Promise<void>;
 }
@@ -268,6 +271,7 @@ export const useAppStore = create<AppState>((set) => ({
   setOnboardingStep: (step) => set({ onboardingStep: step }),
 
   userProfile: mockProfile,
+  connections: [],
   updateProfile: (profile) =>
     set((state) => ({
       userProfile: { ...state.userProfile, ...profile },
@@ -379,6 +383,7 @@ export const useAppStore = create<AppState>((set) => ({
       const dashboard = await forgeAPI.getDashboardToday();
       set({
         userProfile: dashboard.profile,
+        connections: dashboard.connections ?? [],
         readiness: dashboard.readiness,
         dailyMetrics: dashboard.dailyMetrics,
         todayWorkout: dashboard.todayWorkout,
@@ -396,6 +401,29 @@ export const useAppStore = create<AppState>((set) => ({
         personalRecords: mockPRs,
         dataLoadState: "offline",
       });
+    }
+  },
+
+  refreshProfileFromAPI: async () => {
+    try {
+      const profileResponse = await forgeAPI.getMe();
+      const connectedDevices = profileResponse.connections
+        .filter((connection) => connection.status === "connected")
+        .map((connection) => connection.displayName);
+
+      set({
+        userProfile: {
+          ...useAppStore.getState().userProfile,
+          ...profileResponse.profile,
+          connectedDevices:
+            connectedDevices.length > 0
+              ? connectedDevices
+              : profileResponse.profile.connectedDevices,
+        },
+        connections: profileResponse.connections,
+      });
+    } catch (error) {
+      console.warn("Failed to refresh profile connections", error);
     }
   },
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from responses import ok
+from routes._connections import public_connection
 from seed_data import (
     default_connections,
     default_personal_records,
@@ -26,7 +27,7 @@ def handle_get_dashboard_today(user_id: str) -> dict:
 
     connections_items = dynamodb.query_prefix(keys.user_pk(user_id), "CONNECTION#")
     connections = (
-        [{k: v for k, v in i.items() if k not in ("pk", "sk")} for i in connections_items]
+        [public_connection(i) for i in connections_items]
         if connections_items
         else default_connections()
     )

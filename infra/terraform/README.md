@@ -11,7 +11,8 @@ AWS serverless backend for Forge — Cognito auth, API Gateway HTTP API, Python 
 - Versioned S3 artifacts bucket for Lambda zips (rollback + self-healing redeploy)
 - DynamoDB single-table store with optional point-in-time recovery
 - S3 uploads bucket with versioning and encryption
-- Secrets Manager secret for AI provider credentials
+- Secrets Manager secrets for AI provider and Terra middleware credentials
+- Terra integration routes (webhook, health, widget) and scheduled self-healing
 - CloudWatch log groups for API and Lambda logs
 - **Self-healing** (optional, enabled by default):
   - EventBridge schedule → healer Lambda probes `GET /health`
@@ -44,11 +45,27 @@ Forge uses managed AWS primitives instead of a container orchestrator:
 
 Disable with `enable_self_healing = false` in `terraform.tfvars`.
 
+## Terra middleware
+
+After `terraform apply`:
+
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id forge-dev/integrations/terra \
+  --secret-string '{"dev_id":"...","api_key":"...","webhook_secret":"..."}'
+
+terraform output -raw terra_webhook_url    # register in Terra dashboard
+terraform output -raw terra_health_url     # ops health probe
+```
+
+Scheduled Terra self-healing runs on the API Lambda (`enable_terra_self_healing`, default `true`). Set `ops_self_heal_token` in `terraform.tfvars` to trigger manual `POST /integrations/terra/self-heal` over HTTP.
+
 ## Files
 
 - `main.tf` — core infrastructure and API Lambda
 - `artifacts.tf` — S3 bucket + Lambda zip upload
 - `self_healing.tf` — healer Lambda, alarms, EventBridge, SNS
+- `terra_self_healing.tf` — Terra stale-connection repair schedule + CloudWatch alarm
 - `healer/handler.py` — health probe and S3 redeploy logic
 - `variables.tf` / `outputs.tf` / `locals.tf` — configuration
 

@@ -40,12 +40,41 @@ export interface UserProfile {
   weeklySchedule: number[];
 }
 
+export type IntegrationMiddleware = "terra" | "native";
+
 export interface IntegrationConnection {
   provider: SourceProvider;
   displayName: string;
   status: "connected" | "needs-auth" | "syncing" | "error";
   lastSyncedAt?: ISODateTime;
   errorMessage?: string;
+  middleware?: IntegrationMiddleware;
+  terraUserId?: string;
+}
+
+export interface TerraWidgetSessionRequest {
+  successRedirectUrl: string;
+  failureRedirectUrl: string;
+  language?: string;
+}
+
+export interface TerraWidgetSessionResponse {
+  middleware: "terra";
+  referenceId: string;
+  sessionId?: string;
+  url?: string;
+  expiresAt?: string;
+  status: string;
+}
+
+export interface TerraStatusResponse {
+  middleware: "terra";
+  configured: boolean;
+  webhookConfigured: boolean;
+  connected: boolean;
+  terraUserId?: string;
+  provider?: string;
+  lastUpdatedAt?: ISODateTime;
 }
 
 export interface ReadinessData {
