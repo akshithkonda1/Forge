@@ -1,71 +1,105 @@
 # Forge Terraform
 
-This Terraform stack creates a shared AWS backend foundation for Forge, so the Next.js app and the Swift app can communicate with the same services without additional adapters. 
+AWS serverless backend for Forge — Cognito auth, API Gateway HTTP API, Python Lambda (`backend/api`), DynamoDB, S3, and self-healing observability. No Kubernetes.
 
 ## What it provisions
 
 - Cognito user pool with separate app clients for web and iOS
-- Cognito identity pool and authenticated IAM role for direct client access to AWS resources
-- API Gateway HTTP API
-- Lambda placeholder backend wired to the API
-- DynamoDB single-table store for shared app data
-- S3 uploads bucket
+- Cognito identity pool and authenticated IAM role for direct client S3 access
+- API Gateway HTTP API with JWT authorizer
+- Lambda backend packaged from `backend/api`
+- Versioned S3 artifacts bucket for Lambda zips (rollback + self-healing redeploy)
+- DynamoDB single-table store with optional point-in-time recovery
+- S3 uploads bucket with versioning and encryption
 - Secrets Manager secret for AI provider credentials
 - CloudWatch log groups for API and Lambda logs
+- **Self-healing** (optional, enabled by default):
+  - EventBridge schedule → healer Lambda probes `GET /health`
+  - CloudWatch alarms on API health + Lambda errors → SNS alerts
+  - Automatic redeploy from the versioned S3 artifact when unhealthy
 
-## Why this shape
+## Backend packaging
 
-The repo currently contains two client apps, but no backend implementation yet. This stack sets up the shared primitives both clients will need without locking you into one specific handler layout too early.
+Terraform zips `backend/api` (same code as the local dev server) into `build/forge-backend.zip`, uploads it to the artifacts bucket, and deploys it as `handler.handler`.
 
-The DynamoDB table uses a single-table pattern with `pk`, `sk`, `gsi1pk`, and `gsi1sk`, so you can store:
+Local development uses the same package:
 
-- user profiles
-- readiness snapshots
-- daily metrics
-- workout plans and history
-- chat sessions and messages
-- device connections
+```bash
+python3 backend/dev_server.py          # port 3001
+python3 scripts/package_lambda.py      # build zip locally
+```
+
+## Self-healing (no K8s)
+
+Forge uses managed AWS primitives instead of a container orchestrator:
+
+| Component | Role |
+|---|---|
+| **S3 artifacts bucket** | Versioned Lambda zip — known-good rollback target |
+| **Healer Lambda** | Probes `/health`, redeploys API Lambda from S3 on failure |
+| **EventBridge schedule** | Runs health probe every N minutes (default 5) |
+| **CloudWatch alarms** | API health metric + Lambda error rate → SNS |
+| **DynamoDB PITR** | Point-in-time recovery for data (enabled by default) |
+| **S3 versioning** | Uploads + artifacts buckets retain object history |
+
+Disable with `enable_self_healing = false` in `terraform.tfvars`.
 
 ## Files
 
-- `versions.tf`: Terraform and provider requirements
-- `providers.tf`: AWS provider configuration
-- `variables.tf`: stack inputs
-- `locals.tf`: shared naming and tagging
-- `main.tf`: core infrastructure
-- `outputs.tf`: values both clients can consume
-- `lambda/handler.py`: placeholder shared backend handler
+- `main.tf` — core infrastructure and API Lambda
+- `artifacts.tf` — S3 bucket + Lambda zip upload
+- `self_healing.tf` — healer Lambda, alarms, EventBridge, SNS
+- `healer/handler.py` — health probe and S3 redeploy logic
+- `variables.tf` / `outputs.tf` / `locals.tf` — configuration
 
 ## Usage
 
-1. Copy `terraform.tfvars.example` to `terraform.tfvars`.
-2. Fill in any environment-specific values.
-3. Run `terraform init`.
-4. Run `TF_VAR_skip_aws_provider_checks=true terraform plan` for speculative planning without live AWS credentials.
-5. Run `terraform apply`.
-6. Seed the AI provider secret out-of-band with `aws secretsmanager put-secret-value` so the key never lands in Terraform state.
+```bash
+cd infra/terraform
+cp terraform.tfvars.example terraform.tfvars
+terraform init
+TF_VAR_skip_aws_provider_checks=true terraform plan   # CI / no credentials
+terraform apply
+```
 
-## After apply
+After apply, seed the AI provider secret out-of-band:
 
-Wire the outputs into both clients:
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id forge-dev/ai/provider \
+  --secret-string '{"ANTHROPIC_API_KEY":"replace-me"}'
+```
 
-- Next.js app:
-  - API base URL
-  - AWS region
-  - Cognito user pool ID
-  - Cognito web client ID
-  - Cognito identity pool ID
-- Swift app:
-  - API base URL
-  - AWS region
-  - Cognito user pool ID
-  - Cognito iOS client ID
-  - Cognito identity pool ID
+## Deploy chain (CI)
 
-For client uploads, use the Cognito identity pool to obtain authenticated AWS credentials and write objects under the caller's private prefix:
+GitHub Actions runs a three-phase pipeline (`.github/workflows/deploy-chain.yml`):
 
-- `s3://<uploads bucket>/private/{identityId}/...`
+| Phase | Job | What it does |
+|---|---|---|
+| **1 · Test** | `phase1-test-*` | Unit tests, smoke test, `terraform plan`, optional Swift build |
+| **2 · Fix/Improve** | `phase2-fix-improve` | Package Lambda zip, compile checks, `terraform fmt/validate` |
+| **3 · Deploy** | `phase3-deploy` | `terraform apply` + health check + smoke test (default branch only) |
 
-## Current limitation
+Run locally:
 
-The Lambda is intentionally a placeholder. `GET /health` is public and returns a healthy response, while all other routes require a valid Cognito JWT and still return `501 Not Implemented` until you add real backend handlers.
+```bash
+npm run ci:test    # Phase 1
+npm run ci:fix     # Phase 2
+npm run ci:deploy  # Phase 3 (needs AWS credentials)
+```
+
+## Testing
+
+```bash
+# From repo root
+python3 scripts/run_tests.py
+python3 backend/dev_server.py &
+FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 scripts/smoke_test.py
+
+# Deployed API (after terraform apply)
+terraform output -raw healthcheck_url
+```
+
+## Client wiring
+
+Use `terraform output client_configuration` for Cognito IDs, API base URL, and uploads bucket settings for both the Next.js and Swift clients.

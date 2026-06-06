@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Run Forge backend unit tests without pytest installed."""
+"""Run Forge backend unit tests without pytest installed.
+
+Imports resolve against backend/api (same package Terraform deploys to Lambda).
+"""
 
 from __future__ import annotations
 
@@ -9,6 +12,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = ROOT / "tests"
+API_DIR = ROOT / "backend" / "api"
+
+# Mirror Lambda's module layout before discovery imports test modules.
+sys.path[:0] = [str(API_DIR), str(TESTS)]
 
 
 def main() -> int:

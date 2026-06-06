@@ -1,11 +1,9 @@
-import sys
 import time
 import unittest
-from pathlib import Path
 
+from _support import ensure_api_on_path
 
-API_DIR = Path(__file__).resolve().parents[1] / "backend" / "api"
-sys.path.insert(0, str(API_DIR))
+ensure_api_on_path()
 
 from ai_router import AIRouter, MAX_PACKAGE_BYTES, RouteRequest  # noqa: E402
 

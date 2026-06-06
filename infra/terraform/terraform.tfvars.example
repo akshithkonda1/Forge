@@ -18,6 +18,11 @@ allowed_origins = [
 #   --secret-id forge-dev/ai/provider \
 #   --secret-string '{"OPENAI_API_KEY":"replace-me"}'
 
+# Self-healing (no Kubernetes): health probes, CloudWatch alarms, S3 artifact redeploy.
+enable_self_healing           = true
+health_check_interval_minutes = 5
+# alert_email = "ops@example.com"
+
 tags = {
   Owner = "Forge"
 }

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Forge API smoke test — verifies backend routes the frontends depend on."""
+"""Forge API smoke test — verifies backend routes the frontends depend on.
+
+Targets the local dev server (backend/dev_server.py → backend/api on port 3001)
+or a deployed API Gateway URL via FORGE_API_BASE_URL.
+"""
 
 from __future__ import annotations
 

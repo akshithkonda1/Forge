@@ -43,6 +43,21 @@ output "uploads_bucket_name" {
   value       = aws_s3_bucket.uploads.bucket
 }
 
+output "artifacts_bucket_name" {
+  description = "Versioned bucket storing Lambda deployment zips for rollback and self-healing."
+  value       = aws_s3_bucket.artifacts.bucket
+}
+
+output "self_healing_enabled" {
+  description = "Whether the EventBridge health probe and healer Lambda are active."
+  value       = var.enable_self_healing
+}
+
+output "ops_alerts_topic_arn" {
+  description = "SNS topic ARN for infrastructure alerts (null when self-healing is disabled)."
+  value       = var.enable_self_healing ? aws_sns_topic.ops_alerts[0].arn : null
+}
+
 output "ai_provider_secret_arn" {
   description = "Secrets Manager ARN for the AI provider credentials."
   value       = aws_secretsmanager_secret.ai_provider.arn

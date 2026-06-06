@@ -170,82 +170,134 @@ struct CinematicHomeBackground: View {
     var body: some View {
         ZStack {
             Color(hex: "080808")
-
-            if reduceMotion {
-                primaryColor.opacity(0.06).ignoresSafeArea()
-            } else {
-                // Breathing primary gradient
-                LinearGradient(
-                    colors: [
-                        Color(hex: "080808"),
-                        primaryColor.opacity(phase ? 0.09 : 0.04),
-                        Color(hex: "080808"),
-                        Color.ember.opacity(phase ? 0.03 : 0.01),
-                    ],
-                    startPoint: phase ? .topLeading : .bottomLeading,
-                    endPoint:   phase ? .bottomTrailing : .topTrailing
-                )
-                .opacity(0.9)
-
-                // Animated blob mesh
-                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { tl in
-                    let t = tl.date.timeIntervalSinceReferenceDate
-                    Canvas { ctx, size in
-                        let w = size.width; let h = size.height
-                        let blobs: [(CGPoint, Color, CGFloat, Double)] = [
-                            (CGPoint(x: w*(0.15 + 0.10*sin(t*0.17)), y: h*(0.20 + 0.08*cos(t*0.13))),
-                             primaryColor, 280, 0.26),
-                            (CGPoint(x: w*(0.80 + 0.09*cos(t*0.15)), y: h*(0.15 + 0.12*sin(t*0.11))),
-                             Color.steel, 240, 0.18),
-                            (CGPoint(x: w*(0.50 + 0.14*sin(t*0.12+1.0)), y: h*(0.70 + 0.07*cos(t*0.19))),
-                             primaryColor, 200, 0.16),
-                            (CGPoint(x: w*(0.10 + 0.08*cos(t*0.24)), y: h*(0.80 + 0.06*sin(t*0.14))),
-                             Color.steel, 180, 0.14),
-                        ]
-                        for (center, color, r, opacity) in blobs {
-                            let rect = CGRect(x: center.x-r, y: center.y-r, width: r*2, height: r*2)
-                            ctx.fill(Path(ellipseIn: rect), with: .radialGradient(
-                                Gradient(colors: [color.opacity(opacity), color.opacity(0)]),
-                                center: center, startRadius: 0, endRadius: r
-                            ))
-                        }
-                    }
-                }
-                .blur(radius: 50)
-
-                // Screen-blend aurora layer
-                TimelineView(.animation(minimumInterval: 1.0 / 20.0)) { tl in
-                    let t = tl.date.timeIntervalSinceReferenceDate
-                    Canvas { ctx, size in
-                        let w = size.width; let h = size.height
-                        let bands: [(CGFloat, Color, CGFloat)] = [
-                            (h*(0.28 + 0.05*sin(t*0.09)), primaryColor, h*0.16),
-                            (h*(0.55 + 0.07*cos(t*0.07)), Color.steel,  h*0.12),
-                        ]
-                        for (y, color, bH) in bands {
-                            let rect = CGRect(x: 0, y: y-bH/2, width: w, height: bH)
-                            ctx.fill(Path(rect), with: .linearGradient(
-                                Gradient(colors: [color.opacity(0), color.opacity(0.14), color.opacity(0)]),
-                                startPoint: CGPoint(x: 0, y: y-bH/2), endPoint: CGPoint(x: 0, y: y+bH/2)
-                            ))
-                        }
-                    }
-                }
-                .blendMode(.screen)
-                .opacity(0.5)
-            }
-
-            // Always-present vignette
-            RadialGradient(
-                colors: [.clear, Color.black.opacity(0.5)],
-                center: .center, startRadius: 80, endRadius: 380
-            )
+            backgroundLayer
+            vignetteOverlay
         }
         .onAppear {
             guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 14).repeatForever(autoreverses: true)) { phase = true }
         }
         .animation(.easeInOut(duration: 1.8), value: readinessScore)
+    }
+
+    // Split out of `body` — the combined Canvas/TimelineView expression
+    // timed out the type-checker under the CI Xcode toolchain.
+    @ViewBuilder
+    private var backgroundLayer: some View {
+        if reduceMotion {
+            primaryColor.opacity(0.06).ignoresSafeArea()
+        } else {
+            breathingGradient
+            animatedBlobMesh
+            auroraBands
+        }
+    }
+
+    private var breathingGradient: some View {
+        LinearGradient(
+            colors: [
+                Color(hex: "080808"),
+                primaryColor.opacity(phase ? 0.09 : 0.04),
+                Color(hex: "080808"),
+                Color.ember.opacity(phase ? 0.03 : 0.01),
+            ],
+            startPoint: phase ? .topLeading : .bottomLeading,
+            endPoint: phase ? .bottomTrailing : .topTrailing
+        )
+        .opacity(0.9)
+    }
+
+    private var animatedBlobMesh: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            Canvas { context, size in
+                CinematicHomeBackground.drawBlobMesh(
+                    in: &context,
+                    size: size,
+                    time: timeline.date.timeIntervalSinceReferenceDate,
+                    primaryColor: primaryColor
+                )
+            }
+        }
+        .blur(radius: 50)
+    }
+
+    private var auroraBands: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0)) { timeline in
+            Canvas { context, size in
+                CinematicHomeBackground.drawAuroraBands(
+                    in: &context,
+                    size: size,
+                    time: timeline.date.timeIntervalSinceReferenceDate,
+                    primaryColor: primaryColor
+                )
+            }
+        }
+        .blendMode(.screen)
+        .opacity(0.5)
+    }
+
+    private var vignetteOverlay: some View {
+        RadialGradient(
+            colors: [.clear, Color.black.opacity(0.5)],
+            center: .center,
+            startRadius: 80,
+            endRadius: 380
+        )
+    }
+
+    private static func drawBlobMesh(
+        in context: inout GraphicsContext,
+        size: CGSize,
+        time: TimeInterval,
+        primaryColor: Color
+    ) {
+        let w = size.width
+        let h = size.height
+        let blobs: [(CGPoint, Color, CGFloat, Double)] = [
+            (CGPoint(x: w * (0.15 + 0.10 * sin(time * 0.17)), y: h * (0.20 + 0.08 * cos(time * 0.13))), primaryColor, 280, 0.26),
+            (CGPoint(x: w * (0.80 + 0.09 * cos(time * 0.15)), y: h * (0.15 + 0.12 * sin(time * 0.11))), Color.steel, 240, 0.18),
+            (CGPoint(x: w * (0.50 + 0.14 * sin(time * 0.12 + 1.0)), y: h * (0.70 + 0.07 * cos(time * 0.19))), primaryColor, 200, 0.16),
+            (CGPoint(x: w * (0.10 + 0.08 * cos(time * 0.24)), y: h * (0.80 + 0.06 * sin(time * 0.14))), Color.steel, 180, 0.14),
+        ]
+
+        for (center, color, radius, opacity) in blobs {
+            let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+            context.fill(
+                Path(ellipseIn: rect),
+                with: .radialGradient(
+                    Gradient(colors: [color.opacity(opacity), color.opacity(0)]),
+                    center: center,
+                    startRadius: 0,
+                    endRadius: radius
+                )
+            )
+        }
+    }
+
+    private static func drawAuroraBands(
+        in context: inout GraphicsContext,
+        size: CGSize,
+        time: TimeInterval,
+        primaryColor: Color
+    ) {
+        let w = size.width
+        let h = size.height
+        let bands: [(CGFloat, Color, CGFloat)] = [
+            (h * (0.28 + 0.05 * sin(time * 0.09)), primaryColor, h * 0.16),
+            (h * (0.55 + 0.07 * cos(time * 0.07)), Color.steel, h * 0.12),
+        ]
+
+        for (y, color, bandHeight) in bands {
+            let rect = CGRect(x: 0, y: y - bandHeight / 2, width: w, height: bandHeight)
+            context.fill(
+                Path(rect),
+                with: .linearGradient(
+                    Gradient(colors: [color.opacity(0), color.opacity(0.14), color.opacity(0)]),
+                    startPoint: CGPoint(x: 0, y: y - bandHeight / 2),
+                    endPoint: CGPoint(x: 0, y: y + bandHeight / 2)
+                )
+            )
+        }
     }
 }
 

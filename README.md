@@ -75,22 +75,14 @@ forge/
 │       ├── package.json
 │       └── next.config.js
 │
-├── backend/                        # Shared TypeScript backend
-│   ├── src/
-│   │   ├── api/                    # REST API route handlers
-│   │   ├── adapters/               # Platform-specific data adapters
-│   │   │   ├── apple-health/
-│   │   │   ├── strava/
-│   │   │   ├── garmin/
-│   │   │   ├── whoop/
-│   │   │   ├── oura/
-│   │   │   └── base-adapter.ts     # Abstract adapter contract
-│   │   ├── normalizer/             # Unified data normalization layer
-│   │   ├── ai/                     # AI coach logic & Claude API integration
-│   │   ├── scoring/                # Unified health score algorithm
-│   │   ├── auth/                   # Authentication & OAuth flows
-│   │   └── db/                     # Database models & migrations
-│   └── package.json
+├── backend/                        # Python Lambda API (local dev + AWS deploy)
+│   ├── api/                        # handler, routes, ARIA, DynamoDB storage
+│   ├── dev_server.py               # Local server on port 3001
+│   └── requirements.txt
+│
+├── infra/terraform/                # AWS: API Gateway, Lambda, Cognito, self-healing
+│
+├── scripts/                        # run_tests.py, smoke_test.py, package_lambda.py
 │
 ├── shared/                         # Shared types & API contracts
 │   └── types/
@@ -244,24 +236,22 @@ git clone https://github.com/akshithkonda1/Forge.git
 cd Forge
 ```
 
-### 2. Backend setup
+### 2. Backend setup (Python)
 
 ```bash
-cd backend
-npm install
+# From repo root
+pip install -r backend/requirements.txt
 
-# Copy environment template
-cp .env.example .env
+# Start local API (same code Terraform deploys from backend/api)
+python3 backend/dev_server.py
+# → http://127.0.0.1:3001
 
-# Fill in your credentials (see Environment Variables section below)
+# Run unit tests and smoke checks
+python3 scripts/run_tests.py
+FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 scripts/smoke_test.py
 ```
 
-**Start the backend:**
-
-```bash
-npm run dev
-# Backend runs at http://localhost:3001
-```
+Or use npm scripts: `npm run backend:dev`, `npm run backend:test`, `npm run backend:smoke`.
 
 ### 3. Web client setup
 
@@ -294,49 +284,20 @@ INFOPLIST_KEY_ANTHROPIC_API_KEY = your_key_here   # development only — do not 
 
 4. Build and run (`⌘R`)
 
-### 5. Environment Variables
+### 5. Local backend environment
 
-Create a `.env` file in `backend/` with the following:
+The Python dev server uses in-memory storage and a test user by default — no database or AWS credentials required for most routes.
 
-```env
-# Server
-PORT=3001
-NODE_ENV=development
-
-# Database
-DATABASE_URL=postgresql://localhost:5432/forge
-
-# Authentication
-JWT_SECRET=your_super_secret_jwt_key
-JWT_EXPIRES_IN=7d
-
-# AI
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Health Platform Integrations
-STRAVA_CLIENT_ID=
-STRAVA_CLIENT_SECRET=
-STRAVA_REDIRECT_URI=http://localhost:3001/auth/strava/callback
-
-GARMIN_CLIENT_ID=
-GARMIN_CLIENT_SECRET=
-
-WHOOP_CLIENT_ID=
-WHOOP_CLIENT_SECRET=
-
-OURA_CLIENT_ID=
-OURA_CLIENT_SECRET=
-
-# Optional: Terra API (middleware for multi-platform integration)
-TERRA_API_KEY=
-TERRA_DEV_ID=
-
-# Optional: Vital (alternative middleware)
-VITAL_API_KEY=
-VITAL_TEAM_ID=
+```bash
+FORGE_DEV_PORT=3001                    # default
+FORGE_TEST_USER_ID=test-user-00000000  # default dev user
 ```
 
-> **Note:** Apple Health data flows through the native iOS client directly — no backend credentials needed for HealthKit. The iOS app requests HealthKit permissions from the user at runtime.
+`POST /aria/chat` returns `503` locally without Bedrock credentials; all other core routes return seed data.
+
+For deployed AWS environments, run `cd infra/terraform && terraform apply` and seed the AI secret documented in `infra/terraform/README.md`.
+
+> **Note:** Apple Health data flows through the native iOS client directly — no backend credentials needed for HealthKit.
 
 ---
 
@@ -618,9 +579,9 @@ This score is visible on the Home screen, informs ARIA's coaching tone, and tren
 
 ### Phase 2 — Real Data 🔄 (In Progress)
 - [ ] Apple Health (HealthKit) native integration
-- [ ] Backend REST API (complete endpoints, auth, database)
-- [ ] Real data persistence (PostgreSQL)
-- [ ] User authentication (JWT + refresh tokens)
+- [x] Python backend REST API (`backend/api`) with local dev server
+- [x] AWS Lambda + DynamoDB infrastructure (Terraform, self-healing)
+- [ ] Cognito auth wired end-to-end on all clients
 - [ ] End-to-end data flow: HealthKit → iOS → Backend → ARIA
 
 ### Phase 3 — Platform Integrations 🔜

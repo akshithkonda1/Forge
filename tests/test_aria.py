@@ -6,15 +6,13 @@ function which replaces the agent with a controllable stub.
 """
 import json
 import os
-import sys
 import unittest
-from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+from _support import ensure_api_on_path
 
-API_DIR = Path(__file__).resolve().parents[1] / "backend" / "api"
-sys.path.insert(0, str(API_DIR))
+ensure_api_on_path()
 
 import aria_agent
 import aria_memory

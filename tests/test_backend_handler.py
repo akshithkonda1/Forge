@@ -1,11 +1,9 @@
 import json
-import sys
 import unittest
-from pathlib import Path
 
+from _support import ensure_api_on_path
 
-API_DIR = Path(__file__).resolve().parents[1] / "backend" / "api"
-sys.path.insert(0, str(API_DIR))
+ensure_api_on_path()
 
 from handler import handler  # noqa: E402
 from routes import coach as coach_routes  # noqa: E402
