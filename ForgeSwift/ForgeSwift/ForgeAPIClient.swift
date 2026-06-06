@@ -123,6 +123,11 @@ struct APIUserProfile: Decodable {
     let weeklySchedule: [Int]
 }
 
+struct MeResponse: Decodable {
+    let profile: APIUserProfile
+    let connections: [APIIntegrationConnection]
+}
+
 struct DashboardTodayResponse: Decodable {
     let profile: APIUserProfile
     let readiness: APIReadinessData
@@ -237,6 +242,48 @@ final class ForgeAPIClient {
 
     func getARIAConversation(threadId: String = "current") async throws -> ARIAConversationResponse {
         try await request(path: "/aria/conversation", query: ["threadId": threadId])
+    }
+
+    func getARIAInsights(days: Int = 7) async throws -> ARIAInsightsResponse {
+        try await request(path: "/aria/insights", query: ["days": String(days)])
+    }
+
+    func getMe() async throws -> MeResponse {
+        try await request(path: "/me")
+    }
+
+    func getDeviceConnectionStatus() async throws -> DeviceServiceStatus {
+        try await request(path: "/integrations/terra/status")
+    }
+
+    func createWearableWidgetSession(
+        successRedirectUrl: String,
+        failureRedirectUrl: String,
+        language: String = "en"
+    ) async throws -> WidgetSessionResponse {
+        struct Body: Encodable {
+            let successRedirectUrl: String
+            let failureRedirectUrl: String
+            let language: String
+        }
+        return try await request(
+            path: "/integrations/terra/widget",
+            method: "POST",
+            body: Body(
+                successRedirectUrl: successRedirectUrl,
+                failureRedirectUrl: failureRedirectUrl,
+                language: language
+            )
+        )
+    }
+
+    func syncIntegration(provider: String) async throws -> IntegrationSyncResponse {
+        struct EmptyBody: Encodable {}
+        return try await request(
+            path: "/integrations/\(provider)/sync",
+            method: "POST",
+            body: EmptyBody()
+        )
     }
 
     func sendARIAChat(content: String) async throws -> ARIAChatResponse {

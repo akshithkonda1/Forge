@@ -646,6 +646,10 @@ struct ARIAGreetingCard: View {
     @State private var glowBeat      = false
 
     private var fullGreeting: String {
+        if let insight = store.coachingInsights.first {
+            return "\(insight.title). \(insight.observation) \(insight.recommendation)"
+        }
+
         let h    = Calendar.current.component(.hour, from: Date())
         let time = h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening"
         let deep = store.dailyMetrics.deepSleep
@@ -1090,13 +1094,37 @@ struct ReadinessTrendSection: View {
     @EnvironmentObject var store: AppStore
     @State private var appeared = false
 
-    // Sample data — replace with store.readinessTrend in production
     private var trendData: [(day: String, score: Int)] {
+        if !store.sleepData.isEmpty {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "EEE"
+            return store.sleepData.prefix(7).reversed().map { sleep in
+                let label: String
+                if let date = formatter.date(from: sleep.date) {
+                    label = dayFormatter.string(from: date)
+                } else {
+                    label = sleep.date
+                }
+                return (label, sleep.score)
+            }
+        }
+
+        if store.weeklyHealthTrends.count >= 3 {
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "EEE"
+            return store.weeklyHealthTrends.suffix(7).map { trend in
+                let score = min(100, max(30, Int((trend.sleepHours / 8.0) * 100)))
+                return (dayFormatter.string(from: trend.date), score)
+            }
+        }
+
+        let overall = store.readiness.overall
         let days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
-        let base = max(40, store.readiness.overall - 20)
-        return days.enumerated().map { i, d in
-            let noise = Int.random(in: -8...12)
-            return (d, min(100, max(30, base + noise + i * 2)))
+        return days.enumerated().map { i, day in
+            let drift = (i - 3) * 2
+            return (day, min(100, max(30, overall + drift)))
         }
     }
 
@@ -1481,20 +1509,62 @@ struct QuickStatsView: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
-                    MetricCard(icon: "figure.walk",      iconColor: Color(hex: "22C55E"),
-                               value: store.dailyMetrics.steps.formatted(), label: "Steps",       trend: .up,   trendValue: "+12%")
-                    MetricCard(icon: "flame.fill",       iconColor: .ember,
-                               value: "\(store.dailyMetrics.activeCalories)",  label: "Active Cal", trend: .up,   trendValue: "+8%")
-                    MetricCard(icon: "waveform.path.ecg",iconColor: .danger,
-                               value: "\(store.dailyMetrics.hrv)ms",           label: "HRV",        trend: .up,   trendValue: "+5%")
-                    MetricCard(icon: "heart.fill",       iconColor: .steel,
-                               value: "\(store.dailyMetrics.restingHR) bpm",   label: "Resting HR", trend: .down, trendValue: "-2%")
+                    metricCard(
+                        icon: "figure.walk",
+                        iconColor: Color(hex: "22C55E"),
+                        value: store.dailyMetrics.steps.formatted(),
+                        label: "Steps",
+                        kind: .steps
+                    )
+                    metricCard(
+                        icon: "flame.fill",
+                        iconColor: .ember,
+                        value: "\(store.dailyMetrics.activeCalories)",
+                        label: "Active Cal",
+                        kind: .activeCalories
+                    )
+                    metricCard(
+                        icon: "waveform.path.ecg",
+                        iconColor: .danger,
+                        value: "\(store.dailyMetrics.hrv)ms",
+                        label: "HRV",
+                        kind: .hrv
+                    )
+                    metricCard(
+                        icon: "heart.fill",
+                        iconColor: .steel,
+                        value: "\(store.dailyMetrics.restingHR) bpm",
+                        label: "Resting HR",
+                        kind: .restingHR
+                    )
                 }
                 .padding(.horizontal, 1)
             }
         }
         .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 20)
         .onAppear { withAnimation(FDS.Spring.hero.delay(0.45)) { appeared = true } }
+    }
+
+    @ViewBuilder
+    private func metricCard(
+        icon: String,
+        iconColor: Color,
+        value: String,
+        label: String,
+        kind: AppStore.MetricTrendKind
+    ) -> some View {
+        if let trend = store.metricTrend(for: kind) {
+            MetricCard(
+                icon: icon,
+                iconColor: iconColor,
+                value: value,
+                label: label,
+                trend: trend.0,
+                trendValue: trend.1
+            )
+        } else {
+            MetricCard(icon: icon, iconColor: iconColor, value: value, label: label, trend: .neutral)
+        }
     }
 }
 
@@ -1546,7 +1616,16 @@ struct InsightsSectionView: View {
     @State private var appeared = false
 
     private var insights: [Insight] {
-        var r: [Insight] = []
+        var r: [Insight] = store.coachingInsights.prefix(3).map { item in
+            Insight(
+                icon: iconForInsightType(item.type),
+                title: item.title,
+                description: "\(item.observation) \(item.recommendation)",
+                color: colorForPriority(item.priority),
+                priority: priorityFor(item.priority)
+            )
+        }
+
         if store.readiness.overall >= 85 {
             r.append(Insight(icon: "crown.fill", title: "Peak Readiness Window 👑",
                 description: "You're in elite territory. This is your best time to PR or go heavy.",
@@ -1567,7 +1646,33 @@ struct InsightsSectionView: View {
                 description: "You're on a roll. Stay consistent and let recovery guide your intensity.",
                 color: .ember, priority: .medium))
         }
-        return r
+        return Array(r.prefix(4))
+    }
+
+    private func iconForInsightType(_ type: String) -> String {
+        switch type {
+        case "sleep": return "moon.stars.fill"
+        case "recovery": return "heart.text.square.fill"
+        case "nutrition": return "fork.knife"
+        case "mindset": return "brain.head.profile"
+        default: return "figure.strengthtraining.traditional"
+        }
+    }
+
+    private func colorForPriority(_ priority: String) -> Color {
+        switch priority {
+        case "high": return .ember
+        case "low": return .steel
+        default: return Color(hex: "22C55E")
+        }
+    }
+
+    private func priorityFor(_ priority: String) -> Insight.Priority {
+        switch priority {
+        case "high": return .high
+        case "low": return .low
+        default: return .medium
+        }
     }
 
     var body: some View {

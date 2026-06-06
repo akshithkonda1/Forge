@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showSplash = true
 
     var body: some View {
@@ -26,6 +27,12 @@ struct ContentView: View {
                 withAnimation(.easeOut(duration: 0.6)) {
                     showSplash = false
                 }
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, store.isOnboarded else { return }
+            Task {
+                await store.refreshConnections()
             }
         }
     }

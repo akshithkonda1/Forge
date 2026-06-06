@@ -75,6 +75,30 @@ final class ForgeRepository: ObservableObject {
         )
     }
 
+    func fetchInsights(days: Int = 7) async throws -> [CoachingInsight] {
+        let response = try await api.getARIAInsights(days: days)
+        return response.insights.compactMap { row in
+            var dict: [String: Any] = [:]
+            row.forEach { key, value in
+                dict[key] = value.value
+            }
+            return CoachingInsight(dictionary: dict)
+        }
+    }
+
+    func fetchConnections() async throws -> [IntegrationConnection] {
+        let response = try await api.getMe()
+        return response.connections.map(IntegrationConnection.init(apiConnection:))
+    }
+
+    func fetchDeviceServiceStatus() async throws -> DeviceServiceStatus {
+        try await api.getDeviceConnectionStatus()
+    }
+
+    func fetchExtendedSleep(days: Int = 14) async throws -> [SleepData] {
+        try await fetchSleep(days: days)
+    }
+
     func saveProfile(_ profile: UserProfile) async throws {
         let payload: [String: AnyEncodable] = [
             "name": AnyEncodable(profile.name),

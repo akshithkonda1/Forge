@@ -797,7 +797,7 @@ struct BehavioralInsightView: View {
 struct SettingsPageView: View {
     @EnvironmentObject var store: AppStore
 
-    @State private var isConnectingHealth = false
+    @State private var showDevicesSheet = false
     @State private var workoutReminders = true
     @State private var aiInsights = true
     @State private var recoveryAlerts = true
@@ -881,31 +881,19 @@ struct SettingsPageView: View {
                                     ))
                     }
                     Divider().background(Color.borderColor)
-                    Button {
-                        guard !isConnectingHealth else { return }
-                        isConnectingHealth = true
-                        Task {
-                            await store.connectAppleHealth()
-                            isConnectingHealth = false
-                        }
-                    } label: {
+                    Button { showDevicesSheet = true } label: {
                         HStack(spacing: 10) {
                             ZStack {
                                 Circle().stroke(Color.borderLight, style: StrokeStyle(lineWidth: 1, dash: [4])).frame(width: 32, height: 32)
-                                if isConnectingHealth {
-                                    ProgressView().scaleEffect(0.7)
-                                } else {
-                                    Image(systemName: "plus").font(.system(size: 13)).foregroundColor(.textTertiary)
-                                }
+                                Image(systemName: "plus").font(.system(size: 13)).foregroundColor(.textTertiary)
                             }
-                            Text(isConnectingHealth ? "Connecting Apple Health..." : "Add Apple Health")
+                            Text("Add or Manage Devices")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.ember)
                         }
                         .padding(.horizontal, 16).padding(.vertical, 12)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .disabled(isConnectingHealth)
                 }
 
                 // Workout Preferences
@@ -1001,6 +989,10 @@ struct SettingsPageView: View {
         }
         .sheet(isPresented: $showCoachingStylePicker) {
             CoachingStylePickerView()
+        }
+        .sheet(isPresented: $showDevicesSheet) {
+            ConnectedDevicesSheet()
+                .environmentObject(store)
         }
     }
 

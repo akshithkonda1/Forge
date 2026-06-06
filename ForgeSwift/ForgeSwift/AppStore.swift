@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import FoundationModels
+import HealthKit
 
 // MARK: - Tab Enum
 
@@ -533,7 +534,11 @@ final class AppStore: ObservableObject {
 
     // Progress insights
     @Published var progressSummary: ProgressSummarySnapshot?
-    
+    @Published var coachingInsights: [CoachingInsight] = []
+    @Published var connections: [IntegrationConnection] = []
+    @Published var deviceServiceStatus: DeviceServiceStatus?
+    @Published var weeklyHealthTrends: [WeeklyHealthTrend] = []
+
     // AI Configuration
     @Published var aiModelAvailable: Bool = false
     @Published var dataLoadState: DataLoadState = .idle
@@ -573,6 +578,9 @@ final class AppStore: ObservableObject {
             async let dashboardTask = repository.fetchDashboard()
             async let conversationTask = repository.fetchConversation()
             async let progressTask = repository.fetchProgressSummary(days: 30)
+            async let insightsTask = repository.fetchInsights(days: 7)
+            async let connectionsTask = repository.fetchConnections()
+            async let deviceStatusTask = repository.fetchDeviceServiceStatus()
 
             let snapshot = try await dashboardTask
             applyDashboardSnapshot(snapshot)
@@ -585,12 +593,97 @@ final class AppStore: ObservableObject {
                 progressSummary = summary
             }
 
+            if let insights = try? await insightsTask {
+                coachingInsights = insights
+            }
+
+            if let linked = try? await connectionsTask {
+                connections = linked
+                syncConnectedDevicesFromConnections(linked)
+            }
+
+            deviceServiceStatus = try? await deviceStatusTask
+
+            await syncHealthKitIfAvailable()
             dataLoadState = .loaded
         } catch {
             loadMockFallback()
             dataLoadState = .offlineFallback
             print("Forge API unavailable, using offline data: \(error)")
         }
+    }
+
+    func refreshConnections() async {
+        do {
+            let linked = try await repository.fetchConnections()
+            connections = linked
+            syncConnectedDevicesFromConnections(linked)
+            deviceServiceStatus = try? await repository.fetchDeviceServiceStatus()
+        } catch {
+            print("Failed to refresh connections: \(error)")
+        }
+    }
+
+    func refreshSleepData(days: Int = 14) async {
+        do {
+            sleepData = try await repository.fetchExtendedSleep(days: days)
+        } catch {
+            print("Failed to refresh sleep data: \(error)")
+        }
+    }
+
+    func syncHealthKitIfAvailable() async {
+        guard HKHealthStore.isHealthDataAvailable() else { return }
+        await HealthKitManager.shared.fetchWeeklyTrends()
+        weeklyHealthTrends = HealthKitManager.shared.weeklyTrends
+
+        let snapshot = await HealthKitManager.shared.fetchRecentSnapshot()
+        updateMetrics(
+            steps: snapshot?.steps,
+            activeCalories: snapshot?.activeCalories,
+            hrv: snapshot?.hrv.map { Int($0.rounded()) },
+            restingHR: snapshot?.restingHeartRate
+        )
+
+        do {
+            try await repository.syncHealthMetrics(
+                steps: snapshot?.steps,
+                activeCalories: snapshot?.activeCalories,
+                hrv: snapshot?.hrv.map { Int($0.rounded()) } ?? dailyMetrics.hrv,
+                restingHR: snapshot?.restingHeartRate
+            )
+        } catch {
+            print("HealthKit sync failed: \(error)")
+        }
+    }
+
+    private func syncConnectedDevicesFromConnections(_ linked: [IntegrationConnection]) {
+        let names = linked
+            .filter { $0.status == .connected || $0.status == .syncing }
+            .map(\.displayName)
+        if !names.isEmpty {
+            userProfile.connectedDevices = names
+        }
+    }
+
+    var sleepInsightText: String {
+        if let sleepInsight = coachingInsights.first(where: { $0.type == "sleep" }) {
+            return "\(sleepInsight.observation) \(sleepInsight.recommendation)"
+        }
+        if let summary = progressSummary?.summary, !summary.isEmpty {
+            return summary
+        }
+        guard let latest = sleepData.first else {
+            return "Connect a device or Apple Health to unlock personalized sleep coaching."
+        }
+        let deep = "\(latest.deepMinutes / 60 > 0 ? "\(latest.deepMinutes / 60)hr " : "")\(latest.deepMinutes % 60)min"
+        if latest.score >= 85 {
+            return "Excellent recovery. \(deep) of deep sleep has you primed for a heavy session today."
+        }
+        if latest.score >= 70 {
+            return "Good sleep — \(deep) of deep sleep. Cut screens 45 minutes before bed to push this score higher."
+        }
+        return "Only \(deep) of deep sleep last night. Consider a lighter session and an earlier bedtime tonight."
     }
 
     private func applyDashboardSnapshot(_ snapshot: DashboardSnapshot) {
@@ -947,6 +1040,7 @@ final class AppStore: ObservableObject {
             updateMetrics(
                 steps: snapshot?.steps,
                 activeCalories: snapshot?.activeCalories,
+                hrv: snapshot?.hrv.map { Int($0.rounded()) },
                 restingHR: snapshot?.restingHeartRate
             )
 
@@ -957,7 +1051,7 @@ final class AppStore: ObservableObject {
             try await repository.syncHealthMetrics(
                 steps: snapshot?.steps,
                 activeCalories: snapshot?.activeCalories,
-                hrv: dailyMetrics.hrv,
+                hrv: snapshot?.hrv.map { Int($0.rounded()) } ?? dailyMetrics.hrv,
                 restingHR: snapshot?.restingHeartRate
             )
             await loadDashboardFromAPI()
@@ -1008,6 +1102,52 @@ final class AppStore: ObservableObject {
 // MARK: - AppStore Extensions
 
 extension AppStore {
+    enum MetricTrendKind {
+        case steps, activeCalories, hrv, restingHR
+    }
+
+    func metricTrend(for kind: MetricTrendKind) -> (TrendDir, String)? {
+        guard weeklyHealthTrends.count >= 2 else { return nil }
+
+        let latest = weeklyHealthTrends.last!
+        let prior = weeklyHealthTrends.dropLast()
+        guard !prior.isEmpty else { return nil }
+
+        let current: Double
+        let average: Double
+        let lowerIsBetter: Bool
+
+        switch kind {
+        case .steps:
+            current = Double(latest.steps)
+            average = Double(prior.map(\.steps).reduce(0, +)) / Double(prior.count)
+            lowerIsBetter = false
+        case .activeCalories:
+            current = Double(latest.activeCalories)
+            average = Double(prior.map(\.activeCalories).reduce(0, +)) / Double(prior.count)
+            lowerIsBetter = false
+        case .hrv:
+            current = latest.avgHRV
+            average = prior.map(\.avgHRV).reduce(0, +) / Double(prior.count)
+            lowerIsBetter = false
+        case .restingHR:
+            current = latest.avgRestingHR > 0 ? latest.avgRestingHR : Double(dailyMetrics.restingHR)
+            let restingSamples = prior.filter { $0.avgRestingHR > 0 }
+            guard !restingSamples.isEmpty else { return nil }
+            average = restingSamples.map(\.avgRestingHR).reduce(0, +) / Double(restingSamples.count)
+            lowerIsBetter = true
+        }
+
+        guard average > 0 else { return nil }
+        let delta = ((current - average) / average) * 100
+        guard abs(delta) >= 1 else { return nil }
+
+        let improved = lowerIsBetter ? delta < 0 : delta > 0
+        let direction: TrendDir = improved ? .up : .down
+        let sign = delta > 0 ? "+" : ""
+        return (direction, "\(sign)\(Int(delta.rounded()))%")
+    }
+
     /// Calculate weekly workout frequency
     var weeklyWorkoutFrequency: Int {
         let calendar = Calendar.current

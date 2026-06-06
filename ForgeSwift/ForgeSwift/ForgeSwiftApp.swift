@@ -9,6 +9,13 @@ struct ForgeSwiftApp: App {
             ContentView()
                 .environmentObject(store)
                 .preferredColorScheme(.dark)
+                .onOpenURL { url in
+                    guard url.scheme == "forge", url.host == "device-connected" else { return }
+                    Task {
+                        await store.refreshConnections()
+                        await store.loadDashboardFromAPI()
+                    }
+                }
         }
     }
 }
