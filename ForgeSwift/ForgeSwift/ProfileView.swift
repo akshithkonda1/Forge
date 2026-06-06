@@ -96,6 +96,7 @@ struct ProfileTabView: View {
 // MARK: - Progress Page (mirrors progress-page.tsx)
 
 struct ProgressPageView: View {
+    @EnvironmentObject var store: AppStore
     @State private var isRefreshing = false
     @State private var showShareSheet = false
     @State private var selectedTimeRange: TimeRange = .month
@@ -164,7 +165,7 @@ struct ProgressPageView: View {
     
     func refreshData() async {
         isRefreshing = true
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        await store.loadDashboardFromAPI()
         isRefreshing = false
     }
 }
@@ -172,7 +173,31 @@ struct ProgressPageView: View {
 // MARK: - Monthly Summary (mirrors monthly-summary.tsx)
 
 struct MonthlySummaryView: View {
+    @EnvironmentObject var store: AppStore
     @State private var appeared = false
+
+    private var monthLabel: String {
+        Date().formatted(.dateTime.month(.wide))
+    }
+
+    private var workoutsCompleted: String {
+        String(store.progressSummary?.workoutsCompleted ?? store.workoutHistory.count)
+    }
+
+    private var newPRs: String {
+        String(store.progressSummary?.newPRCount ?? store.personalRecords.count)
+    }
+
+    private var recoveryDelta: String {
+        guard let delta = store.progressSummary?.recoveryDelta else { return "—" }
+        let sign = delta > 0 ? "+" : ""
+        return "\(sign)\(Int(delta.rounded()))%"
+    }
+
+    private var summaryText: String {
+        store.progressSummary?.summary
+            ?? "Keep training consistently and Forge will surface your monthly progress here."
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -201,19 +226,19 @@ struct MonthlySummaryView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "calendar")
                             .font(.system(size: 10))
-                        Text("February")
+                        Text(monthLabel)
                             .font(.system(size: 11, weight: .medium))
                     }
                     .foregroundColor(.textTertiary)
                 }
 
                 HStack(spacing: 10) {
-                    StatPillCard(value: "18", label: "Workouts", appeared: appeared, delay: 0.1)
-                    StatPillCard(value: "3", label: "New PRs", appeared: appeared, delay: 0.15)
-                    StatPillCard(value: "+22%", label: "Recovery", appeared: appeared, delay: 0.2)
+                    StatPillCard(value: workoutsCompleted, label: "Workouts", appeared: appeared, delay: 0.1)
+                    StatPillCard(value: newPRs, label: "New PRs", appeared: appeared, delay: 0.15)
+                    StatPillCard(value: recoveryDelta, label: "Recovery", appeared: appeared, delay: 0.2)
                 }
 
-                Text("Strong month. You've been consistent with your Mon/Wed/Fri schedule and hit 3 new personal records. Recovery consistency improved 22% — your sleep habits are paying off.")
+                Text(summaryText)
                     .font(.system(size: 14))
                     .foregroundColor(.textSecondary)
                     .lineSpacing(5)
@@ -741,6 +766,8 @@ struct StatBadge: View {
 // MARK: - Behavioral Insight
 
 struct BehavioralInsightView: View {
+    @EnvironmentObject var store: AppStore
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "chart.line.uptrend.xyaxis")
@@ -752,7 +779,7 @@ struct BehavioralInsightView: View {
                 Text("Pattern Insight")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.textPrimary)
-                Text("Your best workouts happen on Mondays — likely from weekend rest. Your consistency drops on Fridays after high-stress work weeks. Consider keeping Friday sessions shorter and more flexible.")
+                Text(store.progressSummary?.summary ?? "Complete a few workouts and Forge will start surfacing training patterns here.")
                     .font(.system(size: 13))
                     .foregroundColor(.textSecondary)
                     .lineSpacing(3)
@@ -770,6 +797,7 @@ struct BehavioralInsightView: View {
 struct SettingsPageView: View {
     @EnvironmentObject var store: AppStore
 
+    @State private var isConnectingHealth = false
     @State private var workoutReminders = true
     @State private var aiInsights = true
     @State private var recoveryAlerts = true
@@ -853,17 +881,31 @@ struct SettingsPageView: View {
                                     ))
                     }
                     Divider().background(Color.borderColor)
-                    Button(action: {}) {
+                    Button {
+                        guard !isConnectingHealth else { return }
+                        isConnectingHealth = true
+                        Task {
+                            await store.connectAppleHealth()
+                            isConnectingHealth = false
+                        }
+                    } label: {
                         HStack(spacing: 10) {
                             ZStack {
                                 Circle().stroke(Color.borderLight, style: StrokeStyle(lineWidth: 1, dash: [4])).frame(width: 32, height: 32)
-                                Image(systemName: "plus").font(.system(size: 13)).foregroundColor(.textTertiary)
+                                if isConnectingHealth {
+                                    ProgressView().scaleEffect(0.7)
+                                } else {
+                                    Image(systemName: "plus").font(.system(size: 13)).foregroundColor(.textTertiary)
+                                }
                             }
-                            Text("Add Device").font(.system(size: 14, weight: .medium)).foregroundColor(.ember)
+                            Text(isConnectingHealth ? "Connecting Apple Health..." : "Add Apple Health")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.ember)
                         }
                         .padding(.horizontal, 16).padding(.vertical, 12)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .disabled(isConnectingHealth)
                 }
 
                 // Workout Preferences
@@ -936,7 +978,9 @@ struct SettingsPageView: View {
                 }
 
                 // Log Out
-                Button(action: {}) {
+                Button {
+                    store.signOut()
+                } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "rectangle.portrait.and.arrow.right").font(.system(size: 16))
                         Text("Log Out").font(.system(size: 14, weight: .semibold))

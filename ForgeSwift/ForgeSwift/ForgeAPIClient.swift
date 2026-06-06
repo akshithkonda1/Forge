@@ -150,6 +150,19 @@ struct ProgressSummaryResponse: Decodable {
     let summary: String
 }
 
+struct ARIAConversationMessage: Decodable {
+    let role: String
+    let content: String
+    let id: String?
+    let timestamp: String?
+}
+
+struct ARIAConversationResponse: Decodable {
+    let threadId: String
+    let messages: [ARIAConversationMessage]
+    let messageCount: Int
+}
+
 struct ARIAChatResponse: Decodable {
     let threadId: String
     let message: APIChatMessage
@@ -220,6 +233,10 @@ final class ForgeAPIClient {
 
     func getProgressSummary(days: Int = 30) async throws -> ProgressSummaryResponse {
         try await request(path: "/progress/summary", query: ["days": String(days)])
+    }
+
+    func getARIAConversation(threadId: String = "current") async throws -> ARIAConversationResponse {
+        try await request(path: "/aria/conversation", query: ["threadId": threadId])
     }
 
     func sendARIAChat(content: String) async throws -> ARIAChatResponse {

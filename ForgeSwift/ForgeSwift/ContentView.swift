@@ -105,7 +105,8 @@ struct MainTabView: View {
     @State private var dragOffset: CGFloat = 0
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: .top) {
+            ZStack(alignment: .bottom) {
             // Background with subtle gradient
             LinearGradient(
                 colors: [
@@ -142,8 +143,17 @@ struct MainTabView: View {
             .id(store.activeTab)
 
             ForgeBottomNav(namespace: namespace, dragOffset: $dragOffset)
+            }
+            .ignoresSafeArea(edges: .bottom)
+
+            VStack(spacing: 0) {
+                DataStatusBanner(state: store.dataLoadState) {
+                    Task { await store.loadDashboardFromAPI() }
+                }
+                .padding(.top, 52)
+                Spacer()
+            }
         }
-        .ignoresSafeArea(edges: .bottom)
         .onChange(of: store.activeTab) { old, new in
             previousTab = old
         }

@@ -44,6 +44,37 @@ final class ForgeRepository: ObservableObject {
         return mapChatMessage(response.message)
     }
 
+    func fetchConversation() async throws -> [ChatMessage] {
+        let response = try await api.getARIAConversation()
+        let formatter = ISO8601DateFormatter()
+        return response.messages.compactMap { message in
+            let trimmed = message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            if trimmed.hasPrefix("[ARIA CONVERSATION SUMMARY") { return nil }
+
+            let role: MessageRole = message.role == "user" ? .user : .trainer
+            let timestamp = message.timestamp.flatMap { formatter.date(from: $0) } ?? Date()
+            return ChatMessage(
+                id: message.id ?? UUID().uuidString,
+                role: role,
+                content: trimmed,
+                timestamp: timestamp,
+                richCard: nil
+            )
+        }
+    }
+
+    func fetchProgressSummary(days: Int = 30) async throws -> ProgressSummarySnapshot {
+        let response = try await api.getProgressSummary(days: days)
+        return ProgressSummarySnapshot(
+            periodDays: response.periodDays,
+            workoutsCompleted: response.workoutsCompleted,
+            newPRCount: response.newPersonalRecords.count,
+            recoveryDelta: response.recoveryConsistencyDelta,
+            summary: response.summary
+        )
+    }
+
     func saveProfile(_ profile: UserProfile) async throws {
         let payload: [String: AnyEncodable] = [
             "name": AnyEncodable(profile.name),
@@ -102,6 +133,14 @@ struct DashboardSnapshot {
     var sleepData: [SleepData]
     var workoutHistory: [WorkoutHistory]
     var personalRecords: [PersonalRecord]
+}
+
+struct ProgressSummarySnapshot {
+    let periodDays: Int
+    let workoutsCompleted: Int
+    let newPRCount: Int
+    let recoveryDelta: Double
+    let summary: String
 }
 
 // MARK: - Mapping

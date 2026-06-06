@@ -496,7 +496,7 @@ final class AppStore: ObservableObject {
     // MARK: - Published State
     
     // Onboarding
-    @Published var isOnboarded: Bool = false
+    @Published var isOnboarded: Bool = ForgePersistence.isOnboarded
     @Published var onboardingStep: Int = 0
 
     // User Profile
@@ -529,7 +529,10 @@ final class AppStore: ObservableObject {
     @Published var activeTab: TabItem = .home
     
     // Streak tracking
-    @Published var currentStreak: Int = 7
+    @Published var currentStreak: Int = 0
+
+    // Progress insights
+    @Published var progressSummary: ProgressSummarySnapshot?
     
     // AI Configuration
     @Published var aiModelAvailable: Bool = false
@@ -555,8 +558,10 @@ final class AppStore: ObservableObject {
             self.aiModelAvailable = false
         }
         
-        Task { @MainActor in
-            await self.loadDashboardFromAPI()
+        if isOnboarded {
+            Task { @MainActor in
+                await self.loadDashboardFromAPI()
+            }
         }
     }
 
@@ -565,8 +570,21 @@ final class AppStore: ObservableObject {
     func loadDashboardFromAPI() async {
         dataLoadState = .loading
         do {
-            let snapshot = try await repository.fetchDashboard()
+            async let dashboardTask = repository.fetchDashboard()
+            async let conversationTask = repository.fetchConversation()
+            async let progressTask = repository.fetchProgressSummary(days: 30)
+
+            let snapshot = try await dashboardTask
             applyDashboardSnapshot(snapshot)
+
+            if let conversation = try? await conversationTask, !conversation.isEmpty {
+                chatMessages = conversation
+            }
+
+            if let summary = try? await progressTask {
+                progressSummary = summary
+            }
+
             dataLoadState = .loaded
         } catch {
             loadMockFallback()
@@ -583,13 +601,53 @@ final class AppStore: ObservableObject {
         sleepData = snapshot.sleepData
         workoutHistory = snapshot.workoutHistory
         personalRecords = snapshot.personalRecords
+        currentStreak = calculateWorkoutStreak(from: snapshot.workoutHistory)
     }
 
     private func loadMockFallback() {
+        userProfile = mockProfile
+        readiness = mockReadiness
+        dailyMetrics = mockMetrics
+        todayWorkout = mockWorkout
         chatMessages = mockChatMessages
         sleepData = mockSleepData
         workoutHistory = mockWorkoutHistory
         personalRecords = mockPersonalRecords
+        currentStreak = calculateWorkoutStreak(from: mockWorkoutHistory)
+        progressSummary = ProgressSummarySnapshot(
+            periodDays: 30,
+            workoutsCompleted: mockWorkoutHistory.count,
+            newPRCount: mockPersonalRecords.count,
+            recoveryDelta: 22,
+            summary: "Strong month. You've been consistent with your Mon/Wed/Fri schedule and hit new personal records."
+        )
+    }
+
+    private func calculateWorkoutStreak(from history: [WorkoutHistory]) -> Int {
+        let formatter = ISO8601DateFormatter()
+        let calendar = Calendar.current
+        let workoutDays = Set(
+            history.compactMap { item -> Date? in
+                if let date = formatter.date(from: item.date) {
+                    return calendar.startOfDay(for: date)
+                }
+                let parts = item.date.split(separator: "-")
+                guard parts.count == 3,
+                      let year = Int(parts[0]),
+                      let month = Int(parts[1]),
+                      let day = Int(parts[2]) else { return nil }
+                return calendar.date(from: DateComponents(year: year, month: month, day: day))
+            }
+        )
+
+        var streak = 0
+        var cursor = calendar.startOfDay(for: Date())
+        while workoutDays.contains(cursor) {
+            streak += 1
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = previous
+        }
+        return streak
     }
 
     // MARK: - Workout Actions
@@ -613,8 +671,6 @@ final class AppStore: ObservableObject {
         isWorkoutActive = false
         currentExerciseIndex = 0
         currentSet = 1
-        currentStreak += 1
-
         guard let workout = todayWorkout else { return }
         let volume = workout.exercises.reduce(0) { $0 + ($1.sets * ($1.weight ?? 0)) }
         let history = WorkoutHistory(
@@ -627,6 +683,7 @@ final class AppStore: ObservableObject {
             intensity: workout.intensity
         )
         workoutHistory.insert(history, at: 0)
+        currentStreak = calculateWorkoutStreak(from: workoutHistory)
 
         Task {
             do {
@@ -863,12 +920,49 @@ final class AppStore: ObservableObject {
 
     func completeOnboarding() {
         isOnboarded = true
+        ForgePersistence.setOnboarded(true)
         Task {
             do {
                 try await repository.saveProfile(userProfile)
+                await loadDashboardFromAPI()
             } catch {
                 print("Failed to persist onboarding profile: \(error)")
             }
+        }
+    }
+
+    func signOut() {
+        CognitoAuthManager.shared.signOut()
+        ForgePersistence.resetOnboarding()
+        isOnboarded = false
+        onboardingStep = 0
+        loadMockFallback()
+        dataLoadState = .idle
+    }
+
+    func connectAppleHealth() async {
+        do {
+            try await HealthKitManager.shared.requestAuthorization()
+            let snapshot = await HealthKitManager.shared.fetchRecentSnapshot()
+            updateMetrics(
+                steps: snapshot?.steps,
+                activeCalories: snapshot?.activeCalories,
+                restingHR: snapshot?.restingHeartRate
+            )
+
+            if !userProfile.connectedDevices.contains("Apple Health") {
+                userProfile.connectedDevices.append("Apple Health")
+            }
+            try await repository.saveProfile(userProfile)
+            try await repository.syncHealthMetrics(
+                steps: snapshot?.steps,
+                activeCalories: snapshot?.activeCalories,
+                hrv: dailyMetrics.hrv,
+                restingHR: snapshot?.restingHeartRate
+            )
+            await loadDashboardFromAPI()
+        } catch {
+            print("Apple Health connection failed: \(error)")
         }
     }
     
