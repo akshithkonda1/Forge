@@ -17,6 +17,7 @@
     "seed:secrets": "./scripts/seed_secrets.sh",
     "ios:open": "./scripts/ios_dev.sh open",
     "ios:backend": "./scripts/ios_dev.sh backend",
-    "ios:build": "xcodebuild build -project ForgeSwift/ForgeSwift.xcodeproj -scheme ForgeSwift -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO"
+    "ios:build": "./scripts/ios_dev.sh build",
+    "ios:preflight": "./scripts/ios_dev.sh build"
   }
 }

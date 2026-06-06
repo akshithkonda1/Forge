@@ -59,18 +59,22 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:3001
 
 ## 3. iOS app (ForgeSwift)
 
-One command starts the backend and opens Xcode:
+One command starts the backend, verifies the build, and opens Xcode:
 
 ```bash
 npm run ios:open
 # or: ./scripts/ios_dev.sh open
 ```
 
+**Important:** Open `Forge.xcworkspace` at the **repo root**. Do not open `clients/ios/...` — that copy is deprecated and will not build.
+
 In Xcode:
 
-1. Select the **ForgeSwift** scheme
-2. Pick an **iPhone simulator** (or your device)
+1. Scheme: **ForgeSwift** (not `ForgeWidgetExtension`)
+2. Destination: an **iPhone simulator** (e.g. iPhone 17) — not **My Mac**
 3. Press **⌘R**
+
+If signing fails, set your team under **Signing & Capabilities**, or edit `ForgeSwift/Config/Forge-Debug.xcconfig` (`DEVELOPMENT_TEAM`).
 
 ### Simulator (default)
 
@@ -126,6 +130,9 @@ Browser / Simulator
 | Symptom | Fix |
 |---------|-----|
 | Web shows "Can't reach API" banner | Start `npm run backend:dev` |
+| Xcode build fails on `OnboardingCoordinator` | You opened `clients/ios` — use repo-root `Forge.xcworkspace` |
+| Xcode runs but screen is blank | Pick an **iPhone simulator**, not My Mac; use **ForgeSwift** scheme |
+| Signing / provisioning errors | Set **Team** in Signing & Capabilities or `Forge-Debug.xcconfig` |
 | iOS can't load data on device | Set `FORGE_API_BASE_URL` to Mac LAN IP |
 | Chat returns errors | Backend must be running; check `curl :3001/health` |
 | Onboarding loops | Clear site data or `localStorage` keys `forge.isOnboarded` |

@@ -1,3 +1,4 @@
 // Production — override FORGE_API_BASE_URL at archive time or in CI.
 // Example: xcodebuild ... FORGE_API_BASE_URL=https://your-api.execute-api.us-east-1.amazonaws.com
 FORGE_USE_AUTH = true
+DEVELOPMENT_TEAM = L85K85Q7MB

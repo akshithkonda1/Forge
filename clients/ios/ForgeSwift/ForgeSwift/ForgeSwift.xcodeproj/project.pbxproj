@@ -207,11 +207,34 @@
 		};
 /* End PBXGroup section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		STALE00000000000000000003 /* Deprecated Project Guard */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Deprecated Project Guard";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "echo \"error: This Xcode project under clients/ios is deprecated and cannot build. Open the repo-root Forge.xcworkspace instead (npm run ios:open).\"\\nexit 1\\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXNativeTarget section */
 		AA0005000000000000000001 /* ForgeSwift */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AA0006000000000000000002 /* Build configuration list for PBXNativeTarget "ForgeSwift" */;
 			buildPhases = (
+				STALE00000000000000000003 /* Deprecated Project Guard */,
 				AA0007000000000000000001 /* Sources */,
 				AA0003000000000000000001 /* Frameworks */,
 				AA0007000000000000000002 /* Resources */,
