@@ -462,20 +462,20 @@ resource "aws_lambda_function" "backend" {
 
   environment {
     variables = {
-      AI_PROVIDER_SECRET_ARN = aws_secretsmanager_secret.ai_provider.arn
-      APP_DATA_TABLE_NAME    = aws_dynamodb_table.app_data.name
-      ARIA_BACKEND           = "bedrock"
-      ENVIRONMENT            = var.environment
-      EMIT_TERRA_METRICS            = tostring(var.enable_terra_self_healing)
-      FORGE_API_BASE_URL            = aws_apigatewayv2_api.http.api_endpoint
-      OPS_SELF_HEAL_TOKEN           = var.ops_self_heal_token
-      TERRA_METRIC_NAMESPACE        = "Forge/Terra"
-      TERRA_SECRET_ARN              = aws_secretsmanager_secret.terra.arn
-      TERRA_SELF_HEAL_STALE_HOURS    = "24"
+      AI_PROVIDER_SECRET_ARN                = aws_secretsmanager_secret.ai_provider.arn
+      APP_DATA_TABLE_NAME                   = aws_dynamodb_table.app_data.name
+      ARIA_BACKEND                          = "bedrock"
+      ENVIRONMENT                           = var.environment
+      EMIT_TERRA_METRICS                    = tostring(var.enable_terra_self_healing)
+      FORGE_API_BASE_URL                    = aws_apigatewayv2_api.http.api_endpoint
+      OPS_SELF_HEAL_TOKEN                   = var.ops_self_heal_token
+      TERRA_METRIC_NAMESPACE                = "Forge/Terra"
+      TERRA_SECRET_ARN                      = aws_secretsmanager_secret.terra.arn
+      TERRA_SELF_HEAL_STALE_HOURS           = "24"
       TERRA_SELF_HEAL_SYNCING_STUCK_MINUTES = "90"
-      TERRA_WEBHOOK_URL             = "${aws_apigatewayv2_api.http.api_endpoint}/integrations/terra/webhook"
-      UPLOADS_BUCKET_NAME           = aws_s3_bucket.uploads.bucket
-      USER_POOL_ID                  = aws_cognito_user_pool.forge.id
+      TERRA_WEBHOOK_URL                     = "${aws_apigatewayv2_api.http.api_endpoint}/integrations/terra/webhook"
+      UPLOADS_BUCKET_NAME                   = aws_s3_bucket.uploads.bucket
+      USER_POOL_ID                          = aws_cognito_user_pool.forge.id
     }
   }
 
