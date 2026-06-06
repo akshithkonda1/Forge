@@ -3,12 +3,11 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from pathlib import Path
 
+from _support import REPO_ROOT, ensure_backend_on_path
 
-ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "backend" / "organize_users.py"
-sys.path.insert(0, str(ROOT / "backend"))
+ensure_backend_on_path()
+SCRIPT = REPO_ROOT / "backend" / "organize_users.py"
 
 from organize_users import organize_users  # noqa: E402
 

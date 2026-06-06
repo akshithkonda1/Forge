@@ -428,7 +428,8 @@ resource "aws_lambda_function" "backend" {
   runtime       = "python3.12"
   handler       = "handler.handler"
 
-  filename         = data.archive_file.backend_lambda.output_path
+  s3_bucket        = aws_s3_bucket.artifacts.bucket
+  s3_key           = aws_s3_object.backend_lambda.key
   source_code_hash = data.archive_file.backend_lambda.output_base64sha256
 
   memory_size = var.lambda_memory_size
@@ -447,6 +448,7 @@ resource "aws_lambda_function" "backend" {
 
   depends_on = [
     aws_cloudwatch_log_group.backend_lambda,
+    aws_s3_object.backend_lambda,
   ]
 
   tags = local.common_tags

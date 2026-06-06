@@ -5,10 +5,12 @@ on:
     branches: [ "claude/forge-fitness-frontend-TwlOQ" ]
     paths:
       - '.github/workflows/terraform.yml'
+      - 'backend/api/**'
       - 'infra/terraform/**'
   pull_request:
     paths:
       - '.github/workflows/terraform.yml'
+      - 'backend/api/**'
       - 'infra/terraform/**'
   workflow_dispatch:
 
