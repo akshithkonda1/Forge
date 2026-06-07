@@ -75,6 +75,63 @@ final class CognitoAuthManager: ObservableObject {
         return "Bearer \(idToken)"
     }
 
+    @discardableResult
+    func refreshSessionIfNeeded(force: Bool = false) async -> Bool {
+        guard APIConfig.usesAuth else { return true }
+
+        if !force,
+           let idToken,
+           !CognitoTokenSupport.shouldRefresh(idToken: idToken) {
+            return isAuthenticated
+        }
+
+        guard let refreshToken, !refreshToken.isEmpty else {
+            if idToken != nil {
+                signOut()
+            }
+            return false
+        }
+
+        do {
+            try await refreshSession()
+            return true
+        } catch {
+            lastError = error.localizedDescription
+            signOut()
+            return false
+        }
+    }
+
+    func refreshSession() async throws {
+        try ensureConfigured()
+        guard let refreshToken, !refreshToken.isEmpty else {
+            throw CognitoAuthError.notConfigured
+        }
+
+        let response = try await invoke(
+            target: "AWSCognitoIdentityProviderService.InitiateAuth",
+            payload: CognitoTokenSupport.refreshAuthPayload(
+                clientId: APIConfig.cognitoClientId,
+                refreshToken: refreshToken
+            )
+        )
+
+        guard
+            let result = response["AuthenticationResult"] as? [String: Any],
+            let idToken = result["IdToken"] as? String,
+            let accessToken = result["AccessToken"] as? String
+        else {
+            throw CognitoAuthError.invalidResponse
+        }
+
+        let rotatedRefresh = result["RefreshToken"] as? String
+        setTokens(
+            idToken: idToken,
+            accessToken: accessToken,
+            refreshToken: rotatedRefresh ?? refreshToken
+        )
+    }
+
     func signUp(email: String, password: String) async throws {
         try ensureConfigured()
         _ = try await invoke(

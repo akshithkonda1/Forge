@@ -2,6 +2,9 @@
 // On a physical device, set FORGE_API_BASE_URL in Forge-Info.plist to your Mac's LAN IP.
 FORGE_API_BASE_URL = http:/\/127.0.0.1:3001
 FORGE_USE_AUTH = false
+FORGE_COGNITO_REGION = us-east-1
+FORGE_COGNITO_CLIENT_ID =
+FORGE_WEB_CALLBACK_BASE_URL = forge:/\/device-connected
 
 // Xcode signing — set your Apple team ID for device builds (or pick a team in Xcode).
 DEVELOPMENT_TEAM = L85K85Q7MB

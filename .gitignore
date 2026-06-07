@@ -28,6 +28,10 @@ yarn-error.log*
 .env*.local
 .env
 
+# production client config (generated from Terraform)
+client-configuration.json
+ForgeSwift/Config/Forge-Production.xcconfig
+
 # vercel
 .vercel
 

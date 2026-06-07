@@ -1,0 +1,15 @@
+{
+  "apiBaseUrl": "https://example.execute-api.us-east-1.amazonaws.com",
+  "cognito": {
+    "region": "us-east-1",
+    "userPoolId": "us-east-1_EXAMPLE",
+    "webClientId": "example-web-client-id",
+    "iosClientId": "example-ios-client-id",
+    "identityPoolId": "us-east-1:example-identity-pool"
+  },
+  "storage": {
+    "uploadsBucket": "forge-uploads-example",
+    "accessLevel": "private",
+    "keyPrefixPattern": "private/{identityId}/"
+  }
+}
