@@ -17,7 +17,7 @@ The JSON shape matches [`client-configuration.example.json`](../client-configura
 From the repo root:
 
 ```bash
-python3 scripts/generate_client_config.py
+python3 backend/tools/generate_client_config.py
 ```
 
 This writes (both gitignored):
@@ -30,7 +30,7 @@ This writes (both gitignored):
 Validate without writing:
 
 ```bash
-python3 scripts/generate_client_config.py --input client-configuration.example.json --dry-run
+python3 backend/tools/generate_client_config.py --input client-configuration.example.json --dry-run
 ```
 
 ## 3. Web production build

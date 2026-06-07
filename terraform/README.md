@@ -1,13 +1,13 @@
 # Forge Terraform
 
-AWS serverless backend for Forge — Cognito auth, API Gateway HTTP API, Python Lambda (`backend/api`), DynamoDB, S3, and self-healing observability. No Kubernetes.
+AWS serverless backend for Forge — Cognito auth, API Gateway HTTP API, Python Lambda (`backend/app`), DynamoDB, S3, and self-healing observability. No Kubernetes.
 
 ## What it provisions
 
 - Cognito user pool with separate app clients for web and iOS
 - Cognito identity pool and authenticated IAM role for direct client S3 access
 - API Gateway HTTP API with JWT authorizer
-- Lambda backend packaged from `backend/api`
+- Lambda backend packaged from `backend/app`
 - Versioned S3 artifacts bucket for Lambda zips (rollback + self-healing redeploy)
 - DynamoDB single-table store with optional point-in-time recovery
 - S3 uploads bucket with versioning and encryption
@@ -21,13 +21,13 @@ AWS serverless backend for Forge — Cognito auth, API Gateway HTTP API, Python 
 
 ## Backend packaging
 
-Terraform zips `backend/api` (same code as the local dev server) into `build/forge-backend.zip`, uploads it to the artifacts bucket, and deploys it as `handler.handler`.
+Terraform zips `backend/app` (same code as the local dev server) into `build/forge-backend.zip`, uploads it to the artifacts bucket, and deploys it as `handler.handler`.
 
 Local development uses the same package:
 
 ```bash
-python3 backend/dev_server.py          # port 3001
-python3 scripts/package_lambda.py      # build zip locally
+python3 backend/dev/server.py          # port 3001
+python3 backend/tools/package_lambda.py      # build zip locally
 ```
 
 ## Self-healing (no K8s)
@@ -130,9 +130,9 @@ npm run ci:deploy  # Phase 3 (needs AWS credentials)
 
 ```bash
 # From repo root
-python3 scripts/run_tests.py
-python3 backend/dev_server.py &
-FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 scripts/smoke_test.py
+python3 backend/tools/run_tests.py
+python3 backend/dev/server.py &
+FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 backend/tools/smoke_test.py
 
 # Deployed API (after terraform apply)
 terraform output -raw healthcheck_url

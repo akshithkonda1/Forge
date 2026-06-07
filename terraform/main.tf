@@ -1,6 +1,6 @@
 data "archive_file" "backend_lambda" {
   type        = "zip"
-  source_dir  = "${path.module}/../../backend/api"
+  source_dir  = "${path.module}/../backend/app"
   output_path = "${path.module}/build/forge-backend.zip"
 }
 

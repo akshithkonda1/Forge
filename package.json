@@ -5,15 +5,15 @@
     "web:dev": "pnpm --dir clients/web dev",
     "web:build": "pnpm --dir clients/web build",
     "web:lint": "pnpm --dir clients/web lint",
-    "backend:dev": "python3 backend/dev_server.py",
-    "backend:test": "python3 scripts/run_tests.py",
-    "backend:package": "python3 scripts/package_lambda.py",
-    "backend:smoke": "FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 scripts/smoke_test.py",
-    "aria": "python3 scripts/aria_cli.py",
-    "aria:local": "python3 scripts/aria_cli.py --local",
-    "test:unit": "python3 scripts/run_tests.py",
-    "ci:test": "python3 scripts/run_tests.py && FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 scripts/smoke_test.py",
-    "ci:fix": "python3 scripts/ci_fix_improve.py",
+    "backend:dev": "python3 backend/dev/server.py",
+    "backend:test": "python3 backend/tools/run_tests.py",
+    "backend:package": "python3 backend/tools/package_lambda.py",
+    "backend:smoke": "FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 backend/tools/smoke_test.py",
+    "aria": "python3 backend/tools/aria_cli.py",
+    "aria:local": "python3 backend/tools/aria_cli.py --local",
+    "test:unit": "python3 backend/tools/run_tests.py",
+    "ci:test": "python3 backend/tools/run_tests.py && FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 backend/tools/smoke_test.py",
+    "ci:fix": "python3 backend/tools/ci_fix_improve.py",
     "ci:deploy": "cd terraform && terraform apply -auto-approve",
     "wire:production": "./scripts/wire_production.sh",
     "seed:secrets": "./scripts/seed_secrets.sh",
@@ -21,6 +21,6 @@
     "ios:backend": "./scripts/ios_dev.sh backend",
     "ios:build": "./scripts/ios_dev.sh build",
     "ios:preflight": "./scripts/ios_dev.sh build",
-    "config:generate": "python3 scripts/generate_client_config.py"
+    "config:generate": "python3 backend/tools/generate_client_config.py"
   }
 }

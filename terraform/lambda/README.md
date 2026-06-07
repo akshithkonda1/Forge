@@ -1,6 +1,6 @@
 # Deprecated
 
-Forge backend source moved to [`backend/api`](../../../backend/api).
+Forge backend source moved to [`backend/app`](../../backend/app).
 
-- **Local dev:** `python3 backend/dev_server.py`
-- **Terraform** packages `backend/api` into the Lambda zip.
+- **Local dev:** `python3 backend/dev/server.py`
+- **Terraform** packages `backend/app` into the Lambda zip.
