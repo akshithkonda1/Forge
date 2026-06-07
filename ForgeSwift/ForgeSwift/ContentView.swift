@@ -37,12 +37,37 @@ struct ContentView: View {
                     showSplash = false
                 }
             }
+            bootstrapAuthenticatedSession()
+        }
+        .onChange(of: auth.isAuthenticated) { _, authenticated in
+            guard authenticated, store.isOnboarded else { return }
+            Task {
+                await store.loadDashboardFromAPI()
+            }
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active, store.isOnboarded else { return }
             Task {
+                if APIConfig.usesAuth {
+                    let sessionValid = await auth.refreshSessionIfNeeded()
+                    guard sessionValid else { return }
+                }
                 await store.refreshConnections()
+                if !auth.requiresSignIn {
+                    await store.loadDashboardFromAPI()
+                }
             }
+        }
+    }
+
+    private func bootstrapAuthenticatedSession() {
+        guard store.isOnboarded, !auth.requiresSignIn else { return }
+        Task {
+            if APIConfig.usesAuth {
+                _ = await auth.refreshSessionIfNeeded()
+                guard !auth.requiresSignIn else { return }
+            }
+            await store.loadDashboardFromAPI()
         }
     }
 }

@@ -34,18 +34,17 @@ final class VoiceCoachManager: NSObject {
     // Context passed in from ActiveWorkoutView
     private var workoutContext: WorkoutContext = .empty
     
-    // Conversation history for Claude
+    // Conversation history for voice coach replies
     private var conversationHistory: [[String: String]] = []
     
     private let repository = ForgeRepository.shared
 
-    // Anthropic API fallback
+    #if DEBUG
     private let apiURL = URL(string: "https://api.anthropic.com/v1/messages")!
     private let apiKey: String = {
-        // In production: load from Keychain or environment
-        // For now: set via Info.plist key "ANTHROPIC_API_KEY"
         Bundle.main.infoDictionary?["ANTHROPIC_API_KEY"] as? String ?? ""
     }()
+    #endif
     
     // MARK: - Init
     
@@ -135,7 +134,13 @@ final class VoiceCoachManager: NSObject {
             speak(response)
         } catch {
             isThinking = false
+            #if DEBUG
             self.error = error.localizedDescription
+            #else
+            let fallback = "Coach unavailable right now. Keep going — you've got this."
+            lastCoachMessage = fallback
+            speak(fallback)
+            #endif
         }
     }
     
@@ -250,11 +255,16 @@ final class VoiceCoachManager: NSObject {
         do {
             return try await repository.sendVoiceTranscript(userMessage)
         } catch {
+            #if DEBUG
             return try await callClaude(messages: conversationHistory)
+            #else
+            throw error
+            #endif
         }
     }
 
-    // MARK: - Private: Claude API fallback
+    #if DEBUG
+    // MARK: - Private: Claude API fallback (DEBUG only)
 
     private func callClaude(messages: [[String: String]]) async throws -> String {
         var request = URLRequest(url: apiURL)
@@ -288,7 +298,9 @@ final class VoiceCoachManager: NSObject {
         
         return text
     }
+    #endif
     
+    #if DEBUG
     private var systemPrompt: String {
         """
         You are Forge, an elite AI fitness coach speaking to an athlete mid-workout. Your personality: direct, motivating, knowledgeable. Like a world-class personal trainer in their ear.
@@ -314,6 +326,7 @@ final class VoiceCoachManager: NSObject {
         - Never say "Great question!" or any filler. Get straight to it.
         """
     }
+    #endif
     
     // MARK: - Audio Session
     

@@ -15,6 +15,7 @@ struct DataStatusBanner: View {
                 tint: .steel
             )
         case .offlineFallback:
+            #if DEBUG
             banner(
                 icon: "wifi.slash",
                 title: "Can't reach \(APIConfig.displayHost) — showing sample data. Run `npm run backend:dev`.",
@@ -22,6 +23,15 @@ struct DataStatusBanner: View {
                 actionTitle: "Retry",
                 action: onRetry
             )
+            #else
+            banner(
+                icon: "wifi.slash",
+                title: "Can't reach the Forge API. Check your connection and try again.",
+                tint: .warning,
+                actionTitle: "Retry",
+                action: onRetry
+            )
+            #endif
         case .error(let message):
             banner(
                 icon: "exclamationmark.triangle.fill",

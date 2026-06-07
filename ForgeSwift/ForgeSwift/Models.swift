@@ -282,7 +282,37 @@ struct PersonalRecord: Identifiable {
     }
 }
 
-// MARK: - Mock Data (mirrors useAppStore.ts)
+// MARK: - Empty defaults (production / pre-load state)
+
+let emptyProfile = UserProfile(
+    name: "",
+    gender: .preferNotToSay,
+    fitnessGoals: [],
+    experienceLevel: .beginner,
+    preferredWorkouts: [],
+    coachingStyle: .balanced,
+    connectedDevices: [],
+    weeklySchedule: []
+)
+
+let emptyReadiness = ReadinessData(
+    overall: 0,
+    sleepQuality: 0,
+    recoveryScore: 0,
+    stressLevel: 0,
+    energyBank: 0
+)
+
+let emptyMetrics = DailyMetrics(
+    steps: 0,
+    activeCalories: 0,
+    hrv: 0,
+    restingHR: 0,
+    deepSleep: 0,
+    totalSleep: 0
+)
+
+// MARK: - Mock Data (DEBUG fallback only — mirrors useAppStore.ts)
 
 let mockProfile = UserProfile(
     name: "Akshith",

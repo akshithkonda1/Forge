@@ -3,6 +3,7 @@ import Foundation
 enum ForgeAPIError: LocalizedError {
     case invalidURL
     case invalidResponse
+    case unauthorized
     case server(Int, String)
     case decoding(Error)
 
@@ -10,6 +11,7 @@ enum ForgeAPIError: LocalizedError {
         switch self {
         case .invalidURL: return "Invalid API URL"
         case .invalidResponse: return "Invalid server response"
+        case .unauthorized: return "Session expired. Sign in again."
         case .server(let code, let message): return "Server error (\(code)): \(message)"
         case .decoding(let error): return "Failed to decode response: \(error.localizedDescription)"
         }
@@ -616,7 +618,8 @@ final class ForgeAPIClient {
         path: String,
         method: String = "GET",
         query: [String: String] = [:],
-        body: (any Encodable)? = nil
+        body: (any Encodable)? = nil,
+        retriedAfterUnauthorized: Bool = false
     ) async throws -> T {
         var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)
         if !query.isEmpty {
@@ -639,6 +642,21 @@ final class ForgeAPIClient {
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw ForgeAPIError.invalidResponse
+        }
+
+        if http.statusCode == 401, APIConfig.usesAuth, !retriedAfterUnauthorized {
+            let refreshed = await CognitoAuthManager.shared.refreshSessionIfNeeded(force: true)
+            if refreshed {
+                return try await self.request(
+                    path: path,
+                    method: method,
+                    query: query,
+                    body: body,
+                    retriedAfterUnauthorized: true
+                )
+            }
+            await CognitoAuthManager.shared.signOut()
+            throw ForgeAPIError.unauthorized
         }
 
         guard (200...299).contains(http.statusCode) else {

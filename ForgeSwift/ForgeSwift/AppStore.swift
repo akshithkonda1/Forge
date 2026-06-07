@@ -501,14 +501,14 @@ final class AppStore: ObservableObject {
     @Published var onboardingStep: Int = 0
 
     // User Profile
-    @Published var userProfile: UserProfile = mockProfile
+    @Published var userProfile: UserProfile = emptyProfile
 
     // Readiness & Metrics
-    @Published var readiness: ReadinessData = mockReadiness
-    @Published var dailyMetrics: DailyMetrics = mockMetrics
+    @Published var readiness: ReadinessData = emptyReadiness
+    @Published var dailyMetrics: DailyMetrics = emptyMetrics
 
     // Today's Workout
-    @Published var todayWorkout: WorkoutPlan? = mockWorkout
+    @Published var todayWorkout: WorkoutPlan?
     @Published var planInsightText: String?
 
     // Active Workout State
@@ -565,16 +565,15 @@ final class AppStore: ObservableObject {
             self.aiModelAvailable = false
         }
         
-        if isOnboarded {
-            Task { @MainActor in
-                await self.loadDashboardFromAPI()
-            }
-        }
     }
 
     // MARK: - API Bootstrap
 
     func loadDashboardFromAPI() async {
+        if APIConfig.usesAuth, CognitoAuthManager.shared.requiresSignIn {
+            return
+        }
+
         dataLoadState = .loading
         do {
             async let dashboardTask = repository.fetchDashboard()
@@ -610,12 +609,16 @@ final class AppStore: ObservableObject {
             ForgeSharedData.syncFromStore(self)
             dataLoadState = .loaded
         } catch {
+            #if DEBUG
             if sleepData.isEmpty && workoutHistory.isEmpty {
                 loadMockFallback()
                 dataLoadState = .offlineFallback
             } else {
                 dataLoadState = .error(Self.userFacingAPIError(error))
             }
+            #else
+            dataLoadState = .error(Self.userFacingAPIError(error))
+            #endif
             print("Forge API unavailable: \(error)")
         }
     }
@@ -648,7 +651,11 @@ final class AppStore: ObservableObject {
         if nsError.domain == NSURLErrorDomain {
             switch nsError.code {
             case NSURLErrorCannotConnectToHost, NSURLErrorNetworkConnectionLost:
+                #if DEBUG
                 return "Can't connect to \(APIConfig.displayHost). Start the backend with npm run backend:dev."
+                #else
+                return "Can't reach the Forge API at \(APIConfig.displayHost). Check your connection and try again."
+                #endif
             case NSURLErrorTimedOut:
                 return "Request timed out reaching \(APIConfig.displayHost)."
             default:
@@ -786,6 +793,7 @@ final class AppStore: ObservableObject {
     }
 
     private func loadMockFallback() {
+        #if DEBUG
         userProfile = mockProfile
         readiness = mockReadiness
         dailyMetrics = mockMetrics
@@ -802,6 +810,26 @@ final class AppStore: ObservableObject {
             recoveryDelta: 22,
             summary: "Strong month. You've been consistent with your Mon/Wed/Fri schedule and hit new personal records."
         )
+        #endif
+    }
+
+    private func resetToEmptyState() {
+        userProfile = emptyProfile
+        readiness = emptyReadiness
+        dailyMetrics = emptyMetrics
+        todayWorkout = nil
+        planInsightText = nil
+        chatMessages = []
+        sleepData = []
+        workoutHistory = []
+        personalRecords = []
+        currentStreak = 0
+        progressSummary = nil
+        coachingInsights = []
+        connections = []
+        deviceServiceStatus = nil
+        weeklyHealthTrends = []
+        lastARIAToolCalls = []
     }
 
     private func calculateWorkoutStreak(from history: [WorkoutHistory]) -> Int {
@@ -917,6 +945,7 @@ final class AppStore: ObservableObject {
             chatMessages.append(trainerMessage)
             lastARIAToolCalls = result.toolCalls
         } catch {
+            #if DEBUG
             do {
                 let context = TrainerContext(
                     userProfile: userProfile,
@@ -937,16 +966,12 @@ final class AppStore: ObservableObject {
                 )
                 chatMessages.append(trainerMessage)
             } catch {
-            // Handle error gracefully
-            let errorMessage = ChatMessage(
-                id: UUID().uuidString,
-                role: .trainer,
-                content: "Sorry, I'm having trouble processing that right now. Can you try again?",
-                timestamp: Date()
-            )
-                chatMessages.append(errorMessage)
-                print("Error generating AI response: \(error)")
+                appendChatUnavailableMessage()
             }
+            #else
+            appendChatUnavailableMessage()
+            #endif
+            print("Error generating AI response: \(error)")
         }
 
         isGeneratingResponse = false
@@ -1108,10 +1133,23 @@ final class AppStore: ObservableObject {
         }
     }
 
+    private func appendChatUnavailableMessage() {
+        let errorMessage = ChatMessage(
+            id: UUID().uuidString,
+            role: .trainer,
+            content: "Sorry, I'm having trouble reaching ARIA right now. Can you try again?",
+            timestamp: Date()
+        )
+        chatMessages.append(errorMessage)
+    }
+
     func completeOnboarding(syncHealth: Bool = false) {
         isOnboarded = true
         ForgePersistence.setOnboarded(true)
         Task {
+            if APIConfig.usesAuth, CognitoAuthManager.shared.requiresSignIn {
+                return
+            }
             do {
                 try await repository.saveProfile(userProfile)
                 if syncHealth {
@@ -1135,7 +1173,7 @@ final class AppStore: ObservableObject {
         ForgePersistence.resetOnboarding()
         isOnboarded = false
         onboardingStep = 0
-        loadMockFallback()
+        resetToEmptyState()
         dataLoadState = .idle
     }
 
