@@ -210,6 +210,67 @@ def handle_post_aria_plan(user_id: str, body: dict[str, Any]) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# POST /aria/lifestyle
+# ---------------------------------------------------------------------------
+
+def handle_post_aria_lifestyle(user_id: str, body: dict[str, Any]) -> dict:
+    """
+    Lifestyle coaching endpoint grounded in nutrition, habits, and QoL metrics.
+
+    Request body:
+      focus  (str, optional)  – "nutrition" | "wellbeing" | "holistic" (default)
+    """
+    focus = str(body.get("focus") or "holistic").lower()
+    valid_focus = {"nutrition", "wellbeing", "holistic"}
+    if focus not in valid_focus:
+        focus = "holistic"
+
+    focus_prompt = {
+        "nutrition": (
+            "Review the user's lifestyle dashboard and nutrition log for today. "
+            "Identify the biggest macro or hydration gap, explain why it matters for "
+            "their goals, and give one specific meal or snack recommendation they can "
+            "act on before the day ends."
+        ),
+        "wellbeing": (
+            "Review the user's wellbeing habits and stress markers. "
+            "Recommend the highest-impact habit to complete today and a 5-minute "
+            "recovery ritual tailored to their readiness and sleep data."
+        ),
+        "holistic": (
+            "Review the full lifestyle dashboard — sleep, steps, nutrition, habits, "
+            "and stress. Give a single prioritized focus for today with one training, "
+            "nutrition, and recovery action."
+        ),
+    }[focus]
+
+    conversation = aria_memory.load_conversation(user_id, "lifestyle")
+    inject_context = _build_user_context(user_id) if not conversation else None
+
+    result = _safe_agent_call(
+        get_agent().chat,
+        user_id=user_id,
+        user_message=focus_prompt,
+        conversation=conversation,
+        tools=ARIA_TOOLS,
+        inject_context=inject_context,
+    )
+
+    user_msg = {"role": "user", "content": focus_prompt}
+    assistant_msg = {"role": "assistant", "content": result["answer"]}
+    aria_memory.append_messages(user_id, [user_msg, assistant_msg], "lifestyle")
+
+    return ok({
+        "focus": focus,
+        "coaching": result["answer"],
+        "toolCallsMade": result.get("toolCallsMade", []),
+        "model": result.get("model"),
+        "usage": result.get("usage"),
+        "generatedAt": _now_iso(),
+    })
+
+
+# ---------------------------------------------------------------------------
 # POST /aria/voice
 # ---------------------------------------------------------------------------
 

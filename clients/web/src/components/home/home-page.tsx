@@ -68,7 +68,14 @@ function EmptyTodayPlanCard({
 }
 
 export function HomePage() {
-  const { todayWorkout, startWorkout, setActiveTab, dataLoadState } = useAppStore();
+  const {
+    todayWorkout,
+    startWorkout,
+    setActiveTab,
+    dataLoadState,
+    isRefreshingPlan,
+    refreshTodayWorkoutPlan,
+  } = useAppStore();
 
   const handleStartWorkout = () => {
     startWorkout();
@@ -76,7 +83,7 @@ export function HomePage() {
   };
 
   const handleChangePlan = () => {
-    setActiveTab("chat");
+    void refreshTodayWorkoutPlan();
   };
 
   return (
@@ -92,6 +99,7 @@ export function HomePage() {
               workout={todayWorkout}
               onStart={handleStartWorkout}
               onChangePlan={handleChangePlan}
+              isRefreshing={isRefreshingPlan}
             />
           ) : (
             <EmptyTodayPlanCard

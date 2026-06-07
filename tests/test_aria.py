@@ -222,6 +222,30 @@ class ARIAAnalyzeTests(ARIATestBase):
 
 
 # ---------------------------------------------------------------------------
+# /aria/lifestyle
+# ---------------------------------------------------------------------------
+
+class ARIALifestyleTests(ARIATestBase):
+    def test_lifestyle_returns_coaching(self):
+        resp = handler(event("POST", "/aria/lifestyle", {"focus": "nutrition"}), None)
+        self.assertEqual(resp["statusCode"], 200)
+        payload = body(resp)
+        self.assertEqual(payload["focus"], "nutrition")
+        self.assertEqual(payload["coaching"], "Stub ARIA answer.")
+        self.assertIn("generatedAt", payload)
+
+    def test_lifestyle_wellbeing_focus(self):
+        resp = handler(event("POST", "/aria/lifestyle", {"focus": "wellbeing"}), None)
+        payload = body(resp)
+        self.assertEqual(payload["focus"], "wellbeing")
+
+    def test_lifestyle_invalid_focus_defaults_holistic(self):
+        resp = handler(event("POST", "/aria/lifestyle", {"focus": "unknown"}), None)
+        payload = body(resp)
+        self.assertEqual(payload["focus"], "holistic")
+
+
+# ---------------------------------------------------------------------------
 # /aria/plan
 # ---------------------------------------------------------------------------
 
@@ -626,6 +650,25 @@ class ARIAToolsTests(unittest.TestCase):
         })
         self.assertTrue(result["saved"])
         self.assertIn("insightId", result)
+
+    def test_get_lifestyle_dashboard_returns_metrics(self):
+        from aria_tools import handle_tool_call
+        result = handle_tool_call("user-1", "get_lifestyle_dashboard", {})
+        self.assertIn("metrics", result)
+        self.assertIn("nutrition", result)
+        self.assertIn("habits", result)
+
+    def test_get_nutrition_daily_returns_totals(self):
+        from aria_tools import handle_tool_call
+        result = handle_tool_call("user-1", "get_nutrition_daily", {})
+        self.assertIn("calories", result)
+        self.assertIn("targets", result)
+
+    def test_get_wellbeing_habits_returns_streak(self):
+        from aria_tools import handle_tool_call
+        result = handle_tool_call("user-1", "get_wellbeing_habits", {})
+        self.assertIn("habits", result)
+        self.assertIn("habitStreak", result)
 
     def test_unknown_tool_raises(self):
         from aria_tools import handle_tool_call

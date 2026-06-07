@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { StoreHydrator } from "@/components/providers/store-hydrator";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -29,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="min-h-[100dvh] bg-background antialiased">
-        {children}
+        <StoreHydrator>{children}</StoreHydrator>
       </body>
     </html>
   );

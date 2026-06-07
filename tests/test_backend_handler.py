@@ -247,6 +247,82 @@ class CoachRouteTests(unittest.TestCase):
         self.assertIn("Sleep trend", payload["insight"])
 
 
+    def test_lifestyle_dashboard_returns_metrics_and_habits(self):
+        response = handler(event("GET", "/lifestyle/dashboard"), None)
+
+        self.assertEqual(response["statusCode"], 200)
+        payload = body(response)
+        self.assertIn("metrics", payload)
+        self.assertIn("nutrition", payload)
+        self.assertGreaterEqual(len(payload["habits"]), 1)
+        self.assertIn("habitStreak", payload)
+        self.assertGreaterEqual(len(payload["recommendations"]), 1)
+
+    def test_nutrition_meal_and_water_persist_to_dashboard(self):
+        meal_response = handler(
+            event(
+                "POST",
+                "/nutrition/meals",
+                {
+                    "meal": {
+                        "name": "Post-workout shake",
+                        "calories": 420,
+                        "protein": 40,
+                        "carbs": 35,
+                        "fat": 8,
+                    }
+                },
+            ),
+            None,
+        )
+        self.assertEqual(meal_response["statusCode"], 200)
+
+        water_response = handler(
+            event("POST", "/nutrition/water", {"water": {"waterMl": 500}}),
+            None,
+        )
+        self.assertEqual(water_response["statusCode"], 200)
+
+        dashboard = body(handler(event("GET", "/lifestyle/dashboard"), None))
+        self.assertEqual(dashboard["nutrition"]["waterMl"], 500)
+        self.assertEqual(len(dashboard["nutrition"]["meals"]), 1)
+        self.assertEqual(dashboard["nutrition"]["meals"][0]["name"], "Post-workout shake")
+
+    def test_wellbeing_habit_complete_toggles_state(self):
+        habit_id = "meditation"
+        complete = handler(
+            event(
+                "POST",
+                f"/wellbeing/habits/{habit_id}/complete",
+                {"completed": True},
+            ),
+            None,
+        )
+        self.assertEqual(complete["statusCode"], 200)
+        completed_habit = next(h for h in body(complete)["habits"] if h["id"] == habit_id)
+        self.assertTrue(completed_habit["completed"])
+
+        undo = handler(
+            event(
+                "POST",
+                f"/wellbeing/habits/{habit_id}/complete",
+                {"completed": False},
+            ),
+            None,
+        )
+        self.assertEqual(undo["statusCode"], 200)
+        undone_habit = next(h for h in body(undo)["habits"] if h["id"] == habit_id)
+        self.assertFalse(undone_habit["completed"])
+
+    def test_restaurants_supports_category_filter(self):
+        response = handler(event("GET", "/restaurants", query={"category": "Chicken"}), None)
+
+        self.assertEqual(response["statusCode"], 200)
+        payload = body(response)
+        self.assertGreater(payload["count"], 0)
+        self.assertTrue(all(r["category"] == "Chicken" for r in payload["restaurants"]))
+
+
 class ScoringServiceTests(unittest.TestCase):
     def test_training_load_trend_rising(self):
         workouts = [

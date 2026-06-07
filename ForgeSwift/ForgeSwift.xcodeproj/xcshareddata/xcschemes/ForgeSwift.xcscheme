@@ -21,6 +21,20 @@
                ReferencedContainer = "container:ForgeSwift.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "WGT1005000000000000000002"
+               BuildableName = "ForgeWidgetExtension.appex"
+               BlueprintName = "ForgeWidgetExtension"
+               ReferencedContainer = "container:ForgeSwift.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

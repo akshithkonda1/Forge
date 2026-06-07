@@ -9,6 +9,7 @@ interface TodayPlanCardProps {
   workout: WorkoutPlan;
   onStart: () => void;
   onChangePlan: () => void;
+  isRefreshing?: boolean;
 }
 
 function IntensityDot({ intensity }: { intensity: string }) {
@@ -28,7 +29,12 @@ function capitalizeFirst(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-export function TodayPlanCard({ workout, onStart, onChangePlan }: TodayPlanCardProps) {
+export function TodayPlanCard({
+  workout,
+  onStart,
+  onChangePlan,
+  isRefreshing = false,
+}: TodayPlanCardProps) {
   const previewExercises = workout.exercises.slice(0, 3);
 
   return (
@@ -113,13 +119,15 @@ export function TodayPlanCard({ workout, onStart, onChangePlan }: TodayPlanCardP
       {/* Change plan link */}
       <motion.button
         onClick={onChangePlan}
+        disabled={isRefreshing}
         className={cn(
           "mt-3 w-full text-center text-xs font-medium",
-          "text-text-tertiary hover:text-text-secondary transition-colors"
+          "text-text-tertiary hover:text-text-secondary transition-colors",
+          isRefreshing && "opacity-60",
         )}
         whileTap={{ scale: 0.97 }}
       >
-        Change Plan
+        {isRefreshing ? "Refreshing plan…" : "Change Plan"}
       </motion.button>
     </motion.div>
   );

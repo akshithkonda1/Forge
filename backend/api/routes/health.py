@@ -13,10 +13,16 @@ _VALID_METRIC_TYPES = {
     "sleep-stage",
     "body-weight",
     "distance",
+    "dietary-calories",
+    "dietary-protein",
+    "dietary-carbs",
+    "dietary-fat",
+    "dietary-water",
 }
 
 _VALID_SOURCES = {
     "apple-health",
+    "health-connect",
     "oura",
     "whoop",
     "garmin",

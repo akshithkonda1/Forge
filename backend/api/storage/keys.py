@@ -72,3 +72,15 @@ def terra_heal_run_key(run_at: str) -> dict:
 
 def terra_user_heal_key(user_id: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": "TERRA#HEAL"}
+
+
+def nutrition_meal_key(user_id: str, date: str, meal_id: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"NUTRITION#MEAL#{date}#{meal_id}"}
+
+
+def nutrition_water_key(user_id: str, date: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"NUTRITION#WATER#{date}"}
+
+
+def habit_state_key(user_id: str, date: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"HABIT#STATE#{date}"}

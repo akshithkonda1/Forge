@@ -4,6 +4,7 @@ import type {
   IntegrationConnection,
   PersonalRecord,
   ReadinessData,
+  RichCard,
   SleepData,
   UserProfile,
   WorkoutHistory,
@@ -41,6 +42,11 @@ export interface ProfileResponse {
   connections: IntegrationConnection[];
 }
 
+export interface APIRichCardPayload {
+  type: string;
+  data?: Record<string, unknown>;
+}
+
 export interface ARIAChatResponse {
   threadId: string;
   message: {
@@ -48,6 +54,7 @@ export interface ARIAChatResponse {
     role: string;
     content: string;
     timestamp: string;
+    richCard?: APIRichCardPayload;
   };
 }
 
@@ -56,6 +63,7 @@ export interface ARIAConversationMessage {
   role: string;
   content: string;
   timestamp?: string;
+  richCard?: APIRichCardPayload;
 }
 
 export interface ARIAConversationResponse {
@@ -173,7 +181,33 @@ export const forgeAPI = {
       method: "POST",
       body: JSON.stringify({}),
     }),
+  fetchCoachWorkoutPlan: () =>
+    request<{ todayPlan: WorkoutPlan | null; explanation: string }>("/coach/workout-plan", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+  generateARIAPlan: (focus: "workout" | "recovery" | "nutrition" | "auto" = "auto") =>
+    request<{ focus: string; plan: string; generatedAt: string }>("/aria/plan", {
+      method: "POST",
+      body: JSON.stringify({ focus }),
+    }),
 };
+
+function mapRichCard(payload?: APIRichCardPayload): RichCard | undefined {
+  if (!payload?.type || !payload.data) return undefined;
+
+  const type = payload.type as RichCard["type"];
+  if (
+    type !== "workout-plan" &&
+    type !== "data-chart" &&
+    type !== "progress-comparison" &&
+    type !== "form-check"
+  ) {
+    return undefined;
+  }
+
+  return { type, data: payload.data };
+}
 
 export function mapARIAMessage(response: ARIAChatResponse): ChatMessage {
   return {
@@ -181,6 +215,7 @@ export function mapARIAMessage(response: ARIAChatResponse): ChatMessage {
     role: response.message.role === "user" ? "user" : "trainer",
     content: response.message.content,
     timestamp: new Date(response.message.timestamp),
+    richCard: mapRichCard(response.message.richCard),
   };
 }
 
@@ -195,5 +230,6 @@ export function mapConversation(messages: ARIAConversationMessage[]): ChatMessag
       role: message.role === "user" ? "user" : "trainer",
       content: message.content.trim(),
       timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
+      richCard: mapRichCard(message.richCard),
     }));
 }

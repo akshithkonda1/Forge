@@ -51,6 +51,11 @@ final class ForgeRepository: ObservableObject {
         return response.plan
     }
 
+    func fetchLifestyleCoaching(focus: String = "nutrition") async throws -> String {
+        let response = try await api.generateARIALifestyle(focus: focus)
+        return response.coaching
+    }
+
     func refreshCoachWorkoutPlan() async throws -> WorkoutPlan? {
         let response = try await api.fetchCoachWorkoutPlan()
         return response.todayPlan.map(mapWorkoutPlan)
@@ -58,7 +63,7 @@ final class ForgeRepository: ObservableObject {
 
     func sendVoiceTranscript(_ transcript: String) async throws -> String {
         let response = try await api.sendARIAVoice(transcript: transcript)
-        return response.response
+        return response.answer
     }
 
     func regenerateInsights() async throws {
@@ -80,7 +85,7 @@ final class ForgeRepository: ObservableObject {
                 role: role,
                 content: trimmed,
                 timestamp: timestamp,
-                richCard: nil,
+                richCard: mapRichCard(message.richCard),
                 toolCallsMade: nil
             )
         }
@@ -134,14 +139,72 @@ final class ForgeRepository: ObservableObject {
         _ = try await api.updateProfile(payload)
     }
 
-    func logWorkout(_ workout: WorkoutPlan, volume: Int) async throws {
+    func logWorkout(
+        _ workout: WorkoutPlan,
+        volume: Int,
+        avgHeartRate: Int? = nil,
+        peakHeartRate: Int? = nil
+    ) async throws {
         try await api.postWorkoutLog(
             name: workout.name,
             type: workout.type.rawValue,
             duration: workout.duration,
             volume: volume,
-            intensity: workout.intensity.rawValue
+            intensity: workout.intensity.rawValue,
+            avgHeartRate: avgHeartRate,
+            peakHeartRate: peakHeartRate
         )
+    }
+
+    func syncWorkoutHeartRate(samples: [(bpm: Int, timestamp: Date)]) async throws {
+        guard !samples.isEmpty else { return }
+        let formatter = ISO8601DateFormatter()
+        let metrics = samples.map { sample in
+            HealthMetricInput(
+                source: "apple-health",
+                metricType: "heart-rate",
+                startedAt: formatter.string(from: sample.timestamp),
+                endedAt: nil,
+                value: Double(sample.bpm),
+                unit: "bpm"
+            )
+        }
+        try await api.syncHealthBatch(metrics)
+    }
+
+    func fetchLifestyleDashboard() async throws -> LifestyleDashboardSnapshot {
+        let response = try await api.getLifestyleDashboard()
+        return mapLifestyleDashboard(response)
+    }
+
+    func fetchRestaurants(category: String? = nil, search: String? = nil) async throws -> [LifestyleRestaurant] {
+        let response = try await api.getRestaurants(category: category, search: search)
+        return response.restaurants.map(mapRestaurant)
+    }
+
+    func logNutritionMeal(
+        name: String,
+        calories: Double,
+        protein: Double,
+        carbs: Double,
+        fat: Double
+    ) async throws {
+        _ = try await api.postNutritionMeal(
+            name: name,
+            calories: calories,
+            protein: protein,
+            carbs: carbs,
+            fat: fat
+        )
+    }
+
+    func logNutritionWater(waterMl: Double) async throws {
+        try await api.postNutritionWater(waterMl: waterMl)
+    }
+
+    func completeWellbeingHabit(id: String, completed: Bool) async throws -> [LifestyleHabit] {
+        let habits = try await api.completeWellbeingHabit(habitId: id, completed: completed)
+        return habits.map(mapHabit)
     }
 
     func syncHealthMetrics(
@@ -171,6 +234,71 @@ final class ForgeRepository: ObservableObject {
     }
 }
 
+struct LifestyleDashboardSnapshot {
+    let metrics: LifestyleMetricsSnapshot
+    let recommendations: [LifestyleRecommendationSnapshot]
+    let nutrition: LifestyleNutritionSnapshot
+    let habits: [LifestyleHabit]
+    let habitStreak: Int
+}
+
+struct LifestyleMetricsSnapshot {
+    let sleepAverage: Double
+    let sleepTarget: Double
+    let nutritionQuality: Double
+    let dailySteps: Int
+    let stressLevel: String
+    let qualityOfLifeScore: Int
+    let physicalHealth: Int
+    let mentalWellbeing: Int
+    let energyLevels: Int
+    let sleepQuality: Int
+    let nutritionScore: Int
+}
+
+struct LifestyleRecommendationSnapshot {
+    let id: String
+    let title: String
+    let description: String
+    let impact: String
+    let category: String
+}
+
+struct LifestyleNutritionSnapshot {
+    let calories: Double
+    let protein: Double
+    let carbs: Double
+    let fat: Double
+    let waterMl: Double
+    let targets: APINutritionTargets
+    let meals: [APINutritionMeal]
+}
+
+struct LifestyleHabit: Identifiable {
+    let id: String
+    let name: String
+    var completed: Bool
+}
+
+struct LifestyleRestaurant: Identifiable {
+    let id: String
+    let name: String
+    let logo: String
+    let category: String
+    let items: [LifestyleMenuItem]
+}
+
+struct LifestyleMenuItem: Identifiable {
+    let id: String
+    let name: String
+    let calories: Int
+    let protein: Int
+    let carbs: Int
+    let fat: Int
+    let serving: String
+    let isHealthy: Bool
+}
+
 struct DashboardSnapshot {
     var profile: UserProfile
     var readiness: ReadinessData
@@ -190,6 +318,69 @@ struct ProgressSummarySnapshot {
 }
 
 // MARK: - Mapping
+
+private func mapLifestyleDashboard(_ response: APILifestyleDashboardResponse) -> LifestyleDashboardSnapshot {
+    LifestyleDashboardSnapshot(
+        metrics: LifestyleMetricsSnapshot(
+            sleepAverage: response.metrics.sleepAverage,
+            sleepTarget: response.metrics.sleepTarget,
+            nutritionQuality: response.metrics.nutritionQuality,
+            dailySteps: response.metrics.dailySteps,
+            stressLevel: response.metrics.stressLevel,
+            qualityOfLifeScore: response.metrics.qualityOfLifeScore,
+            physicalHealth: response.metrics.physicalHealth,
+            mentalWellbeing: response.metrics.mentalWellbeing,
+            energyLevels: response.metrics.energyLevels,
+            sleepQuality: response.metrics.sleepQuality,
+            nutritionScore: response.metrics.nutritionScore
+        ),
+        recommendations: response.recommendations.map {
+            LifestyleRecommendationSnapshot(
+                id: $0.id,
+                title: $0.title,
+                description: $0.description,
+                impact: $0.impact,
+                category: $0.category
+            )
+        },
+        nutrition: LifestyleNutritionSnapshot(
+            calories: response.nutrition.calories,
+            protein: response.nutrition.protein,
+            carbs: response.nutrition.carbs,
+            fat: response.nutrition.fat,
+            waterMl: response.nutrition.waterMl,
+            targets: response.nutrition.targets,
+            meals: response.nutrition.meals
+        ),
+        habits: response.habits.map(mapHabit),
+        habitStreak: response.habitStreak
+    )
+}
+
+private func mapHabit(_ habit: APIWellbeingHabit) -> LifestyleHabit {
+    LifestyleHabit(id: habit.id, name: habit.name, completed: habit.completed)
+}
+
+private func mapRestaurant(_ restaurant: APIRestaurant) -> LifestyleRestaurant {
+    LifestyleRestaurant(
+        id: restaurant.id,
+        name: restaurant.name,
+        logo: restaurant.logo,
+        category: restaurant.category,
+        items: restaurant.items.map {
+            LifestyleMenuItem(
+                id: $0.id,
+                name: $0.name,
+                calories: $0.calories,
+                protein: $0.protein,
+                carbs: $0.carbs,
+                fat: $0.fat,
+                serving: $0.serving,
+                isHealthy: $0.isHealthy
+            )
+        }
+    )
+}
 
 private func mapDashboard(_ response: DashboardTodayResponse) -> DashboardSnapshot {
     DashboardSnapshot(

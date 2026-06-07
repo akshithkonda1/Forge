@@ -7,8 +7,26 @@ import { cn } from "@/lib/utils";
 
 export function AiSleepInsight() {
   const setActiveTab = useAppStore((s) => s.setActiveTab);
-  const sleepInsightText = useAppStore((s) => s.sleepInsightText);
-  const text = sleepInsightText();
+  const coachingInsights = useAppStore((s) => s.coachingInsights);
+  const progressSummary = useAppStore((s) => s.progressSummary);
+  const sleepData = useAppStore((s) => s.sleepData);
+  const dailyMetrics = useAppStore((s) => s.dailyMetrics);
+
+  const sleepInsight = coachingInsights.find((i) => i.type === "sleep");
+  const latest = sleepData[0];
+  const text = sleepInsight
+    ? `${sleepInsight.observation} ${sleepInsight.recommendation}`
+    : progressSummary?.summary
+      ? progressSummary.summary
+      : !latest
+        ? "Connect Apple Health or a wearable to unlock personalized sleep coaching."
+        : latest.score >= 85
+          ? `Excellent recovery. ${Math.floor(latest.deepMinutes / 60)}hr ${latest.deepMinutes % 60}min of deep sleep has you primed for a heavy session today.`
+          : latest.score >= 70
+            ? `Good sleep — ${Math.floor(latest.deepMinutes / 60)}hr ${latest.deepMinutes % 60}min of deep sleep. Cut screens 45 minutes before bed to push this score higher.`
+            : dailyMetrics.deepSleep > 0
+              ? `Only ${Math.floor(dailyMetrics.deepSleep / 60)}hr ${dailyMetrics.deepSleep % 60}min of deep sleep last night. Consider a lighter session and an earlier bedtime tonight.`
+              : "Connect a wearable to unlock personalized sleep coaching.";
 
   return (
     <motion.div

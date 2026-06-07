@@ -35,7 +35,7 @@ export default function Page() {
 
   useEffect(() => {
     if (!isOnboarded) {
-      router.push("/onboarding");
+      router.replace("/onboarding");
     }
   }, [isOnboarded, router]);
 

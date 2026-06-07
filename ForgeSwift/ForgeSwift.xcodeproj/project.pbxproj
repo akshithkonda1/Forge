@@ -10,6 +10,7 @@
 		1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */; };
 		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
 		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
+		1ELHR0012FAA000100000001 /* LiveHeartRateMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ELHR0022FAA000100000001 /* LiveHeartRateMonitor.swift */; };
 		1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */; };
 		1E4DF71A2F9FFA70004091AA /* OnboardingDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */; };
 		1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */; };
@@ -57,6 +58,7 @@
 		1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MusicControllerFactory.swift; sourceTree = "<group>"; };
 		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
 		1E4DF7152F9FF867004091AA /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
+		1ELHR0022FAA000100000001 /* LiveHeartRateMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveHeartRateMonitor.swift; sourceTree = "<group>"; };
 		1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingHealthKitViews.swift; sourceTree = "<group>"; };
 		1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDataManager.swift; sourceTree = "<group>"; };
 		1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedDataConnectionView.swift; sourceTree = "<group>"; };
@@ -170,6 +172,7 @@
 				1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */,
 				1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */,
 				1E4DF7152F9FF867004091AA /* HealthKitManager.swift */,
+				1ELHR0022FAA000100000001 /* LiveHeartRateMonitor.swift */,
 				1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */,
 				1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */,
 				1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */,
@@ -329,6 +332,7 @@
 				1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */,
 				AA0001000000000000000002 /* Theme.swift in Sources */,
 				1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */,
+				1ELHR0012FAA000100000001 /* LiveHeartRateMonitor.swift in Sources */,
 				1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */,
 				1E4DF71E2F9FFAE1004091AA /* SmartProfileSetupView.swift in Sources */,
 				AA0001000000000000000003 /* Models.swift in Sources */,
@@ -432,7 +436,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = L85K85Q7MB;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -450,7 +453,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -497,7 +500,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = L85K85Q7MB;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -509,7 +511,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -530,7 +532,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ForgeSwift/Forge-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Forge;
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
@@ -555,6 +557,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -572,7 +575,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ForgeSwift/Forge-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Forge;
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
@@ -597,6 +600,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

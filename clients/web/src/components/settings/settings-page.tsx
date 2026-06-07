@@ -199,10 +199,19 @@ function Pill({ children, variant = "default" }: { children: React.ReactNode; va
 
 // ---------- Main Component ----------
 
+const coachingStyles: CoachingStyle[] = [
+  "push-hard",
+  "balanced",
+  "patient",
+  "data-driven",
+];
+
 export default function SettingsPage() {
   const router = useRouter();
   const userProfile = useAppStore((s) => s.userProfile);
   const signOut = useAppStore((s) => s.signOut);
+  const saveProfileToAPI = useAppStore((s) => s.saveProfileToAPI);
+  const isSavingProfile = useAppStore((s) => s.isSavingProfile);
 
   // Local toggle states for notification switches
   const [toggles, setToggles] = useState({
@@ -214,6 +223,18 @@ export default function SettingsPage() {
 
   const handleToggle = (key: keyof typeof toggles) => {
     setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleEditName = async () => {
+    const nextName = window.prompt("Your name", userProfile.name)?.trim();
+    if (!nextName || nextName === userProfile.name) return;
+    await saveProfileToAPI({ name: nextName });
+  };
+
+  const handleCycleCoachingStyle = async () => {
+    const currentIndex = coachingStyles.indexOf(userProfile.coachingStyle);
+    const nextStyle = coachingStyles[(currentIndex + 1) % coachingStyles.length];
+    await saveProfileToAPI({ coachingStyle: nextStyle });
   };
 
   // Derive initials from name
@@ -266,9 +287,11 @@ export default function SettingsPage() {
           </h2>
           <button
             type="button"
-            className="text-sm font-medium text-ember transition-colors hover:text-ember-light"
+            onClick={() => void handleEditName()}
+            disabled={isSavingProfile}
+            className="text-sm font-medium text-ember transition-colors hover:text-ember-light disabled:opacity-60"
           >
-            Edit
+            {isSavingProfile ? "Saving…" : "Edit"}
           </button>
         </div>
 
@@ -297,6 +320,7 @@ export default function SettingsPage() {
             </span>
           }
           showChevron
+          onClick={() => void handleCycleCoachingStyle()}
         />
         {/* Style description */}
         <div className="px-4 py-2.5">

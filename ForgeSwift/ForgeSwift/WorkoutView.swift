@@ -735,6 +735,7 @@ struct ActiveWorkoutView: View {
 
     // Voice coach
     @State private var voiceCoach = VoiceCoachManager()
+    @StateObject private var hrMonitor = LiveHeartRateMonitor()
 
     // Set logging
     @State private var setLog:         [SetLogEntry] = []
@@ -764,12 +765,14 @@ struct ActiveWorkoutView: View {
     // Tasks
     @State private var elapsedTask: Task<Void, Never>? = nil
     @State private var hrTask:      Task<Void, Never>? = nil
+    @State private var hrUploadTask: Task<Void, Never>? = nil
     @State private var calTask:     Task<Void, Never>? = nil
     @State private var o2Task:      Task<Void, Never>? = nil
     @State private var restTask:    Task<Void, Never>? = nil
     private var exercises:       [Exercise] { store.todayWorkout?.exercises ?? [] }
     private var currentExercise: Exercise?  { exercises.indices.contains(store.currentExerciseIndex) ? exercises[store.currentExerciseIndex] : nil }
-    private var currentZone: WorkoutHRZone { workoutHRZone(for: simulatedHR) }
+    private var displayHR: Int { hrMonitor.currentBPM ?? simulatedHR }
+    private var currentZone: WorkoutHRZone { workoutHRZone(for: displayHR) }
 
     var body: some View {
         ZStack {
@@ -834,6 +837,7 @@ struct ActiveWorkoutView: View {
             }
         }
         .onAppear {
+            Task { await hrMonitor.start() }
             startTasks()
             setupCurrentWeight()
             syncVoiceCoachContext()
@@ -842,13 +846,24 @@ struct ActiveWorkoutView: View {
             }
         }
         .onDisappear {
+            flushHeartRateSamples()
+            hrMonitor.stop()
             cancelTasks()
             voiceCoach.stopListening()
         }
         .onChange(of: store.currentExerciseIndex) { _, _ in syncVoiceCoachContext() }
         .onChange(of: store.currentSet) { _, _ in syncVoiceCoachContext() }
         .onChange(of: elapsedSecs) { _, _ in syncVoiceCoachContext() }
-        .onChange(of: simulatedHR) { _, _ in syncVoiceCoachContext() }
+        .onChange(of: displayHR) { _, newValue in
+            simulatedHR = newValue
+            syncVoiceCoachContext()
+        }
+        .onChange(of: hrMonitor.currentBPM) { _, newValue in
+            guard let newValue else { return }
+            simulatedHR = newValue
+            hrHistory.append(newValue)
+            if newValue > peakHR { peakHR = newValue }
+        }
         .onChange(of: isResting) { _, _ in syncVoiceCoachContext() }
         .onChange(of: restTimeLeft) { _, _ in syncVoiceCoachContext() }
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: showPRBanner)
@@ -1003,8 +1018,8 @@ struct ActiveWorkoutView: View {
                 // PRIMARY: HR — largest chip, zone-colored
                 primaryMetricChip(
                     icon: "heart.fill", iconColor: currentZone.color,
-                    value: "\(simulatedHR)", unit: "bpm",
-                    accent: currentZone.color, glowing: simulatedHR > 140
+                    value: "\(displayHR)", unit: "bpm",
+                    accent: currentZone.color, glowing: displayHR > 140
                 )
 
                 // Zone label
@@ -1376,7 +1391,7 @@ struct ActiveWorkoutView: View {
                 reps: exercise.reps,
                 weight: exercise.weight.map { "\($0) lbs" } ?? "BW",
                 elapsedTime: formatTime(elapsedSecs, flashColon: false),
-                heartRate: simulatedHR,
+                heartRate: displayHR,
                 hrZone: workoutHRZones.firstIndex(where: { $0.label == currentZone.label }) ?? 0 + 1,
                 calories: Int(estimatedCals),
                 restSeconds: exercise.restSeconds,
@@ -1391,7 +1406,7 @@ struct ActiveWorkoutView: View {
                 restSecondsRemaining: restTimeLeft,
                 isResting: isResting,
                 elapsedSeconds: elapsedSecs,
-                heartRate: simulatedHR,
+                heartRate: displayHR,
                 hrZoneLabel: currentZone.label
             )
         )
@@ -1457,7 +1472,8 @@ struct ActiveWorkoutView: View {
             exercisesCompleted: min(store.currentExerciseIndex + 1, exercises.count),
             avgRPE: avgRPE, hrHistory: hrHistory
         )
-        store.endWorkout()
+        flushHeartRateSamples()
+        store.endWorkout(avgHeartRate: avgHR, peakHeartRate: peakHR)
         onWorkoutEnd(data)
     }
 
@@ -1530,6 +1546,7 @@ struct ActiveWorkoutView: View {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
                 guard !Task.isCancelled else { return }
+                guard !hrMonitor.isLive else { continue }
                 let target = isResting ? (108 + Double.random(in: 0...18)) : (140 + Double.random(in: 0...26))
                 let current = Double(simulatedHR)
                 let drift = (target - current) * 0.12
@@ -1538,6 +1555,13 @@ struct ActiveWorkoutView: View {
                 simulatedHR = Int(nextHR)
                 hrHistory.append(simulatedHR)
                 if simulatedHR > peakHR { peakHR = simulatedHR }
+            }
+        }
+        hrUploadTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 30_000_000_000)
+                guard !Task.isCancelled else { return }
+                flushHeartRateSamples()
             }
         }
         calTask = Task {
@@ -1569,8 +1593,16 @@ struct ActiveWorkoutView: View {
     }
 
     private func cancelTasks() {
-        [elapsedTask, hrTask, calTask, o2Task, restTask].forEach { $0?.cancel() }
-        elapsedTask = nil; hrTask = nil; calTask = nil; o2Task = nil; restTask = nil
+        [elapsedTask, hrTask, hrUploadTask, calTask, o2Task, restTask].forEach { $0?.cancel() }
+        elapsedTask = nil; hrTask = nil; hrUploadTask = nil; calTask = nil; o2Task = nil; restTask = nil
+    }
+
+    private func flushHeartRateSamples() {
+        let samples = hrMonitor.drainPendingSamples()
+        guard !samples.isEmpty else { return }
+        Task {
+            try? await ForgeRepository.shared.syncWorkoutHeartRate(samples: samples)
+        }
     }
 
     private func formatTime(_ s: Int, flashColon: Bool = true) -> String {
