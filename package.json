@@ -20,6 +20,7 @@
     "ios:open": "./scripts/ios_dev.sh open",
     "ios:backend": "./scripts/ios_dev.sh backend",
     "ios:build": "./scripts/ios_dev.sh build",
-    "ios:preflight": "./scripts/ios_dev.sh build"
+    "ios:preflight": "./scripts/ios_dev.sh build",
+    "config:generate": "python3 scripts/generate_client_config.py"
   }
 }

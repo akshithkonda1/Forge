@@ -28,15 +28,15 @@
 		</dict>
 	</array>
 	<key>FORGE_API_BASE_URL</key>
-	<string>http://127.0.0.1:3001</string>
+	<string>$(FORGE_API_BASE_URL)</string>
 	<key>FORGE_COGNITO_CLIENT_ID</key>
-	<string></string>
+	<string>$(FORGE_COGNITO_CLIENT_ID)</string>
 	<key>FORGE_COGNITO_REGION</key>
-	<string>us-east-1</string>
+	<string>$(FORGE_COGNITO_REGION)</string>
 	<key>FORGE_USE_AUTH</key>
-	<string>false</string>
+	<string>$(FORGE_USE_AUTH)</string>
 	<key>FORGE_WEB_CALLBACK_BASE_URL</key>
-	<string>forge://device-connected</string>
+	<string>$(FORGE_WEB_CALLBACK_BASE_URL)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

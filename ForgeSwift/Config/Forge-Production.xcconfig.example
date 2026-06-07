@@ -1,0 +1,12 @@
+// Copy values from Terraform, or run:
+//   terraform output -json client_configuration > client-configuration.json
+//   python3 scripts/generate_client_config.py
+//
+// The generator writes Forge-Production.xcconfig (gitignored). Release builds
+// include it automatically via Forge-Release.xcconfig.
+
+FORGE_API_BASE_URL = https:/\/your-api.execute-api.us-east-1.amazonaws.com
+FORGE_USE_AUTH = true
+FORGE_COGNITO_REGION = us-east-1
+FORGE_COGNITO_CLIENT_ID = your-ios-cognito-client-id
+FORGE_WEB_CALLBACK_BASE_URL = forge:/\/device-connected

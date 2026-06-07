@@ -39,4 +39,32 @@ enum APIConfig {
     static var cognitoEndpoint: URL {
         URL(string: "https://cognito-idp.\(cognitoRegion).amazonaws.com/")!
     }
+
+    /// Release builds with auth enabled must ship a real API URL and Cognito client ID.
+    static var configurationError: String? {
+        #if DEBUG
+        return nil
+        #else
+        guard usesAuth else { return nil }
+
+        if cognitoClientId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return """
+            Cognito is not configured for this Release build.
+            Run scripts/generate_client_config.py after terraform apply, then archive again.
+            See docs/PRODUCTION-CLIENTS.md.
+            """
+        }
+
+        let host = baseURL.host ?? ""
+        if host.isEmpty || host == "127.0.0.1" || host == "localhost" {
+            return """
+            Production API URL is missing for this Release build.
+            Generate Forge-Production.xcconfig from Terraform output before archiving.
+            See docs/PRODUCTION-CLIENTS.md.
+            """
+        }
+
+        return nil
+        #endif
+    }
 }

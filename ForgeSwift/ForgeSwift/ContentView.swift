@@ -11,19 +11,21 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            if store.isOnboarded {
+            if let configurationError = APIConfig.configurationError {
+                ConfigurationErrorOverlay(message: configurationError)
+            } else if store.isOnboarded {
                 MainTabView()
             } else {
                 OnboardingView()
             }
 
-            if store.isOnboarded && auth.requiresSignIn {
+            if APIConfig.configurationError == nil, store.isOnboarded, auth.requiresSignIn {
                 AuthRequiredOverlay(showAuthSheet: $showAuthSheet)
                     .zIndex(50)
             }
             
             // Epic splash screen
-            if showSplash {
+            if showSplash, APIConfig.configurationError == nil {
                 ForgeSplashScreen()
                     .transition(.opacity)
                     .zIndex(999)
@@ -111,6 +113,28 @@ struct ForgeSplashScreen: View {
 }
 
 // MARK: - Main Tab Container
+
+private struct ConfigurationErrorOverlay: View {
+    let message: String
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 40, weight: .semibold))
+                .foregroundColor(.ember)
+            Text("Production configuration required")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.textPrimary)
+            Text(message)
+                .font(.system(size: 14))
+                .foregroundColor(.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.background.ignoresSafeArea())
+    }
+}
 
 private struct AuthRequiredOverlay: View {
     @Binding var showAuthSheet: Bool

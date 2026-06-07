@@ -1,4 +1,7 @@
-// Production — override FORGE_API_BASE_URL at archive time or in CI.
-// Example: xcodebuild ... FORGE_API_BASE_URL=https://your-api.execute-api.us-east-1.amazonaws.com
+// Production — generate Forge-Production.xcconfig from Terraform output (see docs/PRODUCTION-CLIENTS.md).
+#include? "Forge-Production.xcconfig"
 FORGE_USE_AUTH = true
+FORGE_COGNITO_REGION = us-east-1
+FORGE_COGNITO_CLIENT_ID =
+FORGE_WEB_CALLBACK_BASE_URL = forge:/\/device-connected
 DEVELOPMENT_TEAM = L85K85Q7MB

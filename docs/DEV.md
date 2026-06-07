@@ -45,11 +45,13 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Optional env (create `clients/web/.env.local`):
+Optional env — copy [`clients/web/.env.example`](../clients/web/.env.example) to `.env.local`:
 
 ```
 NEXT_PUBLIC_API_URL=http://127.0.0.1:3001
 ```
+
+For production client wiring after Terraform, see [`PRODUCTION-CLIENTS.md`](PRODUCTION-CLIENTS.md).
 
 ### What you'll see
 
