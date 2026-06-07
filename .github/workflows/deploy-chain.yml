@@ -126,7 +126,18 @@ jobs:
         run: terraform validate -no-color
 
       - name: Terraform plan
-        run: terraform plan -input=false -no-color
+        run: |
+          # S3 backend is for deploy only; use a transient local backend for plan in CI.
+          mv backend.tf backend.s3.tf.disabled
+          cat > backend.tf <<'EOF'
+          terraform {
+            backend "local" {
+              path = "ci-plan.tfstate"
+            }
+          }
+          EOF
+          terraform init -reconfigure -input=false -lockfile=readonly -no-color
+          terraform plan -input=false -no-color
 
   phase1-test-swift:
     name: 'Phase 1 · Test Swift'
