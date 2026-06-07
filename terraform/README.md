@@ -93,7 +93,7 @@ gh workflow run deploy-chain.yml --repo akshithkonda1/Forge -f run_deploy=true
 ## Usage
 
 ```bash
-cd infra/terraform
+cd terraform
 cp terraform.tfvars.example terraform.tfvars
 terraform init -backend-config=backend.hcl   # after wire_production.sh
 TF_VAR_skip_aws_provider_checks=true terraform plan   # CI / no credentials

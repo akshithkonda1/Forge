@@ -5,8 +5,9 @@ from typing import Any
 
 from lifestyle_seed import DEFAULT_MACRO_TARGETS, default_habits, default_restaurants
 from responses import RouteError, ok
-from seed_data import default_daily_metrics, today_iso
+from seed_data import today_iso
 from services import lifestyle_scoring
+from services.metrics_snapshot import load_daily_metrics
 from storage import dynamodb, keys
 
 
@@ -51,24 +52,14 @@ def _load_habits(user_id: str, date: str) -> tuple[list[dict[str, Any]], int]:
     habits = []
     for habit in default_habits():
         habits.append({**habit, "completed": habit["id"] in completed_ids})
-    streak = int(state_item.get("streak", 7)) if state_item else 7
+    streak = int(state_item.get("streak", 0)) if state_item else 0
     return habits, streak
 
 
 def _dashboard_signals(user_id: str) -> dict[str, Any]:
     sleep_items = dynamodb.query_prefix_desc(keys.user_pk(user_id), "SLEEP#", limit=1)
     latest_sleep = _strip(sleep_items[0]) if sleep_items else {}
-    daily_metrics = default_daily_metrics()
-
-    for metric_type, field in (
-        ("steps", "steps"),
-        ("active-calories", "activeCalories"),
-        ("resting-heart-rate", "restingHR"),
-        ("hrv", "hrv"),
-    ):
-        metric_items = dynamodb.query_prefix_desc(keys.user_pk(user_id), f"METRIC#{metric_type}#", limit=1)
-        if metric_items:
-            daily_metrics[field] = metric_items[0].get("value", daily_metrics[field])
+    daily_metrics = load_daily_metrics(user_id)
 
     return {
         "sleep_hours": float(latest_sleep.get("totalHours", 0) or 0),

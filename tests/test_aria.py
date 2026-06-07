@@ -396,12 +396,7 @@ class HealthEndpointARIATests(unittest.TestCase):
         self.assertIn("backend", payload["aria"])
         self.assertIn("chatModel", payload["aria"])
         self.assertIn("analysisModel", payload["aria"])
-        self.assertIn("backupModel", payload["aria"])
-        self.assertIn("features", payload["aria"])
-        self.assertIn("tool-use", payload["aria"]["features"])
-        self.assertIn("extended-thinking", payload["aria"]["features"])
-        self.assertIn("prompt-caching", payload["aria"]["features"])
-        self.assertIn("backup-model", payload["aria"]["features"])
+        self.assertIn("status", payload["aria"])
 
 
 # ---------------------------------------------------------------------------

@@ -15,7 +15,7 @@ Run via the repo root script (does not deploy the Forge API stack):
 Or manually:
 
 ```bash
-cd infra/bootstrap
+cd terraform/bootstrap
 terraform init
 terraform apply
 terraform output

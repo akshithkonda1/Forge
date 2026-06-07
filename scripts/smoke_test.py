@@ -3,6 +3,9 @@
 
 Targets the local dev server (backend/dev_server.py → backend/api on port 3001)
 or a deployed API Gateway URL via FORGE_API_BASE_URL.
+
+For deployed APIs protected by Cognito JWT, set FORGE_SMOKE_AUTH_TOKEN to a valid
+access token. Local smoke continues to use FORGE_TEST_USER_ID via dev_server.py.
 """
 
 from __future__ import annotations
@@ -15,12 +18,16 @@ import urllib.request
 
 API_BASE = os.environ.get("FORGE_API_BASE_URL", "http://localhost:3001").rstrip("/")
 TIMEOUT = int(os.environ.get("FORGE_SMOKE_TIMEOUT", "15"))
+AUTH_TOKEN = os.environ.get("FORGE_SMOKE_AUTH_TOKEN", "").strip()
+LOCAL_DEV = API_BASE.startswith("http://127.0.0.1") or API_BASE.startswith("http://localhost")
 
 
-def request(method: str, path: str, body: dict | None = None) -> tuple[int, dict]:
+def request(method: str, path: str, body: dict | None = None, *, auth: bool = True) -> tuple[int, dict]:
     url = f"{API_BASE}{path}"
     data = None
     headers = {"Content-Type": "application/json"}
+    if auth and AUTH_TOKEN:
+        headers["Authorization"] = f"Bearer {AUTH_TOKEN}"
     if body is not None:
         data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
@@ -44,8 +51,20 @@ def main() -> int:
     print(f"Forge smoke test against {API_BASE}\n")
     passed = True
 
-    code, health = request("GET", "/health")
-    passed &= check("GET /health", code == 200 and health.get("status") == "ok", f"status={code}")
+    code, health = request("GET", "/health", auth=False)
+    passed &= check("GET /health", code == 200 and health.get("status") in {"ok", "degraded"}, f"status={code}")
+    readiness = health.get("readiness") or {}
+    passed &= check(
+        "GET /health readiness block",
+        "productionReady" in readiness and "seedFallbackEnabled" in readiness,
+        f"productionReady={readiness.get('productionReady')}",
+    )
+    self_healing = health.get("selfHealing") or {}
+    passed &= check(
+        "GET /health selfHealing block",
+        self_healing.get("enabled") is not None,
+        f"enabled={self_healing.get('enabled')}",
+    )
 
     terra = (health.get("integrations") or {}).get("terra") or {}
     passed &= check(
@@ -54,12 +73,21 @@ def main() -> int:
         f"status={terra.get('status', 'n/a')}",
     )
 
-    code, terra_health = request("GET", "/integrations/terra/health")
+    code, terra_health = request("GET", "/integrations/terra/health", auth=False)
     passed &= check(
         "GET /integrations/terra/health",
         code == 200 and "healthy" in terra_health and "integration" in terra_health,
         f"status={code}",
     )
+
+    if not LOCAL_DEV and not AUTH_TOKEN:
+        print("[SKIP] Protected route smoke checks — set FORGE_SMOKE_AUTH_TOKEN for deployed API")
+        print()
+        if passed:
+            print("Public smoke checks passed.")
+            return 0
+        print("One or more public smoke checks failed.")
+        return 1
 
     code, dashboard = request("GET", "/dashboard/today")
     passed &= check(

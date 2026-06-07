@@ -4,7 +4,7 @@ Wire the Next.js and Swift clients after Terraform deploy. No hand-editing of pl
 
 ## 1. Export Terraform output
 
-From `infra/terraform` after `terraform apply`:
+From `terraform` after `terraform apply`:
 
 ```bash
 terraform output -json client_configuration > ../../client-configuration.json

@@ -9,6 +9,7 @@ from auth import extract_user_id
 from integrations import terra_config
 from integrations.terra_self_integration import get_integration_state
 from ops_auth import require_ops_token
+from production_health import collect_readiness_checks, health_status, self_healing_summary
 from responses import RouteError, error_response, not_found, ok
 from routes import aria, chat, coach, dashboard, health, integrations, lifestyle, profile, progress, sleep, terra, workouts
 
@@ -85,15 +86,18 @@ def handler(event, _context):
     # --- Health check (no auth required) ---
     if method == "GET" and path == "/health":
         models = default_models()
+        readiness_checks = collect_readiness_checks()
         return ok({
-            "status": "ok",
+            "status": health_status(readiness_checks),
             "service": "forge-backend",
             "environment": os.getenv("ENVIRONMENT", "unknown"),
             "timestamp": datetime.now(timezone.utc).isoformat(),
+            "readiness": readiness_checks,
+            "selfHealing": self_healing_summary(),
             "resources": {
-                "appDataTable": os.getenv("APP_DATA_TABLE_NAME"),
-                "uploadsBucket": os.getenv("UPLOADS_BUCKET_NAME"),
-                "userPoolId": os.getenv("USER_POOL_ID"),
+                "appDataTableConfigured": bool(os.getenv("APP_DATA_TABLE_NAME")),
+                "uploadsBucketConfigured": bool(os.getenv("UPLOADS_BUCKET_NAME")),
+                "userPoolConfigured": bool(os.getenv("USER_POOL_ID")),
             },
             "router": {
                 "maxPackageBytes": 10 * 1024 * 1024 * 1024,
@@ -103,26 +107,12 @@ def handler(event, _context):
                     "name": models[0].name,
                     "modelId": models[0].model_id,
                 },
-                "models": [
-                    {"slot": m.slot, "name": m.name, "modelId": m.model_id}
-                    for m in models
-                ],
             },
             "aria": {
                 "backend": os.getenv("ARIA_BACKEND", "bedrock"),
-                "status": "configured",
+                "status": "configured" if readiness_checks.get("aiSecretsConfigured") else "unconfigured",
                 "chatModel": ARIA_CHAT_MODEL,
                 "analysisModel": ARIA_ANALYSIS_MODEL,
-                "backupModel": os.getenv("ARIA_BACKUP_MODEL", ARIA_ANALYSIS_MODEL),
-                "features": [
-                    "tool-use",
-                    "extended-thinking",
-                    "prompt-caching",
-                    "conversation-memory",
-                    "proactive-insights",
-                    "voice-processing",
-                    "backup-model",
-                ],
             },
             "integrations": {
                 "terra": _terra_health_summary(),
@@ -165,7 +155,10 @@ def handler(event, _context):
 
     # --- All routes below require user identity ---
     try:
-        user_id = extract_user_id(event)
+        try:
+            user_id = extract_user_id(event)
+        except RouteError as exc:
+            return error_response(exc)
         body = _parse_json_body(event) if method in ("POST", "PUT", "PATCH") else {}
 
         if method == "GET" and path == "/me":

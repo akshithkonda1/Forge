@@ -2,8 +2,8 @@
 
 On a schedule (or when triggered by a CloudWatch alarm), this Lambda:
 1. Probes the public /health endpoint.
-2. If unhealthy, redeploys the API Lambda from the versioned S3 artifact.
-3. Re-checks health and emits a custom CloudWatch metric for dashboards/alarms.
+2. If unhealthy or production readiness is degraded, redeploys from S3 artifact.
+3. Re-checks health and emits custom CloudWatch metrics for dashboards/alarms.
 """
 
 from __future__ import annotations
@@ -20,16 +20,26 @@ cloudwatch = boto3.client("cloudwatch")
 lambda_client = boto3.client("lambda")
 
 
-def _check_health(url: str, timeout: int) -> tuple[bool, str]:
+def _check_health(url: str, timeout: int) -> tuple[bool, str, dict]:
     try:
         with urllib.request.urlopen(url, timeout=timeout) as response:
             body = response.read().decode("utf-8")
             payload = json.loads(body or "{}")
-            if response.status == 200 and payload.get("status") == "ok":
-                return True, "ok"
-            return False, f"status={response.status} body={body[:200]}"
+            status = payload.get("status")
+            readiness = payload.get("readiness") or {}
+            if response.status != 200:
+                return False, f"status={response.status} body={body[:200]}", payload
+            if status not in {"ok", "degraded"}:
+                return False, f"unexpected status={status}", payload
+            if status == "degraded":
+                return False, "health status degraded", payload
+            if readiness.get("productionReady") is False and os.environ.get(
+                "REQUIRE_PRODUCTION_READY", "false"
+            ).lower() in {"1", "true", "yes"}:
+                return False, "production readiness checks failed", payload
+            return True, "ok", payload
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        return False, str(exc)
+        return False, str(exc), {}
 
 
 def _put_metric(healthy: bool, recovered: bool) -> None:
@@ -74,17 +84,17 @@ def handler(event, _context):
     timeout = int(os.environ.get("HEALTH_CHECK_TIMEOUT_SECONDS", "10"))
     force_recover = bool(event.get("forceRecover"))
 
-    healthy, detail = _check_health(health_url, timeout)
+    healthy, detail, payload = _check_health(health_url, timeout)
     recovered = False
 
     if healthy and not force_recover:
         _put_metric(True, False)
-        return {"status": "healthy", "detail": detail}
+        return {"status": "healthy", "detail": detail, "readiness": payload.get("readiness")}
 
     if not healthy or force_recover:
         _redeploy(function_name, artifacts_bucket, artifacts_key)
         recovered = True
-        healthy, detail = _check_health(health_url, timeout)
+        healthy, detail, payload = _check_health(health_url, timeout)
 
     _put_metric(healthy, recovered)
     status = "recovered" if healthy else "unhealthy"
@@ -93,5 +103,6 @@ def handler(event, _context):
         "recovered": recovered,
         "healthy": healthy,
         "detail": detail,
+        "readiness": payload.get("readiness"),
         "event": event.get("source", "scheduled"),
     }

@@ -4,6 +4,7 @@ from typing import Any
 
 from responses import ok
 from seed_data import default_sleep
+from seed_policy import resolve
 from storage import dynamodb, keys
 
 
@@ -11,7 +12,7 @@ def _load_sleep(user_id: str, days: int) -> list[dict[str, Any]]:
     items = dynamodb.query_prefix_desc(keys.user_pk(user_id), "SLEEP#", limit=days)
     if items:
         return [{k: v for k, v in i.items() if k not in ("pk", "sk")} for i in items]
-    return default_sleep()[:days]
+    return resolve(None, lambda: default_sleep()[:days], list)
 
 
 def handle_get_sleep(user_id: str, days: int) -> dict:

@@ -80,7 +80,7 @@ forge/
 │   ├── dev_server.py               # Local server on port 3001
 │   └── requirements.txt
 │
-├── infra/terraform/                # AWS: API Gateway, Lambda, Cognito, self-healing
+├── terraform/                      # AWS: API Gateway, Lambda, Cognito, self-healing
 │
 ├── scripts/                        # run_tests.py, smoke_test.py, package_lambda.py
 │
@@ -297,7 +297,7 @@ FORGE_TEST_USER_ID=test-user-00000000  # default dev user
 
 `POST /aria/chat` returns `503` locally without Bedrock credentials; all other core routes return seed data.
 
-For deployed AWS environments, run `cd infra/terraform && terraform apply` and seed the AI secret documented in `infra/terraform/README.md`.
+For deployed AWS environments, run `cd terraform && terraform apply` and seed the AI secret documented in `terraform/README.md`.
 
 > **Note:** Apple Health data flows through the native iOS client directly — no backend credentials needed for HealthKit.
 

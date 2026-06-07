@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
+
+os.environ.setdefault("FORGE_ALLOW_SEED_FALLBACK", "true")
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 API_DIR = REPO_ROOT / "backend" / "api"

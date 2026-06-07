@@ -10,10 +10,12 @@ from seed_data import (
     default_sleep,
     default_workout,
     default_workout_history,
-    default_daily_metrics,
     today_iso,
 )
+from seed_policy import empty_profile, empty_readiness, empty_workout_plan, resolve
 from services import readiness as readiness_service
+from services.metrics_snapshot import load_daily_metrics
+from services import scoring
 from storage import dynamodb, keys
 
 
@@ -22,14 +24,14 @@ def handle_get_dashboard_today(user_id: str) -> dict:
     profile = (
         {k: v for k, v in profile_item.items() if k not in ("pk", "sk")}
         if profile_item
-        else default_profile()
+        else resolve(None, default_profile, empty_profile)
     )
 
     connections_items = dynamodb.query_prefix(keys.user_pk(user_id), "CONNECTION#")
     connections = (
         [public_connection(i) for i in connections_items]
         if connections_items
-        else default_connections()
+        else resolve(None, default_connections, list)
     )
 
     sleep_items = dynamodb.query_prefix_desc(keys.user_pk(user_id), "SLEEP#", limit=14)
@@ -37,21 +39,21 @@ def handle_get_dashboard_today(user_id: str) -> dict:
     recent_sleep = (
         [{k: v for k, v in i.items() if k not in ("pk", "sk")} for i in sleep_items]
         if has_persisted_sleep
-        else default_sleep()
+        else resolve(None, default_sleep, list)
     )
 
     workout_items = dynamodb.query_prefix_desc(keys.user_pk(user_id), "WORKOUT#", limit=30)
     recent_workouts = (
         [{k: v for k, v in i.items() if k not in ("pk", "sk")} for i in workout_items]
         if workout_items
-        else default_workout_history()
+        else resolve(None, default_workout_history, list)
     )
 
     plan_item = dynamodb.get_item(**keys.workout_plan_key(user_id, today_iso()))
     today_workout = (
         {k: v for k, v in plan_item.items() if k not in ("pk", "sk")}
         if plan_item
-        else default_workout()
+        else resolve(None, default_workout, empty_workout_plan)
     )
 
     readiness_item = dynamodb.get_item(**keys.readiness_key(user_id, today_iso()))
@@ -60,15 +62,21 @@ def handle_get_dashboard_today(user_id: str) -> dict:
     elif has_persisted_sleep:
         readiness = readiness_service.compute_readiness(recent_sleep)
     else:
-        readiness = default_readiness()
+        readiness = resolve(None, default_readiness, empty_readiness)
+
+    personal_records = (
+        scoring.detect_personal_records(recent_workouts)
+        if recent_workouts
+        else resolve(None, default_personal_records, list)
+    )
 
     return ok({
         "profile": profile,
         "readiness": readiness,
-        "dailyMetrics": default_daily_metrics(),
+        "dailyMetrics": load_daily_metrics(user_id),
         "todayWorkout": today_workout,
         "recentSleep": recent_sleep,
         "recentWorkouts": recent_workouts,
-        "personalRecords": default_personal_records(),
+        "personalRecords": personal_records,
         "connections": connections,
     })

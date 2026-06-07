@@ -4,8 +4,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BOOTSTRAP_DIR="${ROOT}/infra/bootstrap"
-TF_DIR="${ROOT}/infra/terraform"
+BOOTSTRAP_DIR="${ROOT}/terraform/bootstrap"
+TF_DIR="${ROOT}/terraform"
 GITHUB_REPO="${GITHUB_REPO:-akshithkonda1/Forge}"
 GITHUB_ENV="${GITHUB_ENV:-production}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
@@ -26,7 +26,7 @@ log "Checking AWS credentials"
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text 2>/dev/null)" \
   || die "AWS credentials not configured. Run: aws configure (or export AWS_PROFILE)"
 
-log "Bootstrapping remote state + GitHub OIDC role (infra/bootstrap)"
+log "Bootstrapping remote state + GitHub OIDC role (terraform/bootstrap)"
 pushd "${BOOTSTRAP_DIR}" >/dev/null
 terraform init -input=false
 terraform apply -auto-approve -input=false
@@ -84,7 +84,7 @@ Next steps (manual):
        TERRA_DEV_ID=... TERRA_API_KEY=... TERRA_WEBHOOK_SECRET=... \\
          ./scripts/seed_secrets.sh
   3. Register webhook in Terra dashboard:
-       cd infra/terraform && terraform output -raw terra_webhook_url
+       cd terraform && terraform output -raw terra_webhook_url
 
 Bootstrap outputs:
   account_id: ${ACCOUNT_ID}

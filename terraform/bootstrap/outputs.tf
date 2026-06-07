@@ -19,7 +19,7 @@ output "github_actions_deploy_role_arn" {
 }
 
 output "backend_config" {
-  description = "Values to copy into infra/terraform/backend.hcl."
+  description = "Values to copy into terraform/backend.hcl."
   value = {
     bucket         = aws_s3_bucket.terraform_state.bucket
     dynamodb_table = aws_dynamodb_table.terraform_locks.name

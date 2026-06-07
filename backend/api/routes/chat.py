@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from responses import RouteError, ok
+from runtime import allow_seed_fallback
 from seed_data import default_chat_messages, default_sleep, default_workout
 from storage import dynamodb, keys
 
@@ -12,7 +13,9 @@ def _load_thread_messages(user_id: str, thread_id: str) -> list[dict[str, Any]]:
     items = dynamodb.query_prefix(keys.user_pk(user_id), f"CHAT#{thread_id}#MSG#")
     if items:
         return [{k: v for k, v in i.items() if k not in ("pk", "sk")} for i in items]
-    return default_chat_messages()
+    if allow_seed_fallback():
+        return default_chat_messages()
+    return []
 
 
 def _persist_message(user_id: str, thread_id: str, msg: dict) -> None:

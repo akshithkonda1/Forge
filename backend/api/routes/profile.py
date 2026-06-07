@@ -5,6 +5,7 @@ from typing import Any
 from responses import RouteError, ok
 from routes._connections import public_connection
 from seed_data import default_connections, default_profile
+from seed_policy import empty_profile, resolve
 from storage import dynamodb, keys
 
 
@@ -12,14 +13,14 @@ def _load_profile(user_id: str) -> dict[str, Any]:
     item = dynamodb.get_item(**keys.profile_key(user_id))
     if item:
         return {k: v for k, v in item.items() if k not in ("pk", "sk")}
-    return default_profile()
+    return resolve(None, default_profile, empty_profile)
 
 
 def _load_connections(user_id: str) -> list[dict[str, Any]]:
     items = dynamodb.query_prefix(keys.user_pk(user_id), "CONNECTION#")
     if items:
         return [public_connection(i) for i in items]
-    return default_connections()
+    return resolve(None, default_connections, list)
 
 
 def handle_get_me(user_id: str) -> dict:

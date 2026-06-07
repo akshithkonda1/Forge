@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 API_DIR = ROOT / "backend" / "api"
-DEFAULT_OUTPUT = ROOT / "infra" / "terraform" / "build" / "forge-backend.zip"
+DEFAULT_OUTPUT = ROOT / "terraform" / "build" / "forge-backend.zip"
 
 SKIP_DIRS = {"__pycache__", ".pytest_cache", ".mypy_cache"}
 SKIP_SUFFIXES = {".pyc", ".pyo"}
@@ -51,7 +51,7 @@ def main() -> int:
         "--output",
         type=Path,
         default=DEFAULT_OUTPUT,
-        help="Zip output path (default: infra/terraform/build/forge-backend.zip)",
+        help="Zip output path (default: terraform/build/forge-backend.zip)",
     )
     args = parser.parse_args()
     return package_api(args.source.resolve(), args.output.resolve())

@@ -7,11 +7,13 @@ from routes import lifestyle as lifestyle_routes
 from seed_data import (
     default_personal_records,
     default_profile,
+    default_readiness,
     default_sleep,
     default_workout,
     default_workout_history,
     today_iso,
 )
+from seed_policy import empty_profile, empty_readiness, empty_workout_plan, resolve
 from services import readiness, scoring
 from storage import dynamodb, keys
 
@@ -23,30 +25,52 @@ def _strip_keys(item: dict[str, Any]) -> dict[str, Any]:
 def gather_user_context(user_id: str) -> dict[str, Any]:
     """Build the bounded context package the coach routes feed to the AI router."""
     profile_item = dynamodb.get_item(**keys.profile_key(user_id))
-    profile = _strip_keys(profile_item) if profile_item else default_profile()
+    profile = (
+        _strip_keys(profile_item)
+        if profile_item
+        else resolve(None, default_profile, empty_profile)
+    )
 
     sleep_items = dynamodb.query_prefix_desc(keys.user_pk(user_id), "SLEEP#", limit=14)
-    recent_sleep = [_strip_keys(i) for i in sleep_items] if sleep_items else default_sleep()
+    recent_sleep = (
+        [_strip_keys(i) for i in sleep_items]
+        if sleep_items
+        else resolve(None, default_sleep, list)
+    )
 
     workout_items = dynamodb.query_prefix_desc(keys.user_pk(user_id), "WORKOUT#", limit=14)
     recent_workouts = (
-        [_strip_keys(i) for i in workout_items] if workout_items else default_workout_history()
+        [_strip_keys(i) for i in workout_items]
+        if workout_items
+        else resolve(None, default_workout_history, list)
     )
 
     plan_item = dynamodb.get_item(**keys.workout_plan_key(user_id, today_iso()))
-    today_plan = _strip_keys(plan_item) if plan_item else default_workout()
+    today_plan = (
+        _strip_keys(plan_item)
+        if plan_item
+        else resolve(None, default_workout, empty_workout_plan)
+    )
 
     readiness_item = dynamodb.get_item(**keys.readiness_key(user_id, today_iso()))
     if readiness_item:
         current_readiness = _strip_keys(readiness_item)
-    else:
+    elif recent_sleep:
         current_readiness = readiness.compute_readiness(recent_sleep)
+    else:
+        current_readiness = resolve(None, default_readiness, empty_readiness)
 
     lifestyle_event = {"queryStringParameters": {"date": today_iso()}}
     lifestyle_resp = lifestyle_routes.handle_get_lifestyle_dashboard(user_id, lifestyle_event)
     lifestyle_snapshot = {}
     if lifestyle_resp.get("statusCode") == 200:
         lifestyle_snapshot = json.loads(lifestyle_resp.get("body", "{}"))
+
+    personal_records = (
+        scoring.detect_personal_records(recent_workouts)
+        if recent_workouts
+        else resolve(None, default_personal_records, list)
+    )
 
     return {
         "profile": profile,
@@ -56,7 +80,7 @@ def gather_user_context(user_id: str) -> dict[str, Any]:
         "todayPlan": today_plan,
         "trainingLoad": scoring.training_load_trend(recent_workouts),
         "recoveryTrend": scoring.recovery_trend(recent_sleep),
-        "personalRecords": default_personal_records(),
+        "personalRecords": personal_records,
         "lifestyle": {
             "metrics": lifestyle_snapshot.get("metrics"),
             "nutrition": {

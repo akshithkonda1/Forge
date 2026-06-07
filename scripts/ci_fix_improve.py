@@ -59,7 +59,7 @@ def main() -> int:
     if fmt.returncode != 0:
         print(fmt.stdout)
         print(fmt.stderr, file=sys.stderr)
-        check("terraform fmt", False, "run 'terraform fmt -recursive' in infra/terraform")
+        check("terraform fmt", False, "run 'terraform fmt -recursive' in terraform")
     check("terraform fmt", True)
 
     init = subprocess.run(

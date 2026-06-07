@@ -56,7 +56,7 @@ python3 backend/dev_server.py
 
 Expose `/integrations/terra/webhook` with ngrok and register that URL in the Terra dashboard. Webhook payloads are verified via the `terra-signature` header.
 
-**Deployed** — seed `forge-<env>/integrations/terra` in Secrets Manager (see `infra/terraform/terraform.tfvars.example`), then use `terraform output -raw terra_webhook_url` as the Terra destination.
+**Deployed** — seed `forge-<env>/integrations/terra` in Secrets Manager (see `terraform/terraform.tfvars.example`), then use `terraform output -raw terra_webhook_url` as the Terra destination.
 
 ### Terra self-integration & self-healing
 
@@ -73,10 +73,10 @@ EventBridge invokes the API Lambda on a schedule (`forgeAction: terra-self-heal`
 Terraform packages `backend/api` into a versioned S3 artifact and deploys it as the API Lambda. A healer Lambda can automatically redeploy from that artifact if health checks fail — no Kubernetes required.
 
 ```bash
-cd infra/terraform && terraform apply
+cd terraform && terraform apply
 ```
 
-The deprecated `infra/terraform/lambda/` folder only contains a pointer README.
+The deprecated `terraform/lambda/` folder only contains a pointer README.
 
 ## AI / ARIA
 
