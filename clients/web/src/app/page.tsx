@@ -3,6 +3,9 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { AuthGate } from "@/components/auth/auth-gate";
+import { useAuth } from "@/components/providers/auth-provider";
+import { requiresSignIn as sessionRequiresSignIn } from "@/lib/auth-session";
 import { useAppStore } from "@/stores/useAppStore";
 import { BottomNav } from "@/components/shared/bottom-nav";
 import { DataStatusBanner } from "@/components/shared/data-status-banner";
@@ -31,6 +34,7 @@ function TabRenderer({ activeTab }: { activeTab: string }) {
 
 export default function Page() {
   const router = useRouter();
+  const { requiresSignIn, refreshSessionIfNeeded } = useAuth();
   const { isOnboarded, activeTab, setActiveTab, loadDashboardFromAPI } = useAppStore();
 
   useEffect(() => {
@@ -40,10 +44,15 @@ export default function Page() {
   }, [isOnboarded, router]);
 
   useEffect(() => {
-    if (isOnboarded) {
-      void loadDashboardFromAPI();
-    }
-  }, [isOnboarded, loadDashboardFromAPI]);
+    if (!isOnboarded || requiresSignIn) return;
+
+    void (async () => {
+      await refreshSessionIfNeeded();
+      if (!sessionRequiresSignIn()) {
+        await loadDashboardFromAPI();
+      }
+    })();
+  }, [isOnboarded, requiresSignIn, refreshSessionIfNeeded, loadDashboardFromAPI]);
 
   if (!isOnboarded) {
     return null;
@@ -51,6 +60,7 @@ export default function Page() {
 
   return (
     <div className="relative min-h-[100dvh] bg-background">
+      <AuthGate />
       <DataStatusBanner />
       <div className="pb-[calc(5rem+env(safe-area-inset-bottom,0px))] min-h-[100dvh]">
         <AnimatePresence mode="wait">

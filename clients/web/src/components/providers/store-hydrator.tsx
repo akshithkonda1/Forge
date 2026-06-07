@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AuthProvider } from "@/components/providers/auth-provider";
 import { useAppStore } from "@/stores/useAppStore";
 
-export function StoreHydrator({ children }: { children: React.ReactNode }) {
+function StoreHydratorInner({ children }: { children: React.ReactNode }) {
   const hydrate = useAppStore((s) => s.hydrate);
   const [ready, setReady] = useState(false);
 
@@ -25,4 +26,12 @@ export function StoreHydrator({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+export function StoreHydrator({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <StoreHydratorInner>{children}</StoreHydratorInner>
+    </AuthProvider>
+  );
 }

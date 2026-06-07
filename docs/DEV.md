@@ -49,15 +49,28 @@ Optional env — copy [`clients/web/.env.example`](../clients/web/.env.example) 
 
 ```
 NEXT_PUBLIC_API_URL=http://127.0.0.1:3001
+NEXT_PUBLIC_ALLOW_DEMO_FALLBACK=true
 ```
 
 For production client wiring after Terraform, see [`PRODUCTION-CLIENTS.md`](PRODUCTION-CLIENTS.md).
+
+### Web auth (optional local testing)
+
+By default, the web app skips Cognito when `NEXT_PUBLIC_COGNITO_CLIENT_ID` is unset (same as iOS Debug with `FORGE_USE_AUTH=false`).
+
+To test Cognito locally:
+
+1. Run `python3 scripts/generate_client_config.py` and copy Cognito vars into `clients/web/.env.local`.
+2. Start the backend **without** the test-user bypass: `FORGE_TEST_USER_ID= npm run backend:dev`
+3. Complete onboarding, then sign in on the auth screen before the dashboard loads.
 
 ### What you'll see
 
 - **First visit** → onboarding flow (profile, devices, coaching style). Progress is saved in `localStorage`.
 - **After onboarding** → live dashboard from `/dashboard/today`, ARIA chat history from `/aria/conversation`, insights from `/aria/insights`.
-- **Backend offline** → amber banner + demo data so you can still explore the UI.
+- **With Cognito configured** → sign-in screen after onboarding; API calls include `Authorization: Bearer <idToken>`.
+- **Backend offline (dev + `NEXT_PUBLIC_ALLOW_DEMO_FALLBACK=true`)** → amber banner + demo data.
+- **Backend offline (production build)** → error banner, no demo profile.
 
 ## 3. iOS app (ForgeSwift)
 
