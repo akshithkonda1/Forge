@@ -1,3 +1,9 @@
+import {
+  clearAuthSession,
+  getAuthorizationHeader,
+  refreshSessionIfNeeded,
+} from "@/lib/auth-session";
+import { isAuthConfigured } from "@/lib/auth-config";
 import type {
   ChatMessage,
   DailyMetrics,
@@ -90,25 +96,55 @@ export interface ProgressSummary {
   summary: string;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function forgeFetch<T>(
+  path: string,
+  init?: RequestInit,
+  retriedAfterUnauthorized = false,
+): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    signal: controller.signal,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  }).finally(() => clearTimeout(timeout));
+  const headers = new Headers(init?.headers);
+  headers.set("Content-Type", "application/json");
 
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({ message: response.statusText }));
-    throw new ForgeAPIError(body.message ?? "Request failed", response.status);
+  const authorization = getAuthorizationHeader();
+  if (authorization) {
+    headers.set("Authorization", authorization);
   }
 
-  return response.json() as Promise<T>;
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers,
+    });
+
+    if (
+      response.status === 401 &&
+      isAuthConfigured() &&
+      !retriedAfterUnauthorized
+    ) {
+      const refreshed = await refreshSessionIfNeeded(true);
+      if (refreshed) {
+        return forgeFetch<T>(path, init, true);
+      }
+      clearAuthSession();
+      throw new ForgeAPIError("Session expired. Sign in again.", 401);
+    }
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({ message: response.statusText }));
+      throw new ForgeAPIError(body.message ?? "Request failed", response.status);
+    }
+
+    return response.json() as Promise<T>;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  return forgeFetch<T>(path, init);
 }
 
 export const forgeAPI = {

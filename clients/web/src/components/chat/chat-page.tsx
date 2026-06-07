@@ -4,6 +4,7 @@ import * as React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { isDemoFallbackAllowed } from "@/lib/auth-config";
 import { useAppStore } from "@/stores/useAppStore";
 import { WorkoutCard } from "@/components/chat/workout-card";
 import { DataInsightCard } from "@/components/chat/data-insight-card";
@@ -289,7 +290,9 @@ export function ChatPage() {
                 />
                 <span className="text-xs text-text-tertiary">
                   {dataLoadState === "offline"
-                    ? "Demo mode"
+                    ? isDemoFallbackAllowed()
+                      ? "Demo mode"
+                      : "Offline"
                     : dataLoadState === "error"
                       ? "Reconnecting"
                       : "Live"}

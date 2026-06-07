@@ -6,6 +6,9 @@ import {
   type CoachingInsight,
   type ProgressSummary,
 } from "@/lib/forge-api";
+import { isDemoFallbackAllowed } from "@/lib/auth-config";
+import { clearAuthSession, requiresSignIn } from "@/lib/auth-session";
+import { API_DISPLAY_HOST } from "@/lib/forge-api";
 import { forgePersistence } from "@/lib/persistence";
 import {
   emptyMetrics,
@@ -96,9 +99,15 @@ interface AppState {
 
 function userFacingError(error: unknown): string {
   if (error instanceof Error) {
-    if (error.name === "AbortError") return "Request timed out. Is the backend running?";
+    if (error.name === "AbortError") {
+      return isDemoFallbackAllowed()
+        ? "Request timed out. Is the backend running?"
+        : `Request timed out reaching ${API_DISPLAY_HOST}.`;
+    }
     if (error.message.includes("Failed to fetch")) {
-      return "Can't connect to the API. Run npm run backend:dev.";
+      return isDemoFallbackAllowed()
+        ? "Can't connect to the API. Run npm run backend:dev."
+        : `Can't reach the Forge API at ${API_DISPLAY_HOST}. Check your connection and try again.`;
     }
     return error.message;
   }
@@ -271,6 +280,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   isRefreshingPlan: false,
 
   loadDashboardFromAPI: async () => {
+    if (requiresSignIn()) {
+      return;
+    }
+
     const prior = get();
     set({ dataLoadState: "loading", dataLoadError: null });
 
@@ -306,7 +319,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         prior.workoutHistory.length > 0 ||
         prior.readiness.overall > 0;
 
-      if (hasCachedData) {
+      if (hasCachedData || !isDemoFallbackAllowed()) {
         set({ dataLoadState: "error", dataLoadError: message });
       } else {
         applyOfflineDemo(set);
@@ -458,19 +471,22 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   completeOnboarding: async () => {
-    const profile = get().userProfile;
     forgePersistence.setIsOnboarded(true);
     set({ isOnboarded: true });
-    try {
-      await get().saveProfileToAPI(profile);
-      await get().loadDashboardFromAPI();
-    } catch (error) {
-      console.warn("Failed to persist profile", error);
-      set({ dataLoadState: "error", dataLoadError: userFacingError(error) });
+
+    if (!requiresSignIn()) {
+      try {
+        await get().saveProfileToAPI(get().userProfile);
+        await get().loadDashboardFromAPI();
+      } catch (error) {
+        console.warn("Failed to persist profile", error);
+        set({ dataLoadState: "error", dataLoadError: userFacingError(error) });
+      }
     }
   },
 
   signOut: () => {
+    clearAuthSession();
     forgePersistence.reset();
     set({
       isOnboarded: false,

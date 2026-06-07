@@ -1,5 +1,14 @@
 const ONBOARDED_KEY = "forge.isOnboarded";
 const ONBOARDING_STEP_KEY = "forge.onboardingStep";
+const AUTH_ID_TOKEN_KEY = "forge.auth.idToken";
+const AUTH_ACCESS_TOKEN_KEY = "forge.auth.accessToken";
+const AUTH_REFRESH_TOKEN_KEY = "forge.auth.refreshToken";
+
+export interface StoredAuthTokens {
+  idToken: string | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+}
 
 export const forgePersistence = {
   getIsOnboarded(): boolean {
@@ -28,9 +37,47 @@ export const forgePersistence = {
     localStorage.setItem(ONBOARDING_STEP_KEY, String(step));
   },
 
+  getAuthTokens(): StoredAuthTokens {
+    if (typeof window === "undefined") {
+      return { idToken: null, accessToken: null, refreshToken: null };
+    }
+    return {
+      idToken: localStorage.getItem(AUTH_ID_TOKEN_KEY),
+      accessToken: localStorage.getItem(AUTH_ACCESS_TOKEN_KEY),
+      refreshToken: localStorage.getItem(AUTH_REFRESH_TOKEN_KEY),
+    };
+  },
+
+  setAuthTokens(tokens: StoredAuthTokens): void {
+    if (typeof window === "undefined") return;
+    if (tokens.idToken) {
+      localStorage.setItem(AUTH_ID_TOKEN_KEY, tokens.idToken);
+    } else {
+      localStorage.removeItem(AUTH_ID_TOKEN_KEY);
+    }
+    if (tokens.accessToken) {
+      localStorage.setItem(AUTH_ACCESS_TOKEN_KEY, tokens.accessToken);
+    } else {
+      localStorage.removeItem(AUTH_ACCESS_TOKEN_KEY);
+    }
+    if (tokens.refreshToken) {
+      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, tokens.refreshToken);
+    } else {
+      localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
+    }
+  },
+
+  clearAuthTokens(): void {
+    if (typeof window === "undefined") return;
+    localStorage.removeItem(AUTH_ID_TOKEN_KEY);
+    localStorage.removeItem(AUTH_ACCESS_TOKEN_KEY);
+    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
+  },
+
   reset(): void {
     if (typeof window === "undefined") return;
     localStorage.removeItem(ONBOARDED_KEY);
     localStorage.removeItem(ONBOARDING_STEP_KEY);
+    this.clearAuthTokens();
   },
 };

@@ -1,6 +1,7 @@
 "use client";
 
 import { RefreshCw, WifiOff, AlertTriangle } from "lucide-react";
+import { isDemoFallbackAllowed } from "@/lib/auth-config";
 import { useAppStore } from "@/stores/useAppStore";
 import { API_DISPLAY_HOST } from "@/lib/forge-api";
 import { cn } from "@/lib/utils";
@@ -21,7 +22,9 @@ export function DataStatusBanner() {
   const title = isLoading
     ? "Syncing your data…"
     : isOffline
-      ? `Can't reach ${API_DISPLAY_HOST} — showing demo data. Run npm run backend:dev.`
+      ? isDemoFallbackAllowed()
+        ? `Can't reach ${API_DISPLAY_HOST} — showing demo data. Run npm run backend:dev.`
+        : "Can't reach the Forge API. Check your connection and try again."
       : errorMessage ?? "Something went wrong";
 
   const Icon = isLoading ? RefreshCw : isOffline ? WifiOff : AlertTriangle;
