@@ -117,7 +117,7 @@ export async function signUp(
   await invokeCognito(
     "AWSCognitoIdentityProviderService.SignUp",
     {
-      ClientId: cognitoClientId,
+      ClientId: cognitoClientId(),
       Username: email,
       Password: password,
       UserAttributes: [{ Name: "email", Value: email }],
@@ -135,7 +135,7 @@ export async function confirmSignUp(
   await invokeCognito(
     "AWSCognitoIdentityProviderService.ConfirmSignUp",
     {
-      ClientId: cognitoClientId,
+      ClientId: cognitoClientId(),
       Username: email,
       ConfirmationCode: code,
     },
@@ -153,7 +153,7 @@ export async function signIn(
     "AWSCognitoIdentityProviderService.InitiateAuth",
     {
       AuthFlow: "USER_PASSWORD_AUTH",
-      ClientId: cognitoClientId,
+      ClientId: cognitoClientId(),
       AuthParameters: {
         USERNAME: email,
         PASSWORD: password,
@@ -171,7 +171,7 @@ export async function refreshSession(
   ensureConfigured();
   const body = await invokeCognito(
     "AWSCognitoIdentityProviderService.InitiateAuth",
-    refreshAuthPayload(cognitoClientId, refreshToken),
+    refreshAuthPayload(cognitoClientId(), refreshToken),
     fetchImpl,
   );
   const tokens = parseAuthResult(body);
