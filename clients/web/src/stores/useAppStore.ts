@@ -81,8 +81,14 @@ interface AppState {
   dataLoadState: DataLoadState;
   dataLoadError: string | null;
   isGeneratingResponse: boolean;
+  isSavingProfile: boolean;
+  isRefreshingSleep: boolean;
+  isRefreshingPlan: boolean;
   loadDashboardFromAPI: () => Promise<void>;
   refreshProfileFromAPI: () => Promise<void>;
+  saveProfileToAPI: (profile?: Partial<UserProfile>) => Promise<void>;
+  refreshSleepData: (days?: number) => Promise<void>;
+  refreshTodayWorkoutPlan: () => Promise<void>;
   sendChatMessage: (text: string) => Promise<void>;
   completeOnboarding: () => Promise<void>;
   signOut: () => void;
@@ -260,6 +266,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   dataLoadState: "idle",
   dataLoadError: null,
   isGeneratingResponse: false,
+  isSavingProfile: false,
+  isRefreshingSleep: false,
+  isRefreshingPlan: false,
 
   loadDashboardFromAPI: async () => {
     const prior = get();
@@ -329,6 +338,85 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  saveProfileToAPI: async (profilePatch) => {
+    const mergedProfile = { ...get().userProfile, ...profilePatch };
+    set({ isSavingProfile: true, userProfile: mergedProfile });
+
+    try {
+      const response = await forgeAPI.updateProfile(mergedProfile);
+      set({
+        userProfile: { ...mergedProfile, ...response.profile },
+        isSavingProfile: false,
+        dataLoadError: null,
+      });
+    } catch (error) {
+      console.warn("Failed to save profile", error);
+      set({
+        isSavingProfile: false,
+        dataLoadError: userFacingError(error),
+      });
+      throw error;
+    }
+  },
+
+  refreshSleepData: async (days = 14) => {
+    set({ isRefreshingSleep: true });
+    try {
+      const response = await forgeAPI.getSleep(days);
+      set({
+        sleepData: response.sleep,
+        isRefreshingSleep: false,
+        dataLoadError: null,
+      });
+    } catch (error) {
+      console.warn("Failed to refresh sleep data", error);
+      set({
+        isRefreshingSleep: false,
+        dataLoadError: userFacingError(error),
+      });
+    }
+  },
+
+  refreshTodayWorkoutPlan: async () => {
+    set({ isRefreshingPlan: true });
+    try {
+      const coach = await forgeAPI.fetchCoachWorkoutPlan();
+      if (coach.todayPlan) {
+        set({
+          todayWorkout: coach.todayPlan,
+          isRefreshingPlan: false,
+          dataLoadError: null,
+        });
+        return;
+      }
+
+      const aria = await forgeAPI.generateARIAPlan("workout");
+      set({
+        isRefreshingPlan: false,
+        dataLoadError: null,
+      });
+      set({ activeTab: "chat" });
+      set((state) => ({
+        chatMessages: [
+          ...state.chatMessages,
+          {
+            id: `trainer-plan-${Date.now()}`,
+            role: "trainer" as const,
+            content: aria.plan,
+            timestamp: new Date(),
+          },
+        ],
+      }));
+    } catch (error) {
+      console.warn("Failed to refresh workout plan", error);
+      set({
+        isRefreshingPlan: false,
+        dataLoadError: userFacingError(error),
+        activeTab: "chat",
+      });
+    }
+  },
+
   sendChatMessage: async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -374,7 +462,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     forgePersistence.setIsOnboarded(true);
     set({ isOnboarded: true });
     try {
-      await forgeAPI.updateProfile(profile);
+      await get().saveProfileToAPI(profile);
       await get().loadDashboardFromAPI();
     } catch (error) {
       console.warn("Failed to persist profile", error);

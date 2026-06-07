@@ -136,6 +136,7 @@ struct DashboardTodayResponse: Decodable {
     let recentSleep: [APISleepData]
     let recentWorkouts: [APIWorkoutHistory]
     let personalRecords: [APIPersonalRecord]
+    let connections: [APIIntegrationConnection]?
 }
 
 struct SleepListResponse: Decodable {
@@ -160,6 +161,7 @@ struct ARIAConversationMessage: Decodable {
     let content: String
     let id: String?
     let timestamp: String?
+    let richCard: APIRichCardPayload?
 }
 
 struct ARIAConversationResponse: Decodable {
@@ -180,15 +182,115 @@ struct ARIAPlanResponse: Decodable {
     let generatedAt: String
 }
 
+struct ARIALifestyleResponse: Decodable {
+    let focus: String
+    let coaching: String
+    let generatedAt: String?
+}
+
 struct CoachWorkoutPlanResponse: Decodable {
     let todayPlan: APIWorkoutPlan?
     let explanation: String
 }
 
 struct ARIAVoiceResponse: Decodable {
-    let transcript: String
-    let response: String
+    let answer: String
+    let processedTranscript: String
     let suitableForTTS: Bool?
+
+    var transcript: String { processedTranscript }
+    var response: String { answer }
+}
+
+struct APILifestyleMetrics: Decodable {
+    let sleepAverage: Double
+    let sleepTarget: Double
+    let nutritionQuality: Double
+    let dailySteps: Int
+    let stressLevel: String
+    let qualityOfLifeScore: Int
+    let physicalHealth: Int
+    let mentalWellbeing: Int
+    let energyLevels: Int
+    let sleepQuality: Int
+    let nutritionScore: Int
+}
+
+struct APILifestyleRecommendation: Decodable {
+    let id: String
+    let title: String
+    let description: String
+    let impact: String
+    let category: String
+}
+
+struct APINutritionMeal: Codable {
+    let id: String
+    let date: String
+    let name: String
+    let calories: Double
+    let protein: Double
+    let carbs: Double
+    let fat: Double
+    let loggedAt: String?
+}
+
+struct APINutritionTargets: Decodable {
+    let calories: Double
+    let protein: Double
+    let carbs: Double
+    let fat: Double
+    let waterMl: Double
+}
+
+struct APINutritionDaily: Decodable {
+    let date: String?
+    let calories: Double
+    let protein: Double
+    let carbs: Double
+    let fat: Double
+    let waterMl: Double
+    let targets: APINutritionTargets
+    let meals: [APINutritionMeal]
+}
+
+struct APIWellbeingHabit: Decodable {
+    let id: String
+    let name: String
+    let completed: Bool
+}
+
+struct APILifestyleDashboardResponse: Decodable {
+    let date: String
+    let metrics: APILifestyleMetrics
+    let recommendations: [APILifestyleRecommendation]
+    let nutrition: APINutritionDaily
+    let habits: [APIWellbeingHabit]
+    let habitStreak: Int
+}
+
+struct APIRestaurantMenuItem: Decodable {
+    let id: String
+    let name: String
+    let calories: Int
+    let protein: Int
+    let carbs: Int
+    let fat: Int
+    let serving: String
+    let isHealthy: Bool
+}
+
+struct APIRestaurant: Decodable {
+    let id: String
+    let name: String
+    let logo: String
+    let category: String
+    let items: [APIRestaurantMenuItem]
+}
+
+struct APIRestaurantsResponse: Decodable {
+    let restaurants: [APIRestaurant]
+    let count: Int
 }
 
 struct APIRichCardPayload: Decodable {
@@ -345,6 +447,10 @@ final class ForgeAPIClient {
         try await request(path: "/aria/plan", method: "POST", body: ["focus": focus])
     }
 
+    func generateARIALifestyle(focus: String = "holistic") async throws -> ARIALifestyleResponse {
+        try await request(path: "/aria/lifestyle", method: "POST", body: ["focus": focus])
+    }
+
     func fetchCoachWorkoutPlan() async throws -> CoachWorkoutPlanResponse {
         struct EmptyBody: Encodable {}
         return try await request(path: "/coach/workout-plan", method: "POST", body: EmptyBody())
@@ -391,7 +497,9 @@ final class ForgeAPIClient {
         type: String,
         duration: Int,
         volume: Int,
-        intensity: String
+        intensity: String,
+        avgHeartRate: Int? = nil,
+        peakHeartRate: Int? = nil
     ) async throws {
         struct WorkoutLog: Encodable {
             let name: String
@@ -401,6 +509,8 @@ final class ForgeAPIClient {
             let intensity: String
             let source: String
             let startedAt: String
+            let avgHeartRate: Int?
+            let peakHeartRate: Int?
         }
         struct Body: Encodable {
             let workout: WorkoutLog
@@ -413,13 +523,93 @@ final class ForgeAPIClient {
                 volume: volume,
                 intensity: intensity,
                 source: "apple-health",
-                startedAt: ISO8601DateFormatter().string(from: Date())
+                startedAt: ISO8601DateFormatter().string(from: Date()),
+                avgHeartRate: avgHeartRate,
+                peakHeartRate: peakHeartRate
             )
         )
         struct WorkoutLogResponse: Decodable {
             let workout: [String: String]
         }
         let _: WorkoutLogResponse = try await request(path: "/workouts/logs", method: "POST", body: body)
+    }
+
+    func getLifestyleDashboard(date: String? = nil) async throws -> APILifestyleDashboardResponse {
+        var query: [String: String] = [:]
+        if let date { query["date"] = date }
+        return try await request(path: "/lifestyle/dashboard", query: query)
+    }
+
+    func postNutritionMeal(
+        name: String,
+        calories: Double,
+        protein: Double,
+        carbs: Double,
+        fat: Double,
+        date: String? = nil
+    ) async throws -> APINutritionMeal {
+        struct MealBody: Encodable {
+            let name: String
+            let calories: Double
+            let protein: Double
+            let carbs: Double
+            let fat: Double
+            let date: String?
+        }
+        struct Body: Encodable { let meal: MealBody }
+        struct Response: Decodable { let meal: APINutritionMeal }
+        let response: Response = try await request(
+            path: "/nutrition/meals",
+            method: "POST",
+            body: Body(
+                meal: MealBody(
+                    name: name,
+                    calories: calories,
+                    protein: protein,
+                    carbs: carbs,
+                    fat: fat,
+                    date: date
+                )
+            )
+        )
+        return response.meal
+    }
+
+    func postNutritionWater(waterMl: Double, date: String? = nil) async throws {
+        struct WaterBody: Encodable {
+            let waterMl: Double
+            let date: String?
+        }
+        struct Body: Encodable { let water: WaterBody }
+        struct Response: Decodable { let waterMl: Double }
+        let _: Response = try await request(
+            path: "/nutrition/water",
+            method: "POST",
+            body: Body(water: WaterBody(waterMl: waterMl, date: date))
+        )
+    }
+
+    func getRestaurants(category: String? = nil, search: String? = nil) async throws -> APIRestaurantsResponse {
+        var query: [String: String] = [:]
+        if let category, !category.isEmpty, category != "All" { query["category"] = category }
+        if let search, !search.isEmpty { query["search"] = search }
+        return try await request(path: "/restaurants", query: query)
+    }
+
+    func completeWellbeingHabit(habitId: String, completed: Bool = true, date: String? = nil) async throws -> [APIWellbeingHabit] {
+        struct Body: Encodable {
+            let completed: Bool
+            let date: String?
+        }
+        struct Response: Decodable {
+            let habits: [APIWellbeingHabit]
+        }
+        let response: Response = try await request(
+            path: "/wellbeing/habits/\(habitId)/complete",
+            method: "POST",
+            body: Body(completed: completed, date: date)
+        )
+        return response.habits
     }
 
     private func request<T: Decodable>(

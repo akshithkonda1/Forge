@@ -3,6 +3,7 @@ export type ISODateTime = string;
 
 export type SourceProvider =
   | "apple-health"
+  | "health-connect"
   | "oura"
   | "whoop"
   | "garmin"
@@ -265,4 +266,139 @@ export interface HealthBatchResponse {
   accepted: number;
   rejected: number;
   errors: ApiError[];
+}
+
+export interface LifestyleMetrics {
+  sleepAverage: number;
+  sleepTarget: number;
+  nutritionQuality: number;
+  dailySteps: number;
+  stressLevel: "Low" | "Medium" | "High";
+  qualityOfLifeScore: number;
+  physicalHealth: number;
+  mentalWellbeing: number;
+  energyLevels: number;
+  sleepQuality: number;
+  nutritionScore: number;
+}
+
+export interface LifestyleRecommendation {
+  id: string;
+  title: string;
+  description: string;
+  impact: "Low" | "Medium" | "High";
+  category: string;
+}
+
+export interface NutritionTargets {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  waterMl: number;
+}
+
+export interface NutritionMeal {
+  id: string;
+  date: ISODate;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  loggedAt?: ISODateTime;
+}
+
+export interface NutritionDaily {
+  date?: ISODate;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  waterMl: number;
+  targets: NutritionTargets;
+  meals: NutritionMeal[];
+}
+
+export interface WellbeingHabit {
+  id: string;
+  name: string;
+  completed: boolean;
+}
+
+export interface LifestyleDashboardResponse {
+  date: ISODate;
+  metrics: LifestyleMetrics;
+  recommendations: LifestyleRecommendation[];
+  nutrition: NutritionDaily;
+  habits: WellbeingHabit[];
+  habitStreak: number;
+}
+
+export interface NutritionDailyResponse extends NutritionDaily {}
+
+export interface LogNutritionMealRequest {
+  meal: Omit<NutritionMeal, "id" | "loggedAt"> & { id?: string; loggedAt?: ISODateTime };
+}
+
+export interface LogNutritionMealResponse {
+  meal: NutritionMeal;
+}
+
+export interface LogNutritionWaterRequest {
+  water: { date?: ISODate; waterMl: number };
+}
+
+export interface LogNutritionWaterResponse {
+  date: ISODate;
+  waterMl: number;
+}
+
+export interface RestaurantMenuItem {
+  id: string;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  serving: string;
+  isHealthy: boolean;
+}
+
+export interface Restaurant {
+  id: string;
+  name: string;
+  logo: string;
+  category: string;
+  items: RestaurantMenuItem[];
+}
+
+export interface RestaurantsResponse {
+  restaurants: Restaurant[];
+  count: number;
+}
+
+export interface WellbeingHabitsResponse {
+  date: ISODate;
+  habits: WellbeingHabit[];
+  habitStreak: number;
+}
+
+export interface CompleteWellbeingHabitRequest {
+  date?: ISODate;
+  completed: boolean;
+}
+
+export interface CompleteWellbeingHabitResponse extends WellbeingHabitsResponse {}
+
+export interface ARIALifestyleRequest {
+  focus?: "nutrition" | "wellbeing" | "holistic";
+}
+
+export interface ARIALifestyleResponse {
+  focus: string;
+  coaching: string;
+  toolCallsMade?: Array<{ tool: string; input: Record<string, unknown>; success: boolean }>;
+  model?: string;
+  generatedAt: ISODateTime;
 }

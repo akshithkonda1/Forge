@@ -10,7 +10,7 @@ from integrations import terra_config
 from integrations.terra_self_integration import get_integration_state
 from ops_auth import require_ops_token
 from responses import RouteError, error_response, not_found, ok
-from routes import aria, chat, coach, dashboard, health, integrations, profile, progress, sleep, terra, workouts
+from routes import aria, chat, coach, dashboard, health, integrations, lifestyle, profile, progress, sleep, terra, workouts
 
 
 def _raw_body(event: dict) -> str:
@@ -207,6 +207,29 @@ def handler(event, _context):
         if method == "POST" and path == "/health/batch":
             return health.handle_post_health_batch(user_id, body)
 
+        if method == "GET" and path == "/lifestyle/dashboard":
+            return lifestyle.handle_get_lifestyle_dashboard(user_id, event)
+
+        if method == "GET" and path == "/nutrition/daily":
+            return lifestyle.handle_get_nutrition_daily(user_id, event)
+
+        if method == "POST" and path == "/nutrition/meals":
+            return lifestyle.handle_post_nutrition_meal(user_id, body)
+
+        if method == "POST" and path == "/nutrition/water":
+            return lifestyle.handle_post_nutrition_water(user_id, body)
+
+        if method == "GET" and path == "/restaurants":
+            return lifestyle.handle_get_restaurants(event)
+
+        if method == "GET" and path == "/wellbeing/habits":
+            return lifestyle.handle_get_wellbeing_habits(user_id, event)
+
+        if method == "POST" and path.startswith("/wellbeing/habits/") and path.endswith("/complete"):
+            habit_id = path[len("/wellbeing/habits/"):-len("/complete")]
+            if habit_id and "/" not in habit_id:
+                return lifestyle.handle_post_wellbeing_habit_complete(user_id, habit_id, body)
+
         if method == "POST" and path == "/coach/messages":
             return coach.handle_post_coach_message(user_id, body)
 
@@ -239,6 +262,9 @@ def handler(event, _context):
 
         if method == "POST" and path == "/aria/plan":
             return aria.handle_post_aria_plan(user_id, body)
+
+        if method == "POST" and path == "/aria/lifestyle":
+            return aria.handle_post_aria_lifestyle(user_id, body)
 
         if method == "POST" and path == "/aria/voice":
             return aria.handle_post_aria_voice(user_id, body)

@@ -13,6 +13,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+import json
+
+from routes import lifestyle as lifestyle_routes
 from seed_data import (
     default_connections,
     default_daily_metrics,
@@ -156,6 +159,59 @@ ARIA_TOOLS: list[dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "get_lifestyle_dashboard",
+        "description": (
+            "Get the user's lifestyle dashboard for today: quality-of-life metrics, "
+            "nutrition totals (calories, protein, carbs, fat, water), logged meals, "
+            "wellbeing habits, habit streak, and rule-based recommendations. "
+            "Use for nutrition coaching, habit tracking, and holistic lifestyle advice."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "description": "ISO date (YYYY-MM-DD). Defaults to today.",
+                }
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "get_nutrition_daily",
+        "description": (
+            "Get today's nutrition log: macro totals, water intake, targets, and meals. "
+            "Use when discussing protein gaps, hydration, or meal planning."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "description": "ISO date (YYYY-MM-DD). Defaults to today.",
+                }
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "get_wellbeing_habits",
+        "description": (
+            "Get today's wellbeing habits and completion state plus the current streak. "
+            "Use for mindfulness, recovery rituals, and daily habit coaching."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "description": "ISO date (YYYY-MM-DD). Defaults to today.",
+                }
+            },
             "required": [],
         },
     },
@@ -312,6 +368,28 @@ def _tool_get_training_load(user_id: str, _input: dict[str, Any]) -> dict[str, A
     return {"trainingLoad": load}
 
 
+def _lifestyle_payload(handler_fn, user_id: str, tool_input: dict[str, Any]) -> dict[str, Any]:
+    date = tool_input.get("date")
+    event: dict[str, Any] = {"queryStringParameters": {"date": date} if date else {}}
+    response = handler_fn(user_id, event)
+    body = json.loads(response.get("body", "{}"))
+    if response.get("statusCode", 500) >= 400:
+        raise ValueError(body.get("message", "Lifestyle data unavailable."))
+    return body
+
+
+def _tool_get_lifestyle_dashboard(user_id: str, tool_input: dict[str, Any]) -> dict[str, Any]:
+    return _lifestyle_payload(lifestyle_routes.handle_get_lifestyle_dashboard, user_id, tool_input)
+
+
+def _tool_get_nutrition_daily(user_id: str, tool_input: dict[str, Any]) -> dict[str, Any]:
+    return _lifestyle_payload(lifestyle_routes.handle_get_nutrition_daily, user_id, tool_input)
+
+
+def _tool_get_wellbeing_habits(user_id: str, tool_input: dict[str, Any]) -> dict[str, Any]:
+    return _lifestyle_payload(lifestyle_routes.handle_get_wellbeing_habits, user_id, tool_input)
+
+
 def _tool_log_coaching_insight(user_id: str, tool_input: dict[str, Any]) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
     insight_id = uuid.uuid4().hex[:12]
@@ -344,6 +422,9 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "get_integration_status": _tool_get_integration_status,
     "compute_readiness_score": _tool_compute_readiness_score,
     "get_training_load": _tool_get_training_load,
+    "get_lifestyle_dashboard": _tool_get_lifestyle_dashboard,
+    "get_nutrition_daily": _tool_get_nutrition_daily,
+    "get_wellbeing_habits": _tool_get_wellbeing_habits,
     "log_coaching_insight": _tool_log_coaching_insight,
 }
 

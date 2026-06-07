@@ -855,7 +855,7 @@ final class AppStore: ObservableObject {
         currentSet = 1
     }
 
-    func endWorkout() {
+    func endWorkout(avgHeartRate: Int? = nil, peakHeartRate: Int? = nil) {
         isWorkoutActive = false
         currentExerciseIndex = 0
         currentSet = 1
@@ -876,7 +876,12 @@ final class AppStore: ObservableObject {
 
         Task {
             do {
-                try await repository.logWorkout(workout, volume: volume)
+                try await repository.logWorkout(
+                    workout,
+                    volume: volume,
+                    avgHeartRate: avgHeartRate,
+                    peakHeartRate: peakHeartRate
+                )
             } catch {
                 print("Failed to log workout: \(error)")
             }

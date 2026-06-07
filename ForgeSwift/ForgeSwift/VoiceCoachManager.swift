@@ -37,7 +37,9 @@ final class VoiceCoachManager: NSObject {
     // Conversation history for Claude
     private var conversationHistory: [[String: String]] = []
     
-    // Anthropic API
+    private let repository = ForgeRepository.shared
+
+    // Anthropic API fallback
     private let apiURL = URL(string: "https://api.anthropic.com/v1/messages")!
     private let apiKey: String = {
         // In production: load from Keychain or environment
@@ -126,7 +128,7 @@ final class VoiceCoachManager: NSObject {
         conversationHistory.append(["role": "user", "content": userMessage])
         
         do {
-            let response = try await callClaude(messages: conversationHistory)
+            let response = try await fetchCoachResponse(for: userMessage)
             conversationHistory.append(["role": "assistant", "content": response])
             lastCoachMessage = response
             isThinking = false
@@ -242,8 +244,18 @@ final class VoiceCoachManager: NSObject {
         isSpeaking = true
     }
     
-    // MARK: - Private: Claude API
-    
+    // MARK: - Private: Coach API
+
+    private func fetchCoachResponse(for userMessage: String) async throws -> String {
+        do {
+            return try await repository.sendVoiceTranscript(userMessage)
+        } catch {
+            return try await callClaude(messages: conversationHistory)
+        }
+    }
+
+    // MARK: - Private: Claude API fallback
+
     private func callClaude(messages: [[String: String]]) async throws -> String {
         var request = URLRequest(url: apiURL)
         request.httpMethod = "POST"

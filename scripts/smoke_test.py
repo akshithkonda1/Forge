@@ -85,6 +85,32 @@ def main() -> int:
         f"status={code}",
     )
 
+    code, lifestyle = request("GET", "/lifestyle/dashboard")
+    passed &= check(
+        "GET /lifestyle/dashboard",
+        code == 200 and "metrics" in lifestyle and "nutrition" in lifestyle,
+        f"status={code}",
+    )
+
+    code, habits = request(
+        "POST",
+        "/wellbeing/habits/meditation/complete",
+        {"completed": True},
+    )
+    passed &= check(
+        "POST /wellbeing/habits/{id}/complete",
+        code == 200 and "habits" in habits,
+        f"status={code}",
+    )
+
+    code, aria_lifestyle = request("POST", "/aria/lifestyle", {"focus": "nutrition"})
+    if code == 200 and aria_lifestyle.get("coaching"):
+        check("POST /aria/lifestyle", True, f"status={code}")
+    elif code == 503:
+        check("POST /aria/lifestyle", True, "status=503 (ARIA unavailable locally — expected)")
+    else:
+        passed &= check("POST /aria/lifestyle", False, f"status={code}")
+
     code, chat = request("POST", "/aria/chat", {"content": "How should I train today?"})
     if code == 200 and chat.get("message", {}).get("content"):
         check("POST /aria/chat", True, f"status={code}")
