@@ -49,6 +49,8 @@ Required production variables (generated automatically):
 - `NEXT_PUBLIC_COGNITO_CLIENT_ID`
 - `NEXT_PUBLIC_COGNITO_USER_POOL_ID`
 
+When Cognito vars are present, the web app requires sign-in after onboarding and attaches JWTs to all API requests. Do **not** set `NEXT_PUBLIC_ALLOW_DEMO_FALLBACK` in production builds.
+
 ## 4. iOS Release archive
 
 Debug builds use [`Forge-Debug.xcconfig`](../ForgeSwift/Config/Forge-Debug.xcconfig) (`FORGE_USE_AUTH=false`, localhost API).

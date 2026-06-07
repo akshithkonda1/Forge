@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { isDemoFallbackAllowed } from "@/lib/auth-config";
 import { useAppStore } from "@/stores/useAppStore";
 
 const containerVariants = {
@@ -64,7 +65,9 @@ export function MonthlySummary() {
   const summary =
     progressSummary?.summary ??
     (dataLoadState === "offline"
-      ? "You're viewing demo data. Start the backend to see your real progress."
+      ? isDemoFallbackAllowed()
+        ? "You're viewing demo data. Start the backend to see your real progress."
+        : "Can't reach the Forge API. Retry when your connection is back."
       : "Complete a few workouts and connect a wearable to unlock your monthly summary.");
 
   return (
