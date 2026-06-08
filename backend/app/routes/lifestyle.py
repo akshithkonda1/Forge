@@ -5,6 +5,7 @@ from typing import Any
 
 from data.lifestyle_seed import DEFAULT_MACRO_TARGETS, default_habits, default_restaurants
 from core.responses import RouteError, ok
+from core.seed_policy import resolve
 from data.seed_data import today_iso
 from services import lifestyle_scoring
 from services.metrics_snapshot import load_daily_metrics
@@ -46,11 +47,15 @@ def _summarize_nutrition(meals: list[dict[str, Any]], water_ml: float) -> dict[s
     }
 
 
+def _habit_catalog() -> list[dict[str, Any]]:
+    return resolve(None, default_habits, list)
+
+
 def _load_habits(user_id: str, date: str) -> tuple[list[dict[str, Any]], int]:
     state_item = dynamodb.get_item(**keys.habit_state_key(user_id, date))
     completed_ids = set(state_item.get("completedIds", [])) if state_item else set()
     habits = []
-    for habit in default_habits():
+    for habit in _habit_catalog():
         habits.append({**habit, "completed": habit["id"] in completed_ids})
     streak = int(state_item.get("streak", 0)) if state_item else 0
     return habits, streak
@@ -156,7 +161,7 @@ def handle_get_restaurants(event: dict) -> dict:
     category = (params.get("category") or "").strip()
     search = (params.get("search") or "").strip().lower()
 
-    restaurants = default_restaurants()
+    restaurants = list(resolve(None, default_restaurants, list))
     if category and category.lower() != "all":
         restaurants = [r for r in restaurants if r["category"].lower() == category.lower()]
 
@@ -179,7 +184,7 @@ def handle_get_wellbeing_habits(user_id: str, event: dict) -> dict:
 def handle_post_wellbeing_habit_complete(user_id: str, habit_id: str, body: dict) -> dict:
     date = body.get("date") or today_iso()
     habits, streak = _load_habits(user_id, date)
-    valid_ids = {h["id"] for h in default_habits()}
+    valid_ids = {h["id"] for h in _habit_catalog()}
     if habit_id not in valid_ids:
         raise RouteError(404, f"Habit '{habit_id}' was not found.")
 

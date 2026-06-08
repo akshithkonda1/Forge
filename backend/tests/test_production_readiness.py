@@ -98,6 +98,34 @@ class ProductionReadinessTests(unittest.TestCase):
         self.assertIn("selfHealing", payload)
         self.assertTrue(payload["selfHealing"]["apiHealthProbe"])
 
+    def test_lifestyle_dashboard_empty_without_seed(self):
+        response = handler(event("GET", "/lifestyle/dashboard", sub="user-prod-123"), None)
+
+        self.assertEqual(response["statusCode"], 200)
+        payload = body(response)
+        self.assertEqual(payload["habits"], [])
+        self.assertEqual(payload["nutrition"]["meals"], [])
+
+    def test_restaurants_empty_without_seed(self):
+        response = handler(event("GET", "/restaurants", sub="user-prod-123"), None)
+
+        self.assertEqual(response["statusCode"], 200)
+        payload = body(response)
+        self.assertEqual(payload["restaurants"], [])
+        self.assertEqual(payload["count"], 0)
+
+    def test_chat_message_avoids_demo_seed_in_production(self):
+        response = handler(
+            event("POST", "/chat/threads/current/messages", {"content": "How is my sleep?"}, sub="user-prod-123"),
+            None,
+        )
+
+        self.assertEqual(response["statusCode"], 200)
+        payload = body(response)
+        trainer = payload["trainerMessage"]
+        self.assertIn("do not have sleep data", trainer["content"].lower())
+        self.assertNotIn("richCard", trainer)
+
 
 if __name__ == "__main__":
     unittest.main()

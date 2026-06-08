@@ -60,7 +60,7 @@ By default, the web app skips Cognito when `NEXT_PUBLIC_COGNITO_CLIENT_ID` is un
 
 To test Cognito locally:
 
-1. Run `python3 scripts/generate_client_config.py` and copy Cognito vars into `clients/web/.env.local`.
+1. Run `python3 backend/tools/generate_client_config.py` and copy Cognito vars into `clients/web/.env.local`.
 2. Start the backend **without** the test-user bypass: `FORGE_TEST_USER_ID= npm run backend:dev`
 3. Complete onboarding, then sign in on the auth screen before the dashboard loads.
 
