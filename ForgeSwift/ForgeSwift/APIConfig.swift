@@ -50,7 +50,7 @@ enum APIConfig {
         if cognitoClientId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return """
             Cognito is not configured for this Release build.
-            Run scripts/generate_client_config.py after terraform apply, then archive again.
+            Run backend/tools/generate_client_config.py after terraform apply, then archive again.
             See docs/PRODUCTION-CLIENTS.md.
             """
         }
