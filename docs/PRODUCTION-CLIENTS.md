@@ -14,15 +14,20 @@ The JSON shape matches [`client-configuration.example.json`](../client-configura
 
 ## 2. Generate client files
 
-From the repo root (after `terraform apply`):
+**Before AWS is online** (placeholder structure — safe to run now):
 
 ```bash
-./scripts/wire_clients.sh
-# or manually:
-npm run config:export && npm run config:generate
+npm run wire:clients
 ```
 
-After a GitHub **deploy-chain** Phase 3 run, download the **forge-client-configuration** workflow artifact instead.
+**After `terraform apply`**:
+
+```bash
+npm run wire:clients:live
+# or: npm run config:export && npm run config:generate
+```
+
+After a GitHub **deploy-chain** Phase 3 run, you can also download the **forge-client-configuration** workflow artifact.
 
 This writes (both gitignored):
 
