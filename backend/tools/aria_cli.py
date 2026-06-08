@@ -2,17 +2,17 @@
 """ARIA CLI — interact with Forge's ARIA coach from the terminal.
 
 Examples:
-  python3 scripts/aria_cli.py status
-  python3 scripts/aria_cli.py chat "How should I train today?"
-  python3 scripts/aria_cli.py analyze "Why is my HRV declining?"
-  python3 scripts/aria_cli.py plan --focus workout
-  python3 scripts/aria_cli.py lifestyle --focus nutrition
-  python3 scripts/aria_cli.py voice "check my sleep last night"
-  python3 scripts/aria_cli.py insights generate
-  python3 scripts/aria_cli.py insights list --days 7
-  python3 scripts/aria_cli.py conversation show
-  python3 scripts/aria_cli.py conversation clear
-  python3 scripts/aria_cli.py tools get_lifestyle_dashboard
+  python3 backend/tools/aria_cli.py status
+  python3 backend/tools/aria_cli.py chat "How should I train today?"
+  python3 backend/tools/aria_cli.py analyze "Why is my HRV declining?"
+  python3 backend/tools/aria_cli.py plan --focus workout
+  python3 backend/tools/aria_cli.py lifestyle --focus nutrition
+  python3 backend/tools/aria_cli.py voice "check my sleep last night"
+  python3 backend/tools/aria_cli.py insights generate
+  python3 backend/tools/aria_cli.py insights list --days 7
+  python3 backend/tools/aria_cli.py conversation show
+  python3 backend/tools/aria_cli.py conversation clear
+  python3 backend/tools/aria_cli.py tools get_lifestyle_dashboard
 
 By default calls the running dev server (FORGE_API_BASE_URL, default http://127.0.0.1:3001).
 Use --local to invoke the Lambda handler in-process (no server required).

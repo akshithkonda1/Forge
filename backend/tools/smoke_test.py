@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Forge API smoke test — verifies backend routes the frontends depend on.
 
-Targets the local dev server (backend/dev_server.py → backend/api on port 3001)
-or a deployed API Gateway URL via FORGE_API_BASE_URL.
+Targets the local dev server (backend/dev/server.py on port 3001) or a deployed
+API Gateway URL via FORGE_API_BASE_URL.
 
 For deployed APIs protected by Cognito JWT, set FORGE_SMOKE_AUTH_TOKEN to a valid
-access token. Local smoke continues to use FORGE_TEST_USER_ID via dev_server.py.
+access token. Local smoke continues to use FORGE_TEST_USER_ID via backend/dev/server.py.
 """
 
 from __future__ import annotations

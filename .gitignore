@@ -55,6 +55,8 @@ terraform/bootstrap/*.tfstate
 terraform/bootstrap/*.tfstate.*
 terraform/build/*.zip
 terraform/.terraform/
+terraform/backend.s3.tf.disabled
+terraform/ci-plan.tfstate
 
 # xcode
 xcuserdata/

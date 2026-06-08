@@ -38,17 +38,7 @@ jobs:
       - run: terraform fmt -check -diff -recursive -no-color
       - run: terraform validate -no-color
       - name: Terraform plan
-        run: |
-          mv backend.tf backend.s3.tf.disabled
-          cat > backend.tf <<'EOF'
-          terraform {
-            backend "local" {
-              path = "ci-plan.tfstate"
-            }
-          }
-          EOF
-          terraform init -reconfigure -input=false -lockfile=readonly -no-color
-          terraform plan -input=false -no-color
+        run: bash ci_plan.sh
 
   apply:
     name: Terraform Apply

@@ -23,18 +23,18 @@ def load_daily_metrics(user_id: str, date: str | None = None) -> dict[str, Any]:
     sources: set[str] = set()
 
     for metric_type, field in _METRIC_FIELDS:
-        items = dynamodb.query_prefix_desc(keys.user_pk(user_id), f"METRIC#{metric_type}#", limit=1)
+        items = dynamodb.query_prefix(keys.user_pk(user_id), f"METRIC#{metric_type}#{target_date}")
         if not items:
             continue
-        item = items[0]
+        item = max(items, key=lambda row: str(row.get("startedAt", "")))
         metrics[field] = item.get("value", metrics[field])
         source = item.get("source")
         if source:
             sources.add(str(source))
 
-    sleep_items = dynamodb.query_prefix_desc(keys.user_pk(user_id), "SLEEP#", limit=1)
+    sleep_items = dynamodb.query_prefix(keys.user_pk(user_id), f"SLEEP#{target_date}#")
     if sleep_items:
-        latest = sleep_items[0]
+        latest = max(sleep_items, key=lambda row: str(row.get("source", "")))
         metrics["deepSleep"] = int(latest.get("deepMinutes", 0) or 0)
         metrics["totalSleep"] = int((float(latest.get("totalHours", 0) or 0)) * 60)
         source = latest.get("source")
