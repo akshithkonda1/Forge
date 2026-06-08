@@ -16,7 +16,7 @@ start_backend() {
   echo "Starting Forge backend on port ${BACKEND_PORT}..."
   (
     cd "${ROOT}"
-    FORGE_API_BASE_URL="http://127.0.0.1:${BACKEND_PORT}" python3 backend/dev_server.py
+    FORGE_API_BASE_URL="http://127.0.0.1:${BACKEND_PORT}" python3 backend/dev/server.py
   ) &
   echo $! >"${BACKEND_PID_FILE}"
 

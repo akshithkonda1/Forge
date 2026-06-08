@@ -4,7 +4,7 @@ Wire the Next.js and Swift clients after Terraform deploy. No hand-editing of pl
 
 ## 1. Export Terraform output
 
-From `infra/terraform` after `terraform apply`:
+From `terraform` after `terraform apply`:
 
 ```bash
 terraform output -json client_configuration > ../../client-configuration.json
@@ -17,7 +17,7 @@ The JSON shape matches [`client-configuration.example.json`](../client-configura
 From the repo root:
 
 ```bash
-python3 scripts/generate_client_config.py
+python3 backend/tools/generate_client_config.py
 ```
 
 This writes (both gitignored):
@@ -30,7 +30,7 @@ This writes (both gitignored):
 Validate without writing:
 
 ```bash
-python3 scripts/generate_client_config.py --input client-configuration.example.json --dry-run
+python3 backend/tools/generate_client_config.py --input client-configuration.example.json --dry-run
 ```
 
 ## 3. Web production build

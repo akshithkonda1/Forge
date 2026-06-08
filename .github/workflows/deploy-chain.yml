@@ -28,7 +28,7 @@ concurrency:
 
 env:
   AWS_REGION: us-east-1
-  TF_WORKING_DIR: infra/terraform
+  TF_WORKING_DIR: terraform
   PYTHON_VERSION: '3.12'
   TERRAFORM_VERSION: 1.15.0
 
@@ -83,11 +83,11 @@ jobs:
         run: pip install -r backend/requirements.txt
 
       - name: Unit tests
-        run: python3 scripts/run_tests.py
+        run: python3 backend/tools/run_tests.py
 
       - name: Smoke test (local dev server)
         run: |
-          python3 backend/dev_server.py &
+          python3 backend/dev/server.py &
           SERVER_PID=$!
           trap 'kill "$SERVER_PID"' EXIT
           for i in $(seq 1 30); do
@@ -96,7 +96,7 @@ jobs:
             fi
             sleep 1
           done
-          FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 scripts/smoke_test.py
+          FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 backend/tools/smoke_test.py
 
   phase1-test-terraform:
     name: 'Phase 1 · Test Terraform'
@@ -126,7 +126,18 @@ jobs:
         run: terraform validate -no-color
 
       - name: Terraform plan
-        run: terraform plan -input=false -no-color
+        run: |
+          # S3 backend is for deploy only; use a transient local backend for plan in CI.
+          mv backend.tf backend.s3.tf.disabled
+          cat > backend.tf <<'EOF'
+          terraform {
+            backend "local" {
+              path = "ci-plan.tfstate"
+            }
+          }
+          EOF
+          terraform init -reconfigure -input=false -lockfile=readonly -no-color
+          terraform plan -input=false -no-color
 
   phase1-test-swift:
     name: 'Phase 1 · Test Swift'
@@ -186,13 +197,13 @@ jobs:
         run: pip install -r backend/requirements.txt
 
       - name: Run fix/improve checks
-        run: python3 scripts/ci_fix_improve.py
+        run: python3 backend/tools/ci_fix_improve.py
 
       - name: Upload Lambda artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: forge-backend-lambda
-          path: infra/terraform/build/forge-backend.zip
+          path: terraform/build/forge-backend.zip
           retention-days: 7
 
   # ═══════════════════════════════════════════════════════════════════
@@ -274,4 +285,4 @@ jobs:
         run: |
           HEALTH_URL="$(terraform output -raw healthcheck_url)"
           BASE="${HEALTH_URL%/health}"
-          FORGE_API_BASE_URL="${BASE}" python3 "${{ github.workspace }}/scripts/smoke_test.py"
+          FORGE_API_BASE_URL="${BASE}" python3 "${{ github.workspace }}/backend/tools/smoke_test.py"

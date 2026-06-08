@@ -16,7 +16,7 @@ From the repo root:
 
 ```bash
 npm run backend:dev
-# or: python3 backend/dev_server.py
+# or: python3 backend/dev/server.py
 ```
 
 Verify it's up:
@@ -134,10 +134,10 @@ Browser / Simulator
   clients/web  or  ForgeSwift/
        │
        ▼
-  backend/dev_server.py  (:3001)
+  backend/dev/server.py  (:3001)
        │
        ▼
-  backend/api/  (routes, ARIA, DynamoDB seed)
+  backend/app/  (routes, ARIA, DynamoDB)
 ```
 
 ## Troubleshooting

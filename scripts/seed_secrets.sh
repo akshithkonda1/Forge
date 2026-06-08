@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TF_DIR="${ROOT}/infra/terraform"
+TF_DIR="${ROOT}/terraform"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 ENVIRONMENT="${FORGE_ENVIRONMENT:-dev}"
 PROJECT_NAME="${FORGE_PROJECT_NAME:-forge}"

@@ -22,14 +22,14 @@ jobs:
           python-version: '3.12'
 
       - run: pip install -r backend/requirements.txt
-      - run: python3 scripts/run_tests.py
-      - run: python3 scripts/ci_fix_improve.py
+      - run: python3 backend/tools/run_tests.py
+      - run: python3 backend/tools/ci_fix_improve.py
       - run: |
-          python3 backend/dev_server.py &
+          python3 backend/dev/server.py &
           SERVER_PID=$!
           trap 'kill "$SERVER_PID"' EXIT
           for i in $(seq 1 30); do
             curl -sf http://127.0.0.1:3001/health >/dev/null && break
             sleep 1
           done
-          FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 scripts/smoke_test.py
+          FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 backend/tools/smoke_test.py

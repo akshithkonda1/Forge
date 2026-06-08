@@ -75,14 +75,17 @@ forge/
 │       ├── package.json
 │       └── next.config.js
 │
-├── backend/                        # Python Lambda API (local dev + AWS deploy)
+├── backend/                        # Python Lambda API (app/, dev/, tools/, tests/)
 │   ├── api/                        # handler, routes, ARIA, DynamoDB storage
-│   ├── dev_server.py               # Local server on port 3001
+│   ├── app/                        # Lambda application (handler, routes, ai, …)
+│   ├── dev/server.py               # Local server on port 3001
+│   ├── tools/                      # run_tests, smoke_test, package_lambda
+│   └── tests/                      # Python unit tests
 │   └── requirements.txt
 │
-├── infra/terraform/                # AWS: API Gateway, Lambda, Cognito, self-healing
+├── terraform/                      # AWS: API Gateway, Lambda, Cognito, self-healing
 │
-├── scripts/                        # run_tests.py, smoke_test.py, package_lambda.py
+├── scripts/                        # wire_production.sh, seed_secrets.sh, ios_dev.sh
 │
 ├── shared/                         # Shared types & API contracts
 │   └── types/
@@ -244,13 +247,13 @@ cd Forge
 # From repo root
 pip install -r backend/requirements.txt
 
-# Start local API (same code Terraform deploys from backend/api)
-python3 backend/dev_server.py
+# Start local API (same code Terraform deploys from backend/app)
+python3 backend/dev/server.py
 # → http://127.0.0.1:3001
 
 # Run unit tests and smoke checks
-python3 scripts/run_tests.py
-FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 scripts/smoke_test.py
+python3 backend/tools/run_tests.py
+FORGE_API_BASE_URL=http://127.0.0.1:3001 python3 backend/tools/smoke_test.py
 ```
 
 Or use npm scripts: `npm run backend:dev`, `npm run backend:test`, `npm run backend:smoke`.
@@ -297,7 +300,7 @@ FORGE_TEST_USER_ID=test-user-00000000  # default dev user
 
 `POST /aria/chat` returns `503` locally without Bedrock credentials; all other core routes return seed data.
 
-For deployed AWS environments, run `cd infra/terraform && terraform apply` and seed the AI secret documented in `infra/terraform/README.md`.
+For deployed AWS environments, run `cd terraform && terraform apply` and seed the AI secret documented in `terraform/README.md`.
 
 > **Note:** Apple Health data flows through the native iOS client directly — no backend credentials needed for HealthKit.
 
@@ -581,7 +584,7 @@ This score is visible on the Home screen, informs ARIA's coaching tone, and tren
 
 ### Phase 2 — Real Data 🔄 (In Progress)
 - [ ] Apple Health (HealthKit) native integration
-- [x] Python backend REST API (`backend/api`) with local dev server
+- [x] Python backend REST API (`backend/app`) with local dev server
 - [x] AWS Lambda + DynamoDB infrastructure (Terraform, self-healing)
 - [ ] Cognito auth wired end-to-end on all clients
 - [ ] End-to-end data flow: HealthKit → iOS → Backend → ARIA
