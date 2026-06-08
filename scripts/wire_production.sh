@@ -80,10 +80,13 @@ cat <<EOF
 Next steps (manual):
   1. Deploy when ready:
        gh workflow run deploy-chain.yml --repo ${GITHUB_REPO} -f run_deploy=true
-  2. After first apply, seed runtime secrets:
+  2. Wire frontends to the deployed API (after apply):
+       ./scripts/wire_clients.sh
+     Or download the forge-client-configuration artifact from the deploy workflow.
+  3. After first apply, seed runtime secrets:
        TERRA_DEV_ID=... TERRA_API_KEY=... TERRA_WEBHOOK_SECRET=... \\
          ./scripts/seed_secrets.sh
-  3. Register webhook in Terra dashboard:
+  4. Register webhook in Terra dashboard:
        cd terraform && terraform output -raw terra_webhook_url
 
 Bootstrap outputs:

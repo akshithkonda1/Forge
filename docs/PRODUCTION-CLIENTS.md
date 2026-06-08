@@ -14,11 +14,15 @@ The JSON shape matches [`client-configuration.example.json`](../client-configura
 
 ## 2. Generate client files
 
-From the repo root:
+From the repo root (after `terraform apply`):
 
 ```bash
-python3 backend/tools/generate_client_config.py
+./scripts/wire_clients.sh
+# or manually:
+npm run config:export && npm run config:generate
 ```
+
+After a GitHub **deploy-chain** Phase 3 run, download the **forge-client-configuration** workflow artifact instead.
 
 This writes (both gitignored):
 

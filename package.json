@@ -16,11 +16,13 @@
     "ci:fix": "python3 backend/tools/ci_fix_improve.py",
     "ci:deploy": "cd terraform && terraform apply -auto-approve",
     "wire:production": "./scripts/wire_production.sh",
+    "wire:clients": "./scripts/wire_clients.sh",
+    "config:export": "cd terraform && terraform output -json client_configuration > ../client-configuration.json",
+    "config:generate": "python3 backend/tools/generate_client_config.py",
     "seed:secrets": "./scripts/seed_secrets.sh",
     "ios:open": "./scripts/ios_dev.sh open",
     "ios:backend": "./scripts/ios_dev.sh backend",
     "ios:build": "./scripts/ios_dev.sh build",
-    "ios:preflight": "./scripts/ios_dev.sh build",
-    "config:generate": "python3 backend/tools/generate_client_config.py"
+    "ios:preflight": "./scripts/ios_dev.sh build"
   }
 }

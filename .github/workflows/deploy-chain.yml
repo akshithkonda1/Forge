@@ -275,3 +275,19 @@ jobs:
           HEALTH_URL="$(terraform output -raw healthcheck_url)"
           BASE="${HEALTH_URL%/health}"
           FORGE_API_BASE_URL="${BASE}" python3 "${{ github.workspace }}/backend/tools/smoke_test.py"
+
+      - name: Export client configuration
+        working-directory: ${{ github.workspace }}
+        run: |
+          terraform -chdir=terraform output -json client_configuration > client-configuration.json
+          python3 backend/tools/generate_client_config.py --input client-configuration.json
+
+      - name: Upload client configuration artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: forge-client-configuration
+          path: |
+            client-configuration.json
+            clients/web/.env.production.local
+            ForgeSwift/Config/Forge-Production.xcconfig
+          retention-days: 30
