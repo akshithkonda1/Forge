@@ -530,6 +530,8 @@ final class AppStore: ObservableObject {
 
     // Navigation
     @Published var activeTab: TabItem = .home
+    /// When set, ProfileTabView opens this sub-tab (e.g. "Lifestyle") then clears.
+    @Published var pendingProfileSubTab: String?
     
     // Streak tracking
     @Published var currentStreak: Int = 0

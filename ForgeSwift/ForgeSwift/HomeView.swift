@@ -1681,7 +1681,9 @@ struct InsightsSectionView: View {
     private func destinationForInsightType(_ type: String) -> TabItem? {
         switch type {
         case "sleep", "recovery": return .sleep
-        case "nutrition": return .lifestyle
+        case "nutrition":
+            store.pendingProfileSubTab = "Lifestyle"
+            return .profile
         case "mindset": return .chat
         default: return .workout
         }

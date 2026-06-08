@@ -1392,7 +1392,7 @@ struct ActiveWorkoutView: View {
                 weight: exercise.weight.map { "\($0) lbs" } ?? "BW",
                 elapsedTime: formatTime(elapsedSecs, flashColon: false),
                 heartRate: displayHR,
-                hrZone: workoutHRZones.firstIndex(where: { $0.label == currentZone.label }) ?? 0 + 1,
+                hrZone: (workoutHRZones.firstIndex(where: { $0.label == currentZone.label }) ?? 0) + 1,
                 calories: Int(estimatedCals),
                 restSeconds: exercise.restSeconds,
                 notes: exercise.notes ?? ""

@@ -17,6 +17,7 @@
 		1E4DF71E2F9FFAE1004091AA /* SmartProfileSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF71D2F9FFAE1004091AA /* SmartProfileSetupView.swift */; };
 		1E4DF7242F9FFB29004091AA /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7232F9FFB29004091AA /* ColorExtensions.swift */; };
 		1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */; };
+		1EFDH0012FAA000100000001 /* ForgeDateHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EFDH0022FAA000100000001 /* ForgeDateHelpers.swift */; };
 		1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */; };
 		1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */; };
 		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
@@ -66,6 +67,7 @@
 		1E4DF71D2F9FFAE1004091AA /* SmartProfileSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartProfileSetupView.swift; sourceTree = "<group>"; };
 		1E4DF7232F9FFB29004091AA /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
 		1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeDesignSystem.swift; sourceTree = "<group>"; };
+		1EFDH0022FAA000100000001 /* ForgeDateHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeDateHelpers.swift; sourceTree = "<group>"; };
 		1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+ForgeCardShadow.swift"; sourceTree = "<group>"; };
 		1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachManager.swift; sourceTree = "<group>"; };
 		1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachViews.swift; sourceTree = "<group>"; };
@@ -182,6 +184,7 @@
 				1E4DF71D2F9FFAE1004091AA /* SmartProfileSetupView.swift */,
 				1E4DF7232F9FFB29004091AA /* ColorExtensions.swift */,
 				1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */,
+				1EFDH0022FAA000100000001 /* ForgeDateHelpers.swift */,
 				1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */,
 				1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */,
 				WGT1002000000000000000001 /* ForgeSharedData.swift */,
@@ -355,6 +358,7 @@
 				AA0001000000000000000006 /* OnboardingView.swift in Sources */,
 				AA000100000000000000000D /* OnboardingCoordinator.swift in Sources */,
 				1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */,
+				1EFDH0012FAA000100000001 /* ForgeDateHelpers.swift in Sources */,
 				1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */,
 				1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */,
 				1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */,

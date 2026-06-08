@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Profile Tab (mirrors profile-tab.tsx)
 
 struct ProfileTabView: View {
+    @EnvironmentObject var store: AppStore
     @State private var subTab: SubTab = .progress
     @Namespace private var tabAnimation
 
@@ -90,6 +91,17 @@ struct ProfileTabView: View {
             .id(subTab)
         }
         .background(Color.background.ignoresSafeArea())
+        .onAppear { applyPendingProfileSubTab() }
+        .onChange(of: store.pendingProfileSubTab) { _, _ in applyPendingProfileSubTab() }
+    }
+
+    private func applyPendingProfileSubTab() {
+        guard let pending = store.pendingProfileSubTab,
+              let match = SubTab.allCases.first(where: { $0.rawValue == pending }) else { return }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            subTab = match
+        }
+        store.pendingProfileSubTab = nil
     }
 }
 
@@ -324,18 +336,36 @@ struct CalendarHeatmapView: View {
         var level: Int
     }
 
+    private var displayMonth: Date {
+        Date()
+    }
+
+    var monthTitle: String {
+        ForgeDates.monthYearTitle(for: displayMonth)
+    }
+
     var weeks: [[DayCell]] {
-        // February 2026 — first day is Sunday (index 0), Mon-based layout
-        // Feb 1 2026 is Sunday → start offset = 6 (Mon=0)
-        var cells: [DayCell] = []
-        let startOffset = 6 // Feb 1 2026 is Sunday
-        for _ in 0..<startOffset { cells.append(DayCell(id: UUID().uuidString, day: nil, date: "", level: 0)) }
-        for d in 1...28 {
-            let dateStr = String(format: "2026-02-%02d", d)
-            cells.append(DayCell(id: dateStr, day: d, date: dateStr, level: dateMap[dateStr] ?? 0))
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month], from: displayMonth)
+        guard let firstOfMonth = calendar.date(from: components),
+              let dayRange = calendar.range(of: .day, in: .month, for: firstOfMonth) else {
+            return []
         }
-        while cells.count % 7 != 0 { cells.append(DayCell(id: UUID().uuidString, day: nil, date: "", level: 0)) }
-        return stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0..<min($0+7, cells.count)]) }
+
+        var cells: [DayCell] = []
+        let startOffset = ForgeDates.mondayBasedStartOffset(for: firstOfMonth, calendar: calendar)
+        for _ in 0..<startOffset {
+            cells.append(DayCell(id: UUID().uuidString, day: nil, date: "", level: 0))
+        }
+        for day in dayRange {
+            guard let date = calendar.date(byAdding: .day, value: day - 1, to: firstOfMonth) else { continue }
+            let dateStr = ForgeDates.yyyyMMdd(from: date)
+            cells.append(DayCell(id: dateStr, day: day, date: dateStr, level: dateMap[dateStr] ?? 0))
+        }
+        while cells.count % 7 != 0 {
+            cells.append(DayCell(id: UUID().uuidString, day: nil, date: "", level: 0))
+        }
+        return stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0..<min($0 + 7, cells.count)]) }
     }
 
     func heatColor(_ level: Int) -> Color {
@@ -349,7 +379,7 @@ struct CalendarHeatmapView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("February 2026")
+            Text(monthTitle)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.textPrimary)
 
@@ -1214,8 +1244,44 @@ struct TimeRangePicker: View {
 }
 
 struct QuickStatsOverviewView: View {
+    @EnvironmentObject var store: AppStore
     let timeRange: ProgressPageView.TimeRange
     @State private var appear = false
+
+    private var filteredWorkouts: [WorkoutHistory] {
+        let days: Int
+        switch timeRange {
+        case .week: days = 7
+        case .month: days = 30
+        case .year: days = 365
+        }
+        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        return store.workoutHistory.filter { workout in
+            guard let date = ForgeDates.parse(workout.date) else { return false }
+            return date >= cutoff
+        }
+    }
+
+    private var workoutCountText: String {
+        if let completed = store.progressSummary?.workoutsCompleted, timeRange == .month {
+            return String(completed)
+        }
+        return String(filteredWorkouts.count)
+    }
+
+    private var caloriesText: String {
+        let calories = filteredWorkouts.reduce(0) { $0 + ($1.duration * 5) }
+        if calories >= 1000 {
+            return String(format: "%.1fk", Double(calories) / 1000.0)
+        }
+        return String(calories)
+    }
+
+    private var avgDurationText: String {
+        guard !filteredWorkouts.isEmpty else { return "—" }
+        let avg = filteredWorkouts.reduce(0) { $0 + $1.duration } / filteredWorkouts.count
+        return String(avg)
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -1232,9 +1298,9 @@ struct QuickStatsOverviewView: View {
             .padding(.bottom, 14)
             
             HStack(spacing: 12) {
-                QuickStatCard(icon: "figure.strengthtraining.traditional", value: "24", label: "Workouts", trend: "+12%", trendUp: true, appeared: appear, delay: 0.1)
-                QuickStatCard(icon: "flame.fill", value: "18.5k", label: "Calories", trend: "+8%", trendUp: true, appeared: appear, delay: 0.15)
-                QuickStatCard(icon: "timer", value: "42", label: "Avg Time", trend: "-5m", trendUp: false, appeared: appear, delay: 0.2)
+                QuickStatCard(icon: "figure.strengthtraining.traditional", value: workoutCountText, label: "Workouts", trend: nil, trendUp: true, appeared: appear, delay: 0.1)
+                QuickStatCard(icon: "flame.fill", value: caloriesText, label: "Calories", trend: nil, trendUp: true, appeared: appear, delay: 0.15)
+                QuickStatCard(icon: "timer", value: avgDurationText, label: "Avg Min", trend: nil, trendUp: true, appeared: appear, delay: 0.2)
             }
         }
         .onAppear { 
@@ -1247,7 +1313,7 @@ struct QuickStatCard: View {
     let icon: String
     let value: String
     let label: String
-    let trend: String
+    let trend: String?
     let trendUp: Bool
     var appeared: Bool = false
     var delay: Double = 0
@@ -1259,16 +1325,18 @@ struct QuickStatCard: View {
                     .font(.system(size: 16))
                     .foregroundColor(.ember)
                 Spacer()
-                HStack(spacing: 3) {
-                    Image(systemName: trendUp ? "arrow.up.right" : "arrow.down.right")
-                        .font(.system(size: 9, weight: .bold))
-                    Text(trend)
-                        .font(.system(size: 10, weight: .bold))
+                if let trend, !trend.isEmpty {
+                    HStack(spacing: 3) {
+                        Image(systemName: trendUp ? "arrow.up.right" : "arrow.down.right")
+                            .font(.system(size: 9, weight: .bold))
+                        Text(trend)
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .foregroundColor(trendUp ? .success : .ember)
+                    .padding(.horizontal, 7).padding(.vertical, 4)
+                    .background((trendUp ? Color.success : Color.ember).opacity(0.12))
+                    .cornerRadius(6)
                 }
-                .foregroundColor(trendUp ? .success : .ember)
-                .padding(.horizontal, 7).padding(.vertical, 4)
-                .background((trendUp ? Color.success : Color.ember).opacity(0.12))
-                .cornerRadius(6)
             }
             
             VStack(alignment: .leading, spacing: 2) {
