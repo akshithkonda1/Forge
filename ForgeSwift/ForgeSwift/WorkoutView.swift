@@ -51,10 +51,10 @@ struct WorkoutSummaryData {
     let totalVolume:        Int
     let totalSets:          Int
     let totalReps:          Int
-    let peakHR:             Int
-    let avgHR:              Int
-    let peakO2:             Int
-    let minO2:              Int
+    let peakHR:             Int?
+    let avgHR:              Int?
+    let peakO2:             Int?
+    let minO2:              Int?
     let caloriesBurned:     Int
     let personalRecords:    [String]
     let exercisesCompleted: Int
@@ -718,16 +718,16 @@ struct ActiveWorkoutView: View {
     @EnvironmentObject var store: AppStore
     let onWorkoutEnd: (WorkoutSummaryData) -> Void
 
-    // Bio metrics
+    // Bio metrics (live HealthKit only — no simulated vitals)
     @State private var elapsedSecs:    Int    = 0
-    @State private var simulatedHR:    Int    = 72
-    @State private var peakHR:         Int    = 72
+    @State private var peakHR:         Int    = 0
     @State private var hrHistory:      [Int]  = []
     @State private var estimatedCals:  Double = 0
-    @State private var simulatedSpO2:  Int    = 98
-    @State private var peakSpO2:       Int    = 98
-    @State private var minSpO2:        Int    = 98
+    @State private var peakSpO2:       Int    = 0
+    @State private var minSpO2:        Int    = 0
     @State private var showO2Warning:  Bool   = false
+    @State private var showVitalsConnectBanner = false
+    @State private var vitalsGraceTask: Task<Void, Never>? = nil
 
     // Rest
     @State private var isResting:      Bool   = false
@@ -764,15 +764,33 @@ struct ActiveWorkoutView: View {
 
     // Tasks
     @State private var elapsedTask: Task<Void, Never>? = nil
-    @State private var hrTask:      Task<Void, Never>? = nil
     @State private var hrUploadTask: Task<Void, Never>? = nil
     @State private var calTask:     Task<Void, Never>? = nil
-    @State private var o2Task:      Task<Void, Never>? = nil
     @State private var restTask:    Task<Void, Never>? = nil
     private var exercises:       [Exercise] { store.todayWorkout?.exercises ?? [] }
     private var currentExercise: Exercise?  { exercises.indices.contains(store.currentExerciseIndex) ? exercises[store.currentExerciseIndex] : nil }
-    private var displayHR: Int { hrMonitor.currentBPM ?? simulatedHR }
-    private var currentZone: WorkoutHRZone { workoutHRZone(for: displayHR) }
+    private var hasLiveHR: Bool { hrMonitor.isLive }
+    private var hasLiveSpO2: Bool { hrMonitor.isSpO2Live }
+    private var liveSpO2: Int? { hrMonitor.currentSpO2 }
+    private var coachHeartRate: Int {
+        if let live = hrMonitor.currentBPM { return live }
+        let resting = store.dailyMetrics.restingHR
+        return resting > 0 ? resting : 0
+    }
+    private var zoneBPM: Int {
+        if let live = hrMonitor.currentBPM { return live }
+        let resting = store.dailyMetrics.restingHR
+        return resting > 0 ? resting : 70
+    }
+    private var currentZone: WorkoutHRZone { workoutHRZone(for: zoneBPM) }
+    private var displayHRText: String {
+        guard let live = hrMonitor.currentBPM else { return "—" }
+        return "\(live)"
+    }
+    private var displaySpO2Text: String {
+        guard let live = liveSpO2 else { return "—" }
+        return "\(live)"
+    }
 
     var body: some View {
         ZStack {
@@ -794,12 +812,18 @@ struct ActiveWorkoutView: View {
             }
 
             // Overlays — highest zIndex first
-            if showO2Warning {
-                O2WarningBanner(spO2: simulatedSpO2) {
+            if showO2Warning, let spO2 = liveSpO2 {
+                O2WarningBanner(spO2: spO2) {
                     withAnimation { showO2Warning = false }
                 }
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(25)
+            }
+
+            if showVitalsConnectBanner && !hasLiveHR {
+                VitalsConnectBanner()
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(18)
             }
 
             if showPRBanner {
@@ -841,6 +865,7 @@ struct ActiveWorkoutView: View {
             startTasks()
             setupCurrentWeight()
             syncVoiceCoachContext()
+            startVitalsGraceTimer()
             if currentExercise != nil {
                 voiceCoach.announceWorkoutStart()
             }
@@ -848,21 +873,39 @@ struct ActiveWorkoutView: View {
         .onDisappear {
             flushHeartRateSamples()
             hrMonitor.stop()
+            vitalsGraceTask?.cancel()
+            vitalsGraceTask = nil
             cancelTasks()
             voiceCoach.stopListening()
         }
         .onChange(of: store.currentExerciseIndex) { _, _ in syncVoiceCoachContext() }
         .onChange(of: store.currentSet) { _, _ in syncVoiceCoachContext() }
         .onChange(of: elapsedSecs) { _, _ in syncVoiceCoachContext() }
-        .onChange(of: displayHR) { _, newValue in
-            simulatedHR = newValue
+        .onChange(of: coachHeartRate) { _, _ in
             syncVoiceCoachContext()
         }
         .onChange(of: hrMonitor.currentBPM) { _, newValue in
             guard let newValue else { return }
-            simulatedHR = newValue
             hrHistory.append(newValue)
             if newValue > peakHR { peakHR = newValue }
+            if hasLiveHR { showVitalsConnectBanner = false }
+            syncVoiceCoachContext()
+        }
+        .onChange(of: hrMonitor.currentSpO2) { _, newValue in
+            guard let newValue else { return }
+            if peakSpO2 == 0 || newValue > peakSpO2 { peakSpO2 = newValue }
+            if minSpO2 == 0 || newValue < minSpO2 { minSpO2 = newValue }
+            if newValue < 94 && !showO2Warning {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { showO2Warning = true }
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                Task {
+                    try? await Task.sleep(nanoseconds: 5_000_000_000)
+                    withAnimation { showO2Warning = false }
+                }
+            }
+        }
+        .onChange(of: hrMonitor.isLive) { _, isLive in
+            if isLive { showVitalsConnectBanner = false }
         }
         .onChange(of: isResting) { _, _ in syncVoiceCoachContext() }
         .onChange(of: restTimeLeft) { _, _ in syncVoiceCoachContext() }
@@ -1018,8 +1061,8 @@ struct ActiveWorkoutView: View {
                 // PRIMARY: HR — largest chip, zone-colored
                 primaryMetricChip(
                     icon: "heart.fill", iconColor: currentZone.color,
-                    value: "\(displayHR)", unit: "bpm",
-                    accent: currentZone.color, glowing: displayHR > 140
+                    value: displayHRText, unit: hasLiveHR ? "bpm" : "bpm · connect watch",
+                    accent: currentZone.color, glowing: (hrMonitor.currentBPM ?? 0) > 140
                 )
 
                 // Zone label
@@ -1041,12 +1084,13 @@ struct ActiveWorkoutView: View {
                 .overlay(Capsule().stroke(currentZone.color.opacity(0.35), lineWidth: 1))
                 .animation(.easeInOut(duration: 0.7), value: currentZone.label)
 
-                // PRIMARY: SpO2 — large, color-coded
-                let o2Color: Color = simulatedSpO2 < 94 ? .danger : simulatedSpO2 < 96 ? .warning : Color(hex: "38BDF8")
+                // PRIMARY: SpO2 — live from HealthKit when available
+                let spO2Value = liveSpO2 ?? 0
+                let o2Color: Color = !hasLiveSpO2 ? .textTertiary : spO2Value < 94 ? .danger : spO2Value < 96 ? .warning : Color(hex: "38BDF8")
                 primaryMetricChip(
                     icon: "lungs.fill", iconColor: o2Color,
-                    value: "\(simulatedSpO2)%", unit: "O₂",
-                    accent: o2Color, glowing: simulatedSpO2 < 95
+                    value: hasLiveSpO2 ? displaySpO2Text : "—", unit: hasLiveSpO2 ? "O₂" : "O₂ · watch",
+                    accent: o2Color, glowing: hasLiveSpO2 && spO2Value < 95
                 )
 
                 // SECONDARY chips
@@ -1391,7 +1435,7 @@ struct ActiveWorkoutView: View {
                 reps: exercise.reps,
                 weight: exercise.weight.map { "\($0) lbs" } ?? "BW",
                 elapsedTime: formatTime(elapsedSecs, flashColon: false),
-                heartRate: displayHR,
+                heartRate: coachHeartRate,
                 hrZone: (workoutHRZones.firstIndex(where: { $0.label == currentZone.label }) ?? 0) + 1,
                 calories: Int(estimatedCals),
                 restSeconds: exercise.restSeconds,
@@ -1406,7 +1450,7 @@ struct ActiveWorkoutView: View {
                 restSecondsRemaining: restTimeLeft,
                 isResting: isResting,
                 elapsedSeconds: elapsedSecs,
-                heartRate: displayHR,
+                heartRate: coachHeartRate,
                 hrZoneLabel: currentZone.label
             )
         )
@@ -1458,22 +1502,22 @@ struct ActiveWorkoutView: View {
 
     private func endWorkout() {
         cancelTasks()
-        let avgHR  = hrHistory.isEmpty ? simulatedHR : hrHistory.reduce(0, +) / hrHistory.count
+        let avgHR  = hrHistory.isEmpty ? nil : hrHistory.reduce(0, +) / hrHistory.count
         let rpes   = setLog.map { Double($0.rpe) }
         let avgRPE = rpes.isEmpty ? 0 : rpes.reduce(0, +) / Double(rpes.count)
         let prs    = Array(Set(setLog.filter { $0.isPersonalRecord }.map { $0.exerciseName }))
         let data   = WorkoutSummaryData(
             duration: elapsedSecs, totalVolume: totalVolume,
             totalSets: setLog.count, totalReps: setLog.reduce(0) { $0 + $1.repsPerformed },
-            peakHR: peakHR, avgHR: avgHR,
-            peakO2: peakSpO2, minO2: minSpO2,
+            peakHR: peakHR > 0 ? peakHR : nil, avgHR: avgHR,
+            peakO2: peakSpO2 > 0 ? peakSpO2 : nil, minO2: minSpO2 > 0 ? minSpO2 : nil,
             caloriesBurned: Int(estimatedCals),
             personalRecords: prs,
             exercisesCompleted: min(store.currentExerciseIndex + 1, exercises.count),
             avgRPE: avgRPE, hrHistory: hrHistory
         )
         flushHeartRateSamples()
-        store.endWorkout(avgHeartRate: avgHR, peakHeartRate: peakHR)
+        store.endWorkout(avgHeartRate: avgHR, peakHeartRate: peakHR > 0 ? peakHR : nil)
         onWorkoutEnd(data)
     }
 
@@ -1542,21 +1586,6 @@ struct ActiveWorkoutView: View {
                 elapsedSecs += 1
             }
         }
-        hrTask = Task {
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 1_500_000_000)
-                guard !Task.isCancelled else { return }
-                guard !hrMonitor.isLive else { continue }
-                let target = isResting ? (108 + Double.random(in: 0...18)) : (140 + Double.random(in: 0...26))
-                let current = Double(simulatedHR)
-                let drift = (target - current) * 0.12
-                let noise = Double.random(in: -4...4)
-                let nextHR = (current + drift + noise).rounded().clamped(to: 55.0...200.0)
-                simulatedHR = Int(nextHR)
-                hrHistory.append(simulatedHR)
-                if simulatedHR > peakHR { peakHR = simulatedHR }
-            }
-        }
         hrUploadTask = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 30_000_000_000)
@@ -1568,33 +1597,35 @@ struct ActiveWorkoutView: View {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 guard !Task.isCancelled else { return }
-                estimatedCals += simulatedHR > 150 ? 0.21 : simulatedHR > 130 ? 0.16 : 0.11
-            }
-        }
-        o2Task = Task {
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
-                guard !Task.isCancelled else { return }
-                let drop     = simulatedHR > 160 ? Double.random(in: 1...3) : simulatedHR > 140 ? Double.random(in: 0...1.5) : 0.0
-                let recovery = isResting ? Double.random(in: 0...1) : 0
-                simulatedSpO2 = Int((Double(simulatedSpO2) - drop + recovery).rounded().clamped(to: 90.0...100.0))
-                if simulatedSpO2 > peakSpO2 { peakSpO2 = simulatedSpO2 }
-                if simulatedSpO2 < minSpO2  { minSpO2  = simulatedSpO2 }
-                if simulatedSpO2 < 94 && !showO2Warning {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { showO2Warning = true }
-                    UINotificationFeedbackGenerator().notificationOccurred(.warning)
-                    Task {
-                        try? await Task.sleep(nanoseconds: 5_000_000_000)
-                        withAnimation { showO2Warning = false }
+                if let bpm = hrMonitor.currentBPM {
+                    estimatedCals += bpm > 150 ? 0.21 : bpm > 130 ? 0.16 : 0.11
+                } else {
+                    let intensityRate: Double = switch store.todayWorkout?.intensity {
+                    case .high: 0.18
+                    case .max: 0.22
+                    case .moderate: 0.13
+                    case .low, .none: 0.09
                     }
+                    estimatedCals += isResting ? intensityRate * 0.35 : intensityRate
                 }
             }
         }
     }
 
+    private func startVitalsGraceTimer() {
+        vitalsGraceTask?.cancel()
+        vitalsGraceTask = Task {
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            guard !Task.isCancelled, !hrMonitor.isLive else { return }
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+                showVitalsConnectBanner = true
+            }
+        }
+    }
+
     private func cancelTasks() {
-        [elapsedTask, hrTask, hrUploadTask, calTask, o2Task, restTask].forEach { $0?.cancel() }
-        elapsedTask = nil; hrTask = nil; hrUploadTask = nil; calTask = nil; o2Task = nil; restTask = nil
+        [elapsedTask, hrUploadTask, calTask, restTask].forEach { $0?.cancel() }
+        elapsedTask = nil; hrUploadTask = nil; calTask = nil; restTask = nil
     }
 
     private func flushHeartRateSamples() {
@@ -1608,6 +1639,59 @@ struct ActiveWorkoutView: View {
     private func formatTime(_ s: Int, flashColon: Bool = true) -> String {
         let sep = flashColon ? ":" : " "
         return String(format: "%02d\(sep)%02d", s / 60, s % 60)
+    }
+}
+
+private func summaryStatRows(_ data: WorkoutSummaryData) -> [(String, String, String, Color)] {
+    var rows: [(String, String, String, Color)] = [
+        ("scalemass.fill", "\(data.totalVolume)", "Volume", Color.steel),
+        ("flame.fill", "\(data.caloriesBurned)", "Kcal", Color.ember),
+        ("repeat", "\(data.totalSets)", "Sets", Color.success),
+        ("hand.raised.fill", "\(data.totalReps)", "Reps", Color(hex: "F59E0B")),
+    ]
+    if let peakHR = data.peakHR {
+        rows.append(("heart.fill", "\(peakHR)", "Peak HR", Color.danger))
+    }
+    if let avgHR = data.avgHR {
+        rows.append(("waveform.path.ecg", "\(avgHR)", "Avg HR", Color.steel))
+    }
+    if let minO2 = data.minO2 {
+        rows.append(("lungs.fill", "\(minO2)%", "Min O₂", minO2 < 94 ? Color.danger : Color(hex: "38BDF8")))
+    }
+    let rpeTint: Color = data.avgRPE <= 4 ? .success : data.avgRPE <= 7 ? Color(hex: "F59E0B") : .danger
+    rows.append(("bolt.fill", String(format: "%.1f", data.avgRPE), "Avg RPE", rpeTint))
+    rows.append(("dumbbell.fill", "\(data.exercisesCompleted)", "Exercises", Color.ember))
+    return rows
+}
+
+// MARK: - Vitals Connect Banner
+
+private struct VitalsConnectBanner: View {
+    var body: some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 12) {
+                Image(systemName: "applewatch")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(.steel)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Connect Apple Watch for live vitals")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                    Text("Heart rate and SpO₂ appear when HealthKit streams data during your workout.")
+                        .font(.system(size: 12))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.surface)
+            .cornerRadius(16)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.steel.opacity(0.35), lineWidth: 1))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 110)
+        }
     }
 }
 
@@ -2081,7 +2165,7 @@ struct WorkoutSummaryView: View {
         var s = 60
         if data.personalRecords.count > 0 { s += min(20, data.personalRecords.count * 7) }
         if data.avgRPE >= 6 && data.avgRPE <= 8.5 { s += 10 }
-        if data.minO2 >= 95 { s += 5 }
+        if let minO2 = data.minO2, minO2 >= 95 { s += 5 }
         if data.totalSets >= 12 { s += 5 }
         return min(100, s)
     }
@@ -2205,8 +2289,8 @@ struct WorkoutSummaryView: View {
                     .padding(.top, 64).padding(.bottom, 36)
 
                     // ── HR SPARKLINE ──────────────────────────────────────
-                    if !data.hrHistory.isEmpty {
-                        HRSparklineCard(hrHistory: data.hrHistory, peakHR: data.peakHR, avgHR: data.avgHR)
+                    if !data.hrHistory.isEmpty, let peakHR = data.peakHR, let avgHR = data.avgHR {
+                        HRSparklineCard(hrHistory: data.hrHistory, peakHR: peakHR, avgHR: avgHR)
                             .padding(.horizontal, 16).padding(.bottom, 20)
                             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 16)
                             .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.35), value: appeared)
@@ -2214,17 +2298,7 @@ struct WorkoutSummaryView: View {
 
                     // ── STATS GRID ────────────────────────────────────────
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        ForEach([
-                            ("scalemass.fill",    "\(data.totalVolume)",                   "Volume",       Color.steel),
-                            ("flame.fill",         "\(data.caloriesBurned)",                "Kcal",         Color.ember),
-                            ("repeat",             "\(data.totalSets)",                     "Sets",         Color.success),
-                            ("hand.raised.fill",   "\(data.totalReps)",                     "Reps",         Color(hex: "F59E0B")),
-                            ("heart.fill",         "\(data.peakHR)",                        "Peak HR",      Color.danger),
-                            ("waveform.path.ecg",  "\(data.avgHR)",                         "Avg HR",       Color.steel),
-                            ("lungs.fill",         "\(data.minO2)%",                        "Min O₂",       data.minO2 < 94 ? Color.danger : Color(hex: "38BDF8")),
-                            ("bolt.fill",          String(format: "%.1f", data.avgRPE),     "Avg RPE",      rpeColor(data.avgRPE)),
-                            ("dumbbell.fill",      "\(data.exercisesCompleted)",             "Exercises",    Color.ember),
-                        ], id: \.0) { icon, value, label, color in
+                        ForEach(summaryStatRows(data), id: \.0) { icon, value, label, color in
                             darkStatCard(icon, value, label, color)
                         }
                     }

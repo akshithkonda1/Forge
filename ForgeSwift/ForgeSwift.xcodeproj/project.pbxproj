@@ -11,6 +11,8 @@
 		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
 		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
 		1ELHR0012FAA000100000001 /* LiveHeartRateMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ELHR0022FAA000100000001 /* LiveHeartRateMonitor.swift */; };
+		1ESLP0012FAA000100000001 /* ForgeSleepProductManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ESLP0022FAA000100000001 /* ForgeSleepProductManager.swift */; };
+		1EGAM0012FAA000100000001 /* ChatGamificationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EGAM0022FAA000100000001 /* ChatGamificationStore.swift */; };
 		1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */; };
 		1E4DF71A2F9FFA70004091AA /* OnboardingDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */; };
 		1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */; };
@@ -61,6 +63,8 @@
 		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
 		1E4DF7152F9FF867004091AA /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		1ELHR0022FAA000100000001 /* LiveHeartRateMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveHeartRateMonitor.swift; sourceTree = "<group>"; };
+		1ESLP0022FAA000100000001 /* ForgeSleepProductManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSleepProductManager.swift; sourceTree = "<group>"; };
+		1EGAM0022FAA000100000001 /* ChatGamificationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGamificationStore.swift; sourceTree = "<group>"; };
 		1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingHealthKitViews.swift; sourceTree = "<group>"; };
 		1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDataManager.swift; sourceTree = "<group>"; };
 		1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedDataConnectionView.swift; sourceTree = "<group>"; };
@@ -178,6 +182,8 @@
 				1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */,
 				1E4DF7152F9FF867004091AA /* HealthKitManager.swift */,
 				1ELHR0022FAA000100000001 /* LiveHeartRateMonitor.swift */,
+				1ESLP0022FAA000100000001 /* ForgeSleepProductManager.swift */,
+				1EGAM0022FAA000100000001 /* ChatGamificationStore.swift */,
 				1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */,
 				1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */,
 				1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */,
@@ -339,6 +345,8 @@
 				AA0001000000000000000002 /* Theme.swift in Sources */,
 				1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */,
 				1ELHR0012FAA000100000001 /* LiveHeartRateMonitor.swift in Sources */,
+				1ESLP0012FAA000100000001 /* ForgeSleepProductManager.swift in Sources */,
+				1EGAM0012FAA000100000001 /* ChatGamificationStore.swift in Sources */,
 				1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */,
 				1E4DF71E2F9FFAE1004091AA /* SmartProfileSetupView.swift in Sources */,
 				AA0001000000000000000003 /* Models.swift in Sources */,

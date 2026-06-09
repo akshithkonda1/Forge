@@ -139,6 +139,13 @@ final class ForgeRepository: ObservableObject {
         _ = try await api.updateProfile(payload)
     }
 
+    func syncChatGamification(_ state: ChatGamificationState) async throws {
+        let payload: [String: AnyEncodable] = [
+            "chatGamification": AnyEncodable(state),
+        ]
+        _ = try await api.updateProfile(payload)
+    }
+
     func logWorkout(
         _ workout: WorkoutPlan,
         volume: Int,
