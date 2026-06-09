@@ -861,6 +861,9 @@ struct ActiveWorkoutView: View {
             }
         }
         .onAppear {
+            ForgePhoneWatchConnectivity.shared.notifyWorkoutStarted(
+                name: store.todayWorkout?.name ?? "Forge Workout"
+            )
             Task { await hrMonitor.start() }
             startTasks()
             setupCurrentWeight()
@@ -871,6 +874,7 @@ struct ActiveWorkoutView: View {
             }
         }
         .onDisappear {
+            ForgePhoneWatchConnectivity.shared.notifyWorkoutEnded()
             flushHeartRateSamples()
             hrMonitor.stop()
             vitalsGraceTask?.cancel()
@@ -1678,7 +1682,7 @@ private struct VitalsConnectBanner: View {
                     Text("Connect Apple Watch for live vitals")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.textPrimary)
-                    Text("Heart rate and SpO₂ appear when HealthKit streams data during your workout.")
+                    Text("Open the Forge Watch app and start your workout — vitals stream instantly to your phone.")
                         .font(.system(size: 12))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)

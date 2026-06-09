@@ -13,6 +13,7 @@ final class LiveHeartRateMonitor: ObservableObject {
     private var heartRateQuery: HKAnchoredObjectQuery?
     private var spO2Query: HKAnchoredObjectQuery?
     private var pendingSamples: [(bpm: Int, timestamp: Date)] = []
+    private var watchBridgeTask: Task<Void, Never>?
 
     func start() async {
         guard HKHealthStore.isHealthDataAvailable() else { return }
@@ -24,11 +25,14 @@ final class LiveHeartRateMonitor: ObservableObject {
         }
 
         stop()
+        startWatchBridgePolling()
         startHeartRateStream()
         startSpO2Stream()
     }
 
     func stop() {
+        watchBridgeTask?.cancel()
+        watchBridgeTask = nil
         if let heartRateQuery {
             healthStore.stop(heartRateQuery)
         }
@@ -101,7 +105,41 @@ final class LiveHeartRateMonitor: ObservableObject {
         healthStore.execute(query)
     }
 
+    private func startWatchBridgePolling() {
+        watchBridgeTask?.cancel()
+        watchBridgeTask = Task {
+            while !Task.isCancelled {
+                applyWatchSnapshotIfFresh()
+                try? await Task.sleep(nanoseconds: 200_000_000)
+            }
+        }
+    }
+
+    private func applyWatchSnapshotIfFresh() {
+        guard let snapshot = ForgeWatchVitalsBridge.latest(),
+              snapshot.source == "watch",
+              snapshot.isFresh else { return }
+
+        if let hr = snapshot.heartRate, hr > 0 {
+            currentBPM = hr
+            isLive = true
+            lastSampleAt = Date(timeIntervalSince1970: snapshot.updatedAt)
+            pendingSamples.append((bpm: hr, timestamp: lastSampleAt ?? Date()))
+        }
+        if let o2 = snapshot.spO2, o2 > 0 {
+            currentSpO2 = o2
+            isSpO2Live = true
+            lastSampleAt = Date(timeIntervalSince1970: snapshot.updatedAt)
+        }
+    }
+
     private func consumeHeartRate(samples: [HKSample]?) {
+        if let snapshot = ForgeWatchVitalsBridge.latest(),
+           snapshot.source == "watch",
+           snapshot.isFresh {
+            return
+        }
+
         guard let quantitySamples = samples as? [HKQuantitySample], !quantitySamples.isEmpty else {
             return
         }
@@ -117,6 +155,13 @@ final class LiveHeartRateMonitor: ObservableObject {
     }
 
     private func consumeSpO2(samples: [HKSample]?) {
+        if let snapshot = ForgeWatchVitalsBridge.latest(),
+           snapshot.source == "watch",
+           snapshot.isFresh,
+           snapshot.spO2 != nil {
+            return
+        }
+
         guard let quantitySamples = samples as? [HKQuantitySample], !quantitySamples.isEmpty else {
             return
         }
