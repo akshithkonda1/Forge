@@ -268,46 +268,6 @@ final class SpeechManager: ObservableObject {
 }
 
 // ============================================================
-// MARK: - Momentum / XP Engine
-// ============================================================
-
-@MainActor
-final class MomentumEngine: ObservableObject {
-    @Published var xp:             Int    = 0
-    @Published var level:          Int    = 1
-    @Published var showXPBurst:    Bool   = false
-    @Published var lastXPGain:     Int    = 0
-    @Published var showLevelUp:    Bool   = false
-
-    private let xpPerLevel = 100
-
-    func award(xp amount: Int) {
-        lastXPGain = amount
-        xp        += amount
-        withAnimation(FDS.Spring.hero) { showXPBurst = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
-            withAnimation(FDS.Spring.standard) { self.showXPBurst = false }
-        }
-        checkLevelUp()
-    }
-
-    private func checkLevelUp() {
-        let newLevel = (xp / xpPerLevel) + 1
-        if newLevel > level {
-            level = newLevel
-            choreographedHaptic(.milestone)
-            withAnimation(FDS.Spring.hero) { showLevelUp = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) {
-                withAnimation(FDS.Spring.standard) { self.showLevelUp = false }
-            }
-        }
-    }
-
-    var xpProgress: Double { Double(xp % xpPerLevel) / Double(xpPerLevel) }
-    var xpToNext:   Int    { xpPerLevel - (xp % xpPerLevel) }
-}
-
-// ============================================================
 // MARK: - Scale Button Style
 // ============================================================
 
@@ -351,8 +311,8 @@ struct ChatBubbleShape: Shape {
 
 struct ChatView: View {
     @EnvironmentObject var store: AppStore
-    @StateObject private var speech   = SpeechManager()
-    @StateObject private var momentum = MomentumEngine()
+    @StateObject private var speech = SpeechManager()
+    @ObservedObject private var gamification = ChatGamificationStore.shared
 
     @State private var inputText:         String = ""
     @State private var isTyping:          Bool   = false
@@ -377,8 +337,8 @@ struct ChatView: View {
             VStack(spacing: 0) {
                 // ── Header ──────────────────────────────────────
                 ChatHeaderView(
-                    mood:     ariaMood,
-                    momentum: momentum
+                    mood: ariaMood,
+                    gamification: gamification
                 )
 
                 // ── Messages ─────────────────────────────────────
@@ -387,6 +347,7 @@ struct ChatView: View {
                     showQuickActions: $showQuickActions,
                     ariaMood:         ariaMood,
                     swipeReply:       $swipeReplyTarget,
+                    gamification:     gamification,
                     onQuickAction:    sendMessage,
                     onReactionBurst:  { pt in
                         reactionBurstAt   = pt
@@ -422,8 +383,8 @@ struct ChatView: View {
             }
 
             // ── XP Burst ─────────────────────────────────────────
-            if momentum.showXPBurst && !reduceMotion {
-                XPBurstView(amount: momentum.lastXPGain)
+            if gamification.showXPBurst && !reduceMotion {
+                XPBurstView(amount: gamification.lastXPGain)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(.top, 100).padding(.trailing, 20)
                     .allowsHitTesting(false)
@@ -431,8 +392,8 @@ struct ChatView: View {
             }
 
             // ── Level Up Banner ───────────────────────────────────
-            if momentum.showLevelUp {
-                LevelUpBanner(level: momentum.level)
+            if gamification.showLevelUp {
+                LevelUpBanner(level: gamification.level)
                     .zIndex(60)
                     .transition(.asymmetric(
                         insertion: .scale(scale: 0.7).combined(with: .opacity),
@@ -508,8 +469,7 @@ struct ChatView: View {
         showQuickActions = false
         swipeReplyTarget = nil
 
-        let xpGain = trimmed.split(separator: " ").count > 5 ? 15 : 10
-        momentum.award(xp: xpGain)
+        gamification.awardMessageSent(wordCount: trimmed.split(separator: " ").count)
 
         let trainerCountBefore = store.chatMessages.filter { $0.role == .trainer }.count
 
@@ -520,6 +480,7 @@ struct ChatView: View {
 
             let trainerCount = store.chatMessages.filter { $0.role == .trainer }.count
             if trainerCount > trainerCountBefore, [5, 10, 25, 50].contains(trainerCount) {
+                gamification.awardTrainerMilestone()
                 choreographedHaptic(.milestone)
                 withAnimation(FDS.Spring.hero) { showMilestone = true }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
@@ -582,7 +543,7 @@ struct ChatBackground: View {
 struct ChatHeaderView: View {
     @EnvironmentObject var store: AppStore
     let mood:     ARIAMood
-    @ObservedObject var momentum: MomentumEngine
+    @ObservedObject var gamification: ChatGamificationStore
     @State private var pulse        = false
     @State private var appeared     = false
     @State private var showXPRing   = false
@@ -606,7 +567,7 @@ struct ChatHeaderView: View {
                         .stroke(Color.white.opacity(0.06), lineWidth: 2.5)
                         .frame(width: 54, height: 54)
                     Circle()
-                        .trim(from: 0, to: CGFloat(momentum.xpProgress))
+                        .trim(from: 0, to: CGFloat(gamification.xpProgress))
                         .stroke(
                             AngularGradient(
                                 colors: [mood.accentColor.opacity(0.6), mood.accentColor],
@@ -616,7 +577,7 @@ struct ChatHeaderView: View {
                         )
                         .frame(width: 54, height: 54)
                         .rotationEffect(.degrees(-90))
-                        .animation(.spring(response: 1.0, dampingFraction: 0.72), value: momentum.xpProgress)
+                        .animation(.spring(response: 1.0, dampingFraction: 0.72), value: gamification.xpProgress)
 
                     // Core avatar
                     Circle()
@@ -685,7 +646,7 @@ struct ChatHeaderView: View {
 
                 HStack(spacing: 5) {
                     Circle().fill(Color(hex: "22C55E")).frame(width: 5, height: 5)
-                    Text("Active · Lv.\(momentum.level) · \(momentum.xpToNext) XP to next")
+                    Text("Active · Lv.\(gamification.level) · \(gamification.xpToNext) XP to next · \(gamification.chatStreakDays)d streak")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.textSecondary)
                 }
@@ -735,6 +696,7 @@ struct MessageListView: View {
     @Binding var showQuickActions:  Bool
     let ariaMood:      ARIAMood
     @Binding var swipeReply: ChatMessage?
+    @ObservedObject var gamification: ChatGamificationStore
     let onQuickAction:    (String) -> Void
     let onReactionBurst:  (CGPoint) -> Void
 
@@ -754,6 +716,7 @@ struct MessageListView: View {
                             MessageBubbleView(
                                 message:         msg,
                                 mood:            ariaMood,
+                                gamification:    gamification,
                                 onSwipeReply:    { withAnimation(FDS.Spring.standard) { swipeReply = msg } },
                                 onReactionBurst: onReactionBurst
                             )
@@ -1014,13 +977,13 @@ struct ChatEmptyStateView: View {
 struct MessageBubbleView: View {
     let message:          ChatMessage
     let mood:             ARIAMood
+    @ObservedObject var gamification: ChatGamificationStore
     let onSwipeReply:     () -> Void
     let onReactionBurst:  (CGPoint) -> Void
 
     @State private var appeared        = false
     @State private var showTimestamp   = false
     @State private var showReactions   = false
-    @State private var selectedReact:  String? = nil
     @State private var dragOffset:     CGFloat = 0
     @State private var replyTriggered  = false
 
@@ -1148,7 +1111,7 @@ struct MessageBubbleView: View {
                     }
 
                     // Reaction chips (shown on trainer messages after selection)
-                    if let r = selectedReact {
+                    if let r = gamification.reaction(for: message.id) {
                         HStack(spacing: 4) {
                             Text(r).font(.system(size: 14))
                             Text("You reacted")
@@ -1172,25 +1135,24 @@ struct MessageBubbleView: View {
                     if !isTrainer { Spacer() }
                     ForEach(reactions, id: \.emoji) { r in
                         Button {
-                            withAnimation(FDS.Spring.snap) {
-                                selectedReact = selectedReact == r.emoji ? nil : r.emoji
-                                showReactions = false
-                            }
+                            let current = gamification.reaction(for: message.id)
+                            let next = current == r.emoji ? nil : r.emoji
+                            withAnimation(FDS.Spring.snap) { showReactions = false }
+                            gamification.awardReaction(messageId: message.id, emoji: next)
                             choreographedHaptic(.reactionAdded)
-                            // Trigger confetti burst
                             onReactionBurst(CGPoint(x: UIScreen.main.bounds.width / 2, y: 300))
                         } label: {
+                            let selected = gamification.reaction(for: message.id) == r.emoji
                             Text(r.emoji)
                                 .font(.system(size: 20))
                                 .padding(8)
-                                .background(selectedReact == r.emoji ? mood.accentColor.opacity(0.2) : Color.surfaceElevated)
+                                .background(selected ? mood.accentColor.opacity(0.2) : Color.surfaceElevated)
                                 .cornerRadius(FDS.Radius.xs)
                                 .overlay(RoundedRectangle(cornerRadius: FDS.Radius.xs)
-                                    .stroke(selectedReact == r.emoji ? mood.accentColor.opacity(0.4) : Color.borderColor, lineWidth: 0.5))
-                                .scaleEffect(selectedReact == r.emoji ? 1.15 : 1.0)
+                                    .stroke(selected ? mood.accentColor.opacity(0.4) : Color.borderColor, lineWidth: 0.5))
+                                .scaleEffect(selected ? 1.15 : 1.0)
                         }
                         .buttonStyle(.plain)
-                        .animation(FDS.Spring.snap, value: selectedReact)
                     }
                     if isTrainer { Spacer() }
                 }

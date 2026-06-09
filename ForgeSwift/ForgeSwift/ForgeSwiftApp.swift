@@ -4,6 +4,10 @@ import SwiftUI
 struct ForgeSwiftApp: App {
     @StateObject private var store = AppStore()
 
+    init() {
+        ForgePhoneWatchConnectivity.shared.activate()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

@@ -11,6 +11,8 @@
 		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
 		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
 		1ELHR0012FAA000100000001 /* LiveHeartRateMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ELHR0022FAA000100000001 /* LiveHeartRateMonitor.swift */; };
+		1ESLP0012FAA000100000001 /* ForgeSleepProductManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ESLP0022FAA000100000001 /* ForgeSleepProductManager.swift */; };
+		1EGAM0012FAA000100000001 /* ChatGamificationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EGAM0022FAA000100000001 /* ChatGamificationStore.swift */; };
 		1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */; };
 		1E4DF71A2F9FFA70004091AA /* OnboardingDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */; };
 		1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */; };
@@ -53,6 +55,15 @@
 		WGT1001000000000000000011 /* ForgeWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = WGT1002000000000000000011 /* ForgeWidgetShared.swift */; };
 		WGT1001000000000000000012 /* ForgeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = WGT1002000000000000000012 /* ForgeActivityAttributes.swift */; };
 		WGT1001000000000000000020 /* ForgeWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = WGT100200000000000000000D /* ForgeWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		WCH1001000000000000000001 /* ForgeWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = WCH1002000000000000000001 /* ForgeWatchApp.swift */; };
+		WCH1001000000000000000002 /* ForgeWatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = WCH1002000000000000000002 /* ForgeWatchContentView.swift */; };
+		WCH1001000000000000000003 /* ForgeWatchWorkoutSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = WCH1002000000000000000003 /* ForgeWatchWorkoutSessionManager.swift */; };
+		WCH1001000000000000000004 /* ForgeWatchConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = WCH1002000000000000000004 /* ForgeWatchConnectivityManager.swift */; };
+		WCH1001000000000000000005 /* ForgeWatchVitalsBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = WCH1002000000000000000005 /* ForgeWatchVitalsBridge.swift */; };
+		WCH1001000000000000000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = WCH1002000000000000000006 /* Assets.xcassets */; };
+		WCH1001000000000000000007 /* ForgeWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = WCH1002000000000000000007 /* ForgeWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		WCH1001000000000000000010 /* ForgeWatchVitalsBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = WCH1002000000000000000005 /* ForgeWatchVitalsBridge.swift */; };
+		WCH1001000000000000000011 /* ForgePhoneWatchConnectivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = WCH1002000000000000000010 /* ForgePhoneWatchConnectivity.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -61,6 +72,8 @@
 		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
 		1E4DF7152F9FF867004091AA /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		1ELHR0022FAA000100000001 /* LiveHeartRateMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveHeartRateMonitor.swift; sourceTree = "<group>"; };
+		1ESLP0022FAA000100000001 /* ForgeSleepProductManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSleepProductManager.swift; sourceTree = "<group>"; };
+		1EGAM0022FAA000100000001 /* ChatGamificationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGamificationStore.swift; sourceTree = "<group>"; };
 		1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingHealthKitViews.swift; sourceTree = "<group>"; };
 		1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDataManager.swift; sourceTree = "<group>"; };
 		1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedDataConnectionView.swift; sourceTree = "<group>"; };
@@ -109,6 +122,16 @@
 		WGT1002000000000000000012 /* ForgeActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeActivityAttributes.swift; sourceTree = "<group>"; };
 		WGT1002000000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		WGT1002000000000000000014 /* ForgeWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeWidgetExtension.entitlements; sourceTree = "<group>"; };
+		WCH1002000000000000000001 /* ForgeWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWatchApp.swift; sourceTree = "<group>"; };
+		WCH1002000000000000000002 /* ForgeWatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWatchContentView.swift; sourceTree = "<group>"; };
+		WCH1002000000000000000003 /* ForgeWatchWorkoutSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWatchWorkoutSessionManager.swift; sourceTree = "<group>"; };
+		WCH1002000000000000000004 /* ForgeWatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWatchConnectivityManager.swift; sourceTree = "<group>"; };
+		WCH1002000000000000000005 /* ForgeWatchVitalsBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWatchVitalsBridge.swift; sourceTree = "<group>"; };
+		WCH1002000000000000000006 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		WCH1002000000000000000007 /* ForgeWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForgeWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		WCH1002000000000000000008 /* ForgeWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeWatch.entitlements; sourceTree = "<group>"; };
+		WCH1002000000000000000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		WCH1002000000000000000010 /* ForgePhoneWatchConnectivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgePhoneWatchConnectivity.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -123,6 +146,17 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		WCH1007000000000000000004 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				WCH1001000000000000000007 /* ForgeWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -134,6 +168,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		WGT1003000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		WCH1003000000000000000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -178,6 +219,9 @@
 				1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */,
 				1E4DF7152F9FF867004091AA /* HealthKitManager.swift */,
 				1ELHR0022FAA000100000001 /* LiveHeartRateMonitor.swift */,
+				1ESLP0022FAA000100000001 /* ForgeSleepProductManager.swift */,
+				1EGAM0022FAA000100000001 /* ChatGamificationStore.swift */,
+				WCH1002000000000000000010 /* ForgePhoneWatchConnectivity.swift */,
 				1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */,
 				1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */,
 				1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */,
@@ -206,11 +250,34 @@
 			path = ForgeWidgetExtension;
 			sourceTree = "<group>";
 		};
+		WCH1004000000000000000001 /* ForgeWatch */ = {
+			isa = PBXGroup;
+			children = (
+				WCH1002000000000000000008 /* ForgeWatch.entitlements */,
+				WCH1002000000000000000009 /* Info.plist */,
+				WCH1002000000000000000001 /* ForgeWatchApp.swift */,
+				WCH1002000000000000000002 /* ForgeWatchContentView.swift */,
+				WCH1002000000000000000003 /* ForgeWatchWorkoutSessionManager.swift */,
+				WCH1002000000000000000004 /* ForgeWatchConnectivityManager.swift */,
+				WCH1002000000000000000006 /* Assets.xcassets */,
+			);
+			path = ForgeWatch;
+			sourceTree = "<group>";
+		};
+		WCH1004000000000000000002 /* ForgeWatchShared */ = {
+			isa = PBXGroup;
+			children = (
+				WCH1002000000000000000005 /* ForgeWatchVitalsBridge.swift */,
+			);
+			path = ForgeWatchShared;
+			sourceTree = "<group>";
+		};
 		AA0004000000000000000002 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				AA000200000000000000000D /* ForgeSwift.app */,
 				WGT100200000000000000000D /* ForgeWidgetExtension.appex */,
+				WCH1002000000000000000007 /* ForgeWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -221,6 +288,8 @@
 				C0NFIGGROUP000000000000001 /* Config */,
 				AA0004000000000000000001 /* ForgeSwift */,
 				WGT1004000000000000000002 /* ForgeWidgetExtension */,
+				WCH1004000000000000000001 /* ForgeWatch */,
+				WCH1004000000000000000002 /* ForgeWatchShared */,
 				AA0004000000000000000002 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -245,11 +314,13 @@
 				AA0003000000000000000001 /* Frameworks */,
 				AA0007000000000000000002 /* Resources */,
 				WGT1007000000000000000003 /* Embed Foundation Extensions */,
+				WCH1007000000000000000004 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				WGT1009000000000000000001 /* PBXTargetDependency */,
+				WCH1009000000000000000001 /* PBXTargetDependency */,
 			);
 			name = ForgeSwift;
 			productName = ForgeSwift;
@@ -273,6 +344,23 @@
 			productReference = WGT100200000000000000000D /* ForgeWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		WCH1005000000000000000001 /* ForgeWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = WCH1006000000000000000001 /* Build configuration list for PBXNativeTarget "ForgeWatch" */;
+			buildPhases = (
+				WCH1007000000000000000001 /* Sources */,
+				WCH1003000000000000000001 /* Frameworks */,
+				WCH1007000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ForgeWatch;
+			productName = ForgeWatch;
+			productReference = WCH1002000000000000000007 /* ForgeWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -287,6 +375,9 @@
 						CreatedOnToolsVersion = 15.3;
 					};
 					WGT1005000000000000000002 = {
+						CreatedOnToolsVersion = 15.3;
+					};
+					WCH1005000000000000000001 = {
 						CreatedOnToolsVersion = 15.3;
 					};
 				};
@@ -306,6 +397,7 @@
 			targets = (
 				AA0005000000000000000001 /* ForgeSwift */,
 				WGT1005000000000000000002 /* ForgeWidgetExtension */,
+				WCH1005000000000000000001 /* ForgeWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -326,6 +418,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		WCH1007000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				WCH1001000000000000000006 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -339,6 +439,8 @@
 				AA0001000000000000000002 /* Theme.swift in Sources */,
 				1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */,
 				1ELHR0012FAA000100000001 /* LiveHeartRateMonitor.swift in Sources */,
+				1ESLP0012FAA000100000001 /* ForgeSleepProductManager.swift in Sources */,
+				1EGAM0012FAA000100000001 /* ChatGamificationStore.swift in Sources */,
 				1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */,
 				1E4DF71E2F9FFAE1004091AA /* SmartProfileSetupView.swift in Sources */,
 				AA0001000000000000000003 /* Models.swift in Sources */,
@@ -374,6 +476,8 @@
 				WGT1001000000000000000001 /* ForgeSharedData.swift in Sources */,
 				WGT1001000000000000000002 /* ForgeEmptyState.swift in Sources */,
 				WGT1001000000000000000003 /* ForgeActivityAttributes.swift in Sources */,
+				WCH1001000000000000000010 /* ForgeWatchVitalsBridge.swift in Sources */,
+				WCH1001000000000000000011 /* ForgePhoneWatchConnectivity.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -387,6 +491,18 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		WCH1007000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				WCH1001000000000000000001 /* ForgeWatchApp.swift in Sources */,
+				WCH1001000000000000000002 /* ForgeWatchContentView.swift in Sources */,
+				WCH1001000000000000000003 /* ForgeWatchWorkoutSessionManager.swift in Sources */,
+				WCH1001000000000000000004 /* ForgeWatchConnectivityManager.swift in Sources */,
+				WCH1001000000000000000005 /* ForgeWatchVitalsBridge.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -394,6 +510,11 @@
 			isa = PBXTargetDependency;
 			target = WGT1005000000000000000002 /* ForgeWidgetExtension */;
 			targetProxy = WGT1009000000000000000002 /* PBXContainerItemProxy */;
+		};
+		WCH1009000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = WCH1005000000000000000001 /* ForgeWatch */;
+			targetProxy = WCH1009000000000000000002 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -404,6 +525,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = WGT1005000000000000000002;
 			remoteInfo = ForgeWidgetExtension;
+		};
+		WCH1009000000000000000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0008000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = WCH1005000000000000000001;
+			remoteInfo = ForgeWatch;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -665,6 +793,66 @@
 			};
 			name = Release;
 		};
+		WCH1009000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ForgeWatch/ForgeWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ForgeWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Forge;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge on Apple Watch reads heart rate and blood oxygen during workouts for live coaching on your iPhone.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge logs strength workouts from Apple Watch to Health.";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.forge.ForgeSwift;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		WCH1009000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ForgeWatch/ForgeWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ForgeWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Forge;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge on Apple Watch reads heart rate and blood oxygen during workouts for live coaching on your iPhone.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge logs strength workouts from Apple Watch to Health.";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.forge.ForgeSwift;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -691,6 +879,15 @@
 			buildConfigurations = (
 				WGT1009000000000000000003 /* Debug */,
 				WGT1009000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		WCH1006000000000000000001 /* Build configuration list for PBXNativeTarget "ForgeWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				WCH1009000000000000000003 /* Debug */,
+				WCH1009000000000000000004 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

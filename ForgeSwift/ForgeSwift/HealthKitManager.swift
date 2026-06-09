@@ -105,6 +105,7 @@ class HealthKitManager: ObservableObject {
     // Types to read
     private let readTypes: Set<HKSampleType> = [
         HKQuantityType(.heartRate),
+        HKQuantityType(.oxygenSaturation),
         HKQuantityType(.restingHeartRate),
         HKQuantityType(.heartRateVariabilitySDNN),
         HKQuantityType(.activeEnergyBurned),

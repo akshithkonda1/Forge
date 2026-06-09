@@ -105,6 +105,7 @@ enum SleepTab: Int, CaseIterable {
 
 struct SleepView: View {
     @EnvironmentObject var store: AppStore
+    @StateObject private var sleepProduct = ForgeSleepProductManager.shared
     @State private var selectedTab: SleepTab = .overview
     @State private var showAIChat = false
     @State private var showStreakDetail = false
@@ -140,12 +141,15 @@ struct SleepView: View {
                     .tag(SleepTab.overview)
 
                     AlarmTab()
+                        .environmentObject(sleepProduct)
                         .tag(SleepTab.alarm)
 
                     SleepSoundsTab()
+                        .environmentObject(sleepProduct)
                         .tag(SleepTab.sounds)
 
                     WakeUpTab()
+                        .environmentObject(sleepProduct)
                         .tag(SleepTab.wakeUp)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
@@ -160,6 +164,10 @@ struct SleepView: View {
         }
         .task {
             await store.refreshSleepData(days: 14)
+            _ = await sleepProduct.requestNotificationPermissionIfNeeded()
+            let recentScore = store.sleepData.first?.score
+            await sleepProduct.rescheduleAllNotifications(recentSleepScore: recentScore)
+            _ = await sleepProduct.refineNextAlarmUsingHealthKit()
         }
     }
 }
@@ -485,26 +493,23 @@ struct ScoreStatPill: View {
 // MARK: - Alarm Tab
 
 struct AlarmTab: View {
-    @State private var alarms: [ForgeAlarm] = [
-        ForgeAlarm(label: "Wake Up", time: Calendar.current.date(from: DateComponents(hour: 6, minute: 45)) ?? Date(), days: [2,3,4,5,6], isEnabled: true),
-        ForgeAlarm(label: "Weekend", time: Calendar.current.date(from: DateComponents(hour: 8, minute: 0)) ?? Date(), days: [1,7], sound: .forestBirds, isEnabled: false),
-    ]
+    @EnvironmentObject private var sleepProduct: ForgeSleepProductManager
     @State private var showEditor = false
     @State private var editingAlarm: ForgeAlarm? = nil
-
-    var nextAlarm: ForgeAlarm? {
-        alarms.filter { $0.isEnabled }.first
-    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
-                // Hero: next alarm display
-                if let next = nextAlarm {
+                if !sleepProduct.notificationPermissionGranted {
+                    SleepPermissionBanner {
+                        Task { _ = await sleepProduct.requestNotificationPermissionIfNeeded() }
+                    }
+                }
+
+                if let next = sleepProduct.nextEnabledAlarm {
                     NextAlarmHero(alarm: next)
                 }
 
-                // Alarm list
                 VStack(spacing: 14) {
                     HStack {
                         Text("ALARMS")
@@ -527,13 +532,18 @@ struct AlarmTab: View {
                         }
                     }
 
-                    ForEach($alarms) { $alarm in
+                    ForEach($sleepProduct.alarms) { $alarm in
                         AlarmRow(alarm: $alarm, onEdit: {
                             editingAlarm = alarm
                             showEditor = true
                         })
+                        .onChange(of: alarm.isEnabled) { _, _ in
+                            sleepProduct.upsertAlarm(alarm)
+                        }
                     }
-                    .onDelete { idx in alarms.remove(atOffsets: idx) }
+                    .onDelete { idx in
+                        sleepProduct.deleteAlarms(at: idx)
+                    }
                 }
                 .padding(.bottom, 20)
             }
@@ -543,14 +553,37 @@ struct AlarmTab: View {
         .sheet(isPresented: $showEditor) {
             if let alarm = editingAlarm {
                 AlarmEditorSheet(alarm: alarm) { updated in
-                    if let i = alarms.firstIndex(where: { $0.id == updated.id }) {
-                        alarms[i] = updated
-                    } else {
-                        alarms.append(updated)
-                    }
+                    sleepProduct.upsertAlarm(updated)
                 }
             }
         }
+    }
+}
+
+private struct SleepPermissionBanner: View {
+    let onEnable: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "bell.badge.fill")
+                .foregroundColor(.ember)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Enable sleep alarms")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                Text("Forge schedules adaptive wake windows and fallback alarms.")
+                    .font(.system(size: 12))
+                    .foregroundColor(.textSecondary)
+            }
+            Spacer()
+            Button("Allow", action: onEnable)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.ember)
+        }
+        .padding(14)
+        .background(Color.surface)
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.ember.opacity(0.25), lineWidth: 1))
     }
 }
 
@@ -958,10 +991,8 @@ private struct EditorSection<Content: View>: View {
 // MARK: - Sleep Sounds Tab
 
 struct SleepSoundsTab: View {
-    @State private var activeSounds: [(sound: SleepSoundItem, volume: Double)] = []
+    @EnvironmentObject private var sleepProduct: ForgeSleepProductManager
     @State private var selectedCategory: SleepSoundCategory? = nil
-    @State private var sleepTimer: Int = 0      // 0 = off
-    @State private var timerRemaining: Int = 0
     @State private var showMixer = false
 
     let timerOptions = [0, 15, 30, 45, 60, 90]
@@ -972,49 +1003,47 @@ struct SleepSoundsTab: View {
     }
 
     func isActive(_ sound: SleepSoundItem) -> Bool {
-        activeSounds.contains { $0.sound.id == sound.id }
-    }
-
-    func toggleSound(_ sound: SleepSoundItem) {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        if let i = activeSounds.firstIndex(where: { $0.sound.id == sound.id }) {
-            activeSounds.remove(at: i)
-        } else if activeSounds.count < 3 {
-            activeSounds.append((sound: sound, volume: 0.75))
-        }
+        sleepProduct.activeSounds.contains { $0.sound.id == sound.id }
     }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
-                // Now playing mini bar
-                if !activeSounds.isEmpty {
+                if !sleepProduct.activeSounds.isEmpty {
                     NowPlayingBar(
-                        sounds: activeSounds,
+                        sounds: sleepProduct.activeSounds,
                         onMixerTap: { withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { showMixer.toggle() } },
-                        onStop: { withAnimation { activeSounds.removeAll() } }
+                        onStop: { withAnimation { sleepProduct.stopAllSounds() } }
                     )
 
                     if showMixer {
-                        SoundMixerPanel(activeSounds: $activeSounds)
+                        SoundMixerPanel(
+                            activeSounds: $sleepProduct.activeSounds,
+                            onVolumeChange: { sleepProduct.refreshSoundMixVolumes() }
+                        )
                             .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
+                    }
+
+                    if sleepProduct.sleepTimerRemaining > 0 {
+                        Text("Timer · \(sleepProduct.sleepTimerRemaining / 60):\(String(format: "%02d", sleepProduct.sleepTimerRemaining % 60))")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Color(hex: "6366F1"))
                     }
                 }
 
-                // Sleep timer
                 EditorSection(title: "SLEEP TIMER") {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(timerOptions, id: \.self) { mins in
                                 Button {
-                                    sleepTimer = mins
+                                    sleepProduct.setSleepTimer(minutes: mins)
                                     UISelectionFeedbackGenerator().selectionChanged()
                                 } label: {
                                     Text(mins == 0 ? "Off" : "\(mins)m")
                                         .font(.system(size: 13, weight: .semibold))
-                                        .foregroundColor(sleepTimer == mins ? .white : .textTertiary)
+                                        .foregroundColor(sleepProduct.sleepTimerMinutes == mins ? .white : .textTertiary)
                                         .padding(.horizontal, 14).padding(.vertical, 8)
-                                        .background(sleepTimer == mins ? Color(hex: "6366F1") : Color.surface)
+                                        .background(sleepProduct.sleepTimerMinutes == mins ? Color(hex: "6366F1") : Color.surface)
                                         .cornerRadius(20)
                                 }
                                 .buttonStyle(.plain)
@@ -1059,7 +1088,7 @@ struct SleepSoundsTab: View {
                 }
 
                 // Capacity hint
-                if activeSounds.count >= 3 {
+                if sleepProduct.activeSounds.count >= 3 {
                     HStack(spacing: 6) {
                         Image(systemName: "info.circle").font(.system(size: 12))
                         Text("Mix up to 3 sounds at once")
@@ -1068,11 +1097,13 @@ struct SleepSoundsTab: View {
                     .foregroundColor(.textMuted)
                 }
 
-                // Sound grid
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     ForEach(filtered) { sound in
-                        SoundCard(sound: sound, isActive: isActive(sound), onTap: { toggleSound(sound) })
-                            .opacity(activeSounds.count >= 3 && !isActive(sound) ? 0.4 : 1)
+                        SoundCard(sound: sound, isActive: isActive(sound), onTap: {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            sleepProduct.toggleSound(sound)
+                        })
+                            .opacity(sleepProduct.activeSounds.count >= 3 && !isActive(sound) ? 0.4 : 1)
                     }
                 }
             }
@@ -1150,6 +1181,7 @@ struct SoundWaveformBadge: View {
 
 struct SoundMixerPanel: View {
     @Binding var activeSounds: [(sound: SleepSoundItem, volume: Double)]
+    var onVolumeChange: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 14) {
@@ -1167,7 +1199,13 @@ struct SoundMixerPanel: View {
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.sound.name).font(.system(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
-                        Slider(value: $activeSounds[index].volume, in: 0...1)
+                        Slider(value: Binding(
+                            get: { activeSounds[index].volume },
+                            set: { newValue in
+                                activeSounds[index].volume = newValue
+                                onVolumeChange?()
+                            }
+                        ), in: 0...1)
                             .tint(item.sound.color)
                     }
                     Button {
@@ -1270,37 +1308,47 @@ struct SoundCard: View {
 // MARK: - Wake Up Tab
 
 struct WakeUpTab: View {
-    @State private var smartWakeEnabled = true
-    @State private var smartWakeWindow  = 30
-    @State private var sunriseEnabled   = true
-    @State private var sunriseDuration  = 20          // minutes
-    @State private var colorTemp        = 0.5         // 0=warm, 1=cool
-    @State private var volumeRamp: VolumeRampCurve    = .gradual
-    @State private var morningRoutine: [RoutineItem]  = RoutineItem.defaults
+    @EnvironmentObject private var sleepProduct: ForgeSleepProductManager
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
-                // Smart Wake
                 SmartWakeCard(
-                    enabled: $smartWakeEnabled,
-                    windowMinutes: $smartWakeWindow
+                    enabled: $sleepProduct.wakeSettings.smartWakeEnabled,
+                    windowMinutes: $sleepProduct.wakeSettings.smartWakeWindow
                 )
+                .onChange(of: sleepProduct.wakeSettings.smartWakeEnabled) { _, _ in
+                    sleepProduct.persistWakeSettings()
+                }
+                .onChange(of: sleepProduct.wakeSettings.smartWakeWindow) { _, _ in
+                    sleepProduct.persistWakeSettings()
+                }
 
-                // Sunrise Simulation
                 SunriseSimulationCard(
-                    enabled: $sunriseEnabled,
-                    duration: $sunriseDuration,
-                    colorTemp: $colorTemp
+                    enabled: $sleepProduct.wakeSettings.sunriseEnabled,
+                    duration: $sleepProduct.wakeSettings.sunriseDuration,
+                    colorTemp: $sleepProduct.wakeSettings.colorTemp
                 )
+                .onChange(of: sleepProduct.wakeSettings.sunriseEnabled) { _, _ in
+                    sleepProduct.persistWakeSettings()
+                }
+                .onChange(of: sleepProduct.wakeSettings.sunriseDuration) { _, _ in
+                    sleepProduct.persistWakeSettings()
+                }
+                .onChange(of: sleepProduct.wakeSettings.colorTemp) { _, _ in
+                    sleepProduct.persistWakeSettings()
+                }
 
-                // Volume Ramp
-                VolumeRampCard(curve: $volumeRamp)
+                VolumeRampCard(curve: Binding(
+                    get: { sleepProduct.wakeSettings.rampCurve },
+                    set: { sleepProduct.wakeSettings.rampCurve = $0; sleepProduct.persistWakeSettings() }
+                ))
 
-                // Morning Routine
-                MorningRoutineCard(items: $morningRoutine)
+                MorningRoutineCard(items: $sleepProduct.wakeSettings.morningRoutine)
+                    .onChange(of: sleepProduct.wakeSettings.morningRoutine) { _, _ in
+                        sleepProduct.persistWakeSettings()
+                    }
 
-                // Wake Word / Greeting
                 WakeGreetingCard()
             }
             .padding(.horizontal, 16)
@@ -1481,7 +1529,7 @@ struct SunriseSimulationCard: View {
 
 // MARK: - Volume Ramp Card
 
-enum VolumeRampCurve: String, CaseIterable {
+enum VolumeRampCurve: String, CaseIterable, Codable {
     case instant  = "Instant"
     case gentle   = "Gentle"
     case gradual  = "Gradual"
@@ -1582,7 +1630,7 @@ struct VolumeRampPreview: View {
 
 // MARK: - Morning Routine Card
 
-struct RoutineItem: Identifiable, Codable {
+struct RoutineItem: Identifiable, Codable, Equatable {
     var id: UUID = UUID()
     var name: String
     var icon: String

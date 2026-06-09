@@ -52,5 +52,9 @@
 	<string>Forge uses your microphone for hands-free voice coaching during workouts.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Forge uses speech recognition so you can talk to your AI coach without touching your phone.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 </dict>
 </plist>
