@@ -775,6 +775,7 @@ final class AppStore: ObservableObject {
         }
 
         if case .success(let evening) = eveningResult {
+        if let evening = try? await eveningTask {
             eveningBrief = evening
         } else {
             eveningBrief = ARIABrief.localFallback(
