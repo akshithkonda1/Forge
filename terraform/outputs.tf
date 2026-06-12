@@ -33,6 +33,11 @@ output "cognito_identity_pool_id" {
   value       = aws_cognito_identity_pool.forge.id
 }
 
+output "cognito_hosted_ui_domain" {
+  description = "Base URL of the Cognito Hosted UI used by both clients for sign-in."
+  value       = local.cognito_hosted_ui_domain
+}
+
 output "app_data_table_name" {
   description = "Shared DynamoDB table for profiles, workouts, metrics, and chat data."
   value       = aws_dynamodb_table.app_data.name
@@ -93,6 +98,8 @@ output "client_configuration" {
       webClientId    = aws_cognito_user_pool_client.web.id
       iosClientId    = aws_cognito_user_pool_client.ios.id
       identityPoolId = aws_cognito_identity_pool.forge.id
+      hostedUiDomain = local.cognito_hosted_ui_domain
+      authority      = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.forge.id}"
     }
     storage = {
       uploadsBucket    = aws_s3_bucket.uploads.bucket

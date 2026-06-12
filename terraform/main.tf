@@ -220,6 +220,13 @@ resource "aws_cognito_user_pool_client" "web" {
     "ALLOW_USER_SRP_AUTH",
   ]
 
+  # Hosted UI (OAuth Authorization Code + PKCE) for the web client.
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = ["openid", "email", "profile"]
+  allowed_oauth_flows_user_pool_client = true
+  callback_urls                        = var.web_callback_urls
+  logout_urls                          = var.web_logout_urls
+
   access_token_validity  = 1
   id_token_validity      = 1
   refresh_token_validity = 30
@@ -245,6 +252,13 @@ resource "aws_cognito_user_pool_client" "ios" {
     "ALLOW_USER_SRP_AUTH",
   ]
 
+  # Hosted UI (OAuth Authorization Code + PKCE) for the iOS client.
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = ["openid", "email", "profile"]
+  allowed_oauth_flows_user_pool_client = true
+  callback_urls                        = var.ios_callback_urls
+  logout_urls                          = var.ios_logout_urls
+
   access_token_validity  = 1
   id_token_validity      = 1
   refresh_token_validity = 30
@@ -254,6 +268,11 @@ resource "aws_cognito_user_pool_client" "ios" {
     id_token      = "hours"
     refresh_token = "days"
   }
+}
+
+resource "aws_cognito_user_pool_domain" "forge" {
+  domain       = local.cognito_domain_prefix
+  user_pool_id = aws_cognito_user_pool.forge.id
 }
 
 resource "aws_cognito_identity_pool" "forge" {

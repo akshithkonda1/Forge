@@ -18,6 +18,10 @@ locals {
 
   uploads_bucket_name = var.uploads_bucket_name != null ? var.uploads_bucket_name : local.generated_uploads_bucket_name
 
+  cognito_domain_prefix = var.cognito_domain_prefix != null ? var.cognito_domain_prefix : "${local.name_prefix}-${local.account_id_for_naming}"
+
+  cognito_hosted_ui_domain = "https://${local.cognito_domain_prefix}.auth.${data.aws_region.current.name}.amazoncognito.com"
+
   common_tags = merge(
     {
       Application = var.project_name

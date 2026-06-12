@@ -28,6 +28,37 @@ variable "skip_aws_provider_checks" {
   default     = false
 }
 
+variable "cognito_domain_prefix" {
+  description = "Hosted UI domain prefix (must be globally unique). Defaults to <name_prefix>-<account>."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "web_callback_urls" {
+  description = "Allowed OAuth redirect URIs for the web app Hosted UI sign-in."
+  type        = list(string)
+  default     = ["http://localhost:3000/auth/callback"]
+}
+
+variable "web_logout_urls" {
+  description = "Allowed sign-out redirect URIs for the web app."
+  type        = list(string)
+  default     = ["http://localhost:3000/"]
+}
+
+variable "ios_callback_urls" {
+  description = "Allowed OAuth redirect URIs for the iOS app (custom scheme for ASWebAuthenticationSession)."
+  type        = list(string)
+  default     = ["forge://auth/callback"]
+}
+
+variable "ios_logout_urls" {
+  description = "Allowed sign-out redirect URIs for the iOS app."
+  type        = list(string)
+  default     = ["forge://auth/signout"]
+}
+
 variable "uploads_bucket_name" {
   description = "Optional override for the Forge uploads bucket name."
   type        = string

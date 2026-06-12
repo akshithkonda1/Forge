@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { StoreHydrator } from "@/components/providers/store-hydrator";
 import "./globals.css";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "Forge — Your AI Training Partner",
-  description: "AI-powered personal fitness trainer that coaches you through every rep, adapts to your body, and builds a relationship over time.",
+  description:
+    "AI-powered personal fitness trainer that coaches you through every rep, adapts to your body, and builds a relationship over time.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -30,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="min-h-[100dvh] bg-background antialiased">
-        <StoreHydrator>{children}</StoreHydrator>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

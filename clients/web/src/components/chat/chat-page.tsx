@@ -4,12 +4,16 @@ import * as React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { isDemoFallbackAllowed } from "@/lib/auth-config";
 import { useAppStore } from "@/stores/useAppStore";
+import { useSendChatMessage } from "@/lib/api/hooks";
 import { WorkoutCard } from "@/components/chat/workout-card";
 import { DataInsightCard } from "@/components/chat/data-insight-card";
 import { Send, Mic, ArrowDown } from "lucide-react";
-import type { ChatMessage, RichCard } from "@/types";
+import type { ChatMessage } from "@/types";
+
+// ---------------------------------------------------------------------------
+// Quick action definitions
+// ---------------------------------------------------------------------------
 
 const QUICK_ACTIONS = [
   "How should I train today?",
@@ -18,28 +22,6 @@ const QUICK_ACTIONS = [
   "Adjust my plan",
   "I have an injury/pain",
 ] as const;
-
-function ChatWelcome({ name }: { name: string }) {
-  const displayName = name.trim() || "there";
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mx-auto flex max-w-sm flex-col items-center px-4 py-10 text-center"
-    >
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-ember/15">
-        <span className="text-xl font-bold text-ember">F</span>
-      </div>
-      <h2 className="text-lg font-semibold text-text-primary">
-        Hey {displayName}, I&apos;m ARIA
-      </h2>
-      <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-        Your AI trainer with full context on your sleep, recovery, and training history.
-        Ask anything — or tap a quick prompt below.
-      </p>
-    </motion.div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Typing indicator component
@@ -81,7 +63,9 @@ function TypingIndicator() {
 // Message bubble component (inline, spec-compliant)
 // ---------------------------------------------------------------------------
 
-function formatTime(date: Date): string {
+function formatTime(timestamp: string): string {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
@@ -92,34 +76,14 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     if (!message.richCard) return null;
 
     if (message.richCard.type === "workout-plan") {
-      const d = message.richCard.data as {
-        name: string;
-        duration: number;
-        exercises: { name: string; sets: number; reps: string | number }[];
-      };
-      return (
-        <WorkoutCard
-          name={d.name}
-          duration={d.duration}
-          exercises={d.exercises}
-        />
-      );
+      const d = message.richCard.data;
+      return <WorkoutCard name={d.name} duration={d.duration} exercises={d.exercises} />;
     }
 
     if (message.richCard.type === "data-chart") {
-      const d = message.richCard.data as {
-        title: string;
-        values: number[];
-        insight: string;
-        color?: string;
-      };
+      const d = message.richCard.data;
       return (
-        <DataInsightCard
-          title={d.title}
-          values={d.values}
-          insight={d.insight}
-          color={d.color}
-        />
+        <DataInsightCard title={d.title} values={d.values} insight={d.insight} color={d.color} />
       );
     }
 
@@ -153,9 +117,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
         {/* Rich card */}
         {richCardNode && (
-          <div className={cn("mt-1.5 w-full", isTrainer ? "pr-2" : "pl-2")}>
-            {richCardNode}
-          </div>
+          <div className={cn("mt-1.5 w-full", isTrainer ? "pr-2" : "pl-2")}>{richCardNode}</div>
         )}
 
         {/* Timestamp */}
@@ -173,14 +135,12 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
 export function ChatPage() {
   const chatMessages = useAppStore((s) => s.chatMessages);
-  const sendChatMessage = useAppStore((s) => s.sendChatMessage);
-  const isGeneratingResponse = useAppStore((s) => s.isGeneratingResponse);
-  const userProfile = useAppStore((s) => s.userProfile);
-  const dataLoadState = useAppStore((s) => s.dataLoadState);
+  const addMessage = useAppStore((s) => s.addMessage);
+  const sendChat = useSendChatMessage();
 
   const [inputValue, setInputValue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const isTyping = isGeneratingResponse;
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -210,17 +170,44 @@ export function ChatPage() {
   }, []);
 
   // -----------------------------------------------------------------------
-  // Send a message
+  // Send a message — optimistic user bubble, then ARIA via the backend.
   // -----------------------------------------------------------------------
 
   const sendMessage = useCallback(
     (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || isTyping) return;
+
+      // Optimistically show the user's message.
+      addMessage({
+        id: `user-${Date.now()}`,
+        role: "user",
+        content: trimmed,
+        timestamp: new Date().toISOString(),
+      });
       setInputValue("");
-      void sendChatMessage(trimmed);
+      setIsTyping(true);
+
+      sendChat.mutate(trimmed, {
+        onSuccess: (data) => {
+          addMessage(data.trainerMessage);
+          setIsTyping(false);
+        },
+        onError: (error) => {
+          addMessage({
+            id: `trainer-error-${Date.now()}`,
+            role: "trainer",
+            content:
+              error instanceof Error
+                ? `I couldn't reach the coach just now (${error.message}). Try again in a moment.`
+                : "I couldn't reach the coach just now. Try again in a moment.",
+            timestamp: new Date().toISOString(),
+          });
+          setIsTyping(false);
+        },
+      });
     },
-    [isTyping, sendChatMessage]
+    [addMessage, isTyping, sendChat]
   );
 
   // -----------------------------------------------------------------------
@@ -254,13 +241,7 @@ export function ChatPage() {
           <div className="flex items-center gap-3">
             {/* AI Avatar */}
             <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-ember/15">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                className="text-ember"
-              >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-ember">
                 <path
                   d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
                   stroke="currentColor"
@@ -276,27 +257,10 @@ export function ChatPage() {
             </div>
 
             <div>
-              <h1 className="text-base font-semibold text-text-primary">
-                Forge AI
-              </h1>
+              <h1 className="text-base font-semibold text-text-primary">Forge AI</h1>
               <div className="flex items-center gap-1.5">
-                <span
-                  className={cn(
-                    "h-1.5 w-1.5 rounded-full",
-                    dataLoadState === "offline" || dataLoadState === "error"
-                      ? "bg-warning"
-                      : "bg-success",
-                  )}
-                />
-                <span className="text-xs text-text-tertiary">
-                  {dataLoadState === "offline"
-                    ? isDemoFallbackAllowed()
-                      ? "Demo mode"
-                      : "Offline"
-                    : dataLoadState === "error"
-                      ? "Reconnecting"
-                      : "Live"}
-                </span>
+                <span className="h-1.5 w-1.5 rounded-full bg-ember" />
+                <span className="text-xs text-text-tertiary">Online</span>
               </div>
             </div>
           </div>
@@ -310,9 +274,6 @@ export function ChatPage() {
         className="relative flex-1 overflow-y-auto px-4 py-4"
       >
         <div className="flex flex-col gap-4">
-          {chatMessages.length === 0 && !isTyping && (
-            <ChatWelcome name={userProfile.name} />
-          )}
           <AnimatePresence initial={false}>
             {chatMessages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} />

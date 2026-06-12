@@ -37,8 +37,20 @@ import type {
 
 type DataLoadState = "idle" | "loading" | "loaded" | "offline" | "error";
 
+export interface HydratePayload {
+  userProfile: UserProfile;
+  readiness: ReadinessData;
+  dailyMetrics: DailyMetrics;
+  todayWorkout: WorkoutPlan | null;
+  sleepData: SleepData[];
+  workoutHistory: WorkoutHistory[];
+  personalRecords: PersonalRecord[];
+  chatMessages: ChatMessage[];
+}
+
 interface AppState {
-  hydrate: () => void;
+  hydratePersistence: () => void;
+  hydrateFromServer: (payload: HydratePayload) => void;
   isOnboarded: boolean;
   onboardingStep: number;
   setOnboarded: (val: boolean) => void;
@@ -130,10 +142,24 @@ function applyOfflineDemo(set: (partial: Partial<AppState>) => void) {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  hydrate: () => {
+  hydratePersistence: () => {
     set({
       isOnboarded: forgePersistence.getIsOnboarded(),
       onboardingStep: forgePersistence.getOnboardingStep(),
+    });
+  },
+  hydrateFromServer: (payload) => {
+    set({
+      userProfile: payload.userProfile,
+      readiness: payload.readiness,
+      dailyMetrics: payload.dailyMetrics,
+      todayWorkout: payload.todayWorkout,
+      sleepData: payload.sleepData,
+      workoutHistory: payload.workoutHistory,
+      personalRecords: payload.personalRecords,
+      chatMessages: payload.chatMessages,
+      dataLoadState: "loaded",
+      dataLoadError: null,
     });
   },
   isOnboarded: false,

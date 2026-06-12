@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
+import { usePostWorkoutLog } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/button";
 import { ExerciseNav } from "./exercise-nav";
 
@@ -50,6 +51,7 @@ export function ActiveWorkoutView() {
     nextExercise,
     endWorkout,
   } = useAppStore();
+  const postWorkoutLog = usePostWorkoutLog();
 
   const [elapsedTime, setElapsedTime] = useState(0);
   const [simulatedHR, setSimulatedHR] = useState(activeWorkout.currentHR || 72);
@@ -62,6 +64,25 @@ export function ActiveWorkoutView() {
   const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const exercises = todayWorkout?.exercises ?? [];
   const currentExercise = exercises[activeWorkout.currentExerciseIndex];
+
+  // Persist the completed session to the backend, then end the local session.
+  const finishWorkout = useCallback(() => {
+    if (todayWorkout) {
+      const now = new Date();
+      postWorkoutLog.mutate({
+        id: `local-${now.getTime()}`,
+        date: now.toISOString().slice(0, 10),
+        startedAt: new Date(now.getTime() - elapsedTime * 1000).toISOString(),
+        name: todayWorkout.name,
+        type: todayWorkout.type,
+        duration: Math.max(1, Math.round(elapsedTime / 60)),
+        volume: 0,
+        intensity: todayWorkout.intensity,
+        source: "manual",
+      });
+    }
+    endWorkout();
+  }, [todayWorkout, postWorkoutLog, elapsedTime, endWorkout]);
 
   // Elapsed time counter
   useEffect(() => {
@@ -135,7 +156,7 @@ export function ActiveWorkoutView() {
 
     if (isLastSet && isLastExercise) {
       // Workout complete
-      endWorkout();
+      finishWorkout();
       return;
     }
 
@@ -157,20 +178,20 @@ export function ActiveWorkoutView() {
     exercises.length,
     nextSet,
     nextExercise,
-    endWorkout,
+    finishWorkout,
   ]);
 
   const handleSkipExercise = useCallback(() => {
     const isLastExercise =
       activeWorkout.currentExerciseIndex >= exercises.length - 1;
     if (isLastExercise) {
-      endWorkout();
+      finishWorkout();
     } else {
       nextExercise();
       setIsResting(false);
       setRestTimeLeft(0);
     }
-  }, [activeWorkout.currentExerciseIndex, exercises.length, nextExercise, endWorkout]);
+  }, [activeWorkout.currentExerciseIndex, exercises.length, nextExercise, finishWorkout]);
 
   const handleSkipRest = useCallback(() => {
     setIsResting(false);
@@ -184,8 +205,8 @@ export function ActiveWorkoutView() {
       setTimeout(() => setShowEndConfirm(false), 3000);
       return;
     }
-    endWorkout();
-  }, [showEndConfirm, endWorkout]);
+    finishWorkout();
+  }, [showEndConfirm, finishWorkout]);
 
   if (!todayWorkout || !currentExercise) return null;
 
