@@ -11,6 +11,7 @@ enum ForgePersistence {
     private static let sleepTimerKey = "forge.sleep.timerMinutes"
     private static let chatGamificationKey = "forge.chat.gamification"
     private static let briefNotificationsKey = "forge.notifications.briefSettings"
+    private static let appNotificationsKey = "forge.notifications.appSettings"
 
     static var isOnboarded: Bool {
         UserDefaults.standard.bool(forKey: onboardedKey)
@@ -119,6 +120,21 @@ enum ForgePersistence {
         guard let data = UserDefaults.standard.data(forKey: briefNotificationsKey),
               let settings = try? JSONDecoder().decode(BriefNotificationSettings.self, from: data) else {
             return BriefNotificationSettings()
+        }
+        return settings
+    }
+
+    // MARK: - General notification preferences
+
+    static func saveAppNotificationSettings(_ settings: AppNotificationSettings) {
+        guard let data = try? JSONEncoder().encode(settings) else { return }
+        UserDefaults.standard.set(data, forKey: appNotificationsKey)
+    }
+
+    static func loadAppNotificationSettings() -> AppNotificationSettings {
+        guard let data = UserDefaults.standard.data(forKey: appNotificationsKey),
+              let settings = try? JSONDecoder().decode(AppNotificationSettings.self, from: data) else {
+            return AppNotificationSettings()
         }
         return settings
     }

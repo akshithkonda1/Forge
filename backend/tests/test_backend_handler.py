@@ -44,6 +44,11 @@ class BackendHandlerTests(unittest.TestCase):
         self.assertEqual(payload["readiness"]["overall"], 82)
         self.assertEqual(payload["todayWorkout"]["name"], "Upper Body Power")
         self.assertGreaterEqual(len(payload["recentSleep"]), 7)
+        self.assertIn("dailyScores", payload)
+        self.assertIn("strain", payload["dailyScores"])
+        self.assertIn(payload["dailyScores"]["trainingDecision"], {"train", "active_rest", "recover"})
+        self.assertIn("biologicalAge", payload)
+        self.assertIn("biologicalAge", payload["biologicalAge"])
 
     def test_profile_update_merges_profile_patch(self):
         response = handler(
@@ -346,6 +351,29 @@ class ScoringServiceTests(unittest.TestCase):
     def test_baseline_recommendation_low_readiness_returns_recovery(self):
         result = scoring.baseline_workout_recommendation(40, "strength")
         self.assertEqual(result["focus"], "recovery")
+
+    def test_device_push_registers_and_lists(self):
+        register = handler(
+            event(
+                "POST",
+                "/devices/push",
+                {"token": "abc123-device-token", "platform": "ios", "bundleId": "com.forge.health"},
+            ),
+            None,
+        )
+        self.assertEqual(register["statusCode"], 200)
+        self.assertTrue(body(register)["registered"])
+
+        listed = handler(event("GET", "/devices/push"), None)
+        self.assertEqual(listed["statusCode"], 200)
+        self.assertEqual(len(body(listed)["devices"]), 1)
+
+        deleted = handler(
+            event("DELETE", "/devices/push", {"token": "abc123-device-token"}),
+            None,
+        )
+        self.assertEqual(deleted["statusCode"], 200)
+        self.assertEqual(body(deleted)["removed"], 1)
 
     def test_detect_personal_records_picks_max_weight(self):
         workouts = [

@@ -62,9 +62,13 @@ final class ForgeRepository: ObservableObject {
         return dashboard.todayWorkout.map(mapWorkoutPlan)
     }
 
-    func fetchARIABrief(focus: String = "auto") async throws -> ARIABrief {
-        let response = try await api.postARIABrief(focus: focus)
+    func fetchARIABrief(focus: String = "auto", deliverPush: Bool = false) async throws -> ARIABrief {
+        let response = try await api.postARIABrief(focus: focus, deliverPush: deliverPush)
         return mapARIABrief(response)
+    }
+
+    func registerPushDevice(token: String) async throws {
+        try await api.registerPushDevice(token: token, bundleId: Bundle.main.bundleIdentifier)
     }
 
     func fetchConclusions() async throws -> DataConclusions {

@@ -418,8 +418,13 @@ final class LifestyleViewModel: ObservableObject {
             await scheduleSmartReminders()
             error = nil
         } catch {
+            #if DEBUG
             metrics = (try? await fetchMetrics()) ?? .default
             recommendations = (try? await fetchRecommendations()) ?? AIRecommendation.sampleRecommendations
+            #else
+            metrics = .default
+            recommendations = []
+            #endif
             self.error = error as? LifestyleError ?? .networkError
         }
     }

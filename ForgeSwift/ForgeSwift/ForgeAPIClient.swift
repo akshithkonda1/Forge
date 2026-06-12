@@ -550,15 +550,44 @@ final class ForgeAPIClient {
         try await request(path: "/aria/conclusions")
     }
 
-    func postARIABrief(focus: String = "auto", useLLM: Bool = false) async throws -> ARIABriefResponse {
+    func postARIABrief(
+        focus: String = "auto",
+        useLLM: Bool = false,
+        deliverPush: Bool = false
+    ) async throws -> ARIABriefResponse {
         struct Body: Encodable {
             let focus: String
             let useLLM: Bool
+            let deliverPush: Bool
         }
         return try await request(
             path: "/aria/brief",
             method: "POST",
-            body: Body(focus: focus, useLLM: useLLM)
+            body: Body(focus: focus, useLLM: useLLM, deliverPush: deliverPush)
+        )
+    }
+
+    func registerPushDevice(token: String, bundleId: String? = nil) async throws {
+        struct Body: Encodable {
+            let token: String
+            let platform: String
+            let bundleId: String?
+        }
+        struct Response: Decodable { let registered: Bool }
+        let _: Response = try await request(
+            path: "/devices/push",
+            method: "POST",
+            body: Body(token: token, platform: "ios", bundleId: bundleId)
+        )
+    }
+
+    func unregisterPushDevice(token: String? = nil) async throws {
+        struct Body: Encodable { let token: String? }
+        struct Response: Decodable { let removed: Int }
+        let _: Response = try await request(
+            path: "/devices/push",
+            method: "DELETE",
+            body: Body(token: token)
         )
     }
 

@@ -848,12 +848,9 @@ struct SettingsPageView: View {
     @EnvironmentObject var store: AppStore
 
     @State private var showDevicesSheet = false
-    @State private var workoutReminders = true
-    @State private var aiInsights = true
-    @State private var recoveryAlerts = true
-    @State private var weeklySummary = false
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
+    @State private var briefSettings = ForgePersistence.loadBriefNotificationSettings()
 
     let dayLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
 
@@ -985,49 +982,44 @@ struct SettingsPageView: View {
                 sectionHeader("Notifications")
                 SectionCard {
                     SettingsRow(icon: "bell.fill", iconColor: .ember, label: "Workout Reminders",
-                                trailing: AnyView(ForgeToggle(isOn: $workoutReminders)))
+                                trailing: AnyView(ForgeToggle(isOn: notificationBinding(\.workoutReminders))))
                     Divider().background(Color.borderColor)
                     SettingsRow(icon: "bell.fill", iconColor: .steel, label: "ARIA Proactive Briefs",
                                 trailing: AnyView(ForgeToggle(isOn: Binding(
                                     get: { store.briefNotificationsEnabled },
                                     set: { store.setBriefNotificationsEnabled($0) }
                                 ))))
+                    if store.briefNotificationsEnabled {
+                        Divider().background(Color.borderColor)
+                        briefTimeRow(label: "Morning brief", hour: $briefSettings.morningHour, minute: $briefSettings.morningMinute)
+                        Divider().background(Color.borderColor)
+                        briefTimeRow(label: "Evening brief", hour: $briefSettings.eveningHour, minute: $briefSettings.eveningMinute)
+                    }
                     Divider().background(Color.borderColor)
                     SettingsRow(icon: "bell.fill", iconColor: .success, label: "Recovery Alerts",
-                                trailing: AnyView(ForgeToggle(isOn: $recoveryAlerts)))
+                                trailing: AnyView(ForgeToggle(isOn: notificationBinding(\.recoveryAlerts))))
                     Divider().background(Color.borderColor)
                     SettingsRow(icon: "bell.fill", iconColor: .textSecondary, label: "Weekly Summary",
-                                trailing: AnyView(ForgeToggle(isOn: $weeklySummary)))
+                                trailing: AnyView(ForgeToggle(isOn: notificationBinding(\.weeklySummary))))
+                    Divider().background(Color.borderColor)
+                    SettingsRow(icon: "drop.fill", iconColor: Color(hex: "38BDF8"), label: "Lifestyle Reminders",
+                                trailing: AnyView(ForgeToggle(isOn: notificationBinding(\.lifestyleReminders))))
                 }
 
                 // More
                 sectionHeader("More")
                 SectionCard {
-                    Button(action: {}) {
-                        SettingsRow(icon: "lock.shield.fill", iconColor: .textSecondary, label: "Data & Privacy", showChevron: true)
-                    }
-                    .buttonStyle(.plain)
-                    
+                    SettingsRow(icon: "lock.shield.fill", iconColor: .textSecondary, label: "Data & Privacy",
+                                trailingText: "HealthKit + API")
                     Divider().background(Color.borderColor)
-                    
-                    Button(action: {}) {
-                        SettingsRow(icon: "creditcard.fill", iconColor: .textSecondary, label: "Subscription", showChevron: true)
-                    }
-                    .buttonStyle(.plain)
-                    
+                    SettingsRow(icon: "creditcard.fill", iconColor: .textSecondary, label: "Subscription",
+                                trailingText: "Coming soon")
                     Divider().background(Color.borderColor)
-                    
-                    Button(action: {}) {
-                        SettingsRow(icon: "questionmark.circle.fill", iconColor: .textSecondary, label: "Help & Support", showChevron: true)
-                    }
-                    .buttonStyle(.plain)
-                    
+                    SettingsRow(icon: "questionmark.circle.fill", iconColor: .textSecondary, label: "Help & Support",
+                                trailingText: "support@forge.health")
                     Divider().background(Color.borderColor)
-                    
-                    Button(action: {}) {
-                        SettingsRow(icon: "info.circle.fill", iconColor: .textSecondary, label: "About Forge", showChevron: true)
-                    }
-                    .buttonStyle(.plain)
+                    SettingsRow(icon: "info.circle.fill", iconColor: .textSecondary, label: "About Forge",
+                                trailingText: "v1.0")
                 }
 
                 // Log Out
@@ -1059,6 +1051,46 @@ struct SettingsPageView: View {
             ConnectedDevicesSheet()
                 .environmentObject(store)
         }
+        .onChange(of: briefSettings) { _, updated in
+            ForgePersistence.saveBriefNotificationSettings(updated)
+            store.updateBriefNotificationSchedule(
+                morningHour: updated.morningHour,
+                morningMinute: updated.morningMinute,
+                eveningHour: updated.eveningHour,
+                eveningMinute: updated.eveningMinute
+            )
+        }
+    }
+
+    private func notificationBinding(_ keyPath: WritableKeyPath<AppNotificationSettings, Bool>) -> Binding<Bool> {
+        Binding(
+            get: { store.notificationSettings[keyPath: keyPath] },
+            set: { newValue in
+                var settings = store.notificationSettings
+                settings[keyPath: keyPath] = newValue
+                store.updateNotificationSettings(settings)
+            }
+        )
+    }
+
+    private func briefTimeRow(label: String, hour: Binding<Int>, minute: Binding<Int>) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.textPrimary)
+            Spacer()
+            Stepper(value: hour, in: 0...23) {
+                Text(String(format: "%02d:%02d", hour.wrappedValue, minute.wrappedValue))
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.textSecondary)
+            }
+            Stepper(value: minute, in: 0...59, step: 15) {
+                EmptyView()
+            }
+            .labelsHidden()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
     var profileCard: some View {

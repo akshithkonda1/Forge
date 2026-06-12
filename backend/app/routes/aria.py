@@ -153,6 +153,19 @@ def handle_post_aria_brief(user_id: str, body: dict[str, Any]) -> dict:
     }
     dynamodb.put_item(item)
 
+    if bool(body.get("deliverPush", body.get("push", False))):
+        from services import push_dispatch
+
+        push_dispatch.send_push_to_user(
+            user_id,
+            title=brief.get("title", "ARIA Brief"),
+            body=brief.get("notificationCopy") or brief.get("headline", ""),
+            data={
+                "briefFocus": brief.get("focus", "auto"),
+                "trainingDecision": brief.get("trainingDecision", ""),
+            },
+        )
+
     return ok(brief)
 
 

@@ -78,6 +78,9 @@ class ProductionReadinessTests(unittest.TestCase):
         self.assertEqual(payload["readiness"]["overall"], 0)
         self.assertEqual(payload["recentSleep"], [])
         self.assertEqual(payload["personalRecords"], [])
+        self.assertIn("dailyScores", payload)
+        self.assertIn("biologicalAge", payload)
+        self.assertIn("strain", payload["dailyScores"])
 
     def test_health_reports_degraded_until_fully_production_ready(self):
         with mock.patch("core.production_health.terra_config.is_configured", return_value=True):

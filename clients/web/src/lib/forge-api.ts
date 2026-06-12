@@ -32,6 +32,29 @@ export class ForgeAPIError extends Error {
   }
 }
 
+export interface DailyScoresPayload {
+  date: string;
+  strain: { score: number; trend: string; baselineLoad: number; todayLoad: number };
+  recovery: { score: number; hrv?: number; trend: string };
+  sleep: {
+    score: number;
+    sleepNeedMinutes: number;
+    totalSleepMinutes: number;
+    deepSleepMinutes: number;
+  };
+  trainingDecision: string;
+  cycleContext: Record<string, unknown>;
+  generatedAt: string;
+}
+
+export interface BiologicalAgePayload {
+  chronologicalAge: number;
+  biologicalAge: number;
+  deltaYears: number;
+  drivers: string[];
+  generatedAt: string;
+}
+
 export interface DashboardTodayResponse {
   profile: UserProfile;
   readiness: ReadinessData;
@@ -41,6 +64,8 @@ export interface DashboardTodayResponse {
   recentWorkouts: WorkoutHistory[];
   personalRecords: PersonalRecord[];
   connections: IntegrationConnection[];
+  dailyScores?: DailyScoresPayload;
+  biologicalAge?: BiologicalAgePayload;
 }
 
 export interface ProfileResponse {

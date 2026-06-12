@@ -104,3 +104,7 @@ def nutrition_water_key(user_id: str, date: str) -> dict:
 
 def habit_state_key(user_id: str, date: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": f"HABIT#STATE#{date}"}
+
+
+def push_device_key(user_id: str, token_hash: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"PUSH#IOS#{token_hash}"}

@@ -1,5 +1,13 @@
 import Foundation
+import UIKit
 import UserNotifications
+
+struct AppNotificationSettings: Codable, Equatable {
+    var workoutReminders: Bool = true
+    var recoveryAlerts: Bool = true
+    var weeklySummary: Bool = false
+    var lifestyleReminders: Bool = true
+}
 
 struct BriefNotificationSettings: Codable, Equatable {
     var enabled: Bool = true
@@ -14,13 +22,14 @@ enum BriefNotificationSlot: String {
     case evening = "forge.brief.evening"
 }
 
-/// Schedules proactive ARIA morning/evening local notifications.
+/// Schedules proactive ARIA morning/evening local notifications and handles remote APNs.
 @MainActor
 final class ForgeNotificationCoordinator: NSObject, UNUserNotificationCenterDelegate {
     static let shared = ForgeNotificationCoordinator()
 
     private let center = UNUserNotificationCenter.current()
     private var didConfigureDelegate = false
+    var onBriefNotificationTapped: ((String) -> Void)?
 
     private override init() {
         super.init()
@@ -30,6 +39,22 @@ final class ForgeNotificationCoordinator: NSObject, UNUserNotificationCenterDele
         guard !didConfigureDelegate else { return }
         center.delegate = self
         didConfigureDelegate = true
+    }
+
+    func registerForRemotePushIfNeeded() {
+        configure()
+        UIApplication.shared.registerForRemoteNotifications()
+    }
+
+    func handleDeviceToken(_ tokenData: Data) {
+        let token = tokenData.map { String(format: "%02x", $0) }.joined()
+        Task {
+            try? await ForgeRepository.shared.registerPushDevice(token: token)
+        }
+    }
+
+    func handleRemoteRegistrationFailure(_ error: Error) {
+        print("APNs registration failed: \(error.localizedDescription)")
     }
 
     func authorizationStatus() async -> UNAuthorizationStatus {
@@ -147,5 +172,40 @@ final class ForgeNotificationCoordinator: NSObject, UNUserNotificationCenterDele
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         completionHandler([.banner, .sound])
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let focus = response.notification.request.content.userInfo["briefFocus"] as? String
+        if let focus {
+            Task { @MainActor in
+                ForgeNotificationCoordinator.shared.onBriefNotificationTapped?(focus)
+            }
+        }
+        completionHandler()
+    }
+}
+
+/// Bridges UIApplicationDelegate callbacks into SwiftUI.
+final class ForgeAppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        Task { @MainActor in
+            ForgeNotificationCoordinator.shared.handleDeviceToken(deviceToken)
+        }
+    }
+
+    func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        Task { @MainActor in
+            ForgeNotificationCoordinator.shared.handleRemoteRegistrationFailure(error)
+        }
     }
 }

@@ -13,9 +13,10 @@ from data.seed_data import (
     today_iso,
 )
 from core.seed_policy import empty_profile, empty_readiness, empty_workout_plan, resolve
-from services import readiness as readiness_service
+from services import conclusions_store, readiness as readiness_service, scoring
+from services.biological_age import get_or_compute_biological_age
+from services.daily_scores import get_or_compute_daily_scores
 from services.metrics_snapshot import load_daily_metrics
-from services import scoring
 from storage import dynamodb, keys
 
 
@@ -70,6 +71,16 @@ def handle_get_dashboard_today(user_id: str) -> dict:
         else resolve(None, default_personal_records, list)
     )
 
+    target_date = today_iso()
+    conclusions = conclusions_store.get_or_refresh_conclusions(user_id)
+    compound_flags = conclusions.get("compoundFlags") or []
+    daily_scores = get_or_compute_daily_scores(
+        user_id, date=target_date, compound_flags=compound_flags
+    )
+    bio_age = get_or_compute_biological_age(
+        user_id, profile=profile, date=target_date
+    )
+
     return ok({
         "profile": profile,
         "readiness": readiness,
@@ -79,4 +90,6 @@ def handle_get_dashboard_today(user_id: str) -> dict:
         "recentWorkouts": recent_workouts,
         "personalRecords": personal_records,
         "connections": connections,
+        "dailyScores": daily_scores,
+        "biologicalAge": bio_age,
     })

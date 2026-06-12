@@ -186,6 +186,38 @@ export interface ChatMessage {
   richCard?: RichCard;
 }
 
+export interface DailyScoresPayload {
+  date: ISODate;
+  strain: {
+    score: number;
+    trend: string;
+    baselineLoad: number;
+    todayLoad: number;
+  };
+  recovery: {
+    score: number;
+    hrv?: number;
+    trend: string;
+  };
+  sleep: {
+    score: number;
+    sleepNeedMinutes: number;
+    totalSleepMinutes: number;
+    deepSleepMinutes: number;
+  };
+  trainingDecision: string;
+  cycleContext: Record<string, unknown>;
+  generatedAt: ISODateTime;
+}
+
+export interface BiologicalAgePayload {
+  chronologicalAge: number;
+  biologicalAge: number;
+  deltaYears: number;
+  drivers: string[];
+  generatedAt: ISODateTime;
+}
+
 export interface DashboardTodayResponse {
   profile: UserProfile;
   readiness: ReadinessData;
@@ -195,6 +227,20 @@ export interface DashboardTodayResponse {
   recentWorkouts: WorkoutHistory[];
   personalRecords: PersonalRecord[];
   connections: IntegrationConnection[];
+  dailyScores?: DailyScoresPayload;
+  biologicalAge?: BiologicalAgePayload;
+}
+
+export interface RegisterPushDeviceRequest {
+  token: string;
+  platform?: "ios";
+  bundleId?: string;
+}
+
+export interface RegisterPushDeviceResponse {
+  registered: boolean;
+  platform: string;
+  hasRemoteEndpoint: boolean;
 }
 
 export interface ProfileResponse {
@@ -547,6 +593,7 @@ export type ARIABriefFocus = "morning" | "evening" | "post-workout" | "midday" |
 export interface ARIABriefRequest {
   focus?: ARIABriefFocus;
   useLLM?: boolean;
+  deliverPush?: boolean;
 }
 
 export interface ARIABriefDailyScores {

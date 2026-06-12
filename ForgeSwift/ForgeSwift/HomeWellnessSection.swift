@@ -95,9 +95,15 @@ struct ARIABriefCard: View {
 
 // MARK: - Daily Trilogy (Strain / Recovery / Sleep)
 
+enum TrilogyMetric: String, Identifiable {
+    case strain, recovery, sleep
+    var id: String { rawValue }
+}
+
 struct DailyTrilogySection: View {
     @EnvironmentObject var store: AppStore
     @State private var appeared = false
+    @State private var selectedMetric: TrilogyMetric?
 
     private var scores: DailyScores? { store.dailyScores }
 
@@ -120,28 +126,38 @@ struct DailyTrilogySection: View {
             }
 
             HStack(spacing: 12) {
-                TrilogyRingCard(
-                    title: "Strain",
-                    score: scores?.strain.score ?? store.readiness.overall,
-                    color: Color(hex: "F97316"),
-                    icon: "bolt.fill",
-                    subtitle: scores?.strain.trend.capitalized ?? "—"
-                )
-                TrilogyRingCard(
-                    title: "Recovery",
-                    score: scores?.recovery.score ?? store.readiness.recoveryScore,
-                    color: Color(hex: "22C55E"),
-                    icon: "heart.fill",
-                    subtitle: scores?.recovery.hrv.map { "HRV \($0)ms" } ?? "—"
-                )
-                TrilogyRingCard(
-                    title: "Sleep",
-                    score: scores?.sleep.score ?? store.readiness.sleepQuality,
-                    color: Color(hex: "6366F1"),
-                    icon: "moon.zzz.fill",
-                    subtitle: sleepHoursLabel
-                )
+                trilogyButton(.strain) {
+                    TrilogyRingCard(
+                        title: "Strain",
+                        score: scores?.strain.score ?? store.readiness.overall,
+                        color: Color(hex: "F97316"),
+                        icon: "bolt.fill",
+                        subtitle: scores?.strain.trend.capitalized ?? "—"
+                    )
+                }
+                trilogyButton(.recovery) {
+                    TrilogyRingCard(
+                        title: "Recovery",
+                        score: scores?.recovery.score ?? store.readiness.recoveryScore,
+                        color: Color(hex: "22C55E"),
+                        icon: "heart.fill",
+                        subtitle: scores?.recovery.hrv.map { "HRV \($0)ms" } ?? "—"
+                    )
+                }
+                trilogyButton(.sleep) {
+                    TrilogyRingCard(
+                        title: "Sleep",
+                        score: scores?.sleep.score ?? store.readiness.sleepQuality,
+                        color: Color(hex: "6366F1"),
+                        icon: "moon.zzz.fill",
+                        subtitle: sleepHoursLabel
+                    )
+                }
             }
+
+            Text("Tap a ring for the breakdown")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.textMuted)
         }
         .padding(20)
         .background(Color.surface)
@@ -156,6 +172,21 @@ struct DailyTrilogySection: View {
         .onAppear {
             withAnimation(FDS.Spring.hero.delay(0.1)) { appeared = true }
         }
+        .sheet(item: $selectedMetric) { metric in
+            TrilogyDetailSheet(metric: metric)
+                .environmentObject(store)
+                .presentationDetents([.medium, .large])
+        }
+    }
+
+    private func trilogyButton<Content: View>(_ metric: TrilogyMetric, @ViewBuilder content: () -> Content) -> some View {
+        Button {
+            FDS.haptic(.light)
+            selectedMetric = metric
+        } label: {
+            content()
+        }
+        .buttonStyle(.plain)
     }
 
     private var sleepHoursLabel: String {
@@ -163,6 +194,194 @@ struct DailyTrilogySection: View {
         let h = minutes / 60
         let m = minutes % 60
         return m > 0 ? "\(h)h \(m)m" : "\(h)h"
+    }
+}
+
+struct TrilogyDetailSheet: View {
+    let metric: TrilogyMetric
+    @EnvironmentObject var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+
+    private var scores: DailyScores? { store.dailyScores }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    header
+                    ForEach(detailRows, id: \.0) { row in
+                        DetailRow(label: row.0, value: row.1, note: row.2)
+                    }
+                    if !explainLines.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("WHY THIS SCORE")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.textTertiary)
+                                .tracking(1.5)
+                            ForEach(explainLines, id: \.self) { line in
+                                Text("• \(line)")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.surfaceElevated)
+                        .cornerRadius(FDS.Radius.lg)
+                    }
+                    Button {
+                        dismiss()
+                        store.activeTab = .chat
+                    } label: {
+                        Label("Ask ARIA why", systemImage: "sparkles")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.ember)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.ember.opacity(0.12))
+                            .cornerRadius(FDS.Radius.lg)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(20)
+            }
+            .background(Color.background.ignoresSafeArea())
+            .navigationTitle(metricTitle)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(.ember)
+                }
+            }
+        }
+    }
+
+    private var metricTitle: String {
+        switch metric {
+        case .strain: return "Strain"
+        case .recovery: return "Recovery"
+        case .sleep: return "Sleep"
+        }
+    }
+
+    private var header: some View {
+        let score: Int = {
+            switch metric {
+            case .strain: return scores?.strain.score ?? store.readiness.overall
+            case .recovery: return scores?.recovery.score ?? store.readiness.recoveryScore
+            case .sleep: return scores?.sleep.score ?? store.readiness.sleepQuality
+            }
+        }()
+        return HStack(alignment: .lastTextBaseline, spacing: 8) {
+            Text("\(score)")
+                .font(.system(size: 48, weight: .black, design: .rounded))
+                .foregroundColor(.textPrimary)
+            Text("/ 100")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.textMuted)
+        }
+    }
+
+    private var detailRows: [(String, String, String?)] {
+        switch metric {
+        case .strain:
+            let strain = scores?.strain
+            return [
+                ("Today's load", "\(strain?.todayLoad ?? 0)", "Steps + calories + workout volume"),
+                ("Baseline", "\(strain?.baselineLoad ?? 0)", "Your recent training norm"),
+                ("Trend", (strain?.trend ?? "flat").capitalized, nil),
+                ("Steps", "\(store.dailyMetrics.steps)", nil),
+                ("Active calories", "\(store.dailyMetrics.activeCalories) kcal", nil),
+            ]
+        case .recovery:
+            let recovery = scores?.recovery
+            return [
+                ("HRV", recovery?.hrv.map { "\($0) ms" } ?? "—", "Higher HRV supports harder training"),
+                ("Trend", (recovery?.trend ?? "unknown").capitalized, nil),
+                ("Readiness", "\(store.readiness.overall)", "Composite recovery signal"),
+                ("Training decision", scores?.trainingDecision.label ?? "—", nil),
+            ]
+        case .sleep:
+            let sleep = scores?.sleep
+            return [
+                ("Total sleep", formatMinutes(sleep?.totalSleepMinutes ?? store.dailyMetrics.totalSleep), nil),
+                ("Deep sleep", formatMinutes(sleep?.deepSleepMinutes ?? store.dailyMetrics.deepSleep), nil),
+                ("Sleep need", formatMinutes(sleep?.sleepNeedMinutes ?? 0), "Debt-aware target"),
+                ("Last night score", "\(sleep?.score ?? store.readiness.sleepQuality)", nil),
+            ]
+        }
+    }
+
+    private var explainLines: [String] {
+        var lines: [String] = []
+        let flags = store.dataConclusions?.compoundFlags ?? []
+        switch metric {
+        case .strain:
+            if let strain = scores?.strain {
+                if strain.todayLoad > strain.baselineLoad {
+                    lines.append("Today's load is above your baseline — strain is elevated.")
+                } else {
+                    lines.append("Load is within your baseline band.")
+                }
+                if strain.trend == "rising" {
+                    lines.append("Training load trend is rising across recent sessions.")
+                }
+            }
+        case .recovery:
+            if flags.contains("recovery-debt-under-load") {
+                lines.append("Recovery debt is stacking under continued load.")
+            }
+            if let hrv = scores?.recovery.hrv, hrv < 40 {
+                lines.append("HRV is suppressed — prioritize down-regulation today.")
+            }
+            if scores?.cycleContext.recommendRecovery == true {
+                lines.append("Cycle context suggests a recovery bias.")
+            }
+        case .sleep:
+            if let sleep = scores?.sleep, sleep.totalSleepMinutes < sleep.sleepNeedMinutes {
+                lines.append("You're under your sleep need — score is discounted.")
+            }
+            if store.dailyMetrics.deepSleep < 60 {
+                lines.append("Deep sleep is light; quality component is reduced.")
+            }
+        }
+        return lines
+    }
+
+    private func formatMinutes(_ minutes: Int) -> String {
+        guard minutes > 0 else { return "—" }
+        let h = minutes / 60
+        let m = minutes % 60
+        if h > 0 && m > 0 { return "\(h)h \(m)m" }
+        if h > 0 { return "\(h)h" }
+        return "\(m)m"
+    }
+}
+
+private struct DetailRow: View {
+    let label: String
+    let value: String
+    let note: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(label)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.textSecondary)
+                Spacer()
+                Text(value)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.textPrimary)
+            }
+            if let note {
+                Text(note)
+                    .font(.system(size: 11))
+                    .foregroundColor(.textMuted)
+            }
+        }
     }
 }
 
@@ -483,6 +702,123 @@ struct CycleContextCard: View {
             RoundedRectangle(cornerRadius: FDS.Radius.lg)
                 .stroke(Color.white.opacity(0.06), lineWidth: 1)
         )
+    }
+}
+
+// MARK: - Home nutrition snapshot
+
+struct HomeNutritionSection: View {
+    @EnvironmentObject var store: AppStore
+    @State private var appeared = false
+
+    private var nutrition: LifestyleNutritionSnapshot? { store.nutritionSnapshot }
+    private var targetCal: Int { Int(nutrition?.targets.calories ?? 2600) }
+    private var currentCal: Int { Int(nutrition?.calories ?? 0) }
+    private var proteinTarget: Int { Int(nutrition?.targets.protein ?? 180) }
+    private var proteinCurrent: Int { Int(nutrition?.protein ?? 0) }
+    private var waterMl: Int { Int(nutrition?.waterMl ?? 0) }
+    private var waterGoal: Int { 2500 }
+
+    var body: some View {
+        Button {
+            FDS.haptic(.light)
+            store.pendingProfileSubTab = "Lifestyle"
+            store.activeTab = .profile
+        } label: {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("NUTRITION")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.textTertiary)
+                            .tracking(2)
+                        Text(hasData ? "Today's fuel" : "Log your first meal")
+                            .font(.system(size: 11))
+                            .foregroundColor(.textMuted)
+                    }
+                    Spacer()
+                    Image(systemName: "fork.knife")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.ember)
+                }
+
+                HStack(spacing: 16) {
+                    NutritionStatRing(
+                        label: "Calories",
+                        current: currentCal,
+                        target: targetCal,
+                        color: .ember
+                    )
+                    NutritionStatRing(
+                        label: "Protein",
+                        current: proteinCurrent,
+                        target: proteinTarget,
+                        color: Color(hex: "22C55E")
+                    )
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Water")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.textSecondary)
+                        Text("\(waterMl) ml")
+                            .font(.system(size: 18, weight: .black, design: .rounded))
+                            .foregroundColor(.textPrimary)
+                        ProgressView(value: min(Double(waterMl) / Double(waterGoal), 1))
+                            .tint(Color(hex: "38BDF8"))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(20)
+            .background(Color.surface)
+            .cornerRadius(FDS.Radius.xl)
+            .overlay(
+                RoundedRectangle(cornerRadius: FDS.Radius.xl)
+                    .stroke(Color.white.opacity(0.06), lineWidth: 1)
+            )
+            .forgeCardShadow()
+        }
+        .buttonStyle(.plain)
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 12)
+        .onAppear {
+            withAnimation(FDS.Spring.hero.delay(0.12)) { appeared = true }
+        }
+    }
+
+    private var hasData: Bool {
+        currentCal > 0 || proteinCurrent > 0 || waterMl > 0 || !(nutrition?.meals.isEmpty ?? true)
+    }
+}
+
+private struct NutritionStatRing: View {
+    let label: String
+    let current: Int
+    let target: Int
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .stroke(color.opacity(0.15), lineWidth: 5)
+                    .frame(width: 56, height: 56)
+                Circle()
+                    .trim(from: 0, to: target > 0 ? CGFloat(current) / CGFloat(target) : 0)
+                    .stroke(color, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    .frame(width: 56, height: 56)
+                    .rotationEffect(.degrees(-90))
+                Text("\(current)")
+                    .font(.system(size: 13, weight: .black, design: .rounded))
+                    .foregroundColor(.textPrimary)
+            }
+            Text(label)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.textSecondary)
+            Text("\(max(target - current, 0)) left")
+                .font(.system(size: 9))
+                .foregroundColor(.textMuted)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 

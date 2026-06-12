@@ -69,6 +69,10 @@ struct HomeView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 20)
 
+                        HomeNutritionSection()
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 20)
+
                         WellnessInsightsRow()
                             .padding(.horizontal, 16)
                             .padding(.bottom, 20)

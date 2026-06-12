@@ -11,7 +11,7 @@ from integrations.terra_self_integration import get_integration_state
 from core.ops_auth import require_ops_token
 from core.production_health import collect_readiness_checks, health_status, self_healing_summary
 from core.responses import RouteError, error_response, not_found, ok
-from routes import aria, chat, coach, dashboard, health, integrations, lifestyle, profile, progress, sleep, terra, workouts
+from routes import aria, chat, coach, dashboard, devices, health, integrations, lifestyle, profile, progress, sleep, terra, workouts
 
 
 def _raw_body(event: dict) -> str:
@@ -215,6 +215,15 @@ def handler(event, _context):
 
         if method == "POST" and path == "/health/cycle":
             return health.handle_post_health_cycle(user_id, body)
+
+        if method == "POST" and path == "/devices/push":
+            return devices.handle_post_device_push(user_id, body)
+
+        if method == "DELETE" and path == "/devices/push":
+            return devices.handle_delete_device_push(user_id, body)
+
+        if method == "GET" and path == "/devices/push":
+            return devices.handle_get_device_push(user_id)
 
         if method == "GET" and path == "/lifestyle/dashboard":
             return lifestyle.handle_get_lifestyle_dashboard(user_id, event)

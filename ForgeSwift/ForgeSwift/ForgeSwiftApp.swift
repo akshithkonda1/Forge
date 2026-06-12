@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct ForgeSwiftApp: App {
+    @UIApplicationDelegateAdaptor(ForgeAppDelegate.self) private var appDelegate
     @StateObject private var store = AppStore()
     @Environment(\.scenePhase) private var scenePhase
 
@@ -15,6 +16,14 @@ struct ForgeSwiftApp: App {
             ContentView()
                 .environmentObject(store)
                 .preferredColorScheme(.dark)
+                .onAppear {
+                    ForgeNotificationCoordinator.shared.onBriefNotificationTapped = { _ in
+                        store.activeTab = .chat
+                    }
+                    if store.briefNotificationsEnabled {
+                        ForgeNotificationCoordinator.shared.registerForRemotePushIfNeeded()
+                    }
+                }
                 .onOpenURL { url in
                     guard url.scheme == "forge", url.host == "device-connected" else { return }
                     Task {

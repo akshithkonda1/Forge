@@ -514,6 +514,8 @@ final class AppStore: ObservableObject {
     @Published var eveningBrief: ARIABrief?
     @Published var postWorkoutBrief: ARIABrief?
     @Published var briefNotificationsEnabled: Bool = ForgePersistence.loadBriefNotificationSettings().enabled
+    @Published var nutritionSnapshot: LifestyleNutritionSnapshot?
+    @Published var notificationSettings: AppNotificationSettings = ForgePersistence.loadAppNotificationSettings()
 
     /// Brief shown on Home — evening after 5pm, post-workout for 2h, else morning.
     var activeBrief: ARIABrief? {
@@ -599,6 +601,7 @@ final class AppStore: ObservableObject {
         dataLoadState = .loading
         do {
             async let dashboardTask = repository.fetchDashboard()
+            async let lifestyleTask = repository.fetchLifestyleDashboard()
             async let conversationTask = repository.fetchConversation()
             async let progressTask = repository.fetchProgressSummary(days: 30)
             async let insightsTask = repository.fetchInsights(days: 7)
@@ -607,6 +610,10 @@ final class AppStore: ObservableObject {
 
             let snapshot = try await dashboardTask
             applyDashboardSnapshot(snapshot)
+
+            if let lifestyle = try? await lifestyleTask {
+                nutritionSnapshot = lifestyle.nutrition
+            }
 
             if let conversation = try? await conversationTask, !conversation.isEmpty {
                 chatMessages = conversation
@@ -757,8 +764,9 @@ final class AppStore: ObservableObject {
     }
 
     func refreshProactiveBriefs(scheduleNotifications: Bool = false) async {
-        async let morningTask = repository.fetchARIABrief(focus: "morning")
-        async let eveningTask = repository.fetchARIABrief(focus: "evening")
+        let deliverPush = scheduleNotifications && briefNotificationsEnabled
+        async let morningTask = repository.fetchARIABrief(focus: "morning", deliverPush: deliverPush)
+        async let eveningTask = repository.fetchARIABrief(focus: "evening", deliverPush: deliverPush)
 
         if let morning = try? await morningTask {
             ariaBrief = morning
@@ -820,11 +828,31 @@ final class AppStore: ObservableObject {
         Task {
             if enabled {
                 await ForgeNotificationCoordinator.shared.requestAuthorizationIfNeeded()
+                ForgeNotificationCoordinator.shared.registerForRemotePushIfNeeded()
                 await refreshProactiveBriefs(scheduleNotifications: true)
             } else {
                 ForgeNotificationCoordinator.shared.cancelBriefNotifications()
             }
         }
+    }
+
+    func updateBriefNotificationSchedule(morningHour: Int, morningMinute: Int, eveningHour: Int, eveningMinute: Int) {
+        var settings = ForgePersistence.loadBriefNotificationSettings()
+        settings.morningHour = morningHour
+        settings.morningMinute = morningMinute
+        settings.eveningHour = eveningHour
+        settings.eveningMinute = eveningMinute
+        ForgePersistence.saveBriefNotificationSettings(settings)
+        Task {
+            if briefNotificationsEnabled {
+                await refreshProactiveBriefs(scheduleNotifications: true)
+            }
+        }
+    }
+
+    func updateNotificationSettings(_ settings: AppNotificationSettings) {
+        notificationSettings = settings
+        ForgePersistence.saveAppNotificationSettings(settings)
     }
 
     func refreshTodayWorkoutPlan() async {
