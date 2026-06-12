@@ -760,10 +760,7 @@ final class AppStore: ObservableObject {
         async let morningTask = repository.fetchARIABrief(focus: "morning")
         async let eveningTask = repository.fetchARIABrief(focus: "evening")
 
-        let morningResult = await Result { try await morningTask }
-        let eveningResult = await Result { try await eveningTask }
-
-        if case .success(let morning) = morningResult {
+        if let morning = try? await morningTask {
             ariaBrief = morning
         } else {
             ariaBrief = ARIABrief.localFallback(
@@ -774,7 +771,7 @@ final class AppStore: ObservableObject {
             )
         }
 
-        if case .success(let evening) = eveningResult {
+        if let evening = try? await eveningTask {
             eveningBrief = evening
         } else {
             eveningBrief = ARIABrief.localFallback(
