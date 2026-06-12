@@ -1304,12 +1304,16 @@ final class AppStore: ObservableObject {
         name: String? = nil,
         coachingStyle: CoachingStyle? = nil,
         fitnessGoals: [UserFitnessGoal]? = nil,
-        experienceLevel: ExperienceLevel? = nil
+        experienceLevel: ExperienceLevel? = nil,
+        age: Int? = nil,
+        weightKg: Double? = nil
     ) {
         if let name = name { userProfile.name = name }
         if let style = coachingStyle { userProfile.coachingStyle = style }
         if let goals = fitnessGoals { userProfile.fitnessGoals = goals }
         if let level = experienceLevel { userProfile.experienceLevel = level }
+        if let age = age { userProfile.age = age }
+        if let weightKg = weightKg { userProfile.weight = weightKg }
 
         Task {
             do {
