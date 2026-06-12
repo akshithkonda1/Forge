@@ -213,6 +213,9 @@ def handler(event, _context):
         if method == "POST" and path == "/health/batch":
             return health.handle_post_health_batch(user_id, body)
 
+        if method == "POST" and path == "/health/cycle":
+            return health.handle_post_health_cycle(user_id, body)
+
         if method == "GET" and path == "/lifestyle/dashboard":
             return lifestyle.handle_get_lifestyle_dashboard(user_id, event)
 

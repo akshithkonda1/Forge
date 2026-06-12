@@ -158,6 +158,7 @@ struct HomeView: View {
     func refreshData() async {
         FDS.haptic(.light)
         await store.refreshDailyData()
+        await store.refreshProactiveBriefs(scheduleNotifications: store.briefNotificationsEnabled)
         await store.refreshTodayWorkoutPlan()
         FDS.notificationHaptic(.success)
         if store.readiness.overall >= 85 { triggerCelebration() }
