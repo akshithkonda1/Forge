@@ -11,24 +11,33 @@ final class ForgeWatchWorkoutSessionManager: NSObject, ObservableObject {
     @Published private(set) var elapsedSeconds = 0
     @Published private(set) var workoutName = "Forge Workout"
     @Published private(set) var startedByPhone = false
+    @Published private(set) var lastError: String?
 
     private let healthStore = HKHealthStore()
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
     private var elapsedTask: Task<Void, Never>?
     private var spO2Query: HKAnchoredObjectQuery?
+    private var isStarting = false
 
     private override init() {
         super.init()
     }
 
     func startWorkout(name: String, fromPhone: Bool = false) async {
-        guard !isActive else { return }
+        // `isStarting` is latched synchronously before the first `await` so a
+        // concurrent trigger (phone command + view sync + user tap) can't pass
+        // the guard while this call is suspended and spawn a second session.
+        guard !isActive, !isStarting else { return }
         guard HKHealthStore.isHealthDataAvailable() else { return }
+        isStarting = true
+        defer { isStarting = false }
+        lastError = nil
 
         do {
             try await requestAuthorization()
         } catch {
+            lastError = "Health access needed to start a workout."
             return
         }
 
@@ -60,6 +69,7 @@ final class ForgeWatchWorkoutSessionManager: NSObject, ObservableObject {
             publishVitals()
             ForgeWatchConnectivityManager.shared.sendVitalsToPhone()
         } catch {
+            lastError = "Couldn't start the workout. Try again."
             cleanupSession()
         }
     }
@@ -81,6 +91,23 @@ final class ForgeWatchWorkoutSessionManager: NSObject, ObservableObject {
             }
         }
 
+        resetState()
+    }
+
+    /// Tears down a workout that failed mid-session so the UI doesn't stay stuck
+    /// "active", and surfaces the reason to the user.
+    private func handleSessionFailure(_ error: Error) {
+        guard isActive || isStarting else { return }
+        lastError = "Workout stopped: \(error.localizedDescription)"
+        resetState()
+    }
+
+    /// Stops all live streams and returns the manager to an idle state.
+    /// Shared by the normal end path and the failure path.
+    private func resetState() {
+        elapsedTask?.cancel()
+        elapsedTask = nil
+        stopSpO2Stream()
         cleanupSession()
         heartRate = 0
         spO2 = 0
@@ -192,7 +219,11 @@ extension ForgeWatchWorkoutSessionManager: HKWorkoutSessionDelegate {
         }
     }
 
-    nonisolated func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) {}
+    nonisolated func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) {
+        Task { @MainActor in
+            handleSessionFailure(error)
+        }
+    }
 }
 
 extension ForgeWatchWorkoutSessionManager: HKLiveWorkoutBuilderDelegate {
