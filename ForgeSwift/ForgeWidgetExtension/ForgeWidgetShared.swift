@@ -11,6 +11,7 @@ enum ForgeSharedData {
     private static let recoveryKey = "forge.scores.recovery"
     private static let sleepScoreKey = "forge.scores.sleep"
     private static let sleepNeedKey = "forge.scores.sleepNeed"
+    private static let briefHeadlineKey = "forge.brief.headline"
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: appGroupID)
@@ -46,5 +47,9 @@ enum ForgeSharedData {
 
     static var sleepNeedMinutes: Int {
         defaults?.integer(forKey: sleepNeedKey) ?? 0
+    }
+
+    static var briefHeadline: String {
+        defaults?.string(forKey: briefHeadlineKey) ?? ""
     }
 }

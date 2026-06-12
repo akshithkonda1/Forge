@@ -260,6 +260,22 @@ export const forgeAPI = {
       method: "POST",
       body: JSON.stringify({ focus }),
     }),
+  generateARIABrief: (
+    focus: "morning" | "evening" | "post-workout" | "midday" | "auto" = "auto",
+    useLLM = false,
+  ) =>
+    request<{
+      focus: string;
+      title: string;
+      headline: string;
+      body: string;
+      notificationCopy: string;
+      trainingDecision: string;
+      generatedAt: string;
+    }>("/aria/brief", {
+      method: "POST",
+      body: JSON.stringify({ focus, useLLM }),
+    }),
 };
 
 function mapRichCard(payload?: APIRichCardPayload): RichCard | undefined {

@@ -193,6 +193,32 @@ class ARIAChatTests(ARIATestBase):
         self.assertIn("coachingBrief", payload)
         self.assertIn("offlineTemplates", payload)
 
+    def test_post_brief_morning_returns_proactive_copy(self):
+        resp = handler(event("POST", "/aria/brief", {"focus": "morning"}), None)
+        self.assertEqual(resp["statusCode"], 200)
+        payload = body(resp)
+        self.assertEqual(payload["focus"], "morning")
+        self.assertIn("title", payload)
+        self.assertIn("headline", payload)
+        self.assertIn("body", payload)
+        self.assertIn("notificationCopy", payload)
+        self.assertIn("trainingDecision", payload)
+        self.assertIn("dailyScores", payload)
+        self.assertIn("generatedAt", payload)
+
+    def test_post_brief_evening_focus(self):
+        resp = handler(event("POST", "/aria/brief", {"focus": "evening"}), None)
+        self.assertEqual(resp["statusCode"], 200)
+        payload = body(resp)
+        self.assertEqual(payload["focus"], "evening")
+        self.assertTrue(payload["headline"])
+
+    def test_post_brief_post_workout_focus(self):
+        resp = handler(event("POST", "/aria/brief", {"focus": "post-workout"}), None)
+        payload = body(resp)
+        self.assertEqual(payload["focus"], "post-workout")
+        self.assertIn("strain", payload["headline"].lower())
+
     def test_chat_persists_messages_in_memory(self):
         handler(event("POST", "/aria/chat", {"content": "First message."}), None)
         handler(event("POST", "/aria/chat", {"content": "Second message."}), None)

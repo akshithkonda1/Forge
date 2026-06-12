@@ -58,6 +58,10 @@ def aria_conclusions_key(user_id: str, week_key: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": f"ARIA#CONCLUSIONS#{week_key}"}
 
 
+def aria_brief_key(user_id: str, date: str, focus: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"ARIA#BRIEF#{date}#{focus}"}
+
+
 def daily_scores_key(user_id: str, date: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": f"DAILY_SCORES#{date}"}
 

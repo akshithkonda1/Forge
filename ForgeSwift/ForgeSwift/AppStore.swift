@@ -510,6 +510,9 @@ final class AppStore: ObservableObject {
     @Published var dailyScores: DailyScores?
     @Published var biologicalAge: BiologicalAge?
     @Published var cycleEvents: [CycleEvent] = []
+    @Published var ariaBrief: ARIABrief?
+    @Published var eveningBrief: ARIABrief?
+    @Published var briefNotificationsEnabled: Bool = ForgePersistence.loadBriefNotificationSettings().enabled
 
     // Today's Workout
     @Published var todayWorkout: WorkoutPlan?
@@ -614,6 +617,7 @@ final class AppStore: ObservableObject {
 
             await syncHealthKitIfAvailable()
             await refreshCloudConclusions()
+            await refreshProactiveBriefs(scheduleNotifications: true)
             ForgeSharedData.syncFromStore(self)
             dataLoadState = .loaded
         } catch {
@@ -737,6 +741,52 @@ final class AppStore: ObservableObject {
             refreshWellnessScores()
         } else {
             refreshLocalConclusions()
+        }
+    }
+
+    func refreshProactiveBriefs(scheduleNotifications: Bool = false) async {
+        async let morningTask = repository.fetchARIABrief(focus: "morning")
+        async let eveningTask = repository.fetchARIABrief(focus: "evening")
+
+        if let morning = try? await morningTask {
+            ariaBrief = morning
+        }
+        if let evening = try? await eveningTask {
+            eveningBrief = evening
+        }
+
+        if scheduleNotifications, briefNotificationsEnabled {
+            let settings = ForgePersistence.loadBriefNotificationSettings()
+            await ForgeNotificationCoordinator.shared.scheduleProactiveBriefs(
+                morning: ariaBrief,
+                evening: eveningBrief,
+                settings: settings
+            )
+        }
+        ForgeSharedData.syncFromStore(self)
+    }
+
+    func refreshPostWorkoutBrief(deliverNotification: Bool = true) async {
+        guard let brief = try? await repository.fetchARIABrief(focus: "post-workout") else { return }
+        ariaBrief = brief
+        ForgeSharedData.syncFromStore(self)
+        if deliverNotification, briefNotificationsEnabled {
+            await ForgeNotificationCoordinator.shared.deliverImmediateBrief(brief)
+        }
+    }
+
+    func setBriefNotificationsEnabled(_ enabled: Bool) {
+        briefNotificationsEnabled = enabled
+        var settings = ForgePersistence.loadBriefNotificationSettings()
+        settings.enabled = enabled
+        ForgePersistence.saveBriefNotificationSettings(settings)
+        Task {
+            if enabled {
+                await ForgeNotificationCoordinator.shared.requestAuthorizationIfNeeded()
+                await refreshProactiveBriefs(scheduleNotifications: true)
+            } else {
+                await ForgeNotificationCoordinator.shared.cancelBriefNotifications()
+            }
         }
     }
 
@@ -895,6 +945,8 @@ final class AppStore: ObservableObject {
         biologicalAge = nil
         cycleEvents = []
         dataConclusions = nil
+        ariaBrief = nil
+        eveningBrief = nil
         hasServerReadiness = false
     }
 
@@ -969,6 +1021,8 @@ final class AppStore: ObservableObject {
         currentStreak = calculateWorkoutStreak(from: workoutHistory)
 
         Task {
+            refreshWellnessScores()
+            await refreshPostWorkoutBrief(deliverNotification: briefNotificationsEnabled)
             do {
                 try await repository.logWorkout(
                     workout,
@@ -1220,6 +1274,8 @@ final class AppStore: ObservableObject {
                     )
                 }
                 await loadDashboardFromAPI()
+                await ForgeNotificationCoordinator.shared.requestAuthorizationIfNeeded()
+                await refreshProactiveBriefs(scheduleNotifications: true)
             } catch {
                 dataLoadState = .error(Self.userFacingAPIError(error))
                 print("Failed to persist onboarding profile: \(error)")

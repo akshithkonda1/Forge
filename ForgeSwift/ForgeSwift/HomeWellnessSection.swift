@@ -1,5 +1,88 @@
 import SwiftUI
 
+// MARK: - Proactive ARIA Brief
+
+struct ARIABriefCard: View {
+    @EnvironmentObject var store: AppStore
+    @State private var appeared = false
+
+    private var brief: ARIABrief? { store.ariaBrief }
+
+    var body: some View {
+        Group {
+            if let brief {
+                Button {
+                    FDS.haptic(.light)
+                    store.activeTab = .chat
+                } label: {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "bell.badge.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.ember)
+                            Text(brief.title.uppercased())
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.textTertiary)
+                                .tracking(1.5)
+                            Spacer()
+                            Text(brief.focus == .evening ? "PM" : "AM")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.ember)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.ember.opacity(0.12))
+                                .cornerRadius(FDS.Radius.pill)
+                        }
+
+                        Text(brief.headline)
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text(brief.body)
+                            .font(.system(size: 14))
+                            .foregroundColor(.textSecondary)
+                            .lineSpacing(4)
+                            .lineLimit(4)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        HStack(spacing: 6) {
+                            Image(systemName: brief.trainingDecision.icon)
+                            Text(brief.trainingDecision.label)
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundColor(.ember)
+                    }
+                    .padding(18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        ZStack {
+                            Color.surface
+                            LinearGradient(
+                                colors: [Color.ember.opacity(0.07), .clear],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        }
+                    )
+                    .cornerRadius(FDS.Radius.xl)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FDS.Radius.xl)
+                            .stroke(Color.ember.opacity(0.22), lineWidth: 1)
+                    )
+                    .forgeCardShadow()
+                }
+                .buttonStyle(.plain)
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 10)
+                .onAppear {
+                    withAnimation(FDS.Spring.hero.delay(0.08)) { appeared = true }
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Daily Trilogy (Strain / Recovery / Sleep)
 
 struct DailyTrilogySection: View {

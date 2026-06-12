@@ -542,6 +542,38 @@ export interface ARIAConclusionsResponse {
   retrievedAt: ISODateTime;
 }
 
+export type ARIABriefFocus = "morning" | "evening" | "post-workout" | "midday" | "auto";
+
+export interface ARIABriefRequest {
+  focus?: ARIABriefFocus;
+  useLLM?: boolean;
+}
+
+export interface ARIABriefDailyScores {
+  date?: ISODate;
+  strain?: { score: number; trend?: string };
+  recovery?: { score: number; hrv?: number; trend?: string };
+  sleep?: { score: number; sleepNeedMinutes?: number };
+  trainingDecision?: string;
+  cycleContext?: Record<string, unknown>;
+}
+
+export interface ARIABriefResponse {
+  focus: ARIABriefFocus;
+  title: string;
+  headline: string;
+  body: string;
+  notificationCopy: string;
+  trainingDecision: string;
+  dailyScores?: ARIABriefDailyScores;
+  compoundFlags: string[];
+  coachingBrief?: string;
+  coveragePct?: number;
+  generatedAt: ISODateTime;
+  llmEnhanced?: boolean;
+  model?: string;
+}
+
 export interface DeleteAccountResponse {
   deleted: boolean;
   userId: string;

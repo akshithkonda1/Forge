@@ -14,11 +14,12 @@ struct ReadinessEntry: TimelineEntry {
     let recovery: Int
     let sleep: Int
     let sleepNeed: Int
+    let briefHeadline: String
 }
 
 struct ReadinessProvider: TimelineProvider {
     func placeholder(in context: Context) -> ReadinessEntry {
-        ReadinessEntry(date: Date(), readiness: 82, workoutName: "Upper Body Power", hrv: 52, streak: 5, strain: 58, recovery: 79, sleep: 88, sleepNeed: 45)
+        ReadinessEntry(date: Date(), readiness: 82, workoutName: "Upper Body Power", hrv: 52, streak: 5, strain: 58, recovery: 79, sleep: 88, sleepNeed: 45, briefHeadline: "Trilogy green light — strain 58, recovery 79, sleep 88.")
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ReadinessEntry) -> Void) {
@@ -41,7 +42,8 @@ struct ReadinessProvider: TimelineProvider {
             strain: ForgeSharedData.strainScore,
             recovery: ForgeSharedData.recoveryScore,
             sleep: ForgeSharedData.sleepScore,
-            sleepNeed: ForgeSharedData.sleepNeedMinutes
+            sleepNeed: ForgeSharedData.sleepNeedMinutes,
+            briefHeadline: ForgeSharedData.briefHeadline
         )
     }
 }
@@ -72,7 +74,12 @@ struct ReadinessWidgetView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.white.opacity(0.85))
                     .lineLimit(1)
-                if entry.sleepNeed > 0 {
+                if !entry.briefHeadline.isEmpty {
+                    Text(entry.briefHeadline)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.55))
+                        .lineLimit(2)
+                } else if entry.sleepNeed > 0 {
                     Text("Sleep need \(entry.sleepNeed)m")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(.white.opacity(0.5))

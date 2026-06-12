@@ -57,6 +57,10 @@ struct HomeView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 20)
 
+                        ARIABriefCard()
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 20)
+
                         DailyTrilogySection()
                             .padding(.horizontal, 16)
                             .padding(.bottom, 20)

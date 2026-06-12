@@ -14,6 +14,8 @@ enum ForgeSharedData {
     private static let sleepScoreKey = "forge.scores.sleep"
     private static let sleepNeedKey = "forge.scores.sleepNeed"
     private static let trainingDecisionKey = "forge.scores.trainingDecision"
+    private static let briefHeadlineKey = "forge.brief.headline"
+    private static let briefTitleKey = "forge.brief.title"
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: appGroupID) ?? UserDefaults.standard
@@ -32,6 +34,10 @@ enum ForgeSharedData {
             defaults.set(scores.sleep.score, forKey: sleepScoreKey)
             defaults.set(scores.sleep.sleepNeedMinutes, forKey: sleepNeedKey)
             defaults.set(scores.trainingDecision.rawValue, forKey: trainingDecisionKey)
+        }
+        if let brief = store.ariaBrief {
+            defaults.set(brief.headline, forKey: briefHeadlineKey)
+            defaults.set(brief.title, forKey: briefTitleKey)
         }
         defaults.set(Date().timeIntervalSince1970, forKey: lastSyncedKey)
         WidgetCenter.shared.reloadAllTimelines()
@@ -76,5 +82,13 @@ enum ForgeSharedData {
 
     static var trainingDecision: String {
         defaults?.string(forKey: trainingDecisionKey) ?? "active_rest"
+    }
+
+    static var briefHeadline: String {
+        defaults?.string(forKey: briefHeadlineKey) ?? ""
+    }
+
+    static var briefTitle: String {
+        defaults?.string(forKey: briefTitleKey) ?? "ARIA Brief"
     }
 }

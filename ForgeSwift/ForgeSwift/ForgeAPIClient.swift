@@ -254,6 +254,17 @@ struct ARIAConclusionsResponse: Decodable {
     let retrievedAt: String
 }
 
+struct ARIABriefResponse: Decodable {
+    let focus: String
+    let title: String
+    let headline: String
+    let body: String
+    let notificationCopy: String
+    let trainingDecision: String
+    let compoundFlags: [String]?
+    let generatedAt: String
+}
+
 struct ARIAPlanResponse: Decodable {
     let focus: String
     let plan: String
@@ -537,6 +548,18 @@ final class ForgeAPIClient {
 
     func getARIAConclusions() async throws -> ARIAConclusionsResponse {
         try await request(path: "/aria/conclusions")
+    }
+
+    func postARIABrief(focus: String = "auto", useLLM: Bool = false) async throws -> ARIABriefResponse {
+        struct Body: Encodable {
+            let focus: String
+            let useLLM: Bool
+        }
+        return try await request(
+            path: "/aria/brief",
+            method: "POST",
+            body: Body(focus: focus, useLLM: useLLM)
+        )
     }
 
     func deleteARIAConversation(threadId: String = "current") async throws {

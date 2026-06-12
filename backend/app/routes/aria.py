@@ -9,6 +9,7 @@ Routes:
   POST /aria/insights/generate   – Generate proactive coaching insights
   GET  /aria/insights            – Retrieve stored insights
   GET  /aria/conclusions         – Deterministic data conclusions + offline templates
+  POST /aria/brief               – Proactive morning/evening/post-workout coaching brief
   GET  /aria/conversation        – Retrieve ARIA conversation history
   DELETE /aria/conversation      – Reset ARIA conversation
 """
@@ -21,8 +22,9 @@ from ai import aria_memory
 from ai.aria_agent import ARIAError, get_agent
 from ai.aria_tools import ARIA_TOOLS
 from core.responses import RouteError, ok
-from services import aria_enrichment, coach_context, conclusions_store
+from services import aria_brief, aria_enrichment, coach_context, conclusions_store
 from services.aria_pipeline import PipelineIncompleteError, run_four_turn_pipeline
+from storage import dynamodb, keys
 
 
 def _now_iso() -> str:
@@ -108,6 +110,50 @@ def _pipeline_or_template(
                 "pipelineIncomplete": True,
             }
         raise RouteError(exc.status_code, exc.message) from exc
+
+
+def handle_post_aria_brief(user_id: str, body: dict[str, Any]) -> dict:
+    focus = str(body.get("focus") or "auto").lower()
+    valid = {"morning", "evening", "post-workout", "auto", "midday"}
+    if focus not in valid:
+        focus = "auto"
+
+    use_llm = bool(body.get("useLLM", body.get("use_llm", False)))
+    brief = aria_brief.build_proactive_brief(user_id, focus=focus)
+
+    if use_llm:
+        conclusions = _load_conclusions(user_id)
+        profile_context = _build_user_context(user_id)
+        prompt = (
+            f"Write a proactive {brief['focus']} coaching brief in 2-3 sentences. "
+            f"Headline: {brief['headline']}. Facts: {brief['body']}"
+        )
+        try:
+            result = run_four_turn_pipeline(
+                user_message=prompt,
+                conclusions=conclusions,
+                profile_context=profile_context,
+                mode="dashboard",
+            )
+            if result.get("answer"):
+                brief["body"] = result["answer"]
+                brief["notificationCopy"] = aria_brief.notification_copy(
+                    brief["headline"],
+                    brief["body"],
+                )
+                brief["llmEnhanced"] = True
+                brief["model"] = result.get("model")
+        except (PipelineIncompleteError, ARIAError):
+            brief["llmEnhanced"] = False
+
+    item = {
+        **keys.aria_brief_key(user_id, brief.get("dailyScores", {}).get("date", "")[:10] or _now_iso()[:10], brief["focus"]),
+        **{k: v for k, v in brief.items() if k != "dailyScores"},
+        "dailyScoresDate": (brief.get("dailyScores") or {}).get("date"),
+    }
+    dynamodb.put_item(item)
+
+    return ok(brief)
 
 
 def handle_get_aria_conclusions(user_id: str) -> dict:

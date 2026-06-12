@@ -285,6 +285,9 @@ def handler(event, _context):
         if method == "GET" and path == "/aria/conclusions":
             return aria.handle_get_aria_conclusions(user_id)
 
+        if method == "POST" and path == "/aria/brief":
+            return aria.handle_post_aria_brief(user_id, body)
+
         if method == "GET" and path == "/aria/conversation":
             thread_id = (event.get("queryStringParameters") or {}).get("threadId", "current")
             return aria.handle_get_aria_conversation(user_id, thread_id)

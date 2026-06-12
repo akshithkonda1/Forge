@@ -6,6 +6,7 @@ struct ForgeSwiftApp: App {
 
     init() {
         ForgePhoneWatchConnectivity.shared.activate()
+        ForgeNotificationCoordinator.shared.configure()
     }
 
     var body: some Scene {

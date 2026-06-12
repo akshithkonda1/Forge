@@ -62,6 +62,11 @@ final class ForgeRepository: ObservableObject {
         return dashboard.todayWorkout.map(mapWorkoutPlan)
     }
 
+    func fetchARIABrief(focus: String = "auto") async throws -> ARIABrief {
+        let response = try await api.postARIABrief(focus: focus)
+        return mapARIABrief(response)
+    }
+
     func fetchConclusions() async throws -> DataConclusions {
         let response = try await api.getARIAConclusions()
         return DataConclusions(
@@ -435,6 +440,19 @@ private func mapRestaurant(_ restaurant: APIRestaurant) -> LifestyleRestaurant {
                 isHealthy: $0.isHealthy
             )
         }
+    )
+}
+
+private func mapARIABrief(_ response: ARIABriefResponse) -> ARIABrief {
+    ARIABrief(
+        focus: ARIABriefFocus(rawValue: response.focus) ?? .auto,
+        title: response.title,
+        headline: response.headline,
+        body: response.body,
+        notificationCopy: response.notificationCopy,
+        trainingDecision: TrainingDecision(rawValue: response.trainingDecision) ?? .activeRest,
+        compoundFlags: response.compoundFlags ?? [],
+        generatedAt: ISO8601DateFormatter().date(from: response.generatedAt) ?? Date()
     )
 }
 
