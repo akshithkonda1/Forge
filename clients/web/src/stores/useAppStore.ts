@@ -393,16 +393,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   refreshTodayWorkoutPlan: async () => {
     set({ isRefreshingPlan: true });
     try {
-      const coach = await forgeAPI.fetchCoachWorkoutPlan();
-      if (coach.todayPlan) {
-        set({
-          todayWorkout: coach.todayPlan,
-          isRefreshingPlan: false,
-          dataLoadError: null,
-        });
-        return;
-      }
-
       const aria = await forgeAPI.generateARIAPlan("workout");
       set({
         isRefreshingPlan: false,

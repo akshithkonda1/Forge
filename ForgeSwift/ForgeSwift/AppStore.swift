@@ -506,6 +506,7 @@ final class AppStore: ObservableObject {
     // Readiness & Metrics
     @Published var readiness: ReadinessData = emptyReadiness
     @Published var dailyMetrics: DailyMetrics = emptyMetrics
+    @Published var dataConclusions: DataConclusions?
 
     // Today's Workout
     @Published var todayWorkout: WorkoutPlan?
@@ -690,6 +691,7 @@ final class AppStore: ObservableObject {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         await HealthKitManager.shared.fetchWeeklyTrends()
         weeklyHealthTrends = HealthKitManager.shared.weeklyTrends
+        await HealthSyncCoordinator.shared.syncAll()
 
         let snapshot = await HealthKitManager.shared.fetchRecentSnapshot()
         updateMetrics(
@@ -699,19 +701,28 @@ final class AppStore: ObservableObject {
             restingHR: snapshot?.restingHeartRate
         )
 
-        do {
-            try await repository.syncHealthMetrics(
-                steps: snapshot?.steps,
-                activeCalories: snapshot?.activeCalories,
-                hrv: snapshot?.hrv.map { Int($0.rounded()) } ?? dailyMetrics.hrv,
-                restingHR: snapshot?.restingHeartRate
-            )
-            if let refreshed = try? await repository.fetchDashboard() {
-                applyDashboardSnapshot(refreshed)
-                ForgeSharedData.syncFromStore(self)
-            }
-        } catch {
-            print("HealthKit sync failed: \(error)")
+        refreshLocalConclusions()
+
+        if let refreshed = try? await repository.fetchDashboard() {
+            applyDashboardSnapshot(refreshed)
+            ForgeSharedData.syncFromStore(self)
+        }
+    }
+
+    func refreshLocalConclusions() {
+        dataConclusions = ConclusionsEngine.evaluate(
+            readiness: readiness,
+            dailyMetrics: dailyMetrics,
+            sleepData: sleepData,
+            workoutHistory: workoutHistory
+        )
+    }
+
+    func refreshCloudConclusions() async {
+        if let remote = try? await repository.fetchConclusions() {
+            dataConclusions = remote
+        } else {
+            refreshLocalConclusions()
         }
     }
 
@@ -947,32 +958,23 @@ final class AppStore: ObservableObject {
             chatMessages.append(trainerMessage)
             lastARIAToolCalls = result.toolCalls
         } catch {
-            #if DEBUG
-            do {
-                let context = TrainerContext(
-                    userProfile: userProfile,
+            let fallback = dataConclusions?.offlineTemplates.chat
+                ?? ConclusionsEngine.evaluate(
                     readiness: readiness,
                     dailyMetrics: dailyMetrics,
                     sleepData: sleepData,
-                    workoutHistory: workoutHistory,
-                    currentTime: Date(),
-                    conversationHistory: chatMessages
-                )
-                let response = try await responseGenerator.generateResponse(for: text, context: context)
-                let trainerMessage = ChatMessage(
+                    workoutHistory: workoutHistory
+                ).offlineTemplates.chat
+            if fallback.isEmpty {
+                appendChatUnavailableMessage()
+            } else {
+                chatMessages.append(ChatMessage(
                     id: UUID().uuidString,
                     role: .trainer,
-                    content: response.content,
-                    timestamp: Date(),
-                    richCard: response.richCard
-                )
-                chatMessages.append(trainerMessage)
-            } catch {
-                appendChatUnavailableMessage()
+                    content: fallback,
+                    timestamp: Date()
+                ))
             }
-            #else
-            appendChatUnavailableMessage()
-            #endif
             print("Error generating AI response: \(error)")
         }
 

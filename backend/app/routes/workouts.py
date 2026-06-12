@@ -5,7 +5,7 @@ from typing import Any
 from core.responses import RouteError, ok
 from data.seed_data import default_personal_records, default_workout, default_workout_history, today_iso
 from core.seed_policy import empty_workout_plan, resolve
-from services import scoring
+from services import conclusions_store, scoring
 from storage import dynamodb, keys
 
 
@@ -51,4 +51,8 @@ def handle_post_workout_log(user_id: str, body: dict) -> dict:
 
     item = {**keys.workout_log_key(user_id, started_at), **log}
     dynamodb.put_item(item)
+    try:
+        conclusions_store.refresh_conclusions(user_id)
+    except Exception:
+        pass
     return ok({"workout": log})

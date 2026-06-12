@@ -57,8 +57,30 @@ final class ForgeRepository: ObservableObject {
     }
 
     func refreshCoachWorkoutPlan() async throws -> WorkoutPlan? {
-        let response = try await api.fetchCoachWorkoutPlan()
-        return response.todayPlan.map(mapWorkoutPlan)
+        _ = try await api.generateARIAPlan(focus: "workout")
+        let dashboard = try await api.getDashboardToday()
+        return dashboard.todayWorkout.map(mapWorkoutPlan)
+    }
+
+    func fetchConclusions() async throws -> DataConclusions {
+        let response = try await api.getARIAConclusions()
+        return DataConclusions(
+            generatedAt: ISO8601DateFormatter().date(from: response.retrievedAt) ?? Date(),
+            coveragePct: response.coveragePct ?? 0,
+            coachingBrief: response.coachingBrief ?? "",
+            compoundFlags: response.compoundFlags ?? [],
+            offlineTemplates: OfflineTemplates(
+                chat: response.offlineTemplates?.chat ?? response.coachingBrief ?? "",
+                dashboard: response.offlineTemplates?.dashboard ?? "",
+                mood: response.offlineTemplates?.mood ?? "steady",
+                widget: response.offlineTemplates?.widget ?? ""
+            ),
+            readinessOverall: response.conclusions?.readiness?.overall ?? 0
+        )
+    }
+
+    func clearARIAConversation() async throws {
+        try await api.deleteARIAConversation()
     }
 
     func sendVoiceTranscript(_ transcript: String) async throws -> String {
@@ -218,7 +240,8 @@ final class ForgeRepository: ObservableObject {
         steps: Int?,
         activeCalories: Int?,
         hrv: Int?,
-        restingHR: Int?
+        restingHR: Int?,
+        oxygenSaturation: Int? = nil
     ) async throws {
         var metrics: [HealthMetricInput] = []
         let now = ISO8601DateFormatter().string(from: Date())
@@ -235,9 +258,20 @@ final class ForgeRepository: ObservableObject {
         if let restingHR {
             metrics.append(.init(source: "apple-health", metricType: "resting-heart-rate", startedAt: now, endedAt: nil, value: Double(restingHR), unit: "bpm"))
         }
+        if let oxygenSaturation {
+            metrics.append(.init(source: "apple-health", metricType: "oxygen-saturation", startedAt: now, endedAt: nil, value: Double(oxygenSaturation), unit: "percent"))
+        }
 
         guard !metrics.isEmpty else { return }
         try await api.syncHealthBatch(metrics)
+    }
+
+    func syncSleepSession(_ session: SleepSessionUpload) async throws {
+        try await api.postSleepSession(session)
+    }
+
+    func syncWorkoutLog(_ workout: WorkoutLogUpload) async throws {
+        try await api.postWorkoutLog(workout)
     }
 }
 

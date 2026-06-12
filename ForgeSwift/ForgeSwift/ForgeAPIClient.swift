@@ -176,6 +176,29 @@ struct ARIAChatResponse: Decodable {
     let threadId: String
     let message: APIChatMessage
     let toolCallsMade: [String]?
+    let pipelineIncomplete: Bool?
+    let offlineTemplate: Bool?
+    let coachingBrief: String?
+}
+
+struct ARIAOfflineTemplates: Decodable {
+    let chat: String?
+    let dashboard: String?
+    let mood: String?
+    let widget: String?
+}
+
+struct ARIAConclusionsPayload: Decodable {
+    let readiness: APIReadinessData?
+}
+
+struct ARIAConclusionsResponse: Decodable {
+    let conclusions: ARIAConclusionsPayload?
+    let coveragePct: Double?
+    let coachingBrief: String?
+    let compoundFlags: [String]?
+    let offlineTemplates: ARIAOfflineTemplates?
+    let retrievedAt: String
 }
 
 struct ARIAPlanResponse: Decodable {
@@ -441,8 +464,25 @@ final class ForgeAPIClient {
         )
     }
 
-    func sendARIAChat(content: String) async throws -> ARIAChatResponse {
-        try await request(path: "/aria/chat", method: "POST", body: ["content": content])
+    func sendARIAChat(content: String, useTools: Bool = false) async throws -> ARIAChatResponse {
+        try await request(
+            path: "/aria/chat",
+            method: "POST",
+            body: ["content": content, "useTools": useTools]
+        )
+    }
+
+    func getARIAConclusions() async throws -> ARIAConclusionsResponse {
+        try await request(path: "/aria/conclusions")
+    }
+
+    func deleteARIAConversation(threadId: String = "current") async throws {
+        struct Response: Decodable { let cleared: Bool }
+        let _: Response = try await request(
+            path: "/aria/conversation",
+            method: "DELETE",
+            query: ["threadId": threadId]
+        )
     }
 
     func generateARIAPlan(focus: String = "auto") async throws -> ARIAPlanResponse {
@@ -453,9 +493,16 @@ final class ForgeAPIClient {
         try await request(path: "/aria/lifestyle", method: "POST", body: ["focus": focus])
     }
 
-    func fetchCoachWorkoutPlan() async throws -> CoachWorkoutPlanResponse {
-        struct EmptyBody: Encodable {}
-        return try await request(path: "/coach/workout-plan", method: "POST", body: EmptyBody())
+    func postSleepSession(_ session: SleepSessionUpload) async throws {
+        struct Body: Encodable { let session: SleepSessionUpload }
+        struct Response: Decodable { let session: SleepSessionUpload }
+        let _: Response = try await request(path: "/sleep/sessions", method: "POST", body: Body(session: session))
+    }
+
+    func postWorkoutLog(_ workout: WorkoutLogUpload) async throws {
+        struct Body: Encodable { let workout: WorkoutLogUpload }
+        struct Response: Decodable { let workout: WorkoutLogUpload }
+        let _: Response = try await request(path: "/workouts/logs", method: "POST", body: Body(workout: workout))
     }
 
     func sendARIAVoice(transcript: String) async throws -> ARIAVoiceResponse {

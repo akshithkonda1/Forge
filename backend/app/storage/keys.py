@@ -54,6 +54,10 @@ def aria_summary_key(user_id: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": "ARIA#SUMMARY"}
 
 
+def aria_conclusions_key(user_id: str, week_key: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"ARIA#CONCLUSIONS#{week_key}"}
+
+
 def terra_user_key(terra_user_id: str) -> dict:
     return {"pk": f"TERRA#USER#{terra_user_id}", "sk": "MAPPING"}
 

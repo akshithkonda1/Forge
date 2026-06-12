@@ -113,6 +113,21 @@ class StubARIAAgent:
         self.voice_calls.append({"transcript": transcript})
         return dict(self._voice_response)
 
+    def _one_turn(self, model, messages, tools, max_tokens, **kwargs):
+        return {
+            "content": [{"type": "text", "text": "Stub pipeline answer."}],
+            "usage": {"inputTokens": 10, "outputTokens": 5, "cacheReadTokens": 0, "cacheCreationTokens": 0},
+            "stop_reason": "end_turn",
+        }
+
+    @staticmethod
+    def _extract_text(content):
+        return "\n".join(
+            block.get("text", "")
+            for block in content
+            if isinstance(block, dict) and block.get("type") == "text"
+        ).strip()
+
 
 # ---------------------------------------------------------------------------
 # Base test class
@@ -139,7 +154,7 @@ class ARIAChatTests(ARIATestBase):
         self.assertEqual(resp["statusCode"], 200)
         payload = body(resp)
         self.assertEqual(payload["message"]["role"], "trainer")
-        self.assertEqual(payload["message"]["content"], "Stub ARIA answer.")
+        self.assertEqual(payload["message"]["content"], "Stub pipeline answer.")
         self.assertIsNotNone(payload["message"]["timestamp"])
         self.assertEqual(payload["threadId"], "current")
 
@@ -152,25 +167,38 @@ class ARIAChatTests(ARIATestBase):
         self.assertEqual(resp["statusCode"], 400)
 
     def test_chat_includes_tool_calls_made(self):
-        resp = handler(event("POST", "/aria/chat", {"content": "Check my readiness."}), None)
+        resp = handler(event("POST", "/aria/chat", {"content": "Check my readiness.", "useTools": True}), None)
         payload = body(resp)
-        self.assertIsInstance(payload["toolCallsMade"], list)
-        self.assertEqual(payload["toolCallsMade"][0]["tool"], "get_health_snapshot")
+        self.assertEqual(payload["toolCallsMade"], ["get_health_snapshot"])
+        self.assertEqual(payload["toolCallDetails"][0]["tool"], "get_health_snapshot")
+        self.assertEqual(payload["message"]["toolCallsMade"], ["get_health_snapshot"])
+
+    def test_chat_attaches_rich_card_when_tools_used(self):
+        resp = handler(event("POST", "/aria/chat", {"content": "How is my sleep?", "useTools": True}), None)
+        payload = body(resp)
+        self.assertIn("richCard", payload["message"])
+        self.assertEqual(payload["message"]["richCard"]["type"], "data-chart")
 
     def test_chat_includes_model_and_usage(self):
         resp = handler(event("POST", "/aria/chat", {"content": "What's my HRV?"}), None)
         payload = body(resp)
-        self.assertEqual(payload["model"], "claude-sonnet-4-6")
+        self.assertIn("sonnet", payload["model"])
         self.assertIn("inputTokens", payload["usage"])
-        self.assertIn("cacheReadTokens", payload["usage"])
+        self.assertIn("turnsCompleted", payload["usage"])
+
+    def test_get_conclusions_returns_brief(self):
+        resp = handler(event("GET", "/aria/conclusions"), None)
+        self.assertEqual(resp["statusCode"], 200)
+        payload = body(resp)
+        self.assertIn("coachingBrief", payload)
+        self.assertIn("offlineTemplates", payload)
 
     def test_chat_persists_messages_in_memory(self):
         handler(event("POST", "/aria/chat", {"content": "First message."}), None)
         handler(event("POST", "/aria/chat", {"content": "Second message."}), None)
 
-        # Second call should have seen a non-empty conversation
-        self.assertEqual(len(self.stub.chat_calls), 2)
-        self.assertGreater(self.stub.chat_calls[1]["conversation_len"], 0)
+        conv = aria_memory.load_conversation("test-user-00000000", "current")
+        self.assertGreaterEqual(len(conv), 4)
 
     def test_chat_custom_thread_id(self):
         resp = handler(
@@ -230,7 +258,7 @@ class ARIALifestyleTests(ARIATestBase):
         self.assertEqual(resp["statusCode"], 200)
         payload = body(resp)
         self.assertEqual(payload["focus"], "nutrition")
-        self.assertEqual(payload["coaching"], "Stub ARIA answer.")
+        self.assertEqual(payload["coaching"], "Stub pipeline answer.")
         self.assertIn("generatedAt", payload)
 
     def test_lifestyle_wellbeing_focus(self):
@@ -286,7 +314,7 @@ class ARIAVoiceTests(ARIATestBase):
         self.assertEqual(resp["statusCode"], 200)
         payload = body(resp)
         self.assertIn("answer", payload)
-        self.assertIn("readiness", payload["answer"])
+        self.assertTrue(payload["answer"])
         self.assertEqual(payload["processedTranscript"], "how should I train today")
 
     def test_voice_empty_transcript_returns_400(self):
@@ -677,6 +705,50 @@ class ARIAToolsTests(unittest.TestCase):
             self.assertIn("description", tool, f"Tool missing description: {tool['name']}")
             self.assertIn("input_schema", tool, f"Tool missing input_schema: {tool['name']}")
             self.assertIn("type", tool["input_schema"], f"input_schema missing type: {tool['name']}")
+
+
+# ---------------------------------------------------------------------------
+# aria_enrichment unit tests
+# ---------------------------------------------------------------------------
+
+class ARIAEnrichmentTests(unittest.TestCase):
+    def setUp(self):
+        dynamodb_store.clear_local_store()
+
+    def tearDown(self):
+        dynamodb_store.clear_local_store()
+
+    def test_tool_name_list_flattens_calls(self):
+        from services.aria_enrichment import tool_name_list
+
+        names = tool_name_list([
+            {"tool": "get_health_snapshot", "input": {}, "success": True},
+            {"tool": "get_sleep_analysis", "input": {"days": 7}, "success": True},
+        ])
+        self.assertEqual(names, ["get_health_snapshot", "get_sleep_analysis"])
+
+    def test_maybe_rich_card_sleep_question(self):
+        from services.aria_enrichment import maybe_rich_card
+
+        card = maybe_rich_card(
+            "user-1",
+            "How is my sleep trending?",
+            [{"tool": "get_sleep_analysis", "input": {}, "success": True}],
+        )
+        self.assertIsNotNone(card)
+        self.assertEqual(card["type"], "data-chart")
+        self.assertIn("values", card["data"])
+
+    def test_normalize_conversation_messages_maps_trainer_role(self):
+        from services.aria_enrichment import normalize_conversation_messages
+
+        messages = normalize_conversation_messages(
+            [{"role": "assistant", "content": "Hello from ARIA."}],
+            thread_id="current",
+        )
+        self.assertEqual(messages[0]["role"], "trainer")
+        self.assertIn("id", messages[0])
+        self.assertIn("timestamp", messages[0])
 
 
 if __name__ == "__main__":

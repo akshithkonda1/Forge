@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from core.responses import RouteError, ok
@@ -39,3 +40,13 @@ def handle_put_profile(user_id: str, body: dict) -> dict:
     dynamodb.put_item(item)
 
     return ok({"profile": profile, "connections": _load_connections(user_id)})
+
+
+def handle_delete_account(user_id: str) -> dict:
+    removed = dynamodb.delete_partition(keys.user_pk(user_id))
+    return ok({
+        "deleted": True,
+        "userId": user_id,
+        "itemsRemoved": removed,
+        "deletedAt": datetime.now(timezone.utc).isoformat(),
+    })

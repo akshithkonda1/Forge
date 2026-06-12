@@ -1,0 +1,30 @@
+{
+  "version": "1.0.0",
+  "entity": "DataConclusions",
+  "fields": {
+    "generatedAt": "ISO8601",
+    "date": "YYYY-MM-DD",
+    "coveragePct": "0.0-1.0",
+    "readiness": "ReadinessData",
+    "signals": "ARIADataSignal[]",
+    "compoundFlags": "string[]",
+    "coachingBrief": "string",
+    "dashboardHints": "object",
+    "offlineTemplates": {
+      "chat": "string",
+      "dashboard": "string",
+      "mood": "string",
+      "widget": "string"
+    }
+  },
+  "pipeline": {
+    "turns": 4,
+    "defaultUseTools": false,
+    "incompleteStatusCode": 404
+  },
+  "storage": {
+    "dynamoKey": "ARIA#CONCLUSIONS#{ISO_WEEK}",
+    "retentionDays": 7,
+    "encryption": "kms-aes-256-gcm"
+  }
+}

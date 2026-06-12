@@ -52,3 +52,7 @@ cd terraform && terraform apply
 ```
 
 See [`terraform/README.md`](../terraform/README.md) for secrets, Terra webhooks, and self-healing.
+
+## ARIA coach
+
+ARIA is the agentic AI layer (`POST /aria/*`). See [`ARIA.md`](ARIA.md) for endpoints, tools, memory, and local CLI usage.

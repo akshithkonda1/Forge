@@ -50,6 +50,7 @@ def empty_daily_metrics() -> dict[str, Any]:
         "restingHR": 0,
         "deepSleep": 0,
         "totalSleep": 0,
+        "oxygenSaturation": None,
         "sources": [],
     }
 

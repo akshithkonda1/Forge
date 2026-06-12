@@ -72,6 +72,8 @@ def gather_user_context(user_id: str) -> dict[str, Any]:
         else resolve(None, default_personal_records, list)
     )
 
+    chat_gamification = profile.get("chatGamification")
+
     return {
         "profile": profile,
         "readiness": current_readiness,
@@ -81,6 +83,7 @@ def gather_user_context(user_id: str) -> dict[str, Any]:
         "trainingLoad": scoring.training_load_trend(recent_workouts),
         "recoveryTrend": scoring.recovery_trend(recent_sleep),
         "personalRecords": personal_records,
+        "chatGamification": chat_gamification,
         "lifestyle": {
             "metrics": lifestyle_snapshot.get("metrics"),
             "nutrition": {
@@ -98,6 +101,7 @@ def gather_user_context(user_id: str) -> dict[str, Any]:
 
 def context_to_prompt_block(context: dict[str, Any]) -> str:
     """Serialize the context package into a compact JSON block for AI prompts."""
+    gamification = context.get("chatGamification") or {}
     compact = {
         "profile": context.get("profile"),
         "readiness": context.get("readiness"),
@@ -107,5 +111,9 @@ def context_to_prompt_block(context: dict[str, Any]) -> str:
         "lastWorkoutType": (context.get("recentWorkouts") or [{}])[0].get("type"),
         "todayPlanName": (context.get("todayPlan") or {}).get("name"),
         "lifestyle": context.get("lifestyle"),
+        "ariaSummary": context.get("ariaSummary"),
+        "chatLevel": gamification.get("level"),
+        "chatStreakDays": gamification.get("chatStreakDays"),
+        "chatLifetimeXP": gamification.get("lifetimeXP"),
     }
     return json.dumps(compact, separators=(",", ":"))

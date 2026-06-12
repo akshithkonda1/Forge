@@ -1,16 +1,14 @@
 """ARIA route handlers.
 
-These are thin handlers that wire HTTP route events to the ARIA agent and
-memory layer. All heavy lifting is in aria_agent.py, aria_tools.py, and
-aria_memory.py.
-
 Routes:
-  POST /aria/chat                – Agentic multi-turn chat with tool use
+  POST /aria/chat                – Four-turn pipeline chat (tools optional)
   POST /aria/analyze             – Deep analysis with Claude Opus + extended thinking
-  POST /aria/plan                – Generate today's personalized workout/recovery plan
-  POST /aria/voice               – Process a voice transcript
+  POST /aria/plan                – Personalized plan via four-turn pipeline
+  POST /aria/lifestyle           – Lifestyle coaching via four-turn pipeline
+  POST /aria/voice               – Voice transcript via four-turn pipeline
   POST /aria/insights/generate   – Generate proactive coaching insights
   GET  /aria/insights            – Retrieve stored insights
+  GET  /aria/conclusions         – Deterministic data conclusions + offline templates
   GET  /aria/conversation        – Retrieve ARIA conversation history
   DELETE /aria/conversation      – Reset ARIA conversation
 """
@@ -23,112 +21,200 @@ from ai import aria_memory
 from ai.aria_agent import ARIAError, get_agent
 from ai.aria_tools import ARIA_TOOLS
 from core.responses import RouteError, ok
-from data.seed_data import today_iso
-from services import coach_context
-from storage import dynamodb, keys
+from services import aria_enrichment, coach_context, conclusions_store
+from services.aria_pipeline import PipelineIncompleteError, run_four_turn_pipeline
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
 def _build_user_context(user_id: str) -> str:
-    """Gather and serialize the user context block for injection into ARIA."""
     ctx = coach_context.gather_user_context(user_id)
+    summary = aria_memory.load_user_summary(user_id)
+    if summary and summary.get("summary"):
+        ctx["ariaSummary"] = summary["summary"]
     return coach_context.context_to_prompt_block(ctx)
 
 
+def _trainer_message(
+    *,
+    content: str,
+    rich_card: dict[str, Any] | None,
+    tool_calls_made: list[dict[str, Any]],
+) -> dict[str, Any]:
+    now = _now_iso()
+    msg_id = f"aria-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
+    tool_names = aria_enrichment.tool_name_list(tool_calls_made)
+    message: dict[str, Any] = {
+        "id": msg_id,
+        "role": "trainer",
+        "content": content,
+        "timestamp": now,
+    }
+    if rich_card:
+        message["richCard"] = rich_card
+    if tool_names:
+        message["toolCallsMade"] = tool_names
+    return message
+
+
 def _safe_agent_call(fn, *args, **kwargs) -> dict[str, Any]:
-    """Wrap an agent call and translate ARIAError to RouteError."""
     try:
         return fn(*args, **kwargs)
     except ARIAError as exc:
         raise RouteError(exc.status_code, exc.message) from exc
 
 
-# ---------------------------------------------------------------------------
-# POST /aria/chat
-# ---------------------------------------------------------------------------
+def _load_conclusions(user_id: str) -> dict[str, Any]:
+    try:
+        return conclusions_store.get_or_refresh_conclusions(user_id)
+    except Exception as exc:
+        raise RouteError(503, f"Unable to load conclusions: {exc}") from exc
+
+
+def _pipeline_or_template(
+    *,
+    user_id: str,
+    user_message: str,
+    conclusions: dict[str, Any],
+    profile_context: str,
+    mode: str,
+) -> dict[str, Any]:
+    """Run the four-turn pipeline; on failure return offline template fallback."""
+    try:
+        return run_four_turn_pipeline(
+            user_message=user_message,
+            conclusions=conclusions,
+            profile_context=profile_context,
+            mode=mode,
+        )
+    except PipelineIncompleteError as exc:
+        templates = conclusions.get("offlineTemplates") or {}
+        fallback = templates.get(mode) or templates.get("chat") or conclusions.get("coachingBrief", "")
+        raise RouteError(
+            404,
+            exc.message,
+            code="aria_pipeline_incomplete",
+        ) from exc
+    except ARIAError as exc:
+        templates = conclusions.get("offlineTemplates") or {}
+        fallback = templates.get(mode) or templates.get("chat") or ""
+        if fallback:
+            return {
+                "answer": fallback,
+                "model": None,
+                "usage": {"turnsCompleted": 0, "fallback": True},
+                "pipelineIncomplete": True,
+            }
+        raise RouteError(exc.status_code, exc.message) from exc
+
+
+def handle_get_aria_conclusions(user_id: str) -> dict:
+    conclusions = _load_conclusions(user_id)
+    return ok({
+        "conclusions": conclusions,
+        "coveragePct": conclusions.get("coveragePct"),
+        "coachingBrief": conclusions.get("coachingBrief"),
+        "compoundFlags": conclusions.get("compoundFlags"),
+        "offlineTemplates": conclusions.get("offlineTemplates"),
+        "retrievedAt": _now_iso(),
+    })
+
 
 def handle_post_aria_chat(user_id: str, body: dict[str, Any]) -> dict:
-    """
-    Main agentic chat endpoint. ARIA uses tools to fetch real user data and
-    returns a grounded coaching response.
-
-    Request body:
-      content    (str, required)   – the user's message
-      thread_id  (str, optional)   – conversation thread, defaults to "current"
-      use_tools  (bool, optional)  – set false to skip tool use (default: true)
-    """
     content = str(body.get("content") or "").strip()
     if not content:
         raise RouteError(400, "Request body must include non-empty 'content'.")
 
     thread_id = str(body.get("threadId") or body.get("thread_id") or "current")
-    use_tools = body.get("useTools", body.get("use_tools", True))
+    use_tools = body.get("useTools", body.get("use_tools", False))
+    conclusions = _load_conclusions(user_id)
+    profile_context = _build_user_context(user_id)
 
-    # Load conversation history from DynamoDB
-    conversation = aria_memory.load_conversation(user_id, thread_id)
+    if use_tools:
+        conversation = aria_memory.load_conversation(user_id, thread_id)
+        inject_context = profile_context if not conversation else None
+        result = _safe_agent_call(
+            get_agent().chat,
+            user_id=user_id,
+            user_message=content,
+            conversation=conversation,
+            tools=ARIA_TOOLS,
+            inject_context=inject_context,
+        )
+        tool_calls_made = result.get("toolCallsMade", [])
+    else:
+        try:
+            result = run_four_turn_pipeline(
+                user_message=content,
+                conclusions=conclusions,
+                profile_context=profile_context,
+                mode="chat",
+            )
+        except PipelineIncompleteError as exc:
+            templates = conclusions.get("offlineTemplates") or {}
+            fallback = templates.get("chat", conclusions.get("coachingBrief", ""))
+            return ok({
+                "threadId": thread_id,
+                "message": _trainer_message(content=fallback, rich_card=None, tool_calls_made=[]),
+                "toolCallsMade": [],
+                "pipelineIncomplete": True,
+                "turnsCompleted": exc.turn - 1,
+                "offlineTemplate": True,
+                "coachingBrief": conclusions.get("coachingBrief"),
+            })
+        tool_calls_made = []
 
-    # On the first message of a thread inject the user context as a cached block
-    inject_context = _build_user_context(user_id) if not conversation else None
-
-    tools = ARIA_TOOLS if use_tools else None
-
-    result = _safe_agent_call(
-        get_agent().chat,
-        user_id=user_id,
-        user_message=content,
-        conversation=conversation,
-        tools=tools,
-        inject_context=inject_context,
+    rich_card = aria_enrichment.maybe_rich_card(user_id, content, tool_calls_made)
+    trainer_msg = _trainer_message(
+        content=result["answer"],
+        rich_card=rich_card,
+        tool_calls_made=tool_calls_made,
     )
 
-    # Persist the new turns
-    user_msg = {"role": "user", "content": content}
-    assistant_msg = {"role": "assistant", "content": result["answer"]}
+    user_msg = {
+        "role": "user",
+        "content": content,
+        "id": f"user-{int(datetime.now(timezone.utc).timestamp() * 1000)}",
+        "timestamp": _now_iso(),
+    }
+    assistant_msg = {
+        "role": "assistant",
+        "content": result["answer"],
+        "id": trainer_msg["id"],
+        "timestamp": trainer_msg["timestamp"],
+    }
+    if rich_card:
+        assistant_msg["richCard"] = rich_card
+    if trainer_msg.get("toolCallsMade"):
+        assistant_msg["toolCallsMade"] = trainer_msg["toolCallsMade"]
+
     aria_memory.append_messages(user_id, [user_msg, assistant_msg], thread_id)
 
-    now = _now_iso()
-    return ok({
+    response: dict[str, Any] = {
         "threadId": thread_id,
-        "message": {
-            "id": f"aria-{int(datetime.now(timezone.utc).timestamp() * 1000)}",
-            "role": "trainer",
-            "content": result["answer"],
-            "timestamp": now,
-        },
-        "toolCallsMade": result.get("toolCallsMade", []),
+        "message": trainer_msg,
+        "toolCallsMade": aria_enrichment.tool_name_list(tool_calls_made),
+        "toolCallDetails": tool_calls_made,
         "model": result.get("model"),
         "usage": result.get("usage"),
-    })
+        "coachingBrief": conclusions.get("coachingBrief"),
+    }
+    if result.get("turnsCompleted"):
+        response["turnsCompleted"] = result["turnsCompleted"]
+    return ok(response)
 
-
-# ---------------------------------------------------------------------------
-# POST /aria/analyze
-# ---------------------------------------------------------------------------
 
 def handle_post_aria_analyze(user_id: str, body: dict[str, Any]) -> dict:
-    """
-    Deep analysis endpoint using Claude Opus with extended thinking.
-
-    Best for complex questions: periodization planning, injury risk assessment,
-    sleep pattern root-cause analysis, long-term progress review.
-
-    Request body:
-      question       (str, required)  – the analytical question
-      thinking_budget (int, optional) – extended thinking token budget (default 10000)
-    """
     question = str(body.get("question") or body.get("content") or "").strip()
     if not question:
         raise RouteError(400, "Request body must include non-empty 'question'.")
 
     thinking_budget = max(1024, min(32000, int(body.get("thinkingBudget", 10000))))
     context = _build_user_context(user_id)
+    conclusions = _load_conclusions(user_id)
+    context = f"{context}\n\nCONCLUSIONS:\n{conclusions.get('coachingBrief', '')}"
 
     result = _safe_agent_call(
         get_agent().analyze,
@@ -143,176 +229,121 @@ def handle_post_aria_analyze(user_id: str, body: dict[str, Any]) -> dict:
         "model": result.get("model"),
         "thinkingBudget": result.get("thinkingBudget"),
         "usage": result.get("usage"),
+        "coachingBrief": conclusions.get("coachingBrief"),
     })
 
 
-# ---------------------------------------------------------------------------
-# POST /aria/plan
-# ---------------------------------------------------------------------------
+def _pipeline_endpoint(
+    user_id: str,
+    *,
+    user_message: str,
+    mode: str,
+    persist_thread: str | None = None,
+) -> dict[str, Any]:
+    conclusions = _load_conclusions(user_id)
+    profile_context = _build_user_context(user_id)
+    try:
+        result = run_four_turn_pipeline(
+            user_message=user_message,
+            conclusions=conclusions,
+            profile_context=profile_context,
+            mode=mode,
+        )
+    except PipelineIncompleteError:
+        templates = conclusions.get("offlineTemplates") or {}
+        result = {
+            "answer": templates.get(mode) or templates.get("chat") or conclusions.get("coachingBrief", ""),
+            "model": None,
+            "usage": {"turnsCompleted": 0, "fallback": True},
+            "pipelineIncomplete": True,
+        }
+
+    if persist_thread:
+        user_msg = {"role": "user", "content": user_message}
+        assistant_msg = {"role": "assistant", "content": result["answer"]}
+        aria_memory.append_messages(user_id, [user_msg, assistant_msg], persist_thread)
+
+    return {**result, "coachingBrief": conclusions.get("coachingBrief")}
+
 
 def handle_post_aria_plan(user_id: str, body: dict[str, Any]) -> dict:
-    """
-    Generate a personalized workout or recovery plan for today.
-
-    ARIA uses tools to check readiness, sleep, and recent training before
-    producing a tailored plan recommendation.
-
-    Request body:
-      focus    (str, optional)  – "workout" | "recovery" | "nutrition" (default: auto)
-    """
     focus = str(body.get("focus") or "auto").lower()
     valid_focus = {"workout", "recovery", "nutrition", "auto"}
     if focus not in valid_focus:
         focus = "auto"
 
     focus_prompt = {
-        "workout": (
-            "Generate a complete workout plan for today based on the user's current "
-            "readiness score, training history, and goals. Include exercises, sets, "
-            "reps, weights, and rest periods."
-        ),
-        "recovery": (
-            "Design a recovery protocol for today based on current readiness, sleep "
-            "quality, and training load. Include modalities, durations, and priorities."
-        ),
-        "nutrition": (
-            "Provide today's nutrition strategy including macronutrient targets, meal "
-            "timing, and pre/post-workout recommendations based on the planned training."
-        ),
-        "auto": (
-            "Review the user's current readiness, sleep, and training load, then "
-            "decide whether today should be a training day, recovery day, or active "
-            "rest day. If training, provide a complete plan. If recovery, provide a "
-            "recovery protocol."
-        ),
+        "workout": "Generate a complete workout plan for today based on readiness and training history.",
+        "recovery": "Design a recovery protocol for today based on readiness, sleep, and training load.",
+        "nutrition": "Provide today's nutrition strategy based on planned training and recent intake.",
+        "auto": "Decide whether today is training, recovery, or active rest and provide the plan.",
     }[focus]
 
-    conversation = aria_memory.load_conversation(user_id, "plan")
-    inject_context = _build_user_context(user_id) if not conversation else None
-
-    result = _safe_agent_call(
-        get_agent().chat,
-        user_id=user_id,
-        user_message=focus_prompt,
-        conversation=conversation,
-        tools=ARIA_TOOLS,
-        inject_context=inject_context,
-    )
-
+    result = _pipeline_endpoint(user_id, user_message=focus_prompt, mode="plan")
     return ok({
         "focus": focus,
         "plan": result["answer"],
-        "toolCallsMade": result.get("toolCallsMade", []),
+        "toolCallsMade": [],
         "model": result.get("model"),
         "usage": result.get("usage"),
         "generatedAt": _now_iso(),
+        "coachingBrief": result.get("coachingBrief"),
+        "pipelineIncomplete": result.get("pipelineIncomplete", False),
+        "turnsCompleted": result.get("usage", {}).get("turnsCompleted"),
     })
 
 
-# ---------------------------------------------------------------------------
-# POST /aria/lifestyle
-# ---------------------------------------------------------------------------
-
 def handle_post_aria_lifestyle(user_id: str, body: dict[str, Any]) -> dict:
-    """
-    Lifestyle coaching endpoint grounded in nutrition, habits, and QoL metrics.
-
-    Request body:
-      focus  (str, optional)  – "nutrition" | "wellbeing" | "holistic" (default)
-    """
     focus = str(body.get("focus") or "holistic").lower()
     valid_focus = {"nutrition", "wellbeing", "holistic"}
     if focus not in valid_focus:
         focus = "holistic"
 
     focus_prompt = {
-        "nutrition": (
-            "Review the user's lifestyle dashboard and nutrition log for today. "
-            "Identify the biggest macro or hydration gap, explain why it matters for "
-            "their goals, and give one specific meal or snack recommendation they can "
-            "act on before the day ends."
-        ),
-        "wellbeing": (
-            "Review the user's wellbeing habits and stress markers. "
-            "Recommend the highest-impact habit to complete today and a 5-minute "
-            "recovery ritual tailored to their readiness and sleep data."
-        ),
-        "holistic": (
-            "Review the full lifestyle dashboard — sleep, steps, nutrition, habits, "
-            "and stress. Give a single prioritized focus for today with one training, "
-            "nutrition, and recovery action."
-        ),
+        "nutrition": "Review nutrition gaps and give one specific meal recommendation for today.",
+        "wellbeing": "Review wellbeing habits and recommend the highest-impact habit for today.",
+        "holistic": "Review lifestyle dashboard and give one prioritized focus with training, nutrition, and recovery actions.",
     }[focus]
 
-    conversation = aria_memory.load_conversation(user_id, "lifestyle")
-    inject_context = _build_user_context(user_id) if not conversation else None
-
-    result = _safe_agent_call(
-        get_agent().chat,
-        user_id=user_id,
+    result = _pipeline_endpoint(
+        user_id,
         user_message=focus_prompt,
-        conversation=conversation,
-        tools=ARIA_TOOLS,
-        inject_context=inject_context,
+        mode="lifestyle",
+        persist_thread="lifestyle",
     )
-
-    user_msg = {"role": "user", "content": focus_prompt}
-    assistant_msg = {"role": "assistant", "content": result["answer"]}
-    aria_memory.append_messages(user_id, [user_msg, assistant_msg], "lifestyle")
-
     return ok({
         "focus": focus,
         "coaching": result["answer"],
-        "toolCallsMade": result.get("toolCallsMade", []),
+        "toolCallsMade": [],
         "model": result.get("model"),
         "usage": result.get("usage"),
         "generatedAt": _now_iso(),
+        "coachingBrief": result.get("coachingBrief"),
+        "pipelineIncomplete": result.get("pipelineIncomplete", False),
     })
 
 
-# ---------------------------------------------------------------------------
-# POST /aria/voice
-# ---------------------------------------------------------------------------
-
 def handle_post_aria_voice(user_id: str, body: dict[str, Any]) -> dict:
-    """
-    Process a voice transcript and return a coaching response suitable for TTS.
-
-    Request body:
-      transcript  (str, required)  – raw voice-to-text transcript
-    """
     transcript = str(body.get("transcript") or "").strip()
     if not transcript:
         raise RouteError(400, "Request body must include non-empty 'transcript'.")
 
-    context = _build_user_context(user_id)
-
-    result = _safe_agent_call(
-        get_agent().process_voice,
-        transcript=transcript,
-        context=context,
-    )
-
+    result = _pipeline_endpoint(user_id, user_message=transcript, mode="voice")
     return ok({
         "answer": result["answer"],
-        "processedTranscript": result.get("processedTranscript", transcript),
+        "processedTranscript": transcript,
         "model": result.get("model"),
         "usage": result.get("usage"),
         "timestamp": _now_iso(),
+        "coachingBrief": result.get("coachingBrief"),
+        "pipelineIncomplete": result.get("pipelineIncomplete", False),
     })
 
 
-# ---------------------------------------------------------------------------
-# POST /aria/insights/generate
-# ---------------------------------------------------------------------------
-
 def handle_post_aria_insights_generate(user_id: str, _body: dict[str, Any]) -> dict:
-    """
-    Generate and persist proactive coaching insights from the user's data.
-
-    Returns the newly generated insights.
-    """
     context = _build_user_context(user_id)
+    conclusions = _load_conclusions(user_id)
+    context = f"{context}\n\nCONCLUSIONS:\n{conclusions.get('coachingBrief', '')}"
 
     result = _safe_agent_call(
         get_agent().generate_insights,
@@ -334,20 +365,10 @@ def handle_post_aria_insights_generate(user_id: str, _body: dict[str, Any]) -> d
     })
 
 
-# ---------------------------------------------------------------------------
-# GET /aria/insights
-# ---------------------------------------------------------------------------
-
 def handle_get_aria_insights(user_id: str, days: int = 7) -> dict:
-    """
-    Retrieve stored ARIA insights for the last N days.
-
-    If no insights exist, generates a fresh set and returns those.
-    """
     insights = aria_memory.load_insights(user_id, days)
 
     if not insights:
-        # Auto-generate on first load
         context = _build_user_context(user_id)
         try:
             result = get_agent().generate_insights(context=context)
@@ -365,13 +386,12 @@ def handle_get_aria_insights(user_id: str, days: int = 7) -> dict:
     })
 
 
-# ---------------------------------------------------------------------------
-# GET /aria/conversation
-# ---------------------------------------------------------------------------
-
 def handle_get_aria_conversation(user_id: str, thread_id: str = "current") -> dict:
-    """Retrieve the ARIA conversation history for a thread."""
-    messages = aria_memory.load_conversation(user_id, thread_id)
+    raw_messages = aria_memory.load_conversation(user_id, thread_id)
+    messages = aria_enrichment.normalize_conversation_messages(
+        raw_messages,
+        thread_id=thread_id,
+    )
     return ok({
         "threadId": thread_id,
         "messages": messages,
@@ -379,12 +399,7 @@ def handle_get_aria_conversation(user_id: str, thread_id: str = "current") -> di
     })
 
 
-# ---------------------------------------------------------------------------
-# DELETE /aria/conversation
-# ---------------------------------------------------------------------------
-
 def handle_delete_aria_conversation(user_id: str, thread_id: str = "current") -> dict:
-    """Reset the ARIA conversation, clearing all stored messages for the thread."""
     aria_memory.clear_conversation(user_id, thread_id)
     return ok({
         "threadId": thread_id,

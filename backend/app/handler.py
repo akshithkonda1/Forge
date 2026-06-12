@@ -113,6 +113,16 @@ def handler(event, _context):
                 "status": "configured" if readiness_checks.get("aiSecretsConfigured") else "unconfigured",
                 "chatModel": ARIA_CHAT_MODEL,
                 "analysisModel": ARIA_ANALYSIS_MODEL,
+                "features": [
+                    "agentic-chat",
+                    "tool-use",
+                    "rich-cards",
+                    "extended-thinking",
+                    "proactive-insights",
+                    "conversation-memory",
+                    "voice",
+                    "lifestyle-coaching",
+                ],
             },
             "integrations": {
                 "terra": _terra_health_summary(),
@@ -166,6 +176,9 @@ def handler(event, _context):
 
         if method == "PUT" and path == "/me/profile":
             return profile.handle_put_profile(user_id, body)
+
+        if method == "DELETE" and path == "/me/account":
+            return profile.handle_delete_account(user_id)
 
         if method == "GET" and path == "/dashboard/today":
             return dashboard.handle_get_dashboard_today(user_id)
@@ -268,6 +281,9 @@ def handler(event, _context):
         if method == "GET" and path == "/aria/insights":
             days = _query_int(event, "days", 7, minimum=1, maximum=30)
             return aria.handle_get_aria_insights(user_id, days)
+
+        if method == "GET" and path == "/aria/conclusions":
+            return aria.handle_get_aria_conclusions(user_id)
 
         if method == "GET" and path == "/aria/conversation":
             thread_id = (event.get("queryStringParameters") or {}).get("threadId", "current")

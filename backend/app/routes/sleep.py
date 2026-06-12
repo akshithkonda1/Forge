@@ -5,6 +5,7 @@ from typing import Any
 from core.responses import ok
 from data.seed_data import default_sleep
 from core.seed_policy import resolve
+from services import conclusions_store
 from storage import dynamodb, keys
 
 
@@ -33,4 +34,8 @@ def handle_post_sleep_sessions(user_id: str, body: dict) -> dict:
 
     item = {**keys.sleep_key(user_id, date, source), **session}
     dynamodb.put_item(item)
+    try:
+        conclusions_store.refresh_conclusions(user_id)
+    except Exception:
+        pass
     return ok({"session": session})

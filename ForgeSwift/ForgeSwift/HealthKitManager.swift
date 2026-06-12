@@ -781,6 +781,130 @@ class HealthKitManager: ObservableObject {
         }
     }
     
+    func fetchLatestOxygenSaturationPercent() async -> Int? {
+        guard let type = HKQuantityType.quantityType(forIdentifier: .oxygenSaturation) else { return nil }
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: type,
+                predicate: nil,
+                limit: 1,
+                sortDescriptors: [sortDescriptor]
+            ) { _, samples, _ in
+                guard let sample = samples?.first as? HKQuantitySample else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let fraction = sample.quantity.doubleValue(for: .percent())
+                continuation.resume(returning: Int((fraction * 100).rounded()))
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    func fetchRecentSleepSessions(days: Int) async -> [SleepSessionUpload] {
+        let sleepType = HKCategoryType(.sleepAnalysis)
+        let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: sleepType,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
+            ) { _, samples, _ in
+                guard let samples = samples as? [HKCategorySample], !samples.isEmpty else {
+                    continuation.resume(returning: [])
+                    return
+                }
+
+                let grouped = Dictionary(grouping: samples) { sample -> String in
+                    let day = Calendar.current.startOfDay(for: sample.endDate)
+                    return ISO8601DateFormatter().string(from: day).prefix(10).description
+                }
+
+                let uploads: [SleepSessionUpload] = grouped.compactMap { date, daySamples in
+                    var deep: TimeInterval = 0
+                    var rem: TimeInterval = 0
+                    var light: TimeInterval = 0
+                    var awake: TimeInterval = 0
+
+                    for sample in daySamples {
+                        let duration = sample.endDate.timeIntervalSince(sample.startDate)
+                        switch sample.value {
+                        case HKCategoryValueSleepAnalysis.asleepDeep.rawValue:
+                            deep += duration
+                        case HKCategoryValueSleepAnalysis.asleepREM.rawValue:
+                            rem += duration
+                        case HKCategoryValueSleepAnalysis.asleepCore.rawValue:
+                            light += duration
+                        case HKCategoryValueSleepAnalysis.awake.rawValue:
+                            awake += duration
+                        case HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue:
+                            light += duration
+                        default:
+                            break
+                        }
+                    }
+
+                    let totalHours = (deep + rem + light) / 3600
+                    guard totalHours > 0 else { return nil }
+                    let score = min(100, Int((totalHours / 8.0) * 100))
+                    return SleepSessionUpload(
+                        date: date,
+                        totalHours: totalHours,
+                        deepMinutes: Int(deep / 60),
+                        remMinutes: Int(rem / 60),
+                        lightMinutes: Int(light / 60),
+                        awakeMinutes: Int(awake / 60),
+                        score: score,
+                        source: "apple-health"
+                    )
+                }
+                continuation.resume(returning: uploads.sorted { $0.date > $1.date })
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    func fetchRecentWorkoutLogs(days: Int) async -> [WorkoutLogUpload] {
+        let workoutType = HKWorkoutType.workoutType()
+        let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: workoutType,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
+            ) { _, samples, _ in
+                guard let workouts = samples as? [HKWorkout] else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                let formatter = ISO8601DateFormatter()
+                let uploads = workouts.map { workout -> WorkoutLogUpload in
+                    let duration = max(1, Int(workout.duration / 60))
+                    let calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0
+                    return WorkoutLogUpload(
+                        name: workout.workoutActivityType.name,
+                        type: workout.workoutActivityType.forgeType,
+                        duration: duration,
+                        volume: Int(calories),
+                        intensity: duration >= 45 ? "high" : "moderate",
+                        source: "apple-health",
+                        startedAt: formatter.string(from: workout.startDate),
+                        date: formatter.string(from: workout.startDate).prefix(10).description
+                    )
+                }
+                continuation.resume(returning: uploads)
+            }
+            healthStore.execute(query)
+        }
+    }
+
     private func fetchAverageHRV() async -> Double? {
         guard let type = HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN) else { return nil }
         
@@ -823,4 +947,49 @@ enum HealthKitError: Error {
     case notAvailable
     case authorizationDenied
     case dataUnavailable
+}
+
+struct SleepSessionUpload: Encodable {
+    let date: String
+    let totalHours: Double
+    let deepMinutes: Int
+    let remMinutes: Int
+    let lightMinutes: Int
+    let awakeMinutes: Int
+    let score: Int
+    let source: String
+}
+
+struct WorkoutLogUpload: Encodable {
+    let name: String
+    let type: String
+    let duration: Int
+    let volume: Int
+    let intensity: String
+    let source: String
+    let startedAt: String
+    let date: String
+}
+
+private extension HKWorkoutActivityType {
+    var name: String {
+        switch self {
+        case .traditionalStrengthTraining: return "Strength Training"
+        case .running: return "Run"
+        case .cycling: return "Ride"
+        case .highIntensityIntervalTraining: return "HIIT"
+        case .yoga: return "Yoga"
+        default: return "Workout"
+        }
+    }
+
+    var forgeType: String {
+        switch self {
+        case .traditionalStrengthTraining: return "strength"
+        case .running, .cycling: return "cardio"
+        case .highIntensityIntervalTraining: return "hiit"
+        case .yoga: return "yoga"
+        default: return "strength"
+        }
+    }
 }
