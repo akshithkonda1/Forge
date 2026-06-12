@@ -10,11 +10,15 @@ struct ReadinessEntry: TimelineEntry {
     let workoutName: String
     let hrv: Int
     let streak: Int
+    let strain: Int
+    let recovery: Int
+    let sleep: Int
+    let sleepNeed: Int
 }
 
 struct ReadinessProvider: TimelineProvider {
     func placeholder(in context: Context) -> ReadinessEntry {
-        ReadinessEntry(date: Date(), readiness: 82, workoutName: "Upper Body Power", hrv: 52, streak: 5)
+        ReadinessEntry(date: Date(), readiness: 82, workoutName: "Upper Body Power", hrv: 52, streak: 5, strain: 58, recovery: 79, sleep: 88, sleepNeed: 45)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ReadinessEntry) -> Void) {
@@ -33,7 +37,11 @@ struct ReadinessProvider: TimelineProvider {
             readiness: ForgeSharedData.readinessScore,
             workoutName: ForgeSharedData.workoutName,
             hrv: ForgeSharedData.hrv,
-            streak: ForgeSharedData.streak
+            streak: ForgeSharedData.streak,
+            strain: ForgeSharedData.strainScore,
+            recovery: ForgeSharedData.recoveryScore,
+            sleep: ForgeSharedData.sleepScore,
+            sleepNeed: ForgeSharedData.sleepNeedMinutes
         )
     }
 }
@@ -55,19 +63,24 @@ struct ReadinessWidgetView: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.white.opacity(0.7))
                 }
-                Text("\(entry.readiness)")
-                    .font(.system(size: 36, weight: .black, design: .rounded))
-                    .foregroundColor(.white)
-                Text("Readiness")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
+                HStack(spacing: 10) {
+                    TrilogyWidgetStat(label: "Strain", value: entry.strain, color: Color(red: 0.98, green: 0.45, blue: 0.09))
+                    TrilogyWidgetStat(label: "Recovery", value: entry.recovery, color: Color(red: 0.13, green: 0.77, blue: 0.37))
+                    TrilogyWidgetStat(label: "Sleep", value: entry.sleep, color: Color(red: 0.39, green: 0.4, blue: 0.95))
+                }
                 Text(entry.workoutName)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.white.opacity(0.85))
                     .lineLimit(1)
-                Text("HRV \(entry.hrv)ms")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.white.opacity(0.5))
+                if entry.sleepNeed > 0 {
+                    Text("Sleep need \(entry.sleepNeed)m")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.5))
+                } else {
+                    Text("HRV \(entry.hrv)ms · Ready \(entry.readiness)")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.5))
+                }
             }
             .padding(14)
         }
@@ -82,7 +95,7 @@ struct ReadinessWidget: Widget {
             ReadinessWidgetView(entry: entry)
         }
         .configurationDisplayName("Forge Readiness")
-        .description("Your daily readiness score and workout plan.")
+        .description("Strain, recovery, sleep trilogy and today's workout.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -130,6 +143,23 @@ struct WorkoutLiveActivityView: View {
 
     private func formatElapsed(_ seconds: Int) -> String {
         String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+}
+
+private struct TrilogyWidgetStat: View {
+    let label: String
+    let value: Int
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text("\(value)")
+                .font(.system(size: 16, weight: .black, design: .rounded))
+                .foregroundColor(color)
+            Text(label)
+                .font(.system(size: 8, weight: .semibold))
+                .foregroundColor(.white.opacity(0.55))
+        }
     }
 }
 

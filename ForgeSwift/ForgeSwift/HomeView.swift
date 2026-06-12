@@ -57,6 +57,18 @@ struct HomeView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 20)
 
+                        DailyTrilogySection()
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 20)
+
+                        TodayActionCard()
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 20)
+
+                        WellnessInsightsRow()
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 20)
+
                         ReadinessSectionView(onCelebrate: triggerCelebration)
                             .padding(.horizontal, 16)
                             .padding(.bottom, 20)
@@ -646,8 +658,14 @@ struct ARIAGreetingCard: View {
     @State private var glowBeat      = false
 
     private var fullGreeting: String {
+        if let brief = store.dataConclusions?.coachingBrief, !brief.isEmpty {
+            return brief
+        }
         if let insight = store.coachingInsights.first {
             return "\(insight.title). \(insight.observation) \(insight.recommendation)"
+        }
+        if let template = store.dataConclusions?.offlineTemplates.dashboard, !template.isEmpty {
+            return template
         }
 
         let h    = Calendar.current.component(.hour, from: Date())

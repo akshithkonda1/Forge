@@ -273,6 +273,19 @@ final class ForgeRepository: ObservableObject {
     func syncWorkoutLog(_ workout: WorkoutLogUpload) async throws {
         try await api.postWorkoutLog(workout)
     }
+
+    func syncCycleEvents(_ events: [CycleEvent]) async throws {
+        let formatter = ISO8601DateFormatter()
+        let uploads = events.prefix(30).map { event in
+            CycleEventUpload(
+                startedAt: formatter.string(from: event.startedAt),
+                flow: event.flow,
+                source: "apple-health"
+            )
+        }
+        guard !uploads.isEmpty else { return }
+        try await api.postCycleEvents(uploads)
+    }
 }
 
 struct LifestyleDashboardSnapshot {
@@ -348,6 +361,8 @@ struct DashboardSnapshot {
     var sleepData: [SleepData]
     var workoutHistory: [WorkoutHistory]
     var personalRecords: [PersonalRecord]
+    var dailyScores: DailyScores?
+    var biologicalAge: BiologicalAge?
 }
 
 struct ProgressSummarySnapshot {
@@ -444,7 +459,62 @@ private func mapDashboard(_ response: DashboardTodayResponse) -> DashboardSnapsh
         todayWorkout: response.todayWorkout.map(mapWorkoutPlan),
         sleepData: response.recentSleep.map(mapSleep),
         workoutHistory: response.recentWorkouts.map(mapWorkoutHistory),
-        personalRecords: response.personalRecords.map(mapPersonalRecord)
+        personalRecords: response.personalRecords.map(mapPersonalRecord),
+        dailyScores: response.dailyScores.flatMap(mapDailyScores),
+        biologicalAge: response.biologicalAge.flatMap(mapBiologicalAge)
+    )
+}
+
+private func mapDailyScores(_ payload: APIDailyScores) -> DailyScores? {
+    guard let strain = payload.strain,
+          let recovery = payload.recovery,
+          let sleep = payload.sleep else { return nil }
+
+    let cycle = payload.cycleContext
+    let phase = CyclePhase(rawValue: cycle?.phase ?? "unknown") ?? .unknown
+
+    return DailyScores(
+        date: payload.date ?? ForgeDates.yyyyMMdd(from: Date()),
+        strain: StrainScoreBlock(
+            score: strain.score,
+            trend: strain.trend ?? "flat",
+            baselineLoad: strain.baselineLoad ?? 0,
+            todayLoad: strain.todayLoad ?? 0
+        ),
+        recovery: RecoveryScoreBlock(
+            score: recovery.score,
+            hrv: recovery.hrv,
+            trend: recovery.trend ?? "unknown"
+        ),
+        sleep: SleepScoreBlock(
+            score: sleep.score,
+            sleepNeedMinutes: sleep.sleepNeedMinutes ?? 0,
+            totalSleepMinutes: sleep.totalSleepMinutes ?? 0,
+            deepSleepMinutes: sleep.deepSleepMinutes ?? 0
+        ),
+        trainingDecision: TrainingDecision(rawValue: payload.trainingDecision ?? "active_rest") ?? .activeRest,
+        cycleContext: CycleContext(
+            phase: phase,
+            dayInCycle: cycle?.dayInCycle,
+            recommendRecovery: cycle?.recommendRecovery ?? false,
+            coachingNote: cycle?.coachingNote,
+            hasData: cycle?.hasData ?? false,
+            lastEventAt: cycle?.lastEventAt
+        ),
+        generatedAt: ISO8601DateFormatter().date(from: payload.generatedAt ?? "") ?? Date()
+    )
+}
+
+private func mapBiologicalAge(_ payload: APIBiologicalAge) -> BiologicalAge? {
+    guard let chronological = payload.chronologicalAge,
+          let biological = payload.biologicalAge,
+          let delta = payload.deltaYears else { return nil }
+    return BiologicalAge(
+        chronologicalAge: chronological,
+        biologicalAge: biological,
+        deltaYears: delta,
+        drivers: payload.drivers ?? [],
+        generatedAt: ISO8601DateFormatter().date(from: payload.generatedAt ?? "") ?? Date()
     )
 }
 

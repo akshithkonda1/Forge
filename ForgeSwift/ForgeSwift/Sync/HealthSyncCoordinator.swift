@@ -20,6 +20,17 @@ final class HealthSyncCoordinator {
         await syncRecentSleep()
         await syncRecentWorkouts()
         await syncWatchVitals()
+        await syncCycleEvents()
+    }
+
+    private func syncCycleEvents() async {
+        let events = await healthKit.fetchRecentCycleEvents(days: 90)
+        guard !events.isEmpty else { return }
+        do {
+            try await repository.syncCycleEvents(events)
+        } catch {
+            print("HealthSyncCoordinator cycle failed: \(error)")
+        }
     }
 
     private func syncDailyMetrics(snapshot: HealthDataSnapshot?) async {

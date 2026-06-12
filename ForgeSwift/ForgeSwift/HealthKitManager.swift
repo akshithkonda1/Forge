@@ -113,6 +113,7 @@ class HealthKitManager: ObservableObject {
         HKQuantityType(.distanceWalkingRunning),
         HKQuantityType(.vo2Max),
         HKCategoryType(.sleepAnalysis),
+        HKCategoryType(.menstrualFlow),
         HKQuantityType(.bodyMass),
         HKQuantityType(.height),
         HKQuantityType(.bodyMassIndex),
@@ -902,6 +903,47 @@ class HealthKitManager: ObservableObject {
                 continuation.resume(returning: uploads)
             }
             healthStore.execute(query)
+        }
+    }
+
+    func fetchRecentCycleEvents(days: Int = 90) async -> [CycleEvent] {
+        guard isAuthorized else { return [] }
+        let type = HKCategoryType(.menstrualFlow)
+        let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sort]
+            ) { _, samples, _ in
+                let events = (samples as? [HKCategorySample] ?? []).map { sample -> CycleEvent in
+                    let flow = Self.menstrualFlowLabel(sample.value)
+                    return CycleEvent(
+                        id: sample.uuid.uuidString,
+                        startedAt: sample.startDate,
+                        flow: flow
+                    )
+                }
+                continuation.resume(returning: events)
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    private static func menstrualFlowLabel(_ value: Int) -> String {
+        guard let flow = HKCategoryValueMenstrualFlow(rawValue: value) else {
+            return String(value)
+        }
+        switch flow {
+        case .unspecified: return "unspecified"
+        case .light: return "light"
+        case .medium: return "medium"
+        case .heavy: return "heavy"
+        @unknown default: return String(value)
         }
     }
 

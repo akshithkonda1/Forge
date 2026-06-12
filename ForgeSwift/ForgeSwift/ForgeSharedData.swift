@@ -9,6 +9,11 @@ enum ForgeSharedData {
     private static let hrvKey = "forge.metrics.hrv"
     private static let streakKey = "forge.streak"
     private static let lastSyncedKey = "forge.lastSyncedAt"
+    private static let strainKey = "forge.scores.strain"
+    private static let recoveryKey = "forge.scores.recovery"
+    private static let sleepScoreKey = "forge.scores.sleep"
+    private static let sleepNeedKey = "forge.scores.sleepNeed"
+    private static let trainingDecisionKey = "forge.scores.trainingDecision"
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: appGroupID) ?? UserDefaults.standard
@@ -21,6 +26,13 @@ enum ForgeSharedData {
         defaults.set(store.todayWorkout?.name ?? "", forKey: workoutNameKey)
         defaults.set(store.dailyMetrics.hrv, forKey: hrvKey)
         defaults.set(store.currentStreak, forKey: streakKey)
+        if let scores = store.dailyScores {
+            defaults.set(scores.strain.score, forKey: strainKey)
+            defaults.set(scores.recovery.score, forKey: recoveryKey)
+            defaults.set(scores.sleep.score, forKey: sleepScoreKey)
+            defaults.set(scores.sleep.sleepNeedMinutes, forKey: sleepNeedKey)
+            defaults.set(scores.trainingDecision.rawValue, forKey: trainingDecisionKey)
+        }
         defaults.set(Date().timeIntervalSince1970, forKey: lastSyncedKey)
         WidgetCenter.shared.reloadAllTimelines()
     }
@@ -44,5 +56,25 @@ enum ForgeSharedData {
     static var lastSyncedAt: Date? {
         guard let ts = defaults?.double(forKey: lastSyncedKey), ts > 0 else { return nil }
         return Date(timeIntervalSince1970: ts)
+    }
+
+    static var strainScore: Int {
+        defaults?.integer(forKey: strainKey) ?? 0
+    }
+
+    static var recoveryScore: Int {
+        defaults?.integer(forKey: recoveryKey) ?? 0
+    }
+
+    static var sleepScore: Int {
+        defaults?.integer(forKey: sleepScoreKey) ?? 0
+    }
+
+    static var sleepNeedMinutes: Int {
+        defaults?.integer(forKey: sleepNeedKey) ?? 0
+    }
+
+    static var trainingDecision: String {
+        defaults?.string(forKey: trainingDecisionKey) ?? "active_rest"
     }
 }

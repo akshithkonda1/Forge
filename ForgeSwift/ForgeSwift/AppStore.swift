@@ -507,6 +507,9 @@ final class AppStore: ObservableObject {
     @Published var readiness: ReadinessData = emptyReadiness
     @Published var dailyMetrics: DailyMetrics = emptyMetrics
     @Published var dataConclusions: DataConclusions?
+    @Published var dailyScores: DailyScores?
+    @Published var biologicalAge: BiologicalAge?
+    @Published var cycleEvents: [CycleEvent] = []
 
     // Today's Workout
     @Published var todayWorkout: WorkoutPlan?
@@ -553,6 +556,7 @@ final class AppStore: ObservableObject {
     private var responseGenerator: TrainerResponseGenerator
     private let repository = ForgeRepository.shared
     private var cancellables = Set<AnyCancellable>()
+    private var hasServerReadiness = false
     
     // MARK: - Initialization
     
@@ -609,6 +613,7 @@ final class AppStore: ObservableObject {
             deviceServiceStatus = try? await deviceStatusTask
 
             await syncHealthKitIfAvailable()
+            await refreshCloudConclusions()
             ForgeSharedData.syncFromStore(self)
             dataLoadState = .loaded
         } catch {
@@ -642,7 +647,8 @@ final class AppStore: ObservableObject {
         )
         if let hours = snapshot.sleepHours {
             dailyMetrics.totalSleep = Int(hours * 60)
-            recalculateReadiness()
+            if !hasServerReadiness { recalculateReadiness() }
+            refreshWellnessScores()
         }
     }
 
@@ -701,10 +707,16 @@ final class AppStore: ObservableObject {
             restingHR: snapshot?.restingHeartRate
         )
 
+        let events = await HealthKitManager.shared.fetchRecentCycleEvents(days: 90)
+        cycleEvents = events
+
         refreshLocalConclusions()
 
         if let refreshed = try? await repository.fetchDashboard() {
             applyDashboardSnapshot(refreshed)
+            ForgeSharedData.syncFromStore(self)
+        } else {
+            refreshWellnessScores()
             ForgeSharedData.syncFromStore(self)
         }
     }
@@ -716,11 +728,13 @@ final class AppStore: ObservableObject {
             sleepData: sleepData,
             workoutHistory: workoutHistory
         )
+        refreshWellnessScores()
     }
 
     func refreshCloudConclusions() async {
         if let remote = try? await repository.fetchConclusions() {
             dataConclusions = remote
+            refreshWellnessScores()
         } else {
             refreshLocalConclusions()
         }
@@ -803,6 +817,39 @@ final class AppStore: ObservableObject {
         workoutHistory = snapshot.workoutHistory
         personalRecords = snapshot.personalRecords
         currentStreak = calculateWorkoutStreak(from: snapshot.workoutHistory)
+        hasServerReadiness = snapshot.readiness.overall > 0
+
+        if let remote = snapshot.dailyScores {
+            dailyScores = remote
+        }
+        if let remote = snapshot.biologicalAge {
+            biologicalAge = remote
+        }
+
+        refreshWellnessScores(preferServerScores: snapshot.dailyScores != nil)
+    }
+
+    func refreshWellnessScores(preferServerScores: Bool = false) {
+        let cycle = DailyScoresEngine.inferCyclePhase(from: cycleEvents)
+        let flags = dataConclusions?.compoundFlags ?? []
+
+        if !preferServerScores || dailyScores == nil {
+            dailyScores = DailyScoresEngine.compute(
+                readiness: readiness,
+                dailyMetrics: dailyMetrics,
+                sleepData: sleepData,
+                workoutHistory: workoutHistory,
+                compoundFlags: flags,
+                cycleContext: cycle
+            )
+        }
+
+        biologicalAge = DailyScoresEngine.computeBiologicalAge(
+            profile: userProfile,
+            readiness: readiness,
+            dailyMetrics: dailyMetrics,
+            sleepData: sleepData
+        )
     }
 
     private func loadMockFallback() {
@@ -816,6 +863,7 @@ final class AppStore: ObservableObject {
         workoutHistory = mockWorkoutHistory
         personalRecords = mockPersonalRecords
         currentStreak = calculateWorkoutStreak(from: mockWorkoutHistory)
+        refreshWellnessScores()
         progressSummary = ProgressSummarySnapshot(
             periodDays: 30,
             workoutsCompleted: mockWorkoutHistory.count,
@@ -843,6 +891,11 @@ final class AppStore: ObservableObject {
         deviceServiceStatus = nil
         weeklyHealthTrends = []
         lastARIAToolCalls = []
+        dailyScores = nil
+        biologicalAge = nil
+        cycleEvents = []
+        dataConclusions = nil
+        hasServerReadiness = false
     }
 
     private func calculateWorkoutStreak(from history: [WorkoutHistory]) -> Int {
@@ -1032,11 +1085,13 @@ final class AppStore: ObservableObject {
         if let deepSleep = deepSleep { dailyMetrics.deepSleep = deepSleep }
         if let totalSleep = totalSleep { dailyMetrics.totalSleep = totalSleep }
         
-        // Recalculate readiness based on new metrics
-        recalculateReadiness()
+        if !hasServerReadiness {
+            recalculateReadiness()
+        }
+        refreshWellnessScores()
     }
     
-    /// Recalculate readiness score based on current metrics
+    /// Local readiness estimate when server scores are unavailable.
     private func recalculateReadiness() {
         // Simplified readiness calculation
         // In production, this would use more sophisticated algorithms
@@ -1217,8 +1272,8 @@ final class AppStore: ObservableObject {
         dailyMetrics.totalSleep = Int(sleep.totalHours * 60)
         dailyMetrics.deepSleep = sleep.deepMinutes
         
-        // Recalculate readiness
-        recalculateReadiness()
+        if !hasServerReadiness { recalculateReadiness() }
+        refreshWellnessScores()
     }
     
     // MARK: - Personal Records

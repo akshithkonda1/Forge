@@ -50,6 +50,8 @@
 		E48AF49526D542AAB9F538A3 /* ForgeRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EAE4121ECA14B139B76210A /* ForgeRepository.swift */; };
 		ARIAHS0012FAA000100000001 /* HealthSyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ARIAHS0022FAA000100000001 /* HealthSyncCoordinator.swift */; };
 		ARIACE0012FAA000100000001 /* ConclusionsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = ARIACE0022FAA000100000001 /* ConclusionsEngine.swift */; };
+		BEVELDS0012FAA000100000001 /* DailyScoresEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEVELDS0022FAA000100000001 /* DailyScoresEngine.swift */; };
+		BEVELHW0012FAA000100000001 /* HomeWellnessSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEVELHW0022FAA000100000001 /* HomeWellnessSection.swift */; };
 		WGT1001000000000000000001 /* ForgeSharedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = WGT1002000000000000000001 /* ForgeSharedData.swift */; };
 		WGT1001000000000000000002 /* ForgeEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = WGT1002000000000000000002 /* ForgeEmptyState.swift */; };
 		WGT1001000000000000000003 /* ForgeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = WGT1002000000000000000003 /* ForgeActivityAttributes.swift */; };
@@ -91,6 +93,8 @@
 		5EAE4121ECA14B139B76210A /* ForgeRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeRepository.swift; sourceTree = "<group>"; };
 		ARIAHS0022FAA000100000001 /* HealthSyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sync/HealthSyncCoordinator.swift; sourceTree = "<group>"; };
 		ARIACE0022FAA000100000001 /* ConclusionsEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Evaluation/ConclusionsEngine.swift; sourceTree = "<group>"; };
+		BEVELDS0022FAA000100000001 /* DailyScoresEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Evaluation/DailyScoresEngine.swift; sourceTree = "<group>"; };
+		BEVELHW0022FAA000100000001 /* HomeWellnessSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeWellnessSection.swift; sourceTree = "<group>"; };
 		AA0002000000000000000001 /* ForgeSwiftApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSwiftApp.swift; sourceTree = "<group>"; };
 		AA0002000000000000000002 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		AA0002000000000000000003 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -205,6 +209,8 @@
 				5EAE4121ECA14B139B76210A /* ForgeRepository.swift */,
 				ARIAHS0022FAA000100000001 /* HealthSyncCoordinator.swift */,
 				ARIACE0022FAA000100000001 /* ConclusionsEngine.swift */,
+				BEVELDS0022FAA000100000001 /* DailyScoresEngine.swift */,
+				BEVELHW0022FAA000100000001 /* HomeWellnessSection.swift */,
 				ECF1DD20A49A46198C376D8F /* ForgeAPIClient.swift */,
 				FA1C55D909AC4D60BF6969D3 /* CognitoAuthManager.swift */,
 				C0GN1T0K5UPP0RT000000002 /* CognitoTokenSupport.swift */,
@@ -459,6 +465,8 @@
 				E48AF49526D542AAB9F538A3 /* ForgeRepository.swift in Sources */,
 				ARIAHS0012FAA000100000001 /* HealthSyncCoordinator.swift in Sources */,
 				ARIACE0012FAA000100000001 /* ConclusionsEngine.swift in Sources */,
+				BEVELDS0012FAA000100000001 /* DailyScoresEngine.swift in Sources */,
+				BEVELHW0012FAA000100000001 /* HomeWellnessSection.swift in Sources */,
 				431257DB19094CB18CB7E678 /* ForgeAPIClient.swift in Sources */,
 				6F602A203C4547B4B4CCBAE8 /* CognitoAuthManager.swift in Sources */,
 				C0GN1T0K5UPP0RT000000001 /* CognitoTokenSupport.swift in Sources */,

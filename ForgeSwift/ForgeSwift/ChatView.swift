@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import Speech
 
 // ╔═══════════════════════════════════════════════════════════════════════╗
 // ║  FORGE × ARIA — ULTIMATE CHAT                                          ║
@@ -235,36 +236,119 @@ final class SpeechManager: ObservableObject {
     @Published var recognizedText: String     = ""
     @Published var amplitude:      Float      = 0.0
     @Published var voiceState:     VoiceState = .idle
-    private var listenTask: Task<Void, Never>?
+
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+    private let audioEngine = AVAudioEngine()
+    private var silenceTimer: Timer?
+    private let silenceThreshold: TimeInterval = 1.6
 
     func startListening() {
-        voiceState     = .listening
+        guard voiceState != .listening else { return }
         recognizedText = ""
-        listenTask     = Task {
-            for step in 0..<40 {
-                guard !Task.isCancelled else { return }
-                let t = Double(step) / 40.0
-                amplitude = Float(0.25 + 0.75 * abs(sin(t * .pi * 4 + 0.3)))
-                try? await Task.sleep(nanoseconds: 70_000_000)
+        voiceState = .listening
+
+        SFSpeechRecognizer.requestAuthorization { [weak self] status in
+            guard status == .authorized else {
+                Task { @MainActor in self?.voiceState = .idle }
+                return
             }
-            guard !Task.isCancelled else { return }
-            amplitude  = 0
-            voiceState = .processing
-            try? await Task.sleep(nanoseconds: 1_100_000_000)
-            guard !Task.isCancelled else { return }
-            recognizedText = "What should we do today?"
-            voiceState     = .idle
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            Task { @MainActor in self?.beginRecognition() }
         }
     }
 
     func stopListening() {
-        listenTask?.cancel(); listenTask = nil
-        amplitude  = 0
-        voiceState = .idle
+        silenceTimer?.invalidate()
+        silenceTimer = nil
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
+        recognitionRequest?.endAudio()
+        recognitionTask?.cancel()
+        recognitionRequest = nil
+        recognitionTask = nil
+        amplitude = 0
+        if voiceState == .listening { voiceState = .idle }
     }
 
-    deinit { listenTask?.cancel() }
+    private func beginRecognition() {
+        stopListening()
+        voiceState = .listening
+        recognizedText = ""
+
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            voiceState = .idle
+            return
+        }
+
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let recognitionRequest else {
+            voiceState = .idle
+            return
+        }
+        recognitionRequest.shouldReportPartialResults = true
+
+        let inputNode = audioEngine.inputNode
+        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
+            guard let self else { return }
+            Task { @MainActor in
+                if let result {
+                    self.recognizedText = result.bestTranscription.formattedString
+                    self.resetSilenceTimer()
+                }
+                if error != nil || result?.isFinal == true {
+                    self.finishRecognition()
+                }
+            }
+        }
+
+        let format = inputNode.outputFormat(forBus: 0)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            recognitionRequest.append(buffer)
+            guard let self else { return }
+            let channel = buffer.floatChannelData?[0]
+            let frames = Int(buffer.frameLength)
+            guard let channel, frames > 0 else { return }
+            var sum: Float = 0
+            for i in 0..<frames { sum += abs(channel[i]) }
+            let level = min(1, sum / Float(frames) * 12)
+            Task { @MainActor in self.amplitude = level }
+        }
+
+        do {
+            try audioEngine.start()
+        } catch {
+            stopListening()
+        }
+    }
+
+    private func resetSilenceTimer() {
+        silenceTimer?.invalidate()
+        silenceTimer = Timer.scheduledTimer(withTimeInterval: silenceThreshold, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.finishRecognition() }
+        }
+    }
+
+    private func finishRecognition() {
+        let captured = recognizedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        stopListening()
+        guard !captured.isEmpty else { return }
+        voiceState = .processing
+        recognizedText = captured
+        voiceState = .idle
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    deinit {
+        silenceTimer?.invalidate()
+        recognitionTask?.cancel()
+    }
 }
 
 // ============================================================

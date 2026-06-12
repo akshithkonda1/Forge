@@ -25,22 +25,19 @@ struct ForgeWatchContentView: View {
                 .font(.system(size: 10, weight: .black))
                 .foregroundStyle(.orange)
 
-            Text("\(ForgeWatchDashboardReader.readinessScore)")
-                .font(.system(size: 44, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
+            HStack(spacing: 8) {
+                WatchTrilogyStat(label: "Strain", value: ForgeWatchDashboardReader.strainScore, color: .orange)
+                WatchTrilogyStat(label: "Rec", value: ForgeWatchDashboardReader.recoveryScore, color: .green)
+                WatchTrilogyStat(label: "Sleep", value: ForgeWatchDashboardReader.sleepScore, color: .indigo)
+            }
 
-            Text("Readiness")
+            Text(ForgeWatchDashboardReader.workoutName)
+                .font(.caption)
+                .lineLimit(1)
+
+            Text("Ready \(ForgeWatchDashboardReader.readinessScore) · \(ForgeWatchDashboardReader.streak)d streak")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-
-            VStack(spacing: 4) {
-                Text(ForgeWatchDashboardReader.workoutName)
-                    .font(.caption)
-                    .lineLimit(1)
-                Text("HRV \(ForgeWatchDashboardReader.hrv) · \(ForgeWatchDashboardReader.streak)d streak")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
 
             if connectivity.isPhoneReachable {
                 Label("iPhone connected", systemImage: "iphone")
@@ -113,5 +110,22 @@ struct ForgeWatchContentView: View {
 
     private func formatElapsed(_ seconds: Int) -> String {
         String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+}
+
+private struct WatchTrilogyStat: View {
+    let label: String
+    let value: Int
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text("\(value)")
+                .font(.system(size: 18, weight: .black, design: .rounded))
+                .foregroundStyle(color)
+            Text(label)
+                .font(.system(size: 8, weight: .semibold))
+                .foregroundStyle(.secondary)
+        }
     }
 }

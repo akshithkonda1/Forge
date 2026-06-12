@@ -7,6 +7,10 @@ enum ForgeSharedData {
     private static let workoutNameKey = "forge.workout.name"
     private static let hrvKey = "forge.metrics.hrv"
     private static let streakKey = "forge.streak"
+    private static let strainKey = "forge.scores.strain"
+    private static let recoveryKey = "forge.scores.recovery"
+    private static let sleepScoreKey = "forge.scores.sleep"
+    private static let sleepNeedKey = "forge.scores.sleepNeed"
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: appGroupID)
@@ -26,5 +30,21 @@ enum ForgeSharedData {
 
     static var streak: Int {
         defaults?.integer(forKey: streakKey) ?? 0
+    }
+
+    static var strainScore: Int {
+        defaults?.integer(forKey: strainKey) ?? 0
+    }
+
+    static var recoveryScore: Int {
+        defaults?.integer(forKey: recoveryKey) ?? 0
+    }
+
+    static var sleepScore: Int {
+        defaults?.integer(forKey: sleepScoreKey) ?? 0
+    }
+
+    static var sleepNeedMinutes: Int {
+        defaults?.integer(forKey: sleepNeedKey) ?? 0
     }
 }
