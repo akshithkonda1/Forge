@@ -138,8 +138,10 @@ def cmd_chat(args: argparse.Namespace) -> int:
         _print_json(payload)
         return 1
     _print_answer(payload)
-    if args.verbose and payload.get("toolCallsMade"):
-        print("\n[tools]", json.dumps(payload["toolCallsMade"], indent=2))
+    if args.verbose:
+        details = payload.get("toolCallDetails") or payload.get("toolCallsMade")
+        if details:
+            print("\n[tools]", json.dumps(details, indent=2))
     return 0
 
 

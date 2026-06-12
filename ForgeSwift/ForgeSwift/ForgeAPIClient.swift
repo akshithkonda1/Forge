@@ -130,6 +130,57 @@ struct MeResponse: Decodable {
     let connections: [APIIntegrationConnection]
 }
 
+struct APIScoreBlock: Decodable {
+    let score: Int
+}
+
+struct APIStrainBlock: Decodable {
+    let score: Int
+    let trend: String?
+    let baselineLoad: Int?
+    let todayLoad: Int?
+}
+
+struct APIRecoveryBlock: Decodable {
+    let score: Int
+    let hrv: Int?
+    let trend: String?
+}
+
+struct APISleepBlock: Decodable {
+    let score: Int
+    let sleepNeedMinutes: Int?
+    let totalSleepMinutes: Int?
+    let deepSleepMinutes: Int?
+}
+
+struct APICycleContext: Decodable {
+    let phase: String?
+    let dayInCycle: Int?
+    let recommendRecovery: Bool?
+    let coachingNote: String?
+    let hasData: Bool?
+    let lastEventAt: String?
+}
+
+struct APIDailyScores: Decodable {
+    let date: String?
+    let strain: APIStrainBlock?
+    let recovery: APIRecoveryBlock?
+    let sleep: APISleepBlock?
+    let trainingDecision: String?
+    let cycleContext: APICycleContext?
+    let generatedAt: String?
+}
+
+struct APIBiologicalAge: Decodable {
+    let chronologicalAge: Int?
+    let biologicalAge: Double?
+    let deltaYears: Double?
+    let drivers: [String]?
+    let generatedAt: String?
+}
+
 struct DashboardTodayResponse: Decodable {
     let profile: APIUserProfile
     let readiness: APIReadinessData
@@ -139,6 +190,8 @@ struct DashboardTodayResponse: Decodable {
     let recentWorkouts: [APIWorkoutHistory]
     let personalRecords: [APIPersonalRecord]
     let connections: [APIIntegrationConnection]?
+    let dailyScores: APIDailyScores?
+    let biologicalAge: APIBiologicalAge?
 }
 
 struct SleepListResponse: Decodable {
@@ -176,6 +229,40 @@ struct ARIAChatResponse: Decodable {
     let threadId: String
     let message: APIChatMessage
     let toolCallsMade: [String]?
+    let pipelineIncomplete: Bool?
+    let offlineTemplate: Bool?
+    let coachingBrief: String?
+}
+
+struct ARIAOfflineTemplates: Decodable {
+    let chat: String?
+    let dashboard: String?
+    let mood: String?
+    let widget: String?
+}
+
+struct ARIAConclusionsPayload: Decodable {
+    let readiness: APIReadinessData?
+}
+
+struct ARIAConclusionsResponse: Decodable {
+    let conclusions: ARIAConclusionsPayload?
+    let coveragePct: Double?
+    let coachingBrief: String?
+    let compoundFlags: [String]?
+    let offlineTemplates: ARIAOfflineTemplates?
+    let retrievedAt: String
+}
+
+struct ARIABriefResponse: Decodable {
+    let focus: String
+    let title: String
+    let headline: String
+    let body: String
+    let notificationCopy: String
+    let trainingDecision: String
+    let compoundFlags: [String]?
+    let generatedAt: String
 }
 
 struct ARIAPlanResponse: Decodable {
@@ -337,6 +424,12 @@ struct HealthMetricInput: Encodable {
     let unit: String
 }
 
+struct CycleEventUpload: Encodable {
+    let startedAt: String
+    let flow: String
+    let source: String
+}
+
 struct HealthBatchRequest: Encodable {
     let metrics: [HealthMetricInput]
 }
@@ -441,8 +534,41 @@ final class ForgeAPIClient {
         )
     }
 
-    func sendARIAChat(content: String) async throws -> ARIAChatResponse {
-        try await request(path: "/aria/chat", method: "POST", body: ["content": content])
+    func sendARIAChat(content: String, useTools: Bool = false) async throws -> ARIAChatResponse {
+        struct Body: Encodable {
+            let content: String
+            let useTools: Bool
+        }
+        return try await request(
+            path: "/aria/chat",
+            method: "POST",
+            body: Body(content: content, useTools: useTools)
+        )
+    }
+
+    func getARIAConclusions() async throws -> ARIAConclusionsResponse {
+        try await request(path: "/aria/conclusions")
+    }
+
+    func postARIABrief(focus: String = "auto", useLLM: Bool = false) async throws -> ARIABriefResponse {
+        struct Body: Encodable {
+            let focus: String
+            let useLLM: Bool
+        }
+        return try await request(
+            path: "/aria/brief",
+            method: "POST",
+            body: Body(focus: focus, useLLM: useLLM)
+        )
+    }
+
+    func deleteARIAConversation(threadId: String = "current") async throws {
+        struct Response: Decodable { let cleared: Bool }
+        let _: Response = try await request(
+            path: "/aria/conversation",
+            method: "DELETE",
+            query: ["threadId": threadId]
+        )
     }
 
     func generateARIAPlan(focus: String = "auto") async throws -> ARIAPlanResponse {
@@ -453,9 +579,16 @@ final class ForgeAPIClient {
         try await request(path: "/aria/lifestyle", method: "POST", body: ["focus": focus])
     }
 
-    func fetchCoachWorkoutPlan() async throws -> CoachWorkoutPlanResponse {
-        struct EmptyBody: Encodable {}
-        return try await request(path: "/coach/workout-plan", method: "POST", body: EmptyBody())
+    func postSleepSession(_ session: SleepSessionUpload) async throws {
+        struct Body: Encodable { let session: SleepSessionUpload }
+        struct Response: Decodable { let ok: Bool? }
+        let _: Response = try await request(path: "/sleep/sessions", method: "POST", body: Body(session: session))
+    }
+
+    func postWorkoutLog(_ workout: WorkoutLogUpload) async throws {
+        struct Body: Encodable { let workout: WorkoutLogUpload }
+        struct Response: Decodable { let ok: Bool? }
+        let _: Response = try await request(path: "/workouts/logs", method: "POST", body: Body(workout: workout))
     }
 
     func sendARIAVoice(transcript: String) async throws -> ARIAVoiceResponse {
@@ -480,6 +613,12 @@ final class ForgeAPIClient {
             body: UpdateProfileRequest(profile: profile)
         )
         return response.profile
+    }
+
+    func postCycleEvents(_ events: [CycleEventUpload]) async throws {
+        struct Body: Encodable { let events: [CycleEventUpload] }
+        struct Response: Decodable { let accepted: Int }
+        let _: Response = try await request(path: "/health/cycle", method: "POST", body: Body(events: events))
     }
 
     func syncHealthBatch(_ metrics: [HealthMetricInput]) async throws {

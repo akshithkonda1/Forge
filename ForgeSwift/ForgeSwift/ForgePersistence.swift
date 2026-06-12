@@ -10,6 +10,7 @@ enum ForgePersistence {
     private static let sleepSoundMixKey = "forge.sleep.soundMix"
     private static let sleepTimerKey = "forge.sleep.timerMinutes"
     private static let chatGamificationKey = "forge.chat.gamification"
+    private static let briefNotificationsKey = "forge.notifications.briefSettings"
 
     static var isOnboarded: Bool {
         UserDefaults.standard.bool(forKey: onboardedKey)
@@ -105,5 +106,20 @@ enum ForgePersistence {
             return nil
         }
         return state
+    }
+
+    // MARK: - Proactive brief notifications
+
+    static func saveBriefNotificationSettings(_ settings: BriefNotificationSettings) {
+        guard let data = try? JSONEncoder().encode(settings) else { return }
+        UserDefaults.standard.set(data, forKey: briefNotificationsKey)
+    }
+
+    static func loadBriefNotificationSettings() -> BriefNotificationSettings {
+        guard let data = UserDefaults.standard.data(forKey: briefNotificationsKey),
+              let settings = try? JSONDecoder().decode(BriefNotificationSettings.self, from: data) else {
+            return BriefNotificationSettings()
+        }
+        return settings
     }
 }

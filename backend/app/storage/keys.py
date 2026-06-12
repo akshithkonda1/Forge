@@ -54,6 +54,26 @@ def aria_summary_key(user_id: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": "ARIA#SUMMARY"}
 
 
+def aria_conclusions_key(user_id: str, week_key: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"ARIA#CONCLUSIONS#{week_key}"}
+
+
+def aria_brief_key(user_id: str, date: str, focus: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"ARIA#BRIEF#{date}#{focus}"}
+
+
+def daily_scores_key(user_id: str, date: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"DAILY_SCORES#{date}"}
+
+
+def biological_age_key(user_id: str, date: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"BIO_AGE#{date}"}
+
+
+def cycle_event_key(user_id: str, started_at: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"CYCLE#{started_at}"}
+
+
 def terra_user_key(terra_user_id: str) -> dict:
     return {"pk": f"TERRA#USER#{terra_user_id}", "sk": "MAPPING"}
 

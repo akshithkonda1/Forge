@@ -57,8 +57,35 @@ final class ForgeRepository: ObservableObject {
     }
 
     func refreshCoachWorkoutPlan() async throws -> WorkoutPlan? {
-        let response = try await api.fetchCoachWorkoutPlan()
-        return response.todayPlan.map(mapWorkoutPlan)
+        _ = try await api.generateARIAPlan(focus: "workout")
+        let dashboard = try await api.getDashboardToday()
+        return dashboard.todayWorkout.map(mapWorkoutPlan)
+    }
+
+    func fetchARIABrief(focus: String = "auto") async throws -> ARIABrief {
+        let response = try await api.postARIABrief(focus: focus)
+        return mapARIABrief(response)
+    }
+
+    func fetchConclusions() async throws -> DataConclusions {
+        let response = try await api.getARIAConclusions()
+        return DataConclusions(
+            generatedAt: ISO8601DateFormatter().date(from: response.retrievedAt) ?? Date(),
+            coveragePct: response.coveragePct ?? 0,
+            coachingBrief: response.coachingBrief ?? "",
+            compoundFlags: response.compoundFlags ?? [],
+            offlineTemplates: OfflineTemplates(
+                chat: response.offlineTemplates?.chat ?? response.coachingBrief ?? "",
+                dashboard: response.offlineTemplates?.dashboard ?? "",
+                mood: response.offlineTemplates?.mood ?? "steady",
+                widget: response.offlineTemplates?.widget ?? ""
+            ),
+            readinessOverall: response.conclusions?.readiness?.overall ?? 0
+        )
+    }
+
+    func clearARIAConversation() async throws {
+        try await api.deleteARIAConversation()
     }
 
     func sendVoiceTranscript(_ transcript: String) async throws -> String {
@@ -218,7 +245,8 @@ final class ForgeRepository: ObservableObject {
         steps: Int?,
         activeCalories: Int?,
         hrv: Int?,
-        restingHR: Int?
+        restingHR: Int?,
+        oxygenSaturation: Int? = nil
     ) async throws {
         var metrics: [HealthMetricInput] = []
         let now = ISO8601DateFormatter().string(from: Date())
@@ -235,9 +263,33 @@ final class ForgeRepository: ObservableObject {
         if let restingHR {
             metrics.append(.init(source: "apple-health", metricType: "resting-heart-rate", startedAt: now, endedAt: nil, value: Double(restingHR), unit: "bpm"))
         }
+        if let oxygenSaturation {
+            metrics.append(.init(source: "apple-health", metricType: "oxygen-saturation", startedAt: now, endedAt: nil, value: Double(oxygenSaturation), unit: "percent"))
+        }
 
         guard !metrics.isEmpty else { return }
         try await api.syncHealthBatch(metrics)
+    }
+
+    func syncSleepSession(_ session: SleepSessionUpload) async throws {
+        try await api.postSleepSession(session)
+    }
+
+    func syncWorkoutLog(_ workout: WorkoutLogUpload) async throws {
+        try await api.postWorkoutLog(workout)
+    }
+
+    func syncCycleEvents(_ events: [CycleEvent]) async throws {
+        let formatter = ISO8601DateFormatter()
+        let uploads = events.prefix(30).map { event in
+            CycleEventUpload(
+                startedAt: formatter.string(from: event.startedAt),
+                flow: event.flow,
+                source: "apple-health"
+            )
+        }
+        guard !uploads.isEmpty else { return }
+        try await api.postCycleEvents(uploads)
     }
 }
 
@@ -314,6 +366,8 @@ struct DashboardSnapshot {
     var sleepData: [SleepData]
     var workoutHistory: [WorkoutHistory]
     var personalRecords: [PersonalRecord]
+    var dailyScores: DailyScores?
+    var biologicalAge: BiologicalAge?
 }
 
 struct ProgressSummarySnapshot {
@@ -389,6 +443,19 @@ private func mapRestaurant(_ restaurant: APIRestaurant) -> LifestyleRestaurant {
     )
 }
 
+private func mapARIABrief(_ response: ARIABriefResponse) -> ARIABrief {
+    ARIABrief(
+        focus: ARIABriefFocus(rawValue: response.focus) ?? .auto,
+        title: response.title,
+        headline: response.headline,
+        body: response.body,
+        notificationCopy: response.notificationCopy,
+        trainingDecision: TrainingDecision(rawValue: response.trainingDecision) ?? .activeRest,
+        compoundFlags: response.compoundFlags ?? [],
+        generatedAt: ISO8601DateFormatter().date(from: response.generatedAt) ?? Date()
+    )
+}
+
 private func mapDashboard(_ response: DashboardTodayResponse) -> DashboardSnapshot {
     DashboardSnapshot(
         profile: mapProfile(response.profile),
@@ -410,7 +477,62 @@ private func mapDashboard(_ response: DashboardTodayResponse) -> DashboardSnapsh
         todayWorkout: response.todayWorkout.map(mapWorkoutPlan),
         sleepData: response.recentSleep.map(mapSleep),
         workoutHistory: response.recentWorkouts.map(mapWorkoutHistory),
-        personalRecords: response.personalRecords.map(mapPersonalRecord)
+        personalRecords: response.personalRecords.map(mapPersonalRecord),
+        dailyScores: response.dailyScores.flatMap(mapDailyScores),
+        biologicalAge: response.biologicalAge.flatMap(mapBiologicalAge)
+    )
+}
+
+private func mapDailyScores(_ payload: APIDailyScores) -> DailyScores? {
+    guard let strain = payload.strain,
+          let recovery = payload.recovery,
+          let sleep = payload.sleep else { return nil }
+
+    let cycle = payload.cycleContext
+    let phase = CyclePhase(rawValue: cycle?.phase ?? "unknown") ?? .unknown
+
+    return DailyScores(
+        date: payload.date ?? ForgeDates.yyyyMMdd(from: Date()),
+        strain: StrainScoreBlock(
+            score: strain.score,
+            trend: strain.trend ?? "flat",
+            baselineLoad: strain.baselineLoad ?? 0,
+            todayLoad: strain.todayLoad ?? 0
+        ),
+        recovery: RecoveryScoreBlock(
+            score: recovery.score,
+            hrv: recovery.hrv,
+            trend: recovery.trend ?? "unknown"
+        ),
+        sleep: SleepScoreBlock(
+            score: sleep.score,
+            sleepNeedMinutes: sleep.sleepNeedMinutes ?? 0,
+            totalSleepMinutes: sleep.totalSleepMinutes ?? 0,
+            deepSleepMinutes: sleep.deepSleepMinutes ?? 0
+        ),
+        trainingDecision: TrainingDecision(rawValue: payload.trainingDecision ?? "active_rest") ?? .activeRest,
+        cycleContext: CycleContext(
+            phase: phase,
+            dayInCycle: cycle?.dayInCycle,
+            recommendRecovery: cycle?.recommendRecovery ?? false,
+            coachingNote: cycle?.coachingNote,
+            hasData: cycle?.hasData ?? false,
+            lastEventAt: cycle?.lastEventAt
+        ),
+        generatedAt: ISO8601DateFormatter().date(from: payload.generatedAt ?? "") ?? Date()
+    )
+}
+
+private func mapBiologicalAge(_ payload: APIBiologicalAge) -> BiologicalAge? {
+    guard let chronological = payload.chronologicalAge,
+          let biological = payload.biologicalAge,
+          let delta = payload.deltaYears else { return nil }
+    return BiologicalAge(
+        chronologicalAge: chronological,
+        biologicalAge: biological,
+        deltaYears: delta,
+        drivers: payload.drivers ?? [],
+        generatedAt: ISO8601DateFormatter().date(from: payload.generatedAt ?? "") ?? Date()
     )
 }
 

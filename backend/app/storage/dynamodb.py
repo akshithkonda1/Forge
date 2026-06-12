@@ -136,6 +136,31 @@ def scan_pk_prefix(pk_prefix: str, *, limit: int = 200) -> list[dict]:
     return items[:limit]
 
 
+def delete_partition(pk: str) -> int:
+    """Delete all items in a partition key. Returns count removed."""
+    if not _TABLE_NAME:
+        keys_to_delete = [k for k, v in _local_store.items() if v.get("pk") == pk]
+        for composite in keys_to_delete:
+            _local_store.pop(composite, None)
+        return len(keys_to_delete)
+
+    from boto3.dynamodb.conditions import Key  # type: ignore[import]
+
+    table = _get_table()
+    response = table.query(KeyConditionExpression=Key("pk").eq(pk))
+    items = list(response.get("Items", []))
+    while "LastEvaluatedKey" in response:
+        response = table.query(
+            KeyConditionExpression=Key("pk").eq(pk),
+            ExclusiveStartKey=response["LastEvaluatedKey"],
+        )
+        items.extend(response.get("Items", []))
+
+    for item in items:
+        table.delete_item(Key={"pk": item["pk"], "sk": item["sk"]})
+    return len(items)
+
+
 def clear_local_store() -> None:
     """Test helper: reset the in-memory store between test runs."""
     _local_store.clear()

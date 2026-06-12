@@ -6,12 +6,15 @@ from data.seed_data import today_iso
 from core.seed_policy import empty_daily_metrics
 from storage import dynamodb, keys
 
+from services.data_fusion import load_wellness_snapshot as load_wellness_snapshot
+
 
 _METRIC_FIELDS = (
     ("steps", "steps"),
     ("active-calories", "activeCalories"),
     ("resting-heart-rate", "restingHR"),
     ("hrv", "hrv"),
+    ("oxygen-saturation", "oxygenSaturation"),
 )
 
 

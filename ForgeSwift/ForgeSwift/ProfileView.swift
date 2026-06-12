@@ -987,8 +987,11 @@ struct SettingsPageView: View {
                     SettingsRow(icon: "bell.fill", iconColor: .ember, label: "Workout Reminders",
                                 trailing: AnyView(ForgeToggle(isOn: $workoutReminders)))
                     Divider().background(Color.borderColor)
-                    SettingsRow(icon: "bell.fill", iconColor: .steel, label: "AI Insights",
-                                trailing: AnyView(ForgeToggle(isOn: $aiInsights)))
+                    SettingsRow(icon: "bell.fill", iconColor: .steel, label: "ARIA Proactive Briefs",
+                                trailing: AnyView(ForgeToggle(isOn: Binding(
+                                    get: { store.briefNotificationsEnabled },
+                                    set: { store.setBriefNotificationsEnabled($0) }
+                                ))))
                     Divider().background(Color.borderColor)
                     SettingsRow(icon: "bell.fill", iconColor: .success, label: "Recovery Alerts",
                                 trailing: AnyView(ForgeToggle(isOn: $recoveryAlerts)))

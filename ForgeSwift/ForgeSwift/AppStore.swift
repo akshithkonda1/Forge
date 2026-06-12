@@ -506,6 +506,13 @@ final class AppStore: ObservableObject {
     // Readiness & Metrics
     @Published var readiness: ReadinessData = emptyReadiness
     @Published var dailyMetrics: DailyMetrics = emptyMetrics
+    @Published var dataConclusions: DataConclusions?
+    @Published var dailyScores: DailyScores?
+    @Published var biologicalAge: BiologicalAge?
+    @Published var cycleEvents: [CycleEvent] = []
+    @Published var ariaBrief: ARIABrief?
+    @Published var eveningBrief: ARIABrief?
+    @Published var briefNotificationsEnabled: Bool = ForgePersistence.loadBriefNotificationSettings().enabled
 
     // Today's Workout
     @Published var todayWorkout: WorkoutPlan?
@@ -552,6 +559,7 @@ final class AppStore: ObservableObject {
     private var responseGenerator: TrainerResponseGenerator
     private let repository = ForgeRepository.shared
     private var cancellables = Set<AnyCancellable>()
+    private var hasServerReadiness = false
     
     // MARK: - Initialization
     
@@ -608,6 +616,8 @@ final class AppStore: ObservableObject {
             deviceServiceStatus = try? await deviceStatusTask
 
             await syncHealthKitIfAvailable()
+            await refreshCloudConclusions()
+            await refreshProactiveBriefs(scheduleNotifications: true)
             ForgeSharedData.syncFromStore(self)
             dataLoadState = .loaded
         } catch {
@@ -641,7 +651,8 @@ final class AppStore: ObservableObject {
         )
         if let hours = snapshot.sleepHours {
             dailyMetrics.totalSleep = Int(hours * 60)
-            recalculateReadiness()
+            if !hasServerReadiness { recalculateReadiness() }
+            refreshWellnessScores()
         }
     }
 
@@ -690,6 +701,7 @@ final class AppStore: ObservableObject {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         await HealthKitManager.shared.fetchWeeklyTrends()
         weeklyHealthTrends = HealthKitManager.shared.weeklyTrends
+        await HealthSyncCoordinator.shared.syncAll()
 
         let snapshot = await HealthKitManager.shared.fetchRecentSnapshot()
         updateMetrics(
@@ -699,19 +711,82 @@ final class AppStore: ObservableObject {
             restingHR: snapshot?.restingHeartRate
         )
 
-        do {
-            try await repository.syncHealthMetrics(
-                steps: snapshot?.steps,
-                activeCalories: snapshot?.activeCalories,
-                hrv: snapshot?.hrv.map { Int($0.rounded()) } ?? dailyMetrics.hrv,
-                restingHR: snapshot?.restingHeartRate
+        let events = await HealthKitManager.shared.fetchRecentCycleEvents(days: 90)
+        cycleEvents = events
+
+        refreshLocalConclusions()
+
+        if let refreshed = try? await repository.fetchDashboard() {
+            applyDashboardSnapshot(refreshed)
+            ForgeSharedData.syncFromStore(self)
+        } else {
+            refreshWellnessScores()
+            ForgeSharedData.syncFromStore(self)
+        }
+    }
+
+    func refreshLocalConclusions() {
+        dataConclusions = ConclusionsEngine.evaluate(
+            readiness: readiness,
+            dailyMetrics: dailyMetrics,
+            sleepData: sleepData,
+            workoutHistory: workoutHistory
+        )
+        refreshWellnessScores()
+    }
+
+    func refreshCloudConclusions() async {
+        if let remote = try? await repository.fetchConclusions() {
+            dataConclusions = remote
+            refreshWellnessScores()
+        } else {
+            refreshLocalConclusions()
+        }
+    }
+
+    func refreshProactiveBriefs(scheduleNotifications: Bool = false) async {
+        async let morningTask = repository.fetchARIABrief(focus: "morning")
+        async let eveningTask = repository.fetchARIABrief(focus: "evening")
+
+        if let morning = try? await morningTask {
+            ariaBrief = morning
+        }
+        if let evening = try? await eveningTask {
+            eveningBrief = evening
+        }
+
+        if scheduleNotifications, briefNotificationsEnabled {
+            let settings = ForgePersistence.loadBriefNotificationSettings()
+            await ForgeNotificationCoordinator.shared.scheduleProactiveBriefs(
+                morning: ariaBrief,
+                evening: eveningBrief,
+                settings: settings
             )
-            if let refreshed = try? await repository.fetchDashboard() {
-                applyDashboardSnapshot(refreshed)
-                ForgeSharedData.syncFromStore(self)
+        }
+        ForgeSharedData.syncFromStore(self)
+    }
+
+    func refreshPostWorkoutBrief(deliverNotification: Bool = true) async {
+        guard let brief = try? await repository.fetchARIABrief(focus: "post-workout") else { return }
+        ariaBrief = brief
+        ForgeSharedData.syncFromStore(self)
+        if deliverNotification, briefNotificationsEnabled {
+            await ForgeNotificationCoordinator.shared.deliverImmediateBrief(brief)
+        }
+    }
+
+    func setBriefNotificationsEnabled(_ enabled: Bool) {
+        briefNotificationsEnabled = enabled
+        var settings = ForgePersistence.loadBriefNotificationSettings()
+        settings.enabled = enabled
+        ForgePersistence.saveBriefNotificationSettings(settings)
+        Task {
+            if enabled {
+                await ForgeNotificationCoordinator.shared.requestAuthorizationIfNeeded()
+                await refreshProactiveBriefs(scheduleNotifications: true)
+            } else {
+                await ForgeNotificationCoordinator.shared.cancelBriefNotifications()
             }
-        } catch {
-            print("HealthKit sync failed: \(error)")
         }
     }
 
@@ -792,6 +867,39 @@ final class AppStore: ObservableObject {
         workoutHistory = snapshot.workoutHistory
         personalRecords = snapshot.personalRecords
         currentStreak = calculateWorkoutStreak(from: snapshot.workoutHistory)
+        hasServerReadiness = snapshot.readiness.overall > 0
+
+        if let remote = snapshot.dailyScores {
+            dailyScores = remote
+        }
+        if let remote = snapshot.biologicalAge {
+            biologicalAge = remote
+        }
+
+        refreshWellnessScores(preferServerScores: snapshot.dailyScores != nil)
+    }
+
+    func refreshWellnessScores(preferServerScores: Bool = false) {
+        let cycle = DailyScoresEngine.inferCyclePhase(from: cycleEvents)
+        let flags = dataConclusions?.compoundFlags ?? []
+
+        if !preferServerScores || dailyScores == nil {
+            dailyScores = DailyScoresEngine.compute(
+                readiness: readiness,
+                dailyMetrics: dailyMetrics,
+                sleepData: sleepData,
+                workoutHistory: workoutHistory,
+                compoundFlags: flags,
+                cycleContext: cycle
+            )
+        }
+
+        biologicalAge = DailyScoresEngine.computeBiologicalAge(
+            profile: userProfile,
+            readiness: readiness,
+            dailyMetrics: dailyMetrics,
+            sleepData: sleepData
+        )
     }
 
     private func loadMockFallback() {
@@ -805,6 +913,7 @@ final class AppStore: ObservableObject {
         workoutHistory = mockWorkoutHistory
         personalRecords = mockPersonalRecords
         currentStreak = calculateWorkoutStreak(from: mockWorkoutHistory)
+        refreshWellnessScores()
         progressSummary = ProgressSummarySnapshot(
             periodDays: 30,
             workoutsCompleted: mockWorkoutHistory.count,
@@ -832,6 +941,13 @@ final class AppStore: ObservableObject {
         deviceServiceStatus = nil
         weeklyHealthTrends = []
         lastARIAToolCalls = []
+        dailyScores = nil
+        biologicalAge = nil
+        cycleEvents = []
+        dataConclusions = nil
+        ariaBrief = nil
+        eveningBrief = nil
+        hasServerReadiness = false
     }
 
     private func calculateWorkoutStreak(from history: [WorkoutHistory]) -> Int {
@@ -905,6 +1021,8 @@ final class AppStore: ObservableObject {
         currentStreak = calculateWorkoutStreak(from: workoutHistory)
 
         Task {
+            refreshWellnessScores()
+            await refreshPostWorkoutBrief(deliverNotification: briefNotificationsEnabled)
             do {
                 try await repository.logWorkout(
                     workout,
@@ -947,32 +1065,23 @@ final class AppStore: ObservableObject {
             chatMessages.append(trainerMessage)
             lastARIAToolCalls = result.toolCalls
         } catch {
-            #if DEBUG
-            do {
-                let context = TrainerContext(
-                    userProfile: userProfile,
+            let fallback = dataConclusions?.offlineTemplates.chat
+                ?? ConclusionsEngine.evaluate(
                     readiness: readiness,
                     dailyMetrics: dailyMetrics,
                     sleepData: sleepData,
-                    workoutHistory: workoutHistory,
-                    currentTime: Date(),
-                    conversationHistory: chatMessages
-                )
-                let response = try await responseGenerator.generateResponse(for: text, context: context)
-                let trainerMessage = ChatMessage(
+                    workoutHistory: workoutHistory
+                ).offlineTemplates.chat
+            if fallback.isEmpty {
+                appendChatUnavailableMessage()
+            } else {
+                chatMessages.append(ChatMessage(
                     id: UUID().uuidString,
                     role: .trainer,
-                    content: response.content,
-                    timestamp: Date(),
-                    richCard: response.richCard
-                )
-                chatMessages.append(trainerMessage)
-            } catch {
-                appendChatUnavailableMessage()
+                    content: fallback,
+                    timestamp: Date()
+                ))
             }
-            #else
-            appendChatUnavailableMessage()
-            #endif
             print("Error generating AI response: \(error)")
         }
 
@@ -1030,11 +1139,13 @@ final class AppStore: ObservableObject {
         if let deepSleep = deepSleep { dailyMetrics.deepSleep = deepSleep }
         if let totalSleep = totalSleep { dailyMetrics.totalSleep = totalSleep }
         
-        // Recalculate readiness based on new metrics
-        recalculateReadiness()
+        if !hasServerReadiness {
+            recalculateReadiness()
+        }
+        refreshWellnessScores()
     }
     
-    /// Recalculate readiness score based on current metrics
+    /// Local readiness estimate when server scores are unavailable.
     private func recalculateReadiness() {
         // Simplified readiness calculation
         // In production, this would use more sophisticated algorithms
@@ -1163,6 +1274,8 @@ final class AppStore: ObservableObject {
                     )
                 }
                 await loadDashboardFromAPI()
+                await ForgeNotificationCoordinator.shared.requestAuthorizationIfNeeded()
+                await refreshProactiveBriefs(scheduleNotifications: true)
             } catch {
                 dataLoadState = .error(Self.userFacingAPIError(error))
                 print("Failed to persist onboarding profile: \(error)")
@@ -1215,8 +1328,8 @@ final class AppStore: ObservableObject {
         dailyMetrics.totalSleep = Int(sleep.totalHours * 60)
         dailyMetrics.deepSleep = sleep.deepMinutes
         
-        // Recalculate readiness
-        recalculateReadiness()
+        if !hasServerReadiness { recalculateReadiness() }
+        refreshWellnessScores()
     }
     
     // MARK: - Personal Records

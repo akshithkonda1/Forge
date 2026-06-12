@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from core.responses import RouteError, ok
-from services import normalization
+from services import conclusions_store, normalization
 from storage import dynamodb, keys
 
 _VALID_METRIC_TYPES = {
@@ -18,6 +18,7 @@ _VALID_METRIC_TYPES = {
     "dietary-carbs",
     "dietary-fat",
     "dietary-water",
+    "oxygen-saturation",
 }
 
 _VALID_SOURCES = {
@@ -75,5 +76,11 @@ def handle_post_health_batch(user_id: str, body: dict) -> dict:
         item = {**keys.metric_key(user_id, metric_type, started_at), **normalized}
         dynamodb.put_item(item)
         accepted += 1
+
+    if accepted:
+        try:
+            conclusions_store.refresh_conclusions(user_id)
+        except Exception:
+            pass
 
     return ok({"accepted": accepted, "rejected": rejected, "errors": errors})

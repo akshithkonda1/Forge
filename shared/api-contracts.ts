@@ -39,6 +39,7 @@ export interface UserProfile {
   coachingStyle: CoachingStyle;
   connectedDevices: string[];
   weeklySchedule: number[];
+  chatGamification?: ChatGamificationState;
 }
 
 export type IntegrationMiddleware = "terra" | "native";
@@ -391,6 +392,57 @@ export interface CompleteWellbeingHabitRequest {
 
 export interface CompleteWellbeingHabitResponse extends WellbeingHabitsResponse {}
 
+export interface ARIAToolCallDetail {
+  tool: string;
+  input: Record<string, unknown>;
+  success: boolean;
+}
+
+export interface ARIAChatRequest {
+  content: string;
+  threadId?: string;
+  useTools?: boolean;
+}
+
+export interface ARIAChatResponse {
+  threadId: string;
+  message: ChatMessage & { toolCallsMade?: string[] };
+  toolCallsMade: string[];
+  toolCallDetails?: ARIAToolCallDetail[];
+  model?: string;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
+  };
+}
+
+export interface ARIAAnalyzeRequest {
+  question: string;
+  thinkingBudget?: number;
+}
+
+export interface ARIAAnalyzeResponse {
+  question: string;
+  analysis: string;
+  model?: string;
+  thinkingBudget?: number;
+  usage?: Record<string, number>;
+}
+
+export interface ARIAPlanRequest {
+  focus?: "auto" | "workout" | "recovery" | "nutrition";
+}
+
+export interface ARIAPlanResponse {
+  focus: string;
+  plan: string;
+  toolCallsMade?: ARIAToolCallDetail[];
+  model?: string;
+  generatedAt: ISODateTime;
+}
+
 export interface ARIALifestyleRequest {
   focus?: "nutrition" | "wellbeing" | "holistic";
 }
@@ -398,7 +450,144 @@ export interface ARIALifestyleRequest {
 export interface ARIALifestyleResponse {
   focus: string;
   coaching: string;
-  toolCallsMade?: Array<{ tool: string; input: Record<string, unknown>; success: boolean }>;
+  toolCallsMade?: ARIAToolCallDetail[];
   model?: string;
   generatedAt: ISODateTime;
+}
+
+export interface ARIAVoiceRequest {
+  transcript: string;
+}
+
+export interface ARIAVoiceResponse {
+  answer: string;
+  processedTranscript: string;
+  model?: string;
+  usage?: Record<string, number>;
+  timestamp: ISODateTime;
+}
+
+export interface ARIAInsight {
+  insightId?: string;
+  type: "sleep" | "training" | "recovery" | "nutrition" | "mindset";
+  priority: "high" | "medium" | "low";
+  title: string;
+  observation: string;
+  recommendation: string;
+  metric?: string;
+  createdAt?: ISODateTime;
+}
+
+export interface ARIAInsightsGenerateResponse {
+  insights: ARIAInsight[];
+  count: number;
+  model?: string;
+  generatedAt: ISODateTime;
+}
+
+export interface ARIAInsightsListResponse {
+  insights: ARIAInsight[];
+  count: number;
+  periodDays: number;
+  retrievedAt: ISODateTime;
+}
+
+export interface ARIAConversationResponse {
+  threadId: string;
+  messages: Array<ChatMessage & { toolCallsMade?: string[] }>;
+  messageCount: number;
+}
+
+export interface ARIAClearConversationResponse {
+  threadId: string;
+  cleared: boolean;
+  clearedAt: ISODateTime;
+}
+
+export interface ARIAOfflineTemplates {
+  chat: string;
+  dashboard: string;
+  mood: string;
+  widget: string;
+}
+
+export interface ARIADataSignal {
+  id: string;
+  category: string;
+  severity: "high" | "medium" | "low";
+  metric: string;
+  value?: number;
+  baseline?: number;
+  direction: string;
+}
+
+export interface ARIADataConclusions {
+  generatedAt: ISODateTime;
+  date: ISODate;
+  coveragePct: number;
+  readiness: ReadinessData;
+  signals: ARIADataSignal[];
+  compoundFlags: string[];
+  coachingBrief: string;
+  dashboardHints: Record<string, unknown>;
+  offlineTemplates: ARIAOfflineTemplates;
+}
+
+export interface ARIAConclusionsResponse {
+  conclusions: ARIADataConclusions;
+  coveragePct: number;
+  coachingBrief: string;
+  compoundFlags: string[];
+  offlineTemplates: ARIAOfflineTemplates;
+  retrievedAt: ISODateTime;
+}
+
+export type ARIABriefFocus = "morning" | "evening" | "post-workout" | "midday" | "auto";
+
+export interface ARIABriefRequest {
+  focus?: ARIABriefFocus;
+  useLLM?: boolean;
+}
+
+export interface ARIABriefDailyScores {
+  date?: ISODate;
+  strain?: { score: number; trend?: string };
+  recovery?: { score: number; hrv?: number; trend?: string };
+  sleep?: { score: number; sleepNeedMinutes?: number };
+  trainingDecision?: string;
+  cycleContext?: Record<string, unknown>;
+}
+
+export interface ARIABriefResponse {
+  focus: ARIABriefFocus;
+  title: string;
+  headline: string;
+  body: string;
+  notificationCopy: string;
+  trainingDecision: string;
+  dailyScores?: ARIABriefDailyScores;
+  compoundFlags: string[];
+  coachingBrief?: string;
+  coveragePct?: number;
+  generatedAt: ISODateTime;
+  llmEnhanced?: boolean;
+  model?: string;
+}
+
+export interface DeleteAccountResponse {
+  deleted: boolean;
+  userId: string;
+  itemsRemoved: number;
+  deletedAt: ISODateTime;
+}
+
+export interface ChatGamificationState {
+  xp: number;
+  level: number;
+  messageReactions: Record<string, string>;
+  chatStreakDays: number;
+  lastChatDate: string;
+  totalMessagesSent: number;
+  totalReactions: number;
+  lifetimeXP: number;
 }

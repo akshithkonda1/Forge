@@ -61,7 +61,10 @@ export interface ARIAChatResponse {
     content: string;
     timestamp: string;
     richCard?: APIRichCardPayload;
+    toolCallsMade?: string[];
   };
+  toolCallsMade?: string[];
+  toolCallDetails?: Array<{ tool: string; input: Record<string, unknown>; success: boolean }>;
 }
 
 export interface ARIAConversationMessage {
@@ -76,6 +79,22 @@ export interface ARIAConversationResponse {
   threadId: string;
   messages: ARIAConversationMessage[];
   messageCount: number;
+}
+
+export interface ARIAOfflineTemplates {
+  chat: string;
+  dashboard: string;
+  mood: string;
+  widget: string;
+}
+
+export interface ARIAConclusionsResponse {
+  conclusions: Record<string, unknown>;
+  coveragePct: number;
+  coachingBrief: string;
+  compoundFlags: string[];
+  offlineTemplates: ARIAOfflineTemplates;
+  retrievedAt: string;
 }
 
 export interface CoachingInsight {
@@ -163,10 +182,29 @@ export const forgeAPI = {
     request<{ insights: CoachingInsight[]; count: number; periodDays: number }>(
       `/aria/insights?days=${days}`,
     ),
-  sendARIAChat: (content: string) =>
+  sendARIAChat: (content: string, useTools = false) =>
     request<ARIAChatResponse>("/aria/chat", {
       method: "POST",
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, useTools }),
+    }),
+  getARIAConclusions: () => request<ARIAConclusionsResponse>("/aria/conclusions"),
+  sendARIAVoice: (transcript: string) =>
+    request<{ answer: string; processedTranscript: string; pipelineIncomplete?: boolean }>(
+      "/aria/voice",
+      { method: "POST", body: JSON.stringify({ transcript }) },
+    ),
+  generateARIALifestyle: (focus: "nutrition" | "wellbeing" | "holistic" = "holistic") =>
+    request<{ focus: string; coaching: string; generatedAt: string }>("/aria/lifestyle", {
+      method: "POST",
+      body: JSON.stringify({ focus }),
+    }),
+  deleteARIAConversation: (threadId = "current") =>
+    request<{ cleared: boolean }>(`/aria/conversation?threadId=${threadId}`, {
+      method: "DELETE",
+    }),
+  deleteAccount: () =>
+    request<{ deleted: boolean; itemsRemoved: number }>("/me/account", {
+      method: "DELETE",
     }),
   updateProfile: (profile: Partial<UserProfile>) =>
     request<{ profile: UserProfile }>("/me/profile", {
@@ -217,15 +255,26 @@ export const forgeAPI = {
       method: "POST",
       body: JSON.stringify({}),
     }),
-  fetchCoachWorkoutPlan: () =>
-    request<{ todayPlan: WorkoutPlan | null; explanation: string }>("/coach/workout-plan", {
-      method: "POST",
-      body: JSON.stringify({}),
-    }),
   generateARIAPlan: (focus: "workout" | "recovery" | "nutrition" | "auto" = "auto") =>
     request<{ focus: string; plan: string; generatedAt: string }>("/aria/plan", {
       method: "POST",
       body: JSON.stringify({ focus }),
+    }),
+  generateARIABrief: (
+    focus: "morning" | "evening" | "post-workout" | "midday" | "auto" = "auto",
+    useLLM = false,
+  ) =>
+    request<{
+      focus: string;
+      title: string;
+      headline: string;
+      body: string;
+      notificationCopy: string;
+      trainingDecision: string;
+      generatedAt: string;
+    }>("/aria/brief", {
+      method: "POST",
+      body: JSON.stringify({ focus, useLLM }),
     }),
 };
 

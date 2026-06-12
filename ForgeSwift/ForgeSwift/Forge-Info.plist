@@ -50,6 +50,8 @@
 	<string>Forge connects to the local development API on your Mac while you are testing the app.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Forge uses your microphone for hands-free voice coaching during workouts.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Forge sends proactive ARIA coaching briefs for morning training decisions and evening recovery.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Forge uses speech recognition so you can talk to your AI coach without touching your phone.</string>
 	<key>UIBackgroundModes</key>
