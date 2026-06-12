@@ -89,6 +89,13 @@ struct ForgeWatchContentView: View {
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
 
+                if let error = workout.lastError {
+                    Text(error)
+                        .font(.caption2)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.red)
+                }
+
                 Button("Start Workout") {
                     Task { await workout.startWorkout(name: ForgeWatchDashboardReader.workoutName) }
                 }
