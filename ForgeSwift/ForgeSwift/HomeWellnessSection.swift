@@ -6,7 +6,17 @@ struct ARIABriefCard: View {
     @EnvironmentObject var store: AppStore
     @State private var appeared = false
 
-    private var brief: ARIABrief? { store.ariaBrief }
+    private var brief: ARIABrief? { store.activeBrief }
+
+    private var periodLabel: String {
+        guard let brief else { return "" }
+        switch brief.focus {
+        case .evening: return "PM"
+        case .morning: return "AM"
+        case .postWorkout: return "POST"
+        default: return "NOW"
+        }
+    }
 
     var body: some View {
         Group {
@@ -25,7 +35,7 @@ struct ARIABriefCard: View {
                                 .foregroundColor(.textTertiary)
                                 .tracking(1.5)
                             Spacer()
-                            Text(brief.focus == .evening ? "PM" : "AM")
+                            Text(periodLabel)
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(.ember)
                                 .padding(.horizontal, 8)

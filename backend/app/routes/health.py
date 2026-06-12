@@ -84,3 +84,55 @@ def handle_post_health_batch(user_id: str, body: dict) -> dict:
             pass
 
     return ok({"accepted": accepted, "rejected": rejected, "errors": errors})
+
+
+def handle_post_health_cycle(user_id: str, body: dict) -> dict:
+    events = body.get("events")
+    if not isinstance(events, list):
+        raise RouteError(400, "Request body must include an 'events' array.")
+
+    accepted = 0
+    rejected = 0
+    errors = []
+
+    for i, event in enumerate(events):
+        if not isinstance(event, dict):
+            rejected += 1
+            errors.append({"message": f"events[{i}] must be an object."})
+            continue
+
+        started_at = str(event.get("startedAt") or "").strip()
+        flow = str(event.get("flow") or "").strip()
+        source = str(event.get("source") or "apple-health")
+
+        if not started_at:
+            rejected += 1
+            errors.append({"message": f"events[{i}].startedAt is required."})
+            continue
+        if not flow:
+            rejected += 1
+            errors.append({"message": f"events[{i}].flow is required."})
+            continue
+        if source not in _VALID_SOURCES:
+            rejected += 1
+            errors.append({"message": f"events[{i}].source '{source}' is not supported."})
+            continue
+
+        item = {
+            **keys.cycle_event_key(user_id, started_at),
+            "startedAt": started_at,
+            "flow": flow,
+            "source": source,
+            "value": flow,
+            "date": started_at[:10],
+        }
+        dynamodb.put_item(item)
+        accepted += 1
+
+    if accepted:
+        try:
+            conclusions_store.refresh_conclusions(user_id)
+        except Exception:
+            pass
+
+    return ok({"accepted": accepted, "rejected": rejected, "errors": errors})
