@@ -35,7 +35,7 @@ enum ForgeSharedData {
             defaults.set(scores.sleep.sleepNeedMinutes, forKey: sleepNeedKey)
             defaults.set(scores.trainingDecision.rawValue, forKey: trainingDecisionKey)
         }
-        if let brief = store.ariaBrief {
+        if let brief = store.activeBrief {
             defaults.set(brief.headline, forKey: briefHeadlineKey)
             defaults.set(brief.title, forKey: briefTitleKey)
         }

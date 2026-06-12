@@ -512,7 +512,19 @@ final class AppStore: ObservableObject {
     @Published var cycleEvents: [CycleEvent] = []
     @Published var ariaBrief: ARIABrief?
     @Published var eveningBrief: ARIABrief?
+    @Published var postWorkoutBrief: ARIABrief?
     @Published var briefNotificationsEnabled: Bool = ForgePersistence.loadBriefNotificationSettings().enabled
+
+    /// Brief shown on Home — evening after 5pm, post-workout for 2h, else morning.
+    var activeBrief: ARIABrief? {
+        if let postWorkoutBrief,
+           Date().timeIntervalSince(postWorkoutBrief.generatedAt) < 2 * 3600 {
+            return postWorkoutBrief
+        }
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour >= 17, let eveningBrief { return eveningBrief }
+        return ariaBrief
+    }
 
     // Today's Workout
     @Published var todayWorkout: WorkoutPlan?
@@ -750,9 +762,24 @@ final class AppStore: ObservableObject {
 
         if let morning = try? await morningTask {
             ariaBrief = morning
+        } else {
+            ariaBrief = ARIABrief.localFallback(
+                focus: .morning,
+                dailyScores: dailyScores,
+                conclusions: dataConclusions,
+                trainingDecision: dailyScores?.trainingDecision ?? .activeRest
+            )
         }
+
         if let evening = try? await eveningTask {
             eveningBrief = evening
+        } else {
+            eveningBrief = ARIABrief.localFallback(
+                focus: .evening,
+                dailyScores: dailyScores,
+                conclusions: dataConclusions,
+                trainingDecision: dailyScores?.trainingDecision ?? .activeRest
+            )
         }
 
         if scheduleNotifications, briefNotificationsEnabled {
@@ -767,8 +794,18 @@ final class AppStore: ObservableObject {
     }
 
     func refreshPostWorkoutBrief(deliverNotification: Bool = true) async {
-        guard let brief = try? await repository.fetchARIABrief(focus: "post-workout") else { return }
-        ariaBrief = brief
+        let brief: ARIABrief
+        if let remote = try? await repository.fetchARIABrief(focus: "post-workout") {
+            brief = remote
+        } else {
+            brief = ARIABrief.localFallback(
+                focus: .postWorkout,
+                dailyScores: dailyScores,
+                conclusions: dataConclusions,
+                trainingDecision: dailyScores?.trainingDecision ?? .activeRest
+            )
+        }
+        postWorkoutBrief = brief
         ForgeSharedData.syncFromStore(self)
         if deliverNotification, briefNotificationsEnabled {
             await ForgeNotificationCoordinator.shared.deliverImmediateBrief(brief)
@@ -785,7 +822,7 @@ final class AppStore: ObservableObject {
                 await ForgeNotificationCoordinator.shared.requestAuthorizationIfNeeded()
                 await refreshProactiveBriefs(scheduleNotifications: true)
             } else {
-                await ForgeNotificationCoordinator.shared.cancelBriefNotifications()
+                ForgeNotificationCoordinator.shared.cancelBriefNotifications()
             }
         }
     }
@@ -876,10 +913,13 @@ final class AppStore: ObservableObject {
             biologicalAge = remote
         }
 
-        refreshWellnessScores(preferServerScores: snapshot.dailyScores != nil)
+        refreshWellnessScores(
+            preferServerScores: snapshot.dailyScores != nil,
+            preferServerBioAge: snapshot.biologicalAge != nil
+        )
     }
 
-    func refreshWellnessScores(preferServerScores: Bool = false) {
+    func refreshWellnessScores(preferServerScores: Bool = false, preferServerBioAge: Bool = false) {
         let cycle = DailyScoresEngine.inferCyclePhase(from: cycleEvents)
         let flags = dataConclusions?.compoundFlags ?? []
 
@@ -892,14 +932,19 @@ final class AppStore: ObservableObject {
                 compoundFlags: flags,
                 cycleContext: cycle
             )
+        } else if var scores = dailyScores {
+            scores.cycleContext = cycle
+            dailyScores = scores
         }
 
-        biologicalAge = DailyScoresEngine.computeBiologicalAge(
-            profile: userProfile,
-            readiness: readiness,
-            dailyMetrics: dailyMetrics,
-            sleepData: sleepData
-        )
+        if !preferServerBioAge || biologicalAge == nil {
+            biologicalAge = DailyScoresEngine.computeBiologicalAge(
+                profile: userProfile,
+                readiness: readiness,
+                dailyMetrics: dailyMetrics,
+                sleepData: sleepData
+            )
+        }
     }
 
     private func loadMockFallback() {
@@ -947,6 +992,7 @@ final class AppStore: ObservableObject {
         dataConclusions = nil
         ariaBrief = nil
         eveningBrief = nil
+        postWorkoutBrief = nil
         hasServerReadiness = false
     }
 

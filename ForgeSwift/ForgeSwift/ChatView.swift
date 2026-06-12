@@ -243,10 +243,16 @@ final class SpeechManager: ObservableObject {
     private let audioEngine = AVAudioEngine()
     private var silenceTimer: Timer?
     private let silenceThreshold: TimeInterval = 1.6
+    private var finishedUtterance = false
 
     func startListening() {
         guard voiceState != .listening else { return }
+        guard speechRecognizer?.isAvailable == true else {
+            voiceState = .error("Speech recognition is unavailable.")
+            return
+        }
         recognizedText = ""
+        finishedUtterance = false
         voiceState = .listening
 
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
@@ -259,6 +265,19 @@ final class SpeechManager: ObservableObject {
     }
 
     func stopListening() {
+        tearDownAudio(clearTranscript: false)
+        amplitude = 0
+        if voiceState == .listening || voiceState == .processing { voiceState = .idle }
+    }
+
+    func cancelListening() {
+        finishedUtterance = false
+        tearDownAudio(clearTranscript: true)
+        amplitude = 0
+        voiceState = .idle
+    }
+
+    private func tearDownAudio(clearTranscript: Bool) {
         silenceTimer?.invalidate()
         silenceTimer = nil
         if audioEngine.isRunning {
@@ -269,14 +288,13 @@ final class SpeechManager: ObservableObject {
         recognitionTask?.cancel()
         recognitionRequest = nil
         recognitionTask = nil
-        amplitude = 0
-        if voiceState == .listening { voiceState = .idle }
+        if clearTranscript { recognizedText = "" }
     }
 
     private func beginRecognition() {
-        stopListening()
+        tearDownAudio(clearTranscript: true)
         voiceState = .listening
-        recognizedText = ""
+        finishedUtterance = false
 
         do {
             let session = AVAudioSession.sharedInstance()
@@ -301,8 +319,16 @@ final class SpeechManager: ObservableObject {
                 if let result {
                     self.recognizedText = result.bestTranscription.formattedString
                     self.resetSilenceTimer()
+                    if result.isFinal {
+                        self.finishRecognition()
+                    }
+                    return
                 }
-                if error != nil || result?.isFinal == true {
+                if let error {
+                    let code = (error as NSError).code
+                    if code == 301 || code == 216 || code == 1110 {
+                        return
+                    }
                     self.finishRecognition()
                 }
             }
@@ -324,7 +350,7 @@ final class SpeechManager: ObservableObject {
         do {
             try audioEngine.start()
         } catch {
-            stopListening()
+            cancelListening()
         }
     }
 
@@ -336,11 +362,17 @@ final class SpeechManager: ObservableObject {
     }
 
     private func finishRecognition() {
+        guard !finishedUtterance else { return }
         let captured = recognizedText.trimmingCharacters(in: .whitespacesAndNewlines)
-        stopListening()
-        guard !captured.isEmpty else { return }
+        guard !captured.isEmpty else {
+            cancelListening()
+            return
+        }
+        finishedUtterance = true
         voiceState = .processing
         recognizedText = captured
+        tearDownAudio(clearTranscript: false)
+        amplitude = 0
         voiceState = .idle
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
@@ -504,7 +536,7 @@ struct ChatView: View {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { sendMessage(text) }
                     },
                     onCancel: {
-                        speech.stopListening()
+                        speech.cancelListening()
                         withAnimation(FDS.Spring.hero) { showVoiceOrb = false }
                     }
                 )
@@ -1712,10 +1744,11 @@ struct VoiceOrbOverlay: View {
                 .padding(.bottom, 72)
             }
         }
-        .onChange(of: speech.voiceState) { _, state in
-            if case .idle = state, !speech.recognizedText.isEmpty {
-                onRecognized(speech.recognizedText)
-            }
+        .onChange(of: speech.voiceState) { old, state in
+            guard case .idle = state,
+                  case .processing = old,
+                  !speech.recognizedText.isEmpty else { return }
+            onRecognized(speech.recognizedText)
         }
         .onAppear {
             withAnimation(FDS.Spring.hero) { orbRevealed = true; contentOpacity = 1 }

@@ -60,12 +60,12 @@ final class ForgeNotificationCoordinator: NSObject, UNUserNotificationCenterDele
     ) async {
         configure()
         guard settings.enabled else {
-            await cancelBriefNotifications()
+            cancelBriefNotifications()
             return
         }
         guard await requestAuthorizationIfNeeded() else { return }
 
-        await cancelBriefNotifications()
+        cancelBriefNotifications()
 
         if let morning {
             await schedule(
@@ -103,9 +103,15 @@ final class ForgeNotificationCoordinator: NSObject, UNUserNotificationCenterDele
         try? await center.add(request)
     }
 
-    func cancelBriefNotifications() async {
+    func cancelBriefNotifications() {
         center.removePendingNotificationRequests(
-            withIdentifiers: [BriefNotificationSlot.morning.rawValue, BriefNotificationSlot.evening.rawValue]
+            withIdentifiers: [
+                BriefNotificationSlot.morning.rawValue,
+                BriefNotificationSlot.evening.rawValue,
+                "forge.brief.immediate.post-workout",
+                "forge.brief.immediate.morning",
+                "forge.brief.immediate.evening",
+            ]
         )
     }
 
@@ -116,6 +122,8 @@ final class ForgeNotificationCoordinator: NSObject, UNUserNotificationCenterDele
         minute: Int
     ) async {
         var date = DateComponents()
+        date.calendar = Calendar.current
+        date.timeZone = TimeZone.current
         date.hour = max(0, min(23, hour))
         date.minute = max(0, min(59, minute))
 

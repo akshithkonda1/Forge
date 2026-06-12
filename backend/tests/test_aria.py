@@ -219,6 +219,28 @@ class ARIAChatTests(ARIATestBase):
         self.assertEqual(payload["focus"], "post-workout")
         self.assertIn("strain", payload["headline"].lower())
 
+    def test_post_health_cycle_accepts_events(self):
+        resp = handler(
+            event(
+                "POST",
+                "/health/cycle",
+                {
+                    "events": [
+                        {
+                            "startedAt": "2026-06-10T08:00:00Z",
+                            "flow": "medium",
+                            "source": "apple-health",
+                        }
+                    ]
+                },
+            ),
+            None,
+        )
+        self.assertEqual(resp["statusCode"], 200)
+        payload = body(resp)
+        self.assertEqual(payload["accepted"], 1)
+        self.assertEqual(payload["rejected"], 0)
+
     def test_chat_persists_messages_in_memory(self):
         handler(event("POST", "/aria/chat", {"content": "First message."}), None)
         handler(event("POST", "/aria/chat", {"content": "Second message."}), None)
