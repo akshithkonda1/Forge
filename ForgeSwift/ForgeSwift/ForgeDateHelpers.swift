@@ -36,4 +36,30 @@ enum ForgeDates {
         let weekday = calendar.component(.weekday, from: date)
         return (weekday + 5) % 7
     }
+
+    // Cached display formatters — list rows call these on every render, so
+    // allocating a DateFormatter per call is wasteful. Configured once, never mutated.
+    private static let mediumDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter
+    }()
+
+    private static let weekdayDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE, MMM d"
+        return formatter
+    }()
+
+    /// "2026-02-10" → "Feb 10, 2026" (falls back to the raw string)
+    static func displayDate(_ raw: String) -> String {
+        guard let date = parse(raw) else { return raw }
+        return mediumDateFormatter.string(from: date)
+    }
+
+    /// "2026-02-10" → "Tue, Feb 10" (falls back to the raw string)
+    static func displayWeekdayDate(_ raw: String) -> String {
+        guard let date = parse(raw) else { return raw }
+        return weekdayDateFormatter.string(from: date)
+    }
 }
