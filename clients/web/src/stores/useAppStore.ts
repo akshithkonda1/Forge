@@ -239,6 +239,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         duration: state.todayWorkout.duration,
         volume,
         intensity: state.todayWorkout.intensity,
+        source: "manual",
       };
 
       void forgeAPI
@@ -432,7 +433,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             id: `trainer-plan-${Date.now()}`,
             role: "trainer" as const,
             content: aria.plan,
-            timestamp: new Date(),
+            timestamp: new Date().toISOString(),
           },
         ],
       }));
@@ -454,7 +455,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       id: `user-${Date.now()}`,
       role: "user",
       content: trimmed,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     };
 
     set((state) => ({
@@ -479,7 +480,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             id: `trainer-${Date.now()}`,
             role: "trainer" as const,
             content: "Sorry, I'm having trouble connecting right now. Try again in a moment.",
-            timestamp: new Date(),
+            timestamp: new Date().toISOString(),
           },
         ],
       }));

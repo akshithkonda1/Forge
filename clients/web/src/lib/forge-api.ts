@@ -316,7 +316,7 @@ function mapRichCard(payload?: APIRichCardPayload): RichCard | undefined {
     return undefined;
   }
 
-  return { type, data: payload.data };
+  return { type, data: payload.data } as RichCard;
 }
 
 export function mapARIAMessage(response: ARIAChatResponse): ChatMessage {
@@ -324,7 +324,7 @@ export function mapARIAMessage(response: ARIAChatResponse): ChatMessage {
     id: response.message.id,
     role: response.message.role === "user" ? "user" : "trainer",
     content: response.message.content,
-    timestamp: new Date(response.message.timestamp),
+    timestamp: response.message.timestamp,
     richCard: mapRichCard(response.message.richCard),
   };
 }
@@ -339,7 +339,7 @@ export function mapConversation(messages: ARIAConversationMessage[]): ChatMessag
       id: message.id ?? `msg-${message.timestamp ?? Date.now()}`,
       role: message.role === "user" ? "user" : "trainer",
       content: message.content.trim(),
-      timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
+      timestamp: message.timestamp ?? new Date().toISOString(),
       richCard: mapRichCard(message.richCard),
     }));
 }
