@@ -1,4 +1,6 @@
-# This workflow will build a Swift project
+# This workflow builds the Forge iOS app for the simulator using xcodebuild.
+# The app is an Xcode workspace target (no Package.swift), so SwiftPM's
+# `swift build` / `swift test` do not apply here.
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
 
 name: Swift
@@ -15,8 +17,13 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: swift build -v
-    - name: Run tests
-      run: swift test -v
+    # Pinned to a full-length commit SHA per the repository's action policy.
+    - name: Checkout
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+    - name: Build (iOS Simulator)
+      run: |
+        xcodebuild build \
+          -project ForgeSwift/ForgeSwift.xcodeproj \
+          -scheme ForgeSwift \
+          -destination 'generic/platform=iOS Simulator' \
+          CODE_SIGNING_ALLOWED=NO
