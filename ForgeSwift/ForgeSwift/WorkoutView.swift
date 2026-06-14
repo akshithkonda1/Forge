@@ -19,7 +19,7 @@ import MediaPlayer
 // MARK: - Kinesiology Domain
 
 /// Major muscle groups used for volume balance + targeting.
-enum MuscleGroup: String, CaseIterable, Identifiable, Hashable {
+enum TargetMuscle: String, CaseIterable, Identifiable, Hashable {
     case chest, upperBack, lats, traps, lowerBack
     case frontDelts, sideDelts, rearDelts
     case biceps, triceps, forearms
@@ -104,7 +104,7 @@ enum MovementPattern: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
-enum Equipment: String, CaseIterable, Identifiable, Hashable {
+enum GearType: String, CaseIterable, Identifiable, Hashable {
     case barbell, dumbbell, kettlebell, machine, cable, bodyweight, bands, trx, medicineBall, sled, cardioMachine
     var id: String { rawValue }
     var label: String {
@@ -152,10 +152,10 @@ enum TrainingModality: String, Hashable, CaseIterable {
 struct ExerciseDefinition: Identifiable, Hashable {
     let id: String                  // stable slug
     let name: String
-    let primary: [MuscleGroup]
-    let secondary: [MuscleGroup]
+    let primary: [TargetMuscle]
+    let secondary: [TargetMuscle]
     let pattern: MovementPattern
-    let equipment: Equipment
+    let equipment: GearType
     let mechanic: Mechanic
     let force: ForceType
     let modality: TrainingModality
@@ -178,7 +178,7 @@ struct ExerciseDefinition: Identifiable, Hashable {
 
     var isCompound: Bool { mechanic == .compound }
     var repRangeLabel: String { repLow == repHigh ? "\(repLow)" : "\(repLow)–\(repHigh)" }
-    var region: MuscleGroup.Region { primary.first?.region ?? .conditioning }
+    var region: TargetMuscle.Region { primary.first?.region ?? .conditioning }
     var accent: Color { primary.first?.accent ?? .ember }
 
     var icon: String {
@@ -216,8 +216,8 @@ func forgeSlug(_ s: String) -> String {
 extension ExerciseDefinition {
     /// Compact factory so the library reads like a spec sheet.
     static func make(
-        _ name: String, _ pattern: MovementPattern, _ equipment: Equipment,
-        primary: [MuscleGroup], secondary: [MuscleGroup] = [],
+        _ name: String, _ pattern: MovementPattern, _ equipment: GearType,
+        primary: [TargetMuscle], secondary: [TargetMuscle] = [],
         mechanic: Mechanic = .compound, force: ForceType = .push,
         modality: TrainingModality = .strength, level: ExperienceLevel = .beginner,
         unilateral: Bool = false, sets: Int = 3, repLow: Int = 8, repHigh: Int = 12,
@@ -605,7 +605,7 @@ enum ExerciseLibrary {
 
     static func definition(for exercise: Exercise) -> ExerciseDefinition? { match(exercise.name) }
 
-    static func filter(query: String, muscle: MuscleGroup?, equipment: Equipment?, pattern: MovementPattern?) -> [ExerciseDefinition] {
+    static func filter(query: String, muscle: TargetMuscle?, equipment: GearType?, pattern: MovementPattern?) -> [ExerciseDefinition] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
         return all.filter { def in
             (q.isEmpty || def.name.lowercased().contains(q) || def.muscleSummary.lowercased().contains(q))
@@ -1034,21 +1034,21 @@ struct ARIASessionSnapshot {
     var avgRPE: Double
     var calories: Int
     var readiness: Int
-    var muscleVolume: [MuscleGroup: Double]   // relative working-set load per group
+    var muscleVolume: [TargetMuscle: Double]   // relative working-set load per group
     var zoneSeconds: [Int]                    // index 1...5
     var autoRegLog: [String]
     var painFlags: [String]
     var personalRecords: [String]
 
     /// Balance read: which regions got the most / least work.
-    var regionShare: [(MuscleGroup.Region, Double)] {
-        var totals: [MuscleGroup.Region: Double] = [:]
+    var regionShare: [(TargetMuscle.Region, Double)] {
+        var totals: [TargetMuscle.Region: Double] = [:]
         for (m, v) in muscleVolume { totals[m.region, default: 0] += v }
         let sum = max(1, totals.values.reduce(0, +))
-        return MuscleGroup.Region.allRegions.map { ($0, (totals[$0] ?? 0) / sum) }
+        return TargetMuscle.Region.allRegions.map { ($0, (totals[$0] ?? 0) / sum) }
     }
 
-    var topMuscles: [(MuscleGroup, Double)] {
+    var topMuscles: [(TargetMuscle, Double)] {
         let sum = max(1, muscleVolume.values.reduce(0, +))
         return muscleVolume.sorted { $0.value > $1.value }.prefix(5).map { ($0.key, $0.value / sum) }
     }
@@ -1083,8 +1083,8 @@ struct ARIASessionSnapshot {
     }
 }
 
-extension MuscleGroup.Region {
-    static var allRegions: [MuscleGroup.Region] { [.push, .pull, .legs, .core, .conditioning] }
+extension TargetMuscle.Region {
+    static var allRegions: [TargetMuscle.Region] { [.push, .pull, .legs, .core, .conditioning] }
     var accent: Color {
         switch self {
         case .push: return .ember
@@ -1269,15 +1269,15 @@ struct WorkoutSummaryData {
     let avgRPE:             Double
     let hrHistory:          [Int]
     // Adaptive / ARIA additions
-    var muscleVolume:       [String: Double] = [:]   // MuscleGroup.rawValue → relative load
+    var muscleVolume:       [String: Double] = [:]   // TargetMuscle.rawValue → relative load
     var autoRegLog:         [String] = []
     var painFlags:          [String] = []
     var readiness:          Int = 0
     var workoutName:        String = ""
 
     var ariaSnapshot: ARIASessionSnapshot {
-        var mv: [MuscleGroup: Double] = [:]
-        for (k, v) in muscleVolume { if let g = MuscleGroup(rawValue: k) { mv[g] = v } }
+        var mv: [TargetMuscle: Double] = [:]
+        for (k, v) in muscleVolume { if let g = TargetMuscle(rawValue: k) { mv[g] = v } }
         var zones = Array(repeating: 0, count: 6)
         for hr in hrHistory { zones[workoutHRZone(for: hr).index] += 2 }
         return ARIASessionSnapshot(
@@ -1537,7 +1537,7 @@ struct WorkoutIdleView: View {
 
     /// Build a pre-workout snapshot purely from the plan (estimated muscle distribution).
     static func plannedSnapshot(_ workout: WorkoutPlan, readiness: ReadinessData) -> ARIASessionSnapshot {
-        var mv: [MuscleGroup: Double] = [:]
+        var mv: [TargetMuscle: Double] = [:]
         var volume = 0
         for ex in workout.exercises {
             let reps = Int(ex.reps) ?? ex.reps.repMidpoint
@@ -1951,7 +1951,7 @@ struct WorkoutInsightsView: View {
     }
 
     private func planRegionLean() -> String? {
-        var counts: [MuscleGroup.Region: Int] = [:]
+        var counts: [TargetMuscle.Region: Int] = [:]
         for ex in workout.exercises {
             if let def = ExerciseLibrary.definition(for: ex) { counts[def.region, default: 0] += ex.sets }
         }
@@ -2055,8 +2055,8 @@ struct ExerciseLibraryView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
-    @State private var muscle: MuscleGroup? = nil
-    @State private var equipment: Equipment? = nil
+    @State private var muscle: TargetMuscle? = nil
+    @State private var equipment: GearType? = nil
     @State private var selected: ExerciseDefinition? = nil
 
     private var results: [ExerciseDefinition] {
@@ -2122,11 +2122,11 @@ struct ExerciseLibraryView: View {
             HStack(spacing: 8) {
                 Menu {
                     Button("All muscles") { muscle = nil }
-                    ForEach(MuscleGroup.allCases) { m in Button(m.label) { muscle = m } }
+                    ForEach(TargetMuscle.allCases) { m in Button(m.label) { muscle = m } }
                 } label: { filterChip(muscle?.label ?? "Muscle", active: muscle != nil, color: muscle?.accent ?? .steel) }
                 Menu {
                     Button("All equipment") { equipment = nil }
-                    ForEach(Equipment.allCases) { e in Button(e.label) { equipment = e } }
+                    ForEach(GearType.allCases) { e in Button(e.label) { equipment = e } }
                 } label: { filterChip(equipment?.label ?? "Equipment", active: equipment != nil, color: .ember) }
                 if muscle != nil || equipment != nil {
                     Button { muscle = nil; equipment = nil } label: {
@@ -2602,7 +2602,7 @@ struct ActiveWorkoutView: View {
     // Adaptive / ARIA
     @StateObject private var aria = ARIACoachService()
     @State private var autoRegLog:     [String] = []
-    @State private var muscleVolume:   [MuscleGroup: Double] = [:]
+    @State private var muscleVolume:   [TargetMuscle: Double] = [:]
     @State private var pendingSwap:    ExerciseDefinition? = nil
     @State private var swapReason:     String = ""
     @State private var showSwapBanner: Bool   = false

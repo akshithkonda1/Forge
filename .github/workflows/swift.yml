@@ -29,10 +29,14 @@ jobs:
         echo "Selecting $XC"
         sudo xcode-select -s "$XC"
         xcodebuild -version
+    # The app's UI uses iOS 16/17 APIs (SwiftUI Layout, two-parameter onChange,
+    # symbolEffect). Pin the deployment target to the app's declared minimum so
+    # those APIs are available during compilation.
     - name: Build (iOS Simulator)
       run: |
         xcodebuild build \
           -project ForgeSwift/ForgeSwift.xcodeproj \
           -scheme ForgeSwift \
           -destination 'generic/platform=iOS Simulator' \
+          IPHONEOS_DEPLOYMENT_TARGET=18.6 \
           CODE_SIGNING_ALLOWED=NO
