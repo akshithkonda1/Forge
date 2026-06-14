@@ -456,6 +456,9 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Forge ";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses your camera so ARIA can watch your form during a set and give you real-time coaching cues.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses your microphone so you can talk to ARIA hands-free during workouts.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Forge uses speech recognition so you can ask ARIA questions without touching your phone.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -491,6 +494,9 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Forge ";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses your camera so ARIA can watch your form during a set and give you real-time coaching cues.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses your microphone so you can talk to ARIA hands-free during workouts.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Forge uses speech recognition so you can ask ARIA questions without touching your phone.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
