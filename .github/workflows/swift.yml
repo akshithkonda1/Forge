@@ -20,6 +20,15 @@ jobs:
     # Pinned to a full-length commit SHA per the repository's action policy.
     - name: Checkout
       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+    # The app imports FoundationModels (iOS 26 SDK), so build with Xcode 26
+    # instead of the runner's default Xcode 16.x. Pick the newest installed 26.x.
+    - name: Select Xcode 26
+      run: |
+        XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+        if [ -z "$XC" ]; then echo "::error::No Xcode 26 found on runner"; exit 1; fi
+        echo "Selecting $XC"
+        sudo xcode-select -s "$XC"
+        xcodebuild -version
     - name: Build (iOS Simulator)
       run: |
         xcodebuild build \
