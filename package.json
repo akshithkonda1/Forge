@@ -9,6 +9,11 @@
     "lint": "next lint"
   },
   "packageManager": "pnpm@10.29.2",
+  "pnpm": {
+    "overrides": {
+      "postcss": "^8.5.10"
+    }
+  },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -29,7 +34,7 @@
     "autoprefixer": "^10.4.24",
     "eslint": "^10.0.0",
     "eslint-config-next": "^16.2.6",
-    "postcss": "^8.5.10",
+    "postcss": "^8.5.15",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3"
   }
