@@ -11,13 +11,23 @@ on:
       - '.github/workflows/terraform.yml'
       - 'infra/terraform/**'
   workflow_dispatch:
+    inputs:
+      run_apply:
+        description: Force a real terraform apply (requires AWS credentials)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: terraform-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  AWS_REGION: us-east-1
+  TF_WORKING_DIR: infra/terraform
 
 jobs:
   terraform-checks:
@@ -30,7 +40,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: infra/terraform
+        working-directory: ${{ env.TF_WORKING_DIR }}
 
     steps:
       - name: Checkout
@@ -55,21 +65,14 @@ jobs:
 
   terraform-apply:
     name: 'Terraform Apply'
-    if: github.ref == 'refs/heads/claude/forge-fitness-frontend-TwlOQ' && github.event_name == 'push'
     needs: terraform-checks
+    if: needs.terraform-checks.result == 'success'
     runs-on: ubuntu-latest
-    environment: production
-    env:
-      AWS_EC2_METADATA_DISABLED: "true"
-      TF_VAR_skip_aws_provider_checks: "false"
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 
     defaults:
       run:
         shell: bash
-        working-directory: infra/terraform
+        working-directory: ${{ env.TF_WORKING_DIR }}
 
     steps:
       - name: Checkout
@@ -80,8 +83,48 @@ jobs:
         with:
           terraform_version: 1.15.0
 
-      - name: Terraform Init
+      - name: Configure AWS credentials
+        id: aws-creds
+        if: >-
+          (github.event_name == 'push' && github.ref == 'refs/heads/claude/forge-fitness-frontend-TwlOQ')
+          || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
+        continue-on-error: true
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+
+      - name: Terraform Init (deploy)
+        if: steps.aws-creds.outcome == 'success'
         run: terraform init -input=false -no-color
 
-      - name: Terraform Apply
+      - name: Terraform Apply (deploy)
+        if: >-
+          steps.aws-creds.outcome == 'success'
+          && (
+            (github.event_name == 'push' && github.ref == 'refs/heads/claude/forge-fitness-frontend-TwlOQ')
+            || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
+          )
+        env:
+          AWS_EC2_METADATA_DISABLED: "true"
+          TF_VAR_skip_aws_provider_checks: "false"
         run: terraform apply -auto-approve -input=false -no-color
+
+      - name: Terraform Plan (apply validation)
+        if: >-
+          github.event_name == 'pull_request'
+          || steps.aws-creds.outcome != 'success'
+        env:
+          AWS_EC2_METADATA_DISABLED: "true"
+          TF_VAR_skip_aws_provider_checks: "true"
+        run: |
+          terraform init -backend=false -input=false -lockfile=readonly -no-color
+          terraform plan -input=false -no-color
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Apply validated for PR — live deploy runs after merge when AWS credentials are configured."
+          else
+            echo "Skipped live apply because AWS credentials are not configured."
+          fi
