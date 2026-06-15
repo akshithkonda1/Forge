@@ -248,6 +248,55 @@ class CoachRouteTests(unittest.TestCase):
         self.assertTrue(payload["fallback"])
         self.assertIn("Sleep trend", payload["insight"])
 
+    def test_aria_chat_returns_structured_response(self):
+        response = handler(
+            event(
+                "POST",
+                "/ai/chat",
+                {
+                    "user_id": "aria-test-user",
+                    "message": "I'm tired and need recovery advice",
+                    "recent_metrics": {"readiness": 48, "sleep_score": 72},
+                },
+            ),
+            None,
+        )
+        self.assertEqual(response["statusCode"], 200)
+        payload = body(response)
+        self.assertIn("recovery", payload["message"].lower())
+        self.assertIsInstance(payload["suggested_actions"], list)
+        self.assertEqual(payload["context_updates"]["relationship_level"], 2)
+
+    def test_aria_feedback_reaction_bumps_relationship(self):
+        handler(
+            event(
+                "POST",
+                "/ai/chat",
+                {
+                    "user_id": "aria-feedback-user",
+                    "message": "hello",
+                    "recent_metrics": {"readiness": 80},
+                },
+            ),
+            None,
+        )
+        response = handler(
+            event(
+                "POST",
+                "/ai/feedback/reaction",
+                {
+                    "user_id": "aria-feedback-user",
+                    "message_id": "msg-1",
+                    "reaction": "🔥",
+                },
+            ),
+            None,
+        )
+        self.assertEqual(response["statusCode"], 200)
+        payload = body(response)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["updates"]["relationship_level"], 3)
+
 
 class ScoringServiceTests(unittest.TestCase):
     def test_training_load_trend_rising(self):

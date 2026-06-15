@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from ai_router import AIRouter, RouteRequest, RoutingError, default_models, humanize_bytes
 from auth import extract_user_id
 from responses import RouteError, error_response, not_found, ok
-from routes import chat, coach, dashboard, health, integrations, profile, progress, sleep, workouts
+from routes import aria, chat, coach, dashboard, health, integrations, profile, progress, sleep, workouts
 
 
 def _parse_json_body(event: dict) -> dict:
@@ -80,6 +80,25 @@ def handler(event, _context):
             return ok(router.route(request))
         except RoutingError as exc:
             return error_response(RouteError(exc.status_code, exc.args[0]))
+
+    # --- ARIA contextual intelligence (body carries user_id for local + mobile clients) ---
+    if method == "POST" and path == "/ai/chat":
+        try:
+            return aria.handle_post_ai_chat(_parse_json_body(event))
+        except RouteError as exc:
+            return error_response(exc)
+
+    if method == "POST" and path == "/ai/feedback/reaction":
+        try:
+            return aria.handle_post_feedback_reaction(_parse_json_body(event))
+        except RouteError as exc:
+            return error_response(exc)
+
+    if method == "POST" and path == "/ai/feedback/plan-outcome":
+        try:
+            return aria.handle_post_feedback_plan_outcome(_parse_json_body(event))
+        except RouteError as exc:
+            return error_response(exc)
 
     # --- All routes below require user identity ---
     try:

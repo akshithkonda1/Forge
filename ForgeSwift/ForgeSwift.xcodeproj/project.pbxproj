@@ -16,6 +16,13 @@
 		1E4DF7142F9FF348004091AA /* QUICK_START.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF7132F9FF348004091AA /* QUICK_START.md */; };
 		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
 		1EHKS0022F9FF867004091AA /* HealthKitSleepService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */; };
+		1ARIA0022F9FF867004091AA /* AriaContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0012F9FF867004091AA /* AriaContext.swift */; };
+		1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0032F9FF867004091AA /* AriaResponse.swift */; };
+		1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0052F9FF867004091AA /* AriaService.swift */; };
+		1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0072F9FF867004091AA /* AriaContextStore.swift */; };
+		1ARIA0102F9FF867004091AA /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0092F9FF867004091AA /* FeedbackService.swift */; };
+		1ARIA0122F9FF867004091AA /* ContextInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0112F9FF867004091AA /* ContextInspectorView.swift */; };
+		1ARIA0142F9FF867004091AA /* ProactiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0132F9FF867004091AA /* ProactiveCardView.swift */; };
 		1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */; };
 		1E4DF71A2F9FFA70004091AA /* OnboardingDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */; };
 		1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */; };
@@ -70,6 +77,13 @@
 		1E4DF7132F9FF348004091AA /* QUICK_START.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = QUICK_START.md; sourceTree = "<group>"; };
 		1E4DF7152F9FF867004091AA /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepService.swift; sourceTree = "<group>"; };
+		1ARIA0012F9FF867004091AA /* AriaContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContext.swift; sourceTree = "<group>"; };
+		1ARIA0032F9FF867004091AA /* AriaResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaResponse.swift; sourceTree = "<group>"; };
+		1ARIA0052F9FF867004091AA /* AriaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaService.swift; sourceTree = "<group>"; };
+		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
+		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
+		1ARIA0112F9FF867004091AA /* ContextInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextInspectorView.swift; sourceTree = "<group>"; };
+		1ARIA0132F9FF867004091AA /* ProactiveCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProactiveCardView.swift; sourceTree = "<group>"; };
 		1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingHealthKitViews.swift; sourceTree = "<group>"; };
 		1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDataManager.swift; sourceTree = "<group>"; };
 		1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedDataConnectionView.swift; sourceTree = "<group>"; };
@@ -125,10 +139,39 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1ARIA0152F9FF867004091AA /* Chat */ = {
+			isa = PBXGroup;
+			children = (
+				1ARIA0112F9FF867004091AA /* ContextInspectorView.swift */,
+				1ARIA0132F9FF867004091AA /* ProactiveCardView.swift */,
+			);
+			path = Chat;
+			sourceTree = "<group>";
+		};
+		1ARIA0162F9FF867004091AA /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				1ARIA0152F9FF867004091AA /* Chat */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		1ARIA0172F9FF867004091AA /* AriaModels */ = {
+			isa = PBXGroup;
+			children = (
+				1ARIA0012F9FF867004091AA /* AriaContext.swift */,
+				1ARIA0032F9FF867004091AA /* AriaResponse.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 		1EHKS0032F9FF867004091AA /* Services */ = {
 			isa = PBXGroup;
 			children = (
 				1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */,
+				1ARIA0052F9FF867004091AA /* AriaService.swift */,
+				1ARIA0072F9FF867004091AA /* AriaContextStore.swift */,
+				1ARIA0092F9FF867004091AA /* FeedbackService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -168,6 +211,8 @@
 				1E4DF70F2F9FF2E7004091AA /* AI_INTEGRATION_EXAMPLE.swift */,
 				1E4DF7112F9FF31F004091AA /* REFACTOR_SUMMARY.md */,
 				1E4DF7132F9FF348004091AA /* QUICK_START.md */,
+				1ARIA0172F9FF867004091AA /* AriaModels */,
+				1ARIA0162F9FF867004091AA /* Views */,
 				1EHKS0032F9FF867004091AA /* Services */,
 				1E4DF7152F9FF867004091AA /* HealthKitManager.swift */,
 				1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */,
@@ -302,6 +347,13 @@
 				AA0001000000000000000002 /* Theme.swift in Sources */,
 				1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */,
 				1EHKS0022F9FF867004091AA /* HealthKitSleepService.swift in Sources */,
+				1ARIA0022F9FF867004091AA /* AriaContext.swift in Sources */,
+				1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */,
+				1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */,
+				1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */,
+				1ARIA0102F9FF867004091AA /* FeedbackService.swift in Sources */,
+				1ARIA0122F9FF867004091AA /* ContextInspectorView.swift in Sources */,
+				1ARIA0142F9FF867004091AA /* ProactiveCardView.swift in Sources */,
 				1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */,
 				1E4DF71E2F9FFAE1004091AA /* SmartProfileSetupView.swift in Sources */,
 				AA0001000000000000000003 /* Models.swift in Sources */,
