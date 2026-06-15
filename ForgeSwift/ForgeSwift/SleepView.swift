@@ -105,9 +105,11 @@ enum SleepTab: Int, CaseIterable {
 
 struct SleepView: View {
     @EnvironmentObject var store: AppStore
+    @StateObject private var hkService = HealthKitSleepService.shared
     @State private var selectedTab: SleepTab = .overview
     @State private var showAIChat = false
     @State private var showStreakDetail = false
+    @State private var showSleepPersonalization = false
     @Namespace private var tabNS
 
     var currentStreak: Int {
@@ -135,8 +137,10 @@ struct SleepView: View {
                     SleepOverviewTab(
                         streak: currentStreak,
                         showStreakDetail: $showStreakDetail,
-                        showAIChat: $showAIChat
+                        showAIChat: $showAIChat,
+                        showPersonalization: $showSleepPersonalization
                     )
+                    .environmentObject(hkService)
                     .tag(SleepTab.overview)
 
                     AlarmTab()
@@ -146,6 +150,7 @@ struct SleepView: View {
                         .tag(SleepTab.sounds)
 
                     WakeUpTab()
+                        .environmentObject(hkService)
                         .tag(SleepTab.wakeUp)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
@@ -154,9 +159,29 @@ struct SleepView: View {
         }
         .sheet(isPresented: $showAIChat) {
             AISleepChatView()
+                .environmentObject(store)
+                .environmentObject(hkService)
         }
         .sheet(isPresented: $showStreakDetail) {
             SleepStreakDetailView(streak: currentStreak)
+        }
+        .sheet(isPresented: $showSleepPersonalization) {
+            SleepPersonalizationSheet()
+                .environmentObject(hkService)
+                .environmentObject(store)
+        }
+        .task {
+            if await hkService.requestAuthorization() {
+                let hkSleep = await hkService.fetchRecentSleepData(days: 14)
+                store.mergeSleepDataLocally(hkSleep)
+            }
+            let debt = hkService.computeSleepDebt(from: store.sleepData)
+            let recentScore = store.sleepData.first?.score
+            _ = hkService.computeAdaptiveSunrise(
+                debt: debt,
+                recentScore: recentScore,
+                profile: hkService.userProfile
+            )
         }
     }
 }
@@ -282,13 +307,17 @@ struct SleepHeaderView: View {
 
 struct SleepOverviewTab: View {
     @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
     let streak: Int
     @Binding var showStreakDetail: Bool
     @Binding var showAIChat: Bool
+    @Binding var showPersonalization: Bool
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 22) {
+                ChronotypeBadge(onTap: { showPersonalization = true })
+
                 // Hero score ring
                 SleepScoreHeroCard()
 
@@ -1246,6 +1275,7 @@ struct SoundCard: View {
 // MARK: - Wake Up Tab
 
 struct WakeUpTab: View {
+    @EnvironmentObject private var hkService: HealthKitSleepService
     @State private var smartWakeEnabled = true
     @State private var smartWakeWindow  = 30
     @State private var sunriseEnabled   = true
@@ -1263,8 +1293,8 @@ struct WakeUpTab: View {
                     windowMinutes: $smartWakeWindow
                 )
 
-                // Sunrise Simulation
-                SunriseSimulationCard(
+                AdaptiveSunriseCard(
+                    config: hkService.currentSunriseConfig,
                     enabled: $sunriseEnabled,
                     duration: $sunriseDuration,
                     colorTemp: $colorTemp
@@ -1281,6 +1311,17 @@ struct WakeUpTab: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 100)
+        }
+        .onAppear {
+            let config = hkService.currentSunriseConfig
+            sunriseDuration = config.durationMinutes
+            colorTemp = config.colorTemp
+            smartWakeWindow = hkService.computeSmartAlarmWindow(
+                baseWindow: smartWakeWindow,
+                recentScore: nil,
+                debt: 0,
+                chronotype: hkService.userProfile.chronotype
+            )
         }
     }
 }
@@ -1873,6 +1914,7 @@ struct SleepTimelineView: View {
 
 struct SleepBreakdownView: View {
     @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
 
     var latest: SleepData { store.sleepData[0] }
     var efficiency: Double {
@@ -1884,11 +1926,13 @@ struct SleepBreakdownView: View {
     struct Card { let label: String; let value: String; let progress: Double?; let color: Color; let subtitle: String }
 
     var cards: [Card] {
-        let dp = Double(latest.deepMinutes)/90*100
-        let rp = Double(latest.remMinutes)/90*100
+        let deepGoal = hkService.userProfile.chronotype.deepSleepGoalMinutes
+        let remGoal = hkService.userProfile.chronotype.remSleepGoalMinutes
+        let dp = Double(latest.deepMinutes) / Double(deepGoal) * 100
+        let rp = Double(latest.remMinutes) / Double(remGoal) * 100
         return [
-            Card(label: "Deep Sleep",      value: fmt(latest.deepMinutes), progress: dp, color: dp >= 100 ? .success : .steel, subtitle: "\(Int(dp))% of 90 min goal"),
-            Card(label: "REM Sleep",       value: fmt(latest.remMinutes),  progress: rp, color: rp >= 100 ? .success : .steel, subtitle: "\(Int(rp))% of 90 min goal"),
+            Card(label: "Deep Sleep",      value: fmt(latest.deepMinutes), progress: dp, color: dp >= 100 ? .success : .steel, subtitle: "\(Int(dp))% of \(deepGoal) min goal"),
+            Card(label: "REM Sleep",       value: fmt(latest.remMinutes),  progress: rp, color: rp >= 100 ? .success : .steel, subtitle: "\(Int(rp))% of \(remGoal) min goal"),
             Card(label: "Sleep Efficiency",value: "\(Int(efficiency))%",   progress: efficiency, color: efficiency >= 85 ? .success : efficiency >= 75 ? .warning : .danger, subtitle: efficiency >= 85 ? "Excellent" : "Needs work"),
             Card(label: "Time Awake",      value: "\(latest.awakeMinutes)m", progress: nil, color: .danger, subtitle: latest.awakeMinutes <= 15 ? "Great" : "High"),
         ]
@@ -1940,6 +1984,7 @@ struct SleepBreakdownCard: View {
 
 struct AISleepInsightView: View {
     @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
 
     var insight: String {
         let d = store.sleepData[0]
@@ -1958,7 +2003,7 @@ struct AISleepInsightView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("AI Sleep Insight")
                     .font(.system(size: 12, weight: .bold)).foregroundColor(.steel).tracking(0.5)
-                Text(insight)
+                Text(hkService.chronotypeInsightPrefix() + insight)
                     .font(.system(size: 14)).foregroundColor(.textPrimary).lineSpacing(5)
             }
         }
@@ -2117,17 +2162,11 @@ struct AISleepEnvironmentView: View {
 
 struct AIPersonalizedGoalsView: View {
     @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
     @State private var appeared = false
 
-    struct Goal: Identifiable { let id = UUID(); let title: String; let current: Double; let target: Double; let unit: String; let icon: String }
-
-    var goals: [Goal] {
-        let l = store.sleepData[0]
-        return [
-            Goal(title: "Total Sleep",  current: l.totalHours,          target: 8.0,  unit: "hrs", icon: "bed.double.fill"),
-            Goal(title: "Deep Sleep",   current: Double(l.deepMinutes)/60, target: 1.5, unit: "hrs", icon: "moon.zzz.fill"),
-            Goal(title: "Sleep Score",  current: Double(l.score),        target: 85,   unit: "",    icon: "star.fill"),
-        ]
+    var goals: [AdaptiveSleepGoal] {
+        hkService.computeAdaptiveGoals(from: store.sleepData)
     }
 
     var body: some View {
@@ -2170,13 +2209,13 @@ struct AIPersonalizedGoalsView: View {
 }
 
 struct AISmartRecommendationsView: View {
+    @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
     @State private var appeared = false
-    struct Rec: Identifiable { let id = UUID(); let icon: String; let title: String; let description: String; let priority: String }
-    let recs: [Rec] = [
-        Rec(icon: "sun.max.fill",     title: "Morning Sunlight",   description: "Get 10–15 min within 1 hour of waking",               priority: "High"),
-        Rec(icon: "cup.and.saucer.fill", title: "Caffeine Cutoff", description: "Last coffee by 2:00 PM for better sleep quality",     priority: "Medium"),
-        Rec(icon: "figure.cooldown",  title: "Wind-Down Routine",  description: "Begin evening routine at 9:30 PM",                     priority: "High"),
-    ]
+
+    var recs: [SleepRecommendation] {
+        hkService.chronotypeRecommendations(debt: hkService.computeSleepDebt(from: store.sleepData))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -2215,13 +2254,32 @@ struct AISmartRecommendationsView: View {
 }
 
 struct SleepAchievementsView: View {
+    @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
     @State private var appeared = false
-    struct Achievement: Identifiable { let id = UUID(); let icon: String; let title: String; let description: String; let unlocked: Bool; let color: Color }
-    let achievements: [Achievement] = [
-        Achievement(icon: "star.fill",       title: "Perfect Week",   description: "7 days of 85+ scores",   unlocked: true,  color: .ember),
-        Achievement(icon: "moon.stars.fill", title: "Deep Sleeper",   description: "90+ min deep avg",       unlocked: true,  color: .steel),
-        Achievement(icon: "clock.fill",      title: "Consistency",    description: "Same bedtime 14 days",   unlocked: false, color: .textMuted),
-    ]
+
+    var achievements: [SleepAchievementState] {
+        hkService.computeAchievements(from: store.sleepData)
+    }
+
+    private func achievementColor(_ name: String, unlocked: Bool) -> Color {
+        guard unlocked else { return .textMuted }
+        switch name {
+        case "ember": return .ember
+        case "steel": return .steel
+        case "success": return .success
+        default: return .steel
+        }
+    }
+
+    private func achievementIcon(_ id: String) -> String {
+        switch id {
+        case "perfect-week": return "star.fill"
+        case "deep-sleeper": return "moon.stars.fill"
+        case "consistency": return "clock.fill"
+        default: return "star.fill"
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -2229,10 +2287,11 @@ struct SleepAchievementsView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(Array(achievements.enumerated()), id: \.element.id) { i, a in
+                        let color = achievementColor(a.colorName, unlocked: a.unlocked)
                         VStack(spacing: 10) {
                             ZStack {
-                                Circle().fill(a.unlocked ? a.color.opacity(0.15) : Color.borderColor.opacity(0.25)).frame(width: 58, height: 58)
-                                Image(systemName: a.icon).font(.system(size: 24)).foregroundColor(a.unlocked ? a.color : .textMuted)
+                                Circle().fill(a.unlocked ? color.opacity(0.15) : Color.borderColor.opacity(0.25)).frame(width: 58, height: 58)
+                                Image(systemName: achievementIcon(a.id)).font(.system(size: 24)).foregroundColor(a.unlocked ? color : .textMuted)
                             }
                             VStack(spacing: 3) {
                                 Text(a.title).font(.system(size: 12, weight: .bold)).foregroundColor(.textPrimary)
@@ -2243,7 +2302,7 @@ struct SleepAchievementsView: View {
                         .padding(.vertical, 14)
                         .background(Color.surfaceElevated)
                         .cornerRadius(16)
-                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(a.unlocked ? a.color.opacity(0.3) : Color.borderColor.opacity(0.3), lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(a.unlocked ? color.opacity(0.3) : Color.borderColor.opacity(0.3), lineWidth: 1))
                         .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 10)
                         .animation(.easeOut(duration: 0.3).delay(Double(i) * 0.08), value: appeared)
                     }
@@ -2259,11 +2318,11 @@ struct SleepAchievementsView: View {
 
 struct SleepDebtTrackerView: View {
     @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
     @State private var appeared = false
 
     var debt: Double {
-        let actual = store.sleepData.prefix(7).reduce(0.0) { $0 + $1.totalHours }
-        return max(0, 8.0 * 7 - actual)
+        hkService.computeSleepDebt(from: store.sleepData)
     }
     var debtColor: Color { debt > 3 ? .danger : debt > 1 ? .warning : .success }
 
@@ -2434,7 +2493,13 @@ struct SleepStreakDetailView: View {
 
 struct AISleepChatView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
     @State private var input = ""
+
+    private var ariaContext: String {
+        hkService.buildARIAContext(sleepData: store.sleepData, store: store)
+    }
 
     var body: some View {
         NavigationStack {
@@ -2444,7 +2509,23 @@ struct AISleepChatView: View {
                     ScrollView {
                         VStack(spacing: 16) {
                             Text("Ask me anything about your sleep patterns, recovery, or how to optimize your rest for better performance.")
-                                .font(.system(size: 14)).foregroundColor(.textSecondary).multilineTextAlignment(.center).lineSpacing(5).padding(24)
+                                .font(.system(size: 14)).foregroundColor(.textSecondary).multilineTextAlignment(.center).lineSpacing(5).padding(.horizontal, 24).padding(.top, 16)
+                            if !store.sleepData.isEmpty {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("ARIA Context (ready for backend)")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(.steel)
+                                        .tracking(0.5)
+                                    Text(ariaContext)
+                                        .font(.system(size: 11, design: .monospaced))
+                                        .foregroundColor(.textTertiary)
+                                        .lineSpacing(4)
+                                }
+                                .padding(14)
+                                .background(Color.surface)
+                                .cornerRadius(12)
+                                .padding(.horizontal, 16)
+                            }
                         }
                     }
                     Spacer()
@@ -2516,6 +2597,233 @@ struct AISleepPredictionDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }.foregroundColor(.steel).fontWeight(.semibold)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Chronotype Badge
+
+struct ChronotypeBadge: View {
+    @EnvironmentObject var hkService: HealthKitSleepService
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 10) {
+                Image(systemName: hkService.userProfile.chronotype.icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.steel)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(hkService.userProfile.chronotype.displayName) Chronotype")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                    Text(hkService.userProfile.chronotype.tagline)
+                        .font(.system(size: 11))
+                        .foregroundColor(.textTertiary)
+                        .lineLimit(1)
+                }
+                Spacer()
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.textTertiary)
+            }
+            .padding(14)
+            .background(Color.surface)
+            .cornerRadius(16)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.steel.opacity(0.25), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Adaptive Sunrise Card
+
+struct AdaptiveSunriseCard: View {
+    let config: AdaptiveSunriseConfig
+    @Binding var enabled: Bool
+    @Binding var duration: Int
+    @Binding var colorTemp: Double
+
+    private var displayColor: Color {
+        Color(
+            red: 1.0,
+            green: 0.6 + colorTemp * 0.35,
+            blue: 0.3 + colorTemp * 0.7
+        ).opacity(0.9)
+    }
+
+    var body: some View {
+        WakeUpSection(icon: "sunrise.fill", title: "Adaptive Sunrise", color: Color(hex: "F59E0B")) {
+            VStack(spacing: 16) {
+                Toggle(isOn: $enabled) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Gradual light increase")
+                            .font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                        Text(config.rationale)
+                            .font(.system(size: 12)).foregroundColor(.textTertiary)
+                    }
+                }
+                .tint(Color(hex: "F59E0B"))
+
+                if enabled {
+                    VStack(spacing: 14) {
+                        HStack {
+                            Text("Duration").font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
+                            Spacer()
+                            HStack(spacing: 4) {
+                                Text("\(duration) min")
+                                    .font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
+                                Stepper("", value: $duration, in: 5...60, step: 5)
+                                    .labelsHidden().tint(Color(hex: "F59E0B"))
+                            }
+                        }
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Text("Color Temperature").font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
+                                Spacer()
+                                Text(colorTemp < 0.3 ? "2700K Warm" : colorTemp < 0.7 ? "3500K Neutral" : "5000K Cool")
+                                    .font(.system(size: 12, weight: .semibold)).foregroundColor(displayColor)
+                            }
+                            ZStack(alignment: .bottom) {
+                                LinearGradient(
+                                    colors: [Color(hex: "FF8C42"), Color(hex: "FFD166"), Color(hex: "FEFAE0"), Color(hex: "C8E6FF")],
+                                    startPoint: .leading, endPoint: .trailing
+                                )
+                                .frame(height: 24).cornerRadius(12)
+                                Slider(value: $colorTemp)
+                                    .tint(.clear)
+                                    .padding(.horizontal, 2)
+                            }
+                        }
+
+                        HStack(spacing: 8) {
+                            ForEach(Array(stride(from: 0.1, through: 1.0, by: 0.18)), id: \.self) { t in
+                                Circle()
+                                    .fill(Color(
+                                        red: 1.0,
+                                        green: 0.4 + t * 0.55,
+                                        blue: 0.1 + t * 0.85
+                                    ))
+                                    .frame(width: 8, height: 8)
+                                    .frame(maxWidth: .infinity)
+                                    .opacity(0.3 + t * Double(config.intensity))
+                            }
+                        }
+                        .frame(height: 16)
+                    }
+                    .padding(12).background(Color(hex: "F59E0B").opacity(0.06)).cornerRadius(12)
+                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Sleep Personalization Sheet
+
+struct SleepPersonalizationSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var hkService: HealthKitSleepService
+    @EnvironmentObject var store: AppStore
+    @State private var draft = UserSleepProfile()
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.background.ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text("Your chronotype shapes scoring, goals, sunrise, and smart wake.")
+                            .font(.system(size: 14))
+                            .foregroundColor(.textSecondary)
+                            .lineSpacing(4)
+
+                        VStack(spacing: 10) {
+                            ForEach(Chronotype.allCases) { type in
+                                Button {
+                                    draft.chronotype = type
+                                    UISelectionFeedbackGenerator().selectionChanged()
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: type.icon)
+                                            .font(.system(size: 18))
+                                            .foregroundColor(draft.chronotype == type ? .white : .steel)
+                                            .frame(width: 40, height: 40)
+                                            .background(draft.chronotype == type ? Color.steel : Color.surfaceElevated)
+                                            .cornerRadius(12)
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(type.displayName)
+                                                .font(.system(size: 15, weight: .semibold))
+                                                .foregroundColor(.textPrimary)
+                                            Text(type.tagline)
+                                                .font(.system(size: 12))
+                                                .foregroundColor(.textTertiary)
+                                        }
+                                        Spacer()
+                                        if draft.chronotype == type {
+                                            Image(systemName: "checkmark.circle.fill").foregroundColor(.steel)
+                                        }
+                                    }
+                                    .padding(14)
+                                    .background(Color.surface)
+                                    .cornerRadius(14)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14)
+                                            .stroke(draft.chronotype == type ? Color.steel.opacity(0.5) : Color.borderColor.opacity(0.4), lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Coaching personality")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.textSecondary)
+                            TextField("e.g. direct, encouraging, data-focused", text: $draft.personality)
+                                .padding(12)
+                                .background(Color.surfaceElevated)
+                                .cornerRadius(12)
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Lifestyle notes")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.textSecondary)
+                            TextEditor(text: $draft.notes)
+                                .frame(minHeight: 90)
+                                .padding(8)
+                                .background(Color.surfaceElevated)
+                                .cornerRadius(12)
+                                .scrollContentBackground(.hidden)
+                        }
+                    }
+                    .padding(16)
+                }
+            }
+            .navigationTitle("Sleep Profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .onAppear { draft = hkService.userProfile }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.foregroundColor(.textSecondary)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        hkService.updateProfile(draft)
+                        if !store.sleepData.isEmpty {
+                            Task {
+                                let rescored = await hkService.fetchRecentSleepData(days: 14)
+                                store.mergeSleepDataLocally(rescored)
+                            }
+                        }
+                        dismiss()
+                    }
+                    .foregroundColor(.steel)
+                    .fontWeight(.semibold)
                 }
             }
         }

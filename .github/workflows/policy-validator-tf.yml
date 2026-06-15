@@ -14,9 +14,15 @@ name: Validate AWS IAM policies in Terraform templates using Policy Validator
 on:
   push:
     branches: ["claude/forge-fitness-frontend-TwlOQ" ]
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/policy-validator-tf.yml"
   pull_request:
-    # The branches below must be a subset of the branches above
     branches: ["claude/forge-fitness-frontend-TwlOQ"]
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/policy-validator-tf.yml"
+  workflow_dispatch:
 env:
   AWS_ROLE: MY_ROLE # set this with the role ARN which has permissions to invoke access-analyzer:ValidatePolicy,access-analyzer:CheckNoNewAccess, access-analyzer:CheckAccessNotGranted and can be used in GitHub actions
   REGION: MY_AWS_REGION # set this to your preferred AWS region where you plan to deploy your policies, e.g. us-west-1
@@ -28,6 +34,8 @@ env:
 
 jobs:
   policy-validator:
+    # Skip until real AWS role/region/template values replace the template placeholders.
+    if: ${{ env.AWS_ROLE != 'MY_ROLE' && env.REGION != 'MY_AWS_REGION' && env.TEMPLATE_PATH != 'FILE_PATH_TO_THE_TF_PLAN' }}
     runs-on: ubuntu-latest # Virtual machine to run the workflow (configurable)
     #https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services#updating-your-github-actions-workflow
     #https://aws.amazon.com/blogs/security/use-iam-roles-to-connect-github-actions-to-actions-in-aws/

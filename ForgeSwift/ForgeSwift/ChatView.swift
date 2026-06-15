@@ -1073,8 +1073,8 @@ struct MessageBubbleView: View {
                         // Reply icon revealed on swipe
                         Image(systemName: "arrowshape.turn.up.left.fill")
                             .font(.system(size: 14))
-                            .foregroundColor(mood.accentColor.opacity(min(1, abs(dragOffset) / 44)))
-                            .scaleEffect(min(1.2, abs(dragOffset) / 36))
+                            .foregroundColor(mood.accentColor.opacity(min(1.0, abs(dragOffset) / 44.0)))
+                            .scaleEffect(min(1.2, abs(dragOffset) / 36.0))
                             .offset(x: isTrainer ? 8 : -8)
 
                         Button {
