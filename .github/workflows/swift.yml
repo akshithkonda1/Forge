@@ -31,6 +31,9 @@ jobs:
             -scheme ForgeSwift \
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
+            -arch arm64 \
             build \
             CODE_SIGNING_ALLOWED=NO \
-            IPHONEOS_DEPLOYMENT_TARGET=17.0
+            IPHONEOS_DEPLOYMENT_TARGET=17.0 \
+            ONLY_ACTIVE_ARCH=YES \
+            EXCLUDED_ARCHS=x86_64
