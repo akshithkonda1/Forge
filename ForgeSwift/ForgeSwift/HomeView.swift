@@ -206,52 +206,11 @@ struct CinematicHomeBackground: View {
     }
 
     private var blobMeshLayer: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { tl in
-            let t = tl.date.timeIntervalSinceReferenceDate
-            Canvas { ctx, size in
-                let w = size.width; let h = size.height
-                let blobs: [(CGPoint, Color, CGFloat, Double)] = [
-                    (CGPoint(x: w*(0.15 + 0.10*sin(t*0.17)), y: h*(0.20 + 0.08*cos(t*0.13))),
-                     primaryColor, 280, 0.26),
-                    (CGPoint(x: w*(0.80 + 0.09*cos(t*0.15)), y: h*(0.15 + 0.12*sin(t*0.11))),
-                     Color.steel, 240, 0.18),
-                    (CGPoint(x: w*(0.50 + 0.14*sin(t*0.12+1.0)), y: h*(0.70 + 0.07*cos(t*0.19))),
-                     primaryColor, 200, 0.16),
-                    (CGPoint(x: w*(0.10 + 0.08*cos(t*0.24)), y: h*(0.80 + 0.06*sin(t*0.14))),
-                     Color.steel, 180, 0.14),
-                ]
-                for (center, color, r, opacity) in blobs {
-                    let rect = CGRect(x: center.x-r, y: center.y-r, width: r*2, height: r*2)
-                    ctx.fill(Path(ellipseIn: rect), with: .radialGradient(
-                        Gradient(colors: [color.opacity(opacity), color.opacity(0)]),
-                        center: center, startRadius: 0, endRadius: r
-                    ))
-                }
-            }
-        }
-        .blur(radius: 50)
+        CinematicBlobMeshLayer(primaryColor: primaryColor)
     }
 
     private var auroraLayer: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20.0)) { tl in
-            let t = tl.date.timeIntervalSinceReferenceDate
-            Canvas { ctx, size in
-                let w = size.width; let h = size.height
-                let bands: [(CGFloat, Color, CGFloat)] = [
-                    (h*(0.28 + 0.05*sin(t*0.09)), primaryColor, h*0.16),
-                    (h*(0.55 + 0.07*cos(t*0.07)), Color.steel,  h*0.12),
-                ]
-                for (y, color, bH) in bands {
-                    let rect = CGRect(x: 0, y: y-bH/2, width: w, height: bH)
-                    ctx.fill(Path(rect), with: .linearGradient(
-                        Gradient(colors: [color.opacity(0), color.opacity(0.14), color.opacity(0)]),
-                        startPoint: CGPoint(x: 0, y: y-bH/2), endPoint: CGPoint(x: 0, y: y+bH/2)
-                    ))
-                }
-            }
-        }
-        .blendMode(.screen)
-        .opacity(0.5)
+        CinematicAuroraLayer(primaryColor: primaryColor)
     }
 
     private var vignetteLayer: some View {
@@ -259,6 +218,90 @@ struct CinematicHomeBackground: View {
             colors: [.clear, Color.black.opacity(0.5)],
             center: .center, startRadius: 80, endRadius: 380
         )
+    }
+}
+
+private struct CinematicBlobMeshLayer: View {
+    let primaryColor: Color
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            Canvas { context, size in
+                HomeBackgroundDrawing.drawBlobs(
+                    in: &context,
+                    size: size,
+                    time: timeline.date.timeIntervalSinceReferenceDate,
+                    accent: primaryColor
+                )
+            }
+        }
+        .blur(radius: 50)
+    }
+}
+
+private struct CinematicAuroraLayer: View {
+    let primaryColor: Color
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0)) { timeline in
+            Canvas { context, size in
+                HomeBackgroundDrawing.drawAurora(
+                    in: &context,
+                    size: size,
+                    time: timeline.date.timeIntervalSinceReferenceDate,
+                    accent: primaryColor
+                )
+            }
+        }
+        .blendMode(.screen)
+        .opacity(0.5)
+    }
+}
+
+private enum HomeBackgroundDrawing {
+    static func drawBlobs(in context: inout GraphicsContext, size: CGSize, time: Double, accent: Color) {
+        let w = size.width
+        let h = size.height
+        let blobs: [(CGPoint, Color, CGFloat, Double)] = [
+            (CGPoint(x: w * (0.15 + 0.10 * sin(time * 0.17)), y: h * (0.20 + 0.08 * cos(time * 0.13))), accent, 280, 0.26),
+            (CGPoint(x: w * (0.80 + 0.09 * cos(time * 0.15)), y: h * (0.15 + 0.12 * sin(time * 0.11))), Color.steel, 240, 0.18),
+            (CGPoint(x: w * (0.50 + 0.14 * sin(time * 0.12 + 1.0)), y: h * (0.70 + 0.07 * cos(time * 0.19))), accent, 200, 0.16),
+            (CGPoint(x: w * (0.10 + 0.08 * cos(time * 0.24)), y: h * (0.80 + 0.06 * sin(time * 0.14))), Color.steel, 180, 0.14),
+        ]
+
+        for (center, color, radius, opacity) in blobs {
+            let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+            context.fill(
+                Path(ellipseIn: rect),
+                with: .radialGradient(
+                    Gradient(colors: [color.opacity(opacity), color.opacity(0)]),
+                    center: center,
+                    startRadius: 0,
+                    endRadius: radius
+                )
+            )
+        }
+    }
+
+    static func drawAurora(in context: inout GraphicsContext, size: CGSize, time: Double, accent: Color) {
+        let w = size.width
+        let h = size.height
+        let bands: [(CGFloat, Color, CGFloat)] = [
+            (h * (0.28 + 0.05 * sin(time * 0.09)), accent, h * 0.16),
+            (h * (0.55 + 0.07 * cos(time * 0.07)), Color.steel, h * 0.12),
+        ]
+
+        for (y, color, bandHeight) in bands {
+            let rect = CGRect(x: 0, y: y - bandHeight / 2, width: w, height: bandHeight)
+            context.fill(
+                Path(rect),
+                with: .linearGradient(
+                    Gradient(colors: [color.opacity(0), color.opacity(0.14), color.opacity(0)]),
+                    startPoint: CGPoint(x: 0, y: y - bandHeight / 2),
+                    endPoint: CGPoint(x: 0, y: y + bandHeight / 2)
+                )
+            )
+        }
     }
 }
 
