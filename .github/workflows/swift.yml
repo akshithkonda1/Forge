@@ -32,4 +32,5 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
             build \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            IPHONEOS_DEPLOYMENT_TARGET=17.0
