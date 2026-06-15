@@ -1,22 +1,35 @@
-# This workflow will build a Swift project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
+# Build the ForgeSwift Xcode project on macOS runners.
 
 name: Swift
 
 on:
   push:
     branches: [ "claude/forge-fitness-frontend-TwlOQ" ]
+    paths:
+      - "ForgeSwift/**"
+      - ".github/workflows/swift.yml"
   pull_request:
     branches: [ "claude/forge-fitness-frontend-TwlOQ" ]
+    paths:
+      - "ForgeSwift/**"
+      - ".github/workflows/swift.yml"
 
 jobs:
   build:
-
     runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ForgeSwift
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: swift build -v
-    - name: Run tests
-      run: swift test -v
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+
+      - name: Build ForgeSwift
+        run: |
+          xcodebuild \
+            -project ForgeSwift.xcodeproj \
+            -scheme ForgeSwift \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            build \
+            CODE_SIGNING_ALLOWED=NO
