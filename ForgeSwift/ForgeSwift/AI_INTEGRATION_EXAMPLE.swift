@@ -1,5 +1,7 @@
 import SwiftUI
+#if canImport(FoundationModels)
 import FoundationModels
+#endif
 
 // MARK: - Example App Entry Point with AI Setup
 // NOTE: This is an example. Remove @main if you're using ForgeSwiftApp as your actual entry point.

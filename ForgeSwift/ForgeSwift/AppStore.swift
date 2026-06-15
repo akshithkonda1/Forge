@@ -1,6 +1,8 @@
 import Foundation
 import Combine
+#if canImport(FoundationModels)
 import FoundationModels
+#endif
 
 // MARK: - Tab Enum
 
@@ -69,6 +71,7 @@ struct TrainerResponse {
 
 // MARK: - Foundation Models AI Response Generator
 
+#if canImport(FoundationModels)
 @available(iOS 26.0, *)
 final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
     private let session: LanguageModelSession
@@ -225,6 +228,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         )
     }
 }
+#endif
 
 // MARK: - Fallback Rule-Based Response Generator
 
@@ -544,15 +548,20 @@ final class AppStore: ObservableObject {
     
     init() {
         // Initialize AI response generator
+        #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
             let foundationModelsGenerator = FoundationModelsResponseGenerator()
             self.aiModelAvailable = foundationModelsGenerator.isAvailable
-            self.responseGenerator = foundationModelsGenerator.isAvailable ? 
+            self.responseGenerator = foundationModelsGenerator.isAvailable ?
                 foundationModelsGenerator : RuleBasedResponseGenerator()
         } else {
             self.responseGenerator = RuleBasedResponseGenerator()
             self.aiModelAvailable = false
         }
+        #else
+        self.responseGenerator = RuleBasedResponseGenerator()
+        self.aiModelAvailable = false
+        #endif
         
         // Load mock data asynchronously to avoid blocking app launch
         Task { @MainActor in
