@@ -823,6 +823,20 @@ final class AppStore: ObservableObject {
     
     // MARK: - Sleep Management
     
+    func mergeSleepDataLocally(_ local: [SleepData]) {
+        guard !local.isEmpty else { return }
+        var merged = Dictionary(uniqueKeysWithValues: sleepData.map { ($0.date, $0) })
+        for night in local {
+            merged[night.date] = night
+        }
+        sleepData = merged.values.sorted { $0.date > $1.date }
+        if let latest = sleepData.first {
+            dailyMetrics.totalSleep = Int(latest.totalHours * 60)
+            dailyMetrics.deepSleep = latest.deepMinutes
+            recalculateReadiness()
+        }
+    }
+
     func addSleepData(_ sleep: SleepData) {
         sleepData.insert(sleep, at: 0)
         

@@ -1395,6 +1395,78 @@ class HealthKitManager: ObservableObject {
             healthStore.execute(query)
         }
     }
+
+    func fetchRecentSleepSessions(days: Int) async -> [SleepNightSample] {
+        let sleepType = HKCategoryType(.sleepAnalysis)
+        let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: sleepType,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
+            ) { _, samples, _ in
+                guard let samples = samples as? [HKCategorySample], !samples.isEmpty else {
+                    continuation.resume(returning: [])
+                    return
+                }
+
+                let grouped = Dictionary(grouping: samples) { sample -> String in
+                    let day = Calendar.current.startOfDay(for: sample.endDate)
+                    return ISO8601DateFormatter().string(from: day).prefix(10).description
+                }
+
+                let nights: [SleepNightSample] = grouped.compactMap { date, daySamples in
+                    var deep: TimeInterval = 0
+                    var rem: TimeInterval = 0
+                    var light: TimeInterval = 0
+                    var awake: TimeInterval = 0
+
+                    for sample in daySamples {
+                        let duration = sample.endDate.timeIntervalSince(sample.startDate)
+                        switch sample.value {
+                        case HKCategoryValueSleepAnalysis.asleepDeep.rawValue:
+                            deep += duration
+                        case HKCategoryValueSleepAnalysis.asleepREM.rawValue:
+                            rem += duration
+                        case HKCategoryValueSleepAnalysis.asleepCore.rawValue:
+                            light += duration
+                        case HKCategoryValueSleepAnalysis.awake.rawValue:
+                            awake += duration
+                        case HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue:
+                            light += duration
+                        default:
+                            break
+                        }
+                    }
+
+                    let totalHours = (deep + rem + light) / 3600
+                    guard totalHours > 0 else { return nil }
+                    return SleepNightSample(
+                        date: date,
+                        totalHours: totalHours,
+                        deepMinutes: Int(deep / 60),
+                        remMinutes: Int(rem / 60),
+                        lightMinutes: Int(light / 60),
+                        awakeMinutes: Int(awake / 60)
+                    )
+                }
+                continuation.resume(returning: nights.sorted { $0.date > $1.date })
+            }
+            healthStore.execute(query)
+        }
+    }
+}
+
+struct SleepNightSample {
+    let date: String
+    let totalHours: Double
+    let deepMinutes: Int
+    let remMinutes: Int
+    let lightMinutes: Int
+    let awakeMinutes: Int
 }
 
 // MARK: - Supporting Types

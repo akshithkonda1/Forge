@@ -240,6 +240,7 @@ struct ChatMessage: Identifiable {
     var content: String
     var timestamp: Date
     var richCard: RichCardData?
+    var toolCallsMade: [String]?
 }
 
 struct SleepData: Identifiable {
@@ -251,6 +252,145 @@ struct SleepData: Identifiable {
     var lightMinutes: Int
     var awakeMinutes: Int
     var score: Int
+}
+
+// MARK: - Sleep Intelligence
+
+enum Chronotype: String, CaseIterable, Codable, Identifiable {
+    case lion, bear, wolf, dolphin
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .lion: return "Lion"
+        case .bear: return "Bear"
+        case .wolf: return "Wolf"
+        case .dolphin: return "Dolphin"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .lion: return "sunrise.fill"
+        case .bear: return "moon.zzz.fill"
+        case .wolf: return "moon.stars.fill"
+        case .dolphin: return "waveform.path.ecg"
+        }
+    }
+
+    var tagline: String {
+        switch self {
+        case .lion: return "Early riser — peak energy before noon"
+        case .bear: return "Solar-aligned — steady 8-hour rhythm"
+        case .wolf: return "Night owl — creative after dark"
+        case .dolphin: return "Light sleeper — needs gentle recovery"
+        }
+    }
+
+    var targetSleepHours: Double {
+        switch self {
+        case .lion: return 7.5
+        case .bear: return 8.0
+        case .wolf: return 8.5
+        case .dolphin: return 7.0
+        }
+    }
+
+    var deepSleepGoalMinutes: Int {
+        switch self {
+        case .lion: return 75
+        case .bear: return 90
+        case .wolf: return 85
+        case .dolphin: return 60
+        }
+    }
+
+    var remSleepGoalMinutes: Int {
+        switch self {
+        case .lion: return 80
+        case .bear: return 90
+        case .wolf: return 95
+        case .dolphin: return 85
+        }
+    }
+
+    var idealWakeHour: Double {
+        switch self {
+        case .lion: return 6.0
+        case .bear: return 7.0
+        case .wolf: return 8.5
+        case .dolphin: return 7.5
+        }
+    }
+
+    var baseSunriseDuration: Int {
+        switch self {
+        case .lion: return 15
+        case .bear: return 20
+        case .wolf: return 25
+        case .dolphin: return 30
+        }
+    }
+
+    var baseSunriseColorTemp: Double {
+        switch self {
+        case .lion: return 0.65
+        case .bear: return 0.5
+        case .wolf: return 0.35
+        case .dolphin: return 0.25
+        }
+    }
+
+    var baseSunriseIntensity: Double {
+        switch self {
+        case .lion: return 0.8
+        case .bear: return 0.7
+        case .wolf: return 0.6
+        case .dolphin: return 0.45
+        }
+    }
+}
+
+struct UserSleepProfile: Codable, Equatable {
+    var chronotype: Chronotype = .bear
+    var personality: String = ""
+    var notes: String = ""
+    var bedtimeGoalHour: Double?
+    var wakeGoalHour: Double?
+}
+
+struct AdaptiveSunriseConfig: Equatable {
+    var durationMinutes: Int
+    var colorTemp: Double
+    var intensity: Double
+    var rationale: String
+}
+
+struct AdaptiveSleepGoal: Identifiable, Equatable {
+    var id: String
+    var title: String
+    var current: Double
+    var target: Double
+    var unit: String
+    var icon: String
+}
+
+struct SleepAchievementState: Identifiable, Equatable {
+    var id: String
+    var title: String
+    var description: String
+    var unlocked: Bool
+    var progress: Double
+    var colorName: String
+}
+
+struct SleepRecommendation: Identifiable, Equatable {
+    var id: String
+    var icon: String
+    var title: String
+    var description: String
+    var priority: String
 }
 
 struct WorkoutHistory: Identifiable {
@@ -281,7 +421,37 @@ struct PersonalRecord: Identifiable {
     }
 }
 
-// MARK: - Mock Data (mirrors useAppStore.ts)
+// MARK: - Empty defaults (production / pre-load state)
+
+let emptyProfile = UserProfile(
+    name: "",
+    gender: .preferNotToSay,
+    fitnessGoals: [],
+    experienceLevel: .beginner,
+    preferredWorkouts: [],
+    coachingStyle: .balanced,
+    connectedDevices: [],
+    weeklySchedule: []
+)
+
+let emptyReadiness = ReadinessData(
+    overall: 0,
+    sleepQuality: 0,
+    recoveryScore: 0,
+    stressLevel: 0,
+    energyBank: 0
+)
+
+let emptyMetrics = DailyMetrics(
+    steps: 0,
+    activeCalories: 0,
+    hrv: 0,
+    restingHR: 0,
+    deepSleep: 0,
+    totalSleep: 0
+)
+
+// MARK: - Mock Data (DEBUG fallback only — mirrors useAppStore.ts)
 
 let mockProfile = UserProfile(
     name: "Akshith",
