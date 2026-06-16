@@ -1,3 +1,4 @@
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -23,6 +24,7 @@ CANONICAL_KEYS = {
     "confidence_reason",
     "prose_summary",
     "card",
+    "restricted_domains",
 }
 
 
@@ -69,7 +71,7 @@ class EnvelopeContractTests(unittest.TestCase):
         for message in ("how did I sleep?", "should I train today?", "hey"):
             resp = aria_engine.generate_response(message, full_context())
             self.assertTrue(CANONICAL_KEYS.issubset(resp.keys()), msg=message)
-            self.assertEqual(resp["schema_version"], "1.0", msg=message)
+            self.assertEqual(resp["schema_version"], aria_engine.SCHEMA_VERSION, msg=message)
 
     def test_prose_summary_is_mandatory_and_non_empty(self):
         for ctx in (full_context(), ARIAContext()):
@@ -242,6 +244,158 @@ class SystemPromptTests(unittest.TestCase):
         prompt = aria_engine.build_user_prompt("should I train?", full_context())
         self.assertIn("USER MODEL", prompt)
         self.assertIn("should I train?", prompt)
+
+
+class DataPermissionParsingTests(unittest.TestCase):
+    def test_per_domain_bool_map(self):
+        perms = aria_engine.DataPermissions.from_payload({"sleep": False, "training": True})
+        self.assertFalse(perms.allows("sleep"))
+        self.assertTrue(perms.allows("training"))
+        self.assertEqual(perms.restricted(), ["sleep"])
+
+    def test_allow_list_denies_everything_else(self):
+        perms = aria_engine.DataPermissions.from_payload(["sleep", "readiness"])
+        self.assertTrue(perms.allows("sleep"))
+        self.assertTrue(perms.allows("readiness"))
+        self.assertFalse(perms.allows("nutrition"))
+
+    def test_explicit_allow_deny_object(self):
+        perms = aria_engine.DataPermissions.from_payload({"deny": ["training"]})
+        self.assertFalse(perms.allows("training"))
+        self.assertTrue(perms.allows("sleep"))  # default allow for the rest
+
+    def test_aliases_map_to_canonical_domains(self):
+        perms = aria_engine.DataPermissions.from_payload({"workouts": False, "recovery": False})
+        self.assertFalse(perms.allows("training"))
+        self.assertFalse(perms.allows("readiness"))
+        self.assertIsNone(aria_engine.normalize_domain("not-a-domain"))
+        self.assertEqual(aria_engine.normalize_domain("weight"), "body")
+
+    def test_default_is_allow_all_when_unspecified(self):
+        perms = aria_engine.DataPermissions.from_payload(None)
+        self.assertEqual(perms.restricted(), [])
+
+
+class PermissionEnforcementTests(unittest.TestCase):
+    def test_denied_domain_is_redacted_before_reasoning(self):
+        ctx = full_context()
+        perms = aria_engine.DataPermissions.from_payload({"training": False})
+        sanitized, restricted = aria_engine.apply_permissions(ctx, perms)
+        self.assertEqual(restricted, ["training"])
+        self.assertIsNone(sanitized.training.weekly_load_score)
+        self.assertIsNone(sanitized.training.last_workout_type)
+        # original context is untouched
+        self.assertEqual(ctx.training.weekly_load_score, 70)
+
+    def test_restricted_domain_values_never_leak_into_response(self):
+        resp = aria_engine.generate_response(
+            "should I train today?", full_context(),
+            permissions=aria_engine.DataPermissions.from_payload({"training": False}),
+        )
+        blob = json.dumps(resp).lower()
+        self.assertNotIn("strength", blob)      # last_workout_type
+        self.assertNotIn("weekly load", blob)   # load score phrasing
+        self.assertNotIn("since strength", blob)
+        self.assertEqual(resp["restricted_domains"], ["training"])
+
+    def test_confidence_reason_distinguishes_restricted_from_missing(self):
+        resp = aria_engine.generate_response(
+            "should I train today?", full_context(),
+            permissions=aria_engine.DataPermissions.from_payload({"training": False}),
+        )
+        self.assertIn("training is off (permission)", resp["confidence_reason"])
+
+    def test_restricted_domains_reported_in_envelope(self):
+        resp = aria_engine.generate_response(
+            "how am I today?", full_context(),
+            permissions=aria_engine.DataPermissions.from_payload({"body": False, "nutrition": False}),
+        )
+        self.assertEqual(set(resp["restricted_domains"]), {"body", "nutrition"})
+
+    def test_asking_about_a_restricted_domain_is_declined_clearly(self):
+        ctx = full_context(body=aria_engine.BodyContext(weight_trend_kg=-1.2))
+        resp = aria_engine.generate_response(
+            "how's my weight trend?", ctx,
+            permissions=aria_engine.DataPermissions.from_payload({"body": False}),
+        )
+        self.assertEqual(resp["response_type"], "clarification")
+        self.assertIn("off", resp["prose_summary"].lower())
+        self.assertNotIn("1.2", json.dumps(resp))
+
+    def test_no_permissions_means_nothing_restricted(self):
+        resp = aria_engine.generate_response("how did I sleep?", full_context())
+        self.assertEqual(resp["restricted_domains"], [])
+
+
+class AllDomainParsingTests(unittest.TestCase):
+    def test_rich_payload_parses_every_domain(self):
+        ctx = aria_engine.ARIAContext.from_payload({"context": {
+            "body": {"weightKg": 80, "weightTrendKg": -1.4, "vo2Max": 48},
+            "nutrition": {"proteinG3DayAvg": 150, "calorieTarget": 2200},
+            "profile": {"primaryGoal": "lose-fat", "experienceLevel": "intermediate",
+                        "coachingStyle": "data-driven", "constraints": ["left knee"]},
+            "progress": {"workoutsCompleted30d": 18, "newPersonalRecords": 2, "trainingLoadTrend": "rising"},
+            "lifestyle": {"recentPatterns": ["late_caffeine"], "tags": ["founder"]},
+        }})
+        self.assertEqual(ctx.body.weight_trend_kg, -1.4)
+        self.assertEqual(ctx.nutrition.protein_g_3day_avg, 150)
+        self.assertEqual(ctx.profile.primary_goal, "lose-fat")
+        self.assertEqual(ctx.profile.constraints, ["left knee"])
+        self.assertEqual(ctx.progress.workouts_completed_30d, 18)
+        self.assertEqual(ctx.lifestyle.recent_patterns, ["late_caffeine"])
+        self.assertIn("body.body_fat_pct", ctx.missing_fields)
+
+
+class NewDomainReasoningTests(unittest.TestCase):
+    def test_weight_question_answers_with_body_not_highest_priority_signal(self):
+        # Low deep sleep is higher priority, but the question is about weight.
+        ctx = full_context(
+            profile=aria_engine.ProfileContext(primary_goal="lose-fat"),
+            body=aria_engine.BodyContext(weight_trend_kg=-1.5, vo2_max=46),
+        )
+        resp = aria_engine.generate_response("how's my weight trend?", ctx)
+        self.assertEqual(resp["response_type"], "insight")
+        self.assertEqual(resp["card"]["metric"], "Body")
+        self.assertIn("1.5", resp["card"]["current_value"])
+        self.assertIn("fat-loss", resp["card"]["interpretation"].lower())
+
+    def test_domain_question_with_generic_word_stays_an_insight(self):
+        # "weight trend" must answer about body, not get hijacked into a progress
+        # summary just because it contains the word "trend".
+        ctx = full_context(
+            body=aria_engine.BodyContext(weight_trend_kg=-1.3),
+            progress=aria_engine.ProgressContext(workouts_completed_30d=18, training_load_trend="rising"),
+        )
+        resp = aria_engine.generate_response("how's my weight trend?", ctx)
+        self.assertEqual(resp["response_type"], "insight")
+        self.assertEqual(resp["card"]["metric"], "Body")
+
+    def test_progress_question_produces_a_summary(self):
+        ctx = full_context(progress=aria_engine.ProgressContext(
+            workouts_completed_30d=18, new_personal_records=2, training_load_trend="rising"))
+        resp = aria_engine.generate_response("how's my progress this month?", ctx)
+        self.assertEqual(resp["response_type"], "summary")
+        self.assertEqual(resp["model"], aria_engine.MODEL_PRIMARY)
+        self.assertIn("18", resp["message"])
+        self.assertIn("period_days", resp["card"])
+
+    def test_nutrition_low_protein_flags_a_shortfall(self):
+        signal = aria_engine._interpret_nutrition(aria_engine.ARIAContext(
+            body=aria_engine.BodyContext(weight_kg=80),
+            nutrition=aria_engine.NutritionContext(protein_g_3day_avg=90),
+        ))
+        self.assertIsNotNone(signal)
+        self.assertEqual(signal.direction, "negative")
+        self.assertIn("under", signal.interpretation)
+
+    def test_recommendation_is_shaped_by_profile(self):
+        ctx = full_context(profile=aria_engine.ProfileContext(
+            primary_goal="lose-fat", experience_level="beginner", constraints=["left knee"]))
+        resp = aria_engine.generate_response("should I train today?", ctx)
+        self.assertEqual(resp["response_type"], "recommendation")
+        self.assertIn("deficit", resp["card"]["expected_effect"])
+        self.assertIn("knee", resp["message"].lower())
+        self.assertIn("consistency", resp["message"].lower())
 
 
 if __name__ == "__main__":

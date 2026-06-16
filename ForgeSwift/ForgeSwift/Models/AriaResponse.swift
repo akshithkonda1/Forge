@@ -2,18 +2,20 @@ import Foundation
 
 /// Structured response from ARIA backend or local engine.
 ///
-/// The first group mirrors the v1.0 ARIA response envelope
+/// The first group mirrors the v1.1 ARIA response envelope
 /// (`services/aria_engine.py` / `shared/api-contracts.ts`); the second group is
 /// the chat-surface compatibility layer. All envelope fields are optional so a
 /// response from either the new engine or the legacy path decodes cleanly.
 struct AriaResponse: Codable, Equatable {
-    // --- v1.0 envelope ---
+    // --- v1.1 envelope ---
     var schemaVersion: String? = nil
     var responseType: String? = nil  // insight | recommendation | plan | summary | clarification
     var confidenceReason: String? = nil
     /// 1–3 sentence prose; spoken verbatim by the voice orb (cards suppressed).
     var proseSummary: String? = nil
-    /// Model the live path routed to (claude-opus-4-8 | claude-sonnet-4-6).
+    /// Domains the user turned off for this turn (redacted before reasoning).
+    var restrictedDomains: [String]? = nil
+    /// Model the live path routed to (Opus for multi-signal, Sonnet for fast).
     var model: String? = nil
 
     // --- compatibility layer ---
@@ -30,6 +32,7 @@ struct AriaResponse: Codable, Equatable {
         case responseType = "response_type"
         case confidenceReason = "confidence_reason"
         case proseSummary = "prose_summary"
+        case restrictedDomains = "restricted_domains"
         case model
         case message
         case richCard = "rich_card"
@@ -86,10 +89,14 @@ struct AriaChatRequest: Codable {
     let userId: String
     let message: String
     let recentMetrics: [String: Double]
+    /// Per-domain grants (e.g. ["training": false]). Omitted ⇒ all allowed.
+    /// Denied domains are redacted server-side before ARIA reasons over them.
+    var permissions: [String: Bool]? = nil
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case message
         case recentMetrics = "recent_metrics"
+        case permissions
     }
 }

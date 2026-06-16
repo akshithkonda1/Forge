@@ -31,10 +31,14 @@ def handle_post_ai_chat(body: dict[str, Any]) -> dict:
 
     voice_mode = _voice_mode(body)
     context = aria_engine.ARIAContext.from_payload(body)
-    response = aria_engine.generate_response(message, context, voice_mode=voice_mode)
+    permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
+    response = aria_engine.generate_response(
+        message, context, permissions=permissions, voice_mode=voice_mode
+    )
 
     # Stateful layer: persist the relationship and surface any relevant memory.
-    memory = _context.memory_reference(user_id, message)
+    # Memory draws on the lifestyle domain, so it is gated by that permission.
+    memory = _context.memory_reference(user_id, message) if permissions.allows("lifestyle") else None
     legacy_metrics = {
         "readiness": context.readiness.recovery_score or 0,
     }

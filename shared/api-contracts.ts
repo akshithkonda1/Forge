@@ -239,12 +239,13 @@ export interface HealthBatchResponse {
 }
 
 // ---------------------------------------------------------------------------
-// ARIA coaching contract (Phase 1 — HealthKit only). Versioned interface for
-// POST /ai/chat. Keep in sync with services/aria_engine.py. Do not add
-// top-level response fields without bumping ARIA_SCHEMA_VERSION.
+// ARIA coaching contract (Phase 1). Versioned interface for POST /ai/chat.
+// Keep in sync with services/aria_engine.py. Do not add top-level response
+// fields without bumping ARIA_SCHEMA_VERSION.
+//   v1.1 — all data domains + per-domain data permissions + restricted_domains.
 // ---------------------------------------------------------------------------
 
-export const ARIA_SCHEMA_VERSION = "1.0";
+export const ARIA_SCHEMA_VERSION = "1.1";
 
 export type AriaResponseType =
   | "insight"
@@ -253,8 +254,22 @@ export type AriaResponseType =
   | "summary"
   | "clarification";
 
-/** Living HealthKit user model ARIA reasons over. Absent signals are `null`,
- *  never omitted, so `missingFields` stays honest. */
+/** Every data domain ARIA can reason over. Each is independently grantable via
+ *  AriaDataPermissions. */
+export type AriaDataDomain =
+  | "sleep"
+  | "readiness"
+  | "activity"
+  | "training"
+  | "chronotype"
+  | "body"
+  | "nutrition"
+  | "profile"
+  | "progress"
+  | "lifestyle";
+
+/** Living user model ARIA reasons over, spanning every data domain. Absent
+ *  signals are `null`, never omitted, so `missingFields` stays honest. */
 export interface AriaContext {
   timestamp: ISODateTime;
   sleep: {
@@ -287,7 +302,44 @@ export interface AriaContext {
     typicalWakeTime: string | null; // "07:00"
     consistencyScore: number | null; // 0–1
   };
+  body: {
+    weightKg: number | null;
+    weightTrendKg: number | null; // signed 30-day delta
+    bodyFatPct: number | null;
+    vo2Max: number | null;
+  };
+  nutrition: {
+    caloriesIn3DayAvg: number | null;
+    proteinG3DayAvg: number | null;
+    hydrationMl3DayAvg: number | null;
+    calorieTarget: number | null;
+  };
+  profile: {
+    primaryGoal: FitnessGoal | null;
+    experienceLevel: ExperienceLevel | null;
+    coachingStyle: CoachingStyle | null;
+    constraints: string[]; // injuries, time, equipment
+  };
+  progress: {
+    workoutsCompleted30d: number | null;
+    newPersonalRecords: number | null;
+    trainingLoadTrend: "rising" | "steady" | "falling" | null;
+    recoveryConsistencyDelta: number | null;
+  };
+  lifestyle: {
+    tags: string[];
+    recentPatterns: string[];
+    goals: string[];
+  };
 }
+
+/** Per-domain grants. Accepts a `{domain: boolean}` map, an `{allow|deny: []}`
+ *  object, or an allow-list array. Omitted ⇒ allow-all (opt-out). Denied
+ *  domains are redacted before ARIA reasons, and reported in restricted_domains. */
+export type AriaDataPermissions =
+  | Partial<Record<AriaDataDomain, boolean>>
+  | { allow?: AriaDataDomain[]; deny?: AriaDataDomain[] }
+  | AriaDataDomain[];
 
 export interface AriaInsightCard {
   metric: string;
@@ -304,6 +356,14 @@ export interface AriaRecommendationCard {
   expected_effect: string;
 }
 
+export interface AriaSummaryCard {
+  period_days: number;
+  headline: string;
+  win: string;
+  risk: string;
+  recommendation: string;
+}
+
 export interface AriaClarificationCard {
   question: string;
   why: string;
@@ -312,6 +372,7 @@ export interface AriaClarificationCard {
 export type AriaCard =
   | AriaInsightCard
   | AriaRecommendationCard
+  | AriaSummaryCard
   | AriaClarificationCard
   | null;
 
@@ -321,12 +382,14 @@ export interface AriaChatRequest {
   voice_mode?: boolean;
   /** Preferred: full structured context. */
   context?: AriaContext;
+  /** Which domains ARIA may use this turn. Omitted ⇒ all allowed. */
+  permissions?: AriaDataPermissions;
   /** Legacy fallback the engine still accepts (flat metric bag). */
   recent_metrics?: Record<string, number>;
 }
 
-/** Versioned response envelope. The first six fields are canonical (schema
- *  v1.0); the remainder is the compatibility layer for the deployed chat UI. */
+/** Versioned response envelope. The first seven fields are canonical (schema
+ *  v1.1); the remainder is the compatibility layer for the deployed chat UI. */
 export interface AriaResponseEnvelope {
   schema_version: typeof ARIA_SCHEMA_VERSION;
   response_type: AriaResponseType;
@@ -334,6 +397,7 @@ export interface AriaResponseEnvelope {
   confidence_reason: string; // why confidence is this level (required < 0.5)
   prose_summary: string; // 1–3 sentences, mandatory voice-mode fallback
   card: AriaCard;
+  restricted_domains: AriaDataDomain[]; // domains the user turned off this turn
   // --- compatibility layer ---
   message: string; // chat-bubble text (may be richer than prose_summary)
   suggested_actions: string[];
