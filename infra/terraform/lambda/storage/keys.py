@@ -39,3 +39,7 @@ def chat_message_key(user_id: str, thread_id: str, created_at: str) -> dict:
 
 def user_pk(user_id: str) -> str:
     return f"USER#{user_id}"
+
+
+def aria_context_key(user_id: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": "ARIA#CONTEXT"}

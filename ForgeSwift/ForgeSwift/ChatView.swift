@@ -351,8 +351,9 @@ struct ChatBubbleShape: Shape {
 
 struct ChatView: View {
     @EnvironmentObject var store: AppStore
-    @StateObject private var speech   = SpeechManager()
+    @StateObject private var speech = SpeechManager()
     @StateObject private var momentum = MomentumEngine()
+    @StateObject private var ariaContext = AriaContextStore.shared
 
     @State private var inputText:         String = ""
     @State private var isTyping:          Bool   = false
@@ -363,6 +364,8 @@ struct ChatView: View {
     @State private var showMilestone:     Bool   = false
     @State private var reactionBurstAt:   CGPoint = .zero
     @State private var showReactionBurst: Bool   = false
+    @State private var showContextInspector = false
+    @State private var proactiveInsight: String?
 
     @FocusState private var isInputFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
@@ -377,9 +380,21 @@ struct ChatView: View {
             VStack(spacing: 0) {
                 // ── Header ──────────────────────────────────────
                 ChatHeaderView(
-                    mood:     ariaMood,
-                    momentum: momentum
+                    mood:              ariaMood,
+                    momentum:          momentum,
+                    relationshipLevel: ariaContext.context.relationshipLevel,
+                    onAvatarLongPress: { showContextInspector = true }
                 )
+
+                if let insight = proactiveInsight, ariaContext.shouldBeProactive() {
+                    ProactiveCardView(
+                        insight: insight,
+                        relationshipLevel: ariaContext.context.relationshipLevel,
+                        onTap: { sendMessage("Tell me more about that") }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                }
 
                 // ── Messages ─────────────────────────────────────
                 MessageListView(
@@ -388,6 +403,15 @@ struct ChatView: View {
                     ariaMood:         ariaMood,
                     swipeReply:       $swipeReplyTarget,
                     onQuickAction:    sendMessage,
+                    onReaction:       { messageId, emoji in
+                        Task {
+                            await FeedbackService.shared.processReaction(
+                                userId: ariaContext.context.userId,
+                                messageId: messageId,
+                                reaction: emoji
+                            )
+                        }
+                    },
                     onReactionBurst:  { pt in
                         reactionBurstAt   = pt
                         showReactionBurst = true
@@ -470,8 +494,20 @@ struct ChatView: View {
         }
         .animation(FDS.Spring.hero, value: showVoiceOrb)
         .animation(FDS.Spring.standard, value: swipeReplyTarget?.id)
+        .sheet(isPresented: $showContextInspector) {
+            ContextInspectorView(
+                contextStore: ariaContext,
+                richContext: ariaContext.buildRichContext(from: store)
+            )
+        }
         .onAppear {
             ariaMood = ARIAMood.derive(readiness: store.readiness.overall)
+            ariaContext.configure(userId: store.userProfile.name)
+            ariaContext.updateProfile(
+                goals: store.userProfile.fitnessGoals.map(\.label),
+                lifestyleTags: [store.userProfile.experienceLevel.label]
+            )
+            Task { proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store) }
         }
         .onChange(of: store.readiness.overall) { _, val in
             withAnimation(FDS.Spring.standard) { ariaMood = ARIAMood.derive(readiness: val) }
@@ -493,45 +529,24 @@ struct ChatView: View {
 
         choreographedHaptic(.messageSent)
 
-        // Handle mood shift on "not feeling it"
         if trimmed.lowercased().contains("not feeling") {
             withAnimation(FDS.Spring.standard) { ariaMood = .pushed }
         }
 
-        store.addMessage(ChatMessage(
-            id:        "user-\(Date().timeIntervalSince1970)",
-            role:      .user, content: trimmed, timestamp: Date()
-        ))
-        inputText        = ""
-        isTyping         = true
+        inputText = ""
+        isTyping = true
         showQuickActions = false
         swipeReplyTarget = nil
+        proactiveInsight = nil
 
-        // Award XP for sending
         let xpGain = trimmed.split(separator: " ").count > 5 ? 15 : 10
         momentum.award(xp: xpGain)
 
-        let (responseContent, richCard) = store.trainerResponse(for: trimmed)
-
-        let words     = trimmed.split(separator: " ").count
-        let isComplex = ["why","how","explain","what","should","analyze"]
-            .contains(where: { trimmed.lowercased().contains($0) })
-        let delay: Double = isComplex      ? Double.random(in: 2.2...3.4)
-                          : words <= 3     ? Double.random(in: 0.65...1.05)
-                          : Double.random(in: 1.1...2.0)
-
         Task {
-            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-            guard !Task.isCancelled else { return }
-            store.addMessage(ChatMessage(
-                id:        "trainer-\(Date().timeIntervalSince1970)",
-                role:      .trainer, content: responseContent,
-                timestamp: Date(), richCard: richCard
-            ))
+            await store.sendMessage(trimmed)
             isTyping = false
             choreographedHaptic(.messageReceived)
 
-            // Milestone check
             let count = store.chatMessages.filter { $0.role == .trainer }.count
             if [5, 10, 25, 50].contains(count) {
                 choreographedHaptic(.milestone)
@@ -595,8 +610,10 @@ struct ChatBackground: View {
 
 struct ChatHeaderView: View {
     @EnvironmentObject var store: AppStore
-    let mood:     ARIAMood
+    let mood:              ARIAMood
     @ObservedObject var momentum: MomentumEngine
+    var relationshipLevel: Int = 1
+    var onAvatarLongPress: (() -> Void)? = nil
     @State private var pulse        = false
     @State private var appeared     = false
     @State private var showXPRing   = false
@@ -668,6 +685,10 @@ struct ChatHeaderView: View {
                 .offset(x: 3, y: 3)
             }
             .onAppear { pulse = true }
+            .onLongPressGesture(minimumDuration: 0.45) {
+                choreographedHaptic(.reactionAdded)
+                onAvatarLongPress?()
+            }
 
             // Name + mood badge
             VStack(alignment: .leading, spacing: 3) {
@@ -699,7 +720,7 @@ struct ChatHeaderView: View {
 
                 HStack(spacing: 5) {
                     Circle().fill(Color(hex: "22C55E")).frame(width: 5, height: 5)
-                    Text("Active · Lv.\(momentum.level) · \(momentum.xpToNext) XP to next")
+                    Text("Active · Bond Lv.\(relationshipLevel) · Chat Lv.\(momentum.level)")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.textSecondary)
                 }
@@ -750,6 +771,7 @@ struct MessageListView: View {
     let ariaMood:      ARIAMood
     @Binding var swipeReply: ChatMessage?
     let onQuickAction:    (String) -> Void
+    var onReaction: ((String, String) -> Void)? = nil
     let onReactionBurst:  (CGPoint) -> Void
 
     var body: some View {
@@ -769,6 +791,7 @@ struct MessageListView: View {
                                 message:         msg,
                                 mood:            ariaMood,
                                 onSwipeReply:    { withAnimation(FDS.Spring.standard) { swipeReply = msg } },
+                                onReaction:      onReaction,
                                 onReactionBurst: onReactionBurst
                             )
                             .id(msg.id)
@@ -1029,6 +1052,7 @@ struct MessageBubbleView: View {
     let message:          ChatMessage
     let mood:             ARIAMood
     let onSwipeReply:     () -> Void
+    var onReaction:       ((String, String) -> Void)? = nil
     let onReactionBurst:  (CGPoint) -> Void
 
     @State private var appeared        = false
@@ -1039,6 +1063,7 @@ struct MessageBubbleView: View {
     @State private var replyTriggered  = false
 
     var isTrainer: Bool { message.role == .trainer }
+    private var isHighConfidence: Bool { (message.confidence ?? 0) >= 0.85 }
 
     private let reactions: [(emoji: String, label: String)] = [
         ("🔥", "Fire"), ("💪", "Strong"), ("✅", "Got it"),
@@ -1096,6 +1121,20 @@ struct MessageBubbleView: View {
                                     }
                                 })
                                 .clipShape(ChatBubbleShape(isTrainer: isTrainer))
+                                .overlay {
+                                    if isTrainer && isHighConfidence {
+                                        ChatBubbleShape(isTrainer: true)
+                                            .stroke(Color.steel.opacity(0.45), lineWidth: 1)
+                                    }
+                                }
+                                .overlay(alignment: .topTrailing) {
+                                    if isTrainer && isHighConfidence {
+                                        Image(systemName: "sparkle")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundColor(.steel.opacity(0.8))
+                                            .padding(6)
+                                    }
+                                }
                                 .overlay(alignment: .top) {
                                     if !isTrainer {
                                         ChatBubbleShape(isTrainer: false)
@@ -1107,8 +1146,11 @@ struct MessageBubbleView: View {
                                     }
                                 }
                                 .shadow(
-                                    color: isTrainer ? .black.opacity(0.06) : Color.ember.opacity(0.38),
-                                    radius: isTrainer ? 4 : 16, y: isTrainer ? 2 : 6
+                                    color: isTrainer
+                                        ? (isHighConfidence ? Color.steel.opacity(0.12) : .black.opacity(0.06))
+                                        : Color.ember.opacity(0.38),
+                                    radius: isTrainer ? (isHighConfidence ? 8 : 4) : 16,
+                                    y: isTrainer ? 2 : 6
                                 )
                         }
                         .buttonStyle(.plain)
@@ -1182,6 +1224,9 @@ struct MessageBubbleView: View {
                             withAnimation(FDS.Spring.snap) {
                                 selectedReact = selectedReact == r.emoji ? nil : r.emoji
                                 showReactions = false
+                            }
+                            if selectedReact == r.emoji {
+                                onReaction?(message.id, r.emoji)
                             }
                             choreographedHaptic(.reactionAdded)
                             // Trigger confetti burst

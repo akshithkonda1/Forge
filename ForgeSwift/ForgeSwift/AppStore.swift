@@ -618,9 +618,8 @@ final class AppStore: ObservableObject {
         chatMessages.append(message)
     }
     
-    /// Send a message and get AI response
+    /// Send a message through ARIA (remote when available, local fallback).
     func sendMessage(_ text: String) async {
-        // Add user message
         let userMessage = ChatMessage(
             id: UUID().uuidString,
             role: .user,
@@ -628,37 +627,25 @@ final class AppStore: ObservableObject {
             timestamp: Date()
         )
         chatMessages.append(userMessage)
-        
-        // Set loading state
         isGeneratingResponse = true
-        
+
         do {
-            // Build context
-            let context = TrainerContext(
-                userProfile: userProfile,
-                readiness: readiness,
-                dailyMetrics: dailyMetrics,
-                sleepData: sleepData,
-                workoutHistory: workoutHistory,
-                currentTime: Date(),
-                conversationHistory: chatMessages
+            let aria = try await AriaService.shared.sendMessage(
+                text,
+                store: self,
+                localGenerator: responseGenerator
             )
-            
-            // Generate response
-            let response = try await responseGenerator.generateResponse(for: text, context: context)
-            
-            // Add trainer response
+
             let trainerMessage = ChatMessage(
                 id: UUID().uuidString,
                 role: .trainer,
-                content: response.content,
+                content: aria.message,
                 timestamp: Date(),
-                richCard: response.richCard
+                richCard: aria.richCard?.toRichCardData(),
+                confidence: aria.confidence
             )
             chatMessages.append(trainerMessage)
-            
         } catch {
-            // Handle error gracefully
             let errorMessage = ChatMessage(
                 id: UUID().uuidString,
                 role: .trainer,
@@ -666,9 +653,9 @@ final class AppStore: ObservableObject {
                 timestamp: Date()
             )
             chatMessages.append(errorMessage)
-            print("Error generating AI response: \(error)")
+            print("Error generating ARIA response: \(error)")
         }
-        
+
         isGeneratingResponse = false
     }
     
