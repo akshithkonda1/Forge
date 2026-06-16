@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from responses import RouteError, ok
+from services import aria_engine
 from services.aria_context import CoachContextEngine
 from services.feedback import FeedbackEngine
 
@@ -10,65 +11,50 @@ _context = CoachContextEngine()
 _feedback = FeedbackEngine(_context)
 
 
-def _parse_metrics(raw: Any) -> dict[str, float]:
-    if not isinstance(raw, dict):
-        return {}
-    metrics: dict[str, float] = {}
-    for key, value in raw.items():
-        try:
-            metrics[str(key)] = float(value)
-        except (TypeError, ValueError):
-            continue
-    return metrics
+def _voice_mode(body: dict[str, Any]) -> bool:
+    if bool(body.get("voice_mode")):
+        return True
+    return str(body.get("mode") or "").strip().lower() == "voice"
 
 
 def handle_post_ai_chat(body: dict[str, Any]) -> dict:
-    """Layer 4 — structured ARIA chat response."""
+    """Layer 4 — structured ARIA chat response.
+
+    Reasoning lives in ``services.aria_engine`` (a deterministic, fully tested
+    function over the HealthKit context). This route owns only the stateful
+    concerns: relationship level, memory references, and the persisted context.
+    """
     user_id = str(body.get("user_id") or "").strip()
     message = str(body.get("message") or "").strip()
     if not user_id or not message:
         raise RouteError(400, "user_id and message are required.")
 
-    recent_metrics = _parse_metrics(body.get("recent_metrics"))
-    rich = _context.build_rich_context(user_id, recent_metrics)
+    voice_mode = _voice_mode(body)
+    context = aria_engine.ARIAContext.from_payload(body)
+    response = aria_engine.generate_response(message, context, voice_mode=voice_mode)
+
+    # Stateful layer: persist the relationship and surface any relevant memory.
     memory = _context.memory_reference(user_id, message)
-
-    readiness = recent_metrics.get("readiness", 0)
-    if readiness < 55:
-        reply = (
-            "Based on your recovery signals, I recommend prioritizing rest and mobility today. "
-            "We can keep intensity low and focus on sleep quality tonight."
-        )
-        actions = ["Show recovery plan", "Adjust workout", "Review sleep"]
-    elif readiness >= 85:
-        reply = (
-            "You're primed. This is a strong day to push performance — "
-            "want me to line up a challenging session?"
-        )
-        actions = ["Build workout", "Review readiness", "Set a PR target"]
-    else:
-        reply = (
-            "You're in a solid training band. Let's match today's session to your readiness "
-            "and keep progressive overload controlled."
-        )
-        actions = ["Today's workout", "Tune nutrition", "Check sleep trend"]
-
-    if memory:
-        reply = f"{memory}\n\n{reply}"
-
+    legacy_metrics = {
+        "readiness": context.readiness.recovery_score or 0,
+    }
+    rich = _context.build_rich_context(user_id, legacy_metrics)
     updated_level = min(10, int(rich.get("relationship_level", 1)) + 1)
     _context.update_context(user_id, {"relationship_level": updated_level})
 
-    return ok(
+    # Memory is a chat-surface flourish only — it must not bloat the voice prose.
+    if memory and not voice_mode:
+        response["message"] = f"{memory}\n\n{response['message']}"
+
+    response.update(
         {
-            "message": reply,
             "rich_card": None,
-            "suggested_actions": actions,
             "context_updates": {"relationship_level": updated_level},
-            "confidence": 0.88 if memory else 0.82,
             "memory_reference": memory,
+            "missing_fields": context.missing_fields,
         }
     )
+    return ok(response)
 
 
 def handle_post_feedback_reaction(body: dict[str, Any]) -> dict:

@@ -237,3 +237,108 @@ export interface HealthBatchResponse {
   rejected: number;
   errors: ApiError[];
 }
+
+// ---------------------------------------------------------------------------
+// ARIA coaching contract (Phase 1 — HealthKit only). Versioned interface for
+// POST /ai/chat. Keep in sync with services/aria_engine.py. Do not add
+// top-level response fields without bumping ARIA_SCHEMA_VERSION.
+// ---------------------------------------------------------------------------
+
+export const ARIA_SCHEMA_VERSION = "1.0";
+
+export type AriaResponseType =
+  | "insight"
+  | "recommendation"
+  | "plan"
+  | "summary"
+  | "clarification";
+
+/** Living HealthKit user model ARIA reasons over. Absent signals are `null`,
+ *  never omitted, so `missingFields` stays honest. */
+export interface AriaContext {
+  timestamp: ISODateTime;
+  sleep: {
+    durationMinutes: number | null;
+    efficiency: number | null; // 0–1
+    remMinutes: number | null;
+    deepMinutes: number | null;
+    hrv: number | null; // SDNN ms, during sleep
+    restingHR: number | null;
+    nightsAvailable: number | null; // history depth, gates personal baseline (≥3)
+  };
+  readiness: {
+    hrv7DayTrend: number | null; // % vs 30-day baseline
+    hrv30DayBaseline: number | null;
+    recoveryScore: number | null; // 0–100
+    hrvDaysAvailable: number | null; // history depth, gates confidence
+  };
+  training: {
+    lastWorkoutType: string | null;
+    lastWorkoutDurationMinutes: number | null;
+    hoursSinceLastWorkout: number | null;
+    weeklyLoadScore: number | null; // null if < 3 sessions
+  };
+  activity: {
+    steps3DayAvg: number | null;
+    activeCalories3DayAvg: number | null;
+  };
+  chronotype: {
+    typicalSleepOnset: string | null; // "23:30"
+    typicalWakeTime: string | null; // "07:00"
+    consistencyScore: number | null; // 0–1
+  };
+}
+
+export interface AriaInsightCard {
+  metric: string;
+  current_value: string;
+  vs_baseline: string;
+  interpretation: string;
+  priority: "high" | "medium" | "low";
+}
+
+export interface AriaRecommendationCard {
+  action: string;
+  rationale: string;
+  timing: string;
+  expected_effect: string;
+}
+
+export interface AriaClarificationCard {
+  question: string;
+  why: string;
+}
+
+export type AriaCard =
+  | AriaInsightCard
+  | AriaRecommendationCard
+  | AriaClarificationCard
+  | null;
+
+export interface AriaChatRequest {
+  user_id: string;
+  message: string;
+  voice_mode?: boolean;
+  /** Preferred: full structured context. */
+  context?: AriaContext;
+  /** Legacy fallback the engine still accepts (flat metric bag). */
+  recent_metrics?: Record<string, number>;
+}
+
+/** Versioned response envelope. The first six fields are canonical (schema
+ *  v1.0); the remainder is the compatibility layer for the deployed chat UI. */
+export interface AriaResponseEnvelope {
+  schema_version: typeof ARIA_SCHEMA_VERSION;
+  response_type: AriaResponseType;
+  confidence: number; // 0.0–1.0, calibrated
+  confidence_reason: string; // why confidence is this level (required < 0.5)
+  prose_summary: string; // 1–3 sentences, mandatory voice-mode fallback
+  card: AriaCard;
+  // --- compatibility layer ---
+  message: string; // chat-bubble text (may be richer than prose_summary)
+  suggested_actions: string[];
+  model: string; // model the live path would route to
+  context_updates?: { relationship_level: number };
+  memory_reference?: string | null;
+  missing_fields?: string[];
+}
