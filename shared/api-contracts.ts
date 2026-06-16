@@ -406,3 +406,98 @@ export interface AriaResponseEnvelope {
   memory_reference?: string | null;
   missing_fields?: string[];
 }
+
+// ---------------------------------------------------------------------------
+// Biometrics substrate (POST /ai/observe). Classify raw samples from any
+// source onto canonical types, fuse with stored metrics, model the body over
+// time + in real time, and project onto AriaContext. Mirrors
+// services/biometrics/*. Statistical/physiological estimators implement a
+// pluggable interface a trained model can later replace.
+// ---------------------------------------------------------------------------
+
+export type BiometricSystem =
+  | "cardiovascular"
+  | "autonomic"
+  | "respiratory"
+  | "metabolic"
+  | "activity"
+  | "sleep"
+  | "body"
+  | "nutrition";
+
+/** One raw reading. Any of the identifier fields may carry the metric name
+ *  (our contract type, an Apple Health identifier, or a third-party label);
+ *  the server resolves it to a canonical MetricType. */
+export interface HealthSample {
+  metric?: string;
+  metricType?: string;
+  type?: string;
+  identifier?: string;
+  name?: string;
+  value: number;
+  unit?: string;
+  timestamp?: ISODateTime;
+  startedAt?: ISODateTime;
+  source?: string;
+  stage?: string; // for sleep-stage samples: "deep" | "rem" | "light" | "awake"
+}
+
+export interface ObserveRequest {
+  user_id: string;
+  samples?: HealthSample[];
+  include_stored?: boolean; // default true — fuse with metrics already in the app
+  age_years?: number;       // enables HR-reserve / VO2max estimation
+  permissions?: AriaDataPermissions;
+  message?: string;         // when set, also returns an aria_response in one round-trip
+  voice_mode?: boolean;
+}
+
+export interface BiometricEstimate {
+  name: string;
+  value: number | null;
+  state: string;
+  confidence: number;
+  method: string; // "robust_baseline" | "formula:map" | "fusion:recovery" | "model:<id>"
+  detail: string;
+}
+
+export interface MetricStateDTO {
+  metric: string;
+  latest: number | null;
+  baseline: number | null;
+  n: number;
+  state: string; // normal | elevated | depressed | anomalous | rising | falling
+  confidence: number;
+  detail: string;
+}
+
+export interface SystemStateDTO {
+  system: BiometricSystem;
+  status: string; // nominal | attention | strained | balanced | recovered
+  summary: string;
+  confidence: number;
+  metrics: Record<string, MetricStateDTO>;
+  derived: Record<string, BiometricEstimate>;
+}
+
+export interface BodySnapshot {
+  generated_at: ISODateTime;
+  confidence: number;
+  observation_count: number;
+  sources: string[];
+  systems: Record<string, SystemStateDTO>;
+  derived: Record<string, BiometricEstimate>; // recovery, mean_arterial_pressure, vo2_max_est, ...
+  anomalies: { metric: string; value: number | null; detail: string }[];
+}
+
+export interface ObserveResponse {
+  classification: {
+    accepted: number;
+    rejected: number;
+    rejects: { reason: string; raw: unknown }[];
+  };
+  snapshot: BodySnapshot;
+  aria_context: AriaContext & { missing_fields: string[] };
+  restricted_domains: AriaDataDomain[];
+  aria_response?: AriaResponseEnvelope; // present only when `message` was supplied
+}
