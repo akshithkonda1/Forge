@@ -87,7 +87,23 @@ class BaselineEstimator:
 
 
 def default_estimator(metric: MetricType) -> Estimator:
-    return BaselineEstimator(metric)
+    """The estimator for a metric — a registered one (e.g. a model) or the
+    statistical baseline. The body model calls this, so swapping in a trained
+    model anywhere is a one-line registration, no caller changes."""
+    return _REGISTRY.get(metric) or BaselineEstimator(metric)
+
+
+# Mutable registry so a trained-model path can take over specific metrics at
+# runtime without touching callers. See ``inference.enable_model_estimators``.
+_REGISTRY: dict[MetricType, Estimator] = {}
+
+
+def set_estimator(metric: MetricType, estimator: Estimator) -> None:
+    _REGISTRY[metric] = estimator
+
+
+def reset_estimators() -> None:
+    _REGISTRY.clear()
 
 
 # --- physiological, cross-signal ---------------------------------------------

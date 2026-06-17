@@ -13,7 +13,23 @@ from __future__ import annotations
 
 from .body_model import BodyModel, BodySnapshot, MetricState, SystemState
 from .classify import ClassificationResult, Reject, classify_batch, classify_sample
-from .estimators import BaselineEstimator, Estimate, Estimator, default_estimator, estimate_recovery
+from .estimators import (
+    BaselineEstimator,
+    Estimate,
+    Estimator,
+    default_estimator,
+    estimate_recovery,
+    reset_estimators,
+    set_estimator,
+)
+from .inference import (
+    BedrockInferenceBackend,
+    InferenceBackend,
+    ModelEstimator,
+    enable_model_estimators,
+    feature_vector,
+    resolve_backend,
+)
 from .types import (
     METRIC_REGISTRY,
     Agg,
@@ -40,6 +56,14 @@ __all__ = [
     "Estimator",
     "default_estimator",
     "estimate_recovery",
+    "reset_estimators",
+    "set_estimator",
+    "ModelEstimator",
+    "InferenceBackend",
+    "BedrockInferenceBackend",
+    "enable_model_estimators",
+    "feature_vector",
+    "resolve_backend",
     "METRIC_REGISTRY",
     "MetricType",
     "MetricSpec",

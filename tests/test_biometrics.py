@@ -129,6 +129,61 @@ class EstimatorTests(unittest.TestCase):
         self.assertGreater(many, few)
 
 
+class _FakeBackend:
+    def __init__(self, prediction=None, raises=False):
+        self.prediction = prediction
+        self.raises = raises
+        self.calls = []
+
+    def predict(self, metric, features):
+        self.calls.append((metric, features))
+        if self.raises:
+            raise RuntimeError("inference exploded")
+        return self.prediction
+
+
+class ModelEstimatorTests(unittest.TestCase):
+    def tearDown(self):
+        from services.biometrics import reset_estimators
+        reset_estimators()
+
+    def test_model_prediction_is_used_when_backend_answers(self):
+        from services.biometrics import ModelEstimator
+        backend = _FakeBackend({"value": 99, "state": "modeled", "confidence": 0.91, "method": "model:test"})
+        out = ModelEstimator(MetricType.HEART_RATE, backend).estimate([60, 61, 62])
+        self.assertEqual(out.value, 99)
+        self.assertEqual(out.method, "model:test")
+        self.assertEqual(out.confidence, 0.91)
+        self.assertTrue(backend.calls)
+
+    def test_falls_back_when_backend_abstains_or_raises(self):
+        from services.biometrics import ModelEstimator
+        for backend in (_FakeBackend(None), _FakeBackend(raises=True)):
+            out = ModelEstimator(MetricType.HEART_RATE, backend).estimate([60, 61, 62])
+            self.assertEqual(out.method, "robust_baseline")  # graceful, deterministic fallback
+
+    def test_enable_registers_and_body_model_uses_it_transparently(self):
+        from services.biometrics import ModelEstimator, default_estimator, enable_model_estimators
+        backend = _FakeBackend({"value": 123, "state": "modeled", "method": "model:test"})
+        switched = enable_model_estimators(backend, metrics=[MetricType.HEART_RATE])
+        self.assertIn(MetricType.HEART_RATE, switched)
+        self.assertIsInstance(default_estimator(MetricType.HEART_RATE), ModelEstimator)
+        snap = BodyModel.from_observations(
+            [Observation(MetricType.HEART_RATE, 60, "bpm", BASE + timedelta(hours=h)) for h in range(4)]
+        ).snapshot()
+        self.assertEqual(snap.systems["cardiovascular"].metrics["heart_rate"].estimate.method, "model:test")
+
+    def test_enable_is_noop_without_a_backend(self):
+        from services.biometrics import enable_model_estimators
+        self.assertEqual(enable_model_estimators(None), [])
+
+    def test_feature_vector_exposes_expected_features(self):
+        from services.biometrics import feature_vector
+        feats = feature_vector(MetricType.HRV_SDNN, [50, 52, 48, 51])
+        for key in ("latest", "mean", "ewma", "robust_z", "trend_slope", "n"):
+            self.assertIn(key, feats)
+
+
 class BodyModelTests(unittest.TestCase):
     def _observations(self):
         out = []
