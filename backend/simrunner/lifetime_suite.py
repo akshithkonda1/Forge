@@ -1,0 +1,188 @@
+"""ARIA SimRunner — single entry point.
+
+Runs the full offline pipeline against one archetype, a tier, or all 20:
+
+    python -m backend.simrunner                       # tier 1 (fast sanity)
+    python -m backend.simrunner --model <model_id>
+    python -m backend.simrunner --tier 3
+    python -m backend.simrunner --all
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+
+from .aria_simrunner import report_builder
+from .aria_simrunner.aria_engine import ARIAEngine
+from .aria_simrunner.aria_evaluator import evaluate
+from .aria_simrunner.aria_generator import get_queries_for_tier
+from .aria_simrunner.determinism_checker import check_determinism
+from .aria_simrunner.stability_analyzer import analyze
+from .backend_simulator import model_registry
+from .backend_simulator.behavior_engine import generate_stream
+from .backend_simulator.data_generator import build_context
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_REPORTS_DIR = os.path.join(_HERE, "reports")
+_CONFIG_PATH = os.path.join(_HERE, "sim_config.yaml")
+
+_DEFAULTS = {
+    "seed": 42,
+    "snapshot_days": [7, 14, 21, 29],
+    "determinism_sample_size": 5,
+    "use_real_api": False,
+    "report_format": "both",
+}
+
+
+# --- minimal YAML subset loader (stdlib only) -------------------------------
+
+def _parse_scalar(s: str):
+    s = s.strip()
+    if s.lower() in ("true", "false"):
+        return s.lower() == "true"
+    if re.fullmatch(r"-?\d+", s):
+        return int(s)
+    if re.fullmatch(r"-?\d+\.\d+", s):
+        return float(s)
+    if s.startswith("[") and s.endswith("]"):
+        inner = s[1:-1].strip()
+        return [_parse_scalar(x) for x in inner.split(",")] if inner else []
+    return s.strip("\"'")
+
+
+def _parse_yaml(text: str) -> dict:
+    root: dict = {}
+    nested: dict | None = None
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].rstrip()
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip())
+        key, _, val = line.strip().partition(":")
+        key = key.strip()
+        if indent == 0:
+            if val.strip() == "":
+                nested = {}
+                root[key] = nested
+            else:
+                root[key] = _parse_scalar(val)
+                nested = None
+        elif nested is not None:
+            nested[key] = _parse_scalar(val)
+    return root
+
+
+def load_config(path: str = _CONFIG_PATH) -> dict:
+    config = dict(_DEFAULTS)
+    if os.path.exists(path):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                config.update({k: v for k, v in _parse_yaml(fh.read()).items() if v is not None})
+        except OSError:
+            pass
+    if os.getenv("USE_REAL_API", "").lower() == "true":
+        config["use_real_api"] = True
+    return config
+
+
+# --- pipeline ---------------------------------------------------------------
+
+def run_model(model: dict, config: dict, engine: ARIAEngine) -> dict:
+    profile = model["behavioral_profile"]
+    tier = model["difficulty_tier"]
+    seed = int(config["seed"])
+
+    stream = generate_stream(profile, seed=seed)
+    snapshot_days = [d for d in config["snapshot_days"] if 0 <= d < len(stream)]
+    queries = get_queries_for_tier(tier)
+
+    results = []
+    run_id = 0
+    contexts = {day: build_context(stream, profile, day) for day in snapshot_days}
+    for day in snapshot_days:
+        context = contexts[day]
+        for query in queries:
+            response = engine.respond(query, context, seed=seed)
+            results.append(evaluate(run_id, query, tier, context, response))
+            run_id += 1
+
+    stability = analyze(results)
+
+    # Determinism: up to N tier queries against the latest snapshot context.
+    sample_n = int(config["determinism_sample_size"])
+    sample_ctx = contexts[max(snapshot_days)] if snapshot_days else build_context(stream, profile)
+    samples = [(tier, q, sample_ctx) for q in queries[:sample_n]]
+    determinism = check_determinism(engine, samples, seed=seed)
+
+    paths = report_builder.save_reports(
+        model, stability, determinism, results, _REPORTS_DIR, config["report_format"]
+    )
+
+    print(f"  {model['display_name']}")
+    print(f"    Grade {stability.overall_grade}  ({stability.overall_composite}/100)  "
+          f"· {stability.total_runs} evals · determinism {determinism.semantic_determinism_rate}%")
+    if stability.critical_failures:
+        print(f"    ⚠ {len(stability.critical_failures)} critical failure(s)")
+    for path in paths:
+        print(f"    → {os.path.relpath(path, _HERE)}")
+
+    return {
+        "model_id": model["model_id"],
+        "display_name": model["display_name"],
+        "tier": tier,
+        "composite": stability.overall_composite,
+        "grade": stability.overall_grade,
+        "critical_failures": len(stability.critical_failures),
+        "determinism_rate": determinism.semantic_determinism_rate,
+        "consumer_stability_grade": stability.consumer_stability_grade,
+        "epistemic_rigor_grade": stability.epistemic_rigor_grade,
+    }
+
+
+def _select_models(args) -> list[dict]:
+    if args.model:
+        return [model_registry.get_model(args.model)]
+    if args.all:
+        return list(model_registry.BEDROCK_MODEL_REGISTRY)
+    if args.tier:
+        return model_registry.get_models_by_tier(args.tier)
+    return model_registry.get_models_by_tier(1)  # default: fast tier-1 sanity
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="backend.simrunner", description="ARIA SimRunner — offline evaluation harness")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--model", help="archetype model_id to test")
+    group.add_argument("--tier", type=int, choices=[1, 2, 3, 4, 5], help="test all archetypes in a tier")
+    group.add_argument("--all", action="store_true", help="test all 20 archetypes")
+    args = parser.parse_args(argv)
+
+    config = load_config()
+    engine = ARIAEngine(use_real_api=bool(config["use_real_api"]))
+    models = _select_models(args)
+
+    scope = args.model or (f"tier {args.tier}" if args.tier else ("all 20" if args.all else "tier 1 (default)"))
+    print(f"ARIA SimRunner — scope: {scope}  ·  real_api={config['use_real_api']}  ·  seed={config['seed']}")
+    print("-" * 70)
+
+    summaries = [run_model(model, config, engine) for model in models]
+
+    print("-" * 70)
+    if len(summaries) > 1:
+        avg = round(sum(s["composite"] for s in summaries) / len(summaries), 1)
+        det = round(sum(s["determinism_rate"] for s in summaries) / len(summaries), 1)
+        crit = sum(s["critical_failures"] for s in summaries)
+        path = report_builder.save_combined_summary(summaries, _REPORTS_DIR)
+        print(f"Suite: {len(summaries)} models · avg composite {avg}/100 · "
+              f"avg determinism {det}% · {crit} critical failure(s) total")
+        print(f"Combined summary → {os.path.relpath(path, _HERE)}")
+    else:
+        print(f"Done. Reports in {os.path.relpath(_REPORTS_DIR, _HERE)}/")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
