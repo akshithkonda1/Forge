@@ -1,24 +1,31 @@
 import SwiftUI
 
-// MARK: - Profile View (Tab Container)
+// MARK: - Profile Tab Container
 
-struct ProfileView: View {
+struct ProfileTabView: View {
+    @EnvironmentObject var store: AppStore
     @State private var subTab: SubTab = .progress
 
     enum SubTab: String, CaseIterable {
-        case progress = "Progress"
-        case settings = "Settings"
+        case progress, lifestyle, settings
+
+        var label: String {
+            switch self {
+            case .progress: return "Progress"
+            case .lifestyle: return "Lifestyle"
+            case .settings: return "Settings"
+            }
+        }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Sub-tab bar
             HStack(spacing: 0) {
                 ForEach(SubTab.allCases, id: \.self) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.3)) { subTab = tab }
+                        withAnimation(FDS.Spring.standard) { subTab = tab }
                     } label: {
-                        Text(tab.rawValue)
+                        Text(tab.label)
                             .font(.system(size: 14, weight: .medium))
                             .foregroundColor(subTab == tab ? .white : .textTertiary)
                             .frame(maxWidth: .infinity)
@@ -35,23 +42,62 @@ struct ProfileView: View {
             .padding(.horizontal, 16)
             .padding(.top, 48)
 
-            // Content
             ScrollView {
                 switch subTab {
                 case .progress: ProgressContent()
+                case .lifestyle: LifestyleContent()
                 case .settings: SettingsContent()
                 }
             }
             .padding(.bottom, 100)
         }
         .background(Color.forgeBackground)
+        .onAppear { applyPendingProfileSubTab() }
+        .onChange(of: store.pendingProfileSubTab) { _, _ in applyPendingProfileSubTab() }
+    }
+
+    private func applyPendingProfileSubTab() {
+        guard let pending = store.pendingProfileSubTab?.lowercased() else { return }
+        switch pending {
+        case SubTab.progress.rawValue:
+            subTab = .progress
+        case SubTab.lifestyle.rawValue:
+            subTab = .lifestyle
+        case SubTab.settings.rawValue:
+            subTab = .settings
+        default:
+            break
+        }
+        store.pendingProfileSubTab = nil
+    }
+}
+
+struct LifestyleContent: View {
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Lifestyle")
+                .font(.system(size: 24, weight: .bold))
+                .foregroundColor(.white)
+
+            if let insight = store.primaryTrainingInsight {
+                CoachingBadge(message: "\(insight.title): \(insight.body)")
+            }
+
+            CoachingBadge(
+                message: "Weekly schedule: \(store.userProfile.weeklySchedule.map(String.init).joined(separator: ", ")) · Streak \(store.currentStreak) days."
+            )
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
     }
 }
 
 // MARK: - Progress Content
 
 struct ProgressContent: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         VStack(spacing: 20) {
@@ -123,7 +169,7 @@ struct MonthlySummary: View {
 // MARK: - Calendar Heatmap
 
 struct CalendarHeatmap: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     private let dayLabels = ["M", "T", "W", "T", "F", "S", "S"]
 
@@ -248,7 +294,7 @@ struct CalendarHeatmap: View {
 // MARK: - Personal Records
 
 struct PersonalRecordsBoard: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -310,7 +356,7 @@ struct PersonalRecordsBoard: View {
 // MARK: - Workout History List
 
 struct WorkoutHistoryList: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -387,7 +433,7 @@ struct WorkoutHistoryList: View {
 // MARK: - Settings Content
 
 struct SettingsContent: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
     @State private var workoutReminders = true
     @State private var aiInsights = true
     @State private var recoveryAlerts = true

@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Onboarding Flow Container
 
 struct OnboardingFlow: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         ZStack {
@@ -42,7 +42,7 @@ struct OnboardingProgress: View {
 // MARK: - 1. Welcome Screen
 
 struct WelcomeScreen: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         VStack(spacing: 0) {
@@ -99,7 +99,7 @@ struct WelcomeScreen: View {
 // MARK: - 2. Profile Setup
 
 struct ProfileSetupView: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
     @State private var section = 0
     @State private var name = ""
     @State private var selectedGoals: Set<FitnessGoal> = []
@@ -299,7 +299,7 @@ struct ProfileSetupView: View {
 // MARK: - 3. Device Connection
 
 struct DeviceConnectionView: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
     @State private var connected: Set<String> = []
 
     private let devices: [DeviceOption] = [
@@ -390,7 +390,7 @@ struct DeviceConnectionView: View {
 // MARK: - 4. Coaching Style
 
 struct CoachingStyleView: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
     @State private var selected: CoachingStyle?
 
     var body: some View {

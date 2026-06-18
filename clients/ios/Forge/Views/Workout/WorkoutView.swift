@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Workout View
 
 struct WorkoutView: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         Group {
@@ -20,7 +20,7 @@ struct WorkoutView: View {
 // MARK: - Idle State
 
 struct WorkoutIdleView: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         VStack(spacing: 0) {
@@ -45,6 +45,16 @@ struct WorkoutIdleView: View {
                     Text("\(workout.exercises.count) exercises · \(workout.duration) min · \(workout.intensity.rawValue) intensity")
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            WorkoutStatPill(icon: "list.bullet", value: "\(workout.exercises.count)", label: "exercises")
+                            WorkoutStatPill(icon: "clock.fill", value: "~\(workout.duration)", label: "min")
+                            WorkoutStatPill(icon: "flame.fill", value: "\(workout.estimatedCalories)", label: "cal")
+                            WorkoutStatPill(icon: "scalemass.fill", value: "\(workout.exercises.count * 4)", label: "sets")
+                        }
+                    }
+                    .padding(.horizontal, 4)
 
                     // Exercise list
                     VStack(spacing: 0) {
@@ -113,7 +123,10 @@ struct WorkoutIdleView: View {
 // MARK: - Active Workout View
 
 struct ActiveWorkoutView: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
+    @State private var pulseSet = 1
+    @State private var setPulseScale: CGFloat = 1.0
+    @State private var setBurstOpacity: Double = 0
     @State private var elapsed = 0
     @State private var simulatedHR = 72
     @State private var calories = 0.0
@@ -276,6 +289,8 @@ struct ActiveWorkoutView: View {
                         .foregroundColor(.textTertiary)
                 }
 
+                SetIndicatorDots(totalSets: ex.sets, activeSet: store.currentSet, pulseSet: pulseSet, scale: setPulseScale, burstOpacity: setBurstOpacity)
+
                 Text(ex.name)
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.white)
@@ -426,6 +441,7 @@ struct ActiveWorkoutView: View {
             store.nextExercise()
         } else {
             store.nextSet()
+            triggerSetPulse()
         }
 
         isResting = true
@@ -454,6 +470,24 @@ struct ActiveWorkoutView: View {
         return ("Zone 5", .forgeDanger)
     }
 
+    private func triggerSetPulse() {
+        pulseSet = store.currentSet
+        withAnimation(FDS.Spring.snap) {
+            setPulseScale = 1.35
+        }
+        if !UIAccessibility.isReduceMotionEnabled {
+            setBurstOpacity = 0.85
+            withAnimation(.easeOut(duration: 0.4)) {
+                setBurstOpacity = 0
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(FDS.Spring.snap) {
+                setPulseScale = 1.0
+            }
+        }
+    }
+
     private func metricBubble(icon: String, value: String, unit: String, color: Color) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
@@ -477,6 +511,53 @@ struct ActiveWorkoutView: View {
 }
 
 // MARK: - Exercise Nav Dots
+
+struct WorkoutStatPill: View {
+    let icon: String
+    let value: String
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .foregroundColor(.ember)
+            Text(value)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(.white)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundColor(.textSecondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.forgeSurfaceElevated)
+        .clipShape(Capsule())
+    }
+}
+
+struct SetIndicatorDots: View {
+    let totalSets: Int
+    let activeSet: Int
+    let pulseSet: Int
+    let scale: CGFloat
+    let burstOpacity: Double
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(1...max(totalSets, 1), id: \.self) { set in
+                Circle()
+                    .fill(set <= activeSet ? Color.ember : Color.forgeSurfaceElevated)
+                    .frame(width: 10, height: 10)
+                    .scaleEffect(set == pulseSet ? scale : 1.0)
+                    .shadow(color: set == pulseSet ? Color.ember.opacity(burstOpacity) : .clear, radius: 10)
+                    .animation(FDS.Spring.snap, value: scale)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
 
 struct ExerciseNavDots: View {
     let exercises: [Exercise]
