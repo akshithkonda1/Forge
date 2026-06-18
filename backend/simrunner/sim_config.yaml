@@ -1,0 +1,14 @@
+seed: 42
+snapshot_days: [7, 14, 21, 29]      # which days in the 30-day stream to test
+determinism_sample_size: 5           # prompts per tier for the determinism check
+use_real_api: false                  # set true to call the Claude API (costs tokens)
+grade_thresholds:
+  A_plus: 95
+  A: 88
+  B_plus: 80
+  B: 72
+  B_minus: 65
+  C: 55
+  C_minus: 45
+critical_failure_threshold: 0        # directional_correctness score that flags a critical failure
+report_format: both                  # text | json | both
