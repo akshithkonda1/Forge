@@ -79,9 +79,9 @@ final class AriaContextStore: ObservableObject {
         }()
 
         let steps3 = store.sleepData.isEmpty ? nil : Double(store.dailyMetrics.steps)
-        let hrvValues = store.sleepData.prefix(7).map { Double(store.dailyMetrics.hrv) }
+        let hrvValues = store.sleepData.prefix(7).map { _ in Double(store.dailyMetrics.hrv) }
         let hrvBaseline = hrvValues.isEmpty ? nil : hrvValues.reduce(0, +) / Double(hrvValues.count)
-        let hrvTrend: Double? = hrvBaseline.map { baseline in
+        let hrvTrend: Double? = hrvBaseline.flatMap { baseline in
             guard baseline > 0 else { return nil }
             return ((Double(store.dailyMetrics.hrv) - baseline) / baseline) * 100
         }
