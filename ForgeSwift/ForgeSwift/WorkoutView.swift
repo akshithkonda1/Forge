@@ -1472,11 +1472,13 @@ struct WorkoutIdleView: View {
             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 16)
             .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.18), value: appeared)
 
-            HStack(spacing: 8) {
-                WorkoutStatPill(icon: "list.bullet",    value: "\(workout.exercises.count)",   label: "exercises")
-                WorkoutStatPill(icon: "clock.fill",     value: "~\(workout.duration)",         label: "min")
-                WorkoutStatPill(icon: "flame.fill",     value: "\(workout.estimatedCalories)", label: "cal",  color: workout.intensity.color)
-                WorkoutStatPill(icon: "scalemass.fill", value: totalVolumeStr(workout),        label: "vol",  color: .steel)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    WorkoutStatPill(icon: "list.bullet",    value: "\(workout.exercises.count)",   label: "exercises")
+                    WorkoutStatPill(icon: "clock.fill",     value: "~\(workout.duration)",         label: "min")
+                    WorkoutStatPill(icon: "flame.fill",     value: "\(workout.estimatedCalories)", label: "cal",  color: workout.intensity.color)
+                    WorkoutStatPill(icon: "scalemass.fill", value: totalVolumeStr(workout),        label: "vol",  color: .steel)
+                }
             }
             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 12)
             .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.26), value: appeared)

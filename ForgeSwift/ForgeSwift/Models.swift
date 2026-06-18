@@ -1,6 +1,13 @@
 import Foundation
 import SwiftUI
 
+private func isoDateString(daysAgo: Int) -> String {
+    let date = Date().addingTimeInterval(-86400 * Double(daysAgo))
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withFullDate]
+    return String(formatter.string(from: date).prefix(10))
+}
+
 // MARK: - Enums (mirrors /src/types/index.ts)
 
 enum CoachingStyle: String, Codable, CaseIterable, Identifiable {
@@ -17,7 +24,7 @@ enum CoachingStyle: String, Codable, CaseIterable, Identifiable {
         case .balanced:   return "Keep It Balanced"
         case .patient:    return "Be Patient With Me"
         case .dataDriven: return "Data-Driven & Precise"
-        case .ultraElite: return "Data-Driven & Precise but on a higher level. "
+        case .ultraElite: return "Ultra Elite"
         }
     }
     var description: String {
@@ -191,12 +198,7 @@ struct Exercise: Identifiable {
     var restSeconds: Int
     var notes: String?
     var videoURL: URL?
-    var has3DModel: Bool
-    
-    // For AR/3D visualization
-    var modelName: String? {
-        has3DModel ? name.replacingOccurrences(of: " ", with: "_").lowercased() : nil
-    }
+    var has3DModel: Bool = false
 }
 
 struct WorkoutPlan: Identifiable {
@@ -242,6 +244,9 @@ struct ChatMessage: Identifiable {
     var richCard: RichCardData?
     var toolCallsMade: [String]?
     var confidence: Double? = nil
+    var suggestedActions: [String]? = nil
+    var memoryReference: String? = nil
+    var confidenceReason: String? = nil
 }
 
 struct SleepData: Identifiable {
@@ -489,12 +494,12 @@ let mockWorkout = WorkoutPlan(
     duration: 55,
     intensity: WorkoutIntensity.high,
     exercises: [
-        Exercise(id:"e1", name:"Barbell Bench Press",    sets:4, reps:"6-8",   weight:185, restSeconds:120, notes:"Focus on controlled eccentric", videoURL: URL(string: "https://example.com/bench-press.mp4"), has3DModel: true),
-        Exercise(id:"e2", name:"Weighted Pull-Ups",       sets:4, reps:"6-8",   weight:25,  restSeconds:120, videoURL: URL(string: "https://example.com/pullups.mp4"), has3DModel: true),
-        Exercise(id:"e3", name:"Overhead Press",          sets:3, reps:"8-10",  weight:115, restSeconds:90, videoURL: URL(string: "https://example.com/ohp.mp4"), has3DModel: true),
-        Exercise(id:"e4", name:"Barbell Rows",            sets:3, reps:"8-10",  weight:155, restSeconds:90, videoURL: URL(string: "https://example.com/rows.mp4"), has3DModel: true),
-        Exercise(id:"e5", name:"Incline Dumbbell Press",  sets:3, reps:"10-12", weight:65,  restSeconds:60, videoURL: URL(string: "https://example.com/incline.mp4"), has3DModel: true),
-        Exercise(id:"e6", name:"Face Pulls",              sets:3, reps:"15-20", weight:30,  restSeconds:60, videoURL: URL(string: "https://example.com/facepulls.mp4"), has3DModel: true),
+        Exercise(id:"e1", name:"Barbell Bench Press",    sets:4, reps:"6-8",   weight:185, restSeconds:120, notes:"Focus on controlled eccentric", videoURL: URL(string: "https://example.com/bench-press.mp4")),
+        Exercise(id:"e2", name:"Weighted Pull-Ups",       sets:4, reps:"6-8",   weight:25,  restSeconds:120, videoURL: URL(string: "https://example.com/pullups.mp4")),
+        Exercise(id:"e3", name:"Overhead Press",          sets:3, reps:"8-10",  weight:115, restSeconds:90, videoURL: URL(string: "https://example.com/ohp.mp4")),
+        Exercise(id:"e4", name:"Barbell Rows",            sets:3, reps:"8-10",  weight:155, restSeconds:90, videoURL: URL(string: "https://example.com/rows.mp4")),
+        Exercise(id:"e5", name:"Incline Dumbbell Press",  sets:3, reps:"10-12", weight:65,  restSeconds:60, videoURL: URL(string: "https://example.com/incline.mp4")),
+        Exercise(id:"e6", name:"Face Pulls",              sets:3, reps:"15-20", weight:30,  restSeconds:60, videoURL: URL(string: "https://example.com/facepulls.mp4")),
     ]
 )
 
@@ -541,39 +546,39 @@ let mockChatMessages: [ChatMessage] = {
 }()
 
 let mockSleepData: [SleepData] = [
-    SleepData(date:"2026-02-10", totalHours:7.2, deepMinutes:102, remMinutes:95,  lightMinutes:215, awakeMinutes:20, score:88),
-    SleepData(date:"2026-02-09", totalHours:6.8, deepMinutes:78,  remMinutes:88,  lightMinutes:225, awakeMinutes:17, score:74),
-    SleepData(date:"2026-02-08", totalHours:7.5, deepMinutes:110, remMinutes:100, lightMinutes:220, awakeMinutes:20, score:91),
-    SleepData(date:"2026-02-07", totalHours:6.2, deepMinutes:65,  remMinutes:72,  lightMinutes:210, awakeMinutes:25, score:62),
-    SleepData(date:"2026-02-06", totalHours:7.8, deepMinutes:115, remMinutes:105, lightMinutes:228, awakeMinutes:20, score:93),
-    SleepData(date:"2026-02-05", totalHours:7.0, deepMinutes:88,  remMinutes:92,  lightMinutes:218, awakeMinutes:22, score:80),
-    SleepData(date:"2026-02-04", totalHours:6.5, deepMinutes:72,  remMinutes:80,  lightMinutes:208, awakeMinutes:30, score:68),
-    SleepData(date:"2026-02-03", totalHours:7.4, deepMinutes:98,  remMinutes:96,  lightMinutes:222, awakeMinutes:18, score:85),
-    SleepData(date:"2026-02-02", totalHours:6.9, deepMinutes:82,  remMinutes:84,  lightMinutes:216, awakeMinutes:32, score:70),
-    SleepData(date:"2026-02-01", totalHours:7.6, deepMinutes:108, remMinutes:102, lightMinutes:224, awakeMinutes:22, score:90),
-    SleepData(date:"2026-01-31", totalHours:5.8, deepMinutes:55,  remMinutes:65,  lightMinutes:195, awakeMinutes:33, score:55),
-    SleepData(date:"2026-01-30", totalHours:7.1, deepMinutes:95,  remMinutes:90,  lightMinutes:218, awakeMinutes:23, score:82),
-    SleepData(date:"2026-01-29", totalHours:7.3, deepMinutes:100, remMinutes:94,  lightMinutes:220, awakeMinutes:24, score:84),
-    SleepData(date:"2026-01-28", totalHours:6.6, deepMinutes:70,  remMinutes:78,  lightMinutes:212, awakeMinutes:36, score:65),
+    SleepData(date: isoDateString(daysAgo: 0), totalHours:7.2, deepMinutes:102, remMinutes:95,  lightMinutes:215, awakeMinutes:20, score:88),
+    SleepData(date: isoDateString(daysAgo: 1), totalHours:6.8, deepMinutes:78,  remMinutes:88,  lightMinutes:225, awakeMinutes:17, score:74),
+    SleepData(date: isoDateString(daysAgo: 2), totalHours:7.5, deepMinutes:110, remMinutes:100, lightMinutes:220, awakeMinutes:20, score:91),
+    SleepData(date: isoDateString(daysAgo: 3), totalHours:6.2, deepMinutes:65,  remMinutes:72,  lightMinutes:210, awakeMinutes:25, score:62),
+    SleepData(date: isoDateString(daysAgo: 4), totalHours:7.8, deepMinutes:115, remMinutes:105, lightMinutes:228, awakeMinutes:20, score:93),
+    SleepData(date: isoDateString(daysAgo: 5), totalHours:7.0, deepMinutes:88,  remMinutes:92,  lightMinutes:218, awakeMinutes:22, score:80),
+    SleepData(date: isoDateString(daysAgo: 6), totalHours:6.5, deepMinutes:72,  remMinutes:80,  lightMinutes:208, awakeMinutes:30, score:68),
+    SleepData(date: isoDateString(daysAgo: 7), totalHours:7.4, deepMinutes:98,  remMinutes:96,  lightMinutes:222, awakeMinutes:18, score:85),
+    SleepData(date: isoDateString(daysAgo: 8), totalHours:6.9, deepMinutes:82,  remMinutes:84,  lightMinutes:216, awakeMinutes:32, score:70),
+    SleepData(date: isoDateString(daysAgo: 9), totalHours:7.6, deepMinutes:108, remMinutes:102, lightMinutes:224, awakeMinutes:22, score:90),
+    SleepData(date: isoDateString(daysAgo: 10), totalHours:5.8, deepMinutes:55,  remMinutes:65,  lightMinutes:195, awakeMinutes:33, score:55),
+    SleepData(date: isoDateString(daysAgo: 11), totalHours:7.1, deepMinutes:95,  remMinutes:90,  lightMinutes:218, awakeMinutes:23, score:82),
+    SleepData(date: isoDateString(daysAgo: 12), totalHours:7.3, deepMinutes:100, remMinutes:94,  lightMinutes:220, awakeMinutes:24, score:84),
+    SleepData(date: isoDateString(daysAgo: 13), totalHours:6.6, deepMinutes:70,  remMinutes:78,  lightMinutes:212, awakeMinutes:36, score:65),
 ]
 
 let mockWorkoutHistory: [WorkoutHistory] = [
-    WorkoutHistory(id:"h1",  date:"2026-02-10", name:"Lower Body Strength",    type: WorkoutType.strength, duration:62, volume:18500, intensity: WorkoutIntensity.high),
-    WorkoutHistory(id:"h2",  date:"2026-02-08", name:"HIIT Conditioning",       type: WorkoutType.hiit,     duration:30, volume:0,     intensity: WorkoutIntensity.max),
-    WorkoutHistory(id:"h3",  date:"2026-02-07", name:"Upper Body Hypertrophy",  type: WorkoutType.strength, duration:58, volume:22400, intensity: WorkoutIntensity.moderate),
-    WorkoutHistory(id:"h4",  date:"2026-02-05", name:"Full Body Power",          type: WorkoutType.strength, duration:65, volume:24000, intensity: WorkoutIntensity.high),
-    WorkoutHistory(id:"h5",  date:"2026-02-03", name:"Cardio + Core",            type: WorkoutType.cardio,   duration:45, volume:0,     intensity: WorkoutIntensity.moderate),
-    WorkoutHistory(id:"h6",  date:"2026-02-01", name:"Push Day",                 type: WorkoutType.strength, duration:52, volume:19800, intensity: WorkoutIntensity.high),
-    WorkoutHistory(id:"h7",  date:"2026-01-31", name:"Pull Day",                 type: WorkoutType.strength, duration:55, volume:21000, intensity: WorkoutIntensity.high),
-    WorkoutHistory(id:"h8",  date:"2026-01-29", name:"Leg Day",                  type: WorkoutType.strength, duration:60, volume:26500, intensity: WorkoutIntensity.high),
-    WorkoutHistory(id:"h9",  date:"2026-01-28", name:"HIIT Sprint Intervals",    type: WorkoutType.hiit,     duration:25, volume:0,     intensity: WorkoutIntensity.max),
-    WorkoutHistory(id:"h10", date:"2026-01-27", name:"Mobility & Recovery",      type: WorkoutType.mobility, duration:35, volume:0,     intensity: WorkoutIntensity.low),
+    WorkoutHistory(id:"h1",  date: isoDateString(daysAgo: 0), name:"Lower Body Strength",    type: WorkoutType.strength, duration:62, volume:18500, intensity: WorkoutIntensity.high),
+    WorkoutHistory(id:"h2",  date: isoDateString(daysAgo: 2), name:"HIIT Conditioning",       type: WorkoutType.hiit,     duration:30, volume:0,     intensity: WorkoutIntensity.max),
+    WorkoutHistory(id:"h3",  date: isoDateString(daysAgo: 3), name:"Upper Body Hypertrophy",  type: WorkoutType.strength, duration:58, volume:22400, intensity: WorkoutIntensity.moderate),
+    WorkoutHistory(id:"h4",  date: isoDateString(daysAgo: 5), name:"Full Body Power",          type: WorkoutType.strength, duration:65, volume:24000, intensity: WorkoutIntensity.high),
+    WorkoutHistory(id:"h5",  date: isoDateString(daysAgo: 7), name:"Cardio + Core",            type: WorkoutType.cardio,   duration:45, volume:0,     intensity: WorkoutIntensity.moderate),
+    WorkoutHistory(id:"h6",  date: isoDateString(daysAgo: 9), name:"Push Day",                 type: WorkoutType.strength, duration:52, volume:19800, intensity: WorkoutIntensity.high),
+    WorkoutHistory(id:"h7",  date: isoDateString(daysAgo: 10), name:"Pull Day",                 type: WorkoutType.strength, duration:55, volume:21000, intensity: WorkoutIntensity.high),
+    WorkoutHistory(id:"h8",  date: isoDateString(daysAgo: 12), name:"Leg Day",                  type: WorkoutType.strength, duration:60, volume:26500, intensity: WorkoutIntensity.high),
+    WorkoutHistory(id:"h9",  date: isoDateString(daysAgo: 13), name:"HIIT Sprint Intervals",    type: WorkoutType.hiit,     duration:25, volume:0,     intensity: WorkoutIntensity.max),
+    WorkoutHistory(id:"h10", date: isoDateString(daysAgo: 14), name:"Mobility & Recovery",      type: WorkoutType.mobility, duration:35, volume:0,     intensity: WorkoutIntensity.low),
 ]
 
 let mockPersonalRecords: [PersonalRecord] = [
-    PersonalRecord(exercise:"Bench Press", value:225,  unit:"lbs",  date:"2026-01-28"),
-    PersonalRecord(exercise:"Squat",       value:315,  unit:"lbs",  date:"2026-02-01"),
-    PersonalRecord(exercise:"Deadlift",    value:365,  unit:"lbs",  date:"2026-01-15"),
-    PersonalRecord(exercise:"Mile Run",    value:6.45, unit:"min",  date:"2026-02-05"),
-    PersonalRecord(exercise:"Pull-Ups",    value:18,   unit:"reps", date:"2026-02-08"),
+    PersonalRecord(exercise:"Bench Press", value:225,  unit:"lbs",  date: isoDateString(daysAgo: 13)),
+    PersonalRecord(exercise:"Squat",       value:315,  unit:"lbs",  date: isoDateString(daysAgo: 9)),
+    PersonalRecord(exercise:"Deadlift",    value:365,  unit:"lbs",  date: isoDateString(daysAgo: 30)),
+    PersonalRecord(exercise:"Mile Run",    value:6.45, unit:"min",  date: isoDateString(daysAgo: 5)),
+    PersonalRecord(exercise:"Pull-Ups",    value:18,   unit:"reps", date: isoDateString(daysAgo: 2)),
 ]

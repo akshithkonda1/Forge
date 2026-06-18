@@ -1654,6 +1654,7 @@ struct VoiceOrbOverlay: View {
                 AuroraOrbView(
                     state:     speech.voiceState.orbState,
                     amplitude: speech.amplitude,
+                    mood:      mood,
                     size:      248
                 )
                 .scaleEffect(orbRevealed ? 1.0 : 0.5)

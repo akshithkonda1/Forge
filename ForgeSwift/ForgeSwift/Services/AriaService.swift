@@ -2,8 +2,10 @@ import Foundation
 
 /// Layer 1 bridge — talks to ARIA backend with graceful local fallback.
 @MainActor
-final class AriaService {
+final class AriaService: ObservableObject {
     static let shared = AriaService()
+
+    @Published private(set) var isLocalFallback = false
 
     var baseURL: URL {
         if let saved = UserDefaults.standard.string(forKey: Self.baseURLKey),
@@ -25,17 +27,22 @@ final class AriaService {
     func sendMessage(
         _ text: String,
         store: AppStore,
-        localGenerator: TrainerResponseGenerator
+        localGenerator: TrainerResponseGenerator,
+        voiceMode: Bool = false
     ) async throws -> AriaResponse {
-        let rich = contextStore.buildRichContext(from: store)
+        let domainContext = contextStore.buildARIAContext(from: store)
+        let legacyMetrics = contextStore.buildRichContext(from: store).recentMetrics
         let request = AriaChatRequest(
-            userId: rich.userId,
+            userId: contextStore.context.userId,
             message: text,
-            recentMetrics: rich.recentMetrics,
-            permissions: DataPermissionsStore.shared.payloadIfRestricted()
+            context: domainContext,
+            recentMetrics: legacyMetrics,
+            permissions: DataPermissionsStore.shared.payloadIfRestricted(),
+            voiceMode: voiceMode || store.ariaVoiceMode
         )
 
         if let remote = try? await postChat(request) {
+            isLocalFallback = false
             if let updates = remote.contextUpdates {
                 contextStore.applyUpdates(updates)
             }
@@ -46,11 +53,12 @@ final class AriaService {
             return response
         }
 
+        isLocalFallback = true
         return try await generateLocally(
             text: text,
             store: store,
             generator: localGenerator,
-            rich: rich
+            rich: contextStore.buildRichContext(from: store)
         )
     }
 
@@ -99,12 +107,31 @@ final class AriaService {
 
         return AriaResponse(
             message: message,
-            richCard: nil,
+            richCard: local.richCard.flatMap(Self.payload(from:)),
             suggestedActions: local.suggestedActions,
             contextUpdates: ["relationship_level": min(10, rich.relationshipLevel + 1)],
             confidence: local.confidence,
             memoryReference: memory
         )
+    }
+
+    private static func payload(from card: RichCardData) -> RichCardPayload? {
+        switch card.type {
+        case .workoutPlan:
+            return RichCardPayload(
+                type: "workout_plan",
+                title: card.workoutName,
+                workoutName: card.workoutName,
+                durationMinutes: card.workoutDuration
+            )
+        case .dataChart:
+            return RichCardPayload(
+                type: "data_chart",
+                title: card.chartTitle,
+                values: card.chartValues,
+                insight: card.chartInsight
+            )
+        }
     }
 }
 
@@ -120,7 +147,6 @@ enum AriaServiceError: Error {
 final class DataPermissionsStore: ObservableObject {
     static let shared = DataPermissionsStore()
 
-    /// Canonical domains, in display order. Mirrors aria_engine.ALL_DOMAINS.
     static let domains: [String] = [
         "sleep", "readiness", "activity", "training", "chronotype",
         "body", "nutrition", "profile", "progress", "lifestyle",
@@ -150,8 +176,6 @@ final class DataPermissionsStore: ObservableObject {
 
     var restrictedDomains: [String] { Self.domains.filter { grants[$0] == false } }
 
-    /// The grant map, or nil when everything is allowed — so the default request
-    /// stays byte-for-byte unchanged on the wire.
     func payloadIfRestricted() -> [String: Bool]? {
         restrictedDomains.isEmpty ? nil : grants
     }
@@ -160,8 +184,6 @@ final class DataPermissionsStore: ObservableObject {
 // MARK: - Body model ingestion (/ai/observe)
 
 extension AriaService {
-    /// Canonical samples assembled from the app's current metrics. Provider
-    /// labels and units are resolved server-side onto the canonical taxonomy.
     func observationSamples(from store: AppStore) -> [HealthSample] {
         let now = ISO8601DateFormatter().string(from: Date())
         let metrics = store.dailyMetrics
@@ -180,8 +202,6 @@ extension AriaService {
         return samples
     }
 
-    /// POST /ai/observe — classify incoming samples, fuse with stored metrics,
-    /// and return the body-model snapshot (plus an answer when `message` is set).
     func observe(store: AppStore, message: String? = nil) async throws -> ObserveResponse {
         let request = ObserveRequest(
             userId: contextStore.context.userId,

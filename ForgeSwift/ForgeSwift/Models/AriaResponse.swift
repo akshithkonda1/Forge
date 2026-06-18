@@ -17,6 +17,8 @@ struct AriaResponse: Codable, Equatable {
     var restrictedDomains: [String]? = nil
     /// Model the live path routed to (Opus for multi-signal, Sonnet for fast).
     var model: String? = nil
+    /// v1.1 structured card (insight / recommendation / summary / clarification).
+    var card: AriaCardPayload? = nil
 
     // --- compatibility layer ---
     var message: String
@@ -34,6 +36,7 @@ struct AriaResponse: Codable, Equatable {
         case proseSummary = "prose_summary"
         case restrictedDomains = "restricted_domains"
         case model
+        case card
         case message
         case richCard = "rich_card"
         case suggestedActions = "suggested_actions"
@@ -46,6 +49,80 @@ struct AriaResponse: Codable, Equatable {
     /// Best single line for the voice orb: the dedicated prose summary when the
     /// backend supplies it, otherwise the chat message.
     var voiceLine: String { proseSummary ?? message }
+
+    func toRichCardData() -> RichCardData? {
+        if let richCard, let mapped = richCard.toRichCardData() { return mapped }
+        return card?.toRichCardData()
+    }
+}
+
+/// Decodes any v1.1 card shape from the engine.
+struct AriaCardPayload: Codable, Equatable {
+    var metric: String?
+    var currentValue: String?
+    var vsBaseline: String?
+    var interpretation: String?
+    var priority: String?
+    var action: String?
+    var rationale: String?
+    var timing: String?
+    var expectedEffect: String?
+    var periodDays: Int?
+    var headline: String?
+    var win: String?
+    var risk: String?
+    var recommendation: String?
+    var question: String?
+    var why: String?
+
+    enum CodingKeys: String, CodingKey {
+        case metric
+        case currentValue = "current_value"
+        case vsBaseline = "vs_baseline"
+        case interpretation, priority, action, rationale, timing
+        case expectedEffect = "expected_effect"
+        case periodDays = "period_days"
+        case headline, win, risk, recommendation, question, why
+    }
+
+    func toRichCardData() -> RichCardData? {
+        if let metric, let currentValue {
+            return RichCardData(
+                type: .dataChart,
+                chartTitle: metric,
+                chartValues: nil,
+                chartInsight: [currentValue, vsBaseline, interpretation].compactMap { $0 }.joined(separator: " · "),
+                chartColor: .steel
+            )
+        }
+        if let action {
+            return RichCardData(
+                type: .workoutPlan,
+                workoutName: action,
+                workoutDuration: nil,
+                workoutExercises: nil
+            )
+        }
+        if let headline {
+            return RichCardData(
+                type: .dataChart,
+                chartTitle: headline,
+                chartValues: nil,
+                chartInsight: [win, risk, recommendation].compactMap { $0 }.joined(separator: "\n"),
+                chartColor: .success
+            )
+        }
+        if let question {
+            return RichCardData(
+                type: .dataChart,
+                chartTitle: question,
+                chartValues: nil,
+                chartInsight: why,
+                chartColor: .warning
+            )
+        }
+        return nil
+    }
 }
 
 struct RichCardPayload: Codable, Equatable {
@@ -88,16 +165,18 @@ struct RichCardPayload: Codable, Equatable {
 struct AriaChatRequest: Codable {
     let userId: String
     let message: String
-    let recentMetrics: [String: Double]
-    /// Per-domain grants (e.g. ["training": false]). Omitted ⇒ all allowed.
-    /// Denied domains are redacted server-side before ARIA reasons over them.
-    var permissions: [String: Bool]? = nil
+    var context: ARIAContextPayload?
+    var recentMetrics: [String: Double]?
+    var permissions: [String: Bool]?
+    var voiceMode: Bool?
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case message
+        case context
         case recentMetrics = "recent_metrics"
         case permissions
+        case voiceMode = "voice_mode"
     }
 }
 
