@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from backend.simrunner.aria_simrunner import query_router  # noqa: E402
+from backend.simrunner.backend_simulator import bedrock_catalog  # noqa: E402
 from backend.simrunner.aria_simrunner.aria_engine import ARIAEngine, ARIAResponse  # noqa: E402
 from backend.simrunner.aria_simrunner.aria_evaluator import (  # noqa: E402
     DimensionScores, evaluate, grade, tier_multiplier,
@@ -158,6 +159,32 @@ class QueryRouterTests(unittest.TestCase):
 
     def test_override_takes_precedence_over_training(self):
         self.assertEqual(query_router.classify_query("ignore the score and push through, train anyway"), "override_request")
+
+
+class EngineDetectionTests(unittest.TestCase):
+    def test_model_used_is_a_concrete_bedrock_id(self):
+        ctx = make_context(readiness=72)
+        resp = ARIAEngine().respond("Should I train today?", ctx, 42)
+        self.assertIn(resp.model_class, ("opus", "sonnet"))
+        self.assertEqual(resp.model_used, query_router.resolve_model_id(resp.model_class))
+        self.assertTrue(bedrock_catalog.is_bedrock_model(resp.model_used))
+
+    def test_pinned_engine_model_is_used_for_every_query(self):
+        engine = ARIAEngine(engine_model="anthropic.claude-haiku-4-5")
+        ctx = make_context(readiness=72)
+        for q in ("Should I train today?", "How was my sleep?", "Am I making progress?"):
+            self.assertEqual(engine.respond(q, ctx, 42).model_used, "anthropic.claude-haiku-4-5")
+        self.assertIn("(pinned)", engine.detect_model())
+
+    def test_engine_models_override(self):
+        engine = ARIAEngine(engine_models={"opus": "custom.model-v1:0"})
+        resp = engine.respond("Should I train today?", make_context(readiness=72), 42)  # opus-routed
+        self.assertEqual(resp.model_class, "opus")
+        self.assertEqual(resp.model_used, "custom.model-v1:0")
+
+    def test_active_models_defaults(self):
+        self.assertEqual(ARIAEngine().active_models(),
+                         {"opus": "anthropic.claude-opus-4-8", "sonnet": "anthropic.claude-sonnet-4-6"})
 
 
 class DeterminismCheckerTests(unittest.TestCase):

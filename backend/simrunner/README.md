@@ -35,6 +35,10 @@ python -m backend.simrunner --tier 5
 
 # Full suite — all 20 archetypes + a combined summary
 python -m backend.simrunner --all
+
+# Test ANY model in the AWS Bedrock catalog (not just the 20) — runs against a
+# deterministically derived persona
+python -m backend.simrunner --model meta.llama3-1-70b-instruct-v1:0
 ```
 
 `--model`, `--tier`, and `--all` are mutually exclusive. With no flag, it runs
@@ -51,6 +55,13 @@ python -m backend.simrunner --list
 ```
 
 Unknown ids fail cleanly with a pointer to `--list` (no traceback).
+
+`--model` also accepts **any AWS Bedrock model id** (beyond the curated 20) — it
+runs against a deterministically derived persona. List the full catalog:
+
+```bash
+python -m backend.simrunner --list-bedrock
+```
 
 ### Difficulty gradient (4 archetypes per tier)
 
@@ -88,6 +99,8 @@ prints a one-line grade summary per model.
   `[MODEL ROUTING]`, or `[EVALUATOR]`.
 - **Determinism rate** (target ≥ 80%), plus **Consumer Stability** and
   **Epistemic Rigor** grades.
+- **Models used** — the concrete Bedrock model(s) the harness engine used, with
+  per-model counts.
 
 ### Scoring dimensions
 
@@ -117,8 +130,48 @@ prints a one-line grade summary per model.
 | `grade_thresholds` | … | Reference thresholds for the grade scale |
 | `critical_failure_threshold` | `0` | Directional score that flags a critical failure |
 | `report_format` | `both` | `text` \| `json` \| `both` |
+| `engine_models` | `{opus, sonnet}` | Concrete Bedrock model backing each routing tier |
+| `engine_model` | _(unset)_ | Pin **all** queries to one Bedrock model |
 
 Edits to this file are picked up on the next run.
+
+---
+
+## AWS Bedrock catalog & engine model detection
+
+SimRunner ships a static snapshot of the **full Bedrock foundation-model catalog**
+(`backend_simulator/bedrock_catalog.py`) across every provider — Anthropic, Amazon
+(Nova/Titan), Meta (Llama), Mistral, Cohere, AI21, DeepSeek, Stability, Luma,
+Writer, TwelveLabs. `--model <any-bedrock-id>` tests against it via a derived
+persona; `--list-bedrock` prints it.
+
+The harness **detects and reports the concrete model its engine uses**. Each
+query is routed to a tier (`opus`/`sonnet`) and resolved to a concrete Bedrock id;
+every response carries `model_used` (the id) and `model_class` (the tier), and
+each report has a **MODELS USED** section with per-model counts.
+
+Configure which models back the engine:
+
+```yaml
+# sim_config.yaml — which Bedrock model backs each routing tier
+engine_models:
+  opus: anthropic.claude-opus-4-8
+  sonnet: anthropic.claude-sonnet-4-6
+# engine_model: anthropic.claude-opus-4-8   # OR pin ALL queries to one model
+```
+
+```bash
+# Pin the engine model at runtime
+SIMRUNNER_ENGINE_MODEL=anthropic.claude-haiku-4-5 python -m backend.simrunner
+
+# Opt-in: refresh the catalog from the live Bedrock account (lazy boto3;
+# falls back to the static catalog on any failure — offline by default)
+SIMRUNNER_BEDROCK_LIVE=true python -m backend.simrunner --list-bedrock
+```
+
+> The default path is **offline and stdlib-only** — `boto3` is imported only when
+> `SIMRUNNER_BEDROCK_LIVE=true`, and any failure (no boto3, no creds, no network)
+> silently falls back to the static catalog.
 
 ---
 

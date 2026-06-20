@@ -13,6 +13,8 @@ from backend.simrunner.backend_simulator import model_registry as reg  # noqa: E
 from backend.simrunner.backend_simulator.behavior_engine import generate_stream  # noqa: E402
 from backend.simrunner.backend_simulator.data_generator import build_context  # noqa: E402
 from backend.simrunner import lifetime_suite  # noqa: E402
+from backend.simrunner.aria_simrunner.stability_analyzer import analyze  # noqa: E402
+from backend.simrunner.backend_simulator import bedrock_catalog  # noqa: E402
 
 PIN = datetime.date(2026, 1, 15)
 _GRADES = {"A+", "A", "B+", "B", "B-", "C", "C-", "F"}
@@ -74,6 +76,12 @@ class CLITests(unittest.TestCase):
     def test_default_tier1_run_succeeds(self):
         self.assertEqual(_silent(lifetime_suite.main, []), 0)
 
+    def test_list_bedrock_exits_zero(self):
+        self.assertEqual(_silent(lifetime_suite.main, ["--list-bedrock"]), 0)
+
+    def test_catalog_model_runs_via_derived_persona(self):
+        self.assertEqual(_silent(lifetime_suite.main, ["--model", "amazon.nova-pro-v1:0"]), 0)
+
 
 class EngineTests(unittest.TestCase):
     def _ctx(self):
@@ -108,6 +116,12 @@ class PropertyTests(unittest.TestCase):
         a = [(r.grade, r.composite_score, r.scores.as_dict()) for r in _eval_model(model)]
         b = [(r.grade, r.composite_score, r.scores.as_dict()) for r in _eval_model(model)]
         self.assertEqual(a, b)
+
+    def test_models_used_are_concrete_bedrock_ids(self):
+        report = analyze(_eval_model(reg.get_model("anthropic.claude-opus-4-8")))
+        self.assertTrue(report.models_used)
+        for model_id in report.models_used:
+            self.assertTrue(bedrock_catalog.is_bedrock_model(model_id), model_id)
 
 
 if __name__ == "__main__":
