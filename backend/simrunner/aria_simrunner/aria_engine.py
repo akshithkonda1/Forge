@@ -38,10 +38,18 @@ def _fnv(text: str) -> int:
 class ARIAEngine:
     def __init__(self, use_real_api: bool = False) -> None:
         self.use_real_api = use_real_api
+        self._warned_real_api = False
 
     def respond(self, query: str, context: ARIAContext, seed: int = 42) -> ARIAResponse:
         if self.use_real_api:
-            return self._call_claude(query, context)
+            try:
+                return self._call_claude(query, context)
+            except Exception as exc:  # incl. NotImplementedError — never crash a run
+                if not self._warned_real_api:
+                    reason = "not implemented in this offline harness" if isinstance(exc, NotImplementedError) else str(exc)
+                    print(f"[simrunner] real-API path unavailable ({reason}); "
+                          "falling back to the deterministic stub.")
+                    self._warned_real_api = True
         return self._stub_response(query, context, seed)
 
     # ------------------------------------------------------------------ stub

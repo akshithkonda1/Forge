@@ -322,3 +322,56 @@ def get_models_by_tier(tier: int) -> list[dict]:
 
 def all_model_ids() -> list[str]:
     return [model["model_id"] for model in BEDROCK_MODEL_REGISTRY]
+
+
+# --- registry integrity -----------------------------------------------------
+
+REQUIRED_PROFILE_KEYS = frozenset({
+    "chronotype", "age", "occupation", "experience_level", "coaching_style",
+    "sleep_consistency", "hrv_baseline", "hrv_variance", "training_frequency_per_week",
+    "training_consistency", "overtraining_tendency", "sleep_debt_tendency",
+    "stress_response", "life_irregularity", "season",
+})
+
+
+def _sanitize_id(model_id: str) -> str:
+    # Must mirror report_builder._safe so filename-collision checks are accurate.
+    return model_id.replace(".", "_").replace("/", "_").replace("-", "_")
+
+
+def validate_registry(registry: list[dict] | None = None) -> None:
+    """Fail loud (ValueError) on any malformed registry. Run at import time."""
+    registry = registry if registry is not None else BEDROCK_MODEL_REGISTRY
+
+    if len(registry) != 20:
+        raise ValueError(f"registry must contain exactly 20 archetypes, found {len(registry)}")
+
+    ids = [m.get("model_id") for m in registry]
+    dupes = sorted({i for i in ids if ids.count(i) > 1})
+    if dupes:
+        raise ValueError(f"duplicate model_id(s): {dupes}")
+    safe = [_sanitize_id(str(i)) for i in ids]
+    if len(set(safe)) != len(safe):
+        raise ValueError("model_ids collide after report-filename sanitization")
+
+    per_tier: dict[int, int] = {}
+    for model in registry:
+        mid = model.get("model_id")
+        for field in ("model_id", "display_name", "coaching_challenge", "behavioral_profile"):
+            if not model.get(field):
+                raise ValueError(f"{mid!r}: missing required field {field!r}")
+        tier = model.get("difficulty_tier")
+        if tier not in (1, 2, 3, 4, 5):
+            raise ValueError(f"{mid!r}: difficulty_tier must be 1-5, got {tier!r}")
+        per_tier[tier] = per_tier.get(tier, 0) + 1
+        missing = REQUIRED_PROFILE_KEYS - set(model["behavioral_profile"])
+        if missing:
+            raise ValueError(f"{mid!r}: behavioral_profile missing keys {sorted(missing)}")
+
+    for tier in (1, 2, 3, 4, 5):
+        if per_tier.get(tier, 0) != 4:
+            raise ValueError(f"tier {tier} must have exactly 4 archetypes, found {per_tier.get(tier, 0)}")
+
+
+validate_registry()  # fail fast at import on a malformed registry
+

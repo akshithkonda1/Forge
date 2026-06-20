@@ -75,6 +75,34 @@ def _parse_yaml(text: str) -> dict:
     return root
 
 
+def _validate_config(config: dict) -> dict:
+    """Coerce types and clamp ranges so a malformed sim_config.yaml never crashes
+    a run or produces nonsense — fall back to the default for any bad value."""
+    out = dict(_DEFAULTS)
+    out.update(config)
+
+    try:
+        out["seed"] = int(out.get("seed", 42))
+    except (TypeError, ValueError):
+        out["seed"] = 42
+
+    days = out.get("snapshot_days", _DEFAULTS["snapshot_days"])
+    if not isinstance(days, (list, tuple)):
+        days = _DEFAULTS["snapshot_days"]
+    clean = sorted({int(d) for d in days if isinstance(d, (int, float)) and 0 <= int(d) <= 29})
+    out["snapshot_days"] = clean or list(_DEFAULTS["snapshot_days"])
+
+    try:
+        out["determinism_sample_size"] = max(1, int(out.get("determinism_sample_size", 5)))
+    except (TypeError, ValueError):
+        out["determinism_sample_size"] = 5
+
+    if out.get("report_format") not in ("text", "json", "both"):
+        out["report_format"] = "both"
+    out["use_real_api"] = bool(out.get("use_real_api", False))
+    return out
+
+
 def load_config(path: str = _CONFIG_PATH) -> dict:
     config = dict(_DEFAULTS)
     if os.path.exists(path):
@@ -85,7 +113,7 @@ def load_config(path: str = _CONFIG_PATH) -> dict:
             pass
     if os.getenv("USE_REAL_API", "").lower() == "true":
         config["use_real_api"] = True
-    return config
+    return _validate_config(config)
 
 
 # --- pipeline ---------------------------------------------------------------
@@ -152,17 +180,35 @@ def _select_models(args) -> list[dict]:
     return model_registry.get_models_by_tier(1)  # default: fast tier-1 sanity
 
 
+def _print_catalog() -> None:
+    print("ARIA SimRunner — 20 archetypes (use a model_id with --model):")
+    for tier in range(1, 6):
+        print(f"\nTier {tier}:")
+        for model in model_registry.get_models_by_tier(tier):
+            print(f"  {model['model_id']:<42} {model['display_name']}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="backend.simrunner", description="ARIA SimRunner — offline evaluation harness")
+    parser.add_argument("--list", action="store_true", help="list all archetypes and exit")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--model", help="archetype model_id to test")
     group.add_argument("--tier", type=int, choices=[1, 2, 3, 4, 5], help="test all archetypes in a tier")
     group.add_argument("--all", action="store_true", help="test all 20 archetypes")
     args = parser.parse_args(argv)
 
+    if args.list:
+        _print_catalog()
+        return 0
+
     config = load_config()
     engine = ARIAEngine(use_real_api=bool(config["use_real_api"]))
-    models = _select_models(args)
+    try:
+        models = _select_models(args)
+    except KeyError:
+        print(f"error: unknown model_id {args.model!r}.")
+        print("Run `python -m backend.simrunner --list` to see valid model_ids.")
+        return 2
 
     scope = args.model or (f"tier {args.tier}" if args.tier else ("all 20" if args.all else "tier 1 (default)"))
     print(f"ARIA SimRunner — scope: {scope}  ·  real_api={config['use_real_api']}  ·  seed={config['seed']}")

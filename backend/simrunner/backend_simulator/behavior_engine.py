@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import datetime
 import math
+import os
 import random
 from dataclasses import dataclass
 
@@ -39,6 +40,20 @@ class DailyRecord:
 _CHRONOTYPE_SLEEP_TARGET = {"bear": 8.0, "lion": 7.5, "wolf": 7.5, "dolphin": 6.5}
 _INTENSITY_LOAD = {"low": 0.6, "moderate": 1.0, "high": 1.5, "max": 2.0}
 _DAYS = 30
+
+
+def _reference_today(reference_date: "datetime.date | None" = None) -> datetime.date:
+    """Resolve 'today' — explicit arg, then SIMRUNNER_TODAY env (ISO date), then
+    the real calendar day. Pinning a date makes report files byte-reproducible."""
+    if reference_date is not None:
+        return reference_date
+    pinned = os.getenv("SIMRUNNER_TODAY")
+    if pinned:
+        try:
+            return datetime.date.fromisoformat(pinned)
+        except ValueError:
+            pass
+    return datetime.date.today()
 
 
 def _stable_hash(text: str) -> int:
@@ -102,7 +117,9 @@ def _sleep_for_day(profile: dict, target: float, rng: random.Random, debt_active
     return _clamp(hours, 3.0, 10.5)
 
 
-def generate_stream(profile: dict, seed: int = 42) -> list[DailyRecord]:
+def generate_stream(
+    profile: dict, seed: int = 42, reference_date: "datetime.date | None" = None
+) -> list[DailyRecord]:
     rng = random.Random(_profile_seed(profile, seed))
     target_sleep = _CHRONOTYPE_SLEEP_TARGET.get(profile.get("chronotype", "bear"), 8.0)
     hrv_baseline = float(profile.get("hrv_baseline", 55))
@@ -111,7 +128,7 @@ def generate_stream(profile: dict, seed: int = 42) -> list[DailyRecord]:
     debt_tendency = float(profile.get("sleep_debt_tendency", 0.2))
 
     schedule = _schedule_workouts(profile, rng)
-    today = datetime.date.today()
+    today = _reference_today(reference_date)
     loads: list[float] = []
     records: list[DailyRecord] = []
     notes_added = 0
@@ -181,7 +198,7 @@ def generate_stream(profile: dict, seed: int = 42) -> list[DailyRecord]:
             note = "logged workout (no corroborating recovery cost)"
 
         loads.append(load)
-        acwr = _acwr(loads)
+        acwr = round(_acwr(loads), 2)  # round once so readiness is reproducible from the stored record
 
         # HRV: baseline noise + suppression from recent acute load + ambiguity.
         acute = sum(loads[-7:]) / min(7, len(loads))

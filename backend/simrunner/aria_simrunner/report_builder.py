@@ -12,6 +12,19 @@ from .determinism_checker import DeterminismReport
 from .stability_analyzer import StabilityReport
 
 
+def _timestamp() -> str:
+    """Pinned run timestamp when SIMRUNNER_TODAY is set (reproducible reports),
+    otherwise the real wall-clock time."""
+    pinned = os.getenv("SIMRUNNER_TODAY")
+    if pinned:
+        try:
+            datetime.date.fromisoformat(pinned)
+            return f"{pinned}T00:00:00"
+        except ValueError:
+            pass
+    return datetime.datetime.now().isoformat(timespec="seconds")
+
+
 def _label(score: float) -> str:
     if score >= 80:
         return "pass"
@@ -145,7 +158,7 @@ def save_reports(
     report_format: str = "both",
 ) -> list[str]:
     os.makedirs(out_dir, exist_ok=True)
-    timestamp = datetime.datetime.now().isoformat(timespec="seconds")
+    timestamp = _timestamp()
     stem = os.path.join(out_dir, _safe(model["model_id"]))
     written: list[str] = []
 
@@ -157,7 +170,7 @@ def save_reports(
     if report_format in ("json", "both"):
         path = stem + ".json"
         with open(path, "w", encoding="utf-8") as fh:
-            json.dump(build_json(model, stability, determinism, results, timestamp), fh, indent=2)
+            json.dump(build_json(model, stability, determinism, results, timestamp), fh, indent=2, default=str)
         written.append(path)
     return written
 
@@ -167,8 +180,8 @@ def save_combined_summary(summaries: list[dict], out_dir: str) -> str:
     path = os.path.join(out_dir, "_combined_summary.json")
     with open(path, "w", encoding="utf-8") as fh:
         json.dump({
-            "run_date": datetime.datetime.now().isoformat(timespec="seconds"),
+            "run_date": _timestamp(),
             "models_tested": len(summaries),
             "summaries": summaries,
-        }, fh, indent=2)
+        }, fh, indent=2, default=str)
     return path

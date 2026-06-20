@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 QUERY_TYPES: dict[str, list[str]] = {
-    "recovery_assessment": ["recover", "tired", "sore", "rest", "hrv", "readiness"],
+    "recovery_assessment": ["recover", "recovery", "recovering", "recovered", "tired", "sore", "rest", "hrv", "readiness"],
     "training_decision": ["train", "workout", "exercise", "lift", "run"],
     "sleep_analysis": ["sleep", "slept", "wake", "bed"],
     "progress_check": ["progress", "improving", "making gains", "pr", "plateau", "gains"],
