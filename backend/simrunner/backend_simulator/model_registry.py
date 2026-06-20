@@ -11,6 +11,8 @@ Difficulty gradient: 4 archetypes per tier, tiers 1 (trivial to coach) → 5
 
 from __future__ import annotations
 
+from . import bedrock_catalog
+
 BEDROCK_MODEL_REGISTRY: list[dict] = [
     # ───────────────────────── Tier 1 — Baseline ─────────────────────────
     {
@@ -324,6 +326,24 @@ def all_model_ids() -> list[str]:
     return [model["model_id"] for model in BEDROCK_MODEL_REGISTRY]
 
 
+def resolve_archetype(model_id: str) -> dict:
+    """Return a coaching archetype for a model_id.
+
+    A named archetype (one of the curated 20) wins; otherwise any model in the
+    Bedrock catalog resolves to a deterministically derived persona, so SimRunner
+    can test against the whole registry. Unknown ids raise KeyError.
+    """
+    for model in BEDROCK_MODEL_REGISTRY:
+        if model["model_id"] == model_id:
+            return model
+    if bedrock_catalog.is_bedrock_model(model_id):
+        return bedrock_catalog.derive_archetype(bedrock_catalog.get_bedrock_model(model_id))
+    raise KeyError(
+        f"Unknown model {model_id!r}. Use one of the {len(BEDROCK_MODEL_REGISTRY)} "
+        "archetypes (--list) or a Bedrock catalog id (--list-bedrock)."
+    )
+
+
 # --- registry integrity -----------------------------------------------------
 
 REQUIRED_PROFILE_KEYS = frozenset({
@@ -335,8 +355,10 @@ REQUIRED_PROFILE_KEYS = frozenset({
 
 
 def _sanitize_id(model_id: str) -> str:
-    # Must mirror report_builder._safe so filename-collision checks are accurate.
-    return model_id.replace(".", "_").replace("/", "_").replace("-", "_")
+    # Must mirror report_builder._safe. Bedrock ids contain ':' (e.g. v1:0).
+    for ch in (".", "/", "-", ":"):
+        model_id = model_id.replace(ch, "_")
+    return model_id
 
 
 def validate_registry(registry: list[dict] | None = None) -> None:
