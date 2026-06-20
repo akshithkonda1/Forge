@@ -20,7 +20,7 @@ from .aria_simrunner.aria_evaluator import evaluate
 from .aria_simrunner.aria_generator import get_queries_for_tier
 from .aria_simrunner.determinism_checker import check_determinism
 from .aria_simrunner.stability_analyzer import analyze
-from .backend_simulator import model_registry
+from .backend_simulator import bedrock_catalog, model_registry
 from .backend_simulator.behavior_engine import generate_stream
 from .backend_simulator.data_generator import build_context
 
@@ -34,6 +34,8 @@ _DEFAULTS = {
     "determinism_sample_size": 5,
     "use_real_api": False,
     "report_format": "both",
+    "engine_model": None,
+    "engine_models": None,
 }
 
 
@@ -100,6 +102,11 @@ def _validate_config(config: dict) -> dict:
     if out.get("report_format") not in ("text", "json", "both"):
         out["report_format"] = "both"
     out["use_real_api"] = bool(out.get("use_real_api", False))
+
+    em = out.get("engine_model")
+    out["engine_model"] = str(em) if em and str(em).strip().lower() not in ("none", "null", "") else None
+    ems = out.get("engine_models")
+    out["engine_models"] = {str(k): str(v) for k, v in ems.items()} if isinstance(ems, dict) else None
     return out
 
 
@@ -113,6 +120,9 @@ def load_config(path: str = _CONFIG_PATH) -> dict:
             pass
     if os.getenv("USE_REAL_API", "").lower() == "true":
         config["use_real_api"] = True
+    env_model = os.getenv("SIMRUNNER_ENGINE_MODEL")
+    if env_model:
+        config["engine_model"] = env_model
     return _validate_config(config)
 
 
@@ -145,13 +155,17 @@ def run_model(model: dict, config: dict, engine: ARIAEngine) -> dict:
     samples = [(tier, q, sample_ctx) for q in queries[:sample_n]]
     determinism = check_determinism(engine, samples, seed=seed)
 
+    engine_model = engine.detect_model()
     paths = report_builder.save_reports(
-        model, stability, determinism, results, _REPORTS_DIR, config["report_format"]
+        model, stability, determinism, results, _REPORTS_DIR, config["report_format"],
+        engine_model=engine_model,
     )
 
-    print(f"  {model['display_name']}")
+    label = model["display_name"] + ("  [derived]" if model.get("derived") else "")
+    print(f"  {label}")
     print(f"    Grade {stability.overall_grade}  ({stability.overall_composite}/100)  "
           f"· {stability.total_runs} evals · determinism {determinism.semantic_determinism_rate}%")
+    print(f"    engine: {engine_model}")
     if stability.critical_failures:
         print(f"    ⚠ {len(stability.critical_failures)} critical failure(s)")
     for path in paths:
@@ -167,12 +181,14 @@ def run_model(model: dict, config: dict, engine: ARIAEngine) -> dict:
         "determinism_rate": determinism.semantic_determinism_rate,
         "consumer_stability_grade": stability.consumer_stability_grade,
         "epistemic_rigor_grade": stability.epistemic_rigor_grade,
+        "engine_model": engine_model,
+        "derived": bool(model.get("derived")),
     }
 
 
 def _select_models(args) -> list[dict]:
     if args.model:
-        return [model_registry.get_model(args.model)]
+        return [model_registry.resolve_archetype(args.model)]
     if args.all:
         return list(model_registry.BEDROCK_MODEL_REGISTRY)
     if args.tier:
@@ -181,18 +197,29 @@ def _select_models(args) -> list[dict]:
 
 
 def _print_catalog() -> None:
-    print("ARIA SimRunner — 20 archetypes (use a model_id with --model):")
+    print("ARIA SimRunner — 20 curated archetypes (use a model_id with --model);")
+    print("any Bedrock model id also works via --model (see --list-bedrock).")
     for tier in range(1, 6):
         print(f"\nTier {tier}:")
         for model in model_registry.get_models_by_tier(tier):
             print(f"  {model['model_id']:<42} {model['display_name']}")
 
 
+def _print_bedrock_catalog() -> None:
+    catalog = bedrock_catalog.load_catalog()
+    print(f"AWS Bedrock catalog — {len(catalog)} models (any id works with --model):")
+    for provider in bedrock_catalog.providers():
+        print(f"\n{provider}:")
+        for m in [x for x in catalog if x.provider == provider]:
+            print(f"  {m.model_id:<46} {m.model_class:<10} {m.modality}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="backend.simrunner", description="ARIA SimRunner — offline evaluation harness")
-    parser.add_argument("--list", action="store_true", help="list all archetypes and exit")
+    parser.add_argument("--list", action="store_true", help="list the 20 curated archetypes and exit")
+    parser.add_argument("--list-bedrock", action="store_true", help="list the full Bedrock model catalog and exit")
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--model", help="archetype model_id to test")
+    group.add_argument("--model", help="archetype model_id OR any Bedrock catalog id")
     group.add_argument("--tier", type=int, choices=[1, 2, 3, 4, 5], help="test all archetypes in a tier")
     group.add_argument("--all", action="store_true", help="test all 20 archetypes")
     args = parser.parse_args(argv)
@@ -200,14 +227,21 @@ def main(argv: list[str] | None = None) -> int:
     if args.list:
         _print_catalog()
         return 0
+    if args.list_bedrock:
+        _print_bedrock_catalog()
+        return 0
 
     config = load_config()
-    engine = ARIAEngine(use_real_api=bool(config["use_real_api"]))
+    engine = ARIAEngine(
+        use_real_api=bool(config["use_real_api"]),
+        engine_models=config.get("engine_models"),
+        engine_model=config.get("engine_model"),
+    )
     try:
         models = _select_models(args)
     except KeyError:
-        print(f"error: unknown model_id {args.model!r}.")
-        print("Run `python -m backend.simrunner --list` to see valid model_ids.")
+        print(f"error: unknown model {args.model!r}.")
+        print("Run `python -m backend.simrunner --list` (archetypes) or `--list-bedrock` (full catalog).")
         return 2
 
     scope = args.model or (f"tier {args.tier}" if args.tier else ("all 20" if args.all else "tier 1 (default)"))

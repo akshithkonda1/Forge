@@ -22,10 +22,11 @@ class ARIAResponse:
     recommendation: str | None
     confidence: float
     used_context: bool
-    model_used: str          # "opus" | "sonnet" | "stub"
+    model_used: str          # concrete Bedrock model id the engine used
     query_type: str
     latency_ms: float
     raw: dict = field(default_factory=dict)
+    model_class: str = ""    # routing class: "opus" | "sonnet"
 
 
 def _fnv(text: str) -> int:
@@ -36,9 +37,34 @@ def _fnv(text: str) -> int:
 
 
 class ARIAEngine:
-    def __init__(self, use_real_api: bool = False) -> None:
+    def __init__(
+        self,
+        use_real_api: bool = False,
+        engine_models: dict[str, str] | None = None,
+        engine_model: str | None = None,
+    ) -> None:
         self.use_real_api = use_real_api
+        self.engine_models = engine_models  # routing-class -> Bedrock id overrides
+        self.engine_model = engine_model    # pin ALL queries to one Bedrock id
         self._warned_real_api = False
+
+    def _resolve(self, model_class: str) -> str:
+        """Concrete Bedrock model this engine uses for a routing class."""
+        if self.engine_model:
+            return self.engine_model
+        return query_router.resolve_model_id(model_class, self.engine_models)
+
+    def active_models(self) -> dict[str, str]:
+        """The concrete Bedrock model backing each routing class for this engine."""
+        if self.engine_model:
+            return {"opus": self.engine_model, "sonnet": self.engine_model}
+        return {cls: self._resolve(cls) for cls in ("opus", "sonnet")}
+
+    def detect_model(self) -> str:
+        """Human-readable description of the engine's active model(s)."""
+        if self.engine_model:
+            return f"{self.engine_model} (pinned)"
+        return ", ".join(f"{cls}->{mid}" for cls, mid in self.active_models().items())
 
     def respond(self, query: str, context: ARIAContext, seed: int = 42) -> ARIAResponse:
         if self.use_real_api:
@@ -172,8 +198,8 @@ class ARIAEngine:
         raw.update({"cheerful": cheerful})
         return ARIAResponse(
             prose_summary=prose, recommendation=recommendation, confidence=confidence,
-            used_context=used_context, model_used=model, query_type=qtype,
-            latency_ms=round(latency, 1), raw=raw,
+            used_context=used_context, model_used=self._resolve(model), query_type=qtype,
+            latency_ms=round(latency, 1), raw=raw, model_class=model,
         )
 
     def _context_phrase(self, context: ARIAContext) -> str:

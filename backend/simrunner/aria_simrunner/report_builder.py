@@ -42,6 +42,7 @@ def build_narrative(
     stability: StabilityReport,
     determinism: DeterminismReport,
     timestamp: str,
+    engine_model: str = "stub",
 ) -> str:
     d = stability.dimension_averages
     lines: list[str] = []
@@ -108,6 +109,15 @@ def build_narrative(
         add("  All sampled prompts were semantically stable.")
     add("")
 
+    add("━━━ MODELS USED (harness engine) ━━━━━━━━")
+    add(f"Engine: {engine_model}")
+    if stability.models_used:
+        for model_id, count in sorted(stability.models_used.items(), key=lambda kv: (-kv[1], kv[0])):
+            add(f"  {model_id:<42} ×{count}")
+    else:
+        add("  (none)")
+    add("")
+
     add(f"Consumer Stability Grade:  {stability.consumer_stability_grade}")
     add(f"Epistemic Rigor Grade:     {stability.epistemic_rigor_grade}")
     add("")
@@ -120,6 +130,7 @@ def build_json(
     determinism: DeterminismReport,
     results: list[EvaluationResult],
     timestamp: str,
+    engine_model: str = "stub",
 ) -> dict:
     return {
         "model": {
@@ -127,7 +138,10 @@ def build_json(
             "display_name": model["display_name"],
             "difficulty_tier": model["difficulty_tier"],
             "coaching_challenge": model["coaching_challenge"],
+            "derived": bool(model.get("derived")),
         },
+        "engine_model": engine_model,
+        "models_used": stability.models_used,
         "run_date": timestamp,
         "overall": {
             "composite": stability.overall_composite,
@@ -146,7 +160,10 @@ def build_json(
 
 
 def _safe(model_id: str) -> str:
-    return model_id.replace(".", "_").replace("/", "_").replace("-", "_")
+    # Mirror model_registry._sanitize_id. Bedrock ids contain ':' (e.g. v1:0).
+    for ch in (".", "/", "-", ":"):
+        model_id = model_id.replace(ch, "_")
+    return model_id
 
 
 def save_reports(
@@ -156,6 +173,7 @@ def save_reports(
     results: list[EvaluationResult],
     out_dir: str,
     report_format: str = "both",
+    engine_model: str = "stub",
 ) -> list[str]:
     os.makedirs(out_dir, exist_ok=True)
     timestamp = _timestamp()
@@ -165,12 +183,13 @@ def save_reports(
     if report_format in ("text", "both"):
         path = stem + ".txt"
         with open(path, "w", encoding="utf-8") as fh:
-            fh.write(build_narrative(model, stability, determinism, timestamp))
+            fh.write(build_narrative(model, stability, determinism, timestamp, engine_model))
         written.append(path)
     if report_format in ("json", "both"):
         path = stem + ".json"
         with open(path, "w", encoding="utf-8") as fh:
-            json.dump(build_json(model, stability, determinism, results, timestamp), fh, indent=2, default=str)
+            json.dump(build_json(model, stability, determinism, results, timestamp, engine_model),
+                      fh, indent=2, default=str)
         written.append(path)
     return written
 

@@ -12,3 +12,10 @@ grade_thresholds:
   C_minus: 45
 critical_failure_threshold: 0        # directional_correctness score that flags a critical failure
 report_format: both                  # text | json | both
+
+# Which Bedrock model the harness ARIA engine uses, per routing tier.
+engine_models:
+  opus: anthropic.claude-opus-4-8
+  sonnet: anthropic.claude-sonnet-4-6
+# engine_model: anthropic.claude-opus-4-8   # uncomment to pin ALL queries to one model
+# Override either at runtime with SIMRUNNER_ENGINE_MODEL=<bedrock-id>

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .aria_evaluator import DimensionScores, EvaluationResult, grade
 
@@ -29,6 +29,7 @@ class StabilityReport:
     top_recommendations: list[str]
     consumer_stability_grade: str
     epistemic_rigor_grade: str
+    models_used: dict[str, int] = field(default_factory=dict)
 
 
 def _mean(values: list[float]) -> float:
@@ -101,6 +102,11 @@ def analyze(results: list[EvaluationResult]) -> StabilityReport:
         for r in results
     ]), 1)
 
+    models_used: dict[str, int] = {}
+    for r in results:
+        mid = r.response.model_used
+        models_used[mid] = models_used.get(mid, 0) + 1
+
     return StabilityReport(
         total_runs=len(results), by_tier=by_tier,
         overall_composite=overall, overall_grade=grade(overall),
@@ -110,6 +116,7 @@ def analyze(results: list[EvaluationResult]) -> StabilityReport:
         top_recommendations=_top(all_recs, 5),
         consumer_stability_grade=grade(consumer),
         epistemic_rigor_grade=grade(epistemic),
+        models_used=models_used,
     )
 
 
