@@ -1,0 +1,35 @@
+# Run the ARIA SimRunner test suite + an offline smoke on PRs.
+# SimRunner is stdlib-only, so there is no dependency install step.
+
+name: SimRunner
+
+on:
+  push:
+    branches: ["claude/forge-fitness-frontend-TwlOQ"]
+    paths:
+      - "backend/simrunner/**"
+      - ".github/workflows/simrunner.yml"
+  pull_request:
+    paths:
+      - "backend/simrunner/**"
+      - ".github/workflows/simrunner.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Unit + property + determinism tests
+        run: python -m unittest discover -s backend/simrunner/tests -p "test_*.py" -v
+
+      - name: Tier-1 smoke (offline, no network, no tokens)
+        run: python -m backend.simrunner
