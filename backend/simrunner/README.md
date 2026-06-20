@@ -44,17 +44,13 @@ Tier 1.
 
 ## Finding archetypes and `model_id`s
 
-`--model` expects an exact `model_id`. List them all:
+`--model` expects an exact `model_id`. List them all (grouped by tier):
 
 ```bash
-python -c "from backend.simrunner.backend_simulator.model_registry import all_model_ids; print(chr(10).join(all_model_ids()))"
+python -m backend.simrunner --list
 ```
 
-…or list a single tier with display names:
-
-```bash
-python -c "from backend.simrunner.backend_simulator.model_registry import get_models_by_tier; [print(m['model_id'], '—', m['display_name']) for m in get_models_by_tier(5)]"
-```
+Unknown ids fail cleanly with a pointer to `--list` (no traceback).
 
 ### Difficulty gradient (4 archetypes per tier)
 
@@ -144,11 +140,34 @@ USE_REAL_API=true python -m backend.simrunner --tier 1
 
 ## Determinism
 
-Everything is seeded, so a given config + `model_id` reproduces byte-for-byte.
-The determinism checker runs each sampled prompt **3×** at the same seed and
-counts a **semantic match** when all three runs share the same grade, the same
-query-type classification, and directional scores within 10 points. Expect a
-rate of **≥ 80%** (typically 100% with the stub engine).
+Everything is seeded, so a given config + `model_id` reproduces the **same
+scores, grades, and evaluations** every time. The determinism checker runs each
+sampled prompt **3×** at the same seed and counts a **semantic match** when all
+three runs share the same grade, the same query-type classification, and
+directional scores within 10 points. Expect a rate of **≥ 80%** (typically 100%
+with the stub engine).
+
+The only non-deterministic part of a report is its **timestamp and the stream's
+dates**, which track the real calendar. For **byte-identical report files** (e.g.
+golden tests / CI), pin "today":
+
+```bash
+SIMRUNNER_TODAY=2026-01-15 python -m backend.simrunner --all
+```
+
+## Tests
+
+The package ships a stdlib-only `unittest` suite covering registry integrity,
+seeded determinism, numeric invariants across all 20 archetypes, every directional
+scoring rule, tier strictness, grade boundaries, config validation, and the CLI.
+Run from the repo root:
+
+```bash
+python -m unittest discover -s backend/simrunner/tests -p "test_*.py" -v
+```
+
+CI (`.github/workflows/simrunner.yml`) runs this suite plus a tier-1 smoke on every
+PR that touches `backend/simrunner/`.
 
 ---
 
