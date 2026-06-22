@@ -111,6 +111,25 @@ data "aws_iam_policy_document" "backend_lambda" {
       aws_secretsmanager_secret.ai_provider.arn,
     ]
   }
+
+  statement {
+    sid = "BedrockInvokeAnthropic"
+
+    # Lets the AI router, coach routes, and ARIA's live reasoning path call
+    # Claude on Bedrock via the Converse API. Scoped to Anthropic models —
+    # broaden the resource list if the router's non-Anthropic slots are used.
+    actions = [
+      "bedrock:InvokeModel",
+      "bedrock:InvokeModelWithResponseStream",
+      "bedrock:Converse",
+      "bedrock:ConverseStream",
+    ]
+
+    resources = [
+      "arn:aws:bedrock:*::foundation-model/anthropic.*",
+      "arn:aws:bedrock:*:*:inference-profile/*anthropic*",
+    ]
+  }
 }
 
 data "aws_iam_policy_document" "authenticated_identity_s3_access" {
@@ -425,6 +444,7 @@ resource "aws_lambda_function" "backend" {
     variables = {
       AI_PROVIDER_SECRET_ARN = aws_secretsmanager_secret.ai_provider.arn
       APP_DATA_TABLE_NAME    = aws_dynamodb_table.app_data.name
+      ARIA_BEDROCK_ENABLED   = var.aria_bedrock_enabled ? "true" : "false"
       ENVIRONMENT            = var.environment
       UPLOADS_BUCKET_NAME    = aws_s3_bucket.uploads.bucket
       USER_POOL_ID           = aws_cognito_user_pool.forge.id

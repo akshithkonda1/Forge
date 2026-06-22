@@ -1,10 +1,12 @@
 """ARIA reasoning engine — Phase 1 (HealthKit + app data).
 
-This module is the coaching core behind ``POST /ai/chat``. It is a *deterministic
-function*: given a context payload it produces consistent, data-specific,
-schema-conformant output. No Bedrock call happens here — during Phase 1 the
-backend is simulated middleware, so context assembly and reasoning are pure and
-fully testable.
+This module is the coaching core behind ``POST /ai/chat``. ``generate_response``
+is a *deterministic function*: given a context payload it produces consistent,
+data-specific, schema-conformant output with no external calls, so it stays pure
+and fully testable. ``generate_response_live`` wraps it with a real Claude call on
+Amazon Bedrock (opt-in via ``ARIA_BEDROCK_ENABLED``): it overlays the model's
+reasoning onto the deterministic envelope and falls back to it on any failure, so
+the endpoint never breaks because Bedrock is unreachable.
 
 The contract it implements is versioned (v1.1):
 
@@ -28,10 +30,12 @@ Design rules enforced here (so they cannot silently drift):
 
 from __future__ import annotations
 
+import json
+import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 # --- Versioned interface -----------------------------------------------------
 
@@ -1238,8 +1242,162 @@ def _envelope(
 
 
 def build_user_prompt(message: str, ctx: ARIAContext, restricted: list[str] | None = None) -> str:
-    """User-turn prompt for the future Bedrock path: question + injected context."""
+    """User-turn prompt for the Bedrock path: question + injected context."""
     return f"{ctx.user_model_block(restricted)}\n\n[USER MESSAGE]\n{message.strip()}"
+
+
+# --- Live reasoning path (Section 4 — Bedrock) -------------------------------
+#
+# ``generate_response`` above is the deterministic core. This layer wraps it with
+# a real Claude call on Amazon Bedrock: the deterministic pass still runs first
+# (it classifies the request, picks the model, and provides a guaranteed,
+# schema-conformant fallback), then the live model's reasoning is overlaid onto
+# that envelope. Any failure — boto3 missing, network error, malformed JSON,
+# empty prose — falls back to the deterministic envelope, so the endpoint never
+# fails because Bedrock is unreachable. Bedrock is opt-in via ``ARIA_BEDROCK_ENABLED``
+# so the default/offline path (and CI) stay hermetic.
+
+# Concrete Bedrock model id backing each routing class. The ``anthropic.`` prefix
+# is required by the Bedrock Converse API (mirrors ai_router / query_router).
+LIVE_MODEL_IDS = {
+    MODEL_PRIMARY: "anthropic.claude-opus-4-8",
+    MODEL_FAST: "anthropic.claude-sonnet-4-6",
+}
+LIVE_MAX_TOKENS = 700
+LIVE_TEMPERATURE = 0.3
+
+_RESPONSE_TYPES = {"insight", "recommendation", "plan", "summary", "clarification"}
+_TRUE_FLAGS = {"1", "true", "yes", "on"}
+
+# Lazily-built Bedrock gateway, shared across invocations within a warm Lambda.
+_gateway: Any = None
+
+
+def bedrock_enabled() -> bool:
+    """True when the live Bedrock path is turned on via env (opt-in)."""
+    return os.getenv("ARIA_BEDROCK_ENABLED", "").strip().lower() in _TRUE_FLAGS
+
+
+def _bedrock_model_id(model_class: str) -> str:
+    return LIVE_MODEL_IDS.get(model_class, LIVE_MODEL_IDS[MODEL_FAST])
+
+
+def _default_converse(model_id: str, system_prompt: str, user_prompt: str) -> str:
+    """Call Bedrock via the shared gateway. boto3 is imported lazily inside the
+    gateway, so this module stays import-light and the offline path never touches it."""
+    global _gateway
+    if _gateway is None:
+        from ai_router import BedrockGateway  # lazy: avoids boto3 at module load
+
+        _gateway = BedrockGateway()
+    result = _gateway.converse(
+        model_id=model_id,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        max_tokens=LIVE_MAX_TOKENS,
+        temperature=LIVE_TEMPERATURE,
+    )
+    return str(result.get("answer") or "")
+
+
+def generate_response_live(
+    message: str,
+    ctx: ARIAContext,
+    *,
+    permissions: DataPermissions | None = None,
+    voice_mode: bool = False,
+    converse: Callable[[str, str, str], str] | None = None,
+) -> dict[str, Any]:
+    """Top-level entry for the live path: deterministic reasoning, then a real
+    Claude pass overlaid on top. Falls back to the deterministic envelope on any
+    error. ``converse`` is injectable so tests never need boto3 or AWS."""
+    base = generate_response(message, ctx, permissions=permissions, voice_mode=voice_mode)
+    caller = converse or _default_converse
+
+    perms = permissions if isinstance(permissions, DataPermissions) else DataPermissions.allow_all()
+    sanitized, restricted = apply_permissions(ctx, perms)
+    model_id = _bedrock_model_id(select_model(base["response_type"], voice_mode=voice_mode))
+
+    user_prompt = build_user_prompt(message, sanitized, restricted)
+    if voice_mode:
+        user_prompt += f"\n\n[VOICE MODE] Reply with prose only (no card), {VOICE_TOKEN_CAP} tokens max."
+
+    try:
+        text = caller(model_id, ARIA_SYSTEM_PROMPT, user_prompt)
+        data = _parse_model_envelope(text)
+        prose = str(data.get("prose_summary") or "").strip()
+        if not prose:
+            raise ValueError("model response missing prose_summary")
+    except Exception as exc:  # noqa: BLE001 — any failure must degrade, never raise
+        fallback = dict(base)
+        fallback["reasoning_source"] = "deterministic"
+        fallback["reasoning_error"] = str(exc) or exc.__class__.__name__
+        return fallback
+
+    return _merge_live_envelope(base, data, prose, model_id, voice_mode)
+
+
+def _merge_live_envelope(
+    base: dict[str, Any], data: dict[str, Any], prose: str, model_id: str, voice_mode: bool
+) -> dict[str, Any]:
+    """Overlay the model's reasoning onto the deterministic envelope. The
+    deterministic skeleton guarantees every field is present and schema-conformant;
+    only validated model fields replace it."""
+    merged = dict(base)
+    merged["prose_summary"] = prose
+
+    response_type = data.get("response_type")
+    if response_type in _RESPONSE_TYPES:
+        merged["response_type"] = response_type
+
+    confidence = _coerce_confidence(data.get("confidence"))
+    if confidence is not None:
+        merged["confidence"] = confidence
+
+    reason = data.get("confidence_reason")
+    if isinstance(reason, str) and reason.strip():
+        merged["confidence_reason"] = reason.strip()
+
+    recommendation = data.get("recommendation")
+    if isinstance(recommendation, str) and recommendation.strip():
+        merged["recommendation"] = recommendation.strip()
+
+    if voice_mode:
+        merged["card"] = None
+    else:
+        model_card = data.get("card")
+        if isinstance(model_card, dict):
+            base_card = base.get("card")
+            merged["card"] = {**base_card, **model_card} if isinstance(base_card, dict) else model_card
+
+    # The model's prose is the natural-language answer for both chat and voice.
+    merged["message"] = prose
+    merged["model"] = model_id
+    merged["reasoning_source"] = "bedrock"
+    return merged
+
+
+def _parse_model_envelope(text: str) -> dict[str, Any]:
+    """Best-effort extraction of the JSON envelope from a model response."""
+    cleaned = re.sub(r"```(?:json)?", "", text or "").replace("```", "").strip()
+    start, end = cleaned.find("{"), cleaned.rfind("}")
+    if start != -1 and end > start:
+        cleaned = cleaned[start:end + 1]
+    try:
+        data = json.loads(cleaned)
+    except (ValueError, TypeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _coerce_confidence(value: Any) -> float | None:
+    """Clamp a model-supplied confidence to [0, 1]; None when not a number."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        return max(0.0, min(1.0, float(value)))
+    except (TypeError, ValueError):
+        return None
 
 
 # --- coercion helpers --------------------------------------------------------

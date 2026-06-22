@@ -198,7 +198,7 @@ Keep route handlers thin. Put validation, scoring, and persistence behind servic
 - Phase 1 (Client Unblocking API): complete with seed-data fallback through DynamoDB local store.
 - Phase 2 (Ingestion): `POST /health/batch`, `POST /sleep/sessions`, `POST /workouts/logs` complete; `POST /integrations/{provider}/sync` is a queueing stub that flips the connection to `syncing`.
 - Phase 3 (Scoring): `services/scoring.py` provides training load trend, recovery trend, PR detection, baseline workout recommendation. `services/readiness.py` computes a readiness score and is wired into the dashboard when persisted sleep is present. Background readiness persistence is still TODO.
-- Phase 4 (AI Coach): `POST /coach/messages`, `POST /coach/workout-plan`, `POST /coach/sleep-insight`, `POST /coach/progress-review` route through `services/coach_context.py` into `ai_router`. Each falls back to a deterministic answer when Bedrock is unreachable so clients and tests can run without AWS.
+- Phase 4 (AI Coach): `POST /coach/messages`, `POST /coach/workout-plan`, `POST /coach/sleep-insight`, `POST /coach/progress-review` route through `services/coach_context.py` into `ai_router`. Each falls back to a deterministic answer when Bedrock is unreachable so clients and tests can run without AWS. `POST /ai/chat` runs the deterministic ARIA engine (`services/aria_engine`); with `ARIA_BEDROCK_ENABLED` set it overlays a live Claude (Bedrock Converse) reasoning pass on the deterministic envelope and falls back to it on any error.
 - Phase 5 (External Integrations): the sync stub is in place; OAuth flows, real provider clients, and webhook handlers are not yet built.
 
 ## Test Coverage

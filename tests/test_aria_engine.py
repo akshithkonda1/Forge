@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -396,6 +397,126 @@ class NewDomainReasoningTests(unittest.TestCase):
         self.assertIn("deficit", resp["card"]["expected_effect"])
         self.assertIn("knee", resp["message"].lower())
         self.assertIn("consistency", resp["message"].lower())
+
+
+class LiveBedrockTests(unittest.TestCase):
+    """The opt-in Bedrock path: overlay real reasoning, always degrade safely."""
+
+    def _good_envelope(self) -> str:
+        return json.dumps({
+            "schema_version": aria_engine.SCHEMA_VERSION,
+            "response_type": "recommendation",
+            "confidence": 0.71,
+            "confidence_reason": "full sleep + HRV-trend data, signals coherent",
+            "prose_summary": "HRV is 12% under baseline at recovery 58 — keep today easy.",
+            "recommendation": "Zone 2 only; reassess tomorrow.",
+            "card": {"action": "Zone 2 only", "model_note": "from the live model"},
+            "restricted_domains": [],
+        })
+
+    def test_live_overlays_model_reasoning_onto_the_envelope(self):
+        captured = {}
+
+        def fake_converse(model_id, system_prompt, user_prompt):
+            captured.update(model_id=model_id, system=system_prompt, user=user_prompt)
+            return "```json\n" + self._good_envelope() + "\n```"
+
+        resp = aria_engine.generate_response_live(
+            "should I train today?", full_context(), converse=fake_converse)
+
+        self.assertEqual(resp["reasoning_source"], "bedrock")
+        self.assertTrue(CANONICAL_KEYS.issubset(resp.keys()))
+        self.assertIn("58", resp["prose_summary"])
+        self.assertEqual(resp["message"], resp["prose_summary"])
+        self.assertEqual(resp["confidence"], 0.71)
+        self.assertEqual(resp["confidence_reason"], "full sleep + HRV-trend data, signals coherent")
+        # recommendation routes to the primary model; reported as the concrete Bedrock id.
+        self.assertEqual(resp["model"], "anthropic.claude-opus-4-8")
+        # the model received the canonical ARIA system prompt + ground-truth block.
+        self.assertEqual(captured["system"], aria_engine.ARIA_SYSTEM_PROMPT)
+        self.assertIn("USER MODEL", captured["user"])
+        self.assertIn("should I train today?", captured["user"])
+        # the model card is merged over the deterministic card, not dropped.
+        self.assertEqual(resp["card"]["model_note"], "from the live model")
+
+    def test_live_falls_back_to_deterministic_on_error(self):
+        def boom(*_args):
+            raise RuntimeError("bedrock unavailable")
+
+        resp = aria_engine.generate_response_live(
+            "should I train today?", full_context(), converse=boom)
+        deterministic = aria_engine.generate_response("should I train today?", full_context())
+
+        self.assertEqual(resp["reasoning_source"], "deterministic")
+        self.assertIn("bedrock unavailable", resp["reasoning_error"])
+        self.assertEqual(resp["prose_summary"], deterministic["prose_summary"])
+        self.assertEqual(resp["card"], deterministic["card"])
+        self.assertEqual(resp["confidence"], deterministic["confidence"])
+
+    def test_live_falls_back_on_unparseable_response(self):
+        resp = aria_engine.generate_response_live(
+            "should I train today?", full_context(), converse=lambda *a: "not json at all")
+        self.assertEqual(resp["reasoning_source"], "deterministic")
+
+    def test_live_falls_back_when_prose_is_missing(self):
+        payload = json.dumps({"response_type": "insight", "confidence": 0.5})
+        resp = aria_engine.generate_response_live(
+            "how did I sleep?", full_context(), converse=lambda *a: payload)
+        self.assertEqual(resp["reasoning_source"], "deterministic")
+
+    def test_live_keeps_base_confidence_when_model_value_is_invalid(self):
+        base = aria_engine.generate_response("how did I sleep?", full_context())
+        payload = json.dumps({"prose_summary": "Sleep looks solid.", "confidence": "high"})
+        resp = aria_engine.generate_response_live(
+            "how did I sleep?", full_context(), converse=lambda *a: payload)
+        self.assertEqual(resp["confidence"], base["confidence"])
+
+    def test_live_clamps_out_of_range_confidence(self):
+        payload = json.dumps({"prose_summary": "Sleep looks solid.", "confidence": 1.9})
+        resp = aria_engine.generate_response_live(
+            "how did I sleep?", full_context(), converse=lambda *a: payload)
+        self.assertEqual(resp["confidence"], 1.0)
+
+    def test_live_voice_mode_suppresses_card_and_routes_to_fast_model(self):
+        payload = json.dumps({"prose_summary": "Keep it easy today.", "card": {"x": 1}})
+        resp = aria_engine.generate_response_live(
+            "should I train?", full_context(), voice_mode=True, converse=lambda *a: payload)
+        self.assertIsNone(resp["card"])
+        self.assertEqual(resp["message"], resp["prose_summary"])
+        self.assertEqual(resp["model"], "anthropic.claude-sonnet-4-6")
+
+    def test_live_respects_permissions_in_the_prompt_and_envelope(self):
+        captured = {}
+
+        def fake_converse(model_id, system_prompt, user_prompt):
+            captured["user"] = user_prompt
+            return json.dumps({"prose_summary": "Holding off on training reads.",
+                               "response_type": "clarification"})
+
+        resp = aria_engine.generate_response_live(
+            "should I train today?", full_context(),
+            permissions=aria_engine.DataPermissions.from_payload({"training": False}),
+            converse=fake_converse)
+
+        self.assertEqual(resp["restricted_domains"], ["training"])
+        # the restricted domain is declared and its values are redacted from the prompt.
+        self.assertIn("restricted_domains: training", captured["user"])
+        self.assertIn("training.weekly_load_score: null", captured["user"])
+
+    def test_bedrock_enabled_reads_env(self):
+        original = os.environ.get("ARIA_BEDROCK_ENABLED")
+        try:
+            os.environ["ARIA_BEDROCK_ENABLED"] = "true"
+            self.assertTrue(aria_engine.bedrock_enabled())
+            os.environ["ARIA_BEDROCK_ENABLED"] = "0"
+            self.assertFalse(aria_engine.bedrock_enabled())
+            os.environ.pop("ARIA_BEDROCK_ENABLED", None)
+            self.assertFalse(aria_engine.bedrock_enabled())
+        finally:
+            if original is None:
+                os.environ.pop("ARIA_BEDROCK_ENABLED", None)
+            else:
+                os.environ["ARIA_BEDROCK_ENABLED"] = original
 
 
 if __name__ == "__main__":
