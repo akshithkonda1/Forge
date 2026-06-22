@@ -89,7 +89,7 @@ jobs:
           (github.event_name == 'push' && github.ref == 'refs/heads/claude/forge-fitness-frontend-TwlOQ')
           || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
         continue-on-error: true
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v4
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
