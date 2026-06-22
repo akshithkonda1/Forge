@@ -40,9 +40,11 @@ def _dim_line(name: str, score: float) -> str:
 def build_narrative(
     model: dict,
     stability: StabilityReport,
-    determinism: DeterminismReport,
+    determinism: DeterminismReport | None,
     timestamp: str,
     engine_model: str = "stub",
+    diagnostic=None,
+    multiseed: dict | None = None,
 ) -> str:
     d = stability.dimension_averages
     lines: list[str] = []
@@ -58,6 +60,25 @@ def build_narrative(
     add(f"OVERALL GRADE: {stability.overall_grade}")
     add(f"Composite Score: {stability.overall_composite}/100")
     add("")
+
+    if diagnostic is not None:
+        sc = diagnostic.severity_counts
+        add("━━━ DIAGNOSTICS — VERDICT ━━━━━━━━━━━━━━━")
+        add(f"  {'✅' if diagnostic.passed else '⛔'} {diagnostic.verdict}")
+        add(f"  Turns passed: {diagnostic.passed_turns}/{diagnostic.total_turns} ({diagnostic.pass_rate}%)")
+        add(f"  Severity: mission_critical {sc['mission_critical']} · high {sc['high']} · "
+            f"medium {sc['medium']} · can_wait {sc['can_wait']}")
+        if diagnostic.mission_critical:
+            add("  Mission-critical (fix before ship) — what / how / when:")
+            for t in diagnostic.mission_critical[:10]:
+                add(f"    ✗ {t.when}")
+                for how in t.how:
+                    add(f"        - {how}")
+        if diagnostic.worst:
+            add("  Worst non-critical turns:")
+            for t in diagnostic.worst:
+                add(f"    · {t.composite}/100 [{', '.join(t.what) or 'low composite'}] — {t.when}")
+        add("")
 
     add("━━━ CRITICAL FAILURES ━━━━━━━━━━━━━━━━━━━")
     if stability.critical_failures:
@@ -75,6 +96,17 @@ def build_narrative(
     add(_dim_line("Epistemic Honesty:", d.epistemic_honesty))
     add(_dim_line("Tone Compliance:", d.tone_compliance))
     add("")
+
+    if multiseed:
+        c = multiseed["composite"]
+        add("━━━ STATISTICAL CONFIDENCE (multi-seed) ━")
+        add(f"  Seeds: {multiseed['seed_count']}")
+        add(f"  Composite: {c.mean} ± {c.stdev}  [{c.min}–{c.max}]  p10–p90 {c.p10}–{c.p90}  "
+            f"{'stable' if c.stable else 'UNSTABLE (high variance)'}")
+        for dim, dist in multiseed["dimensions"].items():
+            flag = "" if dist.stable else "  ⚠ unstable"
+            add(f"    {dim:<24} {dist.mean} ± {dist.stdev}{flag}")
+        add("")
 
     add("━━━ BY DIFFICULTY TIER ━━━━━━━━━━━━━━━━━")
     for tier in sorted(stability.by_tier):
@@ -99,14 +131,17 @@ def build_narrative(
     add("")
 
     add("━━━ DETERMINISM ━━━━━━━━━━━━━━━━━━━━━━━")
-    add(f"Semantic Determinism Rate: {determinism.semantic_determinism_rate}%  "
-        f"({determinism.sample_count} prompts × {determinism.runs_per_sample} runs)")
-    if determinism.inconsistent:
-        add("  Inconsistent prompts:")
-        for item in determinism.inconsistent:
-            add(f"    - {item}")
+    if determinism is None:
+        add("  Skipped — real-API mode is non-deterministic (see multi-seed variance above).")
     else:
-        add("  All sampled prompts were semantically stable.")
+        add(f"Semantic Determinism Rate: {determinism.semantic_determinism_rate}%  "
+            f"({determinism.sample_count} prompts × {determinism.runs_per_sample} runs)")
+        if determinism.inconsistent:
+            add("  Inconsistent prompts:")
+            for item in determinism.inconsistent:
+                add(f"    - {item}")
+        else:
+            add("  All sampled prompts were semantically stable.")
     add("")
 
     add("━━━ MODELS USED (harness engine) ━━━━━━━━")
@@ -124,13 +159,25 @@ def build_narrative(
     return "\n".join(lines)
 
 
+def _multiseed_json(multiseed: dict | None) -> dict | None:
+    if not multiseed:
+        return None
+    return {
+        "seed_count": multiseed["seed_count"],
+        "composite": vars(multiseed["composite"]),
+        "dimensions": {k: vars(v) for k, v in multiseed["dimensions"].items()},
+    }
+
+
 def build_json(
     model: dict,
     stability: StabilityReport,
-    determinism: DeterminismReport,
+    determinism: DeterminismReport | None,
     results: list[EvaluationResult],
     timestamp: str,
     engine_model: str = "stub",
+    diagnostic=None,
+    multiseed: dict | None = None,
 ) -> dict:
     return {
         "model": {
@@ -154,7 +201,9 @@ def build_json(
         "critical_failures": stability.critical_failures,
         "top_failure_patterns": stability.top_failure_patterns,
         "top_recommendations": stability.top_recommendations,
-        "determinism": asdict(determinism),
+        "determinism": asdict(determinism) if determinism is not None else None,
+        "diagnostics": diagnostic.to_dict() if diagnostic is not None else None,
+        "multiseed": _multiseed_json(multiseed),
         "evaluations": [asdict(r) for r in results],
     }
 
@@ -169,11 +218,13 @@ def _safe(model_id: str) -> str:
 def save_reports(
     model: dict,
     stability: StabilityReport,
-    determinism: DeterminismReport,
+    determinism: DeterminismReport | None,
     results: list[EvaluationResult],
     out_dir: str,
     report_format: str = "both",
     engine_model: str = "stub",
+    diagnostic=None,
+    multiseed: dict | None = None,
 ) -> list[str]:
     os.makedirs(out_dir, exist_ok=True)
     timestamp = _timestamp()
@@ -183,12 +234,12 @@ def save_reports(
     if report_format in ("text", "both"):
         path = stem + ".txt"
         with open(path, "w", encoding="utf-8") as fh:
-            fh.write(build_narrative(model, stability, determinism, timestamp, engine_model))
+            fh.write(build_narrative(model, stability, determinism, timestamp, engine_model, diagnostic, multiseed))
         written.append(path)
     if report_format in ("json", "both"):
         path = stem + ".json"
         with open(path, "w", encoding="utf-8") as fh:
-            json.dump(build_json(model, stability, determinism, results, timestamp, engine_model),
+            json.dump(build_json(model, stability, determinism, results, timestamp, engine_model, diagnostic, multiseed),
                       fh, indent=2, default=str)
         written.append(path)
     return written

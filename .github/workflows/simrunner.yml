@@ -36,3 +36,13 @@ jobs:
 
       - name: Tier-1 smoke (offline, no network, no tokens)
         run: python3 -m backend.simrunner
+
+      # Regression gate: the full suite is re-graded against the committed golden
+      # baselines and the run fails if any model's composite drops past
+      # gate_max_drop or a new mission-critical failure appears. SIMRUNNER_TODAY
+      # is pinned to the same date the baselines were generated with, so the
+      # synthetic streams (and therefore the scores) are byte-reproducible.
+      - name: Regression gate (all 20 archetypes vs committed baseline)
+        env:
+          SIMRUNNER_TODAY: "2026-01-15"
+        run: python3 -m backend.simrunner --all --gate
