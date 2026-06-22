@@ -294,6 +294,7 @@ def _recommendations(failures: list[str], scores: DimensionScores, ctx: ARIACont
 def _snapshot(ctx: ARIAContext) -> dict:
     t = ctx.today
     return {
+        "date": t.date,
         "readiness": t.readiness_score, "hrv": t.hrv, "hrv_7d_avg": ctx.hrv_7d_avg,
         "hrv_7d_trend": ctx.hrv_7d_trend, "acwr": ctx.acwr,
         "sleep_debt_7d_hours": ctx.sleep_debt_7d_hours, "readiness_7d_avg": ctx.readiness_7d_avg,
