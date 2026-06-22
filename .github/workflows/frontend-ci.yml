@@ -1,0 +1,54 @@
+# Gates the Next.js/TypeScript frontend: typecheck + production build.
+# (Lint is intentionally not gated yet — see README/PR notes: Next 16 removed
+# `next lint`, and eslint-plugin-react does not yet support ESLint 10.)
+# pnpm comes from Corepack (the packageManager field), so no setup-node is needed.
+
+name: Frontend CI
+
+on:
+  push:
+    branches: ["claude/forge-fitness-frontend-TwlOQ"]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig.json"
+      - "next.config.ts"
+      - "postcss.config.mjs"
+      - ".github/workflows/frontend-ci.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "public/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig.json"
+      - "next.config.ts"
+      - "postcss.config.mjs"
+      - ".github/workflows/frontend-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Enable pnpm (Corepack)
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+      - name: Build
+        run: pnpm build
