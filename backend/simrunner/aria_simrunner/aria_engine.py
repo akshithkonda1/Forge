@@ -9,7 +9,10 @@ real Claude call behind ``use_real_api`` without changing any caller.
 
 from __future__ import annotations
 
+import json
 import random
+import re
+import time
 from dataclasses import dataclass, field
 
 from ..backend_simulator.data_generator import ARIAContext
@@ -36,16 +39,49 @@ def _fnv(text: str) -> int:
     return h
 
 
+def _parse_envelope(text: str) -> dict:
+    """Best-effort extraction of the JSON envelope from a model response."""
+    cleaned = re.sub(r"```(?:json)?", "", text).replace("```", "").strip()
+    start, end = cleaned.find("{"), cleaned.rfind("}")
+    if start != -1 and end > start:
+        cleaned = cleaned[start:end + 1]
+    try:
+        data = json.loads(cleaned)
+        return data if isinstance(data, dict) else {}
+    except (ValueError, TypeError):
+        return {}
+
+
+def _safe_float(value, default: float) -> float:
+    try:
+        return max(0.0, min(1.0, float(value)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _references_context(prose: str, context: ARIAContext) -> bool:
+    t = context.today
+    nums = {str(t.readiness_score), str(t.hrv), str(context.acwr), str(round(context.sleep_debt_7d_hours, 1))}
+    low = prose.lower()
+    return any(n and n in prose for n in nums) or any(
+        w in low for w in ("readiness", "hrv", "acwr", "sleep debt", "recovery")
+    )
+
+
 class ARIAEngine:
     def __init__(
         self,
         use_real_api: bool = False,
         engine_models: dict[str, str] | None = None,
         engine_model: str | None = None,
+        prompt_variant: str = "v1",
+        temperature: float = 0.3,
     ) -> None:
         self.use_real_api = use_real_api
         self.engine_models = engine_models  # routing-class -> Bedrock id overrides
         self.engine_model = engine_model    # pin ALL queries to one Bedrock id
+        self.prompt_variant = prompt_variant
+        self.temperature = temperature
         self._warned_real_api = False
 
     def _resolve(self, model_class: str) -> str:
@@ -213,8 +249,34 @@ class ARIAEngine:
         t = context.today
         return f"{t.date}|{t.readiness_score}|{t.hrv}|{context.acwr}|{context.sleep_debt_7d_hours}"
 
-    def _call_claude(self, query: str, context: ARIAContext) -> ARIAResponse:  # pragma: no cover
-        raise NotImplementedError(
-            "Real API path is intentionally unimplemented in the offline harness. "
-            "Set USE_REAL_API=false (default) to use the deterministic stub."
+    def _call_claude(self, query: str, context: ARIAContext) -> ARIAResponse:
+        """Grade a real Bedrock model. Lazy boto3; errors bubble to respond()'s
+        stub fallback. Driven by use_real_api + engine_model/engine_models."""
+        from . import bedrock_client, prompts
+
+        qtype = query_router.classify_query(query)
+        model_class = query_router.route_model(qtype)
+        model_id = self._resolve(model_class)
+
+        started = time.perf_counter()
+        text = bedrock_client.converse(
+            model_id,
+            prompts.system_prompt(self.prompt_variant),
+            prompts.build_user_prompt(query, context),
+            temperature=self.temperature,
+        )
+        latency = (time.perf_counter() - started) * 1000.0
+        data = _parse_envelope(text)
+        prose = str(data.get("prose_summary") or text)[:600]
+        rec = data.get("recommendation")
+        return ARIAResponse(
+            prose_summary=prose,
+            recommendation=str(rec) if rec else None,
+            confidence=_safe_float(data.get("confidence"), 0.6),
+            used_context=_references_context(prose, context),
+            model_used=model_id,
+            query_type=qtype,
+            latency_ms=round(latency, 1),
+            raw={"scenario": "real_api", "model": model_id, "response_type": data.get("response_type")},
+            model_class=model_class,
         )
