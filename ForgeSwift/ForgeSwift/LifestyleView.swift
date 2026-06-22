@@ -3,6 +3,7 @@ import Combine
 import HealthKit
 import WorkoutKit
 import CoreLocation
+import MapKit
 import UserNotifications
 import UIKit
 
@@ -356,6 +357,285 @@ enum LifestyleError: Error, LocalizedError {
     }
 }
 
+// MARK: - Location Services
+
+private final class LocationProvider: NSObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    private var locationContinuation: CheckedContinuation<CLLocation, Error>?
+    private var authContinuation: CheckedContinuation<CLAuthorizationStatus, Never>?
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+    }
+
+    var authorizationStatus: CLAuthorizationStatus { manager.authorizationStatus }
+
+    func requestWhenInUseAuthorization() {
+        manager.requestWhenInUseAuthorization()
+    }
+
+    func waitForAuthorization() async -> CLAuthorizationStatus {
+        let status = manager.authorizationStatus
+        guard status == .notDetermined else { return status }
+        return await withCheckedContinuation { continuation in
+            authContinuation = continuation
+        }
+    }
+
+    func requestLocation() async throws -> CLLocation {
+        try await withCheckedThrowingContinuation { continuation in
+            locationContinuation = continuation
+            manager.requestLocation()
+        }
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        if status != .notDetermined {
+            authContinuation?.resume(returning: status)
+            authContinuation = nil
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
+        locationContinuation?.resume(returning: location)
+        locationContinuation = nil
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        locationContinuation?.resume(throwing: error)
+        locationContinuation = nil
+    }
+}
+
+// MARK: - Location Meal Logger
+
+@MainActor
+final class LocationMealLogger: ObservableObject {
+    @Published var isDetectingLocation = false
+    @Published var detectedVenue: String?
+    @Published var detectedItems: [MenuItem] = []
+    @Published var showConfirmation = false
+    @Published var errorMessage: String?
+
+    private let locationProvider = LocationProvider()
+
+    private var knownVenues: [String: [MenuItem]] {
+        var venues: [String: [MenuItem]] = [:]
+        for restaurant in popularRestaurants {
+            venues[restaurant.name] = restaurant.items
+        }
+        venues["Wingstop"] = [
+            MenuItem(name: "Classic Wings (6 pc)", calories: 480, protein: 42, carbs: 8, fat: 32, serving: "6 pieces", isHealthy: false),
+            MenuItem(name: "Boneless Wings (8 pc)", calories: 520, protein: 38, carbs: 32, fat: 28, serving: "8 pieces", isHealthy: false),
+            MenuItem(name: "Lemon Pepper Wings (6 pc)", calories: 500, protein: 40, carbs: 10, fat: 34, serving: "6 pieces", isHealthy: false),
+        ]
+        venues["In-N-Out Burger"] = [
+            MenuItem(name: "Protein Style Burger", calories: 330, protein: 18, carbs: 11, fat: 25, serving: "1 burger", isHealthy: true),
+            MenuItem(name: "Grilled Cheese", calories: 380, protein: 15, carbs: 39, fat: 19, serving: "1 sandwich", isHealthy: false),
+            MenuItem(name: "Double-Double", calories: 670, protein: 37, carbs: 39, fat: 41, serving: "1 burger", isHealthy: false),
+        ]
+        venues["Starbucks"] = [
+            MenuItem(name: "Egg White & Roasted Red Pepper Egg Bites", calories: 170, protein: 12, carbs: 11, fat: 8, serving: "2 bites", isHealthy: true),
+            MenuItem(name: "Spinach Feta Wrap", calories: 290, protein: 19, carbs: 34, fat: 10, serving: "1 wrap", isHealthy: true),
+            MenuItem(name: "Grande Latte (2% milk)", calories: 190, protein: 12, carbs: 18, fat: 7, serving: "16 oz", isHealthy: true),
+        ]
+        venues["Cava"] = [
+            MenuItem(name: "Grilled Chicken Bowl", calories: 610, protein: 42, carbs: 52, fat: 24, serving: "1 bowl", isHealthy: true),
+            MenuItem(name: "Greens + Grains Bowl", calories: 520, protein: 18, carbs: 68, fat: 18, serving: "1 bowl", isHealthy: true),
+        ]
+        venues["Shake Shack"] = [
+            MenuItem(name: "ShackBurger (Single)", calories: 530, protein: 28, carbs: 27, fat: 34, serving: "1 burger", isHealthy: false),
+            MenuItem(name: "Chicken Shack", calories: 550, protein: 33, carbs: 36, fat: 31, serving: "1 sandwich", isHealthy: false),
+            MenuItem(name: "Lettuce Wrap ShackBurger", calories: 320, protein: 25, carbs: 6, fat: 22, serving: "1 burger", isHealthy: true),
+        ]
+        return venues
+    }
+
+    private let venueAliases: [String: String] = [
+        "raising canes": "Raising Cane's",
+        "canes": "Raising Cane's",
+        "chick fil a": "Chick-fil-A",
+        "chickfila": "Chick-fil-A",
+        "in n out": "In-N-Out Burger",
+        "innout": "In-N-Out Burger",
+        "shake shack": "Shake Shack",
+        "what a burger": "Whataburger",
+        "wing stop": "Wingstop",
+        "mcdonald": "McDonald's",
+        "taco bell": "Taco Bell",
+        "panera": "Panera Bread",
+        "sub way": "Subway",
+    ]
+
+    func lookupMenu(for venueName: String) -> [MenuItem] {
+        if let items = knownVenues[venueName] { return items }
+        return [
+            MenuItem(name: "Grilled Chicken Plate", calories: 420, protein: 38, carbs: 22, fat: 18, serving: "1 plate", isHealthy: true),
+            MenuItem(name: "Mixed Greens Salad", calories: 180, protein: 8, carbs: 14, fat: 10, serving: "1 salad", isHealthy: true),
+            MenuItem(name: "Brown Rice Bowl", calories: 360, protein: 14, carbs: 58, fat: 8, serving: "1 bowl", isHealthy: true),
+        ]
+    }
+
+    func detectCurrentLocationAndLog() async {
+        isDetectingLocation = true
+        errorMessage = nil
+        defer { isDetectingLocation = false }
+
+        if locationProvider.authorizationStatus == .notDetermined {
+            locationProvider.requestWhenInUseAuthorization()
+        }
+
+        let status = await locationProvider.waitForAuthorization()
+        guard status == .authorizedWhenInUse || status == .authorizedAlways else {
+            errorMessage = "Location access is required to detect nearby restaurants."
+            return
+        }
+
+        do {
+            let location = try await locationProvider.requestLocation()
+            let venue = try await resolveVenue(near: location)
+            detectedVenue = venue
+            detectedItems = lookupMenu(for: venue)
+            showConfirmation = true
+        } catch {
+            errorMessage = "Couldn't detect your location. Try again or log manually."
+        }
+    }
+
+    private func resolveVenue(near location: CLLocation) async throws -> String {
+        if let mapMatch = try? await searchNearbyRestaurant(at: location.coordinate),
+           let matched = matchVenueName(mapMatch) {
+            return matched
+        }
+
+        let geocoder = CLGeocoder()
+        let placemarks = try await geocoder.reverseGeocodeLocation(location)
+        for placemark in placemarks {
+            for candidate in [placemark.name, placemark.areasOfInterest?.first, placemark.thoroughfare].compactMap({ $0 }) {
+                if let matched = matchVenueName(candidate) { return matched }
+            }
+        }
+
+        return "Local Restaurant"
+    }
+
+    private func searchNearbyRestaurant(at coordinate: CLLocationCoordinate2D) async throws -> String? {
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = "restaurant"
+        request.resultTypes = .pointOfInterest
+        request.region = MKCoordinateRegion(center: coordinate, latitudinalMeters: 400, longitudinalMeters: 400)
+        let response = try await MKLocalSearch(request: request).start()
+        return response.mapItems
+            .sorted { lhs, rhs in
+                let lhsDistance = lhs.placemark.location?.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)) ?? .greatestFiniteMagnitude
+                let rhsDistance = rhs.placemark.location?.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)) ?? .greatestFiniteMagnitude
+                return lhsDistance < rhsDistance
+            }
+            .compactMap { $0.name }
+            .first
+    }
+
+    private func matchVenueName(_ raw: String) -> String? {
+        let normalized = raw.lowercased()
+        for restaurant in popularRestaurants where normalized.contains(restaurant.name.lowercased()) {
+            return restaurant.name
+        }
+        for (alias, canonical) in venueAliases where normalized.contains(alias) {
+            return canonical
+        }
+        for key in knownVenues.keys where normalized.contains(key.lowercased()) {
+            return key
+        }
+        return nil
+    }
+
+    func logSelectedMeal(_ item: MenuItem, to vm: LifestyleViewModel) {
+        Task {
+            await vm.logMeal(
+                name: "\(detectedVenue ?? "Restaurant") - \(item.name)",
+                calories: Double(item.calories),
+                protein: Double(item.protein),
+                carbs: Double(item.carbs),
+                fat: Double(item.fat)
+            )
+            showConfirmation = false
+            detectedVenue = nil
+            detectedItems = []
+        }
+    }
+}
+
+// MARK: - Wellbeing Persistence
+
+struct DailyHabit: Identifiable, Codable, Equatable {
+    let id: UUID
+    var name: String
+    var done: Bool
+}
+
+@MainActor
+enum LifestyleWellbeingStore {
+    private static let habitsKey = "lifestyle.dailyHabits"
+    private static let streakKey = "lifestyle.habitStreak"
+    private static let stressKey = "lifestyle.stressLevel"
+    private static let habitsDateKey = "lifestyle.habitsDate"
+
+    static let defaultHabits: [DailyHabit] = [
+        DailyHabit(id: UUID(), name: "Morning sunlight (10 min)", done: false),
+        DailyHabit(id: UUID(), name: "Meditation (5 min)", done: false),
+        DailyHabit(id: UUID(), name: "Read (20 min)", done: false),
+        DailyHabit(id: UUID(), name: "Mobility work (10 min)", done: false),
+        DailyHabit(id: UUID(), name: "Cold shower", done: false),
+        DailyHabit(id: UUID(), name: "Journaling", done: false),
+    ]
+
+    static func loadHabits() -> [DailyHabit] {
+        let calendar = Calendar.current
+        let savedDay = UserDefaults.standard.object(forKey: habitsDateKey) as? Date
+        if let savedDay, calendar.isDateInToday(savedDay),
+           let data = UserDefaults.standard.data(forKey: habitsKey),
+           let habits = try? JSONDecoder().decode([DailyHabit].self, from: data) {
+            return habits
+        }
+        return defaultHabits
+    }
+
+    static func saveHabits(_ habits: [DailyHabit]) {
+        UserDefaults.standard.set(Date(), forKey: habitsDateKey)
+        if let data = try? JSONEncoder().encode(habits) {
+            UserDefaults.standard.set(data, forKey: habitsKey)
+        }
+        updateStreakIfNeeded(habits)
+    }
+
+    static func habitStreak() -> Int {
+        max(UserDefaults.standard.integer(forKey: streakKey), 1)
+    }
+
+    private static func updateStreakIfNeeded(_ habits: [DailyHabit]) {
+        let completed = habits.filter(\.done).count
+        let total = habits.count
+        guard total > 0 else { return }
+        if Double(completed) / Double(total) >= 0.6 {
+            let current = UserDefaults.standard.integer(forKey: streakKey)
+            UserDefaults.standard.set(max(current, 1), forKey: streakKey)
+        }
+    }
+
+    static func loadStressLevel() -> Int {
+        let value = UserDefaults.standard.integer(forKey: stressKey)
+        return (0...2).contains(value) ? value : 1
+    }
+
+    static func saveStressLevel(_ level: Int) {
+        UserDefaults.standard.set(level, forKey: stressKey)
+    }
+}
+
 // MARK: - ViewModel (integrated with HealthKit + AI)
 
 @MainActor
@@ -369,6 +649,9 @@ final class LifestyleViewModel: ObservableObject {
     @Published var healthStats: DailyHealthStats?
     @Published var weeklyTrends: [WeeklyHealthTrend] = []
     @Published var aiWorkouts: [AIWorkoutSuggestion] = []
+    @Published var loggedMeals: [MealLog] = []
+    @Published var mindfulMinutesToday: Int = 0
+    @Published var mindfulMinutesWeek: Int = 0
     
     private let healthManager = HealthKitManager.shared
     private let workoutManager = WorkoutPlanManager()
@@ -382,43 +665,38 @@ final class LifestyleViewModel: ObservableObject {
         defer { isLoading = false }
         
         do {
-            // Request HealthKit authorization
             try await healthManager.requestAuthorization()
-            
-            // Request notification authorization
             try await notificationManager.requestAuthorization()
-            
-            // Fetch real data
+
+            await healthManager.fetchTodayStats()
+            await healthManager.fetchWeeklyTrends()
+            healthStats = healthManager.todayStats
+            weeklyTrends = healthManager.weeklyTrends
+            loggedMeals = healthManager.loggedMeals
+
+            let now = Date()
+            let startOfDay = Calendar.current.startOfDay(for: now)
+            let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? startOfDay
+            async let mindfulToday = healthManager.fetchMindfulMinutes(from: startOfDay, to: now)
+            async let mindfulWeek = healthManager.fetchMindfulMinutes(from: weekAgo, to: now)
             async let m = fetchMetrics()
             async let r = fetchRecommendations()
-            async let h = healthManager.fetchTodayStats()
-            async let w = healthManager.fetchWeeklyTrends()
-            async let ai = generateAIWorkouts()
-            
+            async let ai = generateAIWorkouts(from: healthStats)
+
             metrics = try await m
             recommendations = try await r
-            await h
-            healthStats = healthManager.todayStats
-            await w
-            weeklyTrends = healthManager.weeklyTrends
             aiWorkouts = await ai
+            mindfulMinutesToday = Int(await mindfulToday)
+            mindfulMinutesWeek = Int(await mindfulWeek)
             
-            // Schedule smart notifications
             await scheduleSmartReminders()
-            
             error = nil
         } catch {
             self.error = error as? LifestyleError ?? .unknownError
         }
     }
 
-    func refresh() async { 
-        await healthManager.fetchTodayStats()
-        await healthManager.fetchWeeklyTrends()
-        healthStats = healthManager.todayStats
-        weeklyTrends = healthManager.weeklyTrends
-        await load() 
-    }
+    func refresh() async { await load() }
     
     func logMeal(name: String, calories: Double, protein: Double, carbs: Double, fat: Double) async {
         let meal = MealLog(name: name, calories: calories, protein: protein, carbs: carbs, fat: fat)
@@ -431,12 +709,15 @@ final class LifestyleViewModel: ObservableObject {
         await refresh()
     }
     
-    private func generateAIWorkouts() async -> [AIWorkoutSuggestion] {
-        // AI-powered workout generation based on user data
+    func logMindfulSession(minutes: Int) async {
+        try? await healthManager.logMindfulSession(minutes: Double(minutes))
+        await refresh()
+    }
+
+    private func generateAIWorkouts(from stats: DailyHealthStats?) async -> [AIWorkoutSuggestion] {
         var suggestions: [AIWorkoutSuggestion] = []
         
-        // Analyze recovery state
-        if let hrv = healthStats?.hrv, hrv < 30 {
+        if let hrv = stats?.hrv, hrv < 30 {
             let recoveryWorkout = await workoutManager.generateAIWorkout(
                 goals: [.mobility],
                 equipment: [.bodyweight, .bands],
@@ -460,8 +741,7 @@ final class LifestyleViewModel: ObservableObject {
             ))
         }
         
-        // Add endurance if steps are low
-        if let stats = healthStats, stats.steps < 6000 {
+        if let stats, stats.steps < 6000 {
             let cardioWorkout = await workoutManager.generateAIWorkout(
                 goals: [.endurance],
                 equipment: [.bodyweight],
@@ -500,9 +780,6 @@ final class LifestyleViewModel: ObservableObject {
     }
 
     private func fetchMetrics() async throws -> LifestyleMetrics {
-        try await Task.sleep(nanoseconds: 400_000_000)
-        
-        // Generate metrics from real health data
         guard let stats = healthStats else {
             return .default
         }
@@ -601,8 +878,6 @@ final class LifestyleViewModel: ObservableObject {
     }
 
     private func fetchRecommendations() async throws -> [AIRecommendation] {
-        try await Task.sleep(nanoseconds: 250_000_000)
-        
         var recommendations: [AIRecommendation] = []
         
         // Generate personalized recommendations based on real data
@@ -687,6 +962,7 @@ enum LifestyleSegment: Int, CaseIterable {
 struct LifestyleView: View {
     @EnvironmentObject var store: AppStore
     @StateObject private var vm = LifestyleViewModel()
+    @StateObject private var locationLogger = LocationMealLogger()
     @State private var selectedSegment: LifestyleSegment = .aiOptimization
     @State private var showInsights = false
     @Namespace private var segmentNS
@@ -718,9 +994,24 @@ struct LifestyleView: View {
             }
 
             if showInsights {
-                AIInsightsModal(isPresented: $showInsights, recommendations: vm.recommendations)
+                AIInsightsModal(
+                    isPresented: $showInsights,
+                    recommendations: vm.recommendations,
+                    metrics: vm.metrics,
+                    stats: vm.healthStats
+                )
                     .zIndex(10)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            if locationLogger.showConfirmation, let venue = locationLogger.detectedVenue {
+                LocationMealConfirmationSheet(
+                    venue: venue,
+                    items: locationLogger.detectedItems,
+                    onLog: { item in locationLogger.logSelectedMeal(item, to: vm) },
+                    onDismiss: { locationLogger.showConfirmation = false }
+                )
+                .zIndex(11)
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showInsights)
@@ -734,10 +1025,10 @@ struct LifestyleView: View {
     @ViewBuilder
     private var segmentContent: some View {
         switch selectedSegment {
-        case .aiOptimization: AIOptimizationContent(vm: vm)
-        case .restaurants:    NutritionDatabaseView()
-        case .nutrition:      DailyNutritionView()
-        case .wellbeing:      WellbeingView()
+        case .aiOptimization: AIOptimizationContent(vm: vm, locationLogger: locationLogger)
+        case .restaurants:    NutritionDatabaseView(vm: vm)
+        case .nutrition:      DailyNutritionView(vm: vm)
+        case .wellbeing:      WellbeingView(vm: vm)
         }
     }
 }
@@ -878,10 +1169,11 @@ struct SegmentedPillControl: View {
 
 struct AIOptimizationContent: View {
     @ObservedObject var vm: LifestyleViewModel
+    @ObservedObject var locationLogger: LocationMealLogger
 
     var body: some View {
         LazyVStack(spacing: 20) {
-            // NEW: AI-powered daily focus card
+            LocationQuickLogCard(locationLogger: locationLogger, vm: vm)
             TodaysFocusCard(vm: vm)
             
             // NEW: Real-time HealthKit Dashboard
@@ -904,6 +1196,138 @@ struct AIOptimizationContent: View {
                 RecoveryMetricsCard(stats: stats)
             }
         }
+    }
+}
+
+// MARK: - Location Quick Log
+
+struct LocationQuickLogCard: View {
+    @ObservedObject var locationLogger: LocationMealLogger
+    @ObservedObject var vm: LifestyleViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                Image(systemName: "location.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(.ember)
+                Text("Quick Location Log")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.textPrimary)
+            }
+
+            Text("Detect nearby restaurants and log meals in one tap. Uses your location and Apple Maps POI data.")
+                .font(.system(size: 14))
+                .foregroundColor(.textSecondary)
+                .lineSpacing(4)
+
+            Button {
+                Task { await locationLogger.detectCurrentLocationAndLog() }
+            } label: {
+                HStack {
+                    if locationLogger.isDetectingLocation {
+                        ProgressView().tint(.white)
+                        Text("Detecting location...")
+                    } else {
+                        Image(systemName: "location.circle.fill")
+                        Text("Detect Current Location & Log Meal")
+                    }
+                }
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(LinearGradient.emberGradient)
+                .cornerRadius(14)
+            }
+            .disabled(locationLogger.isDetectingLocation)
+
+            if let error = locationLogger.errorMessage {
+                Text(error)
+                    .font(.system(size: 13))
+                    .foregroundColor(.danger)
+            }
+        }
+        .padding(20)
+        .background(Color.surface)
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+    }
+}
+
+struct LocationMealConfirmationSheet: View {
+    let venue: String
+    let items: [MenuItem]
+    let onLog: (MenuItem) -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.55).ignoresSafeArea().onTapGesture(perform: onDismiss)
+
+            VStack(spacing: 0) {
+                Spacer()
+                VStack(alignment: .leading, spacing: 18) {
+                    Capsule()
+                        .fill(Color.textTertiary.opacity(0.4))
+                        .frame(width: 36, height: 4)
+                        .frame(maxWidth: .infinity)
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Nearby Match")
+                                .font(.system(size: 11, weight: .black))
+                                .foregroundColor(.textTertiary)
+                                .tracking(1.5)
+                            Text(venue)
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundColor(.textPrimary)
+                        }
+                        Spacer()
+                        Button(action: onDismiss) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 26))
+                                .foregroundColor(.textTertiary)
+                        }
+                    }
+
+                    Text("Select what you ate to log macros to HealthKit.")
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 10) {
+                            ForEach(items) { item in
+                                Button { onLog(item) } label: {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(item.name)
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .foregroundColor(.textPrimary)
+                                            Text("\(item.calories) cal · \(item.protein)g protein")
+                                                .font(.system(size: 12))
+                                                .foregroundColor(.textTertiary)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "plus.circle.fill")
+                                            .foregroundColor(.ember)
+                                    }
+                                    .padding(14)
+                                    .background(Color.surfaceElevated)
+                                    .cornerRadius(12)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 280)
+                }
+                .padding(22)
+                .background(Color.surface)
+                .cornerRadius(28, corners: [.topLeft, .topRight])
+            }
+        }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }
 
@@ -2145,14 +2569,16 @@ struct GoalProgressItem: View {
 // MARK: - Daily Nutrition View (Macro Rings flagship)
 
 struct DailyNutritionView: View {
+    @ObservedObject var vm: LifestyleViewModel
+
     var body: some View {
         VStack(spacing: 20) {
-            AINutritionCoachCard()
-            MacroRingsCard()
-            MealLogCard()
-            AIMealSuggestionsCard()
-            WaterIntakeCard()
-            MicronutrientsCard()
+            AINutritionCoachCard(vm: vm)
+            MacroRingsCard(vm: vm)
+            MealLogCard(vm: vm)
+            AIMealSuggestionsCard(vm: vm)
+            WaterIntakeCard(vm: vm)
+            MicronutrientsCard(vm: vm)
         }
     }
 }
@@ -2160,19 +2586,25 @@ struct DailyNutritionView: View {
 // MARK: - Macro Rings Card (concentric donut rings)
 
 struct MacroRingsCard: View {
+    @ObservedObject var vm: LifestyleViewModel
     @State private var appeared = false
 
     private struct Macro {
         let label: String; let current: Int; let target: Int
         let color: Color; let unit: String; let radius: CGFloat
     }
-    private let macros: [Macro] = [
-        Macro(label: "Carbs",   current: 220, target: 280, color: .steel,              unit: "g", radius: 92),
-        Macro(label: "Protein", current: 145, target: 180, color: .ember,              unit: "g", radius: 68),
-        Macro(label: "Fats",    current: 58,  target: 70,  color: Color(hex: "FFB84D"), unit: "g", radius: 44),
-    ]
-    private let totalCal = 2140
-    private let targetCal = 2600
+
+    private var macros: [Macro] {
+        let stats = vm.healthStats
+        return [
+            Macro(label: "Carbs", current: Int(stats?.carbs ?? 0), target: 280, color: .steel, unit: "g", radius: 92),
+            Macro(label: "Protein", current: Int(stats?.protein ?? 0), target: 180, color: .ember, unit: "g", radius: 68),
+            Macro(label: "Fats", current: Int(stats?.fat ?? 0), target: 70, color: Color(hex: "FFB84D"), unit: "g", radius: 44),
+        ]
+    }
+
+    private var totalCal: Int { vm.healthStats?.totalCalories ?? 0 }
+    private var targetCal: Int { 2600 }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -2268,17 +2700,34 @@ struct MacroRingsCard: View {
 // MARK: - AI Nutrition Coach Card (fixed sparkle animation)
 
 struct AINutritionCoachCard: View {
+    @ObservedObject var vm: LifestyleViewModel
     @State private var isAnalyzing = true
     @State private var tipIndex = 0
     @State private var sparkleScale: Double = 1.0
 
-    private let tips: [(icon: String, color: Color, headline: String, body: String)] = [
-        ("bolt.fill",       .ember,              "Protein gap — act before dinner",  "You're 35g short with one meal left. Add chicken or Greek yogurt to hit 180g."),
-        ("drop.fill",       .steel,              "Hydration is on track",             "6 of 8 glasses today. Good hydration improves protein synthesis by ~12%."),
-        ("moon.stars.fill", Color(hex: "A855F7"), "Carbs timed well",                 "Post-workout carbs were within 30 min. Glycogen replenishment is optimal."),
-    ]
+    private var tips: [(icon: String, color: Color, headline: String, body: String)] {
+        guard let stats = vm.healthStats else {
+            return [("sparkles", .ember, "Syncing nutrition data", "Connect HealthKit to unlock personalized macro coaching.")]
+        }
+        var generated: [(icon: String, color: Color, headline: String, body: String)] = []
+        let proteinGap = max(0, Int(180 - stats.protein))
+        if proteinGap > 0 {
+            generated.append(("bolt.fill", .ember, "Protein gap — act before dinner", "You're \(proteinGap)g short today. Add lean protein to your next meal to hit 180g."))
+        }
+        if stats.water < 6 {
+            generated.append(("drop.fill", .steel, "Hydration needs attention", "Only \(Int(stats.water)) of 8 glasses logged. Hydration supports recovery and energy."))
+        } else {
+            generated.append(("drop.fill", .steel, "Hydration is on track", "\(Int(stats.water)) of 8 glasses today. Keep sipping through the afternoon."))
+        }
+        if stats.sleepHours < 7 {
+            generated.append(("moon.stars.fill", Color(hex: "A855F7"), "Sleep is limiting recovery", "Last night: \(String(format: "%.1f", stats.sleepHours))h. Better sleep improves nutrient partitioning."))
+        } else {
+            generated.append(("moon.stars.fill", Color(hex: "A855F7"), "Recovery window is strong", "Sleep and activity are aligned — great day to push training intensity."))
+        }
+        return generated
+    }
 
-    var tip: (icon: String, color: Color, headline: String, body: String) { tips[tipIndex % tips.count] }
+    var tip: (icon: String, color: Color, headline: String, body: String) { tips[tipIndex % max(tips.count, 1)] }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -2384,11 +2833,12 @@ struct AINutritionCoachCard: View {
     }
 
     private var macroSnapshots: [(label: String, percent: Int, color: Color)] {
-        [
-            ("Protein", Int(Double(145) / 180 * 100), Color.ember),
-            ("Carbs", Int(Double(220) / 280 * 100), Color.steel),
-            ("Fats", Int(Double(58) / 70 * 100), Color(hex: "FFB84D")),
-            ("Cal", Int(Double(2140) / 2600 * 100), Color(hex: "A855F7")),
+        let stats = vm.healthStats
+        return [
+            ("Protein", min(Int((stats?.protein ?? 0) / 180 * 100), 100), Color.ember),
+            ("Carbs", min(Int((stats?.carbs ?? 0) / 280 * 100), 100), Color.steel),
+            ("Fats", min(Int((stats?.fat ?? 0) / 70 * 100), 100), Color(hex: "FFB84D")),
+            ("Cal", min(Int(Double(stats?.totalCalories ?? 0) / 2600 * 100), 100), Color(hex: "A855F7")),
         ]
     }
 }
@@ -2396,22 +2846,40 @@ struct AINutritionCoachCard: View {
 // MARK: - AI Meal Suggestions Card
 
 struct AIMealSuggestionsCard: View {
+    @ObservedObject var vm: LifestyleViewModel
     @State private var setIndex = 0
 
-    private let sets: [[AIMealSuggestion]] = [
-        [
-            AIMealSuggestion(name: "Grilled Chicken + Rice",  cal: 480, protein: 42, carbs: 52, fat: 8,  reason: "Fills your 35g protein gap"),
-            AIMealSuggestion(name: "Greek Yogurt Parfait",    cal: 320, protein: 28, carbs: 38, fat: 6,  reason: "Light, hits protein without blowing calories"),
-            AIMealSuggestion(name: "Tuna Avocado Bowl",       cal: 410, protein: 38, carbs: 24, fat: 18, reason: "High protein + healthy fats for recovery"),
-        ],
-        [
-            AIMealSuggestion(name: "Egg White Omelette",      cal: 290, protein: 32, carbs: 10, fat: 9,  reason: "Clean protein, minimal remaining calories"),
-            AIMealSuggestion(name: "Salmon + Sweet Potato",   cal: 520, protein: 36, carbs: 48, fat: 14, reason: "Omega-3s accelerate recovery"),
-            AIMealSuggestion(name: "Cottage Cheese & Fruit",  cal: 240, protein: 26, carbs: 28, fat: 4,  reason: "Casein protein — ideal before bed"),
-        ],
-    ]
+    private var suggestions: [AIMealSuggestion] {
+        let stats = vm.healthStats
+        let proteinGap = max(0, Int(180 - (stats?.protein ?? 0)))
+        let calRemaining = max(0, 2600 - (stats?.totalCalories ?? 0))
 
-    var suggestions: [AIMealSuggestion] { sets[setIndex % sets.count] }
+        let pool = popularRestaurants.flatMap { restaurant in
+            restaurant.items.filter(\.isHealthy).map { item in
+                AIMealSuggestion(
+                    name: "\(restaurant.name) · \(item.name)",
+                    cal: item.calories,
+                    protein: item.protein,
+                    carbs: item.carbs,
+                    fat: item.fat,
+                    reason: item.protein >= proteinGap
+                        ? "Covers your \(proteinGap)g protein gap"
+                        : "Fits your \(calRemaining) cal budget"
+                )
+            }
+        }
+        .sorted { $0.protein > $1.protein }
+
+        if pool.isEmpty {
+            return [
+                AIMealSuggestion(name: "Grilled Chicken + Rice", cal: 480, protein: 42, carbs: 52, fat: 8, reason: "High-protein recovery meal"),
+                AIMealSuggestion(name: "Greek Yogurt Parfait", cal: 320, protein: 28, carbs: 38, fat: 6, reason: "Light protein boost"),
+            ]
+        }
+
+        let start = (setIndex * 3) % pool.count
+        return Array(pool[start..<min(start + 3, pool.count)])
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -2435,7 +2903,7 @@ struct AIMealSuggestionsCard: View {
                 }
             }
 
-            Text("Based on 460 cal · 35g protein remaining")
+            Text("Based on \(max(0, 2600 - (vm.healthStats?.totalCalories ?? 0))) cal · \(max(0, Int(180 - (vm.healthStats?.protein ?? 0))))g protein remaining")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.textTertiary)
 
@@ -2518,51 +2986,59 @@ struct InlineMacroChip: View {
 // MARK: - Meal Log Card
 
 struct MealLogCard: View {
-    private let meals: [(name: String, time: String, cal: Int, icon: String)] = [
-        ("Breakfast", "7:30 AM",  520, "sunrise.fill"),
-        ("Lunch",     "12:45 PM", 680, "sun.max.fill"),
-        ("Snack",     "3:15 PM",  240, "leaf.fill"),
-        ("Dinner",    "6:30 PM",  700, "moon.fill"),
-    ]
+    @ObservedObject var vm: LifestyleViewModel
+
+    private func mealIcon(for date: Date) -> String {
+        let hour = Calendar.current.component(.hour, from: date)
+        switch hour {
+        case 5..<11: return "sunrise.fill"
+        case 11..<15: return "sun.max.fill"
+        case 15..<17: return "leaf.fill"
+        default: return "moon.fill"
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Meal Log").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
                 Spacer()
-                Button {
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus").font(.system(size: 12, weight: .bold))
-                        Text("Add").font(.system(size: 13, weight: .semibold))
-                    }
-                    .foregroundColor(.ember)
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(Color.ember.opacity(0.1))
-                    .cornerRadius(8)
-                }
+                Text("\(vm.loggedMeals.count) logged")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.textTertiary)
             }
 
-            VStack(spacing: 10) {
-                ForEach(meals, id: \.name) { meal in
-                    HStack(spacing: 14) {
-                        ZStack {
-                            Circle().fill(Color.surface).frame(width: 38, height: 38)
-                            Image(systemName: meal.icon)
-                                .font(.system(size: 15)).foregroundColor(.ember)
+            if vm.loggedMeals.isEmpty {
+                Text("No meals logged yet today. Use Quick Location Log or Restaurants to add your first meal.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.surfaceElevated)
+                    .cornerRadius(12)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(vm.loggedMeals.sorted(by: { $0.date > $1.date })) { meal in
+                        HStack(spacing: 14) {
+                            ZStack {
+                                Circle().fill(Color.surface).frame(width: 38, height: 38)
+                                Image(systemName: mealIcon(for: meal.date))
+                                    .font(.system(size: 15)).foregroundColor(.ember)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(meal.name).font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(1)
+                                Text(meal.date, format: .dateTime.hour().minute())
+                                    .font(.system(size: 12)).foregroundColor(.textTertiary)
+                            }
+                            Spacer()
+                            Text("\(Int(meal.calories)) cal")
+                                .font(.system(size: 13, weight: .medium)).foregroundColor(.textSecondary)
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 18)).foregroundColor(.success)
                         }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(meal.name).font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                            Text(meal.time).font(.system(size: 12)).foregroundColor(.textTertiary)
-                        }
-                        Spacer()
-                        Text("\(meal.cal) cal")
-                            .font(.system(size: 13, weight: .medium)).foregroundColor(.textSecondary)
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 18)).foregroundColor(.success)
+                        .padding(.horizontal, 14).padding(.vertical, 10)
+                        .background(Color.surfaceElevated).cornerRadius(12)
                     }
-                    .padding(.horizontal, 14).padding(.vertical, 10)
-                    .background(Color.surfaceElevated).cornerRadius(12)
                 }
             }
         }
@@ -2576,15 +3052,10 @@ struct MealLogCard: View {
 // MARK: - Water Intake Card (HealthKit Integration)
 
 struct WaterIntakeCard: View {
-    @EnvironmentObject var store: AppStore
-    @StateObject private var vm = LifestyleViewModel()
-    @State private var consumed: Int
+    @ObservedObject var vm: LifestyleViewModel
     let target = 8
-    
-    init() {
-        // Initialize from HealthKit data
-        _consumed = State(initialValue: 0)
-    }
+
+    private var consumed: Int { Int(vm.healthStats?.water ?? 0) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -2611,13 +3082,8 @@ struct WaterIntakeCard: View {
 
             Button {
                 guard consumed < target else { return }
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { consumed += 1 }
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                
-                // Log to HealthKit
-                Task {
-                    await vm.logWater(glasses: 1)
-                }
+                Task { await vm.logWater(glasses: 1) }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus.circle.fill").font(.system(size: 15))
@@ -2641,26 +3107,24 @@ struct WaterIntakeCard: View {
         .background(Color.surface)
         .cornerRadius(20)
         .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
-        .task {
-            // Load current water intake from HealthKit
-            if let stats = vm.healthStats {
-                consumed = Int(stats.water)
-            }
-        }
     }
 }
 
 // MARK: - Micronutrients Card (fixed: now animates on appear)
 
 struct MicronutrientsCard: View {
+    @ObservedObject var vm: LifestyleViewModel
     @State private var appeared = false
 
-    private let micros: [(label: String, current: Double, target: Double, unit: String, color: Color)] = [
-        ("Vitamin D",  800,  1000, "IU", .warning),
-        ("Omega-3",    1.2,  2.0,  "g",  .steel),
-        ("Magnesium",  320,  400,  "mg", .success),
-        ("Iron",       14,   18,   "mg", .ember),
-    ]
+    private var micros: [(label: String, current: Double, target: Double, unit: String, color: Color)] {
+        let stats = vm.healthStats
+        return [
+            ("Fiber", stats?.fiber ?? 0, 30, "g", .success),
+            ("Sugar", stats?.sugar ?? 0, 50, "g", .warning),
+            ("Sodium", stats?.sodium ?? 0, 2300, "mg", .steel),
+            ("Caffeine", stats?.caffeine ?? 0, 400, "mg", .ember),
+        ]
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -2703,6 +3167,7 @@ struct MicronutrientsCard: View {
 // MARK: - Restaurant Nutrition Database
 
 struct NutritionDatabaseView: View {
+    @ObservedObject var vm: LifestyleViewModel
     @State private var selectedCategory: RestaurantCategory = .all
     @State private var searchText = ""
     @State private var selectedRestaurant: Restaurant?
@@ -2758,7 +3223,7 @@ struct NutritionDatabaseView: View {
                 }
             }
 
-            AIBestPicksSection()
+            AIBestPicksSection(vm: vm)
 
             // Restaurant grid
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
@@ -2774,7 +3239,7 @@ struct NutritionDatabaseView: View {
             }
         }
         .sheet(item: $selectedRestaurant) { r in
-            RestaurantMenuSheet(restaurant: r)
+            RestaurantMenuSheet(restaurant: r, vm: vm)
         }
         .onAppear { appeared = true }
     }
@@ -2843,7 +3308,9 @@ private extension NutritionRating {
 
 struct RestaurantMenuSheet: View {
     let restaurant: Restaurant
+    @ObservedObject var vm: LifestyleViewModel
     @State private var sortBy: MenuSort = .calories
+    @State private var loggedItemID: UUID?
     @Environment(\.dismiss) private var dismiss
 
     enum MenuSort: String, CaseIterable {
@@ -2891,7 +3358,21 @@ struct RestaurantMenuSheet: View {
 
                     ScrollView(showsIndicators: false) {
                         LazyVStack(spacing: 12) {
-                            ForEach(sorted) { item in MenuItemCard(item: item) }
+                            ForEach(sorted) { item in
+                                MenuItemCard(item: item, isLogged: loggedItemID == item.id) {
+                                    Task {
+                                        await vm.logMeal(
+                                            name: "\(restaurant.name) - \(item.name)",
+                                            calories: Double(item.calories),
+                                            protein: Double(item.protein),
+                                            carbs: Double(item.carbs),
+                                            fat: Double(item.fat)
+                                        )
+                                        loggedItemID = item.id
+                                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                    }
+                                }
+                            }
                         }
                         .padding(.horizontal, 20).padding(.bottom, 40)
                     }
@@ -2908,6 +3389,8 @@ struct RestaurantMenuSheet: View {
 
 struct MenuItemCard: View {
     let item: MenuItem
+    var isLogged: Bool = false
+    var onLog: (() -> Void)? = nil
     @State private var appeared = false
 
     var body: some View {
@@ -2939,6 +3422,23 @@ struct MenuItemCard: View {
                 MacroChip(label: "Carb", value: "\(item.carbs)g",    color: Color(hex: "FFB84D"))
                 MacroChip(label: "Fat",  value: "\(item.fat)g",      color: Color(hex: "A855F7"))
             }
+
+            if let onLog {
+                Button(action: onLog) {
+                    HStack(spacing: 6) {
+                        Image(systemName: isLogged ? "checkmark.circle.fill" : "plus.circle.fill")
+                        Text(isLogged ? "Logged to HealthKit" : "Log Meal")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundColor(isLogged ? .success : .ember)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background((isLogged ? Color.success : Color.ember).opacity(0.12))
+                    .cornerRadius(10)
+                }
+                .buttonStyle(.plain)
+                .disabled(isLogged)
+            }
         }
         .padding(16)
         .background(Color.surface)
@@ -2968,11 +3468,28 @@ struct MacroChip: View {
 // MARK: - AI Best Picks
 
 struct AIBestPicksSection: View {
-    private let picks: [AIRestaurantPick] = [
-        AIRestaurantPick(restaurant: "Chipotle",   emoji: "🌯", item: "Chicken Bowl (no rice)", cal: 450, protein: 43, reason: "Best protein-to-calorie ratio today"),
-        AIRestaurantPick(restaurant: "Chick-fil-A", emoji: "🐔", item: "Grilled Nuggets 12pc",  cal: 200, protein: 38, reason: "Leanest option, fits your 460 cal budget"),
-        AIRestaurantPick(restaurant: "Subway",      emoji: "🥖", item: "Rotisserie Chicken 6\"", cal: 350, protein: 30, reason: "Hits protein gap with room for sides"),
-    ]
+    @ObservedObject var vm: LifestyleViewModel
+
+    private var picks: [AIRestaurantPick] {
+        let proteinGap = max(0, Int(180 - (vm.healthStats?.protein ?? 0)))
+        return popularRestaurants.flatMap { restaurant in
+            restaurant.items.filter(\.isHealthy).map { item in
+                AIRestaurantPick(
+                    restaurant: restaurant.name,
+                    emoji: restaurant.logo,
+                    item: item.name,
+                    cal: item.calories,
+                    protein: item.protein,
+                    reason: item.protein >= proteinGap
+                        ? "Best protein efficiency for your \(proteinGap)g gap"
+                        : "High protein, fits remaining calories"
+                )
+            }
+        }
+        .sorted { $0.protein > $1.protein }
+        .prefix(3)
+        .map { $0 }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -2980,7 +3497,9 @@ struct AIBestPicksSection: View {
                 Image(systemName: "sparkles").font(.system(size: 14, weight: .semibold)).foregroundColor(.ember)
                 Text("AI Best Picks for Today").font(.system(size: 15, weight: .bold)).foregroundColor(.textPrimary)
                 Spacer()
-                Text("35g protein left").font(.system(size: 11, weight: .medium)).foregroundColor(.textTertiary)
+                Text("\(max(0, Int(180 - (vm.healthStats?.protein ?? 0))))g protein left")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.textTertiary)
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -3034,27 +3553,22 @@ struct AIPickCard: View {
 // MARK: - Wellbeing View
 
 struct WellbeingView: View {
+    @ObservedObject var vm: LifestyleViewModel
+
     var body: some View {
         VStack(spacing: 20) {
             DailyHabitsCard()
-            MindfulnessCard()
-            StressManagementCard()
-            SleepOptimizationCard()
+            MindfulnessCard(vm: vm)
+            StressManagementCard(stats: vm.healthStats)
+            SleepOptimizationCard(stats: vm.healthStats, metrics: vm.metrics)
         }
     }
 }
 
 struct DailyHabitsCard: View {
-    @State private var habits: [(name: String, done: Bool)] = [
-        ("Morning sunlight (10 min)", true),
-        ("Meditation (5 min)",        true),
-        ("Read (20 min)",             false),
-        ("Mobility work (10 min)",    true),
-        ("Cold shower",               false),
-        ("Journaling",                false),
-    ]
+    @State private var habits: [DailyHabit] = LifestyleWellbeingStore.loadHabits()
 
-    var completed: Int { habits.filter { $0.done }.count }
+    var completed: Int { habits.filter(\.done).count }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -3081,11 +3595,12 @@ struct DailyHabitsCard: View {
             .padding(.bottom, 4)
 
             VStack(spacing: 2) {
-                ForEach(Array(habits.enumerated()), id: \.offset) { i, habit in
+                ForEach($habits) { $habit in
                     HabitRow(name: habit.name, isDone: habit.done) {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
-                            habits[i].done.toggle()
+                            habit.done.toggle()
                         }
+                        LifestyleWellbeingStore.saveHabits(habits)
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     }
                 }
@@ -3094,7 +3609,7 @@ struct DailyHabitsCard: View {
             // Streak
             HStack(spacing: 8) {
                 Image(systemName: "flame.fill").foregroundColor(.ember)
-                Text("7-day streak").font(.system(size: 15, weight: .bold)).foregroundColor(.textPrimary)
+                Text("\(LifestyleWellbeingStore.habitStreak())-day streak").font(.system(size: 15, weight: .bold)).foregroundColor(.textPrimary)
                 Spacer()
                 Text("Keep it up 🔥").font(.system(size: 13)).foregroundColor(.textSecondary)
             }
@@ -3140,29 +3655,51 @@ struct HabitRow: View {
 }
 
 struct MindfulnessCard: View {
+    @ObservedObject var vm: LifestyleViewModel
+    @State private var isRunning = false
+    @State private var remainingSeconds = 300
+    @State private var timer: Timer?
+
+    private var todayLabel: String { "\(max(vm.mindfulMinutesToday, 0)) min" }
+    private var weekLabel: String { "\(max(vm.mindfulMinutesWeek, 0)) min" }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Mindfulness").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
 
             HStack(spacing: 0) {
                 VStack(spacing: 4) {
-                    Text("5 min").font(.system(size: 26, weight: .bold)).foregroundColor(.textPrimary)
+                    Text(todayLabel).font(.system(size: 26, weight: .bold)).foregroundColor(.textPrimary)
                     Text("Today").font(.system(size: 12, weight: .medium)).foregroundColor(.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
                 Divider().frame(height: 40).background(Color.borderColor)
                 VStack(spacing: 4) {
-                    Text("42 min").font(.system(size: 26, weight: .bold)).foregroundColor(.ember)
+                    Text(weekLabel).font(.system(size: 26, weight: .bold)).foregroundColor(.ember)
                     Text("This week").font(.system(size: 12, weight: .medium)).foregroundColor(.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
             }
             .padding(.vertical, 8)
 
-            Button {} label: {
+            if isRunning {
+                Text(timeString(remainingSeconds))
+                    .font(.system(size: 34, weight: .black, design: .rounded))
+                    .foregroundColor(.ember)
+                    .frame(maxWidth: .infinity)
+            }
+
+            Button {
+                if isRunning {
+                    stopSession(logged: remainingSeconds < 300)
+                } else {
+                    startSession()
+                }
+            } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: "play.fill").font(.system(size: 14))
-                    Text("Start Meditation").font(.system(size: 15, weight: .semibold))
+                    Image(systemName: isRunning ? "stop.fill" : "play.fill").font(.system(size: 14))
+                    Text(isRunning ? "End Session" : "Start 5-Min Meditation")
+                        .font(.system(size: 15, weight: .semibold))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -3171,6 +3708,34 @@ struct MindfulnessCard: View {
                 .shadow(color: Color.ember.opacity(0.35), radius: 10, y: 4)
             }
         }
+        .onDisappear { timer?.invalidate() }
+    }
+
+    private func startSession() {
+        remainingSeconds = 300
+        isRunning = true
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            if remainingSeconds > 0 {
+                remainingSeconds -= 1
+            } else {
+                stopSession(logged: true)
+            }
+        }
+    }
+
+    private func stopSession(logged: Bool) {
+        timer?.invalidate()
+        timer = nil
+        isRunning = false
+        guard logged else { return }
+        let minutes = max(1, Int(ceil(Double(300 - remainingSeconds) / 60.0)))
+        Task { await vm.logMindfulSession(minutes: minutes) }
+    }
+
+    private func timeString(_ seconds: Int) -> String {
+        String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
         .padding(20)
         .background(Color.surface)
         .cornerRadius(20)
@@ -3179,7 +3744,8 @@ struct MindfulnessCard: View {
 }
 
 struct StressManagementCard: View {
-    @State private var selectedLevel = 1  // 0=low, 1=medium, 2=high
+    let stats: DailyHealthStats?
+    @State private var selectedLevel = LifestyleWellbeingStore.loadStressLevel()
 
     private let levels: [(emoji: String, label: String, color: Color)] = [
         ("😌", "Low",    .success),
@@ -3187,13 +3753,27 @@ struct StressManagementCard: View {
         ("😰", "High",   .danger),
     ]
 
+    private var stressTip: String {
+        if let stats, stats.hrv > 0, stats.hrv < 40 {
+            return "HRV is \(Int(stats.hrv))ms — try 5-minute box breathing or a 10-minute walk."
+        }
+        switch selectedLevel {
+        case 0: return "Great baseline — maintain with light movement and consistent sleep."
+        case 2: return "High stress detected — prioritize recovery, hydration, and an earlier bedtime."
+        default: return "Try: 5-minute box breathing or a short walk to reset your nervous system."
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Stress Management").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
 
             HStack(spacing: 12) {
                 ForEach(Array(levels.enumerated()), id: \.offset) { i, level in
-                    Button { withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selectedLevel = i } } label: {
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selectedLevel = i }
+                        LifestyleWellbeingStore.saveStressLevel(i)
+                    } label: {
                         VStack(spacing: 8) {
                             Text(level.emoji).font(.system(size: 30))
                             Text(level.label)
@@ -3214,7 +3794,7 @@ struct StressManagementCard: View {
 
             HStack(spacing: 8) {
                 Image(systemName: "lightbulb.fill").font(.system(size: 12)).foregroundColor(.warning)
-                Text("Try: 5-minute box breathing or a short walk")
+                Text(stressTip)
                     .font(.system(size: 13)).foregroundColor(.textSecondary).italic()
             }
         }
@@ -3222,16 +3802,32 @@ struct StressManagementCard: View {
         .background(Color.surface)
         .cornerRadius(20)
         .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+        .onAppear {
+            if let stats, stats.hrv > 0 {
+                selectedLevel = stats.hrv < 35 ? 2 : stats.hrv < 50 ? 1 : 0
+            }
+        }
     }
 }
 
 struct SleepOptimizationCard: View {
-    private let tips: [(icon: String, tip: String, color: Color)] = [
-        ("moon.fill",              "Aim for bed by 10 PM tonight",  .steel),
-        ("iphone.slash",           "No screens 45 min before bed",  .warning),
-        ("thermometer.medium",     "Keep room at 65–68°F",          .success),
-        ("cup.and.saucer.fill",    "No caffeine after 2 PM",        .danger),
-    ]
+    let stats: DailyHealthStats?
+    let metrics: LifestyleMetrics
+
+    private var tips: [(icon: String, tip: String, color: Color)] {
+        let sleepGap = max(0, metrics.sleepTarget - (stats?.sleepHours ?? metrics.sleepAverage))
+        var generated: [(icon: String, tip: String, color: Color)] = [
+            ("moon.fill", "Aim for \(String(format: "%.1f", metrics.sleepTarget))h tonight (\(String(format: "%.1f", sleepGap))h to go)", .steel),
+            ("iphone.slash", "No screens 45 min before bed", .warning),
+            ("thermometer.medium", "Keep room at 65–68°F", .success),
+        ]
+        if (stats?.caffeine ?? 0) > 200 {
+            generated.append(("cup.and.saucer.fill", "Caffeine is elevated today — cut off by 2 PM", .danger))
+        } else {
+            generated.append(("cup.and.saucer.fill", "No caffeine after 2 PM", .danger))
+        }
+        return generated
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -3264,14 +3860,55 @@ struct SleepOptimizationCard: View {
 struct AIInsightsModal: View {
     @Binding var isPresented: Bool
     let recommendations: [AIRecommendation]
+    let metrics: LifestyleMetrics
+    let stats: DailyHealthStats?
 
-    private let insights: [LifestyleInsight] = [
-        LifestyleInsight(title: "Your Productivity Window", insight: "You're most productive 9 AM–12 PM. Workouts scheduled here show 14% better performance vs evening sessions.", action: "Optimize schedule", color: .ember),
-        LifestyleInsight(title: "Nutrition Consistency",    insight: "Protein targets hit 6/7 days. Carbs vary 180–320g daily — stabilizing at 250g improves training consistency.", action: "Adjust macros",     color: .steel),
-        LifestyleInsight(title: "Sleep + Training Timing",  insight: "Training after 7 PM reduces deep sleep by 22 min on average. Morning or midday is strongly recommended.", action: "Reschedule",         color: Color(hex: "A855F7")),
-        LifestyleInsight(title: "Weekly Stress Pattern",    insight: "HRV drops Monday and Thursday — correlating with work calendar density. Consider mobility work those days.", action: "Adjust weekly plan", color: .warning),
-        LifestyleInsight(title: "Recovery Optimization",    insight: "Your body responds best to 48h recovery between heavy sessions. Current 72h splits may leave gains untapped.", action: "Update split",       color: .success),
-    ]
+    private var insights: [LifestyleInsight] {
+        var items: [LifestyleInsight] = recommendations.map { rec in
+            LifestyleInsight(
+                title: rec.title,
+                insight: rec.description,
+                action: rec.category.rawValue,
+                color: rec.impact.color
+            )
+        }
+
+        items.append(LifestyleInsight(
+            title: "Quality of Life Score",
+            insight: "Your composite QOL is \(metrics.qualityOfLifeScore)/100 with physical health at \(metrics.physicalHealth) and mental wellbeing at \(metrics.mentalWellbeing).",
+            action: "View breakdown",
+            color: .ember
+        ))
+
+        if let stats {
+            if stats.steps < 8000 {
+                items.append(LifestyleInsight(
+                    title: "Movement Opportunity",
+                    insight: "You're at \(stats.steps.formatted()) steps. A 15-minute walk adds roughly 2,000 steps and improves afternoon energy.",
+                    action: "Plan walk",
+                    color: .steel
+                ))
+            }
+            if stats.sleepHours < 7.5 {
+                items.append(LifestyleInsight(
+                    title: "Sleep Debt Alert",
+                    insight: "Last night: \(String(format: "%.1f", stats.sleepHours))h. Extending sleep toward 8h improves HRV and training readiness.",
+                    action: "Set bedtime",
+                    color: Color(hex: "A855F7")
+                ))
+            }
+            if stats.hrv < 45 {
+                items.append(LifestyleInsight(
+                    title: "Recovery Priority",
+                    insight: "HRV at \(Int(stats.hrv))ms suggests elevated stress load. Favor mobility, hydration, and lower-intensity training today.",
+                    action: "Adjust intensity",
+                    color: .warning
+                ))
+            }
+        }
+
+        return items
+    }
 
     var body: some View {
         ZStack {
@@ -3422,6 +4059,47 @@ let popularRestaurants: [Restaurant] = [
         MenuItem(name: "Southwest Avocado Salad",        calories: 540, protein: 43, carbs: 32, fat: 27, serving: "1 salad",    isHealthy: true),
         MenuItem(name: "Dave's Single",                  calories: 590, protein: 30, carbs: 39, fat: 34, serving: "1 burger",   isHealthy: false),
         MenuItem(name: "10 Piece Chicken Nuggets",       calories: 450, protein: 23, carbs: 31, fat: 27, serving: "10 pieces",  isHealthy: false),
+    ], category: .burgers),
+
+    Restaurant(name: "Whataburger", logo: "🍔", items: [
+        MenuItem(name: "Whataburger (Single)", calories: 590, protein: 29, carbs: 62, fat: 27, serving: "1 burger", isHealthy: false),
+        MenuItem(name: "Grilled Chicken Sandwich", calories: 430, protein: 32, carbs: 48, fat: 12, serving: "1 sandwich", isHealthy: true),
+        MenuItem(name: "Apple & Cranberry Chicken Salad", calories: 390, protein: 34, carbs: 28, fat: 14, serving: "1 salad", isHealthy: true),
+    ], category: .burgers),
+
+    Restaurant(name: "Sweetgreen", logo: "🥗", items: [
+        MenuItem(name: "Harvest Bowl", calories: 685, protein: 31, carbs: 71, fat: 32, serving: "1 bowl", isHealthy: true),
+        MenuItem(name: "Kale Caesar", calories: 430, protein: 18, carbs: 24, fat: 30, serving: "1 salad", isHealthy: true),
+        MenuItem(name: "Chicken Pesto Parm", calories: 525, protein: 36, carbs: 42, fat: 24, serving: "1 bowl", isHealthy: true),
+    ], category: .healthy),
+
+    Restaurant(name: "Wingstop", logo: "🍗", items: [
+        MenuItem(name: "Classic Wings (6 pc)", calories: 480, protein: 42, carbs: 8, fat: 32, serving: "6 pieces", isHealthy: false),
+        MenuItem(name: "Boneless Wings (8 pc)", calories: 520, protein: 38, carbs: 32, fat: 28, serving: "8 pieces", isHealthy: false),
+        MenuItem(name: "Lemon Pepper Wings (6 pc)", calories: 500, protein: 40, carbs: 10, fat: 34, serving: "6 pieces", isHealthy: false),
+    ], category: .chicken),
+
+    Restaurant(name: "In-N-Out Burger", logo: "🍔", items: [
+        MenuItem(name: "Protein Style Burger", calories: 330, protein: 18, carbs: 11, fat: 25, serving: "1 burger", isHealthy: true),
+        MenuItem(name: "Grilled Cheese", calories: 380, protein: 15, carbs: 39, fat: 19, serving: "1 sandwich", isHealthy: false),
+        MenuItem(name: "Double-Double", calories: 670, protein: 37, carbs: 39, fat: 41, serving: "1 burger", isHealthy: false),
+    ], category: .burgers),
+
+    Restaurant(name: "Starbucks", logo: "☕️", items: [
+        MenuItem(name: "Egg White & Roasted Red Pepper Egg Bites", calories: 170, protein: 12, carbs: 11, fat: 8, serving: "2 bites", isHealthy: true),
+        MenuItem(name: "Spinach Feta Wrap", calories: 290, protein: 19, carbs: 34, fat: 10, serving: "1 wrap", isHealthy: true),
+        MenuItem(name: "Grande Latte (2% milk)", calories: 190, protein: 12, carbs: 18, fat: 7, serving: "16 oz", isHealthy: true),
+    ], category: .healthy),
+
+    Restaurant(name: "Cava", logo: "🥙", items: [
+        MenuItem(name: "Grilled Chicken Bowl", calories: 610, protein: 42, carbs: 52, fat: 24, serving: "1 bowl", isHealthy: true),
+        MenuItem(name: "Greens + Grains Bowl", calories: 520, protein: 18, carbs: 68, fat: 18, serving: "1 bowl", isHealthy: true),
+    ], category: .healthy),
+
+    Restaurant(name: "Shake Shack", logo: "🍔", items: [
+        MenuItem(name: "Lettuce Wrap ShackBurger", calories: 320, protein: 25, carbs: 6, fat: 22, serving: "1 burger", isHealthy: true),
+        MenuItem(name: "Chicken Shack", calories: 550, protein: 33, carbs: 36, fat: 31, serving: "1 sandwich", isHealthy: false),
+        MenuItem(name: "ShackBurger (Single)", calories: 530, protein: 28, carbs: 27, fat: 34, serving: "1 burger", isHealthy: false),
     ], category: .burgers),
 ]
 
