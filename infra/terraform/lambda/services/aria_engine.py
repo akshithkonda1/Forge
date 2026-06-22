@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -1271,6 +1272,7 @@ _TRUE_FLAGS = {"1", "true", "yes", "on"}
 
 # Lazily-built Bedrock gateway, shared across invocations within a warm Lambda.
 _gateway: Any = None
+_gateway_lock = threading.Lock()
 
 
 def bedrock_enabled() -> bool:
@@ -1286,11 +1288,15 @@ def _default_converse(model_id: str, system_prompt: str, user_prompt: str) -> st
     """Call Bedrock via the shared gateway. boto3 is imported lazily inside the
     gateway, so this module stays import-light and the offline path never touches it."""
     global _gateway
-    if _gateway is None:
-        from ai_router import BedrockGateway  # lazy: avoids boto3 at module load
+    gateway = _gateway
+    if gateway is None:
+        with _gateway_lock:
+            if _gateway is None:
+                from ai_router import BedrockGateway  # lazy: avoids boto3 at module load
 
-        _gateway = BedrockGateway()
-    result = _gateway.converse(
+                _gateway = BedrockGateway()
+            gateway = _gateway
+    result = gateway.converse(
         model_id=model_id,
         system_prompt=system_prompt,
         user_prompt=user_prompt,
