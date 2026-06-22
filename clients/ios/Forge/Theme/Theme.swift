@@ -3,14 +3,21 @@ import SwiftUI
 // MARK: - Color Palette
 
 extension Color {
-    // Backgrounds
-    static let forgeBackground = Color(hex: "0A0A0A")
-    static let forgeSurface = Color(hex: "141414")
-    static let forgeSurfaceElevated = Color(hex: "1A1A1A")
-    static let forgeSurfaceHover = Color(hex: "222222")
+    // Canonical tokens
+    static let background = Color(hex: "0A0A0A")
+    static let surface = Color(hex: "141414")
+    static let surfaceElevated = Color(hex: "1A1A1A")
+    static let surfaceHover = Color(hex: "222222")
+    static let borderColor = Color(hex: "2A2A2A")
+
+    // Aliases
+    static let forgeBackground = background
+    static let forgeSurface = surface
+    static let forgeSurfaceElevated = surfaceElevated
+    static let forgeSurfaceHover = surfaceHover
+    static let forgeBorder = borderColor
 
     // Borders
-    static let forgeBorder = Color(hex: "2A2A2A")
     static let forgeBorderLight = Color(hex: "333333")
 
     // Ember (Primary)

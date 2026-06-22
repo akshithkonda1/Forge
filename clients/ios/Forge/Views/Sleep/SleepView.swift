@@ -4,7 +4,8 @@ import Charts
 // MARK: - Sleep View
 
 struct SleepView: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
 
     var body: some View {
         ScrollView {
@@ -31,13 +32,17 @@ struct SleepView: View {
 // MARK: - Sleep Score Ring
 
 struct SleepScoreRing: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
+    @State private var ringProgress: Double = 0
+    @State private var displayedScore: Int = 0
+    @State private var counterStart: Date?
 
     var body: some View {
         let latest = store.sleepData.first!
         let score = latest.score
         let hours = Int(latest.totalHours)
         let minutes = Int((latest.totalHours - Double(hours)) * 60)
+        let fraction = Double(score) / 100
 
         VStack(spacing: 12) {
             ZStack {
@@ -45,25 +50,43 @@ struct SleepScoreRing: View {
                     .stroke(Color.forgeBorder, lineWidth: 10)
 
                 Circle()
-                    .trim(from: 0, to: Double(score) / 100)
+                    .trim(from: 0, to: ringProgress)
                     .stroke(
                         LinearGradient.steelGradient,
                         style: StrokeStyle(lineWidth: 10, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
                     .shadow(color: .steel.opacity(0.4), radius: 8)
-                    .animation(.spring(response: 0.8), value: score)
 
-                VStack(spacing: 2) {
-                    Text("\(score)")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                    Text("Sleep Score")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.steel)
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+                    let value: Int = {
+                        guard let start = counterStart else { return 0 }
+                        let elapsed = timeline.date.timeIntervalSince(start)
+                        let progress = min(1, elapsed / 1.0)
+                        return Int(Double(score) * progress)
+                    }()
+                    VStack(spacing: 2) {
+                        Text("\(value)")
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                        Text("Sleep Score")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.steel)
+                    }
                 }
             }
             .frame(width: 160, height: 160)
+            .onAppear {
+                ringProgress = 0
+                displayedScore = 0
+                counterStart = Date()
+                withAnimation(.easeOut(duration: 1.2).delay(0.3)) {
+                    ringProgress = fraction
+                }
+            }
+            .onDisappear {
+                counterStart = nil
+            }
 
             VStack(spacing: 2) {
                 Text("\(hours)h \(minutes)m total")
@@ -80,7 +103,7 @@ struct SleepScoreRing: View {
 // MARK: - Sleep Timeline
 
 struct SleepTimeline: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     private struct StageInfo {
         let key: String
@@ -153,7 +176,7 @@ struct SleepTimeline: View {
 // MARK: - Sleep Breakdown
 
 struct SleepBreakdown: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         let latest = store.sleepData.first!
@@ -215,7 +238,7 @@ struct SleepBreakdown: View {
 // MARK: - Recovery Trends
 
 struct RecoveryTrends: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         let chartData = Array(store.sleepData.prefix(7).reversed())
@@ -276,7 +299,7 @@ struct RecoveryTrends: View {
 // MARK: - AI Sleep Insight
 
 struct AiSleepInsight: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         CoachingBadge(

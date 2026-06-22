@@ -1,0 +1,34 @@
+# Gates the backend Python test suite (lambda handler + ARIA engine + biometrics).
+# These ~101 tests previously ran in no CI workflow. Stdlib-only (boto3 is lazy),
+# so the runner's system python3 is sufficient — no setup-python needed.
+
+name: Backend CI
+
+on:
+  push:
+    branches: ["claude/forge-fitness-frontend-TwlOQ"]
+    paths:
+      - "tests/**"
+      - "infra/terraform/lambda/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "tests/**"
+      - "infra/terraform/lambda/**"
+      - ".github/workflows/backend-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Backend unit tests (lambda + ARIA + biometrics)
+        run: python3 -m unittest discover -s tests -p "test_*.py" -v

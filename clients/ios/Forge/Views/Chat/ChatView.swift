@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Chat View
 
 struct ChatView: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
     @State private var inputText = ""
     @State private var isTyping = false
     @FocusState private var isInputFocused: Bool
@@ -25,8 +25,8 @@ struct ChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(store.chatMessages) { msg in
-                            MessageBubble(message: msg)
+                        ForEach(Array(store.chatMessages.enumerated()), id: \.element.id) { index, msg in
+                            MessageBubble(message: msg, index: index, total: store.chatMessages.count)
                         }
 
                         if isTyping {
@@ -187,18 +187,9 @@ struct ChatView: View {
         inputText = ""
         isInputFocused = false
 
-        let userMsg = ChatMessage(
-            id: "user-\(Date().timeIntervalSince1970)",
-            role: .user, content: trimmed, timestamp: Date()
-        )
-        store.addMessage(userMsg)
-
         isTyping = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             store.sendUserMessage(trimmed)
-            // Remove user msg that sendUserMessage added (we already added it)
-            // Actually sendUserMessage adds both — let's fix by just using sendUserMessage
-            // For simplicity, we just show typing then it resolves via the store
             isTyping = false
         }
     }
@@ -208,8 +199,11 @@ struct ChatView: View {
 
 struct MessageBubble: View {
     let message: ChatMessage
+    let index: Int
+    let total: Int
 
     private var isTrainer: Bool { message.role == .trainer }
+    private var staggerIndex: Int { min(4, max(0, total - 1 - index)) }
 
     var body: some View {
         HStack {
@@ -247,6 +241,18 @@ struct MessageBubble: View {
 
             if isTrainer { Spacer(minLength: 40) }
         }
+        .transition(
+            isTrainer
+            ? .asymmetric(
+                insertion: .move(edge: .leading).combined(with: .opacity).combined(with: .scale(scale: 0.94)),
+                removal: .opacity
+            )
+            : .asymmetric(
+                insertion: .move(edge: .trailing).combined(with: .opacity),
+                removal: .opacity
+            )
+        )
+        .animation(FDS.Spring.hero.delay(Double(staggerIndex) * 0.04), value: message.id)
     }
 }
 

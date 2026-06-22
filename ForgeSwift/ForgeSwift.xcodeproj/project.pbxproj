@@ -23,6 +23,10 @@
 		1ARIA0102F9FF867004091AA /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0092F9FF867004091AA /* FeedbackService.swift */; };
 		1ARIA0122F9FF867004091AA /* ContextInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0112F9FF867004091AA /* ContextInspectorView.swift */; };
 		1ARIA0142F9FF867004091AA /* ProactiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0132F9FF867004091AA /* ProactiveCardView.swift */; };
+		1ARIA0202F9FF867004091AA /* ARIAContextPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0212F9FF867004091AA /* ARIAContextPayload.swift */; };
+		1ARIA0222F9FF867004091AA /* AriaPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0232F9FF867004091AA /* AriaPermissions.swift */; };
+		1ARIA0242F9FF867004091AA /* BiometricsObserveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0252F9FF867004091AA /* BiometricsObserveService.swift */; };
+		1ARIA0262F9FF867004091AA /* Theme+Readiness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0272F9FF867004091AA /* Theme+Readiness.swift */; };
 		1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */; };
 		1E4DF71A2F9FFA70004091AA /* OnboardingDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */; };
 		1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */; };
@@ -84,6 +88,10 @@
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
 		1ARIA0112F9FF867004091AA /* ContextInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextInspectorView.swift; sourceTree = "<group>"; };
 		1ARIA0132F9FF867004091AA /* ProactiveCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProactiveCardView.swift; sourceTree = "<group>"; };
+		1ARIA0212F9FF867004091AA /* ARIAContextPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARIAContextPayload.swift; sourceTree = "<group>"; };
+		1ARIA0232F9FF867004091AA /* AriaPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPermissions.swift; sourceTree = "<group>"; };
+		1ARIA0252F9FF867004091AA /* BiometricsObserveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricsObserveService.swift; sourceTree = "<group>"; };
+		1ARIA0272F9FF867004091AA /* Theme+Readiness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Theme+Readiness.swift"; sourceTree = "<group>"; };
 		1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingHealthKitViews.swift; sourceTree = "<group>"; };
 		1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDataManager.swift; sourceTree = "<group>"; };
 		1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedDataConnectionView.swift; sourceTree = "<group>"; };
@@ -161,6 +169,8 @@
 			children = (
 				1ARIA0012F9FF867004091AA /* AriaContext.swift */,
 				1ARIA0032F9FF867004091AA /* AriaResponse.swift */,
+				1ARIA0212F9FF867004091AA /* ARIAContextPayload.swift */,
+				1ARIA0232F9FF867004091AA /* AriaPermissions.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -172,6 +182,7 @@
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
 				1ARIA0072F9FF867004091AA /* AriaContextStore.swift */,
 				1ARIA0092F9FF867004091AA /* FeedbackService.swift */,
+				1ARIA0252F9FF867004091AA /* BiometricsObserveService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -229,6 +240,7 @@
 				1E4DF72D2FA00716004091AA /* AWARD_WINNING_SUMMARY.md */,
 				1E4DF72F2FA0074B004091AA /* QUICK_START 3.md */,
 				1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */,
+				1ARIA0272F9FF867004091AA /* Theme+Readiness.swift */,
 				1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */,
 				1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */,
 				1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator 2.swift */,
@@ -354,6 +366,10 @@
 				1ARIA0102F9FF867004091AA /* FeedbackService.swift in Sources */,
 				1ARIA0122F9FF867004091AA /* ContextInspectorView.swift in Sources */,
 				1ARIA0142F9FF867004091AA /* ProactiveCardView.swift in Sources */,
+				1ARIA0202F9FF867004091AA /* ARIAContextPayload.swift in Sources */,
+				1ARIA0222F9FF867004091AA /* AriaPermissions.swift in Sources */,
+				1ARIA0242F9FF867004091AA /* BiometricsObserveService.swift in Sources */,
+				1ARIA0262F9FF867004091AA /* Theme+Readiness.swift in Sources */,
 				1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */,
 				1E4DF71E2F9FFAE1004091AA /* SmartProfileSetupView.swift in Sources */,
 				AA0001000000000000000003 /* Models.swift in Sources */,

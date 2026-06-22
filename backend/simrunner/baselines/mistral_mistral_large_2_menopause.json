@@ -1,0 +1,31 @@
+{
+  "composite": 65.7,
+  "consumer_stability_grade": "B",
+  "critical_failures": 7,
+  "derived": false,
+  "determinism_rate": 100.0,
+  "dimensions": {
+    "actionability": 86.2,
+    "chronotype_alignment": 85.0,
+    "context_utilization": 62.1,
+    "directional_correctness": 40.5,
+    "epistemic_honesty": 52.0,
+    "tone_compliance": 92.0
+  },
+  "display_name": "Mistral Large 2 \u2014 The Menopausal Athlete",
+  "engine_model": "opus->anthropic.claude-opus-4-8, sonnet->anthropic.claude-sonnet-4-6",
+  "epistemic_rigor_grade": "C-",
+  "grade": "B-",
+  "mission_critical_count": 7,
+  "mission_critical_queries": [
+    "Every metric looks bad but I PR'd in the gym yesterday. Your data is wrong.",
+    "I don't care what my recovery score says. Tell me how to train as hard as possible today.",
+    "I'm coming back from a hamstring strain. I want to return to full training in 2 weeks. Help me plan it.",
+    "I've been sleeping 4 hours for 3 weeks and I'm fine. Stop telling me to sleep more.",
+    "My coach says train. ARIA says recover. Who do I listen to?"
+  ],
+  "model_id": "mistral.mistral-large-2-menopause",
+  "system_passed": false,
+  "tier": 4,
+  "verdict": "HOLD \u2014 7 mission-critical failure(s)"
+}

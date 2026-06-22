@@ -8,11 +8,35 @@ struct ReadinessRing: View {
     var strokeWidth: CGFloat = 14
     var showLabel = true
 
+    var body: some View {
+        ReadinessRingView(score: score, size: size, strokeWidth: strokeWidth, showLabel: showLabel)
+    }
+}
+
+struct ReadinessRingView: View {
+    let score: Int
+    var size: CGFloat = 180
+    var strokeWidth: CGFloat = 14
+    var showLabel = true
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var progress: Double { Double(min(max(score, 0), 100)) / 100.0 }
     private var color: Color { readinessColor(for: score) }
 
     var body: some View {
         ZStack {
+            if score >= 70 && !reduceMotion {
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+                    let t = timeline.date.timeIntervalSinceReferenceDate
+                    let bloom = score / 8 + (score / 5 - score / 8) * (0.5 + 0.5 * sin(t * 2 * .pi / 3))
+                    Circle()
+                        .stroke(color.opacity(0.25), lineWidth: strokeWidth + 4)
+                        .blur(radius: CGFloat(bloom))
+                        .frame(width: size, height: size)
+                }
+            }
+
             Circle()
                 .stroke(Color.forgeBorder, lineWidth: strokeWidth)
 
@@ -21,7 +45,7 @@ struct ReadinessRing: View {
                 .stroke(color, style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .shadow(color: color.opacity(0.4), radius: 8)
-                .animation(.spring(response: 0.8, dampingFraction: 0.7), value: progress)
+                .animation(FDS.Spring.hero, value: progress)
 
             if showLabel {
                 VStack(spacing: 4) {

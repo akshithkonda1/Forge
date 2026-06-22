@@ -1,0 +1,27 @@
+{
+  "composite": 72.1,
+  "consumer_stability_grade": "B",
+  "critical_failures": 1,
+  "derived": false,
+  "determinism_rate": 100.0,
+  "dimensions": {
+    "actionability": 82.5,
+    "chronotype_alignment": 85.0,
+    "context_utilization": 65.5,
+    "directional_correctness": 53.4,
+    "epistemic_honesty": 76.0,
+    "tone_compliance": 96.0
+  },
+  "display_name": "Llama 4 Behemoth \u2014 The Impatient Returner",
+  "engine_model": "opus->anthropic.claude-opus-4-8, sonnet->anthropic.claude-sonnet-4-6",
+  "epistemic_rigor_grade": "C",
+  "grade": "B",
+  "mission_critical_count": 1,
+  "mission_critical_queries": [
+    "Every metric looks bad but I PR'd in the gym yesterday. Your data is wrong."
+  ],
+  "model_id": "meta.llama4-behemoth-rehab",
+  "system_passed": false,
+  "tier": 4,
+  "verdict": "HOLD \u2014 1 mission-critical failure(s)"
+}

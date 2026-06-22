@@ -49,3 +49,6 @@ infra/terraform/build/*.zip
 # xcode
 *.xcuserdata/
 *.xcuserstate
+
+# simrunner generated reports
+backend/simrunner/reports/

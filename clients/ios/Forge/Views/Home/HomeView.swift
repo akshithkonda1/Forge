@@ -3,12 +3,12 @@ import SwiftUI
 // MARK: - Home View
 
 struct HomeView: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                AIGreeting()
+                ARIAGreetingCard()
                 ReadinessSection()
                 if store.todayWorkout != nil {
                     TodayPlanCard()
@@ -23,10 +23,12 @@ struct HomeView: View {
     }
 }
 
-// MARK: - AI Greeting
+// MARK: - ARIA Greeting Card
 
-struct AIGreeting: View {
-    @Environment(AppStore.self) private var store
+struct ARIAGreetingCard: View {
+    @EnvironmentObject var store: AppStore
+    @State private var visibleCount = 0
+    @State private var typewriterTask: Task<Void, Never>?
 
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
@@ -81,13 +83,13 @@ struct AIGreeting: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.ember)
 
-                Text(greeting)
+                Text(String(greeting.prefix(min(visibleCount, 120))))
                     .font(.system(size: 14))
                     .foregroundColor(.white)
                     .lineSpacing(4)
 
                 Button {
-                    store.activeTab = .chat
+                    withAnimation(FDS.Spring.page) { store.activeTab = .chat }
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "message.fill")
@@ -110,13 +112,31 @@ struct AIGreeting: View {
                 .clipShape(RoundedRectangle(cornerRadius: 1)),
             alignment: .leading
         )
+        .onAppear {
+            typewriterTask?.cancel()
+            visibleCount = 0
+            let text = greeting
+            typewriterTask = Task {
+                let limit = min(text.count, 120)
+                for index in 0...limit {
+                    if Task.isCancelled { return }
+                    try? await Task.sleep(nanoseconds: 28_000_000)
+                    if Task.isCancelled { return }
+                    await MainActor.run { visibleCount = index }
+                }
+            }
+        }
+        .onDisappear {
+            typewriterTask?.cancel()
+            typewriterTask = nil
+        }
     }
 }
 
 // MARK: - Readiness Section
 
 struct ReadinessSection: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     private var breakdownItems: [(label: String, value: Int, inverted: Bool)] {
         let r = store.readiness
@@ -167,7 +187,7 @@ struct ReadinessSection: View {
 // MARK: - Today's Plan Card
 
 struct TodayPlanCard: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         if let workout = store.todayWorkout {
@@ -219,11 +239,11 @@ struct TodayPlanCard: View {
 
                 EmberButton(title: "Start Workout", icon: "chevron.right") {
                     store.startWorkout()
-                    store.activeTab = .workout
+                    withAnimation(FDS.Spring.page) { store.activeTab = .workout }
                 }
 
                 Button {
-                    store.activeTab = .chat
+                    withAnimation(FDS.Spring.page) { store.activeTab = .chat }
                 } label: {
                     Text("Change Plan")
                         .font(.system(size: 12, weight: .medium))
@@ -255,7 +275,7 @@ struct TodayPlanCard: View {
 // MARK: - Quick Stats
 
 struct QuickStats: View {
-    @Environment(AppStore.self) private var store
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {

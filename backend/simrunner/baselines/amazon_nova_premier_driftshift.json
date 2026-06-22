@@ -1,0 +1,25 @@
+{
+  "composite": 63.8,
+  "consumer_stability_grade": "B+",
+  "critical_failures": 0,
+  "derived": false,
+  "determinism_rate": 100.0,
+  "dimensions": {
+    "actionability": 72.5,
+    "chronotype_alignment": 85.0,
+    "context_utilization": 46.1,
+    "directional_correctness": 46.1,
+    "epistemic_honesty": 75.5,
+    "tone_compliance": 95.5
+  },
+  "display_name": "Nova Premier \u2014 The Mid-Dataset Career Shift",
+  "engine_model": "opus->anthropic.claude-opus-4-8, sonnet->anthropic.claude-sonnet-4-6",
+  "epistemic_rigor_grade": "C",
+  "grade": "C",
+  "mission_critical_count": 0,
+  "mission_critical_queries": [],
+  "model_id": "amazon.nova-premier-driftshift",
+  "system_passed": false,
+  "tier": 5,
+  "verdict": "HOLD \u2014 pass rate 0.0% < 80%"
+}

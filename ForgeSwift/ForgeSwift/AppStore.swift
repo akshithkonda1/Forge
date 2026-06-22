@@ -532,6 +532,12 @@ final class AppStore: ObservableObject {
     // Navigation
     @Published var activeTab: TabItem = .home
     @Published var pendingProfileSubTab: String? = nil
+
+    // ARIA bridge
+    @Published var ariaVoiceMode: Bool = false
+    @Published var ariaPendingChatPrompt: String? = nil
+    @Published var lastSuggestedActions: [String] = []
+    @Published var healthKitLive: Bool = false
     
     // Streak tracking
     @Published var currentStreak: Int = 7
@@ -563,12 +569,15 @@ final class AppStore: ObservableObject {
         self.aiModelAvailable = false
         #endif
         
-        // Load mock data asynchronously to avoid blocking app launch
+        AriaContextStore.shared.configure()
+
+        // Load seed data, then hydrate from HealthKit when authorized
         Task { @MainActor in
             self.chatMessages = mockChatMessages
             self.sleepData = mockSleepData
             self.workoutHistory = mockWorkoutHistory
             self.personalRecords = mockPersonalRecords
+            await self.refreshDailyData()
         }
     }
 
@@ -589,16 +598,16 @@ final class AppStore: ObservableObject {
         currentSet = 1
     }
 
-    func endWorkout() {
+    func endWorkout(completed: Bool = true) {
         isWorkoutActive = false
         currentExerciseIndex = 0
         currentSet = 1
         
         // Update streak and history
-        currentStreak += 1
+        if completed { currentStreak += 1 }
         
-        // Log workout to history (in production, this would persist to database)
-        if let workout = todayWorkout {
+        let planId = todayWorkout?.id ?? "today-workout"
+        if let workout = todayWorkout, completed {
             let history = WorkoutHistory(
                 id: UUID().uuidString,
                 date: ISO8601DateFormatter().string(from: Date()),
@@ -609,6 +618,14 @@ final class AppStore: ObservableObject {
                 intensity: workout.intensity
             )
             workoutHistory.insert(history, at: 0)
+        }
+
+        Task {
+            await FeedbackService.shared.processPlanOutcome(
+                userId: AriaContextStore.shared.context.userId,
+                planId: planId,
+                completed: completed
+            )
         }
     }
 
@@ -633,16 +650,22 @@ final class AppStore: ObservableObject {
             let aria = try await AriaService.shared.sendMessage(
                 text,
                 store: self,
-                localGenerator: responseGenerator
+                localGenerator: responseGenerator,
+                voiceMode: ariaVoiceMode
             )
+
+            lastSuggestedActions = aria.suggestedActions ?? []
 
             let trainerMessage = ChatMessage(
                 id: UUID().uuidString,
                 role: .trainer,
                 content: aria.message,
                 timestamp: Date(),
-                richCard: aria.richCard?.toRichCardData(),
-                confidence: aria.confidence
+                richCard: aria.toRichCardData(),
+                confidence: aria.confidence,
+                suggestedActions: aria.suggestedActions,
+                memoryReference: aria.memoryReference,
+                confidenceReason: aria.confidenceReason
             )
             chatMessages.append(trainerMessage)
         } catch {
@@ -690,16 +713,32 @@ final class AppStore: ObservableObject {
     // MARK: - Data Management
     
     func refreshDailyData() async {
-        // In production, this would:
-        // 1. Fetch from HealthKit
-        // 2. Fetch from backend API
-        // 3. Update local state
-        
-        // Simulate network delay
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        
-        // Trigger UI update
+        let hk = HealthKitManager.shared
+        let authorized = await hk.checkAuthorizationStatus()
+        healthKitLive = authorized
+
+        if authorized, let snapshot = await hk.fetchRecentSnapshot() {
+            updateMetrics(
+                steps: snapshot.steps,
+                activeCalories: snapshot.activeCalories,
+                hrv: snapshot.hrv.map { Int($0) },
+                restingHR: snapshot.restingHeartRate,
+                deepSleep: nil,
+                totalSleep: snapshot.sleepHours.map { Int($0 * 60) }
+            )
+            if let weight = userProfile.weight {
+                userProfile.weight = weight
+            }
+        }
+
+        let samples = BiometricsObserveService.shared.samplesFromStore(self)
+        _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
         objectWillChange.send()
+    }
+
+    func openChat(with prompt: String) {
+        ariaPendingChatPrompt = prompt
+        activeTab = .chat
     }
     
     /// Update user metrics (typically from HealthKit integration)

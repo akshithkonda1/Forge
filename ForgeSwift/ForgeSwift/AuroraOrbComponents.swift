@@ -1,334 +1,201 @@
 import SwiftUI
 
-// ============================================================
-// MARK: - Aurora Orb State
-// ============================================================
-
 enum AROrbState: Equatable {
-    case idle
-    case listening
-    case processing
-    case speaking
+    case idle, listening, processing, speaking
 }
-
-// ============================================================
-// MARK: - Aurora Orb View
-// ============================================================
 
 struct AuroraOrbView: View {
-    let state:     AROrbState
+    let state: AROrbState
     let amplitude: Float
-    let size:      CGFloat
-    
+    var mood: ARIAMood = .focused
+    var size: CGFloat = 140
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shimmerPhase: Double = 0
     @State private var rotation: Double = 0
-    @State private var wavePhase: Double = 0
-    @State private var particlePhase: Double = 0
-    
-    // Aurora color palette
-    private let auroraColors: [Color] = [
-        Color(hex: "00FFF0"), // Cyan
-        Color(hex: "00CCFF"), // Sky Blue
-        Color(hex: "0080FF"), // Deep Blue
-        Color(hex: "6000FF"), // Purple
-        Color(hex: "CC00FF"), // Magenta
-        Color(hex: "00FFAA")  // Teal
-    ]
-    
-    private var coreGradientColors: [Color] {
-        [
-            Color(hex: "00FFF0"), // Cyan
-            Color(hex: "0080FF"), // Blue
-            Color(hex: "6000FF"), // Purple
-            Color(hex: "CC00FF"), // Magenta
-            Color(hex: "FF6600"), // Orange
-            Color(hex: "00FFF0")  // Back to Cyan
-        ]
-    }
-    
-    var body: some View {
-        ZStack {
-            // Flowing Aurora Layers (background)
-            ForEach(0..<6, id: \.self) { i in
-                AuroraWaveLayer(
-                    phase: wavePhase + Double(i) * 0.5,
-                    amplitude: Double(amplitude) * (0.3 + Double(i) * 0.15),
-                    frequency: 2.0 + Double(i) * 0.3,
-                    color: auroraColors[i % auroraColors.count],
-                    blur: CGFloat(8 + i * 4)
-                )
-                .opacity(state == .idle ? 0.3 : 0.6)
-            }
-            
-            // Prismatic Core Orb
-            ZStack {
-                // Rotating gradient core
-                Circle()
-                    .fill(
-                        AngularGradient(
-                            colors: coreGradientColors,
-                            center: .center
-                        )
-                    )
-                    .frame(width: size * 0.4, height: size * 0.4)
-                    .blur(radius: 20)
-                    .rotationEffect(.degrees(rotation))
-                    .blendMode(.screen)
-                
-                // Additional glow layers
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color.white.opacity(state == .speaking ? 0.3 : 0.15),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: size * 0.25
-                        )
-                    )
-                    .frame(width: size * 0.5, height: size * 0.5)
-                    .blur(radius: 12)
-            }
-            
-            // Waveform Visualization (when listening/processing)
-            if state == .listening || state == .processing {
-                WaveformVisualization(
-                    amplitude: amplitude,
-                    barCount: 24,
-                    size: size * 0.35,
-                    color: auroraColors[0]
-                )
-            }
-            
-            // Ethereal Particle System
-            ParticleOrbitSystem(
-                phase: particlePhase,
-                particleCount: 20,
-                orbitRadius: size * 0.45,
-                colors: auroraColors,
-                isActive: state != .idle
-            )
-            
-            // State-based accent ring
-            Circle()
-                .stroke(
-                    stateColor.opacity(0.4),
-                    lineWidth: state == .speaking ? 3 : 2
-                )
-                .frame(width: size, height: size)
-                .scaleEffect(state == .listening ? 1.05 : 1.0)
-                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: state == .listening)
-        }
-        .frame(width: size, height: size)
-        .onAppear {
-            // Continuous animations
-            withAnimation(.linear(duration: 12).repeatForever(autoreverses: false)) {
-                rotation = 360
-            }
-            withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
-                wavePhase = .pi * 4
-            }
-            withAnimation(.linear(duration: 15).repeatForever(autoreverses: false)) {
-                particlePhase = .pi * 2
-            }
-        }
-    }
-    
-    private var stateColor: Color {
+
+    private var effectiveAmplitude: Double {
+        let amp = Double(amplitude)
         switch state {
-        case .idle:       return Color(hex: "00D2FF")
-        case .listening:  return Color(hex: "00FFF0")
-        case .processing: return Color(hex: "6000FF")
-        case .speaking:   return Color(hex: "00FFAA")
+        case .idle: return 0.1
+        case .listening: return max(0.35, amp)
+        case .processing: return 0.55
+        case .speaking: return max(0.65, amp)
         }
     }
-}
 
-// ============================================================
-// MARK: - Aurora Wave Layer
-// ============================================================
-
-struct AuroraWaveLayer: View {
-    let phase: Double
-    let amplitude: Double
-    let frequency: Double
-    let color: Color
-    let blur: CGFloat
-    
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-            Canvas { context, size in
-                let time = timeline.date.timeIntervalSinceReferenceDate
-                let animatedPhase = phase + time * 0.5
-                
-                var path = Path()
-                let points = 100
-                
-                for i in 0...points {
-                    let x = size.width * CGFloat(i) / CGFloat(points)
-                    let normalizedX = Double(i) / Double(points)
-                    let y = size.height / 2 + CGFloat(
-                        amplitude * sin(normalizedX * .pi * frequency + animatedPhase)
-                    )
-                    
-                    if i == 0 {
-                        path.move(to: CGPoint(x: x, y: y))
-                    } else {
-                        path.addLine(to: CGPoint(x: x, y: y))
-                    }
-                }
-                
-                context.stroke(
-                    path,
-                    with: .color(color.opacity(0.6)),
-                    lineWidth: 2
-                )
-            }
+    private var ringColor: Color {
+        switch mood {
+        case .energized, .pushed: return .ember
+        case .focused: return .steel
+        case .calm: return Color(hex: "A855F7")
         }
-        .blur(radius: blur)
-        .blendMode(.screen)
     }
-}
 
-// ============================================================
-// MARK: - Particle Orbit System
-// ============================================================
-
-struct ParticleOrbitSystem: View {
-    let phase: Double
-    let particleCount: Int
-    let orbitRadius: CGFloat
-    let colors: [Color]
-    let isActive: Bool
-    
     var body: some View {
         ZStack {
-            ForEach(0..<particleCount, id: \.self) { i in
-                let angle = Double(i) / Double(particleCount) * .pi * 2 + phase
-                let color = colors[i % colors.count]
-                let radiusVariation = orbitRadius * (0.8 + 0.4 * sin(phase * 2 + Double(i)))
-                
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                color.opacity(isActive ? 0.8 : 0.4),
-                                color.opacity(0)
-                            ],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 6
-                        )
-                    )
-                    .frame(width: 12, height: 12)
-                    .offset(
-                        x: cos(angle) * radiusVariation,
-                        y: sin(angle) * radiusVariation
-                    )
-            }
-        }
-    }
-}
+            AuroraWaveCanvas(
+                accent: mood.accentColor,
+                amplitude: effectiveAmplitude
+            )
 
-// ============================================================
-// MARK: - Waveform Visualization
-// ============================================================
+            coreOrb
 
-struct WaveformVisualization: View {
-    let amplitude: Float
-    let barCount: Int
-    let size: CGFloat
-    let color: Color
-    
-    @State private var barHeights: [CGFloat] = []
-    
-    var body: some View {
-        HStack(spacing: 3) {
-            ForEach(0..<barCount, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(
-                        LinearGradient(
-                            colors: [color, color.opacity(0.5)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .frame(
-                        width: size / CGFloat(barCount) - 3,
-                        height: barHeights.indices.contains(i) ? barHeights[i] : 4
-                    )
-            }
+            pulsingRing
+
+            outerHalo
+
+            shimmerCore
+
+            particles
         }
         .frame(width: size, height: size)
-        .onAppear {
-            generateBarHeights()
-        }
-        .onChange(of: amplitude) { _, _ in
-            generateBarHeights()
+        .rotationEffect(.degrees(state == .processing && !reduceMotion ? rotation : 0))
+        .onAppear(perform: startAnimations)
+    }
+
+    private var coreOrb: some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [
+                        Color(hex: "0D0D0D"),
+                        mood.accentColor.opacity(0.4),
+                        Color.ember.opacity(0.2)
+                    ],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: size / 2
+                )
+            )
+            .frame(width: size, height: size)
+    }
+
+    private var pulsingRing: some View {
+        let ringSize = size * (1.0 + CGFloat(effectiveAmplitude) * 0.25)
+        return Circle()
+            .stroke(
+                LinearGradient(
+                    colors: [ringColor.opacity(0.8), ringColor.opacity(0.1)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                lineWidth: 2
+            )
+            .frame(width: ringSize, height: ringSize)
+            .opacity(state == .idle ? 0.35 : 0.85)
+    }
+
+    private var outerHalo: some View {
+        Circle()
+            .stroke(ringColor.opacity(0.5), lineWidth: 1)
+            .frame(width: size * 1.8, height: size * 1.8)
+            .opacity(max(0, 0.6 - effectiveAmplitude * 0.5))
+    }
+
+    private var shimmerCore: some View {
+        Circle()
+            .fill(Color.white.opacity(0.15 + shimmerPhase * 0.2))
+            .frame(width: size * 0.18, height: size * 0.18)
+            .blur(radius: 2)
+    }
+
+    private var particles: some View {
+        ForEach(0..<8, id: \.self) { index in
+            ForgeOrbitalParticle(
+                index: index,
+                size: size,
+                amplitude: effectiveAmplitude,
+                state: state,
+                color: mood.accentColor,
+                reduceMotion: reduceMotion
+            )
         }
     }
-    
-    private func generateBarHeights() {
-        withAnimation(.easeInOut(duration: 0.15)) {
-            barHeights = (0..<barCount).map { i in
-                let baseHeight = CGFloat(amplitude) * size * 0.5
-                let variation = sin(Double(i) / Double(barCount) * .pi * 2) * 0.3 + 0.7
-                return max(4, baseHeight * CGFloat(variation))
-            }
+
+    private func startAnimations() {
+        guard !reduceMotion else { return }
+        let spinDuration = state == .processing ? 2.0 : 4.0
+        withAnimation(.linear(duration: spinDuration).repeatForever(autoreverses: false)) {
+            rotation = 360
+        }
+        withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+            shimmerPhase = 1
         }
     }
 }
 
-// ============================================================
-// MARK: - Mesh Gradient Overlay
-// ============================================================
+private struct AuroraWaveCanvas: View {
+    let accent: Color
+    let amplitude: Double
 
-struct MeshGradientOverlay: View {
-    @State private var phase: Double = 0
-    
-    private let gradientColors: [Color] = [
-        Color(hex: "00FFF0").opacity(0.15),
-        Color(hex: "0080FF").opacity(0.12),
-        Color(hex: "6000FF").opacity(0.1),
-        Color(hex: "CC00FF").opacity(0.08),
-        Color.clear
+    private static let configs: [(phase: Double, speed: Double, opacity: Double)] = [
+        (0.0, 0.8, 0.15), (0.9, 1.0, 0.22), (1.8, 1.1, 0.28),
+        (2.6, 1.2, 0.34), (3.4, 1.3, 0.40), (4.2, 1.4, 0.45)
     ]
-    
+
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-            Canvas { context, size in
-                let time = timeline.date.timeIntervalSinceReferenceDate
-                
-                // Create flowing gradient effect
-                let gradient = Gradient(colors: gradientColors)
-                
-                for y in stride(from: 0, to: size.height, by: size.height / 5) {
-                    for x in stride(from: 0, to: size.width, by: size.width / 5) {
-                        let offsetX = sin(time * 0.5 + x / 100) * 30
-                        let offsetY = cos(time * 0.3 + y / 100) * 30
-                        
-                        let rect = CGRect(
-                            x: x + offsetX,
-                            y: y + offsetY,
-                            width: size.width / 4,
-                            height: size.height / 4
-                        )
-                        
-                        context.fill(
-                            Path(ellipseIn: rect),
-                            with: .linearGradient(
-                                gradient,
-                                startPoint: CGPoint(x: rect.minX, y: rect.minY),
-                                endPoint: CGPoint(x: rect.maxX, y: rect.maxY)
-                            )
-                        )
-                    }
-                }
+            Canvas { context, canvasSize in
+                drawWaves(context: context, size: canvasSize, time: timeline.date.timeIntervalSinceReferenceDate)
             }
         }
-        .blur(radius: 40)
-        .blendMode(.screen)
-        .allowsHitTesting(false)
+    }
+
+    private func drawWaves(context: GraphicsContext, size: CGSize, time: Double) {
+        let center = CGPoint(x: size.width / 2, y: size.height / 2)
+        let radius = min(size.width, size.height) / 2
+
+        for (index, config) in Self.configs.enumerated() {
+            let waveAmp = radius * 0.08 * (1.0 + amplitude * 1.5) * (1.0 + Double(index) * 0.05)
+            var path = Path()
+            let steps = 32
+            for step in 0...steps {
+                let angle = Double(step) / Double(steps) * .pi * 2
+                let wobble = sin(angle * 3 + time * config.speed + config.phase) * waveAmp
+                let r = radius * 0.82 + wobble
+                let point = CGPoint(
+                    x: center.x + CGFloat(cos(angle) * r),
+                    y: center.y + CGFloat(sin(angle) * r)
+                )
+                if step == 0 {
+                    path.move(to: point)
+                } else {
+                    path.addLine(to: point)
+                }
+            }
+            path.closeSubpath()
+            let strokeColor = accent.opacity(config.opacity)
+            context.stroke(path, with: .color(strokeColor), lineWidth: 1.5)
+        }
+    }
+}
+
+private struct ForgeOrbitalParticle: View {
+    let index: Int
+    let size: CGFloat
+    let amplitude: Double
+    let state: AROrbState
+    let color: Color
+    let reduceMotion: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            particle(at: timeline.date.timeIntervalSinceReferenceDate)
+        }
+    }
+
+    private func particle(at time: Double) -> some View {
+        let speed = 0.4 + Double(index) * 0.08
+        let angle = time * speed + Double(index) * (.pi / 4)
+        let baseRadius = Double(size / 2) * (0.6 + Double(index % 3) * 0.1)
+        let scatter = (state == .idle && !reduceMotion) ? 0.0 : amplitude * 20.0
+        let radius = baseRadius + scatter
+        let dotSize = CGFloat(4 + index % 3)
+
+        return Circle()
+            .fill(color.opacity(0.7))
+            .frame(width: dotSize, height: dotSize)
+            .offset(x: CGFloat(cos(angle) * radius), y: CGFloat(sin(angle) * radius))
     }
 }
