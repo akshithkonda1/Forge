@@ -690,6 +690,7 @@ final class LifestyleViewModel: ObservableObject {
             mindfulMinutesWeek = Int(await mindfulWeek)
             
             await scheduleSmartReminders()
+            syncAriaContext()
             error = nil
         } catch {
             self.error = error as? LifestyleError ?? .unknownError
@@ -697,6 +698,15 @@ final class LifestyleViewModel: ObservableObject {
     }
 
     func refresh() async { await load() }
+
+    func syncAriaContext() {
+        AriaContextStore.shared.syncLifestyleSignals(
+            metrics: metrics,
+            stats: healthStats,
+            recommendations: recommendations,
+            loggedMeals: loggedMeals
+        )
+    }
     
     func logMeal(name: String, calories: Double, protein: Double, carbs: Double, fat: Double) async {
         let meal = MealLog(name: name, calories: calories, protein: protein, carbs: carbs, fat: fat)
@@ -1017,6 +1027,8 @@ struct LifestyleView: View {
         .animation(.easeInOut(duration: 0.3), value: showInsights)
         // Single load point — fixes double-call bug
         .task { await vm.load() }
+        .onChange(of: vm.metrics.qualityOfLifeScore) { _, _ in vm.syncAriaContext() }
+        .onChange(of: vm.recommendations.count) { _, _ in vm.syncAriaContext() }
         .alert("Error", isPresented: .constant(vm.error != nil), presenting: vm.error) { _ in
             Button("OK") {}
         } message: { err in Text(err.localizedDescription) }
@@ -1168,6 +1180,7 @@ struct SegmentedPillControl: View {
 // MARK: - AI Optimization Content
 
 struct AIOptimizationContent: View {
+    @EnvironmentObject var store: AppStore
     @ObservedObject var vm: LifestyleViewModel
     @ObservedObject var locationLogger: LocationMealLogger
 
@@ -1188,7 +1201,7 @@ struct AIOptimizationContent: View {
             
             MultiArcQOLCard(metrics: vm.metrics)
             AILifeAnalysisCard(metrics: vm.metrics)
-            AIRecommendationsCard(recommendations: vm.recommendations)
+            AIRecommendationsCard(recommendations: vm.recommendations, store: store)
             OptimizationGoalsCard()
             
             // NEW: Recovery & Performance
@@ -2363,7 +2376,15 @@ struct AnalysisInsightRow: View {
 
 struct AIRecommendationsCard: View {
     let recommendations: [AIRecommendation]
+    @ObservedObject var store: AppStore
     @State private var appeared = false
+
+    private var ariaPrompt: String {
+        if let top = recommendations.first {
+            return "Based on my lifestyle data, help me act on this: \(top.title). \(top.description)"
+        }
+        return "Review my lifestyle optimization metrics and suggest one high-impact change for today."
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -2382,6 +2403,23 @@ struct AIRecommendationsCard: View {
                     .background(Color.ember.opacity(0.12))
                     .cornerRadius(8)
             }
+
+            Button {
+                store.openChat(with: ariaPrompt)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                    Text("Ask ARIA to optimize")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(.ember)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(Color.ember.opacity(0.1))
+                .cornerRadius(10)
+            }
+            .buttonStyle(.plain)
 
             if recommendations.isEmpty {
                 VStack(spacing: 12) {
@@ -3708,6 +3746,10 @@ struct MindfulnessCard: View {
                 .shadow(color: Color.ember.opacity(0.35), radius: 10, y: 4)
             }
         }
+        .padding(20)
+        .background(Color.surface)
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
         .onDisappear { timer?.invalidate() }
     }
 
@@ -3715,13 +3757,15 @@ struct MindfulnessCard: View {
         remainingSeconds = 300
         isRunning = true
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+        let newTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             if remainingSeconds > 0 {
                 remainingSeconds -= 1
             } else {
                 stopSession(logged: true)
             }
         }
+        RunLoop.main.add(newTimer, forMode: .common)
+        timer = newTimer
     }
 
     private func stopSession(logged: Bool) {
@@ -3735,11 +3779,6 @@ struct MindfulnessCard: View {
 
     private func timeString(_ seconds: Int) -> String {
         String(format: "%d:%02d", seconds / 60, seconds % 60)
-    }
-        .padding(20)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
     }
 }
 
