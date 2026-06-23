@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import Charts
 import HealthKit
 import WorkoutKit
 import CoreLocation
@@ -1651,39 +1652,36 @@ struct LiveHealthDashboard: View {
                     color: .success,
                     appeared: appeared
                 )
-            }
-            
-            // Weekly Trend Sparkline
-            if !trends.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("7-Day Trends")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.textPrimary)
-                    
-                    HStack(spacing: 4) {
-                        ForEach(Array(trends.enumerated()), id: \.offset) { i, trend in
-                            let maxSteps = max(trends.map { $0.steps }.max() ?? 0, 1)
-                            let height = max(CGFloat(trend.steps), 0) / CGFloat(maxSteps) * 60
-                            
-                            VStack(spacing: 4) {
-                                Spacer()
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(LinearGradient(
-                                        colors: [Color.steel, Color.steel.opacity(0.5)],
-                                        startPoint: .top, endPoint: .bottom
-                                    ))
-                                    .frame(height: appeared ? height : 4)
-                                    .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(Double(i) * 0.05), value: appeared)
-                                
-                                Text(trend.date, format: .dateTime.weekday(.abbreviated))
-                                    .font(.system(size: 9, weight: .medium))
-                                    .foregroundColor(.textTertiary)
-                            }
-                        }
-                    }
-                    .frame(height: 80)
+
+                // Cardio fitness — surfaced from HealthKit, previously unused
+                if stats.vo2Max > 0 {
+                    HealthMetricTile(
+                        icon: "lungs.fill",
+                        label: "VO₂ Max",
+                        value: String(format: "%.0f", stats.vo2Max),
+                        target: "50",
+                        progress: stats.vo2Max / 50.0,
+                        color: Color(hex: "FF6B9D"),
+                        appeared: appeared
+                    )
                 }
-                .padding(.top, 8)
+
+                if stats.exerciseMinutes > 0 {
+                    HealthMetricTile(
+                        icon: "figure.run",
+                        label: "Exercise",
+                        value: "\(Int(stats.exerciseMinutes))m",
+                        target: "30m",
+                        progress: stats.exerciseMinutes / 30.0,
+                        color: Color(hex: "FFB84D"),
+                        appeared: appeared
+                    )
+                }
+            }
+
+            // Weekly Trend Chart (Swift Charts — interactive, multi-metric)
+            if !trends.isEmpty {
+                WeeklyTrendChart(trends: trends)
             }
         }
         .padding(22)
@@ -1698,6 +1696,106 @@ struct LiveHealthDashboard: View {
         )
         .shadow(color: .black.opacity(0.08), radius: 20, y: 8)
         .onAppear { appeared = true }
+    }
+}
+
+// MARK: - Weekly Trend Chart (Swift Charts)
+
+private enum TrendMetric: String, CaseIterable, Identifiable {
+    case steps = "Steps"
+    case activeCalories = "Active"
+    case sleep = "Sleep"
+    case hrv = "HRV"
+    var id: String { rawValue }
+
+    var color: Color {
+        switch self {
+        case .steps:          return .steel
+        case .activeCalories: return .ember
+        case .sleep:          return Color(hex: "A855F7")
+        case .hrv:            return .success
+        }
+    }
+
+    func value(_ t: WeeklyHealthTrend) -> Double {
+        switch self {
+        case .steps:          return Double(t.steps)
+        case .activeCalories: return Double(t.activeCalories)
+        case .sleep:          return t.sleepHours
+        case .hrv:            return t.avgHRV
+        }
+    }
+
+    func format(_ v: Double) -> String {
+        switch self {
+        case .steps:          return Int(v).formatted()
+        case .activeCalories: return "\(Int(v)) cal"
+        case .sleep:          return String(format: "%.1f h", v)
+        case .hrv:            return "\(Int(v)) ms"
+        }
+    }
+}
+
+/// Interactive 7-day chart replacing the old steps-only sparkline. Toggles between
+/// Steps / Active Cal / Sleep / HRV and supports tap-to-read on any day.
+struct WeeklyTrendChart: View {
+    let trends: [WeeklyHealthTrend]
+    @State private var metric: TrendMetric = .steps
+    @State private var selectedDate: Date?
+
+    private var selectedTrend: WeeklyHealthTrend? {
+        guard let selectedDate else { return nil }
+        return trends.min {
+            abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate))
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("7-Day Trends")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                Spacer()
+                if let t = selectedTrend {
+                    Text("\(t.date.formatted(.dateTime.weekday(.abbreviated))) · \(metric.format(metric.value(t)))")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(metric.color)
+                        .transition(.opacity)
+                }
+            }
+
+            Picker("Metric", selection: $metric) {
+                ForEach(TrendMetric.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+
+            Chart(trends) { t in
+                BarMark(
+                    x: .value("Day", t.date, unit: .day),
+                    y: .value(metric.rawValue, metric.value(t))
+                )
+                .foregroundStyle(metric.color.gradient)
+                .cornerRadius(5)
+                .opacity(selectedTrend == nil || selectedTrend?.id == t.id ? 1 : 0.35)
+            }
+            .chartXSelection(value: $selectedDate)
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .day)) { _ in
+                    AxisValueLabel(format: .dateTime.weekday(.narrow))
+                        .font(.system(size: 9))
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { _ in
+                    AxisGridLine()
+                    AxisValueLabel().font(.system(size: 9))
+                }
+            }
+            .frame(height: 150)
+            .animation(.easeInOut(duration: 0.25), value: metric)
+        }
+        .padding(.top, 8)
     }
 }
 
