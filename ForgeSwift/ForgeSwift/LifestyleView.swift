@@ -2,6 +2,8 @@ import SwiftUI
 import Combine
 import Charts
 import WidgetKit
+import AVFoundation
+import UIKit
 import HealthKit
 import WorkoutKit
 import CoreLocation
@@ -727,6 +729,7 @@ final class LifestyleViewModel: ObservableObject {
     // When nil, the cards render their existing local heuristic content (fallback).
     @Published var aiLifeAnalysis: String?
     @Published var aiNutritionInsight: String?
+    @Published var aiBestPicksNote: String?
     @Published var aiInsightsLive = false      // true when the last refresh came from the remote engine
     @Published var aiInsightsLoading = false
 
@@ -825,6 +828,20 @@ final class LifestyleViewModel: ObservableObject {
         \(s?.totalCalories ?? 0) kcal (target 2600), \(Int(s?.water ?? 0)) of 8 glasses water. \
         Give one specific, actionable tip for my next meal.
         """
+    }
+
+    /// Lazy ARIA coaching note for the restaurant "Best Picks" — fired only when the
+    /// Restaurants tab appears. Leaves the note nil (heuristic-only) on failure.
+    func refreshBestPicksNote(store: AppStore) async {
+        let gap = max(0, Int(180 - (healthStats?.protein ?? 0)))
+        let kcalLeft = max(0, 2600 - (healthStats?.totalCalories ?? 0))
+        let prompt = """
+        I'm picking a restaurant meal. I have about \(gap)g protein and \(kcalLeft) kcal left today. \
+        In 1-2 sentences, what should I prioritize ordering to close my protein gap without \
+        overshooting calories?
+        """
+        let resp = await store.ariaInsight(prompt: prompt)
+        aiBestPicksNote = resp.map { $0.proseSummary ?? $0.message }
     }
 
     func logMeal(name: String, calories: Double, protein: Double, carbs: Double, fat: Double) async {
@@ -3316,8 +3333,207 @@ struct InlineMacroChip: View {
 
 // MARK: - Meal Log Card
 
+// MARK: - Barcode Meal Logging
+
+/// Nutrition lookup backed by the free Open Food Facts API (no key required).
+enum FoodLookup {
+    struct Result: Identifiable {
+        let id = UUID()
+        let found: Bool
+        let name: String
+        let calories: Double
+        let protein: Double
+        let carbs: Double
+        let fat: Double
+    }
+
+    static func lookup(barcode: String) async -> Result {
+        guard let url = URL(string: "https://world.openfoodfacts.org/api/v2/product/\(barcode).json?fields=product_name,nutriments"),
+              let (data, response) = try? await URLSession.shared.data(from: url),
+              let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              (json["status"] as? Int) == 1,
+              let product = json["product"] as? [String: Any]
+        else {
+            return Result(found: false, name: "", calories: 0, protein: 0, carbs: 0, fat: 0)
+        }
+
+        let nutriments = (product["nutriments"] as? [String: Any]) ?? [:]
+        func number(_ keys: [String]) -> Double {
+            for key in keys {
+                if let v = nutriments[key] as? Double { return v }
+                if let v = nutriments[key] as? Int { return Double(v) }
+                if let s = nutriments[key] as? String, let v = Double(s) { return v }
+            }
+            return 0
+        }
+
+        let name = (product["product_name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Scanned item"
+        // Prefer per-serving values; fall back to per-100g.
+        return Result(
+            found: true,
+            name: name,
+            calories: number(["energy-kcal_serving", "energy-kcal_100g", "energy-kcal"]),
+            protein: number(["proteins_serving", "proteins_100g", "proteins"]),
+            carbs: number(["carbohydrates_serving", "carbohydrates_100g", "carbohydrates"]),
+            fat: number(["fat_serving", "fat_100g", "fat"])
+        )
+    }
+}
+
+/// Live camera barcode scanner (EAN/UPC) wrapping AVFoundation.
+struct BarcodeScannerView: UIViewControllerRepresentable {
+    var onScan: (String) -> Void
+    var onCancel: () -> Void
+
+    func makeUIViewController(context: Context) -> ScannerViewController {
+        let vc = ScannerViewController()
+        vc.onScan = onScan
+        vc.onCancel = onCancel
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: ScannerViewController, context: Context) {}
+
+    final class ScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
+        var onScan: ((String) -> Void)?
+        var onCancel: (() -> Void)?
+        private let session = AVCaptureSession()
+        private var preview: AVCaptureVideoPreviewLayer?
+        private var didScan = false
+
+        override func viewDidLoad() {
+            super.viewDidLoad()
+            view.backgroundColor = .black
+
+            guard let device = AVCaptureDevice.default(for: .video),
+                  let input = try? AVCaptureDeviceInput(device: device),
+                  session.canAddInput(input) else { return }
+            session.addInput(input)
+
+            let output = AVCaptureMetadataOutput()
+            guard session.canAddOutput(output) else { return }
+            session.addOutput(output)
+            output.setMetadataObjectsDelegate(self, queue: .main)
+            output.metadataObjectTypes = [.ean13, .ean8, .upce, .code128]
+
+            let layer = AVCaptureVideoPreviewLayer(session: session)
+            layer.videoGravity = .resizeAspectFill
+            layer.frame = view.layer.bounds
+            view.layer.addSublayer(layer)
+            preview = layer
+
+            let cancel = UIButton(type: .system)
+            cancel.setTitle("Cancel", for: .normal)
+            cancel.setTitleColor(.white, for: .normal)
+            cancel.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+            cancel.translatesAutoresizingMaskIntoConstraints = false
+            cancel.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
+            view.addSubview(cancel)
+            NSLayoutConstraint.activate([
+                cancel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+                cancel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            ])
+        }
+
+        override func viewDidLayoutSubviews() {
+            super.viewDidLayoutSubviews()
+            preview?.frame = view.layer.bounds
+        }
+
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            guard !session.isRunning else { return }
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in self?.session.startRunning() }
+        }
+
+        override func viewWillDisappear(_ animated: Bool) {
+            super.viewWillDisappear(animated)
+            if session.isRunning { session.stopRunning() }
+        }
+
+        @objc private func cancelTapped() { onCancel?() }
+
+        func metadataOutput(_ output: AVCaptureMetadataOutput,
+                            didOutput metadataObjects: [AVMetadataObject],
+                            from connection: AVCaptureConnection) {
+            guard !didScan,
+                  let object = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
+                  let code = object.stringValue else { return }
+            didScan = true
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            onScan?(code)
+        }
+    }
+}
+
+/// Confirmation shown after a barcode scan resolves (or fails) before logging.
+struct ScannedFoodConfirmSheet: View {
+    let food: FoodLookup.Result
+    var onLog: () -> Void
+    var onDismiss: () -> Void
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Capsule().fill(Color.borderColor).frame(width: 40, height: 5).padding(.top, 10)
+
+            if food.found {
+                Image(systemName: "checkmark.seal.fill").font(.system(size: 40)).foregroundColor(.success)
+                Text(food.name)
+                    .font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                    .multilineTextAlignment(.center).padding(.horizontal, 20)
+
+                HStack(spacing: 10) {
+                    macroPill("Cal", "\(Int(food.calories))", .ember)
+                    macroPill("Protein", "\(Int(food.protein))g", .steel)
+                    macroPill("Carbs", "\(Int(food.carbs))g", Color(hex: "A855F7"))
+                    macroPill("Fat", "\(Int(food.fat))g", Color(hex: "FFB84D"))
+                }
+                .padding(.horizontal, 20)
+
+                Button(action: onLog) {
+                    Text("Log Meal").font(.system(size: 16, weight: .bold)).foregroundColor(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, 14)
+                        .background(Color.ember).cornerRadius(14)
+                }
+                .padding(.horizontal, 20)
+            } else {
+                Image(systemName: "barcode.viewfinder").font(.system(size: 40)).foregroundColor(.textTertiary)
+                Text("No nutrition data found").font(.system(size: 17, weight: .semibold)).foregroundColor(.textPrimary)
+                Text("We couldn't match that barcode. Try another product or log it manually.")
+                    .font(.system(size: 13)).foregroundColor(.textSecondary)
+                    .multilineTextAlignment(.center).padding(.horizontal, 30)
+            }
+
+            Button("Close", action: onDismiss)
+                .font(.system(size: 14, weight: .semibold)).foregroundColor(.textTertiary)
+                .padding(.bottom, 16)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity)
+        .presentationDetents([.medium])
+    }
+
+    private func macroPill(_ label: String, _ value: String, _ color: Color) -> some View {
+        VStack(spacing: 3) {
+            Text(value).font(.system(size: 15, weight: .bold)).foregroundColor(color)
+            Text(label).font(.system(size: 10, weight: .semibold)).foregroundColor(.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(color.opacity(0.08))
+        .cornerRadius(10)
+    }
+}
+
+// MARK: - Meal Log Card
+
 struct MealLogCard: View {
     @ObservedObject var vm: LifestyleViewModel
+    @State private var showScanner = false
+    @State private var scanResult: FoodLookup.Result?
+    @State private var isLookingUp = false
 
     private func mealIcon(for date: Date) -> String {
         let hour = Calendar.current.component(.hour, from: date)
@@ -3337,6 +3553,21 @@ struct MealLogCard: View {
                 Text("\(vm.loggedMeals.count) logged")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.textTertiary)
+                Button { showScanner = true } label: {
+                    HStack(spacing: 5) {
+                        if isLookingUp {
+                            ProgressView().scaleEffect(0.7)
+                        } else {
+                            Image(systemName: "barcode.viewfinder").font(.system(size: 13, weight: .semibold))
+                        }
+                        Text("Scan").font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(.ember)
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(Color.ember.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                .disabled(isLookingUp)
             }
 
             if vm.loggedMeals.isEmpty {
@@ -3377,6 +3608,30 @@ struct MealLogCard: View {
         .background(Color.surface)
         .cornerRadius(20)
         .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
+        .sheet(isPresented: $showScanner) {
+            BarcodeScannerView(
+                onScan: { code in
+                    showScanner = false
+                    Task {
+                        isLookingUp = true
+                        scanResult = await FoodLookup.lookup(barcode: code)
+                        isLookingUp = false
+                    }
+                },
+                onCancel: { showScanner = false }
+            )
+            .ignoresSafeArea()
+        }
+        .sheet(item: $scanResult) { food in
+            ScannedFoodConfirmSheet(food: food) {
+                Task {
+                    await vm.logMeal(name: food.name, calories: food.calories, protein: food.protein, carbs: food.carbs, fat: food.fat)
+                    scanResult = nil
+                }
+            } onDismiss: {
+                scanResult = nil
+            }
+        }
     }
 }
 
@@ -3499,6 +3754,7 @@ struct MicronutrientsCard: View {
 
 struct NutritionDatabaseView: View {
     @ObservedObject var vm: LifestyleViewModel
+    @EnvironmentObject var store: AppStore
     @State private var selectedCategory: RestaurantCategory = .all
     @State private var searchText = ""
     @State private var selectedRestaurant: Restaurant?
@@ -3573,6 +3829,7 @@ struct NutritionDatabaseView: View {
             RestaurantMenuSheet(restaurant: r, vm: vm)
         }
         .onAppear { appeared = true }
+        .task { await vm.refreshBestPicksNote(store: store) }
     }
 }
 
@@ -3831,6 +4088,21 @@ struct AIBestPicksSection: View {
                 Text("\(max(0, Int(180 - (vm.healthStats?.protein ?? 0))))g protein left")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.textTertiary)
+            }
+
+            // Live ARIA coaching note over the protein-ranked picks (fallback: none).
+            if let note = vm.aiBestPicksNote {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.ember)
+                    Text(note)
+                        .font(.system(size: 12))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.ember.opacity(0.06))
+                .cornerRadius(10)
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
