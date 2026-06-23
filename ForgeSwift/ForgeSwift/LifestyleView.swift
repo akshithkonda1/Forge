@@ -652,7 +652,14 @@ final class LifestyleViewModel: ObservableObject {
     @Published var loggedMeals: [MealLog] = []
     @Published var mindfulMinutesToday: Int = 0
     @Published var mindfulMinutesWeek: Int = 0
-    
+
+    // Live ARIA insights — overlay real Claude/Bedrock reasoning onto the cards.
+    // When nil, the cards render their existing local heuristic content (fallback).
+    @Published var aiLifeAnalysis: String?
+    @Published var aiNutritionInsight: String?
+    @Published var aiInsightsLive = false      // true when the last refresh came from the remote engine
+    @Published var aiInsightsLoading = false
+
     private let healthManager = HealthKitManager.shared
     private let workoutManager = WorkoutPlanManager()
     private let notificationManager = SmartNotificationManager.shared
@@ -707,7 +714,47 @@ final class LifestyleViewModel: ObservableObject {
             loggedMeals: loggedMeals
         )
     }
-    
+
+    /// Overlays live Claude/Bedrock reasoning onto the heuristic cards. Best-effort:
+    /// on any failure the published fields stay nil and the cards keep rendering their
+    /// existing local content. Safe to call after `load()` / `refresh()`.
+    func refreshAIInsights(store: AppStore) async {
+        guard !aiInsightsLoading else { return }
+        aiInsightsLoading = true
+        defer { aiInsightsLoading = false }
+
+        // Make sure ARIA reasons over the latest lifestyle signals.
+        syncAriaContext()
+
+        let analysisResp = await store.ariaInsight(prompt: lifestyleAnalysisPrompt())
+        let nutritionResp = await store.ariaInsight(prompt: nutritionCoachPrompt())
+
+        aiLifeAnalysis = analysisResp.map { $0.proseSummary ?? $0.message }
+        aiNutritionInsight = nutritionResp.map { $0.proseSummary ?? $0.message }
+        // Remote engine answered (not the on-device fallback path).
+        aiInsightsLive = !AriaService.shared.isLocalFallback
+            && (analysisResp != nil || nutritionResp != nil)
+    }
+
+    private func lifestyleAnalysisPrompt() -> String {
+        let s = healthStats
+        return """
+        Analyze my lifestyle today in 2-3 sentences. QOL \(metrics.qualityOfLifeScore)/100, \
+        sleep \(String(format: "%.1f", metrics.sleepAverage))h, \(metrics.dailySteps) steps, \
+        stress \(metrics.stressLevel.rawValue), protein \(Int(s?.protein ?? 0))g, HRV \(Int(s?.hrv ?? 0))ms. \
+        What is the single highest-impact change I should make right now?
+        """
+    }
+
+    private func nutritionCoachPrompt() -> String {
+        let s = healthStats
+        return """
+        Coach my nutrition in 2-3 sentences. Today: \(Int(s?.protein ?? 0))g protein (target 180), \
+        \(s?.totalCalories ?? 0) kcal (target 2600), \(Int(s?.water ?? 0)) of 8 glasses water. \
+        Give one specific, actionable tip for my next meal.
+        """
+    }
+
     func logMeal(name: String, calories: Double, protein: Double, carbs: Double, fat: Double) async {
         let meal = MealLog(name: name, calories: calories, protein: protein, carbs: carbs, fat: fat)
         try? await healthManager.logMeal(meal)
@@ -1000,7 +1047,10 @@ struct LifestyleView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 110)
                 }
-                .refreshable { await vm.refresh() }
+                .refreshable {
+                    await vm.refresh()
+                    await vm.refreshAIInsights(store: store)
+                }
             }
 
             if showInsights {
@@ -1026,7 +1076,10 @@ struct LifestyleView: View {
         }
         .animation(.easeInOut(duration: 0.3), value: showInsights)
         // Single load point — fixes double-call bug
-        .task { await vm.load() }
+        .task {
+            await vm.load()
+            await vm.refreshAIInsights(store: store)
+        }
         .onChange(of: vm.metrics.qualityOfLifeScore) { _, _ in vm.syncAriaContext() }
         .onChange(of: vm.recommendations.count) { _, _ in vm.syncAriaContext() }
         .alert("Error", isPresented: .constant(vm.error != nil), presenting: vm.error) { _ in
@@ -1200,7 +1253,7 @@ struct AIOptimizationContent: View {
             }
             
             MultiArcQOLCard(metrics: vm.metrics)
-            AILifeAnalysisCard(metrics: vm.metrics)
+            AILifeAnalysisCard(metrics: vm.metrics, analysis: vm.aiLifeAnalysis, isLive: vm.aiInsightsLive)
             AIRecommendationsCard(recommendations: vm.recommendations, store: store)
             OptimizationGoalsCard()
             
@@ -2236,6 +2289,8 @@ struct ArcLegendItem: View {
 
 struct AILifeAnalysisCard: View {
     let metrics: LifestyleMetrics
+    var analysis: String? = nil
+    var isLive: Bool = false
     @State private var appeared = false
     @State private var expanded = false
 
@@ -2257,9 +2312,12 @@ struct AILifeAnalysisCard: View {
                         .foregroundStyle(LinearGradient.ember)
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("AI Life Analysis")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.textPrimary)
+                    HStack(spacing: 6) {
+                        Text("AI Life Analysis")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.textPrimary)
+                        if analysis != nil { liveBadge }
+                    }
                     Text("Behavioral pattern analysis")
                         .font(.system(size: 12))
                         .foregroundColor(.textTertiary)
@@ -2288,7 +2346,7 @@ struct AILifeAnalysisCard: View {
             } label: {
                 HStack {
                     Image(systemName: "arrow.right.circle.fill").font(.system(size: 14))
-                    Text("View Full Analysis").font(.system(size: 14, weight: .semibold))
+                    Text(expanded ? "Hide Full Analysis" : "View Full Analysis").font(.system(size: 14, weight: .semibold))
                     Spacer()
                     Image(systemName: "chevron.down")
                         .font(.system(size: 12, weight: .semibold))
@@ -2300,12 +2358,57 @@ struct AILifeAnalysisCard: View {
                 .background(Color.ember.opacity(0.1))
                 .cornerRadius(12)
             }
+
+            if expanded {
+                fullAnalysisSection
+                    .padding(.top, 14)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
         .padding(22)
         .background(Color.surface)
         .cornerRadius(22)
         .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
         .onAppear { appeared = true }
+    }
+
+    private var liveBadge: some View {
+        Text(isLive ? "LIVE" : "ARIA")
+            .font(.system(size: 8, weight: .black))
+            .tracking(0.5)
+            .foregroundColor(.ember)
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .background(Color.ember.opacity(0.12))
+            .cornerRadius(5)
+    }
+
+    @ViewBuilder
+    private var fullAnalysisSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles").font(.system(size: 13)).foregroundColor(.ember)
+                Text(isLive ? "ARIA's analysis" : "Summary")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+            }
+            if let analysis {
+                Text(analysis)
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("Connect ARIA to unlock a personalized breakdown of how your sleep, nutrition, movement, and stress are interacting today.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textTertiary)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.surfaceElevated)
+        .cornerRadius(14)
     }
 }
 
@@ -2739,9 +2842,12 @@ struct MacroRingsCard: View {
 
 struct AINutritionCoachCard: View {
     @ObservedObject var vm: LifestyleViewModel
-    @State private var isAnalyzing = true
     @State private var tipIndex = 0
     @State private var sparkleScale: Double = 1.0
+    @State private var appeared = false
+
+    // Live ARIA insight overrides the local heuristic tip when present.
+    private var liveInsight: String? { vm.aiNutritionInsight }
 
     private var tips: [(icon: String, color: Color, headline: String, body: String)] {
         guard let stats = vm.healthStats else {
@@ -2770,7 +2876,7 @@ struct AINutritionCoachCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             coachHeader
-            if !isAnalyzing {
+            if appeared {
                 coachInsightSection
             }
         }
@@ -2782,13 +2888,7 @@ struct AINutritionCoachCard: View {
             withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) {
                 sparkleScale = 1.25
             }
-            Task {
-                try? await Task.sleep(nanoseconds: 1_200_000_000)
-                withAnimation(.easeOut(duration: 0.4)) {
-                    isAnalyzing = false
-                    sparkleScale = 1.0
-                }
-            }
+            withAnimation(.easeOut(duration: 0.4)) { appeared = true }
         }
     }
 
@@ -2799,11 +2899,14 @@ struct AINutritionCoachCard: View {
                 Image(systemName: "sparkles")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.ember)
-                    .scaleEffect(isAnalyzing ? sparkleScale : 1.0)
+                    .scaleEffect(coachHeaderIconScale)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text("AI Nutrition Coach").font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
-                Text(isAnalyzing ? "Analyzing today's intake…" : "Insight ready")
+                HStack(spacing: 6) {
+                    Text("AI Nutrition Coach").font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
+                    if liveInsight != nil { coachBadge }
+                }
+                Text(coachSubtitle)
                     .font(.system(size: 11, weight: .medium)).foregroundColor(.textTertiary)
             }
             Spacer()
@@ -2817,8 +2920,28 @@ struct AINutritionCoachCard: View {
                     .background(Color.surfaceElevated)
                     .clipShape(Circle())
             }
+            .opacity(liveInsight == nil ? 1 : 0.4)
+            .disabled(liveInsight != nil)
         }
     }
+
+    private var coachSubtitle: String {
+        if vm.aiInsightsLoading { return "Consulting ARIA…" }
+        if liveInsight != nil { return "Live insight" }
+        return "Insight ready"
+    }
+
+    private var coachBadge: some View {
+        Text(vm.aiInsightsLive ? "LIVE" : "ARIA")
+            .font(.system(size: 8, weight: .black))
+            .tracking(0.5)
+            .foregroundColor(.ember)
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .background(Color.ember.opacity(0.12))
+            .cornerRadius(5)
+    }
+
+    private var coachHeaderIconScale: CGFloat { vm.aiInsightsLoading ? sparkleScale : 1.0 }
 
     @ViewBuilder
     private var coachInsightSection: some View {
@@ -2829,22 +2952,23 @@ struct AINutritionCoachCard: View {
 
     private var tipDetailRow: some View {
         HStack(alignment: .top, spacing: 14) {
-            Image(systemName: tip.icon)
+            Image(systemName: liveInsight != nil ? "sparkles" : tip.icon)
                 .font(.system(size: 22))
-                .foregroundColor(tip.color)
+                .foregroundColor(liveInsight != nil ? .ember : tip.color)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 5) {
-                Text(tip.headline)
+                Text(liveInsight != nil ? "ARIA's take" : tip.headline)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.textPrimary)
-                Text(tip.body)
+                Text(liveInsight ?? tip.body)
                     .font(.system(size: 13))
                     .foregroundColor(.textSecondary)
                     .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .transition(.opacity.combined(with: .move(edge: .bottom)))
-        .id(tipIndex)
+        .id(liveInsight ?? "tip-\(tipIndex)")
     }
 
     private var macroSnapshotChips: some View {
