@@ -148,7 +148,7 @@ struct ClinicalRecordsSummary: Identifiable, Codable {
 
 // MARK: - Meal Log
 
-struct MealLog: Codable {
+struct MealLog: Identifiable, Codable {
     var id = UUID()
     let name: String
     let date: Date
@@ -187,9 +187,10 @@ class HealthKitManager: ObservableObject {
     @Published var cycleSummary: CycleHealthSummary?
     @Published var clinicalSummary: ClinicalRecordsSummary?
     
-    // In-memory storage for nutrition data (could be persisted to UserDefaults or Core Data)
-    private var todayMeals: [MealLog] = []
+    @Published private(set) var loggedMeals: [MealLog] = []
     private var todayWaterIntake: Double = 0 // in ounces
+    private let mealsStorageKey = "HealthKitManager.loggedMeals"
+    private let mealsStorageDateKey = "HealthKitManager.loggedMealsDate"
     
     // Types requested by the primary onboarding flow. Keep this prompt focused and reliable.
     private let coreReadTypes: Set<HKObjectType> = [
@@ -303,10 +304,36 @@ class HealthKitManager: ObservableObject {
 
     // Expanded write types for sensitive lifestyle logging.
     private var writeTypes: Set<HKSampleType> {
-        coreWriteTypes.union([HKCategoryType(.sexualActivity)])
+        coreWriteTypes.union([
+            HKCategoryType(.sexualActivity),
+            HKCategoryType(.mindfulSession),
+        ])
     }
     
-    private init() {}
+    private init() {
+        loadPersistedMeals()
+    }
+
+    private func loadPersistedMeals() {
+        let calendar = Calendar.current
+        let savedDay = UserDefaults.standard.object(forKey: mealsStorageDateKey) as? Date
+        if let savedDay, calendar.isDateInToday(savedDay),
+           let data = UserDefaults.standard.data(forKey: mealsStorageKey),
+           let meals = try? JSONDecoder().decode([MealLog].self, from: data) {
+            loggedMeals = meals
+        } else {
+            loggedMeals = []
+            UserDefaults.standard.set(Date(), forKey: mealsStorageDateKey)
+            UserDefaults.standard.removeObject(forKey: mealsStorageKey)
+        }
+    }
+
+    private func persistMeals() {
+        UserDefaults.standard.set(Date(), forKey: mealsStorageDateKey)
+        if let data = try? JSONEncoder().encode(loggedMeals) {
+            UserDefaults.standard.set(data, forKey: mealsStorageKey)
+        }
+    }
     
     // MARK: - Authorization
     
@@ -619,10 +646,10 @@ class HealthKitManager: ObservableObject {
         )
         
         // Calculate total calories from meals
-        let loggedCalories = todayMeals.reduce(0) { $0 + Int($1.calories) }
-        let protein = todayMeals.reduce(0.0) { $0 + $1.protein } + (performanceValues.5?.protein ?? 0)
-        let carbs = todayMeals.reduce(0.0) { $0 + $1.carbs } + (performanceValues.5?.carbs ?? 0)
-        let fat = todayMeals.reduce(0.0) { $0 + $1.fat } + (performanceValues.5?.fat ?? 0)
+        let loggedCalories = loggedMeals.reduce(0) { $0 + Int($1.calories) }
+        let protein = loggedMeals.reduce(0.0) { $0 + $1.protein } + (performanceValues.5?.protein ?? 0)
+        let carbs = loggedMeals.reduce(0.0) { $0 + $1.carbs } + (performanceValues.5?.carbs ?? 0)
+        let fat = loggedMeals.reduce(0.0) { $0 + $1.fat } + (performanceValues.5?.fat ?? 0)
         
         todayStats = DailyHealthStats(
             date: Date(),
@@ -702,7 +729,8 @@ class HealthKitManager: ObservableObject {
     func logMeal(_ meal: MealLog) async throws {
         guard isAuthorized else { return }
         
-        todayMeals.append(meal)
+        loggedMeals.append(meal)
+        persistMeals()
         
         // Write to HealthKit
         let now = Date()
@@ -762,6 +790,41 @@ class HealthKitManager: ObservableObject {
         
         // Refresh today's stats
         await fetchTodayStats()
+    }
+
+    func fetchMindfulMinutes(from start: Date, to end: Date) async -> Double {
+        guard isAuthorized else { return 0 }
+        let type = HKCategoryType(.mindfulSession)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: nil
+            ) { _, samples, _ in
+                let minutes = (samples as? [HKCategorySample])?.reduce(0.0) { total, sample in
+                    total + sample.endDate.timeIntervalSince(sample.startDate) / 60.0
+                } ?? 0
+                continuation.resume(returning: minutes)
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    func logMindfulSession(minutes: Double) async throws {
+        guard isAuthorized, minutes > 0 else { return }
+        let type = HKCategoryType(.mindfulSession)
+        let end = Date()
+        let start = end.addingTimeInterval(-minutes * 60)
+        let sample = HKCategorySample(
+            type: type,
+            value: HKCategoryValue.notApplicable.rawValue,
+            start: start,
+            end: end
+        )
+        try await healthStore.save(sample)
     }
     
     func logSexualActivity(start: Date = Date(), end: Date = Date(), protectionUsed: Bool? = nil) async throws {

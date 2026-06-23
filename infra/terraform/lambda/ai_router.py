@@ -150,6 +150,9 @@ class BedrockGateway:
         self.uploads_bucket_name = uploads_bucket_name or os.getenv("UPLOADS_BUCKET_NAME")
         self._bedrock_clients: dict[tuple[float, float], Any] = {}
         self._s3_client = None
+        # boto3/botocore client construction is not thread-safe, and route() calls
+        # converse() from several worker threads at once — serialize client creation.
+        self._client_lock = threading.Lock()
 
     def converse(
         self,
@@ -205,36 +208,48 @@ class BedrockGateway:
 
     def _get_bedrock_client(self, *, request_timeout_seconds: float | None = None):
         timeout_key = self._timeout_key(request_timeout_seconds)
-        if timeout_key not in self._bedrock_clients:
-            try:
-                import boto3
-                from botocore.config import Config
-            except ModuleNotFoundError as exc:
-                raise RoutingError(
-                    500,
-                    "boto3 is required to call Amazon Bedrock from this runtime.",
-                ) from exc
+        # Fast path: an already-built client is safe to read without the lock.
+        client = self._bedrock_clients.get(timeout_key)
+        if client is not None:
+            return client
 
-            connect_timeout, read_timeout = timeout_key
-            self._bedrock_clients[timeout_key] = boto3.client(
-                "bedrock-runtime",
-                region_name=self.region_name,
-                config=Config(
-                    connect_timeout=connect_timeout,
-                    read_timeout=read_timeout,
-                    retries={"max_attempts": 1, "mode": "standard"},
-                ),
-            )
-        return self._bedrock_clients[timeout_key]
+        with self._client_lock:
+            # Re-check under the lock: another thread may have built it while we waited.
+            client = self._bedrock_clients.get(timeout_key)
+            if client is None:
+                try:
+                    import boto3
+                    from botocore.config import Config
+                except ModuleNotFoundError as exc:
+                    raise RoutingError(
+                        500,
+                        "boto3 is required to call Amazon Bedrock from this runtime.",
+                    ) from exc
+
+                connect_timeout, read_timeout = timeout_key
+                client = boto3.client(
+                    "bedrock-runtime",
+                    region_name=self.region_name,
+                    config=Config(
+                        connect_timeout=connect_timeout,
+                        read_timeout=read_timeout,
+                        retries={"max_attempts": 1, "mode": "standard"},
+                    ),
+                )
+                self._bedrock_clients[timeout_key] = client
+            return client
 
     def _get_s3_client(self):
-        if self._s3_client is None:
-            try:
-                import boto3
-            except ModuleNotFoundError as exc:
-                raise RoutingError(500, "boto3 is required to load S3 package previews.") from exc
-            self._s3_client = boto3.client("s3", region_name=self.region_name)
-        return self._s3_client
+        if self._s3_client is not None:
+            return self._s3_client
+        with self._client_lock:
+            if self._s3_client is None:
+                try:
+                    import boto3
+                except ModuleNotFoundError as exc:
+                    raise RoutingError(500, "boto3 is required to load S3 package previews.") from exc
+                self._s3_client = boto3.client("s3", region_name=self.region_name)
+            return self._s3_client
 
     @staticmethod
     def _extract_text(response: dict[str, Any]) -> str:

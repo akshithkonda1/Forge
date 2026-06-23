@@ -113,7 +113,7 @@ ForgeSwift/
 
 ## Next Steps
 
-1. Expand `CoachContextEngine` with real Bedrock/Claude reasoning
+1. ✅ Live Bedrock/Claude reasoning — `services/aria_engine.generate_response_live` overlays a real Claude (Bedrock Converse) call on the deterministic engine, opt-in via `ARIA_BEDROCK_ENABLED`, with automatic fallback to the deterministic envelope on any failure
 2. Wire `ChatView` → `AriaService` with offline fallback
 3. Ship Context Inspector + Proactive cards
 4. Connect feedback loop end-to-end

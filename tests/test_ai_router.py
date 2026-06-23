@@ -1,5 +1,7 @@
 import sys
+import threading
 import time
+import types
 import unittest
 from pathlib import Path
 
@@ -7,7 +9,7 @@ from pathlib import Path
 LAMBDA_DIR = Path(__file__).resolve().parents[1] / "infra" / "terraform" / "lambda"
 sys.path.insert(0, str(LAMBDA_DIR))
 
-from ai_router import AIRouter, MAX_PACKAGE_BYTES, RouteRequest  # noqa: E402
+from ai_router import AIRouter, BedrockGateway, MAX_PACKAGE_BYTES, RouteRequest  # noqa: E402
 
 
 class FakeGateway:
@@ -347,6 +349,84 @@ class AIRouterTests(unittest.TestCase):
             )
 
         self.assertIn("10 GB routing limit", str(context.exception))
+
+
+class _FakeBoto3:
+    """Stand-in for boto3 whose client() is slow to create, to widen the race
+    window. Counts how many clients are built per service."""
+
+    def __init__(self):
+        self.created = []
+        self._count_lock = threading.Lock()
+
+    def client(self, service, region_name=None, config=None):
+        time.sleep(0.02)  # widen the window so an unlocked getter would double-create
+        with self._count_lock:
+            self.created.append(service)
+        return object()  # a unique sentinel per creation
+
+
+class BedrockGatewayConcurrencyTests(unittest.TestCase):
+    """route() calls converse() from many worker threads at once; the gateway's
+    lazy client construction must be a thread-safe singleton, not a data race."""
+
+    def setUp(self):
+        self._saved = {name: sys.modules.get(name) for name in ("boto3", "botocore", "botocore.config")}
+        self.fake_boto3 = _FakeBoto3()
+        botocore = types.ModuleType("botocore")
+        botocore_config = types.ModuleType("botocore.config")
+        botocore_config.Config = lambda **kwargs: kwargs
+        botocore.config = botocore_config
+        sys.modules["boto3"] = self.fake_boto3
+        sys.modules["botocore"] = botocore
+        sys.modules["botocore.config"] = botocore_config
+
+    def tearDown(self):
+        for name, module in self._saved.items():
+            if module is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = module
+
+    def _hammer(self, fn):
+        results, errors, barrier = [], [], threading.Barrier(16)
+
+        def worker():
+            barrier.wait()  # release all threads at once to maximize contention
+            try:
+                results.append(fn())
+            except Exception as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        threads = [threading.Thread(target=worker) for _ in range(16)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        return results, errors
+
+    def test_bedrock_client_is_built_once_under_concurrency(self):
+        gateway = BedrockGateway(region_name="us-east-1")
+        results, errors = self._hammer(lambda: gateway._get_bedrock_client(request_timeout_seconds=None))
+
+        self.assertEqual(errors, [])
+        self.assertEqual(self.fake_boto3.created.count("bedrock-runtime"), 1)  # exactly one client built
+        self.assertEqual(len(set(map(id, results))), 1)  # every thread got the same instance
+
+    def test_s3_client_is_built_once_under_concurrency(self):
+        gateway = BedrockGateway(region_name="us-east-1", uploads_bucket_name="bucket")
+        results, errors = self._hammer(gateway._get_s3_client)
+
+        self.assertEqual(errors, [])
+        self.assertEqual(self.fake_boto3.created.count("s3"), 1)
+        self.assertEqual(len(set(map(id, results))), 1)
+
+    def test_distinct_timeouts_build_distinct_bedrock_clients(self):
+        gateway = BedrockGateway(region_name="us-east-1")
+        a = gateway._get_bedrock_client(request_timeout_seconds=None)
+        b = gateway._get_bedrock_client(request_timeout_seconds=1.0)
+        self.assertIsNot(a, b)
+        self.assertEqual(self.fake_boto3.created.count("bedrock-runtime"), 2)
 
 
 if __name__ == "__main__":

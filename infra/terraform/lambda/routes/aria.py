@@ -32,9 +32,8 @@ def handle_post_ai_chat(body: dict[str, Any]) -> dict:
     voice_mode = _voice_mode(body)
     context = aria_engine.ARIAContext.from_payload(body)
     permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
-    response = aria_engine.generate_response(
-        message, context, permissions=permissions, voice_mode=voice_mode
-    )
+    reason = aria_engine.generate_response_live if aria_engine.bedrock_enabled() else aria_engine.generate_response
+    response = reason(message, context, permissions=permissions, voice_mode=voice_mode)
 
     # Stateful layer: persist the relationship and surface any relevant memory.
     # Memory draws on the lifestyle domain, so it is gated by that permission.

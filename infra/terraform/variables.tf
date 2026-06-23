@@ -65,6 +65,12 @@ variable "enable_point_in_time_recovery" {
   default     = true
 }
 
+variable "aria_bedrock_enabled" {
+  description = "Turn on ARIA's live Claude (Bedrock) reasoning path behind POST /ai/chat. When false, the endpoint serves the deterministic engine. The live path also falls back to deterministic on any Bedrock error."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Additional tags applied to all resources."
   type        = map(string)

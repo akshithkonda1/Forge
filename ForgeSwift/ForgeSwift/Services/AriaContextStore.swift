@@ -132,12 +132,15 @@ final class AriaContextStore: ObservableObject {
                 bodyFatPct: nil,
                 vo2Max: nil
             ),
-            nutrition: .init(
-                caloriesIn3DayAvg: nil,
-                proteinG3DayAvg: nil,
-                hydrationMl3DayAvg: nil,
-                calorieTarget: nil
-            ),
+            nutrition: {
+                let today = HealthKitManager.shared.todayStats
+                return ARIAContextPayload.NutritionDomain(
+                    caloriesIn3DayAvg: today.map { Double($0.totalCalories) },
+                    proteinG3DayAvg: today.map { $0.protein },
+                    hydrationMl3DayAvg: today.map { $0.water * 240 },
+                    calorieTarget: 2600
+                )
+            }(),
             profile: .init(
                 primaryGoal: store.userProfile.fitnessGoals.first?.rawValue,
                 experienceLevel: store.userProfile.experienceLevel.rawValue,
@@ -210,6 +213,43 @@ final class AriaContextStore: ObservableObject {
         if let goals { context.currentGoals = goals }
         if let constraints { context.constraints = constraints }
         if let lifestyleTags { context.lifestyleTags = lifestyleTags }
+        context.lastUpdated = Date()
+        persist()
+    }
+
+    /// Pushes live Lifestyle tab signals into ARIA's living context for Bedrock prompts.
+    func syncLifestyleSignals(
+        metrics: LifestyleMetrics,
+        stats: DailyHealthStats?,
+        recommendations: [AIRecommendation],
+        loggedMeals: [MealLog]
+    ) {
+        var tags: [String] = [
+            "qol:\(metrics.qualityOfLifeScore)",
+            "stress:\(metrics.stressLevel.rawValue.lowercased())",
+            "nutrition_score:\(metrics.nutritionScore)",
+            "sleep_quality:\(metrics.sleepQuality)",
+        ]
+
+        if let stats {
+            tags.append("protein:\(Int(stats.protein))g")
+            tags.append("steps:\(stats.steps)")
+            tags.append("hydration:\(Int(stats.water))/8")
+            if stats.hrv > 0, stats.hrv < 40 { tags.append("recovery:low") }
+            if stats.protein < 120 { tags.append("protein:deficit") }
+            if stats.sleepHours < 7 { tags.append("sleep:deficit") }
+            if stats.steps < 6000 { tags.append("movement:low") }
+        }
+        if !loggedMeals.isEmpty {
+            tags.append("meals_logged:\(loggedMeals.count)")
+        }
+
+        var patterns = context.recentPatterns.filter { !$0.hasPrefix("lifestyle:") }
+        for rec in recommendations.prefix(3) {
+            patterns.append("lifestyle:\(rec.title)")
+        }
+        context.recentPatterns = Array(patterns.suffix(10))
+        context.lifestyleTags = Array(Set(tags)).sorted()
         context.lastUpdated = Date()
         persist()
     }

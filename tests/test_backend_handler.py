@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -9,6 +10,7 @@ sys.path.insert(0, str(LAMBDA_DIR))
 
 from handler import handler  # noqa: E402
 from routes import coach as coach_routes  # noqa: E402
+from services import aria_engine  # noqa: E402
 from services import scoring  # noqa: E402
 from storage import dynamodb as dynamodb_store  # noqa: E402
 
@@ -266,6 +268,58 @@ class CoachRouteTests(unittest.TestCase):
         self.assertIn("recovery", payload["message"].lower())
         self.assertIsInstance(payload["suggested_actions"], list)
         self.assertEqual(payload["context_updates"]["relationship_level"], 2)
+
+    def test_aria_chat_uses_live_bedrock_when_enabled(self):
+        original_flag = os.environ.get("ARIA_BEDROCK_ENABLED")
+        original_converse = aria_engine._default_converse
+        os.environ["ARIA_BEDROCK_ENABLED"] = "1"
+        aria_engine._default_converse = lambda model_id, system_prompt, user_prompt: json.dumps({
+            "prose_summary": "Live read: recovery 48 is low — keep it easy today.",
+            "response_type": "recommendation",
+            "confidence": 0.66,
+        })
+        try:
+            response = handler(
+                event(
+                    "POST",
+                    "/ai/chat",
+                    {
+                        "user_id": "aria-live-user",
+                        "message": "should I train today?",
+                        "recent_metrics": {"readiness": 48},
+                    },
+                ),
+                None,
+            )
+        finally:
+            aria_engine._default_converse = original_converse
+            if original_flag is None:
+                os.environ.pop("ARIA_BEDROCK_ENABLED", None)
+            else:
+                os.environ["ARIA_BEDROCK_ENABLED"] = original_flag
+
+        self.assertEqual(response["statusCode"], 200)
+        payload = body(response)
+        self.assertEqual(payload["reasoning_source"], "bedrock")
+        self.assertIn("Live read", payload["message"])
+        self.assertEqual(payload["model"], "anthropic.claude-opus-4-8")
+
+    def test_aria_chat_falls_back_when_bedrock_disabled(self):
+        response = handler(
+            event(
+                "POST",
+                "/ai/chat",
+                {
+                    "user_id": "aria-default-user",
+                    "message": "should I train today?",
+                    "recent_metrics": {"readiness": 48},
+                },
+            ),
+            None,
+        )
+        self.assertEqual(response["statusCode"], 200)
+        # Default/offline path is the deterministic engine — no reasoning_source key.
+        self.assertNotIn("reasoning_source", body(response))
 
     def test_aria_feedback_reaction_bumps_relationship(self):
         handler(
