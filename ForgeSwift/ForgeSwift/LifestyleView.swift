@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import Charts
+import WidgetKit
 import HealthKit
 import WorkoutKit
 import CoreLocation
@@ -180,8 +181,40 @@ final class SmartNotificationManager: ObservableObject {
         
         let trigger = UNCalendarNotificationTrigger(dateMatching: earlyTime, repeats: true)
         let request = UNNotificationRequest(identifier: "sleep-\(UUID())", content: content, trigger: trigger)
-        
+
         try? await UNUserNotificationCenter.current().add(request)
+    }
+
+    /// Replaces any prior recommendation notifications with the current top
+    /// high-impact picks. Non-repeating — each load reschedules from fresh data,
+    /// so the user is never nudged about a recommendation that no longer applies.
+    func scheduleRecommendationReminders(_ recommendations: [AIRecommendation]) async {
+        let center = UNUserNotificationCenter.current()
+
+        // Clear stale recommendation notifications so we never stack duplicates.
+        let pending = await center.pendingNotificationRequests()
+        let staleIDs = pending.map(\.identifier).filter { $0.hasPrefix("recommendation-") }
+        if !staleIDs.isEmpty {
+            center.removePendingNotificationRequests(withIdentifiers: staleIDs)
+        }
+
+        // Nudge the top high-impact recommendations, spaced a couple hours out.
+        let picks = Array(recommendations.filter { $0.impact == .high }.prefix(2))
+        for (i, rec) in picks.enumerated() {
+            let content = UNMutableNotificationContent()
+            content.title = "⚡️ \(rec.title)"
+            content.body = rec.description
+            content.sound = .default
+
+            let delay = TimeInterval((i + 1) * 2 * 3600)  // 2h, then 4h
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
+            let request = UNNotificationRequest(
+                identifier: "recommendation-\(rec.id.uuidString)",
+                content: content,
+                trigger: trigger
+            )
+            try? await center.add(request)
+        }
     }
 }
 
@@ -194,6 +227,42 @@ struct SmartReminder: Identifiable {
 
 enum ReminderType {
     case hydration, meal, sleep, workout, supplement
+}
+
+// MARK: - Widget Bridge (shared snapshot for the Home Screen widget)
+
+/// Snapshot the Lifestyle Home Screen widget reads from the shared App Group.
+/// Lives in the app target (so it compiles in CI); the widget extension — added
+/// separately in Xcode — decodes the same struct from the same suite + key.
+struct LifestyleWidgetSnapshot: Codable {
+    var qol: Int
+    var topTitle: String?
+    var topCategory: String?
+    var updatedAt: Date
+}
+
+enum LifestyleWidgetBridge {
+    /// Must match the App Group capability on BOTH the app and widget targets.
+    static let appGroup = "group.com.forge.ForgeSwift"
+    static let kind = "LifestyleWidget"
+    static let snapshotKey = "lifestyle.widget.snapshot"
+
+    /// Persists the latest QOL + top recommendation and pokes the widget to reload.
+    /// Safe before the App Group is configured: writes fall back to a private
+    /// domain and the reload is a no-op when no widget is installed.
+    static func update(metrics: LifestyleMetrics, recommendations: [AIRecommendation]) {
+        let top = recommendations.first
+        let snapshot = LifestyleWidgetSnapshot(
+            qol: metrics.qualityOfLifeScore,
+            topTitle: top?.title,
+            topCategory: top?.category.rawValue,
+            updatedAt: Date()
+        )
+        guard let defaults = UserDefaults(suiteName: appGroup),
+              let data = try? JSONEncoder().encode(snapshot) else { return }
+        defaults.set(data, forKey: snapshotKey)
+        WidgetCenter.shared.reloadTimelines(ofKind: kind)
+    }
 }
 
 // MARK: - Domain Models
@@ -698,6 +767,7 @@ final class LifestyleViewModel: ObservableObject {
             mindfulMinutesWeek = Int(await mindfulWeek)
             
             await scheduleSmartReminders()
+            await notificationManager.scheduleRecommendationReminders(recommendations)
             syncAriaContext()
             error = nil
         } catch {
@@ -714,6 +784,7 @@ final class LifestyleViewModel: ObservableObject {
             recommendations: recommendations,
             loggedMeals: loggedMeals
         )
+        LifestyleWidgetBridge.update(metrics: metrics, recommendations: recommendations)
     }
 
     /// Overlays live Claude/Bedrock reasoning onto the heuristic cards. Best-effort:
