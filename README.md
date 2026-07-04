@@ -301,7 +301,7 @@ Contributions are very welcome — especially in:
 - New health platform adapters
 - SimRunner archetype expansion or scoring refinements
 - iOS UI/UX polish and animations
-- Backend normalization / biometrics logic
+- Backend normalization/biometrics logic
 - Documentation and tests
 
 **Workflow**
@@ -316,8 +316,7 @@ See existing high-quality docs in `ForgeSwift/ForgeSwift/` and `backend/simrunne
 
 ## License
 
-MIT — see [LICENSE](LICENSE) (to be added if missing).
-
+Forge is a proprietary product. That said, Forge's technology can be used to inspire, not imitate. Imitations are not encouraged and will be prosecuted if it can be proved in a court of law that a component of the product was stolen or copied under a similar name. In short, Forge can be used as inspiration, not as a rebranded product. 
 ---
 
 ## Acknowledgments
@@ -330,7 +329,7 @@ MIT — see [LICENSE](LICENSE) (to be added if missing).
 
 <div align="center">
 
-**Forge** is being built with obsession for people who take their health seriously.
+**Forge** is being built with an obsession for people who take their health seriously.
 
 *Forge yourself.*
 
