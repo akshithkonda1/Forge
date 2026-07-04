@@ -112,6 +112,12 @@ struct WeeklyHealthTrend: Identifiable, Codable {
     let avgHRV: Double
 }
 
+struct MindfulDay: Identifiable, Codable {
+    var id = UUID()
+    let date: Date
+    let minutes: Double
+}
+
 // MARK: - Cycle Health Summary
 
 struct CycleHealthSummary: Identifiable, Codable {
@@ -184,6 +190,7 @@ class HealthKitManager: ObservableObject {
     // Published health data for real-time updates
     @Published var todayStats: DailyHealthStats?
     @Published var weeklyTrends: [WeeklyHealthTrend] = []
+    @Published var mindfulTrend: [MindfulDay] = []
     @Published var cycleSummary: CycleHealthSummary?
     @Published var clinicalSummary: ClinicalRecordsSummary?
     
@@ -723,7 +730,26 @@ class HealthKitManager: ObservableObject {
         
         weeklyTrends = trends.reversed() // Oldest first
     }
-    
+
+    /// Per-day mindful minutes for the last 7 days (oldest first).
+    func fetchMindfulTrend() async {
+        guard isAuthorized else {
+            mindfulTrend = []
+            return
+        }
+
+        let calendar = Calendar.current
+        var days: [MindfulDay] = []
+        for dayOffset in 0..<7 {
+            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) else { continue }
+            let startOfDay = calendar.startOfDay(for: date)
+            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
+            let minutes = await fetchMindfulMinutes(from: startOfDay, to: endOfDay)
+            days.append(MindfulDay(date: startOfDay, minutes: minutes))
+        }
+        mindfulTrend = days.reversed()
+    }
+
     // MARK: - Nutrition Logging
     
     func logMeal(_ meal: MealLog) async throws {

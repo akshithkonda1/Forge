@@ -649,12 +649,19 @@ struct DailyHabit: Identifiable, Codable, Equatable {
     var done: Bool
 }
 
+struct QOLDay: Identifiable, Codable {
+    var id = UUID()
+    let date: Date
+    let score: Int
+}
+
 @MainActor
 enum LifestyleWellbeingStore {
     private static let habitsKey = "lifestyle.dailyHabits"
     private static let streakKey = "lifestyle.habitStreak"
     private static let stressKey = "lifestyle.stressLevel"
     private static let habitsDateKey = "lifestyle.habitsDate"
+    private static let qolHistoryKey = "lifestyle.qolHistory"
 
     static let defaultHabits: [DailyHabit] = [
         DailyHabit(id: UUID(), name: "Morning sunlight (10 min)", done: false),
@@ -686,6 +693,27 @@ enum LifestyleWellbeingStore {
 
     static func habitStreak() -> Int {
         max(UserDefaults.standard.integer(forKey: streakKey), 1)
+    }
+
+    /// Records today's QOL score (one entry per day; last 30 days kept) and
+    /// returns the updated history, oldest first.
+    @discardableResult
+    static func recordQOL(_ score: Int) -> [QOLDay] {
+        let today = Calendar.current.startOfDay(for: Date())
+        var history = loadQOLHistory().filter { !Calendar.current.isDate($0.date, inSameDayAs: today) }
+        history.append(QOLDay(date: today, score: score))
+        history.sort { $0.date < $1.date }
+        if history.count > 30 { history = Array(history.suffix(30)) }
+        if let data = try? JSONEncoder().encode(history) {
+            UserDefaults.standard.set(data, forKey: qolHistoryKey)
+        }
+        return history
+    }
+
+    static func loadQOLHistory() -> [QOLDay] {
+        guard let data = UserDefaults.standard.data(forKey: qolHistoryKey),
+              let history = try? JSONDecoder().decode([QOLDay].self, from: data) else { return [] }
+        return history
     }
 
     private static func updateStreakIfNeeded(_ habits: [DailyHabit]) {
@@ -720,6 +748,8 @@ final class LifestyleViewModel: ObservableObject {
     // Real-time health data
     @Published var healthStats: DailyHealthStats?
     @Published var weeklyTrends: [WeeklyHealthTrend] = []
+    @Published var mindfulTrend: [MindfulDay] = []
+    @Published var qolHistory: [QOLDay] = []
     @Published var aiWorkouts: [AIWorkoutSuggestion] = []
     @Published var loggedMeals: [MealLog] = []
     @Published var mindfulMinutesToday: Int = 0
@@ -730,6 +760,7 @@ final class LifestyleViewModel: ObservableObject {
     @Published var aiLifeAnalysis: String?
     @Published var aiNutritionInsight: String?
     @Published var aiBestPicksNote: String?
+    @Published var aiMealNote: String?
     @Published var aiInsightsLive = false      // true when the last refresh came from the remote engine
     @Published var aiInsightsLoading = false
 
@@ -750,8 +781,10 @@ final class LifestyleViewModel: ObservableObject {
 
             await healthManager.fetchTodayStats()
             await healthManager.fetchWeeklyTrends()
+            await healthManager.fetchMindfulTrend()
             healthStats = healthManager.todayStats
             weeklyTrends = healthManager.weeklyTrends
+            mindfulTrend = healthManager.mindfulTrend
             loggedMeals = healthManager.loggedMeals
 
             let now = Date()
@@ -768,7 +801,8 @@ final class LifestyleViewModel: ObservableObject {
             aiWorkouts = await ai
             mindfulMinutesToday = Int(await mindfulToday)
             mindfulMinutesWeek = Int(await mindfulWeek)
-            
+            qolHistory = LifestyleWellbeingStore.recordQOL(metrics.qualityOfLifeScore)
+
             await scheduleSmartReminders()
             await notificationManager.scheduleRecommendationReminders(recommendations)
             syncAriaContext()
@@ -842,6 +876,19 @@ final class LifestyleViewModel: ObservableObject {
         """
         let resp = await store.ariaInsight(prompt: prompt)
         aiBestPicksNote = resp.map { $0.proseSummary ?? $0.message }
+    }
+
+    /// Lazy ARIA dish suggestion for the Nutrition tab's meal-suggestions card.
+    /// Distinct from the macro coach tip; nil → heuristic rows only.
+    func refreshMealNote(store: AppStore) async {
+        let gap = max(0, Int(180 - (healthStats?.protein ?? 0)))
+        let kcalLeft = max(0, 2600 - (healthStats?.totalCalories ?? 0))
+        let prompt = """
+        Suggest one specific dish or meal to eat next, in a single sentence, to help me close \
+        a \(gap)g protein gap within \(kcalLeft) kcal remaining today.
+        """
+        let resp = await store.ariaInsight(prompt: prompt)
+        aiMealNote = resp.map { $0.proseSummary ?? $0.message }
     }
 
     func logMeal(name: String, calories: Double, protein: Double, carbs: Double, fat: Double) async {
@@ -1147,7 +1194,9 @@ struct LifestyleView: View {
                     isPresented: $showInsights,
                     recommendations: vm.recommendations,
                     metrics: vm.metrics,
-                    stats: vm.healthStats
+                    stats: vm.healthStats,
+                    summary: vm.aiLifeAnalysis,
+                    isLive: vm.aiInsightsLive
                 )
                     .zIndex(10)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -1342,9 +1391,10 @@ struct AIOptimizationContent: View {
             }
             
             MultiArcQOLCard(metrics: vm.metrics)
+            QOLTrendCard(history: vm.qolHistory)
             AILifeAnalysisCard(metrics: vm.metrics, analysis: vm.aiLifeAnalysis, isLive: vm.aiInsightsLive)
             AIRecommendationsCard(recommendations: vm.recommendations, store: store)
-            OptimizationGoalsCard()
+            OptimizationGoalsCard(vm: vm)
             
             // NEW: Recovery & Performance
             if let stats = vm.healthStats {
@@ -2807,14 +2857,32 @@ struct RecommendationCard: View {
 // MARK: - Optimization Goals Card (fixed animate-on-appear)
 
 struct OptimizationGoalsCard: View {
+    @ObservedObject var vm: LifestyleViewModel
     @State private var appeared = false
 
-    private let goals: [(title: String, progress: Double, current: String, target: String, color: Color)] = [
-        ("Deep sleep → 90+ min", 0.75, "82 min avg", "90 min",   Color(hex: "A855F7")),
-        ("Reduce stress markers", 0.60, "Medium",     "Low",      .warning),
-        ("Daily protein 180g",    0.85, "150g avg",   "180g",     .ember),
-        ("Morning routine 7/7",   0.50, "3/7 days",   "7/7 days", .steel),
-    ]
+    // Derived from live HealthKit data (was a hardcoded array).
+    private var goals: [(title: String, progress: Double, current: String, target: String, color: Color)] {
+        let m = vm.metrics
+        let protein = Int(vm.healthStats?.protein ?? 0)
+        let mindfulWeek = vm.mindfulMinutesWeek
+        let stressProgress: Double = {
+            switch m.stressLevel {
+            case .low: return 1.0
+            case .medium: return 0.6
+            case .high: return 0.3
+            }
+        }()
+        return [
+            ("Sleep → 8h", min(m.sleepAverage / 8.0, 1.0),
+             String(format: "%.1fh avg", m.sleepAverage), "8h", Color(hex: "A855F7")),
+            ("Lower stress", stressProgress,
+             m.stressLevel.rawValue, "Low", .warning),
+            ("Daily protein 180g", min(Double(protein) / 180.0, 1.0),
+             "\(protein)g", "180g", .ember),
+            ("Mindfulness 70 min/wk", min(Double(mindfulWeek) / 70.0, 1.0),
+             "\(mindfulWeek) min", "70 min", .steel),
+        ]
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -2897,6 +2965,7 @@ struct GoalProgressItem: View {
 
 struct DailyNutritionView: View {
     @ObservedObject var vm: LifestyleViewModel
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         VStack(spacing: 20) {
@@ -2907,6 +2976,7 @@ struct DailyNutritionView: View {
             WaterIntakeCard(vm: vm)
             MicronutrientsCard(vm: vm)
         }
+        .task { await vm.refreshMealNote(store: store) }
     }
 }
 
@@ -3254,6 +3324,20 @@ struct AIMealSuggestionsCard: View {
             Text("Based on \(max(0, 2600 - (vm.healthStats?.totalCalories ?? 0))) cal · \(max(0, Int(180 - (vm.healthStats?.protein ?? 0))))g protein remaining")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.textTertiary)
+
+            if let note = vm.aiMealNote {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.steel)
+                    Text(note)
+                        .font(.system(size: 12))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.steel.opacity(0.08))
+                .cornerRadius(10)
+            }
 
             VStack(spacing: 10) {
                 ForEach(suggestions) { suggestion in
@@ -4162,9 +4246,136 @@ struct WellbeingView: View {
         VStack(spacing: 20) {
             DailyHabitsCard()
             MindfulnessCard(vm: vm)
+            MindfulTrendCard(trend: vm.mindfulTrend)
             StressManagementCard(stats: vm.healthStats)
             SleepOptimizationCard(stats: vm.healthStats, metrics: vm.metrics)
         }
+    }
+}
+
+// MARK: - Mindful Minutes Trend (Swift Charts)
+
+struct MindfulTrendCard: View {
+    let trend: [MindfulDay]
+
+    private var total: Int { Int(trend.reduce(0) { $0 + $1.minutes }) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "brain.head.profile")
+                        .font(.system(size: 16)).foregroundColor(Color(hex: "A855F7"))
+                    Text("Mindful Minutes").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                }
+                Spacer()
+                Text("\(total) min this week")
+                    .font(.system(size: 12, weight: .semibold)).foregroundColor(.textTertiary)
+            }
+
+            if trend.isEmpty || trend.allSatisfy({ $0.minutes == 0 }) {
+                Text("No mindful sessions logged this week. Even 5 minutes a day supports recovery.")
+                    .font(.system(size: 13)).foregroundColor(.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+            } else {
+                Chart(trend) { day in
+                    BarMark(
+                        x: .value("Day", day.date, unit: .day),
+                        y: .value("Minutes", day.minutes)
+                    )
+                    .foregroundStyle(Color(hex: "A855F7").gradient)
+                    .cornerRadius(4)
+                }
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .day)) { _ in
+                        AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.system(size: 9))
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks(position: .leading) { _ in
+                        AxisGridLine()
+                        AxisValueLabel().font(.system(size: 9))
+                    }
+                }
+                .frame(height: 120)
+            }
+        }
+        .padding(20)
+        .background(Color.surface)
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
+    }
+}
+
+// MARK: - QOL Trend (Swift Charts)
+
+struct QOLTrendCard: View {
+    let history: [QOLDay]
+
+    private var recent: [QOLDay] { Array(history.suffix(30)) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 16)).foregroundColor(.ember)
+                    Text("Quality of Life Trend")
+                        .font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                }
+                Spacer()
+                if let last = recent.last {
+                    Text("\(last.score)/100")
+                        .font(.system(size: 12, weight: .semibold)).foregroundColor(.ember)
+                }
+            }
+
+            if recent.count < 2 {
+                Text("Your QOL trend appears after a couple of days of tracking.")
+                    .font(.system(size: 13)).foregroundColor(.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+            } else {
+                Chart(recent) { day in
+                    AreaMark(
+                        x: .value("Day", day.date, unit: .day),
+                        y: .value("QOL", day.score)
+                    )
+                    .foregroundStyle(LinearGradient(
+                        colors: [Color.ember.opacity(0.25), Color.ember.opacity(0.02)],
+                        startPoint: .top, endPoint: .bottom
+                    ))
+                    .interpolationMethod(.catmullRom)
+
+                    LineMark(
+                        x: .value("Day", day.date, unit: .day),
+                        y: .value("QOL", day.score)
+                    )
+                    .foregroundStyle(Color.ember)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5))
+                    .interpolationMethod(.catmullRom)
+                }
+                .chartYScale(domain: 0...100)
+                .chartYAxis {
+                    AxisMarks(position: .leading, values: [0, 50, 100]) { _ in
+                        AxisGridLine()
+                        AxisValueLabel().font(.system(size: 9))
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                            .font(.system(size: 9))
+                    }
+                }
+                .frame(height: 140)
+            }
+        }
+        .padding(20)
+        .background(Color.surface)
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
     }
 }
 
@@ -4466,6 +4677,8 @@ struct AIInsightsModal: View {
     let recommendations: [AIRecommendation]
     let metrics: LifestyleMetrics
     let stats: DailyHealthStats?
+    var summary: String? = nil       // live ARIA narrative (nil → heuristic list only)
+    var isLive: Bool = false
 
     private var insights: [LifestyleInsight] {
         var items: [LifestyleInsight] = recommendations.map { rec in
@@ -4541,6 +4754,9 @@ struct AIInsightsModal: View {
 
                     ScrollView(showsIndicators: false) {
                         LazyVStack(spacing: 14) {
+                            if let summary {
+                                ariaBanner(summary)
+                            }
                             ForEach(insights) { insight in
                                 AIInsightCard(insight: insight)
                             }
@@ -4553,6 +4769,31 @@ struct AIInsightsModal: View {
                 .cornerRadius(28, corners: [.topLeft, .topRight])
             }
         }
+    }
+
+    @ViewBuilder
+    private func ariaBanner(_ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles").font(.system(size: 13)).foregroundColor(.ember)
+                Text(isLive ? "ARIA · LIVE" : "ARIA")
+                    .font(.system(size: 11, weight: .bold)).tracking(0.5).foregroundColor(.ember)
+                Spacer()
+            }
+            Text(text)
+                .font(.system(size: 14))
+                .foregroundColor(.textPrimary)
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(colors: [Color.ember.opacity(0.12), Color.ember.opacity(0.04)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+        )
+        .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.ember.opacity(0.25), lineWidth: 1))
     }
 
     private func dismiss() {
