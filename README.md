@@ -288,7 +288,7 @@ Full documentation: [`backend/simrunner/README.md`](backend/simrunner/README.md)
 - [ ] Adaptive training plans
 - [ ] Deeper trend/anomaly detection
 - [ ] Expanded SimRunner archetypes + prompt A/B testing in CI
-- [ ] Apple Watch companion (future)
+- [x] Apple Watch companion — **v1 underway**: `ForgeWatch` watchOS 10 target with context-aware Mindfulness Coach (breathing orb + haptic guidance + on-device suggestion engine), readiness/sleep/mindfulness complications, and a shared `ForgeCore` Swift package. See `ForgeSwift/WATCH_APP_IMPLEMENTATION_PLAN.md`.
 
 ### Phase 5 — Growth
 - Android native improvements, social features, export APIs, etc.

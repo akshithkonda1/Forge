@@ -406,7 +406,7 @@ Energy = (SleepScore * 0.4) + (NutritionScore * 0.3) + (ActivityScore * 0.3)
 ## 🎯 Future Enhancements
 
 ### Phase 2 Features:
-- [ ] Apple Watch companion app
+- [x] Apple Watch companion app — **in progress**: ForgeWatch target shipped with Home shell (readiness orb + ARIA greeting), Mindfulness Coach MVP (BreathingOrb + haptics + context-aware suggestions + Mindful Minutes logging), 3 complications, and the shared ForgeCore package. See `ForgeSwift/WATCH_APP_IMPLEMENTATION_PLAN.md` for phase status (workout coordinator + sleep intelligence next).
 - [ ] Live Activities for workouts
 - [ ] Widgets for quick stats
 - [ ] SharePlay for group challenges
