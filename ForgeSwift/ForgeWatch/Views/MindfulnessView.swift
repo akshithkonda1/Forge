@@ -201,6 +201,10 @@ struct MindfulnessView: View {
             selectedDuration = rec.duration
         }
     }
+
+    private func durationLabel(_ duration: TimeInterval) -> String {
+        duration < 120 ? "\(Int(duration))s" : "\(Int(duration / 60)) min"
+    }
 }
 
 // MARK: - Active session
