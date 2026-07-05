@@ -26,7 +26,8 @@ final class WatchHealthKitManager {
     private(set) var authorizationFailed = false
 
     private(set) var readiness: ReadinessScore?
-    private(set) var sleepSummary: ForgeHealthQueries.SleepSummary?
+    private(set) var sleepSummary: SleepNight?
+    private(set) var recentNights: [SleepNight] = []
     private(set) var hrvRecentMs: Double?
     private(set) var hrvTrendMs: Double?
     private(set) var mindfulMinutesToday: Double = 0
@@ -84,8 +85,10 @@ final class WatchHealthKitManager {
         async let rhrBase = ForgeHealthQueries.restingHRBaseline(store: store)
         async let mindful = ForgeHealthQueries.mindfulMinutes(store: store, since: Calendar.current.startOfDay(for: Date()))
         async let workout = ForgeHealthQueries.lastWorkout(store: store)
+        async let nights = ForgeHealthQueries.recentSleepNights(store: store)
 
         sleepSummary = await sleep
+        recentNights = await nights
         let latest = await hrvLatest
         hrvRecentMs = latest?.value
         hrvTrendMs = await hrvDelta

@@ -39,6 +39,9 @@ public struct WatchARIAContext: Codable, Sendable, Equatable {
     public var mindfulMinutesToday: Double?
     public var sessionsCompletedToday: Int?
 
+    // One-tap sleep factors the user logged for last night / today.
+    public var sleepFactors: [SleepFactor]?
+
     public init(timestamp: Date = Date()) {
         self.timestamp = timestamp
     }

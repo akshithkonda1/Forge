@@ -28,6 +28,8 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
     /// Present only while a workout session is running (drives the
     /// ActiveWorkoutComplication). Optional so old snapshots still decode.
     public var activeWorkout: WorkoutLiveState?
+    /// Tonight's suggested wind-down start (SleepQualityComplication line).
+    public var tonightWindDown: Date?
     public var updatedAt: Date
 
     public init(updatedAt: Date = Date()) {

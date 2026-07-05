@@ -90,18 +90,9 @@ public enum ForgeHealthQueries {
         return samples.map { $0.quantity.doubleValue(for: unit) }.mean
     }
 
-    public struct SleepSummary: Sendable {
-        public var totalMinutes: Double
-        public var deepMinutes: Double
-        public var remMinutes: Double
-        public var coreMinutes: Double
-        public var awakeMinutes: Double
-        public var start: Date?
-        public var end: Date?
-    }
-
-    /// Aggregates last night's sleep stages (18:00 yesterday → now).
-    public static func lastNightSleep(store: HKHealthStore) async -> SleepSummary? {
+    /// Last night's sleep (18:00 yesterday → now) with per-stage segments
+    /// for the timeline visual. Aggregation lives in SleepNight (pure).
+    public static func lastNightSleep(store: HKHealthStore) async -> SleepNight? {
         let calendar = Calendar.current
         let now = Date()
         guard let yesterdayEvening = calendar.date(
@@ -109,8 +100,23 @@ public enum ForgeHealthQueries {
             of: calendar.date(byAdding: .day, value: -1, to: now) ?? now
         ) else { return nil }
 
+        let segments = await sleepSegments(store: store, from: yesterdayEvening, to: now)
+        guard !segments.isEmpty else { return nil }
+        let night = SleepNight(segments: segments)
+        return night.totalMinutes > 0 ? night : nil
+    }
+
+    /// Recent nights (for the wind-down predictor: onsets + durations).
+    public static func recentSleepNights(store: HKHealthStore, days: Int = 7) async -> [SleepNight] {
+        let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let segments = await sleepSegments(store: store, from: start, to: Date())
+        return SleepNight.groupIntoNights(segments: segments)
+            .filter { $0.totalMinutes > 0 }
+    }
+
+    private static func sleepSegments(store: HKHealthStore, from start: Date, to end: Date) async -> [SleepStageSegment] {
         let type = HKCategoryType(.sleepAnalysis)
-        let predicate = HKQuery.predicateForSamples(withStart: yesterdayEvening, end: now)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
         let samples: [HKCategorySample] = await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: type, predicate: predicate,
@@ -121,30 +127,17 @@ public enum ForgeHealthQueries {
             }
             store.execute(query)
         }
-        guard !samples.isEmpty else { return nil }
-
-        var summary = SleepSummary(totalMinutes: 0, deepMinutes: 0, remMinutes: 0, coreMinutes: 0, awakeMinutes: 0, start: nil, end: nil)
-        for sample in samples {
-            let minutes = sample.endDate.timeIntervalSince(sample.startDate) / 60
+        return samples.compactMap { sample in
+            let stage: SleepStage?
             switch HKCategoryValueSleepAnalysis(rawValue: sample.value) {
-            case .asleepDeep:
-                summary.deepMinutes += minutes
-                summary.totalMinutes += minutes
-            case .asleepREM:
-                summary.remMinutes += minutes
-                summary.totalMinutes += minutes
-            case .asleepCore, .asleepUnspecified:
-                summary.coreMinutes += minutes
-                summary.totalMinutes += minutes
-            case .awake:
-                summary.awakeMinutes += minutes
-            default:
-                continue
+            case .asleepDeep:                     stage = .deep
+            case .asleepREM:                      stage = .rem
+            case .asleepCore, .asleepUnspecified: stage = .core
+            case .awake:                          stage = .awake
+            default:                              stage = nil // inBed etc. — not stages
             }
-            if summary.start == nil { summary.start = sample.startDate }
-            summary.end = max(summary.end ?? sample.endDate, sample.endDate)
+            return stage.map { SleepStageSegment(start: sample.startDate, end: sample.endDate, stage: $0) }
         }
-        return summary.totalMinutes > 0 ? summary : nil
     }
 
     public static func mindfulMinutes(store: HKHealthStore, since start: Date) async -> Double {

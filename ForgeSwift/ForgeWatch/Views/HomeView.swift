@@ -219,13 +219,11 @@ struct HomeView: View {
         }
     }
 
-    private func sleepLine(_ sleep: ForgeHealthQueries.SleepSummary) -> String {
-        let hours = Int(sleep.totalMinutes) / 60
-        let minutes = Int(sleep.totalMinutes) % 60
+    private func sleepLine(_ sleep: SleepNight) -> String {
         if let quality = health.readiness?.sleepQuality, quality > 0 {
-            return "\(hours)h \(minutes)m · quality \(quality)"
+            return "\(sleep.durationLabel) · quality \(quality)"
         }
-        return "\(hours)h \(minutes)m last night"
+        return "\(sleep.durationLabel) last night"
     }
 
     // MARK: Load
