@@ -41,7 +41,8 @@ final class ARIAWatchService {
             mode: context.currentMode,
             minutesInMode: context.minutesInCurrentMode,
             profile: context.profile,
-            sessionsCompletedToday: sessionsToday
+            sessionsCompletedToday: sessionsToday,
+            sleepFactors: context.todaySleepFactors
         )
         lastContext = ariaContext
         greeting = MindfulnessSuggestionEngine.greeting(

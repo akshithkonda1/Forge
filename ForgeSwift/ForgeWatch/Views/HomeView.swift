@@ -72,7 +72,7 @@ struct HomeView: View {
             guard phase == .active else { return }
             Task {
                 await health.refreshAll()
-                await contextEngine.evaluate()
+                await contextEngine.evaluate(recentHeartRate: health.recentHeartRate)
                 aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday)
             }
         }
@@ -202,19 +202,29 @@ struct HomeView: View {
     private var sleepGlance: some View {
         Group {
             if let sleep = health.sleepSummary {
-                HStack(spacing: ForgeDS.Spacing.sm) {
-                    Image(systemName: "bed.double.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(ForgePalette.indigo)
-                    Text(sleepLine(sleep))
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(ForgePalette.textSecondary)
-                    Spacer(minLength: 0)
+                HapticButton(haptic: .click) {
+                    path.append(.sleep)
+                } label: {
+                    HStack(spacing: ForgeDS.Spacing.sm) {
+                        Image(systemName: "bed.double.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(ForgePalette.indigo)
+                        Text(sleepLine(sleep))
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(ForgePalette.textSecondary)
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9))
+                            .foregroundStyle(ForgePalette.textTertiary)
+                    }
+                    .padding(ForgeDS.Spacing.md)
+                    .background(RoundedRectangle(cornerRadius: ForgeDS.Radius.lg).fill(ForgePalette.surface))
                 }
-                .padding(ForgeDS.Spacing.md)
-                .background(RoundedRectangle(cornerRadius: ForgeDS.Radius.lg).fill(ForgePalette.surface))
+                .buttonStyle(.plain)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Last night: \(sleepLine(sleep))")
+                .accessibilityHint("Opens the full sleep summary with tonight's plan.")
+                .accessibilityAddTraits(.isButton)
             }
         }
     }
@@ -231,7 +241,7 @@ struct HomeView: View {
     private func initialLoad() async {
         await health.requestAuthorization()
         await health.refreshAll()
-        await contextEngine.evaluate()
+        await contextEngine.evaluate(recentHeartRate: health.recentHeartRate)
         aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday)
     }
 }

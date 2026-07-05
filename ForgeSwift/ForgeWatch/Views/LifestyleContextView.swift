@@ -10,6 +10,7 @@ import ForgeCore
 struct LifestyleContextView: View {
     @Environment(ContextEngine.self) private var contextEngine
     @Environment(MindfulnessSessionManager.self) private var session
+    @State private var savingPlace: PlaceLabel?
 
     var body: some View {
         List {
@@ -39,6 +40,17 @@ struct LifestyleContextView: View {
 
             Section("Your rhythm") {
                 profilePicker
+            }
+
+            Section {
+                ForEach(PlaceLabel.allCases) { label in
+                    placeRow(label)
+                }
+            } header: {
+                Text("Places")
+            } footer: {
+                Text("Saved places stay on this watch and help Forge suggest the right context — like noticing you've arrived at the gym.")
+                    .font(.system(size: 10.5))
             }
 
             Section {
@@ -76,6 +88,40 @@ struct LifestyleContextView: View {
         .accessibilityLabel(mode.displayName)
         .accessibilityValue(isCurrent ? "Active" : "")
         .accessibilityHint("Sets your context so suggestions fit this part of your day.")
+    }
+
+    private func placeRow(_ label: PlaceLabel) -> some View {
+        let saved = contextEngine.knownPlaces.places.contains { $0.label == label }
+        return HapticButton(haptic: .click) {
+            if saved {
+                contextEngine.knownPlaces.remove(label: label)
+            } else {
+                savingPlace = label
+                Task {
+                    _ = await contextEngine.saveCurrentLocation(as: label)
+                    savingPlace = nil
+                }
+            }
+        } label: {
+            HStack {
+                Image(systemName: label.suggestedMode.symbolName)
+                    .font(.system(size: 12))
+                    .foregroundStyle(label.suggestedMode.accentColor)
+                    .frame(width: 22)
+                Text(saved ? "\(label.displayName) saved" : "Save \(label.displayName.lowercased()) here")
+                    .font(.system(size: 12.5))
+                Spacer()
+                if savingPlace == label {
+                    ProgressView().controlSize(.mini)
+                } else if saved {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(ForgePalette.success)
+                }
+            }
+        }
+        .accessibilityLabel(saved ? "\(label.displayName) location saved" : "Save current location as \(label.displayName)")
+        .accessibilityHint(saved ? "Tap to remove this saved place." : "Uses one location fix, stored only on this watch.")
     }
 
     private var profilePicker: some View {

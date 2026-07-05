@@ -100,6 +100,9 @@
 		F0B100000000000000000032 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000003 /* ForgeCore */; };
 		F0B100000000000000000033 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000004 /* ForgeCore */; };
 		F0B100000000000000000034 /* ForgeWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000025 /* ForgeWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F0B100000000000000000035 /* SleepSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000026 /* SleepSummaryView.swift */; };
+		F0B100000000000000000036 /* KnownPlacesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000027 /* KnownPlacesStore.swift */; };
+		F0B100000000000000000037 /* WindDownScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000028 /* WindDownScheduler.swift */; };
 		F0B100000000000000000020 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000001 /* ForgeCore */; };
 		F0B100000000000000000021 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000002 /* ForgeCore */; };
 		F0B100000000000000000022 /* ForgeWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000019 /* ForgeWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -267,6 +270,9 @@
 		F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutActivityCoordinator.swift; sourceTree = "<group>"; };
 		F0F100000000000000000024 /* LifestyleWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LifestyleWidget.swift; path = "../../ForgeWidget/LifestyleWidget.swift"; sourceTree = "<group>"; };
 		F0F100000000000000000025 /* ForgeWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ForgeWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F0F100000000000000000026 /* SleepSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSummaryView.swift; sourceTree = "<group>"; };
+		F0F100000000000000000027 /* KnownPlacesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownPlacesStore.swift; sourceTree = "<group>"; };
+		F0F100000000000000000028 /* WindDownScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindDownScheduler.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -471,6 +477,7 @@
 				F0F100000000000000000003 /* MindfulnessView.swift */,
 				F0F100000000000000000004 /* LifestyleContextView.swift */,
 				F0F10000000000000000001C /* WorkoutCoordinatorView.swift */,
+				F0F100000000000000000026 /* SleepSummaryView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -496,6 +503,8 @@
 				F0F10000000000000000000D /* ARIAWatchService.swift */,
 				F0F10000000000000000001A /* WorkoutSessionManager.swift */,
 				F0F10000000000000000001B /* PhoneLinkService.swift */,
+				F0F100000000000000000027 /* KnownPlacesStore.swift */,
+				F0F100000000000000000028 /* WindDownScheduler.swift */,
 			);
 			path = Managers;
 			sourceTree = "<group>";
@@ -772,6 +781,9 @@
 				F0B10000000000000000001A /* WorkoutSessionManager.swift in Sources */,
 				F0B10000000000000000001B /* PhoneLinkService.swift in Sources */,
 				F0B10000000000000000001C /* WorkoutCoordinatorView.swift in Sources */,
+				F0B100000000000000000035 /* SleepSummaryView.swift in Sources */,
+				F0B100000000000000000036 /* KnownPlacesStore.swift in Sources */,
+				F0B100000000000000000037 /* WindDownScheduler.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

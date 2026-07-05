@@ -66,6 +66,19 @@ public enum ForgeHealthQueries {
         return samples.map { $0.quantity.doubleValue(for: unit) }.mean
     }
 
+    /// Most recent on-wrist heart rate sample (background cadence, not a
+    /// live stream) — used for context cross-signals like gym detection.
+    public static func latestHeartRate(store: HKHealthStore, minutesBack: Double = 20) async -> Double? {
+        let samples = await quantitySamples(
+            store: store,
+            type: HKQuantityType(.heartRate),
+            start: Date().addingTimeInterval(-minutesBack * 60),
+            limit: 1,
+            ascending: false
+        )
+        return samples.first?.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+    }
+
     public static func latestRestingHR(store: HKHealthStore) async -> Double? {
         let samples = await quantitySamples(
             store: store,

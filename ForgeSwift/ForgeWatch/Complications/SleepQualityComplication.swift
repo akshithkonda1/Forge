@@ -110,6 +110,13 @@ private struct SleepQualityComplicationView: View {
     }
 
     private var subtitle: String {
+        // Evening: pivot to tonight's plan once a wind-down is predicted.
+        if let windDown = entry.snapshot?.tonightWindDown, windDown > entry.date {
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+            formatter.dateStyle = .none
+            return "Tonight: wind down ~\(formatter.string(from: windDown))"
+        }
         guard let quality else { return "Last night will appear after your watch syncs." }
         switch quality {
         case 80...: return "Solid recharge — it's fueling today's readiness."

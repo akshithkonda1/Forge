@@ -33,6 +33,8 @@ final class WatchHealthKitManager {
     private(set) var mindfulMinutesToday: Double = 0
     private(set) var hoursSinceLastWorkout: Double?
     private(set) var lastWorkoutType: String?
+    private(set) var recentHeartRate: Double?
+    private(set) var windDownPlan: WindDownPlan?
     private(set) var lastRefreshed: Date?
 
     // MARK: Authorization
@@ -86,9 +88,17 @@ final class WatchHealthKitManager {
         async let mindful = ForgeHealthQueries.mindfulMinutes(store: store, since: Calendar.current.startOfDay(for: Date()))
         async let workout = ForgeHealthQueries.lastWorkout(store: store)
         async let nights = ForgeHealthQueries.recentSleepNights(store: store)
+        async let recentHR = ForgeHealthQueries.latestHeartRate(store: store)
 
         sleepSummary = await sleep
         recentNights = await nights
+        recentHeartRate = await recentHR
+
+        // Tonight's wind-down prediction from recent onsets + durations.
+        windDownPlan = WindDownPredictor.plan(
+            recentOnsets: recentNights.compactMap(\.start),
+            recentSleepMinutes: recentNights.map(\.totalMinutes)
+        )
         let latest = await hrvLatest
         hrvRecentMs = latest?.value
         hrvTrendMs = await hrvDelta
@@ -125,6 +135,7 @@ final class WatchHealthKitManager {
             snapshot.sleepQualityScore = readiness?.sleepQuality
             snapshot.sleepMinutes = sleepSummary?.totalMinutes
             snapshot.mindfulMinutesToday = mindfulMinutesToday
+            snapshot.tonightWindDown = windDownPlan?.windDownStart
         }
     }
 
@@ -134,7 +145,8 @@ final class WatchHealthKitManager {
         mode: LifestyleMode?,
         minutesInMode: Double?,
         profile: LifestyleProfile,
-        sessionsCompletedToday: Int
+        sessionsCompletedToday: Int,
+        sleepFactors: [SleepFactor] = []
     ) -> WatchARIAContext {
         var context = WatchARIAContext()
         context.readinessOverall = readiness?.overall
@@ -152,6 +164,7 @@ final class WatchHealthKitManager {
         context.lastWorkoutType = lastWorkoutType
         context.mindfulMinutesToday = mindfulMinutesToday
         context.sessionsCompletedToday = sessionsCompletedToday
+        context.sleepFactors = sleepFactors.isEmpty ? nil : sleepFactors
         return context
     }
 

@@ -11,6 +11,7 @@ enum WatchRoute: Hashable {
     case mindfulness
     case context
     case workout
+    case sleep
 }
 
 @main
@@ -37,6 +38,7 @@ struct ForgeWatchApp: App {
                         case .mindfulness: MindfulnessView()
                         case .context:     LifestyleContextView()
                         case .workout:     WorkoutCoordinatorView(path: $path)
+                        case .sleep:       SleepSummaryView()
                         }
                     }
             }
@@ -52,8 +54,7 @@ struct ForgeWatchApp: App {
     /// Complication + Smart Stack deep links:
     ///   forgewatch://mindfulness → pre-filled session
     ///   forgewatch://workout     → workout coordinator (or live session)
-    ///   forgewatch://sleep       → Home (sleep glance) until Phase 4's
-    ///                              SleepSummaryView lands
+    ///   forgewatch://sleep       → morning sleep summary
     ///   forgewatch://home        → pop to root
     private func route(_ url: URL) {
         switch url.host() ?? url.absoluteString {
@@ -63,6 +64,8 @@ struct ForgeWatchApp: App {
             if path.last != .context { path.append(.context) }
         case "workout":
             if path.last != .workout { path.append(.workout) }
+        case "sleep":
+            if path.last != .sleep { path.append(.sleep) }
         default:
             path.removeAll()
         }

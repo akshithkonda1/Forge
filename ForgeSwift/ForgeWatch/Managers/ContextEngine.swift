@@ -5,15 +5,19 @@ import ForgeCore
 
 // MARK: - ContextEngine
 //
-// Tracks what part of their day the user is in. Phase 2 scope:
+// Tracks what part of their day the user is in:
 //   - manual modes (always available, always authoritative)
-//   - basic automatic hints from CoreMotion (stationary vs moving) and
-//     time of day — surfaced as *suggestions*, never silently applied
-// Phase 4 adds CLLocationManager geofences (gym/home/office) and calendar
-// density. The public surface is already shaped for that.
+//   - motion hints (stationary vs moving) — suggestions only
+//   - known-place detection (Phase 4): one foreground location fix per
+//     evaluation compared against user-labeled places (gym/home/office),
+//     cross-checked with recent heart rate ("elevated HR at the gym place
+//     → probably training"). Suggestions, never silent switches.
+//   - evening wind-down timing driven by the WindDownPredictor's plan
+//     when available (falls back to 21:00)
 //
-// Privacy-first: motion classification stays on-device; nothing is stored
-// beyond the current mode + timestamps in the shared App Group.
+// Privacy-first: motion classification and place coordinates stay
+// on-device (App Group only); nothing location-shaped ever enters
+// WatchARIAContext or a network payload.
 
 @MainActor
 @Observable
@@ -36,6 +40,17 @@ final class ContextEngine {
         modeStartedAt.map { Date().timeIntervalSince($0) / 60 }
     }
 
+    /// A sustained desk/focus stretch — used to tune tonight's plan copy.
+    var isHighCognitiveLoadDay: Bool {
+        guard let mode = currentMode, mode == .deskCoding || mode == .deepFocus else { return false }
+        return (minutesInCurrentMode ?? 0) >= 180
+    }
+
+    let knownPlaces = KnownPlacesStore()
+    private let placeDetector = PlaceDetector()
+    /// Today's one-tap sleep factors (reset when the day changes).
+    private(set) var todaySleepFactors: [SleepFactor] = []
+
     private let defaults = UserDefaults(suiteName: WatchSnapshotStore.appGroupID)
     private let motionManager = CMMotionActivityManager()
     private var evaluationTask: Task<Void, Never>?
@@ -47,6 +62,8 @@ final class ContextEngine {
         static let mode = "forge.watch.context.mode"
         static let modeStart = "forge.watch.context.modeStart"
         static let profile = "forge.watch.context.profile"
+        static let sleepFactors = "forge.watch.context.sleepFactors"
+        static let sleepFactorsDay = "forge.watch.context.sleepFactorsDay"
     }
 
     init() {
@@ -55,7 +72,38 @@ final class ContextEngine {
             currentMode = mode
             modeStartedAt = defaults?.object(forKey: Keys.modeStart) as? Date ?? Date()
         }
+        restoreSleepFactors()
         startEvaluationLoop()
+    }
+
+    // MARK: Sleep factors (one-tap, per-day)
+
+    func toggleSleepFactor(_ factor: SleepFactor) {
+        if let index = todaySleepFactors.firstIndex(of: factor) {
+            todaySleepFactors.remove(at: index)
+        } else {
+            todaySleepFactors.append(factor)
+        }
+        persistSleepFactors()
+        revision += 1
+    }
+
+    private func restoreSleepFactors() {
+        let today = Calendar.current.startOfDay(for: Date())
+        guard
+            let day = defaults?.object(forKey: Keys.sleepFactorsDay) as? Date,
+            Calendar.current.isDate(day, inSameDayAs: today),
+            let data = defaults?.data(forKey: Keys.sleepFactors),
+            let factors = try? JSONDecoder().decode([SleepFactor].self, from: data)
+        else { return }
+        todaySleepFactors = factors
+    }
+
+    private func persistSleepFactors() {
+        defaults?.set(Calendar.current.startOfDay(for: Date()), forKey: Keys.sleepFactorsDay)
+        if let data = try? JSONEncoder().encode(todaySleepFactors) {
+            defaults?.set(data, forKey: Keys.sleepFactors)
+        }
     }
 
     // MARK: Manual control
@@ -75,6 +123,14 @@ final class ContextEngine {
     func acceptSuggestedMode() {
         guard let suggestion = suggestedMode else { return }
         setMode(suggestion)
+    }
+
+    /// Labels the user's current location (one foreground fix). Returns
+    /// false when no fix is available (permission pending/denied).
+    func saveCurrentLocation(as label: PlaceLabel) async -> Bool {
+        guard let coordinate = await placeDetector.currentCoordinate() else { return false }
+        knownPlaces.save(label: label, coordinate: coordinate)
+        return true
     }
 
     func dismissSuggestedMode() {
@@ -97,7 +153,7 @@ final class ContextEngine {
         }
     }
 
-    func evaluate() async {
+    func evaluate(recentHeartRate: Double? = nil) async {
         // 1. Long-desk-block nudge: the flagship proactive trigger.
         if let mode = currentMode,
            mode == .deskCoding || mode == .deepFocus,
@@ -108,15 +164,44 @@ final class ContextEngine {
             revision += 1 // ARIA re-suggests; complication flips to Focus Reset
         }
 
-        // 2. Evening wind-down hint.
-        let hour = Calendar.current.component(.hour, from: Date())
-        if hour >= 21, currentMode != .windDown, suggestedMode != .windDown {
+        // 2. Evening wind-down hint — timed by the predictor when it has
+        //    learned the user's rhythm, 21:00 otherwise.
+        let windDownAt = WatchSnapshotStore.load()?.tonightWindDown
+        let eveningReached: Bool
+        if let windDownAt {
+            eveningReached = Date() >= windDownAt
+        } else {
+            eveningReached = Calendar.current.component(.hour, from: Date()) >= 21
+        }
+        if eveningReached, currentMode != .windDown, suggestedMode != .windDown {
             suggestedMode = .windDown
             revision += 1
         }
 
-        // 3. Motion cross-check (guarded — simulator/denied users skip this).
+        // 3. Known-place detection + HR cross-signal (foreground fix only;
+        //    coordinates never leave the device).
+        await refineWithPlace(recentHeartRate: recentHeartRate)
+
+        // 4. Motion cross-check (guarded — simulator/denied users skip this).
         await refineWithMotion()
+    }
+
+    private func refineWithPlace(recentHeartRate: Double?) async {
+        guard !knownPlaces.places.isEmpty,
+              suggestedMode == nil,
+              let coordinate = await placeDetector.currentCoordinate(),
+              let place = knownPlaces.nearest(to: coordinate) else { return }
+
+        let candidate = place.suggestedMode
+        guard candidate != currentMode else { return }
+
+        // Gym needs corroboration: being near the gym at resting HR is
+        // probably just the car park. Elevated HR there means training.
+        if place.label == .gym {
+            guard let bpm = recentHeartRate, bpm >= 100 else { return }
+        }
+        suggestedMode = candidate
+        revision += 1
     }
 
     private func refineWithMotion() async {
