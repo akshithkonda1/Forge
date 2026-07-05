@@ -61,6 +61,18 @@ struct LifestyleContextView: View {
                 Text("Wrist taps pace each breath so sessions work eyes-free.")
                     .font(.system(size: 10.5))
             }
+
+            Section {
+                Toggle("Minimal animation", isOn: Binding(
+                    get: { contextEngine.minimalAnimation },
+                    set: { contextEngine.minimalAnimation = $0 }
+                ))
+                .font(.system(size: 12.5))
+                .accessibilityHint("Replaces moving orbs with calm static visuals everywhere, independent of the system Reduce Motion setting.")
+            } footer: {
+                Text("Guidance stays fully usable — haptics and text carry every session.")
+                    .font(.system(size: 10.5))
+            }
         }
         .navigationTitle("Context")
     }

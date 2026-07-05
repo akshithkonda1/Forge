@@ -54,25 +54,13 @@ low-confidence score as fact (unit-tested).
 
 | Phase | Scope | Status |
 |---|---|---|
-| 0 | Foundation: watch target, entitlements, ForgeCore package, HealthKit auth | ✅ Done (this PR) |
-| 1 | 3 complications + Home shell (orb, greeting, quick actions) | ✅ Done (this PR) |
-| 2 | Mindfulness Coach MVP: ContextEngine (manual + motion), session manager, BreathingOrb + haptics, suggestion engine, Mindful Minutes logging, skip-with-note | ✅ Done (this PR) |
-| 3 | Workout Coordinator: HKWorkoutSession live metrics, zones, adaptive cues, post-workout reset handoff, Live Activity, iPhone deep links | ⬜ Next |
-| 4 | Sleep Intelligence (story + tonight's plan + wind-down prediction) and full ContextEngine (CLLocation geofences, calendar density, cross-signal gym detection), quick log chips | ⬜ |
-| 5 | Polish: full accessibility audit, AOD tuning, battery profiling, onboarding, snapshot/QA checklist | ⬜ |
-| 6 | Backend: `/watch/aria/suggest` endpoint, auth, cross-device sync | ⬜ |
-
-## What Phase 3 (Workout Coordinator) needs
-
-- `WorkoutCoordinatorView` + `WorkoutSessionManager` on
-  `HKWorkoutSession`/`HKLiveWorkoutBuilder` (the biofeedback capture in
-  `WatchHealthKitManager` already exercises this machinery).
-- HR zone model: port `hrZone(for:)` from iOS `Theme.swift` into ForgeCore.
-- Post-workout handoff: `MindfulnessSessionManager.start(practice: .bodyScan …)`
-  fired from the workout summary — the seam already exists.
-- `ActiveWorkoutComplication` in the widget bundle + ActivityKit Live
-  Activity via the iOS companion.
-- Backend: extend `WatchARIAContext` with in-session zone/strain series.
+| 0 | Foundation: watch target, entitlements, ForgeCore package, HealthKit auth | ✅ Done |
+| 1 | 3 complications + Home shell (orb, greeting, quick actions) | ✅ Done |
+| 2 | Mindfulness Coach MVP: ContextEngine (manual + motion), session manager, BreathingOrb + haptics, suggestion engine, Mindful Minutes logging, skip-with-note | ✅ Done |
+| 3 | Workout Coordinator: HKWorkoutSession live metrics + zones, adaptive cues, structured plans + rest timers, post-workout reset handoff, ActiveWorkout complication, iPhone Live Activity (ForgeWidgetExtension + WatchConnectivity) | ✅ Done (this PR) |
+| 4 | Sleep Intelligence (SleepSummaryView + story + tonight's plan + WindDownPredictor + factor chips) and ContextEngine v2 (known places, HR cross-signal, predictor-timed wind-down, one notification) | ✅ Done (this PR) |
+| 5 | Polish: onboarding, Minimal Animation toggle, a11y sweep, ContextRules extraction + tests, QA checklist | ✅ Done (this PR) — on-device battery/VoiceOver passes tracked in `ForgeWatch/QA_CHECKLIST.md` |
+| 6 | Backend: `/watch/aria/suggest` endpoint, auth, cross-device sync; calendar-density signal; background geofencing exploration | ⬜ Next |
 
 ## Flagship user flows
 

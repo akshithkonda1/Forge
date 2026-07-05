@@ -31,22 +31,29 @@ struct ForgeWatchApp: App {
 
     var body: some Scene {
         WindowGroup {
-            NavigationStack(path: $path) {
-                HomeView(path: $path)
-                    .navigationDestination(for: WatchRoute.self) { route in
-                        switch route {
-                        case .mindfulness: MindfulnessView()
-                        case .context:     LifestyleContextView()
-                        case .workout:     WorkoutCoordinatorView(path: $path)
-                        case .sleep:       SleepSummaryView()
-                        }
+            Group {
+                if contextEngine.hasOnboarded {
+                    NavigationStack(path: $path) {
+                        HomeView(path: $path)
+                            .navigationDestination(for: WatchRoute.self) { route in
+                                switch route {
+                                case .mindfulness: MindfulnessView()
+                                case .context:     LifestyleContextView()
+                                case .workout:     WorkoutCoordinatorView(path: $path)
+                                case .sleep:       SleepSummaryView()
+                                }
+                            }
                     }
+                } else {
+                    OnboardingView()
+                }
             }
             .environment(health)
             .environment(contextEngine)
             .environment(aria)
             .environment(session)
             .environment(workout)
+            .environment(\.forgeMinimalAnimation, contextEngine.minimalAnimation)
             .onOpenURL(perform: route(_:))
         }
     }
@@ -84,5 +91,23 @@ extension View {
         } else {
             self
         }
+    }
+}
+
+// MARK: - Minimal Animation environment
+//
+// The user-facing "Minimal animation" toggle (Context screen) — forces
+// static orb variants and disables aurora rings even when the system
+// Reduce Motion setting is off. Components combine this with
+// accessibilityReduceMotion; either one wins.
+
+private struct MinimalAnimationKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var forgeMinimalAnimation: Bool {
+        get { self[MinimalAnimationKey.self] }
+        set { self[MinimalAnimationKey.self] = newValue }
     }
 }

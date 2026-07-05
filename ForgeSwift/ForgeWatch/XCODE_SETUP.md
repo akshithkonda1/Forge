@@ -10,14 +10,16 @@ first open, and how to recreate the targets manually if anything looks off.
 1. **Install the watchOS platform** if Xcode prompts for it
    (Settings → Components → watchOS). The iOS app now embeds the watch app,
    so the watchOS SDK is required to build `ForgeSwift`.
-2. Open `ForgeSwift/ForgeSwift.xcodeproj`. You should see three targets:
-   `ForgeSwift`, `ForgeWatch`, `ForgeWatchWidgets`, plus the `ForgeCore`
-   package in the navigator.
+2. Open `ForgeSwift/ForgeSwift.xcodeproj`. You should see four targets:
+   `ForgeSwift`, `ForgeWatch`, `ForgeWatchWidgets`, `ForgeWidgetExtension`
+   (iOS widgets + workout Live Activity), plus the `ForgeCore` package in
+   the navigator.
 3. Select the **ForgeWatch** scheme → a watchOS Simulator → Run.
 4. **Signing**: all targets use automatic signing with team `L85K85Q7MB`.
    Xcode will provision the new bundle IDs on first build:
    - `com.forge.ForgeSwift.watchkitapp`
    - `com.forge.ForgeSwift.watchkitapp.widgets`
+   - `com.forge.ForgeSwift.widgets` (iOS extension)
 5. **Capabilities** (already in the checked-in entitlements): confirm
    Xcode shows HealthKit + App Groups (`group.com.forge.ForgeSwift`) for
    ForgeWatch, and App Groups for ForgeWatchWidgets. The App Group must

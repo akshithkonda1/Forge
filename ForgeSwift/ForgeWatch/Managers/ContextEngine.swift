@@ -36,6 +36,21 @@ final class ContextEngine {
         didSet { defaults?.set(profile.rawValue, forKey: Keys.profile) }
     }
 
+    /// Epilepsy-safe / distraction-free option: forces the static orb
+    /// variants and disables aurora rings even when the system Reduce
+    /// Motion setting is off.
+    var minimalAnimation: Bool {
+        didSet { defaults?.set(minimalAnimation, forKey: Keys.minimalAnimation) }
+    }
+
+    /// One-time onboarding flag.
+    private(set) var hasOnboarded: Bool
+
+    func completeOnboarding() {
+        hasOnboarded = true
+        defaults?.set(true, forKey: Keys.onboarded)
+    }
+
     var minutesInCurrentMode: Double? {
         modeStartedAt.map { Date().timeIntervalSince($0) / 60 }
     }
@@ -64,10 +79,14 @@ final class ContextEngine {
         static let profile = "forge.watch.context.profile"
         static let sleepFactors = "forge.watch.context.sleepFactors"
         static let sleepFactorsDay = "forge.watch.context.sleepFactorsDay"
+        static let minimalAnimation = "forge.watch.settings.minimalAnimation"
+        static let onboarded = "forge.watch.onboarded"
     }
 
     init() {
         profile = defaults?.string(forKey: Keys.profile).flatMap(LifestyleProfile.init(rawValue:)) ?? .general
+        minimalAnimation = defaults?.bool(forKey: Keys.minimalAnimation) ?? false
+        hasOnboarded = defaults?.bool(forKey: Keys.onboarded) ?? false
         if let raw = defaults?.string(forKey: Keys.mode), let mode = LifestyleMode(rawValue: raw) {
             currentMode = mode
             modeStartedAt = defaults?.object(forKey: Keys.modeStart) as? Date ?? Date()
@@ -155,25 +174,24 @@ final class ContextEngine {
 
     func evaluate(recentHeartRate: Double? = nil) async {
         // 1. Long-desk-block nudge: the flagship proactive trigger.
-        if let mode = currentMode,
-           mode == .deskCoding || mode == .deepFocus,
-           let minutes = minutesInCurrentMode,
-           minutes >= 90,
-           !deskNudgeFiredForCurrentBlock {
+        //    (Rules live in ForgeCore/ContextRules — unit tested.)
+        if ContextRules.deskBlockNudgeDue(
+            mode: currentMode,
+            minutesInMode: minutesInCurrentMode,
+            alreadyFiredThisBlock: deskNudgeFiredForCurrentBlock
+        ) {
             deskNudgeFiredForCurrentBlock = true
             revision += 1 // ARIA re-suggests; complication flips to Focus Reset
         }
 
         // 2. Evening wind-down hint — timed by the predictor when it has
         //    learned the user's rhythm, 21:00 otherwise.
-        let windDownAt = WatchSnapshotStore.load()?.tonightWindDown
-        let eveningReached: Bool
-        if let windDownAt {
-            eveningReached = Date() >= windDownAt
-        } else {
-            eveningReached = Calendar.current.component(.hour, from: Date()) >= 21
-        }
-        if eveningReached, currentMode != .windDown, suggestedMode != .windDown {
+        if ContextRules.eveningWindDownDue(
+            now: Date(),
+            predictedWindDown: WatchSnapshotStore.load()?.tonightWindDown,
+            currentMode: currentMode,
+            pendingSuggestion: suggestedMode
+        ) {
             suggestedMode = .windDown
             revision += 1
         }
@@ -192,13 +210,13 @@ final class ContextEngine {
               let coordinate = await placeDetector.currentCoordinate(),
               let place = knownPlaces.nearest(to: coordinate) else { return }
 
-        let candidate = place.suggestedMode
+        let candidate = place.label.suggestedMode
         guard candidate != currentMode else { return }
 
         // Gym needs corroboration: being near the gym at resting HR is
         // probably just the car park. Elevated HR there means training.
         if place.label == .gym {
-            guard let bpm = recentHeartRate, bpm >= 100 else { return }
+            guard ContextRules.gymSuggestionAllowed(recentHeartRate: recentHeartRate) else { return }
         }
         suggestedMode = candidate
         revision += 1
@@ -217,10 +235,12 @@ final class ContextEngine {
         let stationaryShare = Double(activities.filter(\.stationary).count) / Double(activities.count)
         let hour = Calendar.current.component(.hour, from: Date())
 
-        // Mostly still during working hours with no mode set → probably a
-        // desk block. Offer, don't assume.
-        if currentMode == nil, suggestedMode == nil,
-           stationaryShare > 0.8, (9..<19).contains(hour) {
+        if ContextRules.deskModeLikely(
+            stationaryShare: stationaryShare,
+            hour: hour,
+            currentMode: currentMode,
+            pendingSuggestion: suggestedMode
+        ) {
             suggestedMode = .deskCoding
             revision += 1
         }

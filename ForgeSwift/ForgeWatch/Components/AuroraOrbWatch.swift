@@ -22,8 +22,9 @@ struct AuroraOrbWatch: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isLuminanceReduced) private var luminanceReduced
+    @Environment(\.forgeMinimalAnimation) private var minimalAnimation
 
-    private var animated: Bool { !reduceMotion && !luminanceReduced }
+    private var animated: Bool { !reduceMotion && !luminanceReduced && !minimalAnimation }
 
     var body: some View {
         Group {

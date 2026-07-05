@@ -28,13 +28,18 @@ struct BreathingOrb: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isLuminanceReduced) private var luminanceReduced
+    @Environment(\.forgeMinimalAnimation) private var minimalAnimation
+
+    private var staticRendering: Bool { reduceMotion || minimalAnimation }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: isPaused || luminanceReduced)) { timeline in
             let t = elapsed(timeline.date)
             let (phase, progress) = pattern.phase(at: t)
 
-            ZStack {
+            // VStack (not a fixed offset) so large Dynamic Type never
+            // collides with the orb.
+            VStack(spacing: ForgeDS.Spacing.xs) {
                 Canvas { context, size in
                     draw(context: context, size: size, phase: phase, progress: progress, time: t)
                 }
@@ -42,7 +47,6 @@ struct BreathingOrb: View {
                 Text(phase.kind.instruction)
                     .font(ForgeType.caption(13))
                     .foregroundStyle(ForgePalette.textSecondary)
-                    .offset(y: 58)
                     .animation(.easeInOut(duration: 0.3), value: phase.kind)
             }
         }
@@ -72,7 +76,7 @@ struct BreathingOrb: View {
         let maxRadius = min(size.width, size.height) / 2 - 6
         let fraction = breathFraction(phase: phase, progress: progress)
 
-        if reduceMotion {
+        if staticRendering {
             // Fixed-size circle; only opacity breathes.
             let radius = maxRadius * 0.66
             let circle = Path(ellipseIn: CGRect(
