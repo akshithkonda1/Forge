@@ -25,6 +25,9 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
 
     public var lifestyleMode: LifestyleMode?
     public var mindfulMinutesToday: Double?
+    /// Present only while a workout session is running (drives the
+    /// ActiveWorkoutComplication). Optional so old snapshots still decode.
+    public var activeWorkout: WorkoutLiveState?
     public var updatedAt: Date
 
     public init(updatedAt: Date = Date()) {
