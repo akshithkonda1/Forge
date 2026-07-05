@@ -87,6 +87,10 @@
 		F0B100000000000000000012 /* ReadinessComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000012 /* ReadinessComplication.swift */; };
 		F0B100000000000000000013 /* MindfulnessResetComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000013 /* MindfulnessResetComplication.swift */; };
 		F0B100000000000000000014 /* SleepQualityComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000014 /* SleepQualityComplication.swift */; };
+		F0B10000000000000000001A /* WorkoutSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001A /* WorkoutSessionManager.swift */; };
+		F0B10000000000000000001B /* PhoneLinkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001B /* PhoneLinkService.swift */; };
+		F0B10000000000000000001C /* WorkoutCoordinatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001C /* WorkoutCoordinatorView.swift */; };
+		F0B10000000000000000001D /* ActiveWorkoutComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001D /* ActiveWorkoutComplication.swift */; };
 		F0B100000000000000000020 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000001 /* ForgeCore */; };
 		F0B100000000000000000021 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000002 /* ForgeCore */; };
 		F0B100000000000000000022 /* ForgeWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000019 /* ForgeWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -224,6 +228,10 @@
 		F0F100000000000000000017 /* ForgeCore */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = ForgeCore; path = ForgeCore; sourceTree = "<group>"; };
 		F0F100000000000000000018 /* ForgeWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForgeWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0F100000000000000000019 /* ForgeWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ForgeWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F0F10000000000000000001A /* WorkoutSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionManager.swift; sourceTree = "<group>"; };
+		F0F10000000000000000001B /* PhoneLinkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneLinkService.swift; sourceTree = "<group>"; };
+		F0F10000000000000000001C /* WorkoutCoordinatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCoordinatorView.swift; sourceTree = "<group>"; };
+		F0F10000000000000000001D /* ActiveWorkoutComplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutComplication.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -394,6 +402,7 @@
 				F0F100000000000000000002 /* HomeView.swift */,
 				F0F100000000000000000003 /* MindfulnessView.swift */,
 				F0F100000000000000000004 /* LifestyleContextView.swift */,
+				F0F10000000000000000001C /* WorkoutCoordinatorView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -417,6 +426,8 @@
 				F0F10000000000000000000B /* ContextEngine.swift */,
 				F0F10000000000000000000C /* MindfulnessSessionManager.swift */,
 				F0F10000000000000000000D /* ARIAWatchService.swift */,
+				F0F10000000000000000001A /* WorkoutSessionManager.swift */,
+				F0F10000000000000000001B /* PhoneLinkService.swift */,
 			);
 			path = Managers;
 			sourceTree = "<group>";
@@ -429,6 +440,7 @@
 				F0F100000000000000000012 /* ReadinessComplication.swift */,
 				F0F100000000000000000013 /* MindfulnessResetComplication.swift */,
 				F0F100000000000000000014 /* SleepQualityComplication.swift */,
+				F0F10000000000000000001D /* ActiveWorkoutComplication.swift */,
 				F0F100000000000000000015 /* Info.plist */,
 				F0F100000000000000000016 /* ForgeWatchWidgets.entitlements */,
 			);
@@ -651,6 +663,9 @@
 				F0B10000000000000000000B /* ContextEngine.swift in Sources */,
 				F0B10000000000000000000C /* MindfulnessSessionManager.swift in Sources */,
 				F0B10000000000000000000D /* ARIAWatchService.swift in Sources */,
+				F0B10000000000000000001A /* WorkoutSessionManager.swift in Sources */,
+				F0B10000000000000000001B /* PhoneLinkService.swift in Sources */,
+				F0B10000000000000000001C /* WorkoutCoordinatorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -663,6 +678,7 @@
 				F0B100000000000000000012 /* ReadinessComplication.swift in Sources */,
 				F0B100000000000000000013 /* MindfulnessResetComplication.swift in Sources */,
 				F0B100000000000000000014 /* SleepQualityComplication.swift in Sources */,
+				F0B10000000000000000001D /* ActiveWorkoutComplication.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

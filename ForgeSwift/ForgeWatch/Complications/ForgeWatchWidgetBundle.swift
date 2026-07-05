@@ -4,7 +4,7 @@ import SwiftUI
 // MARK: - ForgeWatchWidgetBundle
 //
 // Entry point of the ForgeWatchWidgets extension: the three Phase 1
-// complications. ActiveWorkoutComplication joins in Phase 3.
+// complications plus the Phase 3 live workout complication.
 
 @main
 struct ForgeWatchWidgetBundle: WidgetBundle {
@@ -12,5 +12,6 @@ struct ForgeWatchWidgetBundle: WidgetBundle {
         ReadinessComplication()
         MindfulnessResetComplication()
         SleepQualityComplication()
+        ActiveWorkoutComplication()
     }
 }

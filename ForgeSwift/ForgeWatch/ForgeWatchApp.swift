@@ -10,6 +10,7 @@ import ForgeCore
 enum WatchRoute: Hashable {
     case mindfulness
     case context
+    case workout
 }
 
 @main
@@ -18,7 +19,14 @@ struct ForgeWatchApp: App {
     @State private var contextEngine = ContextEngine()
     @State private var aria = ARIAWatchService()
     @State private var session = MindfulnessSessionManager()
+    @State private var workout = WorkoutSessionManager()
     @State private var path: [WatchRoute] = []
+
+    init() {
+        // Activate the phone link early so Live Activity state flows from
+        // the first workout tick.
+        PhoneLinkService.shared.activate()
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -28,6 +36,7 @@ struct ForgeWatchApp: App {
                         switch route {
                         case .mindfulness: MindfulnessView()
                         case .context:     LifestyleContextView()
+                        case .workout:     WorkoutCoordinatorView(path: $path)
                         }
                     }
             }
@@ -35,12 +44,14 @@ struct ForgeWatchApp: App {
             .environment(contextEngine)
             .environment(aria)
             .environment(session)
+            .environment(workout)
             .onOpenURL(perform: route(_:))
         }
     }
 
     /// Complication + Smart Stack deep links:
     ///   forgewatch://mindfulness → pre-filled session
+    ///   forgewatch://workout     → workout coordinator (or live session)
     ///   forgewatch://sleep       → Home (sleep glance) until Phase 4's
     ///                              SleepSummaryView lands
     ///   forgewatch://home        → pop to root
@@ -50,6 +61,8 @@ struct ForgeWatchApp: App {
             if path.last != .mindfulness { path.append(.mindfulness) }
         case "context":
             if path.last != .context { path.append(.context) }
+        case "workout":
+            if path.last != .workout { path.append(.workout) }
         default:
             path.removeAll()
         }

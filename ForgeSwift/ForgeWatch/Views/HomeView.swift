@@ -13,6 +13,7 @@ struct HomeView: View {
     @Environment(ContextEngine.self) private var contextEngine
     @Environment(ARIAWatchService.self) private var aria
     @Environment(MindfulnessSessionManager.self) private var session
+    @Environment(WorkoutSessionManager.self) private var workout
     @Environment(\.scenePhase) private var scenePhase
 
     @Binding var path: [WatchRoute]
@@ -148,6 +149,27 @@ struct HomeView: View {
 
     private var quickActions: some View {
         VStack(spacing: ForgeDS.Spacing.sm) {
+            if workout.phase != .idle && workout.phase != .summary {
+                ContextCard(
+                    systemImage: workout.workoutType.symbolName,
+                    title: "Workout in progress",
+                    body_: "Tap to return to your live session.",
+                    accent: workout.workoutType.accentColor,
+                    accessibilityHint: "Returns to the live workout."
+                ) {
+                    path.append(.workout)
+                }
+            } else {
+                ForgeActionButton(
+                    title: "Start Workout",
+                    systemImage: "figure.run",
+                    tint: ForgePalette.ember,
+                    accessibilityHint: "Opens workout options, with today's suggested session first."
+                ) {
+                    path.append(.workout)
+                }
+            }
+
             ForgeActionButton(
                 title: "Reset now",
                 systemImage: "leaf.fill",
