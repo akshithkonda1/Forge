@@ -16,8 +16,8 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
 
     static let shared = PhoneLinkService()
 
-    static let workoutStateKey = "forge.workout.liveState"
-    static let workoutEndedKey = "forge.workout.ended"
+    static let workoutStateKey = WorkoutLinkKeys.state
+    static let workoutEndedKey = WorkoutLinkKeys.ended
 
     private override init() {
         super.init()

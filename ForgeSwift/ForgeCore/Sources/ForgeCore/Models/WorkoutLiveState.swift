@@ -9,7 +9,7 @@ import Foundation
 // Keeping one struct means the wrist, the lock screen, and the Dynamic
 // Island can never disagree about the session.
 
-public struct WorkoutLiveState: Codable, Sendable, Equatable {
+public struct WorkoutLiveState: Codable, Sendable, Equatable, Hashable {
 
     public enum Phase: String, Codable, Sendable {
         case countdown
@@ -72,4 +72,11 @@ public struct WorkoutLiveState: Codable, Sendable, Equatable {
         }
         return String(format: "%d:%02d", total / 60, total % 60)
     }
+}
+
+/// WatchConnectivity payload keys shared by the watch's PhoneLinkService
+/// and the iPhone's WorkoutActivityCoordinator — one definition, no drift.
+public enum WorkoutLinkKeys {
+    public static let state = "forge.workout.liveState"
+    public static let ended = "forge.workout.ended"
 }
