@@ -1,0 +1,29 @@
+{
+  "activityEntities" : [
+    "projectCreated",
+    [
+      {
+        "createdDate" : "2026-07-06T17:50:48Z",
+        "event" : "projectCreated",
+        "id" : "188FB78E-FF1E-4105-AB04-06DC42914AA8",
+        "subtitle" : "MyActivityClassifier",
+        "title" : "Project Created"
+      }
+    ]
+  ],
+  "authorName" : "Akshith Konda",
+  "createdDate" : "2026-07-06T17:50:48Z",
+  "description" : "",
+  "id" : "9A853C3C-646F-493A-9DCB-BC99B30A99CB",
+  "license" : "",
+  "location" : "",
+  "modifiedDate" : "2026-07-06T17:50:48Z",
+  "projectName" : "MyActivityClassifier",
+  "settingsEntity" : {
+    "snapshotOnExtendTraining" : true,
+    "snapshotOnResumeTraining" : false
+  },
+  "taskType" : "activityClassifier",
+  "title" : "Activity Classification",
+  "version" : "1.1"
+}

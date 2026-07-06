@@ -17,6 +17,7 @@ from routes import (
     profile,
     progress,
     sleep,
+    watch,
     workouts,
 )
 
@@ -173,6 +174,9 @@ def handler(event, _context):
 
         if method == "POST" and path == "/coach/progress-review":
             return coach.handle_post_coach_progress_review(user_id, body)
+
+        if method == "POST" and path == "/watch/aria/suggest":
+            return watch.handle_post_watch_aria_suggest(body, user_id)
 
         if method == "POST" and path.startswith("/integrations/") and path.endswith("/sync"):
             provider = path[len("/integrations/"):-len("/sync")]
