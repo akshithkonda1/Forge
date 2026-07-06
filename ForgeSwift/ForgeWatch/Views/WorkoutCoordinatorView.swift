@@ -33,6 +33,7 @@ struct WorkoutCoordinatorView: View {
 
 private struct WorkoutStartView: View {
     @Environment(WorkoutSessionManager.self) private var workout
+    @Environment(WatchHealthKitManager.self) private var health
     @Environment(ARIAWatchService.self) private var aria
 
     private var suggestion: WorkoutSuggestion {
@@ -50,7 +51,7 @@ private struct WorkoutStartView: View {
                     accent: suggested.type.accentColor,
                     accessibilityHint: "Starts the suggested session."
                 ) {
-                    workout.start(type: suggested.type)
+                    workout.start(type: suggested.type, health: health)
                 }
 
                 if suggested.type == .strength || suggested.type == .hiit {
@@ -60,7 +61,7 @@ private struct WorkoutStartView: View {
                         tint: ForgePalette.ember,
                         accessibilityHint: "Starts the structured plan with sets, reps, and rest timers."
                     ) {
-                        workout.start(type: .strength, plan: .demoStrength)
+                        workout.start(type: .strength, plan: .demoStrength, health: health)
                     }
                 }
 
@@ -70,7 +71,7 @@ private struct WorkoutStartView: View {
 
                 ForEach(ForgeWorkoutType.allCases) { type in
                     HapticButton(haptic: .click) {
-                        workout.start(type: type)
+                        workout.start(type: type, health: health)
                     } label: {
                         HStack {
                             Image(systemName: type.symbolName)

@@ -77,7 +77,7 @@ final class WorkoutSessionManager {
 
     // MARK: Start
 
-    func start(type: ForgeWorkoutType, plan: StructuredWorkout? = nil) {
+    func start(type: ForgeWorkoutType, plan: StructuredWorkout? = nil, health: WatchHealthKitManager) {
         guard phase == .idle || phase == .summary else { return }
         workoutType = type
         self.plan = plan
@@ -95,18 +95,26 @@ final class WorkoutSessionManager {
         lastCueAt = .distantPast
 
         phase = .countdown
-        countdownTask = Task { [weak self] in
+        countdownTask = Task { [weak self, weak health] in
             // 3-2-1 with clicks; .start haptic when the session begins.
             for _ in 0..<3 {
                 WKInterfaceDevice.current().play(.click)
                 try? await Task.sleep(for: .seconds(1))
                 if Task.isCancelled { return }
             }
-            await self?.beginSession()
+            guard let health else { return }
+            await self?.beginSession(health: health)
         }
     }
 
-    private func beginSession() async {
+    private func beginSession(health: WatchHealthKitManager) async {
+        // Always clear any orphaned mindfulness HR-capture session first —
+        // it may still be holding the app's one allowed HKWorkoutSession
+        // (e.g. a 90s reset that never reached its own cleanup because the
+        // app was suspended mid-session). Biofeedback capture is a bonus
+        // and safe to sacrifice; a real workout recording is not.
+        _ = await health.endMindfulHeartRateCapture()
+
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = workoutType.hkActivityType
         configuration.locationType = .indoor
@@ -127,8 +135,15 @@ final class WorkoutSessionManager {
             WKInterfaceDevice.current().play(.start)
             startTicker()
         } catch {
-            // Session couldn't start (auth, simulator quirks). Land back
-            // in idle with a calm cue rather than a dead screen.
+            // Session couldn't start (auth, simulator quirks, or a
+            // beginCollection failure after the session itself was
+            // already assigned above). Tear down anything we did manage
+            // to create so a retry gets a genuinely clean slate instead
+            // of colliding with a half-open session on the next attempt.
+            session?.end()
+            session = nil
+            builder = nil
+            builderDelegate = nil
             phase = .idle
             coachingCue = "Couldn't start sensors just now — check Health permissions and try again."
         }
