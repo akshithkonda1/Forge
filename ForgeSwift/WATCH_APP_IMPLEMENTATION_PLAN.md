@@ -60,7 +60,7 @@ low-confidence score as fact (unit-tested).
 | 3 | Workout Coordinator: HKWorkoutSession live metrics + zones, adaptive cues, structured plans + rest timers, post-workout reset handoff, ActiveWorkout complication, iPhone Live Activity (ForgeWidgetExtension + WatchConnectivity) | ✅ Done (this PR) |
 | 4 | Sleep Intelligence (SleepSummaryView + story + tonight's plan + WindDownPredictor + factor chips) and ContextEngine v2 (known places, HR cross-signal, predictor-timed wind-down, one notification) | ✅ Done (this PR) |
 | 5 | Polish: onboarding, Minimal Animation toggle, a11y sweep, ContextRules extraction + tests, QA checklist | ✅ Done (this PR) — on-device battery/VoiceOver passes tracked in `ForgeWatch/QA_CHECKLIST.md` |
-| 6 | Backend: `/watch/aria/suggest` endpoint, auth, cross-device sync; calendar-density signal; background geofencing exploration | ⬜ Next |
+| 6 | Backend: `/watch/aria/suggest` endpoint + iOS→watch config bridge | ✅ Done (this PR) — calendar-density signal, background geofencing, and CloudKit sync remain deferred (see below) |
 
 ## Flagship user flows
 
@@ -120,11 +120,31 @@ low-confidence score as fact (unit-tested).
 - **Tone**: guilt vocabulary is banned and unit-tested
   (`testEveryRecommendationHasSupportiveNonEmptyReason`).
 
-## Backend follow-ups (Phase 6)
+## Backend (Phase 6 — done)
 
-- `POST /watch/aria/suggest` — accepts `WatchARIAContext` +
-  `{practice, minutes, heartRateSettleBPM}`, returns `{message}` (≤ 2
-  sentences, SimRunner-triaged). The watch client
-  (`ARIAWatchService.deeperDebrief`) is already shaped for this.
-- SimRunner: add wrist-context archetypes (long desk block, low-confidence
-  readiness, post-workout) so debrief copy is scored before ship.
+- `POST /watch/aria/suggest` (`infra/terraform/lambda/routes/watch.py` +
+  `services/watch_debrief.py`) — accepts `{practice, minutes,
+  heartRateSettleBPM, context: WatchARIAContext}` exactly as the watch's
+  `Codable` emits it (camelCase, no `keyEncodingStrategy` set), returns
+  `{message, trigger}`. Deterministic template tier today (same
+  priority-ordered, ≤2-sentence, guilt-free voice contract as
+  `MindfulnessSuggestionEngine`); a Bedrock upgrade can sit behind
+  `aria_engine.bedrock_enabled()` later with this as the guaranteed
+  fallback, matching the `/ai/chat` pattern. No Terraform change needed —
+  the existing `ANY /{proxy+}` route already reaches it.
+  Auth is soft (`auth.extract_user_id`, Cognito JWT or test-user
+  fallback) — `ARIAWatchService.deeperDebrief`'s Bearer token is now
+  optional, since no real token store exists yet.
+- `ForgeSwift/WatchAriaConfigBridge.swift` mirrors the iOS app's
+  `AriaService.baseURL` + `AriaContextStore`'s stable user id into the
+  shared App Group on launch and on `setBaseURL`, so the watch's deeper
+  call reaches the same backend as the phone.
+- Tests: `tests/test_watch_debrief.py` (17 cases — priority branches,
+  tone/guilt-word sweep across every branch × biofeedback state, 400s on
+  malformed input) plus a manual `dev_server.py` pass (desk-block+HRV-dip,
+  low-confidence-never-claims-recovery, malformed-body 400).
+- Deferred beyond v1 (not built): full SimRunner archetype integration for
+  this endpoint (the pytest suite above covers the same tone/honesty
+  rules more cheaply), calendar-density signal, background geofencing,
+  CloudKit cross-device sync (HealthKit + App Group + WCSession already
+  carry v1 state without it).

@@ -80,9 +80,11 @@ final class ARIAWatchService {
         minutes: Double,
         heartRateSettleBPM: Double?
     ) async -> String? {
+        // A token is sent when one exists, but its absence must not block
+        // the call — the backend's Cognito-or-test-user auth tolerates a
+        // missing Bearer header, and no real token store exists yet.
         guard
             let base = defaults?.string(forKey: Keys.baseURL),
-            let token = defaults?.string(forKey: Keys.authToken),
             let context = lastContext,
             let url = URL(string: base)?.appending(path: "watch/aria/suggest")
         else { return nil }
@@ -90,7 +92,9 @@ final class ARIAWatchService {
         var request = URLRequest(url: url, timeoutInterval: 10)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let token = defaults?.string(forKey: Keys.authToken), !token.isEmpty {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         let payload = DebriefRequest(
             context: context,
