@@ -1421,11 +1421,11 @@ struct WorkoutIdleView: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle().fill(accent.opacity(0.14)).frame(width: 40, height: 40)
-                    Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundColor(accent)
+                    Image(systemName: icon).font(.forgeDynamic(size: 17, weight: .semibold)).foregroundColor(accent)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
-                    Text(subtitle).font(.system(size: 11)).foregroundColor(.textTertiary)
+                    Text(title).font(.forgeDynamic(size: 14, weight: .bold)).foregroundColor(.textPrimary)
+                    Text(subtitle).font(.forgeDynamic(size: 11)).foregroundColor(.textTertiary)
                 }
                 Spacer()
             }
@@ -1458,16 +1458,16 @@ struct WorkoutIdleView: View {
                     .frame(width: 80, height: 80)
                     .shadow(color: Color.ember.opacity(0.5), radius: 20, y: 6)
                 Image(systemName: "dumbbell.fill")
-                    .font(.system(size: 36, weight: .black)).foregroundColor(.white)
+                    .font(.forgeDynamic(size: 36, weight: .black)).foregroundColor(.white)
             }
             .scaleEffect(appeared ? 1 : 0.7).opacity(appeared ? 1 : 0)
             .animation(.spring(response: 0.65, dampingFraction: 0.7).delay(0.1), value: appeared)
 
             VStack(spacing: 6) {
                 Text(workout.name)
-                    .font(.system(size: 32, weight: .bold)).foregroundColor(.textPrimary).multilineTextAlignment(.center)
+                    .font(.forgeDynamic(size: 32, weight: .bold)).foregroundColor(.textPrimary).multilineTextAlignment(.center)
                 Text(workout.type.label.uppercased())
-                    .font(.system(size: 11, weight: .black)).tracking(2.5).foregroundColor(.ember)
+                    .font(.forgeDynamic(size: 11, weight: .black)).tracking(2.5).foregroundColor(.ember)
             }
             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 16)
             .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.18), value: appeared)
@@ -1497,9 +1497,9 @@ struct WorkoutIdleView: View {
     private func exerciseList(workout: WorkoutPlan) -> some View {
         VStack(spacing: 0) {
             HStack {
-                Text("EXERCISES").font(.system(size: 10, weight: .black)).foregroundColor(.textTertiary).tracking(2.5)
+                Text("EXERCISES").font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.textTertiary).tracking(2.5)
                 Spacer()
-                Text("\(workout.exercises.count) total").font(.system(size: 12, weight: .medium)).foregroundColor(.textMuted)
+                Text("\(workout.exercises.count) total").font(.forgeDynamic(size: 12, weight: .medium)).foregroundColor(.textMuted)
             }
             .padding(.horizontal, 20).padding(.bottom, 18)
             ForEach(Array(workout.exercises.enumerated()), id: \.element.id) { idx, ex in
@@ -1530,10 +1530,10 @@ struct WorkoutIdleView: View {
             }
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "play.fill").font(.system(size: 20, weight: .black))
-                Text("Start Workout").font(.system(size: 20, weight: .black))
+                Image(systemName: "play.fill").font(.forgeDynamic(size: 20, weight: .black))
+                Text("Start Workout").font(.forgeDynamic(size: 20, weight: .black))
                 Spacer()
-                Image(systemName: "arrow.right").font(.system(size: 18, weight: .bold))
+                Image(systemName: "arrow.right").font(.forgeDynamic(size: 18, weight: .bold))
             }
             .foregroundColor(.white)
             .padding(.horizontal, 28).padding(.vertical, 22)
@@ -1582,27 +1582,27 @@ private struct AdaptiveScalingCard: View {
             HStack(spacing: 8) {
                 ZStack {
                     Circle().fill(scaling.tone.opacity(0.15)).frame(width: 30, height: 30)
-                    Image(systemName: "wand.and.stars").font(.system(size: 13)).foregroundColor(scaling.tone)
+                    Image(systemName: "wand.and.stars").font(.forgeDynamic(size: 13)).foregroundColor(scaling.tone)
                 }
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("ARIA AUTO-SCALE").font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.textTertiary)
-                    Text(scaling.headline).font(.system(size: 15, weight: .bold)).foregroundColor(.textPrimary)
+                    Text("ARIA AUTO-SCALE").font(.forgeDynamic(size: 10, weight: .black)).tracking(2).foregroundColor(.textTertiary)
+                    Text(scaling.headline).font(.forgeDynamic(size: 15, weight: .bold)).foregroundColor(.textPrimary)
                 }
                 Spacer()
                 if scaling.isModified {
                     VStack(spacing: 1) {
-                        Text("\(Int(scaling.volumeMultiplier * 100))%").font(.system(size: 13, weight: .black, design: .rounded)).foregroundColor(scaling.tone)
-                        Text("volume").font(.system(size: 8, weight: .semibold)).foregroundColor(.textMuted)
+                        Text("\(Int(scaling.volumeMultiplier * 100))%").font(.forgeDynamic(size: 13, weight: .black, design: .rounded)).foregroundColor(scaling.tone)
+                        Text("volume").font(.forgeDynamic(size: 8, weight: .semibold)).foregroundColor(.textMuted)
                     }
                 }
             }
-            Text(scaling.detail).font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
+            Text(scaling.detail).font(.forgeDynamic(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
 
             if scaling.isModified {
                 Button(action: onApply) {
                     HStack(spacing: 8) {
-                        Image(systemName: applied ? "checkmark.circle.fill" : "slider.horizontal.3").font(.system(size: 14, weight: .bold))
-                        Text(applied ? "Auto-scaling applied" : "Apply to today's plan").font(.system(size: 14, weight: .bold))
+                        Image(systemName: applied ? "checkmark.circle.fill" : "slider.horizontal.3").font(.forgeDynamic(size: 14, weight: .bold))
+                        Text(applied ? "Auto-scaling applied" : "Apply to today's plan").font(.forgeDynamic(size: 14, weight: .bold))
                         Spacer()
                     }
                     .foregroundColor(applied ? scaling.tone : .white)
@@ -1660,35 +1660,35 @@ struct MusicControlBar: View {
                         }
                     }
                 } else {
-                    Image(systemName: controller.service.iconName).font(.system(size: 17, weight: .bold)).foregroundColor(.white)
+                    Image(systemName: controller.service.iconName).font(.forgeDynamic(size: 17, weight: .bold)).foregroundColor(.white)
                 }
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(track.title).font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(1)
+                Text(track.title).font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(1)
                 HStack(spacing: 6) {
                     Text(controller.service.rawValue)
-                        .font(.system(size: 9, weight: .black)).foregroundColor(accent)
+                        .font(.forgeDynamic(size: 9, weight: .black)).foregroundColor(accent)
                         .padding(.horizontal, 5).padding(.vertical, 2).background(accent.opacity(0.12)).cornerRadius(4)
-                    Text(track.artist).font(.system(size: 12)).foregroundColor(.textTertiary).lineLimit(1)
+                    Text(track.artist).font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary).lineLimit(1)
                     if let bpm = track.bpm {
                         Circle().fill(Color.borderColor).frame(width: 3, height: 3)
-                        Text("\(bpm) BPM").font(.system(size: 11, weight: .bold)).foregroundColor(.steel)
+                        Text("\(bpm) BPM").font(.forgeDynamic(size: 11, weight: .bold)).foregroundColor(.steel)
                     }
                 }
             }
             Spacer()
             HStack(spacing: 4) {
                 Button(action: controller.skipBack) {
-                    Image(systemName: "backward.fill").font(.system(size: 15)).foregroundColor(.textSecondary).frame(width: 36, height: 36)
+                    Image(systemName: "backward.fill").font(.forgeDynamic(size: 15)).foregroundColor(.textSecondary).frame(width: 36, height: 36)
                 }
                 Button(action: controller.togglePlayPause) {
                     ZStack {
                         Circle().fill(accent).frame(width: 36, height: 36).shadow(color: accent.opacity(0.45), radius: 6, y: 2)
-                        Image(systemName: track.isPlaying ? "pause.fill" : "play.fill").font(.system(size: 13, weight: .bold)).foregroundColor(.white)
+                        Image(systemName: track.isPlaying ? "pause.fill" : "play.fill").font(.forgeDynamic(size: 13, weight: .bold)).foregroundColor(.white)
                     }
                 }
                 Button(action: controller.skipForward) {
-                    Image(systemName: "forward.fill").font(.system(size: 15)).foregroundColor(.textSecondary).frame(width: 36, height: 36)
+                    Image(systemName: "forward.fill").font(.forgeDynamic(size: 15)).foregroundColor(.textSecondary).frame(width: 36, height: 36)
                 }
             }
         }
@@ -1700,10 +1700,10 @@ struct MusicControlBar: View {
 
     private var emptyView: some View {
         HStack(spacing: 10) {
-            Image(systemName: "music.note.list").font(.system(size: 18)).foregroundColor(.textMuted)
+            Image(systemName: "music.note.list").font(.forgeDynamic(size: 18)).foregroundColor(.textMuted)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Nothing playing").font(.system(size: 14)).foregroundColor(.textMuted)
-                Text(controller.service.rawValue).font(.system(size: 11, weight: .semibold)).foregroundColor(accent.opacity(0.7))
+                Text("Nothing playing").font(.forgeDynamic(size: 14)).foregroundColor(.textMuted)
+                Text(controller.service.rawValue).font(.forgeDynamic(size: 11, weight: .semibold)).foregroundColor(accent.opacity(0.7))
             }
             Spacer()
         }
@@ -1719,14 +1719,14 @@ struct MusicControlBar: View {
             HStack(spacing: 10) {
                 ZStack {
                     Circle().fill(accent.opacity(0.12)).frame(width: 34, height: 34)
-                    Image(systemName: controller.service.iconName).font(.system(size: 14)).foregroundColor(accent)
+                    Image(systemName: controller.service.iconName).font(.forgeDynamic(size: 14)).foregroundColor(accent)
                 }
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Connect \(controller.service.rawValue)").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                    Text("Tap to authorize").font(.system(size: 11)).foregroundColor(.textTertiary)
+                    Text("Connect \(controller.service.rawValue)").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                    Text("Tap to authorize").font(.forgeDynamic(size: 11)).foregroundColor(.textTertiary)
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 12)).foregroundColor(.textMuted)
+                Image(systemName: "chevron.right").font(.forgeDynamic(size: 12)).foregroundColor(.textMuted)
             }
             .padding(.horizontal, 14).padding(.vertical, 12)
             .background(Color.surface).cornerRadius(16)
@@ -1806,21 +1806,22 @@ private struct ReadinessIntensityArc: View {
                     .stroke(Color.ember.opacity(0.8), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                     .frame(width: 44, height: 44).rotationEffect(.degrees(-90))
                     .animation(.spring(response: 0.9, dampingFraction: 0.75).delay(0.22), value: appeared)
-                Text("\(readiness)").font(.system(size: 13, weight: .black, design: .rounded)).foregroundColor(.textPrimary)
+                Text("\(readiness)").font(.forgeDynamic(size: 13, weight: .black, design: .rounded)).foregroundColor(.textPrimary)
             }
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Circle().fill(matchColor).frame(width: 6, height: 6).shadow(color: matchColor.opacity(0.5), radius: 3)
-                    Text(matchLabel).font(.system(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
+                    Text(matchLabel).font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
                 }
                 HStack(spacing: 10) {
                     HStack(spacing: 4) {
                         Circle().fill(Color.success.opacity(0.7)).frame(width: 6, height: 6)
-                        Text("Readiness \(readiness)%").font(.system(size: 11)).foregroundColor(.textTertiary)
+                        Text("Readiness \(readiness)%").font(.forgeDynamic(size: 11)).foregroundColor(.textTertiary)
                     }
                     HStack(spacing: 4) {
                         Circle().fill(Color.ember.opacity(0.8)).frame(width: 6, height: 6)
-                        Text(intensity.label).font(.system(size: 11)).foregroundColor(.textTertiary)
+                        Text(intensity.label).font(.forgeDynamic(size: 11)).foregroundColor(.textTertiary)
                     }
                 }
             }
@@ -1838,9 +1839,9 @@ struct WorkoutStatPill: View {
     var color: Color = .textSecondary
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 11)).foregroundColor(color)
-            Text(value).font(.system(size: 13, weight: .bold)).foregroundColor(.textPrimary)
-            Text(label).font(.system(size: 11)).foregroundColor(.textSecondary).lineLimit(1)
+            Image(systemName: icon).font(.forgeDynamic(size: 11)).foregroundColor(color)
+            Text(value).font(.forgeDynamic(size: 13, weight: .bold)).foregroundColor(.textPrimary)
+            Text(label).font(.forgeDynamic(size: 11)).foregroundColor(.textSecondary).lineLimit(1)
 
         }
         .padding(.horizontal, 12).padding(.vertical, 9)
@@ -1864,27 +1865,27 @@ struct WorkoutExerciseRow: View {
                             .fill(LinearGradient(colors: [(def?.accent ?? .ember).opacity(0.18), (def?.accent ?? .ember).opacity(0.07)],
                                                  startPoint: .topLeading, endPoint: .bottomTrailing))
                             .frame(width: 42, height: 42)
-                        Text("\(index + 1)").font(.system(size: 16, weight: .bold)).foregroundColor(def?.accent ?? .ember)
+                        Text("\(index + 1)").font(.forgeDynamic(size: 16, weight: .bold)).foregroundColor(def?.accent ?? .ember)
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         Text(exercise.name)
-                            .font(.system(size: 15, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(isExpanded ? nil : 1)
+                            .font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(isExpanded ? nil : 1)
                         HStack(spacing: 8) {
                             Label("\(exercise.sets) × \(exercise.reps)", systemImage: "repeat")
-                                .font(.system(size: 12)).foregroundColor(.textSecondary)
+                                .font(.forgeDynamic(size: 12)).foregroundColor(.textSecondary)
                             if let w = exercise.weight {
                                 Circle().fill(Color.textMuted).frame(width: 3, height: 3)
-                                Text("\(w) lbs").font(.system(size: 12)).foregroundColor(.textSecondary)
+                                Text("\(w) lbs").font(.forgeDynamic(size: 12)).foregroundColor(.textSecondary)
                             }
                             if let def {
                                 Circle().fill(Color.textMuted).frame(width: 3, height: 3)
-                                Text(def.primary.first?.label ?? "").font(.system(size: 12, weight: .semibold)).foregroundColor(def.accent)
+                                Text(def.primary.first?.label ?? "").font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(def.accent)
                             }
                         }
                     }
                     Spacer()
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold)).foregroundColor(.textMuted)
+                        .font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(.textMuted)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isExpanded)
                 }
@@ -1911,8 +1912,8 @@ struct WorkoutExerciseRow: View {
                             cueRow(icon: "info.circle.fill", color: .steel, text: notes)
                         }
                         HStack(spacing: 6) {
-                            Image(systemName: "clock.fill").font(.system(size: 12)).foregroundColor(.textMuted)
-                            Text("\(exercise.restSeconds)s rest between sets").font(.system(size: 12)).foregroundColor(.textTertiary)
+                            Image(systemName: "clock.fill").font(.forgeDynamic(size: 12)).foregroundColor(.textMuted)
+                            Text("\(exercise.restSeconds)s rest between sets").font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
                         }
                         .padding(.horizontal, 20).padding(.bottom, 14)
                     }
@@ -1926,16 +1927,16 @@ struct WorkoutExerciseRow: View {
 
     private func cueRow(icon: String, color: Color, text: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
-            Image(systemName: icon).font(.system(size: 13)).foregroundColor(color)
-            Text(text).font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
+            Image(systemName: icon).font(.forgeDynamic(size: 13)).foregroundColor(color)
+            Text(text).font(.forgeDynamic(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)
     }
     private func metaChip(_ text: String, _ icon: String, _ color: Color) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 9))
-            Text(text).font(.system(size: 11, weight: .semibold))
+            Image(systemName: icon).font(.forgeDynamic(size: 9))
+            Text(text).font(.forgeDynamic(size: 11, weight: .semibold))
         }
         .foregroundColor(color).padding(.horizontal, 8).padding(.vertical, 5)
         .background(color.opacity(0.1)).cornerRadius(7)
@@ -1972,17 +1973,17 @@ struct WorkoutInsightsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 7) {
-                Image(systemName: "brain.head.profile").font(.system(size: 14)).foregroundColor(.ember)
-                Text("ARIA INSIGHTS").font(.system(size: 10, weight: .black)).foregroundColor(.textTertiary).tracking(2.5)
+                Image(systemName: "brain.head.profile").font(.forgeDynamic(size: 14)).foregroundColor(.ember)
+                Text("ARIA INSIGHTS").font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.textTertiary).tracking(2.5)
             }
             VStack(spacing: 10) {
                 ForEach(Array(insights.enumerated()), id: \.offset) { idx, insight in
                     HStack(alignment: .top, spacing: 12) {
                         ZStack {
                             Circle().fill(insight.color.opacity(0.12)).frame(width: 32, height: 32)
-                            Image(systemName: insight.icon).font(.system(size: 13)).foregroundColor(insight.color)
+                            Image(systemName: insight.icon).font(.forgeDynamic(size: 13)).foregroundColor(insight.color)
                         }
-                        Text(insight.text).font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
+                        Text(insight.text).font(.forgeDynamic(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
                         Spacer()
                     }
                     .padding(12).background(Color.surfaceElevated).cornerRadius(13)
@@ -2006,13 +2007,13 @@ struct WorkoutEmptyState: View {
             Spacer()
             ZStack {
                 Circle().fill(Color.ember.opacity(0.08)).frame(width: 130, height: 130).blur(radius: 24)
-                Image(systemName: "dumbbell.fill").font(.system(size: 58)).foregroundColor(.ember.opacity(0.5))
+                Image(systemName: "dumbbell.fill").font(.forgeDynamic(size: 58)).foregroundColor(.ember.opacity(0.5))
             }
             .scaleEffect(appeared ? 1 : 0.8).opacity(appeared ? 1 : 0)
             VStack(spacing: 10) {
-                Text("No Workout Planned").font(.system(size: 24, weight: .bold)).foregroundColor(.textPrimary)
+                Text("No Workout Planned").font(.forgeDynamic(size: 24, weight: .bold)).foregroundColor(.textPrimary)
                 Text("Chat with ARIA to generate a plan tailored to your readiness and goals — or explore the movement library.")
-                    .font(.system(size: 15)).foregroundColor(.textSecondary)
+                    .font(.forgeDynamic(size: 15)).foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center).lineSpacing(5).padding(.horizontal, 44)
             }
             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 18)
@@ -2022,8 +2023,8 @@ struct WorkoutEmptyState: View {
                     store.activeTab = .chat
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "message.fill").font(.system(size: 16))
-                        Text("Chat with ARIA").font(.system(size: 17, weight: .semibold))
+                        Image(systemName: "message.fill").font(.forgeDynamic(size: 16))
+                        Text("Chat with ARIA").font(.forgeDynamic(size: 17, weight: .semibold))
                     }
                     .foregroundColor(.white).padding(.horizontal, 32).padding(.vertical, 17)
                     .background(Color.ember).cornerRadius(18)
@@ -2031,8 +2032,8 @@ struct WorkoutEmptyState: View {
                 }
                 Button { showLibrary = true } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "books.vertical.fill").font(.system(size: 14))
-                        Text("Browse Exercise Library").font(.system(size: 15, weight: .semibold))
+                        Image(systemName: "books.vertical.fill").font(.forgeDynamic(size: 14))
+                        Text("Browse Exercise Library").font(.forgeDynamic(size: 15, weight: .semibold))
                     }
                     .foregroundColor(.steel).padding(.horizontal, 24).padding(.vertical, 13)
                     .background(Color.steel.opacity(0.1)).cornerRadius(16)
@@ -2052,8 +2053,8 @@ struct FeatureBadge: View {
     let icon: String; let label: String; let color: Color
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 10))
-            Text(label).font(.system(size: 11, weight: .medium))
+            Image(systemName: icon).font(.forgeDynamic(size: 10))
+            Text(label).font(.forgeDynamic(size: 11, weight: .medium))
         }
         .foregroundColor(color).padding(.horizontal, 9).padding(.vertical, 5)
         .background(color.opacity(0.1)).cornerRadius(7)
@@ -2083,15 +2084,15 @@ struct ExerciseLibraryView: View {
                     if results.isEmpty {
                         VStack(spacing: 10) {
                             Spacer()
-                            Image(systemName: "magnifyingglass").font(.system(size: 34)).foregroundColor(.textMuted)
-                            Text("No movements match").font(.system(size: 15)).foregroundColor(.textTertiary)
+                            Image(systemName: "magnifyingglass").font(.forgeDynamic(size: 34)).foregroundColor(.textMuted)
+                            Text("No movements match").font(.forgeDynamic(size: 15)).foregroundColor(.textTertiary)
                             Spacer()
                         }
                     } else {
                         ScrollView(showsIndicators: false) {
                             LazyVStack(spacing: 8) {
                                 HStack {
-                                    Text("\(results.count) MOVEMENTS").font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.textTertiary)
+                                    Text("\(results.count) MOVEMENTS").font(.forgeDynamic(size: 10, weight: .black)).tracking(2).foregroundColor(.textTertiary)
                                     Spacer()
                                 }
                                 .padding(.horizontal, 4).padding(.top, 4)
@@ -2114,11 +2115,11 @@ struct ExerciseLibraryView: View {
 
     private var searchBar: some View {
         HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass").font(.system(size: 15)).foregroundColor(.textMuted)
+            Image(systemName: "magnifyingglass").font(.forgeDynamic(size: 15)).foregroundColor(.textMuted)
             TextField("Search 90+ movements…", text: $query)
-                .font(.system(size: 15)).foregroundColor(.textPrimary).tint(.ember)
+                .font(.forgeDynamic(size: 15)).foregroundColor(.textPrimary).tint(.ember)
             if !query.isEmpty {
-                Button { query = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 15)).foregroundColor(.textMuted) }
+                Button { query = "" } label: { Image(systemName: "xmark.circle.fill").font(.forgeDynamic(size: 15)).foregroundColor(.textMuted) }
             }
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
@@ -2141,7 +2142,7 @@ struct ExerciseLibraryView: View {
                 if muscle != nil || equipment != nil {
                     Button { muscle = nil; equipment = nil } label: {
                         HStack(spacing: 4) { Image(systemName: "xmark"); Text("Clear") }
-                            .font(.system(size: 12, weight: .semibold)).foregroundColor(.danger)
+                            .font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(.danger)
                             .padding(.horizontal, 12).padding(.vertical, 8)
                             .background(Color.danger.opacity(0.1)).cornerRadius(100)
                     }
@@ -2153,8 +2154,8 @@ struct ExerciseLibraryView: View {
 
     private func filterChip(_ text: String, active: Bool, color: Color) -> some View {
         HStack(spacing: 5) {
-            Text(text).font(.system(size: 13, weight: .semibold))
-            Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+            Text(text).font(.forgeDynamic(size: 13, weight: .semibold))
+            Image(systemName: "chevron.down").font(.forgeDynamic(size: 9, weight: .bold))
         }
         .foregroundColor(active ? .white : .textSecondary)
         .padding(.horizontal, 14).padding(.vertical, 9)
@@ -2169,16 +2170,16 @@ struct ExerciseLibraryView: View {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(LinearGradient(colors: [def.accent.opacity(0.2), def.accent.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing))
                         .frame(width: 46, height: 46)
-                    Image(systemName: def.icon).font(.system(size: 18, weight: .semibold)).foregroundColor(def.accent)
+                    Image(systemName: def.icon).font(.forgeDynamic(size: 18, weight: .semibold)).foregroundColor(def.accent)
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(def.name).font(.system(size: 15, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(1)
-                    Text(def.muscleSummary).font(.system(size: 12)).foregroundColor(.textTertiary).lineLimit(1)
+                    Text(def.name).font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(1)
+                    Text(def.muscleSummary).font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary).lineLimit(1)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 3) {
-                    Text(def.repRangeLabel).font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundColor(.textSecondary)
-                    Text(def.equipment.label).font(.system(size: 10, weight: .semibold)).foregroundColor(.textMuted)
+                    Text(def.repRangeLabel).font(.forgeDynamic(size: 13, weight: .bold, design: .monospaced)).foregroundColor(.textSecondary)
+                    Text(def.equipment.label).font(.forgeDynamic(size: 10, weight: .semibold)).foregroundColor(.textMuted)
                 }
             }
             .padding(12).background(Color.surface).cornerRadius(16)
@@ -2206,12 +2207,12 @@ struct ExerciseDetailSheet: View {
                                 RoundedRectangle(cornerRadius: 16)
                                     .fill(LinearGradient(colors: [def.accent.opacity(0.25), def.accent.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing))
                                     .frame(width: 64, height: 64)
-                                Image(systemName: def.icon).font(.system(size: 26, weight: .bold)).foregroundColor(def.accent)
+                                Image(systemName: def.icon).font(.forgeDynamic(size: 26, weight: .bold)).foregroundColor(def.accent)
                             }
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(def.pattern.label.uppercased()).font(.system(size: 10, weight: .black)).tracking(1.5).foregroundColor(def.accent)
-                                Text(def.name).font(.system(size: 22, weight: .bold)).foregroundColor(.textPrimary)
-                                Text(def.muscleSummary).font(.system(size: 12)).foregroundColor(.textTertiary)
+                                Text(def.pattern.label.uppercased()).font(.forgeDynamic(size: 10, weight: .black)).tracking(1.5).foregroundColor(def.accent)
+                                Text(def.name).font(.forgeDynamic(size: 22, weight: .bold)).foregroundColor(.textPrimary)
+                                Text(def.muscleSummary).font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
                             }
                             Spacer()
                         }
@@ -2229,19 +2230,19 @@ struct ExerciseDetailSheet: View {
                         if !def.faults.isEmpty { sectionCard("COMMON FAULTS", icon: "exclamationmark.triangle.fill", color: .warning, lines: def.faults) }
                         if !def.note.isEmpty {
                             HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: "brain.head.profile").font(.system(size: 14)).foregroundColor(.ember)
-                                Text(def.note).font(.system(size: 13, design: .serif).italic()).foregroundColor(.textSecondary).lineSpacing(4)
+                                Image(systemName: "brain.head.profile").font(.forgeDynamic(size: 14)).foregroundColor(.ember)
+                                Text(def.note).font(.forgeDynamic(size: 13, design: .serif).italic()).foregroundColor(.textSecondary).lineSpacing(4)
                             }
                             .padding(16).frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color.ember.opacity(0.06)).cornerRadius(16)
                         }
                         if !def.substitutes.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("ARIA SWAPS").font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.textTertiary)
+                                Text("ARIA SWAPS").font(.forgeDynamic(size: 10, weight: .black)).tracking(2).foregroundColor(.textTertiary)
                                 ForEach(def.substitutes, id: \.self) { s in
                                     HStack(spacing: 8) {
-                                        Image(systemName: "arrow.triangle.swap").font(.system(size: 12)).foregroundColor(.steel)
-                                        Text(s).font(.system(size: 13)).foregroundColor(.textSecondary)
+                                        Image(systemName: "arrow.triangle.swap").font(.forgeDynamic(size: 12)).foregroundColor(.steel)
+                                        Text(s).font(.forgeDynamic(size: 13)).foregroundColor(.textSecondary)
                                     }
                                 }
                             }
@@ -2253,8 +2254,8 @@ struct ExerciseDetailSheet: View {
                             addToPlan()
                         } label: {
                             HStack(spacing: 10) {
-                                Image(systemName: added ? "checkmark.circle.fill" : "plus.circle.fill").font(.system(size: 18, weight: .bold))
-                                Text(added ? "Added to today" : store.todayWorkout == nil ? "Start a plan with this" : "Add to today's workout").font(.system(size: 16, weight: .bold))
+                                Image(systemName: added ? "checkmark.circle.fill" : "plus.circle.fill").font(.forgeDynamic(size: 18, weight: .bold))
+                                Text(added ? "Added to today" : store.todayWorkout == nil ? "Start a plan with this" : "Add to today's workout").font(.forgeDynamic(size: 16, weight: .bold))
                             }
                             .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 54)
                             .background(added ? Color.success : def.accent).cornerRadius(16)
@@ -2288,11 +2289,11 @@ struct ExerciseDetailSheet: View {
 
     private func sectionCard(_ title: String, icon: String, color: Color, lines: [String]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title).font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.textTertiary)
+            Text(title).font(.forgeDynamic(size: 10, weight: .black)).tracking(2).foregroundColor(.textTertiary)
             ForEach(lines, id: \.self) { line in
                 HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: icon).font(.system(size: 13)).foregroundColor(color)
-                    Text(line).font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
+                    Image(systemName: icon).font(.forgeDynamic(size: 13)).foregroundColor(color)
+                    Text(line).font(.forgeDynamic(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
                     Spacer(minLength: 0)
                 }
             }
@@ -2310,8 +2311,8 @@ struct FlowChips: View {
         LazyVGrid(columns: cols, alignment: .leading, spacing: 8) {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 HStack(spacing: 5) {
-                    Image(systemName: item.1).font(.system(size: 10))
-                    Text(item.0).font(.system(size: 12, weight: .semibold))
+                    Image(systemName: item.1).font(.forgeDynamic(size: 10))
+                    Text(item.0).font(.forgeDynamic(size: 12, weight: .semibold))
                 }
                 .foregroundColor(item.2).padding(.horizontal, 10).padding(.vertical, 8)
                 .background(item.2.opacity(0.1)).cornerRadius(9)
@@ -2366,11 +2367,11 @@ struct ARIADashboardView: View {
                 ZStack {
                     Circle().fill(LinearGradient(colors: [.ember, Color(hex: "FF5A00")], startPoint: .topLeading, endPoint: .bottomTrailing)).frame(width: 50, height: 50)
                         .shadow(color: .ember.opacity(0.5), radius: 12, y: 4)
-                    Image(systemName: "brain.head.profile").font(.system(size: 22, weight: .bold)).foregroundColor(.white)
+                    Image(systemName: "brain.head.profile").font(.forgeDynamic(size: 22, weight: .bold)).foregroundColor(.white)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(isPreWorkout ? "ARIA · PRE-FLIGHT" : "ARIA · DEBRIEF").font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.ember)
-                    Text(snapshot.title).font(.system(size: 20, weight: .bold)).foregroundColor(.white)
+                    Text(isPreWorkout ? "ARIA · PRE-FLIGHT" : "ARIA · DEBRIEF").font(.forgeDynamic(size: 10, weight: .black)).tracking(2).foregroundColor(.ember)
+                    Text(snapshot.title).font(.forgeDynamic(size: 20, weight: .bold)).foregroundColor(.white)
                 }
                 Spacer()
             }
@@ -2387,8 +2388,8 @@ struct ARIADashboardView: View {
 
     private func metric(_ value: String, _ label: String, _ color: Color) -> some View {
         VStack(spacing: 3) {
-            Text(value).font(.system(size: 20, weight: .black, design: .rounded)).foregroundColor(.white)
-            Text(label).font(.system(size: 10, weight: .semibold)).foregroundColor(color)
+            Text(value).font(.forgeDynamic(size: 20, weight: .black, design: .rounded)).foregroundColor(.white)
+            Text(label).font(.forgeDynamic(size: 10, weight: .semibold)).foregroundColor(color)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 12)
         .background(Color.white.opacity(0.04)).cornerRadius(12)
@@ -2399,7 +2400,7 @@ struct ARIADashboardView: View {
             VStack(spacing: 10) {
                 ForEach(snapshot.regionShare.filter { $0.1 > 0.001 }, id: \.0) { region, share in
                     HStack(spacing: 10) {
-                        Text(region.rawValue.capitalized).font(.system(size: 12, weight: .semibold)).foregroundColor(.white.opacity(0.8)).frame(width: 90, alignment: .leading)
+                        Text(region.rawValue.capitalized).font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(.white.opacity(0.8)).frame(width: 90, alignment: .leading)
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
                                 Capsule().fill(Color.white.opacity(0.06)).frame(height: 8)
@@ -2409,7 +2410,7 @@ struct ARIADashboardView: View {
                             }
                         }
                         .frame(height: 8)
-                        Text("\(Int(share * 100))%").font(.system(size: 12, weight: .bold, design: .monospaced)).foregroundColor(region.accent).frame(width: 40, alignment: .trailing)
+                        Text("\(Int(share * 100))%").font(.forgeDynamic(size: 12, weight: .bold, design: .monospaced)).foregroundColor(region.accent).frame(width: 40, alignment: .trailing)
                     }
                 }
             }
@@ -2422,13 +2423,13 @@ struct ARIADashboardView: View {
                 ForEach(snapshot.topMuscles, id: \.0) { m, share in
                     HStack(spacing: 10) {
                         Circle().fill(m.accent).frame(width: 8, height: 8)
-                        Text(m.label).font(.system(size: 13)).foregroundColor(.white.opacity(0.85))
+                        Text(m.label).font(.forgeDynamic(size: 13)).foregroundColor(.white.opacity(0.85))
                         Spacer()
-                        Text("\(Int(share * 100))%").font(.system(size: 12, weight: .bold, design: .monospaced)).foregroundColor(m.accent)
+                        Text("\(Int(share * 100))%").font(.forgeDynamic(size: 12, weight: .bold, design: .monospaced)).foregroundColor(m.accent)
                     }
                 }
                 if snapshot.topMuscles.isEmpty {
-                    Text("Add library movements to see muscle targeting.").font(.system(size: 12)).foregroundColor(.white.opacity(0.4))
+                    Text("Add library movements to see muscle targeting.").font(.forgeDynamic(size: 12)).foregroundColor(.white.opacity(0.4))
                 }
             }
         }
@@ -2448,8 +2449,8 @@ struct ARIADashboardView: View {
                                 .animation(.spring(response: 0.8, dampingFraction: 0.78).delay(Double(idx) * 0.06), value: appeared)
                         }
                         .frame(height: 70)
-                        Text(secs >= 60 ? "\(secs/60)m" : "\(secs)s").font(.system(size: 9, weight: .bold)).foregroundColor(secs > 0 ? z.color : .white.opacity(0.25))
-                        Text("Z\(idx+1)").font(.system(size: 9, weight: .black)).foregroundColor(.white.opacity(0.35))
+                        Text(secs >= 60 ? "\(secs/60)m" : "\(secs)s").font(.forgeDynamic(size: 9, weight: .bold)).foregroundColor(secs > 0 ? z.color : .white.opacity(0.25))
+                        Text("Z\(idx+1)").font(.forgeDynamic(size: 9, weight: .black)).foregroundColor(.white.opacity(0.35))
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -2462,8 +2463,8 @@ struct ARIADashboardView: View {
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(Array(snapshot.autoRegLog.enumerated()), id: \.offset) { _, line in
                     HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: "arrow.triangle.branch").font(.system(size: 11)).foregroundColor(.ember)
-                        Text(line).font(.system(size: 12)).foregroundColor(.white.opacity(0.8)).lineSpacing(3)
+                        Image(systemName: "arrow.triangle.branch").font(.forgeDynamic(size: 11)).foregroundColor(.ember)
+                        Text(line).font(.forgeDynamic(size: 12)).foregroundColor(.white.opacity(0.8)).lineSpacing(3)
                         Spacer(minLength: 0)
                     }
                 }
@@ -2476,8 +2477,8 @@ struct ARIADashboardView: View {
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(Array(recommendations.enumerated()), id: \.offset) { _, rec in
                     HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 12)).foregroundColor(.success)
-                        Text(rec).font(.system(size: 13)).foregroundColor(.white.opacity(0.85)).lineSpacing(3)
+                        Image(systemName: "checkmark.circle.fill").font(.forgeDynamic(size: 12)).foregroundColor(.success)
+                        Text(rec).font(.forgeDynamic(size: 13)).foregroundColor(.white.opacity(0.85)).lineSpacing(3)
                         Spacer(minLength: 0)
                     }
                 }
@@ -2502,9 +2503,9 @@ struct ARIADashboardView: View {
     private var sendCard: some View {
         VStack(spacing: 12) {
             HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "text.bubble.fill").font(.system(size: 14)).foregroundColor(.ember)
+                Image(systemName: "text.bubble.fill").font(.forgeDynamic(size: 14)).foregroundColor(.ember)
                 Text(briefing.isEmpty ? snapshot.localBriefing : briefing)
-                    .font(.system(size: 13)).foregroundColor(.white.opacity(0.85)).lineSpacing(4)
+                    .font(.forgeDynamic(size: 13)).foregroundColor(.white.opacity(0.85)).lineSpacing(4)
                 Spacer(minLength: 0)
             }
             .padding(16).frame(maxWidth: .infinity, alignment: .leading)
@@ -2514,8 +2515,8 @@ struct ARIADashboardView: View {
             Button { Task { await sendToARIA() } } label: {
                 HStack(spacing: 10) {
                     if loadingBrief { ProgressView().tint(.white) }
-                    else { Image(systemName: sent ? "checkmark.circle.fill" : "paperplane.fill").font(.system(size: 17, weight: .bold)) }
-                    Text(sent ? "Sent to ARIA — open chat" : loadingBrief ? "ARIA is reviewing…" : "Send this data to ARIA").font(.system(size: 16, weight: .bold))
+                    else { Image(systemName: sent ? "checkmark.circle.fill" : "paperplane.fill").font(.forgeDynamic(size: 17, weight: .bold)) }
+                    Text(sent ? "Sent to ARIA — open chat" : loadingBrief ? "ARIA is reviewing…" : "Send this data to ARIA").font(.forgeDynamic(size: 16, weight: .bold))
                 }
                 .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 56)
                 .background(LinearGradient(colors: sent ? [.success, .success.opacity(0.8)] : [.ember, Color(hex: "FF5A00")], startPoint: .leading, endPoint: .trailing))
@@ -2524,7 +2525,7 @@ struct ARIADashboardView: View {
             .disabled(loadingBrief)
             if !aria.hasAPIKey {
                 Text("Tip: add ANTHROPIC_API_KEY to enable ARIA's live Claude debrief. Using the on-device analysis for now.")
-                    .font(.system(size: 11)).foregroundColor(.white.opacity(0.35)).multilineTextAlignment(.center)
+                    .font(.forgeDynamic(size: 11)).foregroundColor(.white.opacity(0.35)).multilineTextAlignment(.center)
             }
         }
     }
@@ -2560,8 +2561,8 @@ struct ARIADashboardView: View {
     private func dashCard<Content: View>(_ title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 7) {
-                Image(systemName: icon).font(.system(size: 13)).foregroundColor(.ember)
-                Text(title).font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.white.opacity(0.45))
+                Image(systemName: icon).font(.forgeDynamic(size: 13)).foregroundColor(.ember)
+                Text(title).font(.forgeDynamic(size: 10, weight: .black)).tracking(2).foregroundColor(.white.opacity(0.45))
             }
             content()
         }
@@ -2742,11 +2743,11 @@ struct ActiveWorkoutView: View {
                 .shadow(color: currentZone.color.opacity(0.8), radius: 6)
                 .animation(.easeInOut(duration: 0.8), value: currentZone.label)
             VStack(alignment: .leading, spacing: 2) {
-                Text(store.todayWorkout?.name ?? "").font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
+                Text(store.todayWorkout?.name ?? "").font(.forgeDynamic(size: 14, weight: .bold)).foregroundColor(.textPrimary)
                 HStack(spacing: 5) {
-                    Text(store.todayWorkout?.type.label ?? "").font(.system(size: 11)).foregroundColor(.textTertiary)
+                    Text(store.todayWorkout?.type.label ?? "").font(.forgeDynamic(size: 11)).foregroundColor(.textTertiary)
                     Circle().fill(Color.textTertiary.opacity(0.5)).frame(width: 2.5, height: 2.5)
-                    Text(store.todayWorkout?.intensity.label ?? "").font(.system(size: 11, weight: .semibold)).foregroundColor(currentZone.color)
+                    Text(store.todayWorkout?.intensity.label ?? "").font(.forgeDynamic(size: 11, weight: .semibold)).foregroundColor(currentZone.color)
                         .animation(.easeInOut(duration: 0.8), value: currentZone.label)
                 }
             }
@@ -2756,16 +2757,16 @@ struct ActiveWorkoutView: View {
                 TimelineView(.animation(minimumInterval: 0.5)) { tl in
                     let flash = Int(tl.date.timeIntervalSinceReferenceDate * 2) % 2 == 0
                     HStack(spacing: 4) {
-                        Image(systemName: "clock.fill").font(.system(size: 10)).foregroundColor(.textMuted)
+                        Image(systemName: "clock.fill").font(.forgeDynamic(size: 10)).foregroundColor(.textMuted)
                         Text(formatTime(elapsedSecs, flashColon: flash))
-                            .font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
+                            .font(.forgeDynamic(size: 13, weight: .bold, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
                     }
                     .padding(.horizontal, 9).padding(.vertical, 6).background(Color.surface).cornerRadius(100)
                     .overlay(Capsule().stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
                 }
                 Button(action: handleEnd) {
                     Text(showEndConfirm ? "Confirm?" : "End")
-                        .font(.system(size: 13, weight: .bold)).foregroundColor(showEndConfirm ? .white : .danger)
+                        .font(.forgeDynamic(size: 13, weight: .bold)).foregroundColor(showEndConfirm ? .white : .danger)
                         .padding(.horizontal, 11).padding(.vertical, 7)
                         .background(showEndConfirm ? Color.danger : Color.danger.opacity(0.12)).cornerRadius(9)
                         .animation(.spring(response: 0.3, dampingFraction: 0.72), value: showEndConfirm)
@@ -2778,9 +2779,9 @@ struct ActiveWorkoutView: View {
     @ViewBuilder
     private func headerBadge(icon: String, iconColor: Color, value: String, unit: String?) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 10)).foregroundColor(iconColor)
-            Text(value).font(.system(size: 12, weight: .bold)).foregroundColor(.textPrimary).contentTransition(.numericText())
-            if let u = unit { Text(u).font(.system(size: 10)).foregroundColor(.textTertiary) }
+            Image(systemName: icon).font(.forgeDynamic(size: 10)).foregroundColor(iconColor)
+            Text(value).font(.forgeDynamic(size: 12, weight: .bold)).foregroundColor(.textPrimary).contentTransition(.numericText())
+            if let u = unit { Text(u).font(.forgeDynamic(size: 10)).foregroundColor(.textTertiary) }
         }
         .padding(.horizontal, 9).padding(.vertical, 6).background(Color.surface).cornerRadius(100)
         .overlay(Capsule().stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
@@ -2820,19 +2821,19 @@ struct ActiveWorkoutView: View {
                         let p = (sin(tl.date.timeIntervalSinceReferenceDate * 2.5) + 1) / 2
                         Circle().fill(Color.ember).frame(width: 8, height: 8).shadow(color: Color.ember.opacity(0.5 + p * 0.4), radius: 3 + p * 3)
                     }
-                    Text(name).font(.system(size: 12, weight: .bold)).foregroundColor(.ember).lineLimit(1)
+                    Text(name).font(.forgeDynamic(size: 12, weight: .bold)).foregroundColor(.ember).lineLimit(1)
                 }
                 .padding(.horizontal, 12).padding(.vertical, 7).background(Color.ember.opacity(0.1)).cornerRadius(100)
                 .overlay(Capsule().stroke(Color.ember.opacity(0.35), lineWidth: 1)).shadow(color: Color.ember.opacity(0.2), radius: 6)
             } else if isPast {
                 ZStack {
                     Circle().fill(Color.success.opacity(0.15)).frame(width: 28, height: 28)
-                    Image(systemName: "checkmark").font(.system(size: 10, weight: .black)).foregroundColor(.success)
+                    Image(systemName: "checkmark").font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.success)
                 }
             } else {
                 ZStack {
                     Circle().fill(Color.surfaceElevated).frame(width: 28, height: 28).overlay(Circle().stroke(Color.borderColor.opacity(0.6), lineWidth: 1))
-                    Text("\(idx+1)").font(.system(size: 10, weight: .semibold)).foregroundColor(.textMuted)
+                    Text("\(idx+1)").font(.forgeDynamic(size: 10, weight: .semibold)).foregroundColor(.textMuted)
                 }
             }
         }
@@ -2850,7 +2851,7 @@ struct ActiveWorkoutView: View {
                         let p = (sin(tl.date.timeIntervalSinceReferenceDate * 3) + 1) / 2
                         Circle().fill(currentZone.color).frame(width: 7, height: 7).scaleEffect(1 + p * 0.3).shadow(color: currentZone.color.opacity(0.6 + p * 0.3), radius: 4)
                     }
-                    Text(currentZone.label).font(.system(size: 12, weight: .black)).foregroundColor(currentZone.color)
+                    Text(currentZone.label).font(.forgeDynamic(size: 12, weight: .black)).foregroundColor(currentZone.color)
                 }
                 .padding(.horizontal, 12).padding(.vertical, 9).background(currentZone.color.opacity(0.13)).cornerRadius(100)
                 .overlay(Capsule().stroke(currentZone.color.opacity(0.35), lineWidth: 1)).animation(.easeInOut(duration: 0.7), value: currentZone.label)
@@ -2871,25 +2872,29 @@ struct ActiveWorkoutView: View {
     @ViewBuilder
     private func primaryMetricChip(icon: String, iconColor: Color, value: String, unit: String, accent: Color, glowing: Bool) -> some View {
         HStack(spacing: 5) {
-            Image(systemName: icon).font(.system(size: 14)).foregroundColor(iconColor)
-            Text(value).font(.system(size: 16, weight: .black, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
-            Text(unit).font(.system(size: 11, weight: .semibold)).foregroundColor(accent.opacity(0.8))
+            Image(systemName: icon).font(.forgeDynamic(size: 14)).foregroundColor(iconColor)
+            Text(value).font(.forgeDynamic(size: 16, weight: .black, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
+            Text(unit).font(.forgeDynamic(size: 11, weight: .semibold)).foregroundColor(accent.opacity(0.8))
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(ZStack { Color.surface; accent.opacity(0.06) }).cornerRadius(100)
         .overlay(Capsule().stroke(accent.opacity(glowing ? 0.5 : 0.2), lineWidth: glowing ? 1.5 : 1))
         .shadow(color: glowing ? accent.opacity(0.3) : .clear, radius: 8)
+        .accessibilityElement(children: .ignore)
+        .accessibilityValue("\(value) \(unit)")
     }
 
     @ViewBuilder
     private func liveChip(icon: String, iconColor: Color, value: String, unit: String, accent: Color) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 12)).foregroundColor(iconColor)
-            Text(value).font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
-            Text(unit).font(.system(size: 11)).foregroundColor(.textTertiary)
+            Image(systemName: icon).font(.forgeDynamic(size: 12)).foregroundColor(iconColor)
+            Text(value).font(.forgeDynamic(size: 13, weight: .bold, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
+            Text(unit).font(.forgeDynamic(size: 11)).foregroundColor(.textTertiary)
         }
         .padding(.horizontal, 11).padding(.vertical, 8).background(Color.surface).cornerRadius(100)
         .overlay(Capsule().stroke(accent.opacity(0.2), lineWidth: 1))
+        .accessibilityElement(children: .ignore)
+        .accessibilityValue("\(value) \(unit)")
     }
     // MARK: Main Content
 
@@ -2920,7 +2925,7 @@ struct ActiveWorkoutView: View {
                 // Set strip
                 HStack {
                     HStack(spacing: 8) {
-                        Text("Set \(store.currentSet) of \(exercise.sets)").font(.system(size: 13, weight: .bold)).foregroundColor(.ember)
+                        Text("Set \(store.currentSet) of \(exercise.sets)").font(.forgeDynamic(size: 13, weight: .bold)).foregroundColor(.ember)
                         HStack(spacing: 4) {
                             ForEach(0..<exercise.sets, id: \.self) { i in
                                 Circle()
@@ -2932,21 +2937,21 @@ struct ActiveWorkoutView: View {
                         }
                     }
                     Spacer()
-                    Text("\(store.currentExerciseIndex + 1)/\(exercises.count)").font(.system(size: 12)).foregroundColor(.textMuted)
+                    Text("\(store.currentExerciseIndex + 1)/\(exercises.count)").font(.forgeDynamic(size: 12)).foregroundColor(.textMuted)
                 }
                 .padding(.horizontal, 24).padding(.top, 22).padding(.bottom, 16)
 
                 Divider().background(Color.borderColor.opacity(0.4))
 
                 VStack(alignment: .leading, spacing: 14) {
-                    Text(exercise.name).font(.system(size: 26, weight: .bold)).foregroundColor(.textPrimary)
+                    Text(exercise.name).font(.forgeDynamic(size: 26, weight: .bold)).foregroundColor(.textPrimary)
                     if let def = currentDef {
                         HStack(spacing: 6) {
                             ForEach(def.primary.prefix(3)) { m in
-                                Text(m.label).font(.system(size: 10, weight: .bold)).foregroundColor(m.accent)
+                                Text(m.label).font(.forgeDynamic(size: 10, weight: .bold)).foregroundColor(m.accent)
                                     .padding(.horizontal, 8).padding(.vertical, 4).background(m.accent.opacity(0.12)).cornerRadius(7)
                             }
-                            Text("Tempo \(def.tempo)").font(.system(size: 10, weight: .semibold)).foregroundColor(.textMuted)
+                            Text("Tempo \(def.tempo)").font(.forgeDynamic(size: 10, weight: .semibold)).foregroundColor(.textMuted)
                                 .padding(.horizontal, 8).padding(.vertical, 4).background(Color.surfaceElevated).cornerRadius(7)
                         }
                     }
@@ -2969,19 +2974,19 @@ struct ActiveWorkoutView: View {
                                     } label: {
                                         ZStack {
                                             Circle().fill(Color.surfaceElevated).frame(width: 36, height: 36).overlay(Circle().stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
-                                            Image(systemName: "minus").font(.system(size: 14, weight: .bold)).foregroundColor(.textMuted)
+                                            Image(systemName: "minus").font(.forgeDynamic(size: 14, weight: .bold)).foregroundColor(.textMuted)
                                         }
                                     }
                                     VStack(spacing: 1) {
-                                        Text("\(currentWeight)").font(.system(size: 58, weight: .black, design: .rounded)).foregroundColor(.textPrimary).contentTransition(.numericText())
-                                        Text("LBS").font(.system(size: 9, weight: .black)).foregroundColor(currentZone.color.opacity(0.8)).tracking(3).animation(.easeInOut(duration: 0.8), value: currentZone.label)
+                                        Text("\(currentWeight)").font(.forgeDynamic(size: 58, weight: .black, design: .rounded)).foregroundColor(.textPrimary).contentTransition(.numericText())
+                                        Text("LBS").font(.forgeDynamic(size: 9, weight: .black)).foregroundColor(currentZone.color.opacity(0.8)).tracking(3).animation(.easeInOut(duration: 0.8), value: currentZone.label)
                                     }
                                     Button {
                                         currentWeight += 5; UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                     } label: {
                                         ZStack {
                                             Circle().fill(Color.ember.opacity(0.12)).frame(width: 36, height: 36).overlay(Circle().stroke(Color.ember.opacity(0.3), lineWidth: 1))
-                                            Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundColor(.ember)
+                                            Image(systemName: "plus").font(.forgeDynamic(size: 14, weight: .bold)).foregroundColor(.ember)
                                         }
                                     }
                                 }
@@ -2990,8 +2995,8 @@ struct ActiveWorkoutView: View {
                             Rectangle().fill(Color.borderColor.opacity(0.35)).frame(width: 1, height: 60)
                         }
                         VStack(spacing: 1) {
-                            Text(exercise.reps).font(.system(size: 58, weight: .black, design: .rounded)).foregroundColor(.textPrimary)
-                            Text("REPS").font(.system(size: 9, weight: .black)).foregroundColor(currentZone.color.opacity(0.8)).tracking(3).animation(.easeInOut(duration: 0.8), value: currentZone.label)
+                            Text(exercise.reps).font(.forgeDynamic(size: 58, weight: .black, design: .rounded)).foregroundColor(.textPrimary)
+                            Text("REPS").font(.forgeDynamic(size: 9, weight: .black)).foregroundColor(currentZone.color.opacity(0.8)).tracking(3).animation(.easeInOut(duration: 0.8), value: currentZone.label)
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -3010,15 +3015,15 @@ struct ActiveWorkoutView: View {
                 let prevSets = setLog.filter { $0.exerciseName == exercise.name }
                 if !prevSets.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("PREVIOUS SETS").font(.system(size: 9, weight: .black)).foregroundColor(.textMuted).tracking(2)
+                        Text("PREVIOUS SETS").font(.forgeDynamic(size: 9, weight: .black)).foregroundColor(.textMuted).tracking(2)
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
                                 ForEach(prevSets) { entry in
                                     VStack(spacing: 3) {
-                                        if entry.isPersonalRecord { Image(systemName: "crown.fill").font(.system(size: 9)).foregroundColor(.warning) }
-                                        Text("\(entry.repsPerformed)").font(.system(size: 14, weight: .bold, design: .monospaced)).foregroundColor(entry.isPersonalRecord ? .warning : .textPrimary)
-                                        if entry.weightUsed > 0 { Text("\(entry.weightUsed)lb").font(.system(size: 10)).foregroundColor(.textTertiary) }
-                                        Text("RPE \(entry.rpe)").font(.system(size: 9, weight: .bold)).foregroundColor(rpeColor(entry.rpe))
+                                        if entry.isPersonalRecord { Image(systemName: "crown.fill").font(.forgeDynamic(size: 9)).foregroundColor(.warning) }
+                                        Text("\(entry.repsPerformed)").font(.forgeDynamic(size: 14, weight: .bold, design: .monospaced)).foregroundColor(entry.isPersonalRecord ? .warning : .textPrimary)
+                                        if entry.weightUsed > 0 { Text("\(entry.weightUsed)lb").font(.forgeDynamic(size: 10)).foregroundColor(.textTertiary) }
+                                        Text("RPE \(entry.rpe)").font(.forgeDynamic(size: 9, weight: .bold)).foregroundColor(rpeColor(entry.rpe))
                                     }
                                     .padding(.horizontal, 10).padding(.vertical, 8)
                                     .background(entry.isPersonalRecord ? Color.warning.opacity(0.1) : Color.surfaceElevated).cornerRadius(10)
@@ -3032,11 +3037,11 @@ struct ActiveWorkoutView: View {
                 }
 
                 HStack(spacing: 5) {
-                    Image(systemName: "clock.fill").font(.system(size: 11)).foregroundColor(.textMuted)
-                    Text("\(recommendation.restSeconds)s rest").font(.system(size: 12)).foregroundColor(.textTertiary)
+                    Image(systemName: "clock.fill").font(.forgeDynamic(size: 11)).foregroundColor(.textMuted)
+                    Text("\(recommendation.restSeconds)s rest").font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
                     if let notes = exercise.notes {
                         Circle().fill(Color.borderColor).frame(width: 3, height: 3)
-                        Text(notes).font(.system(size: 12, design: .serif).italic()).foregroundColor(.textTertiary).lineLimit(1)
+                        Text(notes).font(.forgeDynamic(size: 12, design: .serif).italic()).foregroundColor(.textTertiary).lineLimit(1)
                     }
                 }
                 .padding(.horizontal, 24).padding(.vertical, 12)
@@ -3065,8 +3070,8 @@ struct ActiveWorkoutView: View {
                 withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) { showSetLogger = true }
             } label: {
                 HStack(spacing: 10) {
-                    Image(systemName: isFinish ? "checkmark.circle.fill" : "pencil.and.list.clipboard").font(.system(size: 19, weight: .black))
-                    Text(isFinish ? "Log & Finish 🎉" : isLastSet ? "Log Set · Next Exercise →" : "Log Set →").font(.system(size: 17, weight: .black))
+                    Image(systemName: isFinish ? "checkmark.circle.fill" : "pencil.and.list.clipboard").font(.forgeDynamic(size: 19, weight: .black))
+                    Text(isFinish ? "Log & Finish 🎉" : isLastSet ? "Log Set · Next Exercise →" : "Log Set →").font(.forgeDynamic(size: 17, weight: .black))
                     Spacer()
                 }
                 .foregroundColor(.white).padding(.horizontal, 24).padding(.vertical, 20).frame(maxWidth: .infinity)
@@ -3081,8 +3086,8 @@ struct ActiveWorkoutView: View {
                     withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) { showPainLogger = true }
                 } label: {
                     HStack(spacing: 5) {
-                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 12))
-                        Text(painLog.isEmpty ? "Pain" : "Pain (\(painLog.count))").font(.system(size: 14, weight: .semibold))
+                        Image(systemName: "exclamationmark.triangle.fill").font(.forgeDynamic(size: 12))
+                        Text(painLog.isEmpty ? "Pain" : "Pain (\(painLog.count))").font(.forgeDynamic(size: 14, weight: .semibold))
                     }
                     .foregroundColor(.warning).frame(maxWidth: .infinity).frame(height: 46)
                     .background(Color.warning.opacity(painLog.isEmpty ? 0.1 : 0.2)).cornerRadius(14)
@@ -3092,8 +3097,8 @@ struct ActiveWorkoutView: View {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred(); showFormCoach = true
                 } label: {
                     HStack(spacing: 5) {
-                        Image(systemName: "camera.viewfinder").font(.system(size: 13))
-                        Text("Form").font(.system(size: 14, weight: .semibold))
+                        Image(systemName: "camera.viewfinder").font(.forgeDynamic(size: 13))
+                        Text("Form").font(.forgeDynamic(size: 14, weight: .semibold))
                     }
                     .foregroundColor(.success).frame(maxWidth: .infinity).frame(height: 46)
                     .background(Color.success.opacity(0.12)).cornerRadius(14)
@@ -3103,7 +3108,7 @@ struct ActiveWorkoutView: View {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     withAnimation(.easeInOut(duration: 0.4)) { coachIndex += 1 }
                 } label: {
-                    Image(systemName: "brain.head.profile").font(.system(size: 14)).foregroundColor(.ember).frame(width: 46, height: 46)
+                    Image(systemName: "brain.head.profile").font(.forgeDynamic(size: 14)).foregroundColor(.ember).frame(width: 46, height: 46)
                         .background(Color.ember.opacity(0.1)).cornerRadius(14).overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.ember.opacity(0.3), lineWidth: 1))
                 }
             }
@@ -3113,8 +3118,8 @@ struct ActiveWorkoutView: View {
     private func actionMini(icon: String, label: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 5) {
-                Image(systemName: icon).font(.system(size: 12))
-                Text(label).font(.system(size: 14, weight: .semibold))
+                Image(systemName: icon).font(.forgeDynamic(size: 12))
+                Text(label).font(.forgeDynamic(size: 14, weight: .semibold))
             }
             .foregroundColor(color).frame(maxWidth: .infinity).frame(height: 46)
             .background(Color.surfaceElevated).cornerRadius(14)
@@ -3142,11 +3147,11 @@ struct ActiveWorkoutView: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle().fill(Color.ember.opacity(0.12)).frame(width: 36, height: 36)
-                    Image(systemName: "brain.head.profile").font(.system(size: 14, weight: .semibold)).foregroundColor(.ember)
+                    Image(systemName: "brain.head.profile").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.ember)
                 }
                 ZStack {
                     Text(liveCoachCues[coachIndex % liveCoachCues.count])
-                        .font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(3)
+                        .font(.forgeDynamic(size: 13)).foregroundColor(.textSecondary).lineSpacing(3)
                         .frame(maxWidth: .infinity, alignment: .leading).id(coachIndex)
                         .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .move(edge: .top).combined(with: .opacity)))
                 }
@@ -3367,18 +3372,18 @@ private struct AutoRegStrip: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle().fill(recommendation.primaryAction.tone.opacity(0.14)).frame(width: 36, height: 36)
-                Image(systemName: recommendation.primaryAction.icon).font(.system(size: 15, weight: .semibold)).foregroundColor(recommendation.primaryAction.tone)
+                Image(systemName: recommendation.primaryAction.icon).font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(recommendation.primaryAction.tone)
             }
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text("ARIA AUTO-REG").font(.system(size: 9, weight: .black)).tracking(1.5).foregroundColor(.textTertiary)
+                    Text("ARIA AUTO-REG").font(.forgeDynamic(size: 9, weight: .black)).tracking(1.5).foregroundColor(.textTertiary)
                     if recommendation.weightDelta != 0 {
                         Text("\(recommendation.weightDelta > 0 ? "+" : "")\(recommendation.weightDelta) lb")
-                            .font(.system(size: 9, weight: .black)).foregroundColor(recommendation.primaryAction.tone)
+                            .font(.forgeDynamic(size: 9, weight: .black)).foregroundColor(recommendation.primaryAction.tone)
                             .padding(.horizontal, 5).padding(.vertical, 1).background(recommendation.primaryAction.tone.opacity(0.14)).cornerRadius(4)
                     }
                 }
-                Text(recommendation.rationale).font(.system(size: 12)).foregroundColor(.textSecondary).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
+                Text(recommendation.rationale).font(.forgeDynamic(size: 12)).foregroundColor(.textSecondary).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }
@@ -3400,19 +3405,19 @@ private struct SubstitutionBanner: View {
                 HStack(spacing: 12) {
                     ZStack {
                         Circle().fill(Color.steel.opacity(0.2)).frame(width: 40, height: 40)
-                        Image(systemName: "arrow.triangle.swap").font(.system(size: 17)).foregroundColor(.steel)
+                        Image(systemName: "arrow.triangle.swap").font(.forgeDynamic(size: 17)).foregroundColor(.steel)
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("ARIA SUGGESTS A SWAP").font(.system(size: 10, weight: .black)).tracking(1.5).foregroundColor(.steel)
-                        Text("\(reason) — try \(target.name)").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                        Text("ARIA SUGGESTS A SWAP").font(.forgeDynamic(size: 10, weight: .black)).tracking(1.5).foregroundColor(.steel)
+                        Text("\(reason) — try \(target.name)").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
                     }
                     Spacer()
-                    Button(action: onDismiss) { Image(systemName: "xmark").font(.system(size: 12, weight: .bold)).foregroundColor(.textMuted).frame(width: 28, height: 28).background(Color.surfaceElevated).clipShape(Circle()) }
+                    Button(action: onDismiss) { Image(systemName: "xmark").font(.forgeDynamic(size: 12, weight: .bold)).foregroundColor(.textMuted).frame(width: 28, height: 28).background(Color.surfaceElevated).clipShape(Circle()) }
                 }
                 Button(action: onApply) {
                     HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 14, weight: .bold))
-                        Text("Swap to \(target.name)").font(.system(size: 14, weight: .bold))
+                        Image(systemName: "checkmark.circle.fill").font(.forgeDynamic(size: 14, weight: .bold))
+                        Text("Swap to \(target.name)").font(.forgeDynamic(size: 14, weight: .bold))
                     }
                     .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 44).background(Color.steel).cornerRadius(12)
                 }
@@ -3436,14 +3441,14 @@ private struct O2WarningBanner: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle().fill(Color.danger.opacity(0.2)).frame(width: 40, height: 40)
-                    Image(systemName: "lungs.fill").font(.system(size: 18)).foregroundColor(.danger)
+                    Image(systemName: "lungs.fill").font(.forgeDynamic(size: 18)).foregroundColor(.danger)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("LOW O₂ SATURATION").font(.system(size: 11, weight: .black)).foregroundColor(.danger).tracking(1.5)
-                    Text("\(spO2)% — Slow down and breathe deeply").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                    Text("LOW O₂ SATURATION").font(.forgeDynamic(size: 11, weight: .black)).foregroundColor(.danger).tracking(1.5)
+                    Text("\(spO2)% — Slow down and breathe deeply").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
                 }
                 Spacer()
-                Button(action: onDismiss) { Image(systemName: "xmark").font(.system(size: 12, weight: .bold)).foregroundColor(.textMuted).frame(width: 28, height: 28).background(Color.surfaceElevated).clipShape(Circle()) }
+                Button(action: onDismiss) { Image(systemName: "xmark").font(.forgeDynamic(size: 12, weight: .bold)).foregroundColor(.textMuted).frame(width: 28, height: 28).background(Color.surfaceElevated).clipShape(Circle()) }
             }
             .padding(.horizontal, 20).padding(.vertical, 14)
             .background(ZStack { Color.surface; LinearGradient(colors: [Color.danger.opacity(0.1), .clear], startPoint: .leading, endPoint: .trailing) })
@@ -3489,14 +3494,14 @@ private struct SetLoggerPanel: View {
                 VStack(spacing: 0) {
                     VStack(spacing: 14) {
                         Capsule().fill(Color.white.opacity(0.18)).frame(width: 36, height: 4)
-                        Text("SET \(currentSet) — \(exercise.name.uppercased())").font(.system(size: 9, weight: .black)).foregroundColor(.white.opacity(0.45)).tracking(2.5)
+                        Text("SET \(currentSet) — \(exercise.name.uppercased())").font(.forgeDynamic(size: 9, weight: .black)).foregroundColor(.white.opacity(0.45)).tracking(2.5)
                     }
                     .padding(.top, 16).padding(.bottom, 14)
 
                     // ARIA recommendation
                     HStack(spacing: 10) {
-                        Image(systemName: recommendation.primaryAction.icon).font(.system(size: 13)).foregroundColor(recommendation.primaryAction.tone)
-                        Text(recommendation.rationale).font(.system(size: 12)).foregroundColor(.white.opacity(0.7)).lineLimit(2)
+                        Image(systemName: recommendation.primaryAction.icon).font(.forgeDynamic(size: 13)).foregroundColor(recommendation.primaryAction.tone)
+                        Text(recommendation.rationale).font(.forgeDynamic(size: 12)).foregroundColor(.white.opacity(0.7)).lineLimit(2)
                         Spacer(minLength: 0)
                     }
                     .padding(.horizontal, 24).padding(.bottom, 14)
@@ -3504,36 +3509,36 @@ private struct SetLoggerPanel: View {
                     Divider().background(Color.white.opacity(0.08))
                     VStack(spacing: 18) {
                         VStack(spacing: 10) {
-                            Text("REPS PERFORMED").font(.system(size: 9, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
+                            Text("REPS PERFORMED").font(.forgeDynamic(size: 9, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
                             HStack(spacing: 32) {
                                 stepperButton("minus", tint: .white.opacity(0.7), bg: .white.opacity(0.08)) { if proposedReps > 1 { proposedReps -= 1 } }
-                                Text("\(proposedReps)").font(.system(size: 72, weight: .black, design: .rounded)).foregroundColor(.white).frame(minWidth: 90).contentTransition(.numericText())
+                                Text("\(proposedReps)").font(.forgeDynamic(size: 72, weight: .black, design: .rounded)).foregroundColor(.white).frame(minWidth: 90).contentTransition(.numericText())
                                 stepperButton("plus", tint: .ember, bg: .ember.opacity(0.22)) { proposedReps += 1 }
                             }
                         }
                         if exercise.weight != nil && proposedWeight > 0 {
                             VStack(spacing: 10) {
-                                Text("WEIGHT (LBS)").font(.system(size: 9, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
+                                Text("WEIGHT (LBS)").font(.forgeDynamic(size: 9, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
                                 HStack(spacing: 7) {
                                     ForEach([(-10, "-10"), (-5, "-5"), (5, "+5"), (10, "+10")], id: \.0) { delta, lbl in
                                         Button {
                                             proposedWeight = max(0, proposedWeight + delta); UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                         } label: {
-                                            Text(lbl).font(.system(size: 14, weight: .bold)).foregroundColor(delta > 0 ? .ember : .white.opacity(0.6))
+                                            Text(lbl).font(.forgeDynamic(size: 14, weight: .bold)).foregroundColor(delta > 0 ? .ember : .white.opacity(0.6))
                                                 .frame(maxWidth: .infinity).frame(height: 40)
                                                 .background(delta > 0 ? Color.ember.opacity(0.15) : Color.white.opacity(0.07)).cornerRadius(10)
                                                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(delta > 0 ? Color.ember.opacity(0.3) : Color.white.opacity(0.1), lineWidth: 1))
                                         }
                                     }
-                                    Text("\(proposedWeight)").font(.system(size: 18, weight: .black, design: .rounded)).foregroundColor(.white).contentTransition(.numericText()).frame(minWidth: 52)
+                                    Text("\(proposedWeight)").font(.forgeDynamic(size: 18, weight: .black, design: .rounded)).foregroundColor(.white).contentTransition(.numericText()).frame(minWidth: 52)
                                 }
                             }
                         }
                         VStack(spacing: 10) {
                             HStack {
-                                Text("EFFORT").font(.system(size: 9, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
+                                Text("EFFORT").font(.forgeDynamic(size: 9, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
                                 Spacer()
-                                Text("RPE \(proposedRPE) — \(rpeLabel(proposedRPE))").font(.system(size: 12, weight: .bold)).foregroundColor(rpeColor(proposedRPE)).animation(.spring(response: 0.3, dampingFraction: 0.7), value: proposedRPE)
+                                Text("RPE \(proposedRPE) — \(rpeLabel(proposedRPE))").font(.forgeDynamic(size: 12, weight: .bold)).foregroundColor(rpeColor(proposedRPE)).animation(.spring(response: 0.3, dampingFraction: 0.7), value: proposedRPE)
                             }
                             HStack(spacing: 3) {
                                 ForEach(1...10, id: \.self) { level in
@@ -3544,7 +3549,7 @@ private struct SetLoggerPanel: View {
                                         RoundedRectangle(cornerRadius: 5)
                                             .fill(level <= proposedRPE ? rpeColor(level) : Color.white.opacity(0.07))
                                             .frame(maxWidth: .infinity).frame(height: 36)
-                                            .overlay(Text("\(level)").font(.system(size: 11, weight: .black)).foregroundColor(level <= proposedRPE ? .white : .white.opacity(0.25)))
+                                            .overlay(Text("\(level)").font(.forgeDynamic(size: 11, weight: .black)).foregroundColor(level <= proposedRPE ? .white : .white.opacity(0.25)))
                                             .scaleEffect(rpePulsing == level ? 1.18 : 1.0).animation(.spring(response: 0.2, dampingFraction: 0.5), value: rpePulsing)
                                     }
                                     .buttonStyle(.plain)
@@ -3553,14 +3558,14 @@ private struct SetLoggerPanel: View {
                         }
                         Button(action: onConfirm) {
                             HStack(spacing: 10) {
-                                Image(systemName: "checkmark.circle.fill").font(.system(size: 20))
-                                Text("Log Set").font(.system(size: 20, weight: .black))
+                                Image(systemName: "checkmark.circle.fill").font(.forgeDynamic(size: 20))
+                                Text("Log Set").font(.forgeDynamic(size: 20, weight: .black))
                             }
                             .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 60)
                             .background(LinearGradient(colors: [Color.ember, Color.ember.opacity(0.82)], startPoint: .leading, endPoint: .trailing))
                             .cornerRadius(20).shadow(color: Color.ember.opacity(0.55), radius: 20, y: 6)
                         }
-                        Button(action: onCancel) { Text("Cancel").font(.system(size: 15, weight: .semibold)).foregroundColor(.white.opacity(0.4)) }.padding(.bottom, 8)
+                        Button(action: onCancel) { Text("Cancel").font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(.white.opacity(0.4)) }.padding(.bottom, 8)
                     }
                     .padding(.horizontal, 24).padding(.top, 18).padding(.bottom, 28)
                 }
@@ -3576,7 +3581,7 @@ private struct SetLoggerPanel: View {
         Button { action(); UIImpactFeedbackGenerator(style: .light).impactOccurred() } label: {
             ZStack {
                 Circle().fill(bg).frame(width: 44, height: 44).overlay(Circle().stroke(tint.opacity(0.4), lineWidth: 1))
-                Image(systemName: icon).font(.system(size: 18, weight: .semibold)).foregroundColor(tint)
+                Image(systemName: icon).font(.forgeDynamic(size: 18, weight: .semibold)).foregroundColor(tint)
             }
         }
     }
@@ -3598,15 +3603,15 @@ private struct PainLoggerPanel: View {
             VStack(spacing: 20) {
                 Capsule().fill(Color.textTertiary.opacity(0.4)).frame(width: 36, height: 4).padding(.top, 12)
                 HStack(spacing: 10) {
-                    Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 15)).foregroundColor(.warning)
-                    Text("LOG PAIN / DISCOMFORT").font(.system(size: 11, weight: .black)).foregroundColor(.textTertiary).tracking(2)
+                    Image(systemName: "exclamationmark.triangle.fill").font(.forgeDynamic(size: 15)).foregroundColor(.warning)
+                    Text("LOG PAIN / DISCOMFORT").font(.forgeDynamic(size: 11, weight: .black)).foregroundColor(.textTertiary).tracking(2)
                 }
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("LOCATION").font(.system(size: 10, weight: .black)).foregroundColor(.textMuted).tracking(2)
+                    Text("LOCATION").font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.textMuted).tracking(2)
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                         ForEach(locations, id: \.self) { loc in
                             Button { selectedLocation = loc; UISelectionFeedbackGenerator().selectionChanged() } label: {
-                                Text(loc).font(.system(size: 13, weight: .medium)).foregroundColor(selectedLocation == loc ? .white : .textSecondary)
+                                Text(loc).font(.forgeDynamic(size: 13, weight: .medium)).foregroundColor(selectedLocation == loc ? .white : .textSecondary)
                                     .frame(maxWidth: .infinity).padding(.vertical, 10)
                                     .background(selectedLocation == loc ? Color.warning : Color.surfaceElevated).cornerRadius(10)
                                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(selectedLocation == loc ? Color.warning.opacity(0.5) : Color.borderColor.opacity(0.4), lineWidth: 1))
@@ -3617,9 +3622,9 @@ private struct PainLoggerPanel: View {
                 }
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Text("SEVERITY").font(.system(size: 10, weight: .black)).foregroundColor(.textMuted).tracking(2)
+                        Text("SEVERITY").font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.textMuted).tracking(2)
                         Spacer()
-                        Text("\(severity)/10").font(.system(size: 13, weight: .bold)).foregroundColor(severity >= 7 ? .danger : .warning)
+                        Text("\(severity)/10").font(.forgeDynamic(size: 13, weight: .bold)).foregroundColor(severity >= 7 ? .danger : .warning)
                     }
                     HStack(spacing: 3) {
                         ForEach(1...10, id: \.self) { level in
@@ -3633,19 +3638,19 @@ private struct PainLoggerPanel: View {
                         }
                     }
                     Text(severity >= 7 ? "Sharp pain — ARIA will pull you off this movement." : severity >= 5 ? "ARIA may swap to a joint-friendly variant." : "Logged for ARIA to monitor.")
-                        .font(.system(size: 11)).foregroundColor(.textTertiary)
+                        .font(.forgeDynamic(size: 11)).foregroundColor(.textTertiary)
                 }
                 Button { onLog(PainEntry(location: selectedLocation, severity: severity, exerciseName: exerciseName)) } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "plus.circle.fill").font(.system(size: 18))
-                        Text("Log Pain").font(.system(size: 18, weight: .black))
+                        Image(systemName: "plus.circle.fill").font(.forgeDynamic(size: 18))
+                        Text("Log Pain").font(.forgeDynamic(size: 18, weight: .black))
                     }
                     .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 56)
                     .background(LinearGradient(colors: [Color.warning, Color.warning.opacity(0.82)], startPoint: .leading, endPoint: .trailing))
                     .cornerRadius(18).shadow(color: Color.warning.opacity(0.5), radius: 16, y: 6)
                 }
                 .padding(.horizontal, 4)
-                Button(action: onCancel) { Text("Cancel").font(.system(size: 15, weight: .semibold)).foregroundColor(.textSecondary) }.padding(.bottom, 32)
+                Button(action: onCancel) { Text("Cancel").font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(.textSecondary) }.padding(.bottom, 32)
             }
             .padding(.horizontal, 24).background(Color.surface).roundedCorners(28, corners: [.topLeft, .topRight])
             .shadow(color: .black.opacity(0.22), radius: 40, y: -10)
@@ -3663,11 +3668,11 @@ private struct PRBannerView: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle().fill(Color.warning.opacity(0.2)).frame(width: 40, height: 40)
-                    Image(systemName: "trophy.fill").font(.system(size: 18)).foregroundColor(.warning)
+                    Image(systemName: "trophy.fill").font(.forgeDynamic(size: 18)).foregroundColor(.warning)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("PERSONAL RECORD 🏆").font(.system(size: 12, weight: .black)).foregroundColor(.warning).tracking(1.5)
-                    Text(exerciseName).font(.system(size: 15, weight: .semibold)).foregroundColor(.textPrimary)
+                    Text("PERSONAL RECORD 🏆").font(.forgeDynamic(size: 12, weight: .black)).foregroundColor(.warning).tracking(1.5)
+                    Text(exerciseName).font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(.textPrimary)
                 }
                 Spacer()
             }
@@ -3696,7 +3701,7 @@ struct RestTimerView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("REST").font(.system(size: 11, weight: .black)).foregroundColor(.textMuted).tracking(4)
+            Text("REST").font(.forgeDynamic(size: 11, weight: .black)).foregroundColor(.textMuted).tracking(4)
                 .padding(.horizontal, 14).padding(.vertical, 6).background(Color.surfaceElevated).cornerRadius(100)
                 .overlay(Capsule().stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
             ZStack {
@@ -3714,24 +3719,28 @@ struct RestTimerView: View {
                 }
                 .opacity(urgency ? 0 : 1)
                 VStack(spacing: 3) {
-                    Text("\(restTimeLeft)").font(.system(size: 62, weight: .black, design: .rounded)).foregroundColor(urgency ? .danger : .textPrimary).contentTransition(.numericText())
+                    Text("\(restTimeLeft)").font(.forgeDynamic(size: 62, weight: .black, design: .rounded)).foregroundColor(urgency ? .danger : .textPrimary).contentTransition(.numericText())
                         .scaleEffect(urgency ? 1.1 : 1.0).animation(.spring(response: 0.3, dampingFraction: 0.55), value: urgency)
-                    Text("sec").font(.system(size: 12, weight: .semibold)).foregroundColor(.textMuted)
+                    Text("sec").font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(.textMuted)
                 }
             }
             .frame(width: 220, height: 220)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Rest timer")
+            .accessibilityValue("\(restTimeLeft) seconds left")
             if !urgency {
-                Text(breathLabel).font(.system(size: 13, weight: .medium)).foregroundColor(Color.sky.opacity(0.8)).animation(.easeInOut(duration: 0.5), value: breathPhase)
+                Text(breathLabel).font(.forgeDynamic(size: 13, weight: .medium)).foregroundColor(Color.sky.opacity(0.8)).animation(.easeInOut(duration: 0.5), value: breathPhase)
             }
-            Text(nextLabel).font(.system(size: 14, weight: .medium)).foregroundColor(.textTertiary).multilineTextAlignment(.center).padding(.horizontal, 40)
+            Text(nextLabel).font(.forgeDynamic(size: 14, weight: .medium)).foregroundColor(.textTertiary).multilineTextAlignment(.center).padding(.horizontal, 40)
             Button(action: onSkip) {
                 HStack(spacing: 8) {
-                    Image(systemName: "forward.fill").font(.system(size: 13))
-                    Text("Skip Rest").font(.system(size: 15, weight: .semibold))
+                    Image(systemName: "forward.fill").font(.forgeDynamic(size: 13))
+                    Text("Skip Rest").font(.forgeDynamic(size: 15, weight: .semibold))
                 }
                 .foregroundColor(.textSecondary).padding(.horizontal, 28).padding(.vertical, 14).background(Color.surfaceElevated).cornerRadius(100)
                 .overlay(Capsule().stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
             }
+            .accessibilityHint("Skips the remaining rest period.")
         }
         .frame(maxWidth: .infinity).padding(.vertical, 28)
         .onAppear { withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) { breathPhase = true } }
@@ -3779,26 +3788,29 @@ struct WorkoutSummaryView: View {
                                 .frame(width: 180, height: 180).rotationEffect(.degrees(-90)).shadow(color: scoreColor.opacity(0.5), radius: 12)
                                 .animation(.spring(response: 1.4, dampingFraction: 0.75).delay(0.5), value: scoreAppeared)
                             VStack(spacing: 4) {
-                                Image(systemName: "checkmark").font(.system(size: 22, weight: .black)).foregroundColor(scoreColor)
+                                Image(systemName: "checkmark").font(.forgeDynamic(size: 22, weight: .black)).foregroundColor(scoreColor)
                                     .scaleEffect(appeared ? 1 : 0.4).opacity(appeared ? 1 : 0).animation(.spring(response: 0.5, dampingFraction: 0.65).delay(0.3), value: appeared)
-                                Text("\(workoutScore)").font(.system(size: 52, weight: .black, design: .rounded)).foregroundColor(.white)
+                                Text("\(workoutScore)").font(.forgeDynamic(size: 52, weight: .black, design: .rounded)).foregroundColor(.white)
                                     .scaleEffect(appeared ? 1 : 0.6).opacity(appeared ? 1 : 0).animation(.spring(response: 0.65, dampingFraction: 0.7).delay(0.2), value: appeared)
-                                Text(scoreLabel.uppercased()).font(.system(size: 10, weight: .black)).foregroundColor(scoreColor).tracking(2.5)
+                                Text(scoreLabel.uppercased()).font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(scoreColor).tracking(2.5)
                                     .opacity(appeared ? 1 : 0).animation(.easeOut(duration: 0.5).delay(0.55), value: appeared)
                             }
                         }
                         .frame(width: 220, height: 220)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Workout score")
+                        .accessibilityValue("\(workoutScore) out of 100, \(scoreLabel)")
                         VStack(spacing: 8) {
-                            Text("Workout Complete").font(.system(size: 26, weight: .bold)).foregroundColor(.white)
+                            Text("Workout Complete").font(.forgeDynamic(size: 26, weight: .bold)).foregroundColor(.white)
                             HStack(spacing: 16) {
                                 HStack(spacing: 5) {
-                                    Image(systemName: "clock.fill").font(.system(size: 12)).foregroundColor(.white.opacity(0.5))
-                                    Text(formatDuration(data.duration)).font(.system(size: 14, weight: .semibold)).foregroundColor(.white.opacity(0.7))
+                                    Image(systemName: "clock.fill").font(.forgeDynamic(size: 12)).foregroundColor(.white.opacity(0.5))
+                                    Text(formatDuration(data.duration)).font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.white.opacity(0.7))
                                 }
                                 if !data.personalRecords.isEmpty {
                                     HStack(spacing: 5) {
-                                        Image(systemName: "crown.fill").font(.system(size: 12)).foregroundColor(.warning)
-                                        Text("\(data.personalRecords.count) PR\(data.personalRecords.count == 1 ? "" : "s")").font(.system(size: 14, weight: .bold)).foregroundColor(.warning)
+                                        Image(systemName: "crown.fill").font(.forgeDynamic(size: 12)).foregroundColor(.warning)
+                                        Text("\(data.personalRecords.count) PR\(data.personalRecords.count == 1 ? "" : "s")").font(.forgeDynamic(size: 14, weight: .bold)).foregroundColor(.warning)
                                     }
                                     .padding(.horizontal, 10).padding(.vertical, 5).background(Color.warning.opacity(0.15)).cornerRadius(100)
                                     .overlay(Capsule().stroke(Color.warning.opacity(0.3), lineWidth: 1))
@@ -3814,14 +3826,14 @@ struct WorkoutSummaryView: View {
                         HStack(spacing: 12) {
                             ZStack {
                                 Circle().fill(Color.ember.opacity(0.18)).frame(width: 38, height: 38)
-                                Image(systemName: "brain.head.profile").font(.system(size: 17)).foregroundColor(.ember)
+                                Image(systemName: "brain.head.profile").font(.forgeDynamic(size: 17)).foregroundColor(.ember)
                             }
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Open ARIA Dashboard").font(.system(size: 15, weight: .bold)).foregroundColor(.white)
-                                Text("Muscle balance, auto-reg log & how to improve").font(.system(size: 11)).foregroundColor(.white.opacity(0.5))
+                                Text("Open ARIA Dashboard").font(.forgeDynamic(size: 15, weight: .bold)).foregroundColor(.white)
+                                Text("Muscle balance, auto-reg log & how to improve").font(.forgeDynamic(size: 11)).foregroundColor(.white.opacity(0.5))
                             }
                             Spacer()
-                            Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundColor(.white.opacity(0.4))
+                            Image(systemName: "chevron.right").font(.forgeDynamic(size: 13, weight: .bold)).foregroundColor(.white.opacity(0.4))
                         }
                         .padding(16).background(Color.white.opacity(0.05)).cornerRadius(18)
                         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.ember.opacity(0.25), lineWidth: 1))
@@ -3859,15 +3871,15 @@ struct WorkoutSummaryView: View {
                     if !data.personalRecords.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
                             HStack(spacing: 8) {
-                                Image(systemName: "crown.fill").font(.system(size: 14)).foregroundColor(.warning)
-                                Text("PERSONAL RECORDS").font(.system(size: 10, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
+                                Image(systemName: "crown.fill").font(.forgeDynamic(size: 14)).foregroundColor(.warning)
+                                Text("PERSONAL RECORDS").font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
                             }
                             ForEach(data.personalRecords, id: \.self) { pr in
                                 HStack(spacing: 12) {
-                                    ZStack { Circle().fill(Color.warning.opacity(0.15)).frame(width: 38, height: 38); Image(systemName: "crown.fill").font(.system(size: 15)).foregroundColor(.warning) }
-                                    Text(pr).font(.system(size: 15, weight: .semibold)).foregroundColor(.white)
+                                    ZStack { Circle().fill(Color.warning.opacity(0.15)).frame(width: 38, height: 38); Image(systemName: "crown.fill").font(.forgeDynamic(size: 15)).foregroundColor(.warning) }
+                                    Text(pr).font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(.white)
                                     Spacer()
-                                    Text("NEW PR").font(.system(size: 10, weight: .black)).foregroundColor(.warning).tracking(1)
+                                    Text("NEW PR").font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.warning).tracking(1)
                                         .padding(.horizontal, 8).padding(.vertical, 5).background(Color.warning.opacity(0.15)).cornerRadius(100).overlay(Capsule().stroke(Color.warning.opacity(0.3), lineWidth: 1))
                                 }
                                 .padding(16).background(Color.white.opacity(0.05)).cornerRadius(16).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.warning.opacity(0.2), lineWidth: 1))
@@ -3881,8 +3893,8 @@ struct WorkoutSummaryView: View {
                     VStack(spacing: 12) {
                         Button { showDashboard = true } label: {
                             HStack(spacing: 10) {
-                                Image(systemName: "paperplane.fill").font(.system(size: 16))
-                                Text("Send to ARIA").font(.system(size: 17, weight: .bold))
+                                Image(systemName: "paperplane.fill").font(.forgeDynamic(size: 16))
+                                Text("Send to ARIA").font(.forgeDynamic(size: 17, weight: .bold))
                             }
                             .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 58)
                             .background(LinearGradient(colors: [Color.ember, Color.ember.opacity(0.82)], startPoint: .leading, endPoint: .trailing))
@@ -3890,8 +3902,8 @@ struct WorkoutSummaryView: View {
                         }
                         Button(action: onDismiss) {
                             HStack(spacing: 8) {
-                                Image(systemName: "house.fill").font(.system(size: 15))
-                                Text("Back to Dashboard").font(.system(size: 16, weight: .semibold))
+                                Image(systemName: "house.fill").font(.forgeDynamic(size: 15))
+                                Text("Back to Dashboard").font(.forgeDynamic(size: 16, weight: .semibold))
                             }
                             .foregroundColor(.white.opacity(0.6)).frame(maxWidth: .infinity).frame(height: 50)
                             .background(Color.white.opacity(0.07)).cornerRadius(16).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.1), lineWidth: 1))
@@ -3911,9 +3923,9 @@ struct WorkoutSummaryView: View {
 
     private func darkStatCard(_ icon: String, _ value: String, _ label: String, _ color: Color) -> some View {
         VStack(spacing: 10) {
-            ZStack { Circle().fill(color.opacity(0.15)).frame(width: 40, height: 40); Image(systemName: icon).font(.system(size: 16)).foregroundColor(color) }
-            Text(value).font(.system(size: 18, weight: .black, design: .rounded)).foregroundColor(.white)
-            Text(label).font(.system(size: 10, weight: .semibold)).foregroundColor(.white.opacity(0.4)).multilineTextAlignment(.center)
+            ZStack { Circle().fill(color.opacity(0.15)).frame(width: 40, height: 40); Image(systemName: icon).font(.forgeDynamic(size: 16)).foregroundColor(color) }
+            Text(value).font(.forgeDynamic(size: 18, weight: .black, design: .rounded)).foregroundColor(.white)
+            Text(label).font(.forgeDynamic(size: 10, weight: .semibold)).foregroundColor(.white.opacity(0.4)).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 18).background(Color.white.opacity(0.05)).cornerRadius(16).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.07), lineWidth: 1))
     }
@@ -3942,10 +3954,10 @@ private struct ZoneBreakdownCard: View {
         let maxCount = max(1, bars.map { $0.count }.max() ?? 1)
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 8) {
-                Image(systemName: "waveform.path.ecg").font(.system(size: 13)).foregroundColor(.danger)
-                Text("HEART RATE ZONES").font(.system(size: 10, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
+                Image(systemName: "waveform.path.ecg").font(.forgeDynamic(size: 13)).foregroundColor(.danger)
+                Text("HEART RATE ZONES").font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
                 Spacer()
-                Text("\(hrHistory.count) samples").font(.system(size: 11)).foregroundColor(.white.opacity(0.3))
+                Text("\(hrHistory.count) samples").font(.forgeDynamic(size: 11)).foregroundColor(.white.opacity(0.3))
             }
             HStack(alignment: .bottom, spacing: 10) {
                 ForEach(Array(bars.enumerated()), id: \.element.zone) { idx, bar in
@@ -3957,8 +3969,8 @@ private struct ZoneBreakdownCard: View {
                                 .frame(maxWidth: .infinity).frame(height: max(4, 80 * fraction)).shadow(color: bar.color.opacity(0.4), radius: 4)
                         }
                         .frame(height: 80).animation(.spring(response: 0.9, dampingFraction: 0.75).delay(Double(idx) * 0.08), value: barsAppeared)
-                        Text(formatZoneTime(bar.count)).font(.system(size: 10, weight: .bold)).foregroundColor(bar.count > 0 ? bar.color : .white.opacity(0.2))
-                        Text(bar.zone).font(.system(size: 10, weight: .black)).foregroundColor(.white.opacity(0.35))
+                        Text(formatZoneTime(bar.count)).font(.forgeDynamic(size: 10, weight: .bold)).foregroundColor(bar.count > 0 ? bar.color : .white.opacity(0.2))
+                        Text(bar.zone).font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.white.opacity(0.35))
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -3986,13 +3998,13 @@ private struct HRSparklineCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 HStack(spacing: 6) {
-                    Image(systemName: "heart.fill").font(.system(size: 13)).foregroundColor(.danger)
-                    Text("HEART RATE").font(.system(size: 10, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
+                    Image(systemName: "heart.fill").font(.forgeDynamic(size: 13)).foregroundColor(.danger)
+                    Text("HEART RATE").font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
                 }
                 Spacer()
                 HStack(spacing: 18) {
-                    VStack(spacing: 1) { Text("\(peakHR)").font(.system(size: 16, weight: .black, design: .monospaced)).foregroundColor(.danger); Text("peak").font(.system(size: 9, weight: .semibold)).foregroundColor(.white.opacity(0.35)) }
-                    VStack(spacing: 1) { Text("\(avgHR)").font(.system(size: 16, weight: .black, design: .monospaced)).foregroundColor(.white); Text("avg").font(.system(size: 9, weight: .semibold)).foregroundColor(.white.opacity(0.35)) }
+                    VStack(spacing: 1) { Text("\(peakHR)").font(.forgeDynamic(size: 16, weight: .black, design: .monospaced)).foregroundColor(.danger); Text("peak").font(.forgeDynamic(size: 9, weight: .semibold)).foregroundColor(.white.opacity(0.35)) }
+                    VStack(spacing: 1) { Text("\(avgHR)").font(.forgeDynamic(size: 16, weight: .black, design: .monospaced)).foregroundColor(.white); Text("avg").font(.forgeDynamic(size: 9, weight: .semibold)).foregroundColor(.white.opacity(0.35)) }
                 }
             }
             GeometryReader { geo in
@@ -4041,8 +4053,8 @@ struct ExerciseDemonstrationView: View {
                 ForEach(ExerciseDemoTab.allCases, id: \.self) { tab in
                     Button { withAnimation(.spring(response: 0.32, dampingFraction: 0.75)) { selectedTab = tab } } label: {
                         HStack(spacing: 5) {
-                            Image(systemName: tab == .video ? "play.circle.fill" : "camera.fill").font(.system(size: 12))
-                            Text(tab == .video ? "Technique" : "ARIA Form Check").font(.system(size: 12, weight: .semibold))
+                            Image(systemName: tab == .video ? "play.circle.fill" : "camera.fill").font(.forgeDynamic(size: 12))
+                            Text(tab == .video ? "Technique" : "ARIA Form Check").font(.forgeDynamic(size: 12, weight: .semibold))
                         }
                         .foregroundColor(selectedTab == tab ? .white : .textSecondary)
                         .padding(.horizontal, 12).padding(.vertical, 8)
@@ -4076,21 +4088,21 @@ struct ExerciseTechniqueView: View {
         ZStack {
             LinearGradient(colors: [Color.ember.opacity(0.09), Color.ember.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing)
             VStack(spacing: 10) {
-                Image(systemName: definition?.icon ?? "figure.strengthtraining.traditional").font(.system(size: 36)).foregroundColor(.ember.opacity(0.55))
+                Image(systemName: definition?.icon ?? "figure.strengthtraining.traditional").font(.forgeDynamic(size: 36)).foregroundColor(.ember.opacity(0.55))
                 if let def = definition {
                     VStack(spacing: 6) {
                         ForEach(def.cues.prefix(3), id: \.self) { cue in
                             HStack(alignment: .top, spacing: 6) {
-                                Image(systemName: "checkmark.circle.fill").font(.system(size: 11)).foregroundColor(def.accent)
-                                Text(cue).font(.system(size: 12)).foregroundColor(.textSecondary).multilineTextAlignment(.leading)
+                                Image(systemName: "checkmark.circle.fill").font(.forgeDynamic(size: 11)).foregroundColor(def.accent)
+                                Text(cue).font(.forgeDynamic(size: 12)).foregroundColor(.textSecondary).multilineTextAlignment(.leading)
                                 Spacer(minLength: 0)
                             }
                         }
                     }
                     .padding(.horizontal, 20)
                 } else {
-                    Text(exercise.name).font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
-                    Text("Focus on controlled tempo and full range.").font(.system(size: 12)).foregroundColor(.textTertiary)
+                    Text(exercise.name).font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
+                    Text("Focus on controlled tempo and full range.").font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
                 }
             }
             .padding(.vertical, 14)
@@ -4106,15 +4118,15 @@ struct ExerciseFormCheckView: View {
         ZStack {
             LinearGradient(colors: [Color.success.opacity(0.08), Color.success.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing)
             VStack(spacing: 10) {
-                Image(systemName: "camera.viewfinder").font(.system(size: 38)).foregroundColor(.success.opacity(0.5))
-                Text("ARIA Live Form Check").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                Text("Show ARIA your set — get real-time cues via the Claude vision API.").font(.system(size: 11)).foregroundColor(.textTertiary).multilineTextAlignment(.center).padding(.horizontal, 24)
+                Image(systemName: "camera.viewfinder").font(.forgeDynamic(size: 38)).foregroundColor(.success.opacity(0.5))
+                Text("ARIA Live Form Check").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                Text("Show ARIA your set — get real-time cues via the Claude vision API.").font(.forgeDynamic(size: 11)).foregroundColor(.textTertiary).multilineTextAlignment(.center).padding(.horizontal, 24)
                 Button {
                     if let onLaunch { onLaunch() } else { showCamera = true }
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "camera.fill").font(.system(size: 13))
-                        Text("Open Camera Coach").font(.system(size: 13, weight: .semibold))
+                        Image(systemName: "camera.fill").font(.forgeDynamic(size: 13))
+                        Text("Open Camera Coach").font(.forgeDynamic(size: 13, weight: .semibold))
                     }
                     .foregroundColor(.white).padding(.horizontal, 16).padding(.vertical, 8)
                     .background(Color.success).cornerRadius(20).shadow(color: Color.success.opacity(0.35), radius: 8, y: 3)
@@ -4188,9 +4200,9 @@ struct FormCheckCameraView: View {
 
     private func statePlaceholder(icon: String, title: String, subtitle: String) -> some View {
         VStack(spacing: 14) {
-            Image(systemName: icon).font(.system(size: 44)).foregroundColor(.white.opacity(0.5))
-            Text(title).font(.system(size: 18, weight: .bold)).foregroundColor(.white)
-            Text(subtitle).font(.system(size: 13)).foregroundColor(.white.opacity(0.5)).multilineTextAlignment(.center).padding(.horizontal, 40)
+            Image(systemName: icon).font(.forgeDynamic(size: 44)).foregroundColor(.white.opacity(0.5))
+            Text(title).font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.white)
+            Text(subtitle).font(.forgeDynamic(size: 13)).foregroundColor(.white.opacity(0.5)).multilineTextAlignment(.center).padding(.horizontal, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.background)
     }
@@ -4198,19 +4210,19 @@ struct FormCheckCameraView: View {
     private var topBar: some View {
         HStack(spacing: 12) {
             Button { dismiss() } label: {
-                Image(systemName: "xmark").font(.system(size: 15, weight: .bold)).foregroundColor(.white).frame(width: 38, height: 38).background(.ultraThinMaterial).clipShape(Circle())
+                Image(systemName: "xmark").font(.forgeDynamic(size: 15, weight: .bold)).foregroundColor(.white).frame(width: 38, height: 38).background(.ultraThinMaterial).clipShape(Circle())
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(exercise.name).font(.system(size: 16, weight: .bold)).foregroundColor(.white)
+                Text(exercise.name).font(.forgeDynamic(size: 16, weight: .bold)).foregroundColor(.white)
                 HStack(spacing: 5) {
                     Circle().fill(aria.hasAPIKey ? Color.success : Color.warning).frame(width: 6, height: 6)
-                    Text(aria.hasAPIKey ? "ARIA vision live" : "On-device preview").font(.system(size: 11, weight: .semibold)).foregroundColor(.white.opacity(0.7))
+                    Text(aria.hasAPIKey ? "ARIA vision live" : "On-device preview").font(.forgeDynamic(size: 11, weight: .semibold)).foregroundColor(.white.opacity(0.7))
                 }
             }
             Spacer()
             if camera.status == .running {
                 Button { camera.flip() } label: {
-                    Image(systemName: "arrow.triangle.2.circlepath.camera.fill").font(.system(size: 15, weight: .semibold)).foregroundColor(.white).frame(width: 38, height: 38).background(.ultraThinMaterial).clipShape(Circle())
+                    Image(systemName: "arrow.triangle.2.circlepath.camera.fill").font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(.white).frame(width: 38, height: 38).background(.ultraThinMaterial).clipShape(Circle())
                 }
             }
         }
@@ -4221,7 +4233,7 @@ struct FormCheckCameraView: View {
     private var analyzingPill: some View {
         HStack(spacing: 8) {
             ProgressView().tint(.white)
-            Text("ARIA is reading your form…").font(.system(size: 13, weight: .medium)).foregroundColor(.white)
+            Text("ARIA is reading your form…").font(.forgeDynamic(size: 13, weight: .medium)).foregroundColor(.white)
         }
         .padding(.horizontal, 16).padding(.vertical, 10).background(.ultraThinMaterial).clipShape(Capsule())
     }
@@ -4233,15 +4245,15 @@ struct FormCheckCameraView: View {
                     Circle().stroke(Color.white.opacity(0.12), lineWidth: 5).frame(width: 54, height: 54)
                     Circle().trim(from: 0, to: CGFloat(fb.score) / 100)
                         .stroke(fb.status.color, style: StrokeStyle(lineWidth: 5, lineCap: .round)).frame(width: 54, height: 54).rotationEffect(.degrees(-90))
-                    Text("\(fb.score)").font(.system(size: 18, weight: .black, design: .rounded)).foregroundColor(.white)
+                    Text("\(fb.score)").font(.forgeDynamic(size: 18, weight: .black, design: .rounded)).foregroundColor(.white)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
-                        Image(systemName: fb.status.icon).font(.system(size: 12)).foregroundColor(fb.status.color)
-                        Text(fb.status.label).font(.system(size: 14, weight: .bold)).foregroundColor(fb.status.color)
-                        if !fb.isLive { Text("DEMO").font(.system(size: 8, weight: .black)).foregroundColor(.white.opacity(0.5)).padding(.horizontal, 4).padding(.vertical, 1).background(Color.white.opacity(0.12)).cornerRadius(3) }
+                        Image(systemName: fb.status.icon).font(.forgeDynamic(size: 12)).foregroundColor(fb.status.color)
+                        Text(fb.status.label).font(.forgeDynamic(size: 14, weight: .bold)).foregroundColor(fb.status.color)
+                        if !fb.isLive { Text("DEMO").font(.forgeDynamic(size: 8, weight: .black)).foregroundColor(.white.opacity(0.5)).padding(.horizontal, 4).padding(.vertical, 1).background(Color.white.opacity(0.12)).cornerRadius(3) }
                     }
-                    Text(fb.summary).font(.system(size: 12)).foregroundColor(.white.opacity(0.8)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
+                    Text(fb.summary).font(.forgeDynamic(size: 12)).foregroundColor(.white.opacity(0.8)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
             }
@@ -4249,8 +4261,8 @@ struct FormCheckCameraView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(fb.cues, id: \.self) { cue in
                         HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: "arrow.right.circle.fill").font(.system(size: 12)).foregroundColor(.ember)
-                            Text(cue).font(.system(size: 13, weight: .medium)).foregroundColor(.white).lineSpacing(2)
+                            Image(systemName: "arrow.right.circle.fill").font(.forgeDynamic(size: 12)).foregroundColor(.ember)
+                            Text(cue).font(.forgeDynamic(size: 13, weight: .medium)).foregroundColor(.white).lineSpacing(2)
                             Spacer(minLength: 0)
                         }
                     }
@@ -4266,8 +4278,8 @@ struct FormCheckCameraView: View {
             // Auto-coach toggle
             Button { toggleAuto() } label: {
                 VStack(spacing: 4) {
-                    Image(systemName: autoCoach ? "bolt.fill" : "bolt.slash.fill").font(.system(size: 18)).foregroundColor(autoCoach ? .ember : .white.opacity(0.6))
-                    Text("Auto").font(.system(size: 10, weight: .semibold)).foregroundColor(.white.opacity(0.6))
+                    Image(systemName: autoCoach ? "bolt.fill" : "bolt.slash.fill").font(.forgeDynamic(size: 18)).foregroundColor(autoCoach ? .ember : .white.opacity(0.6))
+                    Text("Auto").font(.forgeDynamic(size: 10, weight: .semibold)).foregroundColor(.white.opacity(0.6))
                 }
                 .frame(width: 56, height: 56).background(.ultraThinMaterial).clipShape(Circle())
             }
@@ -4276,15 +4288,15 @@ struct FormCheckCameraView: View {
                 ZStack {
                     Circle().stroke(Color.white, lineWidth: 4).frame(width: 74, height: 74)
                     Circle().fill(aria.isAnalyzing ? Color.white.opacity(0.4) : Color.white).frame(width: 60, height: 60)
-                    Image(systemName: "camera.fill").font(.system(size: 22, weight: .bold)).foregroundColor(.black)
+                    Image(systemName: "camera.fill").font(.forgeDynamic(size: 22, weight: .bold)).foregroundColor(.black)
                 }
             }
             .disabled(aria.isAnalyzing || (camera.status != .running && camera.status != .unavailable))
             // Done
             Button { dismiss() } label: {
                 VStack(spacing: 4) {
-                    Image(systemName: "checkmark").font(.system(size: 18, weight: .bold)).foregroundColor(.success)
-                    Text("Done").font(.system(size: 10, weight: .semibold)).foregroundColor(.white.opacity(0.6))
+                    Image(systemName: "checkmark").font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.success)
+                    Text("Done").font(.forgeDynamic(size: 10, weight: .semibold)).foregroundColor(.white.opacity(0.6))
                 }
                 .frame(width: 56, height: 56).background(.ultraThinMaterial).clipShape(Circle())
             }

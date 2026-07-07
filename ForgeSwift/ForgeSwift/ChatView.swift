@@ -664,7 +664,7 @@ struct ChatHeaderView: View {
                         ))
 
                     Image(systemName: "brain.head.profile")
-                        .font(.system(size: 19, weight: .medium))
+                        .font(.forgeDynamic(size: 19, weight: .medium))
                         .foregroundStyle(LinearGradient(
                             colors: [mood.accentColor, mood.accentColor.opacity(0.7)],
                             startPoint: .top, endPoint: .bottom
@@ -694,19 +694,19 @@ struct ChatHeaderView: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text("ARIA")
-                        .font(.system(size: 17, weight: .black))
+                        .font(.forgeDynamic(size: 17, weight: .black))
                         .foregroundColor(.textPrimary)
                         .tracking(0.5)
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 13))
+                        .font(.forgeDynamic(size: 13))
                         .foregroundColor(mood.accentColor)
 
                     // Mood badge
                     HStack(spacing: 3) {
                         Text(mood.emoji)
-                            .font(.system(size: 10))
+                            .font(.forgeDynamic(size: 10))
                         Text(mood.displayName)
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.forgeDynamic(size: 10, weight: .bold))
                             .foregroundColor(mood.accentColor)
                     }
                     .padding(.horizontal, 7).padding(.vertical, 3)
@@ -721,7 +721,7 @@ struct ChatHeaderView: View {
                 HStack(spacing: 5) {
                     Circle().fill(Color.success).frame(width: 5, height: 5)
                     Text("Active · Bond Lv.\(relationshipLevel) · Chat Lv.\(momentum.level)")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.forgeDynamic(size: 11, weight: .medium))
                         .foregroundColor(.textSecondary)
                 }
             }
@@ -736,11 +736,11 @@ struct ChatHeaderView: View {
                         .frame(width: 7, height: 7)
                         .shadow(color: scoreColor.opacity(0.7), radius: 4)
                     Text("\(store.readiness.overall)")
-                        .font(.system(size: 15, weight: .black, design: .rounded))
+                        .font(.forgeDynamic(size: 15, weight: .black, design: .rounded))
                         .foregroundColor(.textPrimary)
                 }
                 Text("ready")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.forgeDynamic(size: 9, weight: .bold))
                     .tracking(1)
                     .foregroundColor(.textMuted)
                     .textCase(.uppercase)
@@ -836,7 +836,7 @@ struct DateSeparatorView: View {
         HStack(spacing: 10) {
             Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5)
             Text(label)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.forgeDynamic(size: 11, weight: .semibold))
                 .foregroundColor(.textMuted)
                 .tracking(0.5)
                 .fixedSize()
@@ -949,7 +949,7 @@ struct ChatEmptyStateView: View {
                 .clipShape(Circle().scale(0.58))
 
                 Image(systemName: "brain.head.profile")
-                    .font(.system(size: 38, weight: .medium))
+                    .font(.forgeDynamic(size: 38, weight: .medium))
                     .foregroundStyle(LinearGradient(
                         colors: [mood.accentColor, mood.accentColor.opacity(0.7)],
                         startPoint: .top, endPoint: .bottom
@@ -964,13 +964,13 @@ struct ChatEmptyStateView: View {
             // Greeting
             VStack(spacing: 8) {
                 Text(greeting)
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.forgeDynamic(size: 22, weight: .bold))
                     .foregroundColor(.textPrimary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
 
                 Text(subtext)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.forgeDynamic(size: 14, weight: .regular))
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
@@ -985,12 +985,12 @@ struct ChatEmptyStateView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("ARIA SUGGESTS")
-                        .font(.system(size: 9, weight: .black))
+                        .font(.forgeDynamic(size: 9, weight: .black))
                         .tracking(2.8)
                         .foregroundColor(.textMuted)
                     Spacer()
                     Text("based on \(mood.displayName.lowercased()) mode")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.forgeDynamic(size: 9, weight: .medium))
                         .foregroundColor(mood.accentColor.opacity(0.7))
                 }
                 .padding(.horizontal, 4)
@@ -1009,15 +1009,15 @@ struct ChatEmptyStateView: View {
                                     .fill(mood.accentColor.opacity(0.14))
                                     .frame(width: 32, height: 32)
                                 Image(systemName: prompt.1)
-                                    .font(.system(size: 13))
+                                    .font(.forgeDynamic(size: 13))
                                     .foregroundColor(mood.accentColor)
                             }
                             Text(prompt.0)
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.forgeDynamic(size: 15, weight: .medium))
                                 .foregroundColor(.textPrimary)
                             Spacer()
                             Image(systemName: "arrow.right")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.forgeDynamic(size: 11, weight: .semibold))
                                 .foregroundColor(.textMuted)
                         }
                         .padding(.horizontal, 16).padding(.vertical, 14)
@@ -1085,10 +1085,11 @@ struct MessageBubbleView: View {
                             ))
                             .frame(width: 28, height: 28)
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 12))
+                            .font(.forgeDynamic(size: 12))
                             .foregroundColor(mood.accentColor)
                     }
                     .offset(y: -3)
+                    .accessibilityHidden(true)
                 }
 
                 // Bubble + swipe
@@ -1097,7 +1098,7 @@ struct MessageBubbleView: View {
                     ZStack(alignment: isTrainer ? .trailing : .leading) {
                         // Reply icon revealed on swipe
                         Image(systemName: "arrowshape.turn.up.left.fill")
-                            .font(.system(size: 14))
+                            .font(.forgeDynamic(size: 14))
                             .foregroundColor(mood.accentColor.opacity(min(1.0, abs(dragOffset) / 44.0)))
                             .scaleEffect(min(1.2, abs(dragOffset) / 36.0))
                             .offset(x: isTrainer ? 8 : -8)
@@ -1107,7 +1108,7 @@ struct MessageBubbleView: View {
                             UISelectionFeedbackGenerator().selectionChanged()
                         } label: {
                             Text(message.content)
-                                .font(.system(size: 15.5, weight: .regular))
+                                .font(.forgeDynamic(size: 15.5, weight: .regular))
                                 .foregroundColor(isTrainer ? .textPrimary : .white)
                                 .lineSpacing(4.5)
                                 .padding(.horizontal, 16).padding(.vertical, 13)
@@ -1130,7 +1131,7 @@ struct MessageBubbleView: View {
                                 .overlay(alignment: .topTrailing) {
                                     if isTrainer && isHighConfidence {
                                         Image(systemName: "sparkle")
-                                            .font(.system(size: 9, weight: .bold))
+                                            .font(.forgeDynamic(size: 9, weight: .bold))
                                             .foregroundColor(.steel.opacity(0.8))
                                             .padding(6)
                                     }
@@ -1154,6 +1155,8 @@ struct MessageBubbleView: View {
                                 )
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("\(isTrainer ? "ARIA" : "You"): \(message.content)")
+                        .accessibilityHint("Double tap to show the time sent.")
                         .textSelection(.enabled)
                         .offset(x: dragOffset)
                         .gesture(
@@ -1184,11 +1187,11 @@ struct MessageBubbleView: View {
                     if showTimestamp {
                         HStack(spacing: 4) {
                             Text(formatTime(message.timestamp))
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.forgeDynamic(size: 11, weight: .medium))
                                 .foregroundColor(.textMuted)
                             if !isTrainer {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 10))
+                                    .font(.forgeDynamic(size: 10))
                                     .foregroundColor(Color.success.opacity(0.75))
                             }
                         }
@@ -1199,9 +1202,9 @@ struct MessageBubbleView: View {
                     // Reaction chips (shown on trainer messages after selection)
                     if let r = selectedReact {
                         HStack(spacing: 4) {
-                            Text(r).font(.system(size: 14))
+                            Text(r).font(.forgeDynamic(size: 14))
                             Text("You reacted")
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.forgeDynamic(size: 10, weight: .medium))
                                 .foregroundColor(.textMuted)
                         }
                         .padding(.horizontal, 10).padding(.vertical, 5)
@@ -1233,7 +1236,7 @@ struct MessageBubbleView: View {
                             onReactionBurst(CGPoint(x: UIScreen.main.bounds.width / 2, y: 300))
                         } label: {
                             Text(r.emoji)
-                                .font(.system(size: 20))
+                                .font(.forgeDynamic(size: 20))
                                 .padding(8)
                                 .background(selectedReact == r.emoji ? mood.accentColor.opacity(0.2) : Color.surfaceElevated)
                                 .cornerRadius(FDS.Radius.xs)
@@ -1300,10 +1303,10 @@ struct ReplyPreviewBar: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(isTrainer ? "Replying to ARIA" : "Replying to yourself")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.forgeDynamic(size: 11, weight: .bold))
                     .foregroundColor(.ember)
                 Text(message.content)
-                    .font(.system(size: 12))
+                    .font(.forgeDynamic(size: 12))
                     .foregroundColor(.textSecondary)
                     .lineLimit(1)
             }
@@ -1312,7 +1315,7 @@ struct ReplyPreviewBar: View {
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.forgeDynamic(size: 18))
                     .foregroundColor(.textMuted)
             }
         }
@@ -1352,7 +1355,7 @@ struct TypingIndicatorView: View {
                     ))
                     .frame(width: 28, height: 28)
                 Image(systemName: "flame.fill")
-                    .font(.system(size: 12)).foregroundColor(mood.accentColor)
+                    .font(.forgeDynamic(size: 12)).foregroundColor(mood.accentColor)
             }
             .offset(y: -3)
 
@@ -1360,10 +1363,10 @@ struct TypingIndicatorView: View {
                 if showLabel {
                     HStack(spacing: 6) {
                         Image(systemName: stateIcon)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.forgeDynamic(size: 11, weight: .medium))
                             .foregroundColor(stateColor)
                         Text(stateLabel)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.forgeDynamic(size: 12, weight: .medium))
                             .foregroundColor(.textSecondary)
                     }
                     .padding(.horizontal, 12).padding(.vertical, 6)
@@ -1482,7 +1485,7 @@ struct ChatInputAreaView: View {
                             .frame(width: 48, height: 48)
                             .overlay(Circle().stroke(mood.accentColor.opacity(0.22), lineWidth: 0.5))
                         Image(systemName: "mic.fill")
-                            .font(.system(size: 19))
+                            .font(.forgeDynamic(size: 19))
                             .foregroundColor(mood.accentColor)
                     }
                     .shadow(color: mood.accentColor.opacity(0.28), radius: 9, y: 3)
@@ -1507,7 +1510,7 @@ struct ChatInputAreaView: View {
                         )
 
                     TextField("Ask ARIA anything…", text: $inputText, axis: .vertical)
-                        .font(.system(size: 15.5))
+                        .font(.forgeDynamic(size: 15.5))
                         .foregroundColor(.textPrimary)
                         .tint(mood.accentColor)
                         .focused($isInputFocused)
@@ -1544,7 +1547,7 @@ struct ChatInputAreaView: View {
                                 .shadow(color: canSend ? Color.ember.opacity(0.55) : .clear, radius: 12, y: 4)
 
                             Image(systemName: "arrow.up")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.forgeDynamic(size: 16, weight: .bold))
                                 .foregroundColor(canSend ? .white : .textMuted)
                         }
                         .animation(FDS.Spring.snap, value: canSend)
@@ -1576,10 +1579,10 @@ struct SmartChip: View {
         Button(action: onTap) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.forgeDynamic(size: 11, weight: .semibold))
                     .foregroundColor(color)
                 Text(label)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.forgeDynamic(size: 12, weight: .semibold))
                     .foregroundColor(.textSecondary)
             }
             .padding(.horizontal, 14).padding(.vertical, 9)
@@ -1665,7 +1668,7 @@ struct VoiceOrbOverlay: View {
                 // State labels
                 VStack(spacing: 10) {
                     Text(speech.voiceState.label)
-                        .font(.system(size: 26, weight: .semibold))
+                        .font(.forgeDynamic(size: 26, weight: .semibold))
                         .foregroundStyle(LinearGradient(
                             colors: [orbAccent(speech.voiceState), .white.opacity(0.82)],
                             startPoint: .leading, endPoint: .trailing
@@ -1679,7 +1682,7 @@ struct VoiceOrbOverlay: View {
                         .animation(FDS.Spring.standard, value: speech.voiceState.label)
 
                     Text(speech.voiceState.sublabel)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.forgeDynamic(size: 14, weight: .medium))
                         .foregroundColor(.white.opacity(0.5))
                 }
                 .opacity(contentOpacity)
@@ -1689,7 +1692,7 @@ struct VoiceOrbOverlay: View {
                 // Recognized text preview
                 if !speech.recognizedText.isEmpty {
                     Text("\"\(speech.recognizedText)\"")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.forgeDynamic(size: 15, weight: .medium))
                         .foregroundColor(.white.opacity(0.78))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 36).padding(.bottom, 20)
@@ -1699,8 +1702,8 @@ struct VoiceOrbOverlay: View {
                 // Cancel
                 Button(action: onCancel) {
                     HStack(spacing: 8) {
-                        Image(systemName: "xmark.circle.fill").font(.system(size: 18))
-                        Text("Cancel").font(.system(size: 16, weight: .semibold))
+                        Image(systemName: "xmark.circle.fill").font(.forgeDynamic(size: 18))
+                        Text("Cancel").font(.forgeDynamic(size: 16, weight: .semibold))
                     }
                     .foregroundStyle(LinearGradient(
                         colors: [.white, orbAccent(speech.voiceState).opacity(0.85)],
@@ -1753,10 +1756,10 @@ struct XPBurstView: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: "bolt.fill")
-                .font(.system(size: 11, weight: .bold))
+                .font(.forgeDynamic(size: 11, weight: .bold))
                 .foregroundColor(Color.gold)
             Text("+\(amount) XP")
-                .font(.system(size: 13, weight: .black, design: .rounded))
+                .font(.forgeDynamic(size: 13, weight: .black, design: .rounded))
                 .foregroundColor(Color.gold)
         }
         .padding(.horizontal, 12).padding(.vertical, 7)
@@ -1795,19 +1798,19 @@ struct LevelUpBanner: View {
                             .frame(width: 52, height: 52)
                             .shadow(color: Color.gold.opacity(0.6), radius: 16)
                         Image(systemName: "crown.fill")
-                            .font(.system(size: 24))
+                            .font(.forgeDynamic(size: 24))
                             .foregroundColor(.white)
                     }
                     VStack(alignment: .leading, spacing: 3) {
                         Text("LEVEL UP!")
-                            .font(.system(size: 11, weight: .black))
+                            .font(.forgeDynamic(size: 11, weight: .black))
                             .tracking(2.5)
                             .foregroundColor(Color.gold)
                         Text("You reached Level \(level)")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.forgeDynamic(size: 18, weight: .bold))
                             .foregroundColor(.textPrimary)
                         Text("ARIA is unlocking new insights for you.")
-                            .font(.system(size: 12))
+                            .font(.forgeDynamic(size: 12))
                             .foregroundColor(.textSecondary)
                     }
                 }
@@ -1905,16 +1908,16 @@ struct WorkoutRichCardView: View {
                     RoundedRectangle(cornerRadius: FDS.Radius.sm)
                         .fill(Color.ember.opacity(0.12)).frame(width: 46, height: 46)
                     Image(systemName: "dumbbell.fill")
-                        .font(.system(size: 19)).foregroundStyle(FDS.Gradient.ember)
+                        .font(.forgeDynamic(size: 19)).foregroundStyle(FDS.Gradient.ember)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text(card.workoutName ?? "Workout Plan")
-                        .font(.system(size: 16, weight: .semibold)).foregroundColor(.textPrimary)
+                        .font(.forgeDynamic(size: 16, weight: .semibold)).foregroundColor(.textPrimary)
                     HStack(spacing: 12) {
                         Label("\(card.workoutDuration ?? 0) min", systemImage: "clock.fill")
                         Label("\(card.workoutExercises?.count ?? 0) exercises", systemImage: "list.bullet")
                     }
-                    .font(.system(size: 12, weight: .medium)).foregroundColor(.textSecondary)
+                    .font(.forgeDynamic(size: 12, weight: .medium)).foregroundColor(.textSecondary)
                 }
                 Spacer()
                 Button {
@@ -1922,7 +1925,7 @@ struct WorkoutRichCardView: View {
                     UISelectionFeedbackGenerator().selectionChanged()
                 } label: {
                     Image(systemName: expanded ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
-                        .font(.system(size: 22)).foregroundStyle(FDS.Gradient.ember)
+                        .font(.forgeDynamic(size: 22)).foregroundStyle(FDS.Gradient.ember)
                 }
             }
             .padding(16)
@@ -1934,12 +1937,12 @@ struct WorkoutRichCardView: View {
                         HStack(spacing: 12) {
                             ZStack {
                                 Circle().fill(Color.ember.opacity(0.1)).frame(width: 28, height: 28)
-                                Text("\(i+1)").font(.system(size: 12, weight: .bold)).foregroundColor(.ember)
+                                Text("\(i+1)").font(.forgeDynamic(size: 12, weight: .bold)).foregroundColor(.ember)
                             }
-                            Text(ex.name).font(.system(size: 14, weight: .medium)).foregroundColor(.textPrimary)
+                            Text(ex.name).font(.forgeDynamic(size: 14, weight: .medium)).foregroundColor(.textPrimary)
                             Spacer()
                             Text("\(ex.sets) × \(ex.reps)")
-                                .font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
+                                .font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
                                 .padding(.horizontal, 10).padding(.vertical, 4)
                                 .background(Color.surface).cornerRadius(FDS.Radius.xs)
                         }
@@ -1960,8 +1963,8 @@ struct WorkoutRichCardView: View {
                 store.startWorkout(); store.activeTab = .workout
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: "play.fill").font(.system(size: 13, weight: .bold))
-                    Text("Start This Workout").font(.system(size: 15, weight: .semibold))
+                    Image(systemName: "play.fill").font(.forgeDynamic(size: 13, weight: .bold))
+                    Text("Start This Workout").font(.forgeDynamic(size: 15, weight: .semibold))
                 }
                 .foregroundColor(.white).frame(maxWidth: .infinity).padding(.vertical, 14)
                 .background(FDS.Gradient.emberDeep).cornerRadius(FDS.Radius.sm)
@@ -2004,14 +2007,14 @@ struct DataChartRichCardView: View {
             HStack(spacing: 10) {
                 ZStack {
                     RoundedRectangle(cornerRadius: FDS.Radius.xs).fill(barColor.opacity(0.14)).frame(width: 38, height: 38)
-                    Image(systemName: "chart.line.uptrend.xyaxis").font(.system(size: 16)).foregroundColor(barColor)
+                    Image(systemName: "chart.line.uptrend.xyaxis").font(.forgeDynamic(size: 16)).foregroundColor(barColor)
                 }
                 Text(card.chartTitle ?? "Trend")
-                    .font(.system(size: 15, weight: .semibold)).foregroundColor(.textPrimary)
+                    .font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(.textPrimary)
                 Spacer()
                 if let idx = hoverIdx, idx < values.count {
                     Text(String(format: "%.0f", values[idx]))
-                        .font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundColor(barColor)
+                        .font(.forgeDynamic(size: 13, weight: .bold, design: .monospaced)).foregroundColor(barColor)
                         .transition(.opacity)
                 }
             }
@@ -2041,8 +2044,8 @@ struct DataChartRichCardView: View {
                 .frame(height: 52)
                 if let insight = card.chartInsight {
                     HStack(spacing: 8) {
-                        Image(systemName: "lightbulb.fill").font(.system(size: 12)).foregroundColor(barColor.opacity(0.75))
-                        Text(insight).font(.system(size: 13, weight: .medium)).foregroundColor(.textSecondary).lineSpacing(3)
+                        Image(systemName: "lightbulb.fill").font(.forgeDynamic(size: 12)).foregroundColor(barColor.opacity(0.75))
+                        Text(insight).font(.forgeDynamic(size: 13, weight: .medium)).foregroundColor(.textSecondary).lineSpacing(3)
                     }
                 }
             }

@@ -231,11 +231,11 @@ struct SleepHeaderView: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("SLEEP")
-                        .font(.system(size: 11, weight: .black))
+                        .font(.forgeDynamic(size: 11, weight: .black))
                         .foregroundColor(.textTertiary)
                         .tracking(3)
                     Text(selectedTab.title)
-                        .font(.system(size: 30, weight: .bold))
+                        .font(.forgeDynamic(size: 30, weight: .bold))
                         .foregroundColor(.textPrimary)
                         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selectedTab)
                 }
@@ -250,7 +250,7 @@ struct SleepHeaderView: View {
                             .frame(width: 46, height: 46)
                             .shadow(color: Color.steel.opacity(0.4), radius: 10, y: 4)
                         Image(systemName: "brain.head.profile")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.forgeDynamic(size: 18, weight: .semibold))
                             .foregroundColor(.white)
                     }
                 }
@@ -268,8 +268,8 @@ struct SleepHeaderView: View {
                             UISelectionFeedbackGenerator().selectionChanged()
                         } label: {
                             HStack(spacing: 6) {
-                                Image(systemName: tab.icon).font(.system(size: 11, weight: .semibold))
-                                Text(tab.title).font(.system(size: 13, weight: .semibold))
+                                Image(systemName: tab.icon).font(.forgeDynamic(size: 11, weight: .semibold))
+                                Text(tab.title).font(.forgeDynamic(size: 13, weight: .semibold))
                             }
                             .foregroundColor(selectedTab == tab ? .white : .textTertiary)
                             .padding(.horizontal, 14).padding(.vertical, 9)
@@ -432,12 +432,12 @@ struct SleepScoreHeroCard: View {
                 // Center
                 VStack(spacing: 5) {
                     Text("\(score)")
-                        .font(.system(size: 46, weight: .black, design: .rounded))
+                        .font(.forgeDynamic(size: 46, weight: .black, design: .rounded))
                         .foregroundColor(.textPrimary)
                         .scaleEffect(appeared ? 1 : 0.7)
                         .animation(.spring(response: 0.55, dampingFraction: 0.7).delay(0.25), value: appeared)
                     Text(scoreLabel)
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.forgeDynamic(size: 13, weight: .bold))
                         .foregroundColor(scoreColor)
                         .tracking(0.5)
                         .opacity(appeared ? 1 : 0)
@@ -445,6 +445,12 @@ struct SleepScoreHeroCard: View {
                 }
             }
             .frame(width: size, height: size)
+            // The ring + centered numbers are decorative layers around one
+            // fact; without this VoiceOver reads "82", "Good" as two
+            // disconnected stops instead of one sleep-score readout.
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Sleep score")
+            .accessibilityValue("\(score) out of 100, \(scoreLabel)")
 
             // Stats row
             HStack(spacing: 0) {
@@ -480,10 +486,13 @@ struct ScoreStatPill: View {
     let value: String; let label: String
     var body: some View {
         VStack(spacing: 3) {
-            Text(value).font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
-            Text(label).font(.system(size: 11, weight: .medium)).foregroundColor(.textTertiary)
+            Text(value).font(.forgeDynamic(size: 16, weight: .bold)).foregroundColor(.textPrimary)
+            Text(label).font(.forgeDynamic(size: 11, weight: .medium)).foregroundColor(.textTertiary)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(value)
     }
 }
 
@@ -513,7 +522,7 @@ struct AlarmTab: View {
                 VStack(spacing: 14) {
                     HStack {
                         Text("ALARMS")
-                            .font(.system(size: 10, weight: .black))
+                            .font(.forgeDynamic(size: 10, weight: .black))
                             .foregroundColor(.textTertiary)
                             .tracking(2.5)
                         Spacer()
@@ -522,8 +531,8 @@ struct AlarmTab: View {
                             showEditor = true
                         } label: {
                             HStack(spacing: 5) {
-                                Image(systemName: "plus").font(.system(size: 12, weight: .bold))
-                                Text("New").font(.system(size: 13, weight: .semibold))
+                                Image(systemName: "plus").font(.forgeDynamic(size: 12, weight: .bold))
+                                Text("New").font(.forgeDynamic(size: 13, weight: .semibold))
                             }
                             .foregroundColor(.ember)
                             .padding(.horizontal, 12).padding(.vertical, 6)
@@ -592,13 +601,13 @@ struct NextAlarmHero: View {
 
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(timeString)
-                        .font(.system(size: 72, weight: .black, design: .rounded))
+                        .font(.forgeDynamic(size: 72, weight: .black, design: .rounded))
                         .foregroundStyle(LinearGradient(
                             colors: [.textPrimary, Color.ember.opacity(0.9)],
                             startPoint: .top, endPoint: .bottom
                         ))
                     Text(ampm)
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.forgeDynamic(size: 24, weight: .bold, design: .rounded))
                         .foregroundColor(.ember)
                         .offset(y: -8)
                 }
@@ -608,10 +617,10 @@ struct NextAlarmHero: View {
             // Label + days
             VStack(spacing: 6) {
                 Text(alarm.label)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.forgeDynamic(size: 18, weight: .semibold))
                     .foregroundColor(.textPrimary)
                 Text(daysString)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.forgeDynamic(size: 13, weight: .medium))
                     .foregroundColor(.textTertiary)
             }
             .padding(.bottom, 20)
@@ -619,9 +628,9 @@ struct NextAlarmHero: View {
             // Smart wake badge
             if alarm.isSmartWake {
                 HStack(spacing: 8) {
-                    Image(systemName: "waveform.path.ecg").font(.system(size: 12))
+                    Image(systemName: "waveform.path.ecg").font(.forgeDynamic(size: 12))
                     Text("Smart Wake · \(alarm.smartWakeWindow) min window")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.forgeDynamic(size: 12, weight: .semibold))
                 }
                 .foregroundColor(.steel)
                 .padding(.horizontal, 14).padding(.vertical, 8)
@@ -665,16 +674,16 @@ struct AlarmRow: View {
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(timeStr)
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .font(.forgeDynamic(size: 28, weight: .bold, design: .rounded))
                         .foregroundColor(alarm.isEnabled ? .textPrimary : .textTertiary)
                     HStack(spacing: 8) {
                         Text(alarm.label)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.forgeDynamic(size: 13, weight: .medium))
                             .foregroundColor(alarm.isEnabled ? .textSecondary : .textMuted)
                         if !alarm.days.isEmpty {
                             Circle().fill(Color.borderColor).frame(width: 3, height: 3)
                             Text(daysStr)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.forgeDynamic(size: 12, weight: .medium))
                                 .foregroundColor(.textMuted)
                         }
                     }
@@ -729,7 +738,7 @@ struct AlarmEditorSheet: View {
                         // Giant time picker
                         VStack(spacing: 4) {
                             Text("ALARM TIME")
-                                .font(.system(size: 10, weight: .black))
+                                .font(.forgeDynamic(size: 10, weight: .black))
                                 .foregroundColor(.textTertiary)
                                 .tracking(2.5)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -756,7 +765,7 @@ struct AlarmEditorSheet: View {
                                         else { alarm.days.append(day.rawValue) }
                                     } label: {
                                         Text(day.short)
-                                            .font(.system(size: 13, weight: .bold))
+                                            .font(.forgeDynamic(size: 13, weight: .bold))
                                             .foregroundColor(active ? .white : .textTertiary)
                                             .frame(width: 38, height: 38)
                                             .background(active ? Color.ember : Color.surfaceElevated)
@@ -772,7 +781,7 @@ struct AlarmEditorSheet: View {
                         // Label
                         EditorSection(title: "LABEL") {
                             TextField("Alarm label…", text: $alarm.label)
-                                .font(.system(size: 15))
+                                .font(.forgeDynamic(size: 15))
                                 .foregroundColor(.textPrimary)
                                 .tint(.ember)
                                 .padding(.horizontal, 14).padding(.vertical, 12)
@@ -789,7 +798,7 @@ struct AlarmEditorSheet: View {
                                         ForEach(["All", "Ambient", "Nature", "Tones"], id: \.self) { cat in
                                             Button { selectedSoundCategory = cat } label: {
                                                 Text(cat)
-                                                    .font(.system(size: 12, weight: .semibold))
+                                                    .font(.forgeDynamic(size: 12, weight: .semibold))
                                                     .foregroundColor(selectedSoundCategory == cat ? .white : .textTertiary)
                                                     .padding(.horizontal, 12).padding(.vertical, 6)
                                                     .background(selectedSoundCategory == cat ? Color.ember : Color.surfaceElevated)
@@ -808,17 +817,17 @@ struct AlarmEditorSheet: View {
                                         } label: {
                                             HStack(spacing: 10) {
                                                 Image(systemName: sound.icon)
-                                                    .font(.system(size: 16))
+                                                    .font(.forgeDynamic(size: 16))
                                                     .foregroundColor(alarm.sound == sound ? .ember : .textTertiary)
                                                     .frame(width: 24)
                                                 Text(sound.rawValue)
-                                                    .font(.system(size: 13, weight: .medium))
+                                                    .font(.forgeDynamic(size: 13, weight: .medium))
                                                     .foregroundColor(alarm.sound == sound ? .textPrimary : .textSecondary)
                                                     .lineLimit(1)
                                                 Spacer()
                                                 if alarm.sound == sound {
                                                     Image(systemName: "checkmark")
-                                                        .font(.system(size: 11, weight: .bold))
+                                                        .font(.forgeDynamic(size: 11, weight: .bold))
                                                         .foregroundColor(.ember)
                                                 }
                                             }
@@ -838,10 +847,10 @@ struct AlarmEditorSheet: View {
                             HStack {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("Snooze Duration")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.forgeDynamic(size: 14, weight: .medium))
                                         .foregroundColor(.textPrimary)
                                     Text("\(alarm.snoozeMinutes) minutes")
-                                        .font(.system(size: 12))
+                                        .font(.forgeDynamic(size: 12))
                                         .foregroundColor(.textTertiary)
                                 }
                                 Spacer()
@@ -859,10 +868,10 @@ struct AlarmEditorSheet: View {
                             Toggle(isOn: $alarm.gradualVolume) {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("Gradual Volume")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.forgeDynamic(size: 14, weight: .medium))
                                         .foregroundColor(.textPrimary)
                                     Text("Slowly increases over 30 seconds")
-                                        .font(.system(size: 12))
+                                        .font(.forgeDynamic(size: 12))
                                         .foregroundColor(.textTertiary)
                                 }
                             }
@@ -878,10 +887,10 @@ struct AlarmEditorSheet: View {
                                 Toggle(isOn: $alarm.isSmartWake) {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text("Smart Wake")
-                                            .font(.system(size: 14, weight: .medium))
+                                            .font(.forgeDynamic(size: 14, weight: .medium))
                                             .foregroundColor(.textPrimary)
                                         Text("Wake during lightest sleep phase")
-                                            .font(.system(size: 12))
+                                            .font(.forgeDynamic(size: 12))
                                             .foregroundColor(.textTertiary)
                                     }
                                 }
@@ -893,7 +902,7 @@ struct AlarmEditorSheet: View {
                                 if alarm.isSmartWake {
                                     VStack(alignment: .leading, spacing: 10) {
                                         Text("Wake window: up to \(alarm.smartWakeWindow) min before alarm")
-                                            .font(.system(size: 12, weight: .medium))
+                                            .font(.forgeDynamic(size: 12, weight: .medium))
                                             .foregroundColor(.textSecondary)
                                         HStack(spacing: 8) {
                                             ForEach([15, 30, 45], id: \.self) { mins in
@@ -902,7 +911,7 @@ struct AlarmEditorSheet: View {
                                                     UISelectionFeedbackGenerator().selectionChanged()
                                                 } label: {
                                                     Text("\(mins) min")
-                                                        .font(.system(size: 13, weight: .semibold))
+                                                        .font(.forgeDynamic(size: 13, weight: .semibold))
                                                         .foregroundColor(alarm.smartWakeWindow == mins ? .white : .textTertiary)
                                                         .frame(maxWidth: .infinity)
                                                         .padding(.vertical, 10)
@@ -937,7 +946,7 @@ struct AlarmEditorSheet: View {
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
                         dismiss()
                     }
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.forgeDynamic(size: 15, weight: .semibold))
                     .foregroundColor(.ember)
                 }
             }
@@ -952,7 +961,7 @@ private struct EditorSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 10, weight: .black))
+                .font(.forgeDynamic(size: 10, weight: .black))
                 .foregroundColor(.textTertiary)
                 .tracking(2.5)
             content()
@@ -1016,7 +1025,7 @@ struct SleepSoundsTab: View {
                                     UISelectionFeedbackGenerator().selectionChanged()
                                 } label: {
                                     Text(mins == 0 ? "Off" : "\(mins)m")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(.forgeDynamic(size: 13, weight: .semibold))
                                         .foregroundColor(sleepTimer == mins ? .white : .textTertiary)
                                         .padding(.horizontal, 14).padding(.vertical, 8)
                                         .background(sleepTimer == mins ? Color.indigo : Color.surface)
@@ -1036,7 +1045,7 @@ struct SleepSoundsTab: View {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selectedCategory = nil }
                             } label: {
                                 Text("All")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.forgeDynamic(size: 13, weight: .semibold))
                                     .foregroundColor(selectedCategory == nil ? .white : .textTertiary)
                                     .padding(.horizontal, 14).padding(.vertical, 8)
                                     .background(selectedCategory == nil ? Color.indigo : Color.surface)
@@ -1051,7 +1060,7 @@ struct SleepSoundsTab: View {
                                     }
                                 } label: {
                                     Text(cat.rawValue)
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(.forgeDynamic(size: 13, weight: .semibold))
                                         .foregroundColor(selectedCategory == cat ? .white : .textTertiary)
                                         .padding(.horizontal, 14).padding(.vertical, 8)
                                         .background(selectedCategory == cat ? Color.indigo : Color.surface)
@@ -1066,9 +1075,9 @@ struct SleepSoundsTab: View {
                 // Capacity hint
                 if activeSounds.count >= 3 {
                     HStack(spacing: 6) {
-                        Image(systemName: "info.circle").font(.system(size: 12))
+                        Image(systemName: "info.circle").font(.forgeDynamic(size: 12))
                         Text("Mix up to 3 sounds at once")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.forgeDynamic(size: 12, weight: .medium))
                     }
                     .foregroundColor(.textMuted)
                 }
@@ -1100,7 +1109,7 @@ struct NowPlayingBar: View {
                 ForEach(sounds.prefix(3), id: \.sound.id) { item in
                     ZStack {
                         Circle().fill(item.sound.color.opacity(0.2)).frame(width: 32, height: 32)
-                        Image(systemName: item.sound.icon).font(.system(size: 13)).foregroundColor(item.sound.color)
+                        Image(systemName: item.sound.icon).font(.forgeDynamic(size: 13)).foregroundColor(item.sound.color)
                     }
                     .overlay(Circle().stroke(Color.background, lineWidth: 2))
                 }
@@ -1108,7 +1117,7 @@ struct NowPlayingBar: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(sounds.map { $0.sound.name }.joined(separator: " · "))
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.forgeDynamic(size: 13, weight: .semibold))
                     .foregroundColor(.textPrimary)
                     .lineLimit(1)
 
@@ -1119,11 +1128,11 @@ struct NowPlayingBar: View {
             Spacer()
 
             Button(action: onMixerTap) {
-                Image(systemName: "slider.horizontal.3").font(.system(size: 14)).foregroundColor(Color.indigo)
+                Image(systemName: "slider.horizontal.3").font(.forgeDynamic(size: 14)).foregroundColor(Color.indigo)
                     .frame(width: 36, height: 36).background(Color.indigo.opacity(0.12)).clipShape(Circle())
             }
             Button(action: onStop) {
-                Image(systemName: "stop.fill").font(.system(size: 14)).foregroundColor(.textTertiary)
+                Image(systemName: "stop.fill").font(.forgeDynamic(size: 14)).foregroundColor(.textTertiary)
                     .frame(width: 36, height: 36).background(Color.surfaceElevated).clipShape(Circle())
             }
         }
@@ -1159,7 +1168,7 @@ struct SoundMixerPanel: View {
     var body: some View {
         VStack(spacing: 14) {
             Text("MIXER")
-                .font(.system(size: 10, weight: .black))
+                .font(.forgeDynamic(size: 10, weight: .black))
                 .foregroundColor(.textTertiary)
                 .tracking(2.5)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1168,10 +1177,10 @@ struct SoundMixerPanel: View {
                 HStack(spacing: 12) {
                     ZStack {
                         Circle().fill(item.sound.color.opacity(0.18)).frame(width: 36, height: 36)
-                        Image(systemName: item.sound.icon).font(.system(size: 14)).foregroundColor(item.sound.color)
+                        Image(systemName: item.sound.icon).font(.forgeDynamic(size: 14)).foregroundColor(item.sound.color)
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(item.sound.name).font(.system(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
+                        Text(item.sound.name).font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
                         Slider(value: $activeSounds[index].volume, in: 0...1)
                             .tint(item.sound.color)
                     }
@@ -1180,7 +1189,7 @@ struct SoundMixerPanel: View {
                             _ = activeSounds.remove(at: index)
                         }
                     } label: {
-                        Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundColor(.textMuted)
+                        Image(systemName: "xmark").font(.forgeDynamic(size: 11, weight: .bold)).foregroundColor(.textMuted)
                             .frame(width: 28, height: 28).background(Color.surfaceElevated).clipShape(Circle())
                     }
                 }
@@ -1228,23 +1237,23 @@ struct SoundCard: View {
                         }
                     } else {
                         Image(systemName: sound.icon)
-                            .font(.system(size: 22, weight: .medium))
+                            .font(.forgeDynamic(size: 22, weight: .medium))
                             .foregroundColor(sound.color)
                     }
                 }
 
                 VStack(spacing: 3) {
                     Text(sound.name)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.forgeDynamic(size: 13, weight: .semibold))
                         .foregroundColor(.textPrimary)
                     Text(sound.category.rawValue)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.forgeDynamic(size: 10, weight: .medium))
                         .foregroundColor(sound.color.opacity(0.8))
                 }
 
                 if isActive {
                     Text("Playing")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.forgeDynamic(size: 10, weight: .bold))
                         .foregroundColor(sound.color)
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(sound.color.opacity(0.12))
@@ -1339,9 +1348,9 @@ struct SmartWakeCard: View {
                     Toggle(isOn: $enabled) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Wake during lightest sleep")
-                                .font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                                .font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
                             Text("Detects your sleep cycle and wakes you at the optimal moment")
-                                .font(.system(size: 12)).foregroundColor(.textTertiary).lineSpacing(3)
+                                .font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary).lineSpacing(3)
                         }
                     }
                     .tint(.steel)
@@ -1349,7 +1358,7 @@ struct SmartWakeCard: View {
                     if enabled {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Detection window")
-                                .font(.system(size: 12, weight: .semibold)).foregroundColor(.textSecondary)
+                                .font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(.textSecondary)
                             HStack(spacing: 10) {
                                 ForEach([15, 30, 45], id: \.self) { mins in
                                     Button {
@@ -1358,10 +1367,10 @@ struct SmartWakeCard: View {
                                     } label: {
                                         VStack(spacing: 4) {
                                             Text("\(mins)")
-                                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                                .font(.forgeDynamic(size: 20, weight: .bold, design: .rounded))
                                                 .foregroundColor(windowMinutes == mins ? .white : .textPrimary)
                                             Text("min")
-                                                .font(.system(size: 11, weight: .medium))
+                                                .font(.forgeDynamic(size: 11, weight: .medium))
                                                 .foregroundColor(windowMinutes == mins ? .white.opacity(0.7) : .textTertiary)
                                         }
                                         .frame(maxWidth: .infinity).padding(.vertical, 12)
@@ -1384,8 +1393,8 @@ struct SmartWakeCard: View {
                                 }
                                 .frame(width: 200)
                                 VStack(alignment: .trailing, spacing: 2) {
-                                    Image(systemName: "alarm.fill").font(.system(size: 12)).foregroundColor(.ember)
-                                    Text("Alarm").font(.system(size: 9, weight: .medium)).foregroundColor(.textMuted)
+                                    Image(systemName: "alarm.fill").font(.forgeDynamic(size: 12)).foregroundColor(.ember)
+                                    Text("Alarm").font(.forgeDynamic(size: 9, weight: .medium)).foregroundColor(.textMuted)
                                 }
                                 .padding(.leading, 6)
                             }
@@ -1421,9 +1430,9 @@ struct SunriseSimulationCard: View {
                 Toggle(isOn: $enabled) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Gradual light increase")
-                            .font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                            .font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
                         Text("Mimics a natural sunrise to gently bring you out of sleep")
-                            .font(.system(size: 12)).foregroundColor(.textTertiary)
+                            .font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
                     }
                 }
                 .tint(Color.amber)
@@ -1432,11 +1441,11 @@ struct SunriseSimulationCard: View {
                     VStack(spacing: 14) {
                         // Duration
                         HStack {
-                            Text("Duration").font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
+                            Text("Duration").font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
                             Spacer()
                             HStack(spacing: 4) {
                                 Text("\(duration) min")
-                                    .font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
+                                    .font(.forgeDynamic(size: 14, weight: .bold)).foregroundColor(.textPrimary)
                                 Stepper("", value: $duration, in: 5...60, step: 5)
                                     .labelsHidden().tint(Color.amber)
                             }
@@ -1445,10 +1454,10 @@ struct SunriseSimulationCard: View {
                         // Color temperature
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
-                                Text("Color Temperature").font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
+                                Text("Color Temperature").font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
                                 Spacer()
                                 Text(colorTemp < 0.3 ? "2700K Warm" : colorTemp < 0.7 ? "3500K Neutral" : "5000K Cool")
-                                    .font(.system(size: 12, weight: .semibold)).foregroundColor(displayColor)
+                                    .font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(displayColor)
                             }
 
                             // Gradient slider preview
@@ -1482,10 +1491,10 @@ struct SunriseSimulationCard: View {
                         .frame(height: 16)
                         .padding(.horizontal, 4)
                         .overlay(alignment: .leading) {
-                            Text("Start").font(.system(size: 9, weight: .medium)).foregroundColor(.textMuted)
+                            Text("Start").font(.forgeDynamic(size: 9, weight: .medium)).foregroundColor(.textMuted)
                         }
                         .overlay(alignment: .trailing) {
-                            Text("Full").font(.system(size: 9, weight: .medium)).foregroundColor(.textMuted)
+                            Text("Full").font(.forgeDynamic(size: 9, weight: .medium)).foregroundColor(.textMuted)
                         }
                     }
                     .padding(12).background(Color.amber.opacity(0.06)).cornerRadius(12)
@@ -1535,17 +1544,17 @@ struct VolumeRampCard: View {
                                 Circle().fill(curve == option ? Color.ember.opacity(0.15) : Color.surfaceElevated)
                                     .frame(width: 38, height: 38)
                                 Image(systemName: option.icon)
-                                    .font(.system(size: 15))
+                                    .font(.forgeDynamic(size: 15))
                                     .foregroundColor(curve == option ? .ember : .textTertiary)
                             }
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(option.rawValue).font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                                Text(option.description).font(.system(size: 12)).foregroundColor(.textTertiary)
+                                Text(option.rawValue).font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                                Text(option.description).font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
                             }
                             Spacer()
                             if curve == option {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 18)).foregroundColor(.ember)
+                                    .font(.forgeDynamic(size: 18)).foregroundColor(.ember)
                             }
                         }
                         .padding(.horizontal, 14).padding(.vertical, 12)
@@ -1577,7 +1586,7 @@ struct VolumeRampPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Volume preview")
-                .font(.system(size: 11, weight: .medium)).foregroundColor(.textMuted)
+                .font(.forgeDynamic(size: 11, weight: .medium)).foregroundColor(.textMuted)
             GeometryReader { geo in
                 HStack(alignment: .bottom, spacing: 0) {
                     ForEach(0..<80, id: \.self) { i in
@@ -1627,13 +1636,13 @@ struct MorningRoutineCard: View {
             VStack(spacing: 12) {
                 HStack {
                     Text("Total: \(totalMinutes) min")
-                        .font(.system(size: 12, weight: .semibold)).foregroundColor(.textSecondary)
+                        .font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(.textSecondary)
                     Spacer()
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { editMode.toggle() }
                     } label: {
                         Text(editMode ? "Done" : "Edit")
-                            .font(.system(size: 13, weight: .semibold)).foregroundColor(.success)
+                            .font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.success)
                     }
                 }
 
@@ -1642,7 +1651,7 @@ struct MorningRoutineCard: View {
                         // Drag handle (visible in edit mode)
                         if editMode {
                             Image(systemName: "line.3.horizontal")
-                                .font(.system(size: 14)).foregroundColor(.textMuted)
+                                .font(.forgeDynamic(size: 14)).foregroundColor(.textMuted)
                         }
 
                         Toggle(isOn: $item.isEnabled) {
@@ -1651,15 +1660,15 @@ struct MorningRoutineCard: View {
                                     Circle().fill(item.isEnabled ? Color.success.opacity(0.15) : Color.surfaceElevated)
                                         .frame(width: 36, height: 36)
                                     Image(systemName: item.icon)
-                                        .font(.system(size: 14))
+                                        .font(.forgeDynamic(size: 14))
                                         .foregroundColor(item.isEnabled ? .success : .textMuted)
                                 }
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(item.name)
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.forgeDynamic(size: 14, weight: .medium))
                                         .foregroundColor(item.isEnabled ? .textPrimary : .textTertiary)
                                     Text("\(item.duration) min")
-                                        .font(.system(size: 11))
+                                        .font(.forgeDynamic(size: 11))
                                         .foregroundColor(.textMuted)
                                 }
                             }
@@ -1699,10 +1708,10 @@ struct WakeGreetingCard: View {
                         .fill(LinearGradient(colors: [Color(hex: "0F172A"), Color(hex: "1E293B")], startPoint: .top, endPoint: .bottom))
                     VStack(spacing: 12) {
                         Text("6:45 AM")
-                            .font(.system(size: 36, weight: .black, design: .rounded))
+                            .font(.forgeDynamic(size: 36, weight: .black, design: .rounded))
                             .foregroundColor(.white)
                         Text(greeting)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.forgeDynamic(size: 13, weight: .medium))
                             .foregroundColor(.white.opacity(0.8))
                             .multilineTextAlignment(.center)
                         HStack(spacing: 16) {
@@ -1710,7 +1719,7 @@ struct WakeGreetingCard: View {
                             if showWeather   { Label("72°F", systemImage: "sun.max.fill").foregroundColor(Color.amber) }
                             if showWorkout   { Label("Upper Body", systemImage: "dumbbell.fill").foregroundColor(.ember) }
                         }
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.forgeDynamic(size: 11, weight: .semibold))
                     }
                     .padding(20)
                 }
@@ -1718,7 +1727,7 @@ struct WakeGreetingCard: View {
 
                 // Greeting field
                 TextField("Wake greeting…", text: $greeting)
-                    .font(.system(size: 14)).foregroundColor(.textPrimary).tint(Color.amber)
+                    .font(.forgeDynamic(size: 14)).foregroundColor(.textPrimary).tint(Color.amber)
                     .padding(.horizontal, 14).padding(.vertical, 11)
                     .background(Color.surfaceElevated).cornerRadius(12)
 
@@ -1739,7 +1748,7 @@ struct WakeToggle: View {
     let color: Color
     var body: some View {
         Toggle(isOn: $value) {
-            Text(label).font(.system(size: 14, weight: .medium)).foregroundColor(.textPrimary)
+            Text(label).font(.forgeDynamic(size: 14, weight: .medium)).foregroundColor(.textPrimary)
         }
         .tint(color)
         .padding(.horizontal, 14).padding(.vertical, 12)
@@ -1760,9 +1769,9 @@ struct WakeUpSection<Content: View>: View {
             HStack(spacing: 10) {
                 ZStack {
                     Circle().fill(color.opacity(0.15)).frame(width: 36, height: 36)
-                    Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundColor(color)
+                    Image(systemName: icon).font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(color)
                 }
-                Text(title).font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
+                Text(title).font(.forgeDynamic(size: 16, weight: .bold)).foregroundColor(.textPrimary)
             }
             content()
         }
@@ -1788,18 +1797,18 @@ struct SleepStreakCard: View {
                         .fill(LinearGradient(colors: [Color.ember, Color.ember.opacity(0.75)], startPoint: .topLeading, endPoint: .bottomTrailing))
                         .frame(width: 58, height: 58)
                         .shadow(color: Color.ember.opacity(0.45), radius: 10, y: 4)
-                    Image(systemName: "flame.fill").font(.system(size: 26)).foregroundColor(.white)
+                    Image(systemName: "flame.fill").font(.forgeDynamic(size: 26)).foregroundColor(.white)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text("\(streak)").font(.system(size: 28, weight: .black, design: .rounded)).foregroundColor(.textPrimary)
-                        Text("Day Streak").font(.system(size: 16, weight: .medium)).foregroundColor(.textSecondary)
+                        Text("\(streak)").font(.forgeDynamic(size: 28, weight: .black, design: .rounded)).foregroundColor(.textPrimary)
+                        Text("Day Streak").font(.forgeDynamic(size: 16, weight: .medium)).foregroundColor(.textSecondary)
                     }
                     Text(streak >= 7 ? "🔥 On fire!" : "Keep it going!")
-                        .font(.system(size: 13)).foregroundColor(.textTertiary)
+                        .font(.forgeDynamic(size: 13)).foregroundColor(.textTertiary)
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundColor(.textMuted)
+                Image(systemName: "chevron.right").font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textMuted)
             }
             .padding(18)
             .background(Color.surface)
@@ -1824,24 +1833,24 @@ struct AISleepPredictionCard: View {
                 HStack(spacing: 10) {
                     ZStack {
                         Circle().fill(Color.steel.opacity(0.15)).frame(width: 34, height: 34)
-                        Image(systemName: "sparkles").font(.system(size: 14)).foregroundColor(.steel)
+                        Image(systemName: "sparkles").font(.forgeDynamic(size: 14)).foregroundColor(.steel)
                     }
-                    Text("AI Sleep Prediction").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                    Text("AI Sleep Prediction").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
                     Spacer()
-                    Image(systemName: "chevron.right").font(.system(size: 12)).foregroundColor(.textMuted)
+                    Image(systemName: "chevron.right").font(.forgeDynamic(size: 12)).foregroundColor(.textMuted)
                 }
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Optimal Bedtime Tonight")
-                        .font(.system(size: 12)).foregroundColor(.textSecondary)
+                        .font(.forgeDynamic(size: 12)).foregroundColor(.textSecondary)
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text("10:15 PM")
-                            .font(.system(size: 26, weight: .bold, design: .rounded)).foregroundColor(.steel)
+                            .font(.forgeDynamic(size: 26, weight: .bold, design: .rounded)).foregroundColor(.steel)
                         Text("for peak recovery")
-                            .font(.system(size: 13)).foregroundColor(.textTertiary)
+                            .font(.forgeDynamic(size: 13)).foregroundColor(.textTertiary)
                     }
                 }
                 Text("Based on workout intensity and your 7-day sleep pattern")
-                    .font(.system(size: 12)).foregroundColor(.textMuted).lineLimit(2)
+                    .font(.forgeDynamic(size: 12)).foregroundColor(.textMuted).lineLimit(2)
             }
             .padding(18)
             .background(Color.surface)
@@ -1877,7 +1886,7 @@ struct SleepTimelineView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Sleep Stages").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+            Text("Sleep Stages").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
 
             GeometryReader { geo in
                 HStack(spacing: 0) {
@@ -1897,8 +1906,8 @@ struct SleepTimelineView: View {
                 ForEach(stages) { s in
                     HStack(spacing: 6) {
                         Circle().fill(s.color).frame(width: 9, height: 9)
-                        Text(s.label).font(.system(size: 12)).foregroundColor(.textSecondary)
-                        Text(fmt(s.minutes)).font(.system(size: 12, weight: .semibold)).foregroundColor(.textPrimary)
+                        Text(s.label).font(.forgeDynamic(size: 12)).foregroundColor(.textSecondary)
+                        Text(fmt(s.minutes)).font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(.textPrimary)
                     }
                 }
             }
@@ -1940,7 +1949,7 @@ struct SleepBreakdownView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Breakdown").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+            Text("Breakdown").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(Array(cards.enumerated()), id: \.offset) { i, card in
                     SleepBreakdownCard(item: card, index: i)
@@ -1957,8 +1966,8 @@ struct SleepBreakdownCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(item.label).font(.system(size: 12, weight: .medium)).foregroundColor(.textSecondary)
-            Text(item.value).font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+            Text(item.label).font(.forgeDynamic(size: 12, weight: .medium)).foregroundColor(.textSecondary)
+            Text(item.value).font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.textPrimary)
             if let p = item.progress {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
@@ -1970,7 +1979,7 @@ struct SleepBreakdownCard: View {
                 }
                 .frame(height: 5)
             }
-            Text(item.subtitle).font(.system(size: 10)).foregroundColor(.textTertiary)
+            Text(item.subtitle).font(.forgeDynamic(size: 10)).foregroundColor(.textTertiary)
         }
         .padding(14)
         .background(Color.surface)
@@ -1998,13 +2007,13 @@ struct AISleepInsightView: View {
         HStack(alignment: .top, spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10).fill(Color.steel.opacity(0.12)).frame(width: 38, height: 38)
-                Image(systemName: "moon.stars.fill").font(.system(size: 16)).foregroundColor(.steel)
+                Image(systemName: "moon.stars.fill").font(.forgeDynamic(size: 16)).foregroundColor(.steel)
             }
             VStack(alignment: .leading, spacing: 6) {
                 Text("AI Sleep Insight")
-                    .font(.system(size: 12, weight: .bold)).foregroundColor(.steel).tracking(0.5)
+                    .font(.forgeDynamic(size: 12, weight: .bold)).foregroundColor(.steel).tracking(0.5)
                 Text(hkService.chronotypeInsightPrefix() + insight)
-                    .font(.system(size: 14)).foregroundColor(.textPrimary).lineSpacing(5)
+                    .font(.forgeDynamic(size: 14)).foregroundColor(.textPrimary).lineSpacing(5)
             }
         }
         .padding(18)
@@ -2060,8 +2069,8 @@ struct RecoveryTrendsView: View {
                 .chartYAxis { AxisMarks { _ in AxisValueLabel().foregroundStyle(Color.textTertiary); AxisGridLine().foregroundStyle(Color.borderColor.opacity(0.4)) } }
                 .frame(height: 150)
                 HStack(spacing: 16) {
-                    Label { Text("HRV (ms)").font(.system(size: 11)).foregroundColor(.textSecondary) } icon: { Circle().fill(Color.steel).frame(width: 8, height: 8) }
-                    Label { Text("Resting HR").font(.system(size: 11)).foregroundColor(.textSecondary) } icon: { Circle().fill(Color.ember).frame(width: 8, height: 8) }
+                    Label { Text("HRV (ms)").font(.forgeDynamic(size: 11)).foregroundColor(.textSecondary) } icon: { Circle().fill(Color.steel).frame(width: 8, height: 8) }
+                    Label { Text("Resting HR").font(.forgeDynamic(size: 11)).foregroundColor(.textSecondary) } icon: { Circle().fill(Color.ember).frame(width: 8, height: 8) }
                 }
             }
         }
@@ -2073,7 +2082,7 @@ private struct ChartCard<Content: View>: View {
     @ViewBuilder let content: () -> Content
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title).font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+            Text(title).font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
             content()
         }
         .padding(16).background(Color.surface).cornerRadius(20)
@@ -2112,9 +2121,9 @@ struct SleepWeeklyComparisonChart: View {
             .frame(height: 170)
             .animation(.easeOut(duration: 0.8).delay(0.2), value: appeared)
             HStack {
-                Label { Text("Good (≥75)").font(.system(size: 11)).foregroundColor(.textSecondary) } icon: { Circle().fill(Color.steel).frame(width: 8, height: 8) }
+                Label { Text("Good (≥75)").font(.forgeDynamic(size: 11)).foregroundColor(.textSecondary) } icon: { Circle().fill(Color.steel).frame(width: 8, height: 8) }
                 Spacer()
-                Label { Text("Below target").font(.system(size: 11)).foregroundColor(.textSecondary) } icon: { Circle().fill(Color.warning).frame(width: 8, height: 8) }
+                Label { Text("Below target").font(.forgeDynamic(size: 11)).foregroundColor(.textSecondary) } icon: { Circle().fill(Color.warning).frame(width: 8, height: 8) }
             }
         }
         .onAppear { withAnimation(.easeOut(duration: 0.5)) { appeared = true } }
@@ -2134,18 +2143,18 @@ struct AISleepEnvironmentView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
-                Image(systemName: "house.fill").font(.system(size: 14)).foregroundColor(.steel)
-                Text("Sleep Environment").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                Image(systemName: "house.fill").font(.forgeDynamic(size: 14)).foregroundColor(.steel)
+                Text("Sleep Environment").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
             }
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(Array(metrics.enumerated()), id: \.element.id) { i, m in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 6) {
-                            Image(systemName: m.icon).font(.system(size: 12)).foregroundColor(.steel)
-                            Text(m.label).font(.system(size: 11)).foregroundColor(.textSecondary)
+                            Image(systemName: m.icon).font(.forgeDynamic(size: 12)).foregroundColor(.steel)
+                            Text(m.label).font(.forgeDynamic(size: 11)).foregroundColor(.textSecondary)
                         }
-                        Text(m.value).font(.system(size: 17, weight: .bold)).foregroundColor(.textPrimary)
-                        Text(m.status).font(.system(size: 10, weight: .semibold)).foregroundColor(m.color)
+                        Text(m.value).font(.forgeDynamic(size: 17, weight: .bold)).foregroundColor(.textPrimary)
+                        Text(m.status).font(.forgeDynamic(size: 10, weight: .semibold)).foregroundColor(m.color)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12).background(Color.surfaceElevated).cornerRadius(12)
@@ -2172,18 +2181,18 @@ struct AIPersonalizedGoalsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
-                Image(systemName: "target").font(.system(size: 14)).foregroundColor(.ember)
-                Text("Sleep Goals").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                Image(systemName: "target").font(.forgeDynamic(size: 14)).foregroundColor(.ember)
+                Text("Sleep Goals").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
             }
             VStack(spacing: 10) {
                 ForEach(Array(goals.enumerated()), id: \.element.id) { i, g in
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Image(systemName: g.icon).font(.system(size: 12)).foregroundColor(.steel)
-                            Text(g.title).font(.system(size: 13, weight: .medium)).foregroundColor(.textPrimary)
+                            Image(systemName: g.icon).font(.forgeDynamic(size: 12)).foregroundColor(.steel)
+                            Text(g.title).font(.forgeDynamic(size: 13, weight: .medium)).foregroundColor(.textPrimary)
                             Spacer()
                             Text(String(format: "%.1f / %.1f %@", g.current, g.target, g.unit))
-                                .font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
+                                .font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
                         }
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
@@ -2219,26 +2228,26 @@ struct AISmartRecommendationsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Smart Recommendations").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+            Text("Smart Recommendations").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
             VStack(spacing: 10) {
                 ForEach(Array(recs.enumerated()), id: \.element.id) { i, rec in
                     HStack(alignment: .top, spacing: 12) {
                         ZStack {
                             Circle().fill(Color.steel.opacity(0.12)).frame(width: 38, height: 38)
-                            Image(systemName: rec.icon).font(.system(size: 14)).foregroundColor(.steel)
+                            Image(systemName: rec.icon).font(.forgeDynamic(size: 14)).foregroundColor(.steel)
                         }
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text(rec.title).font(.system(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
+                                Text(rec.title).font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
                                 Spacer()
                                 Text(rec.priority)
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(.forgeDynamic(size: 10, weight: .bold))
                                     .foregroundColor(rec.priority == "High" ? .ember : .warning)
                                     .padding(.horizontal, 8).padding(.vertical, 4)
                                     .background((rec.priority == "High" ? Color.ember : Color.warning).opacity(0.12))
                                     .cornerRadius(6)
                             }
-                            Text(rec.description).font(.system(size: 12)).foregroundColor(.textSecondary).lineLimit(2)
+                            Text(rec.description).font(.forgeDynamic(size: 12)).foregroundColor(.textSecondary).lineLimit(2)
                         }
                     }
                     .padding(12).background(Color.surfaceElevated).cornerRadius(12)
@@ -2283,7 +2292,7 @@ struct SleepAchievementsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Achievements").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+            Text("Achievements").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(Array(achievements.enumerated()), id: \.element.id) { i, a in
@@ -2291,11 +2300,11 @@ struct SleepAchievementsView: View {
                         VStack(spacing: 10) {
                             ZStack {
                                 Circle().fill(a.unlocked ? color.opacity(0.15) : Color.borderColor.opacity(0.25)).frame(width: 58, height: 58)
-                                Image(systemName: achievementIcon(a.id)).font(.system(size: 24)).foregroundColor(a.unlocked ? color : .textMuted)
+                                Image(systemName: achievementIcon(a.id)).font(.forgeDynamic(size: 24)).foregroundColor(a.unlocked ? color : .textMuted)
                             }
                             VStack(spacing: 3) {
-                                Text(a.title).font(.system(size: 12, weight: .bold)).foregroundColor(.textPrimary)
-                                Text(a.description).font(.system(size: 10)).foregroundColor(.textSecondary).multilineTextAlignment(.center)
+                                Text(a.title).font(.forgeDynamic(size: 12, weight: .bold)).foregroundColor(.textPrimary)
+                                Text(a.description).font(.forgeDynamic(size: 10)).foregroundColor(.textSecondary).multilineTextAlignment(.center)
                             }
                         }
                         .frame(width: 110)
@@ -2328,18 +2337,18 @@ struct SleepDebtTrackerView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Sleep Debt").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+            Text("Sleep Debt").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text(String(format: "%.1f", debt)).font(.system(size: 32, weight: .bold, design: .rounded)).foregroundColor(debtColor)
-                        Text("hours").font(.system(size: 14)).foregroundColor(.textSecondary)
+                        Text(String(format: "%.1f", debt)).font(.forgeDynamic(size: 32, weight: .bold, design: .rounded)).foregroundColor(debtColor)
+                        Text("hours").font(.forgeDynamic(size: 14)).foregroundColor(.textSecondary)
                     }
-                    Text("This week").font(.system(size: 12)).foregroundColor(.textTertiary)
+                    Text("This week").font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
                 }
                 Spacer()
                 Text(debt > 3 ? "Prioritize recovery" : debt > 1 ? "Add 30 min tonight" : "On track! 🎉")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.forgeDynamic(size: 13, weight: .semibold))
                     .foregroundColor(debtColor)
                     .multilineTextAlignment(.trailing)
             }
@@ -2386,9 +2395,9 @@ struct QuickActionButton: View {
             VStack(spacing: 8) {
                 ZStack {
                     Circle().fill(color.opacity(0.14)).frame(width: 44, height: 44)
-                    Image(systemName: icon).font(.system(size: 18, weight: .medium)).foregroundColor(color)
+                    Image(systemName: icon).font(.forgeDynamic(size: 18, weight: .medium)).foregroundColor(color)
                 }
-                Text(title).font(.system(size: 11, weight: .medium)).foregroundColor(.textPrimary)
+                Text(title).font(.forgeDynamic(size: 11, weight: .medium)).foregroundColor(.textPrimary)
             }
             .frame(maxWidth: .infinity)
         }
@@ -2422,32 +2431,32 @@ struct SleepStreakDetailView: View {
                                     .fill(LinearGradient(colors: [Color.ember, Color.ember.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
                                     .frame(width: 100, height: 100)
                                     .shadow(color: Color.ember.opacity(0.45), radius: 20, y: 8)
-                                Image(systemName: "flame.fill").font(.system(size: 46)).foregroundColor(.white)
+                                Image(systemName: "flame.fill").font(.forgeDynamic(size: 46)).foregroundColor(.white)
                             }
-                            Text("\(streak) Days").font(.system(size: 36, weight: .black, design: .rounded)).foregroundColor(.textPrimary)
-                            Text("Current Sleep Streak").font(.system(size: 16)).foregroundColor(.textSecondary)
+                            Text("\(streak) Days").font(.forgeDynamic(size: 36, weight: .black, design: .rounded)).foregroundColor(.textPrimary)
+                            Text("Current Sleep Streak").font(.forgeDynamic(size: 16)).foregroundColor(.textSecondary)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 28)
 
                         // Milestones
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Milestones").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                            Text("Milestones").font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.textPrimary)
                             VStack(spacing: 10) {
                                 ForEach(milestones, id: \.days) { m in
                                     HStack(spacing: 14) {
                                         ZStack {
                                             Circle().fill(streak >= m.days ? Color.ember.opacity(0.15) : Color.surfaceElevated).frame(width: 42, height: 42)
                                             Image(systemName: streak >= m.days ? "checkmark" : m.icon)
-                                                .font(.system(size: 16)).foregroundColor(streak >= m.days ? .ember : .textMuted)
+                                                .font(.forgeDynamic(size: 16)).foregroundColor(streak >= m.days ? .ember : .textMuted)
                                         }
                                         VStack(alignment: .leading, spacing: 2) {
-                                            Text(m.title).font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                                            Text("\(m.days) days").font(.system(size: 12)).foregroundColor(.textSecondary)
+                                            Text(m.title).font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                                            Text("\(m.days) days").font(.forgeDynamic(size: 12)).foregroundColor(.textSecondary)
                                         }
                                         Spacer()
                                         if streak < m.days {
                                             Text("\(m.days - streak) to go")
-                                                .font(.system(size: 12, weight: .semibold)).foregroundColor(.steel)
+                                                .font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(.steel)
                                                 .padding(.horizontal, 10).padding(.vertical, 5)
                                                 .background(Color.steel.opacity(0.1)).cornerRadius(8)
                                         }
@@ -2461,12 +2470,12 @@ struct SleepStreakDetailView: View {
 
                         // Benefits
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Streak Benefits").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                            Text("Streak Benefits").font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.textPrimary)
                             VStack(spacing: 10) {
                                 ForEach([("heart.fill", "Improved cardiovascular health"), ("brain.head.profile", "Enhanced cognitive function"), ("figure.run", "Better athletic performance"), ("face.smiling.fill", "Elevated mood & energy")], id: \.0) { icon, text in
                                     HStack(spacing: 12) {
-                                        Image(systemName: icon).font(.system(size: 14)).foregroundColor(.steel).frame(width: 20)
-                                        Text(text).font(.system(size: 13)).foregroundColor(.textPrimary)
+                                        Image(systemName: icon).font(.forgeDynamic(size: 14)).foregroundColor(.steel).frame(width: 20)
+                                        Text(text).font(.forgeDynamic(size: 13)).foregroundColor(.textPrimary)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 10)
                                     .background(Color.surfaceElevated).cornerRadius(12)
@@ -2509,15 +2518,15 @@ struct AISleepChatView: View {
                     ScrollView {
                         VStack(spacing: 16) {
                             Text("Ask me anything about your sleep patterns, recovery, or how to optimize your rest for better performance.")
-                                .font(.system(size: 14)).foregroundColor(.textSecondary).multilineTextAlignment(.center).lineSpacing(5).padding(.horizontal, 24).padding(.top, 16)
+                                .font(.forgeDynamic(size: 14)).foregroundColor(.textSecondary).multilineTextAlignment(.center).lineSpacing(5).padding(.horizontal, 24).padding(.top, 16)
                             if !store.sleepData.isEmpty {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("ARIA Context (ready for backend)")
-                                        .font(.system(size: 11, weight: .bold))
+                                        .font(.forgeDynamic(size: 11, weight: .bold))
                                         .foregroundColor(.steel)
                                         .tracking(0.5)
                                     Text(ariaContext)
-                                        .font(.system(size: 11, design: .monospaced))
+                                        .font(.forgeDynamic(size: 11, design: .monospaced))
                                         .foregroundColor(.textTertiary)
                                         .lineSpacing(4)
                                 }
@@ -2531,12 +2540,12 @@ struct AISleepChatView: View {
                     Spacer()
                     HStack(spacing: 12) {
                         TextField("Ask about your sleep…", text: $input)
-                            .font(.system(size: 15)).foregroundColor(.textPrimary).tint(.steel)
+                            .font(.forgeDynamic(size: 15)).foregroundColor(.textPrimary).tint(.steel)
                             .padding(.horizontal, 16).padding(.vertical, 12)
                             .background(Color.surfaceElevated).cornerRadius(14)
                         Button {} label: {
                             Circle().fill(Color.steel).frame(width: 44, height: 44)
-                                .overlay(Image(systemName: "arrow.up").font(.system(size: 16, weight: .bold)).foregroundColor(.white))
+                                .overlay(Image(systemName: "arrow.up").font(.forgeDynamic(size: 16, weight: .bold)).foregroundColor(.white))
                                 .shadow(color: Color.steel.opacity(0.35), radius: 8, y: 3)
                         }
                     }
@@ -2564,24 +2573,24 @@ struct AISleepPredictionDetailView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Tonight's Recommendation").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                            Text("Tonight's Recommendation").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
                             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                Text("10:15 PM").font(.system(size: 40, weight: .black, design: .rounded)).foregroundColor(.steel)
-                                Text("bedtime").font(.system(size: 16)).foregroundColor(.textSecondary)
+                                Text("10:15 PM").font(.forgeDynamic(size: 40, weight: .black, design: .rounded)).foregroundColor(.steel)
+                                Text("bedtime").font(.forgeDynamic(size: 16)).foregroundColor(.textSecondary)
                             }
-                            Text("Wake at 6:15 AM for 8 hours of sleep").font(.system(size: 14)).foregroundColor(.textSecondary)
+                            Text("Wake at 6:15 AM for 8 hours of sleep").font(.forgeDynamic(size: 14)).foregroundColor(.textSecondary)
                         }
                         .padding(20).background(Color.surface).cornerRadius(20)
 
                         VStack(alignment: .leading, spacing: 14) {
-                            Text("Why This Time?").font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
+                            Text("Why This Time?").font(.forgeDynamic(size: 16, weight: .bold)).foregroundColor(.textPrimary)
                             VStack(spacing: 10) {
                                 ForEach([("figure.strengthtraining.traditional", "Heavy workout tomorrow — need optimal recovery"),
                                          ("chart.line.uptrend.xyaxis", "Your 90-min sleep cycles align best with 10 PM"),
                                          ("heart.fill", "HRV trends show earlier sleep improves your recovery by 18%")], id: \.0) { icon, text in
                                     HStack(spacing: 12) {
-                                        Image(systemName: icon).font(.system(size: 14)).foregroundColor(.steel).frame(width: 20)
-                                        Text(text).font(.system(size: 13)).foregroundColor(.textPrimary)
+                                        Image(systemName: icon).font(.forgeDynamic(size: 14)).foregroundColor(.steel).frame(width: 20)
+                                        Text(text).font(.forgeDynamic(size: 13)).foregroundColor(.textPrimary)
                                     }
                                     .padding(14).background(Color.surfaceElevated).cornerRadius(12)
                                 }
@@ -2613,20 +2622,20 @@ struct ChronotypeBadge: View {
         Button(action: onTap) {
             HStack(spacing: 10) {
                 Image(systemName: hkService.userProfile.chronotype.icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.forgeDynamic(size: 14, weight: .semibold))
                     .foregroundColor(.steel)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(hkService.userProfile.chronotype.displayName) Chronotype")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.forgeDynamic(size: 13, weight: .semibold))
                         .foregroundColor(.textPrimary)
                     Text(hkService.userProfile.chronotype.tagline)
-                        .font(.system(size: 11))
+                        .font(.forgeDynamic(size: 11))
                         .foregroundColor(.textTertiary)
                         .lineLimit(1)
                 }
                 Spacer()
                 Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.forgeDynamic(size: 12, weight: .semibold))
                     .foregroundColor(.textTertiary)
             }
             .padding(14)
@@ -2660,9 +2669,9 @@ struct AdaptiveSunriseCard: View {
                 Toggle(isOn: $enabled) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Gradual light increase")
-                            .font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                            .font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
                         Text(config.rationale)
-                            .font(.system(size: 12)).foregroundColor(.textTertiary)
+                            .font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
                     }
                 }
                 .tint(Color.amber)
@@ -2670,11 +2679,11 @@ struct AdaptiveSunriseCard: View {
                 if enabled {
                     VStack(spacing: 14) {
                         HStack {
-                            Text("Duration").font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
+                            Text("Duration").font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
                             Spacer()
                             HStack(spacing: 4) {
                                 Text("\(duration) min")
-                                    .font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
+                                    .font(.forgeDynamic(size: 14, weight: .bold)).foregroundColor(.textPrimary)
                                 Stepper("", value: $duration, in: 5...60, step: 5)
                                     .labelsHidden().tint(Color.amber)
                             }
@@ -2682,10 +2691,10 @@ struct AdaptiveSunriseCard: View {
 
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
-                                Text("Color Temperature").font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
+                                Text("Color Temperature").font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
                                 Spacer()
                                 Text(colorTemp < 0.3 ? "2700K Warm" : colorTemp < 0.7 ? "3500K Neutral" : "5000K Cool")
-                                    .font(.system(size: 12, weight: .semibold)).foregroundColor(displayColor)
+                                    .font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(displayColor)
                             }
                             ZStack(alignment: .bottom) {
                                 LinearGradient(
@@ -2737,7 +2746,7 @@ struct SleepPersonalizationSheet: View {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
                         Text("Your chronotype shapes scoring, goals, sunrise, and smart wake.")
-                            .font(.system(size: 14))
+                            .font(.forgeDynamic(size: 14))
                             .foregroundColor(.textSecondary)
                             .lineSpacing(4)
 
@@ -2749,17 +2758,17 @@ struct SleepPersonalizationSheet: View {
                                 } label: {
                                     HStack(spacing: 12) {
                                         Image(systemName: type.icon)
-                                            .font(.system(size: 18))
+                                            .font(.forgeDynamic(size: 18))
                                             .foregroundColor(draft.chronotype == type ? .white : .steel)
                                             .frame(width: 40, height: 40)
                                             .background(draft.chronotype == type ? Color.steel : Color.surfaceElevated)
                                             .cornerRadius(12)
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(type.displayName)
-                                                .font(.system(size: 15, weight: .semibold))
+                                                .font(.forgeDynamic(size: 15, weight: .semibold))
                                                 .foregroundColor(.textPrimary)
                                             Text(type.tagline)
-                                                .font(.system(size: 12))
+                                                .font(.forgeDynamic(size: 12))
                                                 .foregroundColor(.textTertiary)
                                         }
                                         Spacer()
@@ -2781,7 +2790,7 @@ struct SleepPersonalizationSheet: View {
 
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Coaching personality")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.forgeDynamic(size: 13, weight: .semibold))
                                 .foregroundColor(.textSecondary)
                             TextField("e.g. direct, encouraging, data-focused", text: $draft.personality)
                                 .padding(12)
@@ -2791,7 +2800,7 @@ struct SleepPersonalizationSheet: View {
 
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Lifestyle notes")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.forgeDynamic(size: 13, weight: .semibold))
                                 .foregroundColor(.textSecondary)
                             TextEditor(text: $draft.notes)
                                 .frame(minHeight: 90)

@@ -454,7 +454,7 @@ struct CelebrationOverlay: View {
                             .frame(width: 90, height: 90)
                             .blur(radius: 20)
                         Image(systemName: "crown.fill")
-                            .font(.system(size: 44))
+                            .font(.forgeDynamic(size: 44))
                             .foregroundStyle(LinearGradient(
                                 colors: [Color.gold, Color(hex: "FFA500")],
                                 startPoint: .top, endPoint: .bottom
@@ -464,25 +464,25 @@ struct CelebrationOverlay: View {
 
                     VStack(spacing: 8) {
                         Text("PEAK PERFORMANCE")
-                            .font(.system(size: 13, weight: .black))
+                            .font(.forgeDynamic(size: 13, weight: .black))
                             .tracking(3.5)
                             .foregroundColor(Color.success)
 
                         Text("Readiness Score \(store_readiness_placeholder)")
-                            .font(.system(size: 32, weight: .black, design: .rounded))
+                            .font(.forgeDynamic(size: 32, weight: .black, design: .rounded))
                             .foregroundStyle(LinearGradient(
                                 colors: [.white, Color.success],
                                 startPoint: .top, endPoint: .bottom
                             ))
 
                         Text("You're in the zone. Go crush it.")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.forgeDynamic(size: 15, weight: .medium))
                             .foregroundColor(.textSecondary)
                     }
 
                     Button(action: onDismiss) {
                         Text("Let's Go →")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.forgeDynamic(size: 15, weight: .bold))
                             .foregroundColor(.white)
                             .padding(.horizontal, 32)
                             .padding(.vertical, 14)
@@ -542,17 +542,17 @@ struct FloatingStatusBar: View {
                 .shadow(color: readinessColor(store.readiness.overall).opacity(0.7), radius: 5)
 
             Text("Readiness")
-                .font(.system(size: 13, weight: .medium))
+                .font(.forgeDynamic(size: 13, weight: .medium))
                 .foregroundColor(.textSecondary)
 
             Text("\(store.readiness.overall)")
-                .font(.system(size: 14, weight: .black, design: .rounded))
+                .font(.forgeDynamic(size: 14, weight: .black, design: .rounded))
                 .foregroundColor(readinessColor(store.readiness.overall))
 
             Spacer()
 
             Text("FORGE")
-                .font(.system(size: 11, weight: .black))
+                .font(.forgeDynamic(size: 11, weight: .black))
                 .foregroundColor(.ember)
                 .tracking(2.5)
         }
@@ -588,18 +588,18 @@ struct HomeHeaderView: View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(dateString.uppercased())
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.forgeDynamic(size: 11, weight: .semibold))
                     .foregroundColor(.textTertiary)
                     .tracking(1.8)
                 Text(greeting + (store.userProfile.name.isEmpty ? "" : ", \(store.userProfile.name.components(separatedBy: " ").first ?? "")"))
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.forgeDynamic(size: 28, weight: .bold))
                     .foregroundColor(.textPrimary)
                 // Live HealthKit label
                 HStack(spacing: 5) {
                     Circle().fill(Color.success).frame(width: 5, height: 5)
                         .shadow(color: Color.success.opacity(0.8), radius: 3)
                     Text("Live from HealthKit")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.forgeDynamic(size: 10, weight: .semibold))
                         .foregroundColor(Color.success)
                 }
             }
@@ -614,7 +614,7 @@ struct HomeHeaderView: View {
                         .frame(width: 48, height: 48)
                         .overlay(Circle().stroke(Color.borderColor, lineWidth: 0.5))
                         .overlay(Image(systemName: "person.fill")
-                            .font(.system(size: 19)).foregroundColor(.ember))
+                            .font(.forgeDynamic(size: 19)).foregroundColor(.ember))
                         .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
 
                     if store.currentStreak > 0 {
@@ -622,7 +622,7 @@ struct HomeHeaderView: View {
                             Circle().fill(Color.ember).frame(width: 22, height: 22)
                                 .shadow(color: Color.ember.opacity(0.5), radius: 6)
                             Image(systemName: "flame.fill")
-                                .font(.system(size: 11)).foregroundColor(.white)
+                                .font(.forgeDynamic(size: 11)).foregroundColor(.white)
                         }
                         .offset(x: 6, y: -6)
                     }
@@ -710,19 +710,19 @@ struct ARIAGreetingCard: View {
                             ))
                             .frame(width: 44, height: 44)
                             .shadow(color: Color.ember.opacity(glowBeat ? 0.7 : 0.3), radius: glowBeat ? 16 : 8)
-                            .overlay(Text("A").font(.system(size: 20, weight: .black)).foregroundColor(.white))
+                            .overlay(Text("A").font(.forgeDynamic(size: 20, weight: .black)).foregroundColor(.white))
                     }
 
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 6) {
                             Text("ARIA")
-                                .font(.system(size: 13, weight: .black))
+                                .font(.forgeDynamic(size: 13, weight: .black))
                                 .foregroundColor(.ember)
                                 .tracking(1.5)
                             HStack(spacing: 4) {
                                 Circle().fill(Color.success).frame(width: 5, height: 5)
                                 Text("Online")
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.forgeDynamic(size: 11, weight: .medium))
                                     .foregroundColor(Color.success)
                             }
                             .padding(.horizontal, 7).padding(.vertical, 3)
@@ -730,7 +730,7 @@ struct ARIAGreetingCard: View {
                             .cornerRadius(FDS.Radius.pill)
                         }
                         Text("AI Fitness Coach · Forge")
-                            .font(.system(size: 11)).foregroundColor(.textMuted)
+                            .font(.forgeDynamic(size: 11)).foregroundColor(.textMuted)
                     }
                     Spacer()
 
@@ -744,23 +744,26 @@ struct ARIAGreetingCard: View {
                                 .fill(Color.ember.opacity(0.15))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "mic.fill")
-                                .font(.system(size: 15))
+                                .font(.forgeDynamic(size: 15))
                                 .foregroundColor(.ember)
                         }
                         .overlay(Circle().stroke(Color.ember.opacity(0.3), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Talk to ARIA")
+                    .accessibilityHint("Opens voice chat.")
 
                     Image(systemName: "arrow.up.right.circle.fill")
-                        .font(.system(size: 22))
+                        .font(.forgeDynamic(size: 22))
                         .foregroundColor(.ember.opacity(0.45))
+                        .accessibilityHidden(true)
                 }
                 .padding(.bottom, 16)
 
                 // Message bubble
                 ZStack(alignment: .bottomTrailing) {
                     Text(displayedText.isEmpty && !isTyping ? fullGreeting : displayedText)
-                        .font(.system(size: 15.5, weight: .regular))
+                        .font(.forgeDynamic(size: 15.5, weight: .regular))
                         .foregroundColor(.textPrimary)
                         .lineSpacing(6)
                         .fixedSize(horizontal: false, vertical: true)
@@ -772,6 +775,7 @@ struct ARIAGreetingCard: View {
                             .frame(width: 2, height: 16)
                             .cornerRadius(1)
                             .offset(x: 4)
+                            .accessibilityHidden(true)
                     }
                 }
                 .padding(16)
@@ -808,6 +812,7 @@ struct ARIAGreetingCard: View {
             .shadow(color: .black.opacity(0.08), radius: 16, y: 4)
         }
         .buttonStyle(.plain)
+        .accessibilityHint("Opens ARIA chat for a deeper conversation.")
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 24)
         .scaleEffect(appeared ? 1 : 0.97)
@@ -837,8 +842,8 @@ private struct FooterActionChip: View {
     let icon: String; let label: String; let color: Color
     var body: some View {
         HStack(spacing: 5) {
-            Image(systemName: icon).font(.system(size: 12))
-            Text(label).font(.system(size: 12, weight: .medium))
+            Image(systemName: icon).font(.forgeDynamic(size: 12))
+            Text(label).font(.forgeDynamic(size: 12, weight: .medium))
         }
         .foregroundColor(color)
     }
@@ -866,10 +871,10 @@ struct ReadinessSectionView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("READINESS SCORE")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.forgeDynamic(size: 10, weight: .bold))
                         .foregroundColor(.textTertiary).tracking(2)
                     Text("Updated just now")
-                        .font(.system(size: 10)).foregroundColor(.textMuted)
+                        .font(.forgeDynamic(size: 10)).foregroundColor(.textMuted)
                 }
                 Spacer()
                 Button {
@@ -878,9 +883,9 @@ struct ReadinessSectionView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(showDetails ? "Less" : "Details")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.forgeDynamic(size: 12, weight: .medium))
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.forgeDynamic(size: 11, weight: .semibold))
                             .rotationEffect(.degrees(showDetails ? 180 : 0))
                     }
                     .foregroundColor(.ember)
@@ -943,11 +948,11 @@ struct ReadinessInsightRow: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle().fill(color.opacity(0.15)).frame(width: 38, height: 38)
-                Image(systemName: icon).font(.system(size: 16)).foregroundColor(color)
+                Image(systemName: icon).font(.forgeDynamic(size: 16)).foregroundColor(color)
             }
-            Text(title).font(.system(size: 14, weight: .medium)).foregroundColor(.textSecondary)
+            Text(title).font(.forgeDynamic(size: 14, weight: .medium)).foregroundColor(.textSecondary)
             Spacer()
-            Text(value).font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+            Text(value).font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
         .background(Color.surfaceElevated).cornerRadius(FDS.Radius.sm)
@@ -964,12 +969,12 @@ struct BreakdownCardView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
                 Circle().fill(dot).frame(width: 8, height: 8).shadow(color: dot.opacity(0.5), radius: 4)
-                Text(label).font(.system(size: 12, weight: .medium)).foregroundColor(.textSecondary).lineLimit(1)
+                Text(label).font(.forgeDynamic(size: 12, weight: .medium)).foregroundColor(.textSecondary).lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Text("\(display)%")
-                .font(.system(size: 24, weight: .bold))
+                .font(.forgeDynamic(size: 24, weight: .bold))
                 .foregroundColor(.textPrimary)
                 .contentTransition(.numericText())
 
@@ -1084,6 +1089,12 @@ struct ReadinessRingView: View {
             withAnimation(.easeInOut(duration: 2.3).repeatForever(autoreverses: true)) { glowPulse = true }
             withAnimation(.easeInOut(duration: 3.1).repeatForever(autoreverses: true)) { outerPulse = true }
         }
+        // The ring's layered circles are purely decorative; without this,
+        // VoiceOver reads "82", "READY", "Readiness" as three disjointed
+        // stops instead of one meaningful readout.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(showLabel ? "Readiness" : "")
+        .accessibilityValue(showLabel ? "\(score) out of 100, \(readinessLabel(score))" : "")
     }
 }
 
@@ -1110,10 +1121,10 @@ struct ReadinessTrendSection: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("READINESS TREND")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.forgeDynamic(size: 10, weight: .bold))
                         .foregroundColor(.textTertiary).tracking(2)
                     Text("Last 7 days")
-                        .font(.system(size: 10)).foregroundColor(.textMuted)
+                        .font(.forgeDynamic(size: 10)).foregroundColor(.textMuted)
                 }
                 Spacer()
                 // Delta badge
@@ -1122,9 +1133,9 @@ struct ReadinessTrendSection: View {
                 let delta = last - first
                 HStack(spacing: 4) {
                     Image(systemName: delta >= 0 ? "arrow.up.right" : "arrow.down.right")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.forgeDynamic(size: 10, weight: .bold))
                     Text("\(abs(delta))%")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.forgeDynamic(size: 11, weight: .bold))
                 }
                 .foregroundColor(delta >= 0 ? Color.success : .danger)
                 .padding(.horizontal, 10).padding(.vertical, 5)
@@ -1215,21 +1226,21 @@ struct StreakCalendarSection: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 HStack(spacing: 6) {
-                    Image(systemName: "flame.fill").font(.system(size: 13)).foregroundColor(.ember)
+                    Image(systemName: "flame.fill").font(.forgeDynamic(size: 13)).foregroundColor(.ember)
                     Text("\(store.currentStreak)-DAY STREAK")
-                        .font(.system(size: 10, weight: .black))
+                        .font(.forgeDynamic(size: 10, weight: .black))
                         .foregroundColor(.ember).tracking(2)
                 }
                 Spacer()
                 Text("This Week")
-                    .font(.system(size: 11, weight: .medium)).foregroundColor(.textMuted)
+                    .font(.forgeDynamic(size: 11, weight: .medium)).foregroundColor(.textMuted)
             }
 
             HStack(spacing: 0) {
                 ForEach(Array(weekDays.enumerated()), id: \.offset) { i, day in
                     VStack(spacing: 8) {
                         Text(day.label)
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.forgeDynamic(size: 10, weight: .semibold))
                             .foregroundColor(day.isToday ? .ember : .textMuted)
 
                         ZStack {
@@ -1239,7 +1250,7 @@ struct StreakCalendarSection: View {
                             if day.hasWorkout {
                                 Circle().stroke(Color.ember.opacity(0.4), lineWidth: 1).frame(width: 34, height: 34)
                                 Image(systemName: "flame.fill")
-                                    .font(.system(size: 14)).foregroundColor(.ember)
+                                    .font(.forgeDynamic(size: 14)).foregroundColor(.ember)
                                     .shadow(color: Color.ember.opacity(0.5), radius: 4)
                             } else if day.isToday {
                                 Circle().stroke(Color.ember.opacity(0.6), lineWidth: 1.5).frame(width: 34, height: 34)
@@ -1281,12 +1292,12 @@ struct TodayPlanCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("TODAY'S PLAN")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.forgeDynamic(size: 10, weight: .bold))
                     .foregroundColor(.textTertiary).tracking(2)
                 Spacer()
                 HStack(spacing: 4) {
-                    Image(systemName: "sparkles").font(.system(size: 10))
-                    Text("AI Optimized").font(.system(size: 10, weight: .semibold))
+                    Image(systemName: "sparkles").font(.forgeDynamic(size: 10))
+                    Text("AI Optimized").font(.forgeDynamic(size: 10, weight: .semibold))
                 }
                 .foregroundColor(.ember)
                 .padding(.horizontal, 9).padding(.vertical, 5)
@@ -1295,7 +1306,7 @@ struct TodayPlanCardView: View {
             .padding(.bottom, 14)
 
             Text(workout.name)
-                .font(.system(size: 28, weight: .bold))
+                .font(.forgeDynamic(size: 28, weight: .bold))
                 .foregroundColor(.textPrimary).padding(.bottom, 16)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -1313,10 +1324,10 @@ struct TodayPlanCardView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Readiness Match")
-                        .font(.system(size: 11, weight: .semibold)).foregroundColor(.textMuted)
+                        .font(.forgeDynamic(size: 11, weight: .semibold)).foregroundColor(.textMuted)
                     Spacer()
                     Text(matchScore > 0.75 ? "Well Matched" : matchScore > 0.5 ? "Manageable" : "Intensity Mismatch")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.forgeDynamic(size: 11, weight: .bold))
                         .foregroundColor(matchScore > 0.75 ? Color.success : matchScore > 0.5 ? .ember : .danger)
                 }
                 GeometryReader { geo in
@@ -1339,7 +1350,7 @@ struct TodayPlanCardView: View {
                 if workout.exercises.count > 3 {
                     HStack {
                         Text("+\(workout.exercises.count - 3) more exercises")
-                            .font(.system(size: 13, weight: .medium)).foregroundColor(.textSecondary)
+                            .font(.forgeDynamic(size: 13, weight: .medium)).foregroundColor(.textSecondary)
                         Spacer()
                         Image(systemName: "ellipsis").foregroundColor(.textMuted)
                     }
@@ -1355,10 +1366,10 @@ struct TodayPlanCardView: View {
                     store.activeTab = .workout
                 } label: {
                     HStack(spacing: 10) {
-                        Image(systemName: "play.fill").font(.system(size: 15, weight: .semibold))
-                        Text("Start Workout").font(.system(size: 17, weight: .semibold))
+                        Image(systemName: "play.fill").font(.forgeDynamic(size: 15, weight: .semibold))
+                        Text("Start Workout").font(.forgeDynamic(size: 17, weight: .semibold))
                         Spacer()
-                        Image(systemName: "chevron.right").font(.system(size: 15, weight: .semibold))
+                        Image(systemName: "chevron.right").font(.forgeDynamic(size: 15, weight: .semibold))
                     }
                     .foregroundColor(.white)
                     .padding(.vertical, 17).padding(.horizontal, 22)
@@ -1413,14 +1424,14 @@ private struct ExercisePreviewRow: View {
                 RoundedRectangle(cornerRadius: 9)
                     .fill(LinearGradient(colors: [Color.ember.opacity(0.18), Color.ember.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing))
                     .frame(width: 34, height: 34)
-                Text("\(index + 1)").font(.system(size: 13, weight: .bold)).foregroundColor(.ember)
+                Text("\(index + 1)").font(.forgeDynamic(size: 13, weight: .bold)).foregroundColor(.ember)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(exercise.name).font(.system(size: 15, weight: .medium)).foregroundColor(.textPrimary)
-                Text("\(exercise.sets) sets × \(exercise.reps) reps").font(.system(size: 12)).foregroundColor(.textTertiary)
+                Text(exercise.name).font(.forgeDynamic(size: 15, weight: .medium)).foregroundColor(.textPrimary)
+                Text("\(exercise.sets) sets × \(exercise.reps) reps").font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
             }
             Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundColor(.textMuted)
+            Image(systemName: "chevron.right").font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(.textMuted)
         }
         .padding(13).background(Color.surfaceElevated).cornerRadius(13)
         .opacity(appeared ? 1 : 0).offset(x: appeared ? 0 : -18)
@@ -1433,8 +1444,8 @@ private struct SecondaryButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                Image(systemName: icon).font(.system(size: 13))
-                Text(label).font(.system(size: 14, weight: .medium))
+                Image(systemName: icon).font(.forgeDynamic(size: 13))
+                Text(label).font(.forgeDynamic(size: 14, weight: .medium))
             }
             .foregroundColor(.textSecondary).frame(maxWidth: .infinity).padding(.vertical, 13)
             .background(Color.surfaceElevated).cornerRadius(13)
@@ -1446,8 +1457,8 @@ struct InfoPill: View {
     let icon: String; let text: String
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 12)).foregroundColor(.textTertiary)
-            Text(text).font(.system(size: 13, weight: .medium)).foregroundColor(.textSecondary)
+            Image(systemName: icon).font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
+            Text(text).font(.forgeDynamic(size: 13, weight: .medium)).foregroundColor(.textSecondary)
         }
         .padding(.horizontal, 14).padding(.vertical, 9)
         .background(Color.surfaceElevated).cornerRadius(FDS.Radius.pill)
@@ -1459,8 +1470,8 @@ struct IntensityInfoPill: View {
     var body: some View {
         HStack(spacing: 6) {
             Circle().fill(intensity.color).frame(width: 7, height: 7)
-            Image(systemName: "bolt.fill").font(.system(size: 12)).foregroundColor(.textTertiary)
-            Text(intensity.label).font(.system(size: 13, weight: .medium)).foregroundColor(.textSecondary)
+            Image(systemName: "bolt.fill").font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
+            Text(intensity.label).font(.forgeDynamic(size: 13, weight: .medium)).foregroundColor(.textSecondary)
         }
         .padding(.horizontal, 14).padding(.vertical, 9)
         .background(Color.surfaceElevated).cornerRadius(FDS.Radius.pill)
@@ -1479,10 +1490,10 @@ struct QuickStatsView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("TODAY'S ACTIVITY")
-                    .font(.system(size: 10, weight: .bold)).foregroundColor(.textTertiary).tracking(2)
+                    .font(.forgeDynamic(size: 10, weight: .bold)).foregroundColor(.textTertiary).tracking(2)
                 Spacer()
                 Button("View All") { store.activeTab = .workout }
-                    .font(.system(size: 12, weight: .medium)).foregroundColor(.ember)
+                    .font(.forgeDynamic(size: 12, weight: .medium)).foregroundColor(.ember)
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
@@ -1515,16 +1526,16 @@ struct MetricCard: View {
         VStack(alignment: .leading, spacing: 14) {
             ZStack {
                 Circle().fill(iconColor.opacity(0.16)).frame(width: 40, height: 40)
-                Image(systemName: icon).font(.system(size: 18)).foregroundColor(iconColor)
+                Image(systemName: icon).font(.forgeDynamic(size: 18)).foregroundColor(iconColor)
             }
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(value).font(.system(size: 20, weight: .bold)).foregroundColor(.textPrimary)
+                    Text(value).font(.forgeDynamic(size: 20, weight: .bold)).foregroundColor(.textPrimary)
                     if !trendValue.isEmpty {
                         HStack(spacing: 2) {
                             Image(systemName: trend == .up ? "arrow.up.right" : "arrow.down.right")
-                                .font(.system(size: 9, weight: .bold))
-                            Text(trendValue).font(.system(size: 11, weight: .semibold))
+                                .font(.forgeDynamic(size: 9, weight: .bold))
+                            Text(trendValue).font(.forgeDynamic(size: 11, weight: .semibold))
                         }
                         .foregroundColor(trend == .up ? Color.success : .danger)
                         .padding(.horizontal, 6).padding(.vertical, 3)
@@ -1532,11 +1543,14 @@ struct MetricCard: View {
                         .cornerRadius(5)
                     }
                 }
-                Text(label).font(.system(size: 12, weight: .medium)).foregroundColor(.textTertiary)
+                Text(label).font(.forgeDynamic(size: 12, weight: .medium)).foregroundColor(.textTertiary)
             }
         }
         .padding(16).background(Color.surface).cornerRadius(FDS.Radius.lg)
         .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(trendValue.isEmpty ? value : "\(value), \(trend == .up ? "up" : "down") \(trendValue) from yesterday")
         .opacity(appeared ? 1 : 0).scaleEffect(appeared ? 1 : 0.9)
         .onAppear { withAnimation(FDS.Spring.hero.delay(0.55)) { appeared = true } }
     }
@@ -1579,7 +1593,7 @@ struct InsightsSectionView: View {
         if !insights.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 Text("INSIGHTS")
-                    .font(.system(size: 10, weight: .bold)).foregroundColor(.textTertiary).tracking(2)
+                    .font(.forgeDynamic(size: 10, weight: .bold)).foregroundColor(.textTertiary).tracking(2)
                 VStack(spacing: 10) {
                     ForEach(Array(insights.enumerated()), id: \.element.id) { i, insight in
                         InsightCard(insight: insight)
@@ -1606,14 +1620,14 @@ struct InsightCard: View {
             HStack(spacing: 14) {
                 ZStack {
                     Circle().fill(insight.color.opacity(0.14)).frame(width: 46, height: 46)
-                    Image(systemName: insight.icon).font(.system(size: 20)).foregroundColor(insight.color)
+                    Image(systemName: insight.icon).font(.forgeDynamic(size: 20)).foregroundColor(insight.color)
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(insight.title).font(.system(size: 15, weight: .semibold)).foregroundColor(.textPrimary)
-                    Text(insight.description).font(.system(size: 13)).foregroundColor(.textSecondary).lineLimit(2)
+                    Text(insight.title).font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(.textPrimary)
+                    Text(insight.description).font(.forgeDynamic(size: 13)).foregroundColor(.textSecondary).lineLimit(2)
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundColor(.textMuted)
+                Image(systemName: "chevron.right").font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(.textMuted)
             }
             .padding(16).background(Color.surface).cornerRadius(FDS.Radius.md)
             .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(insight.color.opacity(0.2), lineWidth: 1))
@@ -1635,19 +1649,19 @@ struct RecentActivityView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("RECENT WORKOUTS")
-                    .font(.system(size: 10, weight: .bold)).foregroundColor(.textTertiary).tracking(2)
+                    .font(.forgeDynamic(size: 10, weight: .bold)).foregroundColor(.textTertiary).tracking(2)
                 Spacer()
                 Button("See All") { store.activeTab = .workout }
-                    .font(.system(size: 12, weight: .medium)).foregroundColor(.ember)
+                    .font(.forgeDynamic(size: 12, weight: .medium)).foregroundColor(.ember)
             }
 
             if store.workoutHistory.isEmpty {
                 // Empty state
                 VStack(spacing: 12) {
-                    Image(systemName: "dumbbell").font(.system(size: 32)).foregroundColor(.textMuted)
-                    Text("No recent workouts").font(.system(size: 14)).foregroundColor(.textMuted)
+                    Image(systemName: "dumbbell").font(.forgeDynamic(size: 32)).foregroundColor(.textMuted)
+                    Text("No recent workouts").font(.forgeDynamic(size: 14)).foregroundColor(.textMuted)
                     Text("Complete your first session to see history here.")
-                        .font(.system(size: 12)).foregroundColor(.textMuted).multilineTextAlignment(.center)
+                        .font(.forgeDynamic(size: 12)).foregroundColor(.textMuted).multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity).padding(32)
                 .background(Color.surface).cornerRadius(FDS.Radius.lg)
@@ -1681,18 +1695,18 @@ struct RecentWorkoutRow: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.ember.opacity(0.14)).frame(width: 50, height: 50)
-                Image(systemName: "dumbbell.fill").font(.system(size: 20)).foregroundColor(.ember)
+                Image(systemName: "dumbbell.fill").font(.forgeDynamic(size: 20)).foregroundColor(.ember)
             }
             VStack(alignment: .leading, spacing: 4) {
-                Text(session.name).font(.system(size: 15, weight: .semibold)).foregroundColor(.textPrimary)
+                Text(session.name).font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(.textPrimary)
                 HStack(spacing: 6) {
-                    Text(relativeDate).font(.system(size: 12)).foregroundColor(.textTertiary)
+                    Text(relativeDate).font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
                     Circle().fill(Color.textMuted).frame(width: 3, height: 3)
-                    Text("\(session.duration) min").font(.system(size: 12)).foregroundColor(.textTertiary)
+                    Text("\(session.duration) min").font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
                 }
             }
             Spacer()
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 26)).foregroundColor(Color.success)
+            Image(systemName: "checkmark.circle.fill").font(.forgeDynamic(size: 26)).foregroundColor(Color.success)
         }
         .padding(16).background(Color.surface).cornerRadius(FDS.Radius.md)
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
@@ -1751,7 +1765,7 @@ struct VoiceQuickLaunchOrb: View {
                     .shadow(color: Color.ember.opacity(0.3), radius: 36, y: 14)
 
                 Image(systemName: "mic.fill")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.forgeDynamic(size: 22, weight: .semibold))
                     .foregroundColor(.white)
             }
             .scaleEffect(pressed ? 0.92 : (appeared ? 1.0 : 0.6))

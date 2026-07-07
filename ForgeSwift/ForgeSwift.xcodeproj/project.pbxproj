@@ -100,6 +100,7 @@
 		F0B10000000000000000003A /* ForgeSemanticColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002B /* ForgeSemanticColors.swift */; };
 		F0B10000000000000000003B /* ForgeElevation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002C /* ForgeElevation.swift */; };
 		F0B10000000000000000003C /* ForgeTypeScale.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002D /* ForgeTypeScale.swift */; };
+		F0B10000000000000000003D /* ForgeDynamicFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002E /* ForgeDynamicFont.swift */; };
 		F0B100000000000000000031 /* LifestyleWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000024 /* LifestyleWidget.swift */; };
 		F0B100000000000000000032 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000003 /* ForgeCore */; };
 		F0B100000000000000000033 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000004 /* ForgeCore */; };
@@ -277,6 +278,7 @@
 		F0F10000000000000000002B /* ForgeSemanticColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSemanticColors.swift; sourceTree = "<group>"; };
 		F0F10000000000000000002C /* ForgeElevation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeElevation.swift; sourceTree = "<group>"; };
 		F0F10000000000000000002D /* ForgeTypeScale.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeTypeScale.swift; sourceTree = "<group>"; };
+		F0F10000000000000000002E /* ForgeDynamicFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeDynamicFont.swift; sourceTree = "<group>"; };
 		F0F100000000000000000024 /* LifestyleWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LifestyleWidget.swift; path = "../../ForgeWidget/LifestyleWidget.swift"; sourceTree = "<group>"; };
 		F0F100000000000000000025 /* ForgeWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ForgeWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0F100000000000000000026 /* SleepSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSummaryView.swift; sourceTree = "<group>"; };
@@ -423,6 +425,7 @@
 				F0F10000000000000000002B /* ForgeSemanticColors.swift */,
 				F0F10000000000000000002C /* ForgeElevation.swift */,
 				F0F10000000000000000002D /* ForgeTypeScale.swift */,
+				F0F10000000000000000002E /* ForgeDynamicFont.swift */,
 			);
 			path = ForgeSwift;
 			sourceTree = "<group>";
@@ -777,6 +780,7 @@
 				F0B10000000000000000003A /* ForgeSemanticColors.swift in Sources */,
 				F0B10000000000000000003B /* ForgeElevation.swift in Sources */,
 				F0B10000000000000000003C /* ForgeTypeScale.swift in Sources */,
+				F0B10000000000000000003D /* ForgeDynamicFont.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

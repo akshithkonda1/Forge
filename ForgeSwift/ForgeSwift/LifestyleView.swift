@@ -1278,11 +1278,11 @@ struct LifestyleHeaderView: View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 5) {
                 Text("LIFESTYLE")
-                    .font(.system(size: 11, weight: .black))
+                    .font(.forgeDynamic(size: 11, weight: .black))
                     .foregroundColor(.textTertiary)
                     .tracking(3)
                 Text("Optimization")
-                    .font(.system(size: 34, weight: .bold))
+                    .font(.forgeDynamic(size: 34, weight: .bold))
                     .foregroundColor(.textPrimary)
             }
 
@@ -1292,10 +1292,10 @@ struct LifestyleHeaderView: View {
             HStack(spacing: 12) {
                 VStack(spacing: 2) {
                     Text("\(metrics.qualityOfLifeScore)")
-                        .font(.system(size: 20, weight: .black, design: .rounded))
+                        .font(.forgeDynamic(size: 20, weight: .black, design: .rounded))
                         .foregroundColor(.textPrimary)
                     Text("QOL")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.forgeDynamic(size: 9, weight: .bold))
                         .foregroundColor(.textTertiary)
                         .tracking(1.5)
                 }
@@ -1313,7 +1313,7 @@ struct LifestyleHeaderView: View {
                     ZStack {
                         Circle().fill(Color.ember.opacity(0.15)).frame(width: 46, height: 46)
                         Image(systemName: "sparkles")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.forgeDynamic(size: 18, weight: .semibold))
                             .foregroundColor(.ember)
                     }
                 }
@@ -1342,9 +1342,9 @@ struct SegmentedPillControl: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: seg.icon)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.forgeDynamic(size: 12, weight: .semibold))
                             Text(seg.title)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.forgeDynamic(size: 13, weight: .semibold))
                         }
                         .foregroundColor(selected == seg ? .white : .textTertiary)
                         .padding(.horizontal, 16)
@@ -1414,15 +1414,15 @@ struct LocationQuickLogCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
                 Image(systemName: "location.fill")
-                    .font(.system(size: 18))
+                    .font(.forgeDynamic(size: 18))
                     .foregroundColor(.ember)
                 Text("Quick Location Log")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.forgeDynamic(size: 18, weight: .bold))
                     .foregroundColor(.textPrimary)
             }
 
             Text("Detect nearby restaurants and log meals in one tap. Uses your location and Apple Maps POI data.")
-                .font(.system(size: 14))
+                .font(.forgeDynamic(size: 14))
                 .foregroundColor(.textSecondary)
                 .lineSpacing(4)
 
@@ -1438,7 +1438,7 @@ struct LocationQuickLogCard: View {
                         Text("Detect Current Location & Log Meal")
                     }
                 }
-                .font(.system(size: 15, weight: .bold))
+                .font(.forgeDynamic(size: 15, weight: .bold))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
@@ -1449,7 +1449,7 @@ struct LocationQuickLogCard: View {
 
             if let error = locationLogger.errorMessage {
                 Text(error)
-                    .font(.system(size: 13))
+                    .font(.forgeDynamic(size: 13))
                     .foregroundColor(.danger)
             }
         }
@@ -1481,23 +1481,23 @@ struct LocationMealConfirmationSheet: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Nearby Match")
-                                .font(.system(size: 11, weight: .black))
+                                .font(.forgeDynamic(size: 11, weight: .black))
                                 .foregroundColor(.textTertiary)
                                 .tracking(1.5)
                             Text(venue)
-                                .font(.system(size: 24, weight: .bold))
+                                .font(.forgeDynamic(size: 24, weight: .bold))
                                 .foregroundColor(.textPrimary)
                         }
                         Spacer()
                         Button(action: onDismiss) {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 26))
+                                .font(.forgeDynamic(size: 26))
                                 .foregroundColor(.textTertiary)
                         }
                     }
 
                     Text("Select what you ate to log macros to HealthKit.")
-                        .font(.system(size: 13))
+                        .font(.forgeDynamic(size: 13))
                         .foregroundColor(.textSecondary)
 
                     ScrollView(showsIndicators: false) {
@@ -1507,10 +1507,10 @@ struct LocationMealConfirmationSheet: View {
                                     HStack {
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(item.name)
-                                                .font(.system(size: 14, weight: .semibold))
+                                                .font(.forgeDynamic(size: 14, weight: .semibold))
                                                 .foregroundColor(.textPrimary)
                                             Text("\(item.calories) cal · \(item.protein)g protein")
-                                                .font(.system(size: 12))
+                                                .font(.forgeDynamic(size: 12))
                                                 .foregroundColor(.textTertiary)
                                         }
                                         Spacer()
@@ -1616,7 +1616,7 @@ struct TodaysFocusCard: View {
                             .frame(width: 6, height: 6)
                             .shadow(color: .white.opacity(0.6), radius: 4)
                         Text(focusArea.priority.uppercased())
-                            .font(.system(size: 10, weight: .black))
+                            .font(.forgeDynamic(size: 10, weight: .black))
                             .foregroundColor(.white)
                             .tracking(1.5)
                     }
@@ -1641,7 +1641,7 @@ struct TodaysFocusCard: View {
                                 .blur(radius: 8)
                             
                             Image(systemName: focusArea.icon)
-                                .font(.system(size: 32, weight: .semibold))
+                                .font(.forgeDynamic(size: 32, weight: .semibold))
                                 .foregroundColor(.white)
                                 .shadow(color: .black.opacity(0.2), radius: 4)
                         }
@@ -1650,17 +1650,17 @@ struct TodaysFocusCard: View {
                         
                         VStack(alignment: .leading, spacing: 6) {
                             Text("TODAY'S FOCUS")
-                                .font(.system(size: 11, weight: .black))
+                                .font(.forgeDynamic(size: 11, weight: .black))
                                 .foregroundColor(.white.opacity(0.8))
                                 .tracking(2)
                             
                             Text(focusArea.title)
-                                .font(.system(size: 24, weight: .black))
+                                .font(.forgeDynamic(size: 24, weight: .black))
                                 .foregroundColor(.white)
                                 .shadow(color: .black.opacity(0.2), radius: 4)
                             
                             Text(focusArea.action)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.forgeDynamic(size: 14, weight: .semibold))
                                 .foregroundColor(.white.opacity(0.9))
                         }
                     }
@@ -1677,12 +1677,12 @@ struct TodaysFocusCard: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.forgeDynamic(size: 18, weight: .bold))
                     Text("Take Action")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.forgeDynamic(size: 16, weight: .bold))
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.forgeDynamic(size: 14, weight: .semibold))
                 }
                 .foregroundColor(focusArea.color)
                 .padding(18)
@@ -1713,14 +1713,14 @@ struct LiveHealthDashboard: View {
                 ZStack {
                     Circle().fill(Color.success.opacity(0.15)).frame(width: 46, height: 46)
                     Image(systemName: "heart.text.square.fill")
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.forgeDynamic(size: 20, weight: .medium))
                         .foregroundStyle(LinearGradient(colors: [.success, .ember], startPoint: .topLeading, endPoint: .bottomTrailing))
                 }
                 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
                         Text("Live Health Data")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.forgeDynamic(size: 18, weight: .bold))
                             .foregroundColor(.textPrimary)
                         
                         // Pulsing live indicator
@@ -1736,13 +1736,13 @@ struct LiveHealthDashboard: View {
                                         .animation(.easeOut(duration: 1.2).repeatForever(autoreverses: false), value: appeared)
                                 )
                             Text("LIVE")
-                                .font(.system(size: 10, weight: .black))
+                                .font(.forgeDynamic(size: 10, weight: .black))
                                 .foregroundColor(.success)
                                 .tracking(1)
                         }
                     }
                     Text("Powered by HealthKit")
-                        .font(.system(size: 12))
+                        .font(.forgeDynamic(size: 12))
                         .foregroundColor(.textTertiary)
                 }
                 Spacer()
@@ -1892,12 +1892,12 @@ struct WeeklyTrendChart: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("7-Day Trends")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.forgeDynamic(size: 14, weight: .semibold))
                     .foregroundColor(.textPrimary)
                 Spacer()
                 if let t = selectedTrend {
                     Text("\(t.date.formatted(.dateTime.weekday(.abbreviated))) · \(metric.format(metric.value(t)))")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.forgeDynamic(size: 11, weight: .bold))
                         .foregroundColor(metric.color)
                         .transition(.opacity)
                 }
@@ -1921,13 +1921,13 @@ struct WeeklyTrendChart: View {
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day)) { _ in
                     AxisValueLabel(format: .dateTime.weekday(.narrow))
-                        .font(.system(size: 9))
+                        .font(.forgeDynamic(size: 9))
                 }
             }
             .chartYAxis {
                 AxisMarks(position: .leading) { _ in
                     AxisGridLine()
-                    AxisValueLabel().font(.system(size: 9))
+                    AxisValueLabel().font(.forgeDynamic(size: 9))
                 }
             }
             .frame(height: 150)
@@ -1950,20 +1950,20 @@ struct HealthMetricTile: View {
         VStack(spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(.forgeDynamic(size: 16))
                     .foregroundColor(color)
                 Text(label)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.forgeDynamic(size: 11, weight: .semibold))
                     .foregroundColor(.textSecondary)
                 Spacer()
             }
             
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
-                    .font(.system(size: 24, weight: .black, design: .rounded))
+                    .font(.forgeDynamic(size: 24, weight: .black, design: .rounded))
                     .foregroundColor(.textPrimary)
                 Text("/ \(target)")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.forgeDynamic(size: 11, weight: .medium))
                     .foregroundColor(.textTertiary)
                 Spacer()
             }
@@ -1997,14 +1997,14 @@ struct AIWorkoutSuggestionsCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 10) {
                 Image(systemName: "figure.strengthtraining.traditional")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.forgeDynamic(size: 18, weight: .semibold))
                     .foregroundColor(.ember)
                 Text("AI Workout Suggestions")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.forgeDynamic(size: 18, weight: .bold))
                     .foregroundColor(.textPrimary)
                 Spacer()
                 Text("\(workouts.count) ready")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.forgeDynamic(size: 11, weight: .semibold))
                     .foregroundColor(.ember)
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Color.ember.opacity(0.12))
@@ -2045,26 +2045,26 @@ struct AIWorkoutCard: View {
                         .fill(Color.ember.opacity(0.12))
                         .frame(width: 50, height: 50)
                     Image(systemName: "dumbbell.fill")
-                        .font(.system(size: 22))
+                        .font(.forgeDynamic(size: 22))
                         .foregroundStyle(LinearGradient.emberGradient)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(suggestion.title)
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.forgeDynamic(size: 16, weight: .bold))
                         .foregroundColor(.textPrimary)
                     HStack(spacing: 8) {
                         Label("\(suggestion.workout.duration) min", systemImage: "clock.fill")
                         Label("\(suggestion.workout.exercises.count) exercises", systemImage: "list.bullet")
                     }
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.forgeDynamic(size: 11, weight: .medium))
                     .foregroundColor(.textSecondary)
                 }
                 
                 Spacer()
                 
                 Image(systemName: "arrow.right.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.forgeDynamic(size: 24))
                     .foregroundColor(.ember)
             }
             
@@ -2072,10 +2072,10 @@ struct AIWorkoutCard: View {
             
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 11))
+                    .font(.forgeDynamic(size: 11))
                     .foregroundColor(.ember)
                 Text(suggestion.reason)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.forgeDynamic(size: 13, weight: .medium))
                     .foregroundColor(.textSecondary)
                     .lineLimit(2)
             }
@@ -2130,15 +2130,15 @@ struct RecoveryMetricsCard: View {
                 ZStack {
                     Circle().fill(recoveryStatus.color.opacity(0.15)).frame(width: 46, height: 46)
                     Image(systemName: "bolt.heart.fill")
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.forgeDynamic(size: 20, weight: .medium))
                         .foregroundColor(recoveryStatus.color)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Recovery Status")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.forgeDynamic(size: 18, weight: .bold))
                         .foregroundColor(.textPrimary)
                     Text(recoveryStatus.label)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.forgeDynamic(size: 13, weight: .semibold))
                         .foregroundColor(recoveryStatus.color)
                 }
                 Spacer()
@@ -2157,7 +2157,7 @@ struct RecoveryMetricsCard: View {
                         .animation(.spring(response: 1.2, dampingFraction: 0.7).delay(0.2), value: appeared)
                     
                     Text("\(recoveryScore)")
-                        .font(.system(size: 20, weight: .black))
+                        .font(.forgeDynamic(size: 20, weight: .black))
                         .foregroundColor(.textPrimary)
                 }
             }
@@ -2195,17 +2195,17 @@ struct RecoveryMetricsCard: View {
             // Training readiness
             HStack(spacing: 12) {
                 Image(systemName: recoveryScore > 70 ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                    .font(.system(size: 18))
+                    .font(.forgeDynamic(size: 18))
                     .foregroundColor(recoveryScore > 70 ? .success : .warning)
                 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(recoveryScore > 70 ? "Ready to Train" : "Consider Active Recovery")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.forgeDynamic(size: 14, weight: .bold))
                         .foregroundColor(.textPrimary)
                     Text(recoveryScore > 70 
                          ? "Your body is primed for a hard session"
                          : "Focus on mobility, stretching, or light cardio")
-                        .font(.system(size: 12))
+                        .font(.forgeDynamic(size: 12))
                         .foregroundColor(.textSecondary)
                         .lineSpacing(3)
                 }
@@ -2238,23 +2238,23 @@ struct RecoveryMetricRow: View {
             ZStack {
                 Circle().fill(color.opacity(0.12)).frame(width: 38, height: 38)
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(.forgeDynamic(size: 16))
                     .foregroundColor(color)
             }
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.forgeDynamic(size: 13, weight: .medium))
                     .foregroundColor(.textSecondary)
                 Text(value)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.forgeDynamic(size: 15, weight: .bold))
                     .foregroundColor(.textPrimary)
             }
             
             Spacer()
             
             Text(status)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.forgeDynamic(size: 12, weight: .semibold))
                 .foregroundColor(color)
                 .padding(.horizontal, 10).padding(.vertical, 5)
                 .background(color.opacity(0.12))
@@ -2280,7 +2280,7 @@ struct WorkoutDetailSheet: View {
                     // Header stats
                     VStack(alignment: .leading, spacing: 12) {
                         Text(workout.name)
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.forgeDynamic(size: 28, weight: .bold))
                             .foregroundColor(.textPrimary)
                         
                         HStack(spacing: 16) {
@@ -2294,7 +2294,7 @@ struct WorkoutDetailSheet: View {
                     // Exercise list
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Exercises")
-                            .font(.system(size: 20, weight: .bold))
+                            .font(.forgeDynamic(size: 20, weight: .bold))
                             .foregroundColor(.textPrimary)
                             .padding(.horizontal, 20)
                         
@@ -2311,9 +2311,9 @@ struct WorkoutDetailSheet: View {
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "play.fill")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.forgeDynamic(size: 16, weight: .bold))
                             Text("Start Workout")
-                                .font(.system(size: 17, weight: .bold))
+                                .font(.forgeDynamic(size: 17, weight: .bold))
                         }
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -2348,9 +2348,9 @@ struct StatPill: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 12))
+                .font(.forgeDynamic(size: 12))
             Text(value)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.forgeDynamic(size: 13, weight: .semibold))
         }
         .foregroundColor(color)
         .padding(.horizontal, 12)
@@ -2369,13 +2369,13 @@ struct ExerciseRow: View {
             ZStack {
                 Circle().fill(Color.ember.opacity(0.12)).frame(width: 40, height: 40)
                 Text("\(index)")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.forgeDynamic(size: 16, weight: .bold))
                     .foregroundColor(.ember)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(exercise.name)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.forgeDynamic(size: 15, weight: .semibold))
                     .foregroundColor(.textPrimary)
                 HStack(spacing: 8) {
                     Text("\(exercise.sets) sets")
@@ -2384,14 +2384,14 @@ struct ExerciseRow: View {
                     Text("·")
                     Text("\(exercise.restSeconds)s rest")
                 }
-                .font(.system(size: 12, weight: .medium))
+                .font(.forgeDynamic(size: 12, weight: .medium))
                 .foregroundColor(.textSecondary)
             }
             
             Spacer()
             
             Text(exercise.muscleGroup.rawValue.capitalized)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.forgeDynamic(size: 11, weight: .semibold))
                 .foregroundColor(.textTertiary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
@@ -2423,24 +2423,29 @@ struct MultiArcQOLCard: View {
             // Section label
             HStack {
                 Text("QUALITY OF LIFE")
-                    .font(.system(size: 10, weight: .black))
+                    .font(.forgeDynamic(size: 10, weight: .black))
                     .foregroundColor(.textTertiary)
                     .tracking(2.5)
                 Spacer()
                 Text("All dimensions")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.forgeDynamic(size: 11, weight: .medium))
                     .foregroundColor(.textMuted)
             }
             .padding(.bottom, 28)
 
             // Arc visualisation
             ZStack {
-                // Background arcs (tracks)
+                // Background arcs (tracks) -- decorative; the legend grid
+                // below already states each dimension's name + number in
+                // text, so these unlabeled rings would otherwise present
+                // to VoiceOver as 5 indistinguishable stops with no way
+                // to tell which is "Sleep" vs "Energy".
                 ForEach(Array(arcs.enumerated()), id: \.offset) { i, arc in
                     Circle()
                         .stroke(Color.borderColor.opacity(0.3), style: StrokeStyle(lineWidth: 10, lineCap: .round))
                         .frame(width: arc.radius * 2, height: arc.radius * 2)
                 }
+                .accessibilityHidden(true)
 
                 // Progress arcs
                 ForEach(Array(arcs.enumerated()), id: \.offset) { i, arc in
@@ -2464,17 +2469,21 @@ struct MultiArcQOLCard: View {
                         .shadow(color: arc.color.opacity(0.4), radius: 6)
                         .animation(.spring(response: 1.4, dampingFraction: 0.68).delay(0.3 + Double(i) * 0.12), value: appeared)
                 }
+                .accessibilityHidden(true)
 
                 // Center score
                 VStack(spacing: 3) {
                     Text("\(metrics.qualityOfLifeScore)")
-                        .font(.system(size: 36, weight: .black, design: .rounded))
+                        .font(.forgeDynamic(size: 36, weight: .black, design: .rounded))
                         .foregroundColor(.textPrimary)
                     Text("QOL Score")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.forgeDynamic(size: 10, weight: .bold))
                         .foregroundColor(.textTertiary)
                         .tracking(1)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Quality of life score")
+                .accessibilityValue("\(metrics.qualityOfLifeScore) out of 100")
             }
             .frame(height: 220)
             .frame(maxWidth: .infinity)
@@ -2507,17 +2516,20 @@ struct ArcLegendItem: View {
             Circle().fill(color).frame(width: 8, height: 8)
                 .shadow(color: color.opacity(0.5), radius: 3)
             Text(label)
-                .font(.system(size: 12, weight: .medium))
+                .font(.forgeDynamic(size: 12, weight: .medium))
                 .foregroundColor(.textSecondary)
             Spacer()
             Text("\(value)")
-                .font(.system(size: 13, weight: .bold))
+                .font(.forgeDynamic(size: 13, weight: .bold))
                 .foregroundColor(.textPrimary)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(Color.surfaceElevated)
         .cornerRadius(12)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue("\(value)")
     }
 }
 
@@ -2544,18 +2556,18 @@ struct AILifeAnalysisCard: View {
                 ZStack {
                     Circle().fill(Color.ember.opacity(0.15)).frame(width: 46, height: 46)
                     Image(systemName: "brain.head.profile")
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.forgeDynamic(size: 20, weight: .medium))
                         .foregroundStyle(LinearGradient.ember)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text("AI Life Analysis")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.forgeDynamic(size: 18, weight: .bold))
                             .foregroundColor(.textPrimary)
                         if analysis != nil { liveBadge }
                     }
                     Text("Behavioral pattern analysis")
-                        .font(.system(size: 12))
+                        .font(.forgeDynamic(size: 12))
                         .foregroundColor(.textTertiary)
                 }
                 Spacer()
@@ -2581,11 +2593,11 @@ struct AILifeAnalysisCard: View {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { expanded.toggle() }
             } label: {
                 HStack {
-                    Image(systemName: "arrow.right.circle.fill").font(.system(size: 14))
-                    Text(expanded ? "Hide Full Analysis" : "View Full Analysis").font(.system(size: 14, weight: .semibold))
+                    Image(systemName: "arrow.right.circle.fill").font(.forgeDynamic(size: 14))
+                    Text(expanded ? "Hide Full Analysis" : "View Full Analysis").font(.forgeDynamic(size: 14, weight: .semibold))
                     Spacer()
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.forgeDynamic(size: 12, weight: .semibold))
                         .rotationEffect(.degrees(expanded ? 180 : 0))
                 }
                 .foregroundColor(.ember)
@@ -2610,7 +2622,7 @@ struct AILifeAnalysisCard: View {
 
     private var liveBadge: some View {
         Text(isLive ? "LIVE" : "ARIA")
-            .font(.system(size: 8, weight: .black))
+            .font(.forgeDynamic(size: 8, weight: .black))
             .tracking(0.5)
             .foregroundColor(.ember)
             .padding(.horizontal, 6).padding(.vertical, 2)
@@ -2622,20 +2634,20 @@ struct AILifeAnalysisCard: View {
     private var fullAnalysisSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: "sparkles").font(.system(size: 13)).foregroundColor(.ember)
+                Image(systemName: "sparkles").font(.forgeDynamic(size: 13)).foregroundColor(.ember)
                 Text(isLive ? "ARIA's analysis" : "Summary")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.forgeDynamic(size: 13, weight: .semibold))
                     .foregroundColor(.textPrimary)
             }
             if let analysis {
                 Text(analysis)
-                    .font(.system(size: 13))
+                    .font(.forgeDynamic(size: 13))
                     .foregroundColor(.textSecondary)
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text("Connect ARIA to unlock a personalized breakdown of how your sleep, nutrition, movement, and stress are interacting today.")
-                    .font(.system(size: 13))
+                    .font(.forgeDynamic(size: 13))
                     .foregroundColor(.textTertiary)
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2674,24 +2686,24 @@ struct AnalysisInsightRow: View {
                 ZStack {
                     Circle().fill(status.color.opacity(0.12)).frame(width: 38, height: 38)
                     Image(systemName: icon)
-                        .font(.system(size: 16))
+                        .font(.forgeDynamic(size: 16))
                         .foregroundColor(status.color)
                 }
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(label)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.forgeDynamic(size: 14, weight: .semibold))
                     .foregroundColor(.textPrimary)
                 HStack(spacing: 5) {
                     Text(current)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.forgeDynamic(size: 12, weight: .medium))
                         .foregroundColor(.textSecondary)
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 9))
+                        .font(.forgeDynamic(size: 9))
                         .foregroundColor(.textMuted)
                     Text(optimal)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.forgeDynamic(size: 12, weight: .medium))
                         .foregroundColor(.textTertiary)
                 }
             }
@@ -2729,14 +2741,14 @@ struct AIRecommendationsCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 10) {
                 Image(systemName: "lightbulb.fill")
-                    .font(.system(size: 18))
+                    .font(.forgeDynamic(size: 18))
                     .foregroundColor(.ember)
                 Text("AI Recommendations")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.forgeDynamic(size: 18, weight: .bold))
                     .foregroundColor(.textPrimary)
                 Spacer()
                 Text("\(recommendations.count) active")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.forgeDynamic(size: 11, weight: .semibold))
                     .foregroundColor(.ember)
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Color.ember.opacity(0.12))
@@ -2750,7 +2762,7 @@ struct AIRecommendationsCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
                     Text("Ask ARIA to optimize")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.forgeDynamic(size: 13, weight: .semibold))
                 }
                 .foregroundColor(.ember)
                 .frame(maxWidth: .infinity)
@@ -2763,9 +2775,9 @@ struct AIRecommendationsCard: View {
             if recommendations.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 44)).foregroundColor(.success.opacity(0.6))
+                        .font(.forgeDynamic(size: 44)).foregroundColor(.success.opacity(0.6))
                     Text("You're doing great! No new recommendations.")
-                        .font(.system(size: 14)).foregroundColor(.textSecondary)
+                        .font(.forgeDynamic(size: 14)).foregroundColor(.textSecondary)
                 }
                 .frame(maxWidth: .infinity).padding(.vertical, 24)
             } else {
@@ -2809,32 +2821,32 @@ struct RecommendationCard: View {
                         HStack {
                             HStack(spacing: 6) {
                                 Image(systemName: recommendation.category.icon)
-                                    .font(.system(size: 11))
+                                    .font(.forgeDynamic(size: 11))
                                     .foregroundColor(recommendation.impact.color)
                                 Text(recommendation.category.rawValue.uppercased())
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(.forgeDynamic(size: 10, weight: .bold))
                                     .foregroundColor(recommendation.impact.color)
                                     .tracking(1.5)
                             }
                             Spacer()
                             HStack(spacing: 4) {
                                 Text(recommendation.impact.rawValue)
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(.forgeDynamic(size: 10, weight: .bold))
                                     .foregroundColor(recommendation.impact.color)
                                 Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 10, weight: .semibold))
+                                    .font(.forgeDynamic(size: 10, weight: .semibold))
                                     .foregroundColor(.textMuted)
                             }
                         }
 
                         Text(recommendation.title)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.forgeDynamic(size: 14, weight: .semibold))
                             .foregroundColor(.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         if expanded {
                             Text(recommendation.description)
-                                .font(.system(size: 13))
+                                .font(.forgeDynamic(size: 13))
                                 .foregroundColor(.textSecondary)
                                 .lineSpacing(4)
                                 .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
@@ -2887,7 +2899,7 @@ struct OptimizationGoalsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Optimization Goals")
-                .font(.system(size: 18, weight: .bold))
+                .font(.forgeDynamic(size: 18, weight: .bold))
                 .foregroundColor(.textPrimary)
 
             VStack(spacing: 12) {
@@ -2921,21 +2933,21 @@ struct GoalProgressItem: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.forgeDynamic(size: 14, weight: .semibold))
                     .foregroundColor(.textPrimary)
                 Spacer()
                 Text("\(Int(progress * 100))%")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.forgeDynamic(size: 13, weight: .bold))
                     .foregroundColor(color)
             }
             HStack(spacing: 6) {
                 Text(current)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.forgeDynamic(size: 12, weight: .medium))
                     .foregroundColor(.textSecondary)
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 10)).foregroundColor(.textMuted)
+                    .font(.forgeDynamic(size: 10)).foregroundColor(.textMuted)
                 Text(target)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.forgeDynamic(size: 12, weight: .semibold))
                     .foregroundColor(color)
             }
             // Responsive animated progress bar (fixed hardcoded-points bug)
@@ -3007,12 +3019,12 @@ struct MacroRingsCard: View {
         VStack(spacing: 0) {
             HStack {
                 Text("TODAY'S MACROS")
-                    .font(.system(size: 10, weight: .black))
+                    .font(.forgeDynamic(size: 10, weight: .black))
                     .foregroundColor(.textTertiary)
                     .tracking(2.5)
                 Spacer()
                 Text("\(targetCal - totalCal) cal left")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.forgeDynamic(size: 12, weight: .semibold))
                     .foregroundColor(.ember)
             }
             .padding(.bottom, 28)
@@ -3044,16 +3056,20 @@ struct MacroRingsCard: View {
                         .shadow(color: macro.color.opacity(0.45), radius: 8)
                         .animation(.spring(response: 1.3, dampingFraction: 0.68).delay(0.25 + Double(i) * 0.15), value: appeared)
                 }
+                .accessibilityHidden(true)
 
                 // Center: calorie total
                 VStack(spacing: 2) {
                     Text("\(totalCal)")
-                        .font(.system(size: 28, weight: .black, design: .rounded))
+                        .font(.forgeDynamic(size: 28, weight: .black, design: .rounded))
                         .foregroundColor(.textPrimary)
                     Text("of \(targetCal) kcal")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.forgeDynamic(size: 11, weight: .medium))
                         .foregroundColor(.textTertiary)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Calories")
+                .accessibilityValue("\(totalCal) of \(targetCal) kcal")
             }
             .frame(height: 210)
             .frame(maxWidth: .infinity)
@@ -3066,7 +3082,7 @@ struct MacroRingsCard: View {
                         Circle().fill(macro.color).frame(width: 8, height: 8)
                             .shadow(color: macro.color.opacity(0.5), radius: 3)
                         Text(macro.label)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.forgeDynamic(size: 13, weight: .medium))
                             .foregroundColor(.textSecondary)
                             .frame(width: 52, alignment: .leading)
                         GeometryReader { geo in
@@ -3079,10 +3095,13 @@ struct MacroRingsCard: View {
                         }
                         .frame(height: 6)
                         Text("\(macro.current)\(macro.unit)")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.forgeDynamic(size: 13, weight: .bold))
                             .foregroundColor(.textPrimary)
                             .frame(width: 44, alignment: .trailing)
                     }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(macro.label)
+                    .accessibilityValue("\(macro.current) of \(macro.target) \(macro.unit)")
                 }
             }
         }
@@ -3153,24 +3172,24 @@ struct AINutritionCoachCard: View {
             ZStack {
                 Circle().fill(Color.ember.opacity(0.15)).frame(width: 40, height: 40)
                 Image(systemName: "sparkles")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.forgeDynamic(size: 16, weight: .semibold))
                     .foregroundColor(.ember)
                     .scaleEffect(coachHeaderIconScale)
             }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text("AI Nutrition Coach").font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
+                    Text("AI Nutrition Coach").font(.forgeDynamic(size: 16, weight: .bold)).foregroundColor(.textPrimary)
                     if liveInsight != nil { coachBadge }
                 }
                 Text(coachSubtitle)
-                    .font(.system(size: 11, weight: .medium)).foregroundColor(.textTertiary)
+                    .font(.forgeDynamic(size: 11, weight: .medium)).foregroundColor(.textTertiary)
             }
             Spacer()
             Button {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { tipIndex += 1 }
             } label: {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.forgeDynamic(size: 13, weight: .semibold))
                     .foregroundColor(.textTertiary)
                     .frame(width: 32, height: 32)
                     .background(Color.surfaceElevated)
@@ -3189,7 +3208,7 @@ struct AINutritionCoachCard: View {
 
     private var coachBadge: some View {
         Text(vm.aiInsightsLive ? "LIVE" : "ARIA")
-            .font(.system(size: 8, weight: .black))
+            .font(.forgeDynamic(size: 8, weight: .black))
             .tracking(0.5)
             .foregroundColor(.ember)
             .padding(.horizontal, 6).padding(.vertical, 2)
@@ -3209,15 +3228,15 @@ struct AINutritionCoachCard: View {
     private var tipDetailRow: some View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: liveInsight != nil ? "sparkles" : tip.icon)
-                .font(.system(size: 22))
+                .font(.forgeDynamic(size: 22))
                 .foregroundColor(liveInsight != nil ? .ember : tip.color)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 5) {
                 Text(liveInsight != nil ? "ARIA's take" : tip.headline)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.forgeDynamic(size: 14, weight: .semibold))
                     .foregroundColor(.textPrimary)
                 Text(liveInsight ?? tip.body)
-                    .font(.system(size: 13))
+                    .font(.forgeDynamic(size: 13))
                     .foregroundColor(.textSecondary)
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
@@ -3232,10 +3251,10 @@ struct AINutritionCoachCard: View {
             ForEach(macroSnapshots, id: \.label) { snapshot in
                 VStack(spacing: 3) {
                     Text(snapshot.label)
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.forgeDynamic(size: 10, weight: .bold))
                         .foregroundColor(.textTertiary)
                     Text("\(snapshot.percent)%")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.forgeDynamic(size: 13, weight: .bold))
                         .foregroundColor(snapshot.color)
                 }
                 .frame(maxWidth: .infinity)
@@ -3303,16 +3322,16 @@ struct AIMealSuggestionsCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 HStack(spacing: 8) {
-                    Image(systemName: "fork.knife.circle.fill").font(.system(size: 20)).foregroundColor(.steel)
-                    Text("AI Meal Suggestions").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                    Image(systemName: "fork.knife.circle.fill").font(.forgeDynamic(size: 20)).foregroundColor(.steel)
+                    Text("AI Meal Suggestions").font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.textPrimary)
                 }
                 Spacer()
                 Button {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { setIndex += 1 }
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "sparkles").font(.system(size: 10))
-                        Text("Regenerate").font(.system(size: 12, weight: .semibold))
+                        Image(systemName: "sparkles").font(.forgeDynamic(size: 10))
+                        Text("Regenerate").font(.forgeDynamic(size: 12, weight: .semibold))
                     }
                     .foregroundColor(.steel)
                     .padding(.horizontal, 10).padding(.vertical, 6)
@@ -3322,14 +3341,14 @@ struct AIMealSuggestionsCard: View {
             }
 
             Text("Based on \(max(0, 2600 - (vm.healthStats?.totalCalories ?? 0))) cal · \(max(0, Int(180 - (vm.healthStats?.protein ?? 0))))g protein remaining")
-                .font(.system(size: 12, weight: .medium))
+                .font(.forgeDynamic(size: 12, weight: .medium))
                 .foregroundColor(.textTertiary)
 
             if let note = vm.aiMealNote {
                 HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.steel)
+                    Image(systemName: "sparkles").font(.forgeDynamic(size: 11)).foregroundColor(.steel)
                     Text(note)
-                        .font(.system(size: 12))
+                        .font(.forgeDynamic(size: 12))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -3375,14 +3394,14 @@ struct AIMealRow: View {
             } label: {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(suggestion.name).font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                        Text(suggestion.reason).font(.system(size: 11)).foregroundColor(.textTertiary).lineLimit(1)
+                        Text(suggestion.name).font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                        Text(suggestion.reason).font(.forgeDynamic(size: 11)).foregroundColor(.textTertiary).lineLimit(1)
                     }
                     Spacer()
                     Text("\(suggestion.cal) cal")
-                        .font(.system(size: 13, weight: .bold)).foregroundColor(.ember)
+                        .font(.forgeDynamic(size: 13, weight: .bold)).foregroundColor(.ember)
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold)).foregroundColor(.textMuted)
+                        .font(.forgeDynamic(size: 11, weight: .semibold)).foregroundColor(.textMuted)
                 }
                 .padding(13)
             }
@@ -3407,8 +3426,8 @@ struct InlineMacroChip: View {
     let label: String; let value: String; let color: Color
     var body: some View {
         VStack(spacing: 3) {
-            Text(label).font(.system(size: 10, weight: .bold)).foregroundColor(.textTertiary)
-            Text(value).font(.system(size: 13, weight: .bold)).foregroundColor(color)
+            Text(label).font(.forgeDynamic(size: 10, weight: .bold)).foregroundColor(.textTertiary)
+            Text(value).font(.forgeDynamic(size: 13, weight: .bold)).foregroundColor(color)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 8)
         .background(color.opacity(0.09)).cornerRadius(8)
@@ -3562,9 +3581,9 @@ struct ScannedFoodConfirmSheet: View {
             Capsule().fill(Color.borderColor).frame(width: 40, height: 5).padding(.top, 10)
 
             if food.found {
-                Image(systemName: "checkmark.seal.fill").font(.system(size: 40)).foregroundColor(.success)
+                Image(systemName: "checkmark.seal.fill").font(.forgeDynamic(size: 40)).foregroundColor(.success)
                 Text(food.name)
-                    .font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                    .font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.textPrimary)
                     .multilineTextAlignment(.center).padding(.horizontal, 20)
 
                 HStack(spacing: 10) {
@@ -3576,21 +3595,21 @@ struct ScannedFoodConfirmSheet: View {
                 .padding(.horizontal, 20)
 
                 Button(action: onLog) {
-                    Text("Log Meal").font(.system(size: 16, weight: .bold)).foregroundColor(.white)
+                    Text("Log Meal").font(.forgeDynamic(size: 16, weight: .bold)).foregroundColor(.white)
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
                         .background(Color.ember).cornerRadius(14)
                 }
                 .padding(.horizontal, 20)
             } else {
-                Image(systemName: "barcode.viewfinder").font(.system(size: 40)).foregroundColor(.textTertiary)
-                Text("No nutrition data found").font(.system(size: 17, weight: .semibold)).foregroundColor(.textPrimary)
+                Image(systemName: "barcode.viewfinder").font(.forgeDynamic(size: 40)).foregroundColor(.textTertiary)
+                Text("No nutrition data found").font(.forgeDynamic(size: 17, weight: .semibold)).foregroundColor(.textPrimary)
                 Text("We couldn't match that barcode. Try another product or log it manually.")
-                    .font(.system(size: 13)).foregroundColor(.textSecondary)
+                    .font(.forgeDynamic(size: 13)).foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center).padding(.horizontal, 30)
             }
 
             Button("Close", action: onDismiss)
-                .font(.system(size: 14, weight: .semibold)).foregroundColor(.textTertiary)
+                .font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textTertiary)
                 .padding(.bottom, 16)
 
             Spacer(minLength: 0)
@@ -3601,8 +3620,8 @@ struct ScannedFoodConfirmSheet: View {
 
     private func macroPill(_ label: String, _ value: String, _ color: Color) -> some View {
         VStack(spacing: 3) {
-            Text(value).font(.system(size: 15, weight: .bold)).foregroundColor(color)
-            Text(label).font(.system(size: 10, weight: .semibold)).foregroundColor(.textTertiary)
+            Text(value).font(.forgeDynamic(size: 15, weight: .bold)).foregroundColor(color)
+            Text(label).font(.forgeDynamic(size: 10, weight: .semibold)).foregroundColor(.textTertiary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
@@ -3632,19 +3651,19 @@ struct MealLogCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("Meal Log").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                Text("Meal Log").font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.textPrimary)
                 Spacer()
                 Text("\(vm.loggedMeals.count) logged")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.forgeDynamic(size: 12, weight: .semibold))
                     .foregroundColor(.textTertiary)
                 Button { showScanner = true } label: {
                     HStack(spacing: 5) {
                         if isLookingUp {
                             ProgressView().scaleEffect(0.7)
                         } else {
-                            Image(systemName: "barcode.viewfinder").font(.system(size: 13, weight: .semibold))
+                            Image(systemName: "barcode.viewfinder").font(.forgeDynamic(size: 13, weight: .semibold))
                         }
-                        Text("Scan").font(.system(size: 12, weight: .semibold))
+                        Text("Scan").font(.forgeDynamic(size: 12, weight: .semibold))
                     }
                     .foregroundColor(.ember)
                     .padding(.horizontal, 10).padding(.vertical, 6)
@@ -3656,7 +3675,7 @@ struct MealLogCard: View {
 
             if vm.loggedMeals.isEmpty {
                 Text("No meals logged yet today. Use Quick Location Log or Restaurants to add your first meal.")
-                    .font(.system(size: 13))
+                    .font(.forgeDynamic(size: 13))
                     .foregroundColor(.textSecondary)
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -3669,18 +3688,18 @@ struct MealLogCard: View {
                             ZStack {
                                 Circle().fill(Color.surface).frame(width: 38, height: 38)
                                 Image(systemName: mealIcon(for: meal.date))
-                                    .font(.system(size: 15)).foregroundColor(.ember)
+                                    .font(.forgeDynamic(size: 15)).foregroundColor(.ember)
                             }
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(meal.name).font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(1)
+                                Text(meal.name).font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(1)
                                 Text(meal.date, format: .dateTime.hour().minute())
-                                    .font(.system(size: 12)).foregroundColor(.textTertiary)
+                                    .font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
                             }
                             Spacer()
                             Text("\(Int(meal.calories)) cal")
-                                .font(.system(size: 13, weight: .medium)).foregroundColor(.textSecondary)
+                                .font(.forgeDynamic(size: 13, weight: .medium)).foregroundColor(.textSecondary)
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 18)).foregroundColor(.success)
+                                .font(.forgeDynamic(size: 18)).foregroundColor(.success)
                         }
                         .padding(.horizontal, 14).padding(.vertical, 10)
                         .background(Color.surfaceElevated).cornerRadius(12)
@@ -3732,19 +3751,19 @@ struct WaterIntakeCard: View {
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: "drop.fill")
-                        .font(.system(size: 16)).foregroundColor(Color(hex: "4A9EFF"))
-                    Text("Water Intake").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                        .font(.forgeDynamic(size: 16)).foregroundColor(Color(hex: "4A9EFF"))
+                    Text("Water Intake").font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.textPrimary)
                 }
                 Spacer()
                 Text("\(consumed)/\(target)")
-                    .font(.system(size: 14, weight: .bold)).foregroundColor(Color(hex: "4A9EFF"))
+                    .font(.forgeDynamic(size: 14, weight: .bold)).foregroundColor(Color(hex: "4A9EFF"))
             }
 
             HStack(spacing: 8) {
                 ForEach(0..<target, id: \.self) { i in
                     Image(systemName: i < consumed ? "drop.fill" : "drop")
                         .foregroundColor(i < consumed ? Color(hex: "4A9EFF") : Color.borderColor)
-                        .font(.system(size: 22))
+                        .font(.forgeDynamic(size: 22))
                         .scaleEffect(i < consumed ? 1 : 0.85)
                         .animation(.spring(response: 0.3, dampingFraction: 0.6).delay(Double(i) * 0.03), value: consumed)
                 }
@@ -3756,11 +3775,11 @@ struct WaterIntakeCard: View {
                 Task { await vm.logWater(glasses: 1) }
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "plus.circle.fill").font(.system(size: 15))
-                    Text("Log a glass").font(.system(size: 14, weight: .semibold))
+                    Image(systemName: "plus.circle.fill").font(.forgeDynamic(size: 15))
+                    Text("Log a glass").font(.forgeDynamic(size: 14, weight: .semibold))
                     Spacer()
                     Text("Syncs with HealthKit")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.forgeDynamic(size: 10, weight: .medium))
                         .foregroundColor(Color(hex: "4A9EFF").opacity(0.7))
                         .padding(.horizontal, 6).padding(.vertical, 3)
                         .background(Color(hex: "4A9EFF").opacity(0.1))
@@ -3799,18 +3818,18 @@ struct MicronutrientsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Key Micronutrients")
-                .font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                .font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.textPrimary)
 
             VStack(spacing: 14) {
                 ForEach(Array(micros.enumerated()), id: \.offset) { i, m in
                     VStack(alignment: .leading, spacing: 7) {
                         HStack {
-                            Text(m.label).font(.system(size: 13, weight: .medium)).foregroundColor(.textSecondary)
+                            Text(m.label).font(.forgeDynamic(size: 13, weight: .medium)).foregroundColor(.textSecondary)
                             Spacer()
                             Text(m.current < 10
                                  ? String(format: "%.1f / %.1f %@", m.current, m.target, m.unit)
                                  : "\(Int(m.current)) / \(Int(m.target)) \(m.unit)")
-                                .font(.system(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
+                                .font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
                         }
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
@@ -3881,7 +3900,7 @@ struct NutritionDatabaseView: View {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selectedCategory = cat }
                         } label: {
                             Text(cat.rawValue)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.forgeDynamic(size: 13, weight: .semibold))
                                 .foregroundColor(selectedCategory == cat ? .white : .textTertiary)
                                 .padding(.horizontal, 16).padding(.vertical, 9)
                                 .background(
@@ -3936,23 +3955,23 @@ struct RestaurantCard: View {
     var body: some View {
         VStack(spacing: 12) {
             Text(restaurant.logo)
-                .font(.system(size: 44))
+                .font(.forgeDynamic(size: 44))
                 .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
 
             Text(restaurant.name)
-                .font(.system(size: 14, weight: .bold))
+                .font(.forgeDynamic(size: 14, weight: .bold))
                 .foregroundColor(.textPrimary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
 
             HStack(spacing: 6) {
                 Text("\(restaurant.items.count) items")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.forgeDynamic(size: 11, weight: .medium))
                     .foregroundColor(.textTertiary)
                 Circle().fill(Color.borderColor).frame(width: 3, height: 3)
                 // Protein efficiency rating
                 Text(NutritionRating(proteinEfficiency: avgProteinEfficiency).label)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.forgeDynamic(size: 11, weight: .semibold))
                     .foregroundColor(efficiencyColor)
             }
         }
@@ -4007,13 +4026,13 @@ struct RestaurantMenuSheet: View {
                 VStack(spacing: 0) {
                     // Hero header
                     HStack(spacing: 16) {
-                        Text(restaurant.logo).font(.system(size: 48))
+                        Text(restaurant.logo).font(.forgeDynamic(size: 48))
                         VStack(alignment: .leading, spacing: 5) {
                             Text(restaurant.name)
-                                .font(.system(size: 24, weight: .bold))
+                                .font(.forgeDynamic(size: 24, weight: .bold))
                                 .foregroundColor(.textPrimary)
                             Text("\(restaurant.items.count) menu items")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.forgeDynamic(size: 13, weight: .medium))
                                 .foregroundColor(.textSecondary)
                         }
                         Spacer()
@@ -4070,18 +4089,18 @@ struct MenuItemCard: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.name)
-                        .font(.system(size: 15, weight: .semibold)).foregroundColor(.textPrimary)
+                        .font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(.textPrimary)
                     Text(item.serving)
-                        .font(.system(size: 11, weight: .medium)).foregroundColor(.textTertiary)
+                        .font(.forgeDynamic(size: 11, weight: .medium)).foregroundColor(.textTertiary)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     if item.isHealthy {
                         Image(systemName: "leaf.fill")
-                            .font(.system(size: 13)).foregroundColor(.success)
+                            .font(.forgeDynamic(size: 13)).foregroundColor(.success)
                     }
                     Text(item.nutritionalRating.label)
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.forgeDynamic(size: 10, weight: .bold))
                         .foregroundColor(item.nutritionalRating.color)
                 }
             }
@@ -4100,7 +4119,7 @@ struct MenuItemCard: View {
                     HStack(spacing: 6) {
                         Image(systemName: isLogged ? "checkmark.circle.fill" : "plus.circle.fill")
                         Text(isLogged ? "Logged to HealthKit" : "Log Meal")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.forgeDynamic(size: 13, weight: .semibold))
                     }
                     .foregroundColor(isLogged ? .success : .ember)
                     .frame(maxWidth: .infinity)
@@ -4127,8 +4146,8 @@ struct MacroChip: View {
     let label: String; let value: String; let color: Color
     var body: some View {
         VStack(spacing: 4) {
-            Text(label).font(.system(size: 9, weight: .bold)).foregroundColor(.textTertiary)
-            Text(value).font(.system(size: 13, weight: .bold)).foregroundColor(color)
+            Text(label).font(.forgeDynamic(size: 9, weight: .bold)).foregroundColor(.textTertiary)
+            Text(value).font(.forgeDynamic(size: 13, weight: .bold)).foregroundColor(color)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -4166,20 +4185,20 @@ struct AIBestPicksSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Image(systemName: "sparkles").font(.system(size: 14, weight: .semibold)).foregroundColor(.ember)
-                Text("AI Best Picks for Today").font(.system(size: 15, weight: .bold)).foregroundColor(.textPrimary)
+                Image(systemName: "sparkles").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.ember)
+                Text("AI Best Picks for Today").font(.forgeDynamic(size: 15, weight: .bold)).foregroundColor(.textPrimary)
                 Spacer()
                 Text("\(max(0, Int(180 - (vm.healthStats?.protein ?? 0))))g protein left")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.forgeDynamic(size: 11, weight: .medium))
                     .foregroundColor(.textTertiary)
             }
 
             // Live ARIA coaching note over the protein-ranked picks (fallback: none).
             if let note = vm.aiBestPicksNote {
                 HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.ember)
+                    Image(systemName: "sparkles").font(.forgeDynamic(size: 11)).foregroundColor(.ember)
                     Text(note)
-                        .font(.system(size: 12))
+                        .font(.forgeDynamic(size: 12))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -4216,17 +4235,17 @@ struct AIPickCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Text(pick.emoji).font(.system(size: 24))
+                Text(pick.emoji).font(.forgeDynamic(size: 24))
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(pick.restaurant).font(.system(size: 10, weight: .bold)).foregroundColor(.textTertiary)
-                    Text(pick.item).font(.system(size: 13, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(2)
+                    Text(pick.restaurant).font(.forgeDynamic(size: 10, weight: .bold)).foregroundColor(.textTertiary)
+                    Text(pick.item).font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(2)
                 }
             }
             HStack(spacing: 8) {
-                Label("\(pick.cal) cal", systemImage: "flame.fill").font(.system(size: 11, weight: .semibold)).foregroundColor(.ember)
-                Label("\(pick.protein)g P", systemImage: "bolt.fill").font(.system(size: 11, weight: .semibold)).foregroundColor(.steel)
+                Label("\(pick.cal) cal", systemImage: "flame.fill").font(.forgeDynamic(size: 11, weight: .semibold)).foregroundColor(.ember)
+                Label("\(pick.protein)g P", systemImage: "bolt.fill").font(.forgeDynamic(size: 11, weight: .semibold)).foregroundColor(.steel)
             }
-            Text(pick.reason).font(.system(size: 10, weight: .medium)).foregroundColor(.textTertiary).lineLimit(2)
+            Text(pick.reason).font(.forgeDynamic(size: 10, weight: .medium)).foregroundColor(.textTertiary).lineLimit(2)
         }
         .frame(width: 180)
         .padding(14)
@@ -4265,17 +4284,17 @@ struct MindfulTrendCard: View {
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: "brain.head.profile")
-                        .font(.system(size: 16)).foregroundColor(Color.violet)
-                    Text("Mindful Minutes").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                        .font(.forgeDynamic(size: 16)).foregroundColor(Color.violet)
+                    Text("Mindful Minutes").font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.textPrimary)
                 }
                 Spacer()
                 Text("\(total) min this week")
-                    .font(.system(size: 12, weight: .semibold)).foregroundColor(.textTertiary)
+                    .font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(.textTertiary)
             }
 
             if trend.isEmpty || trend.allSatisfy({ $0.minutes == 0 }) {
                 Text("No mindful sessions logged this week. Even 5 minutes a day supports recovery.")
-                    .font(.system(size: 13)).foregroundColor(.textSecondary)
+                    .font(.forgeDynamic(size: 13)).foregroundColor(.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)
             } else {
@@ -4289,13 +4308,13 @@ struct MindfulTrendCard: View {
                 }
                 .chartXAxis {
                     AxisMarks(values: .stride(by: .day)) { _ in
-                        AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.system(size: 9))
+                        AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.forgeDynamic(size: 9))
                     }
                 }
                 .chartYAxis {
                     AxisMarks(position: .leading) { _ in
                         AxisGridLine()
-                        AxisValueLabel().font(.system(size: 9))
+                        AxisValueLabel().font(.forgeDynamic(size: 9))
                     }
                 }
                 .frame(height: 120)
@@ -4320,20 +4339,20 @@ struct QOLTrendCard: View {
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 16)).foregroundColor(.ember)
+                        .font(.forgeDynamic(size: 16)).foregroundColor(.ember)
                     Text("Quality of Life Trend")
-                        .font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                        .font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.textPrimary)
                 }
                 Spacer()
                 if let last = recent.last {
                     Text("\(last.score)/100")
-                        .font(.system(size: 12, weight: .semibold)).foregroundColor(.ember)
+                        .font(.forgeDynamic(size: 12, weight: .semibold)).foregroundColor(.ember)
                 }
             }
 
             if recent.count < 2 {
                 Text("Your QOL trend appears after a couple of days of tracking.")
-                    .font(.system(size: 13)).foregroundColor(.textSecondary)
+                    .font(.forgeDynamic(size: 13)).foregroundColor(.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)
             } else {
@@ -4360,13 +4379,13 @@ struct QOLTrendCard: View {
                 .chartYAxis {
                     AxisMarks(position: .leading, values: [0, 50, 100]) { _ in
                         AxisGridLine()
-                        AxisValueLabel().font(.system(size: 9))
+                        AxisValueLabel().font(.forgeDynamic(size: 9))
                     }
                 }
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: 4)) { _ in
                         AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                            .font(.system(size: 9))
+                            .font(.forgeDynamic(size: 9))
                     }
                 }
                 .frame(height: 140)
@@ -4388,10 +4407,10 @@ struct DailyHabitsCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Daily Habits")
-                    .font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                    .font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.textPrimary)
                 Spacer()
                 Text("\(completed)/\(habits.count)")
-                    .font(.system(size: 13, weight: .bold)).foregroundColor(.ember)
+                    .font(.forgeDynamic(size: 13, weight: .bold)).foregroundColor(.ember)
                     .padding(.horizontal, 10).padding(.vertical, 5)
                     .background(Color.ember.opacity(0.12)).cornerRadius(8)
             }
@@ -4423,9 +4442,9 @@ struct DailyHabitsCard: View {
             // Streak
             HStack(spacing: 8) {
                 Image(systemName: "flame.fill").foregroundColor(.ember)
-                Text("\(LifestyleWellbeingStore.habitStreak())-day streak").font(.system(size: 15, weight: .bold)).foregroundColor(.textPrimary)
+                Text("\(LifestyleWellbeingStore.habitStreak())-day streak").font(.forgeDynamic(size: 15, weight: .bold)).foregroundColor(.textPrimary)
                 Spacer()
-                Text("Keep it up 🔥").font(.system(size: 13)).foregroundColor(.textSecondary)
+                Text("Keep it up 🔥").font(.forgeDynamic(size: 13)).foregroundColor(.textSecondary)
             }
             .padding(14)
             .background(Color.ember.opacity(0.08))
@@ -4453,11 +4472,11 @@ struct HabitRow: View {
                         .frame(width: 24, height: 24)
                     if isDone {
                         Circle().fill(Color.ember).frame(width: 24, height: 24)
-                        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundColor(.white)
+                        Image(systemName: "checkmark").font(.forgeDynamic(size: 11, weight: .bold)).foregroundColor(.white)
                     }
                 }
                 Text(name)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.forgeDynamic(size: 14, weight: .medium))
                     .foregroundColor(isDone ? .textTertiary : .textPrimary)
                     .strikethrough(isDone, color: .textTertiary)
                 Spacer()
@@ -4479,18 +4498,18 @@ struct MindfulnessCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Mindfulness").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+            Text("Mindfulness").font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.textPrimary)
 
             HStack(spacing: 0) {
                 VStack(spacing: 4) {
-                    Text(todayLabel).font(.system(size: 26, weight: .bold)).foregroundColor(.textPrimary)
-                    Text("Today").font(.system(size: 12, weight: .medium)).foregroundColor(.textSecondary)
+                    Text(todayLabel).font(.forgeDynamic(size: 26, weight: .bold)).foregroundColor(.textPrimary)
+                    Text("Today").font(.forgeDynamic(size: 12, weight: .medium)).foregroundColor(.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
                 Divider().frame(height: 40).background(Color.borderColor)
                 VStack(spacing: 4) {
-                    Text(weekLabel).font(.system(size: 26, weight: .bold)).foregroundColor(.ember)
-                    Text("This week").font(.system(size: 12, weight: .medium)).foregroundColor(.textSecondary)
+                    Text(weekLabel).font(.forgeDynamic(size: 26, weight: .bold)).foregroundColor(.ember)
+                    Text("This week").font(.forgeDynamic(size: 12, weight: .medium)).foregroundColor(.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -4498,7 +4517,7 @@ struct MindfulnessCard: View {
 
             if isRunning {
                 Text(timeString(remainingSeconds))
-                    .font(.system(size: 34, weight: .black, design: .rounded))
+                    .font(.forgeDynamic(size: 34, weight: .black, design: .rounded))
                     .foregroundColor(.ember)
                     .frame(maxWidth: .infinity)
             }
@@ -4511,9 +4530,9 @@ struct MindfulnessCard: View {
                 }
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: isRunning ? "stop.fill" : "play.fill").font(.system(size: 14))
+                    Image(systemName: isRunning ? "stop.fill" : "play.fill").font(.forgeDynamic(size: 14))
                     Text(isRunning ? "End Session" : "Start 5-Min Meditation")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.forgeDynamic(size: 15, weight: .semibold))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -4581,7 +4600,7 @@ struct StressManagementCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Stress Management").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+            Text("Stress Management").font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.textPrimary)
 
             HStack(spacing: 12) {
                 ForEach(Array(levels.enumerated()), id: \.offset) { i, level in
@@ -4590,9 +4609,9 @@ struct StressManagementCard: View {
                         LifestyleWellbeingStore.saveStressLevel(i)
                     } label: {
                         VStack(spacing: 8) {
-                            Text(level.emoji).font(.system(size: 30))
+                            Text(level.emoji).font(.forgeDynamic(size: 30))
                             Text(level.label)
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.forgeDynamic(size: 11, weight: .semibold))
                                 .foregroundColor(selectedLevel == i ? level.color : .textSecondary)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -4608,9 +4627,9 @@ struct StressManagementCard: View {
             }
 
             HStack(spacing: 8) {
-                Image(systemName: "lightbulb.fill").font(.system(size: 12)).foregroundColor(.warning)
+                Image(systemName: "lightbulb.fill").font(.forgeDynamic(size: 12)).foregroundColor(.warning)
                 Text(stressTip)
-                    .font(.system(size: 13)).foregroundColor(.textSecondary).italic()
+                    .font(.forgeDynamic(size: 13)).foregroundColor(.textSecondary).italic()
             }
         }
         .padding(20)
@@ -4646,16 +4665,16 @@ struct SleepOptimizationCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Sleep Optimization").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+            Text("Sleep Optimization").font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.textPrimary)
 
             VStack(spacing: 10) {
                 ForEach(tips, id: \.tip) { tip in
                     HStack(spacing: 12) {
                         ZStack {
                             Circle().fill(tip.color.opacity(0.12)).frame(width: 36, height: 36)
-                            Image(systemName: tip.icon).font(.system(size: 15)).foregroundColor(tip.color)
+                            Image(systemName: tip.icon).font(.forgeDynamic(size: 15)).foregroundColor(tip.color)
                         }
-                        Text(tip.tip).font(.system(size: 13, weight: .medium)).foregroundColor(.textSecondary)
+                        Text(tip.tip).font(.forgeDynamic(size: 13, weight: .medium)).foregroundColor(.textSecondary)
                         Spacer()
                     }
                     .padding(12)
@@ -4741,13 +4760,13 @@ struct AIInsightsModal: View {
 
                     HStack {
                         HStack(spacing: 10) {
-                            Image(systemName: "sparkles").font(.system(size: 22)).foregroundColor(.ember)
-                            Text("AI Life Insights").font(.system(size: 24, weight: .bold)).foregroundColor(.textPrimary)
+                            Image(systemName: "sparkles").font(.forgeDynamic(size: 22)).foregroundColor(.ember)
+                            Text("AI Life Insights").font(.forgeDynamic(size: 24, weight: .bold)).foregroundColor(.textPrimary)
                         }
                         Spacer()
                         Button { dismiss() } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 28)).foregroundColor(.textTertiary.opacity(0.7))
+                                .font(.forgeDynamic(size: 28)).foregroundColor(.textTertiary.opacity(0.7))
                         }
                     }
                     .padding(.horizontal, 20).padding(.bottom, 20)
@@ -4775,13 +4794,13 @@ struct AIInsightsModal: View {
     private func ariaBanner(_ text: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: "sparkles").font(.system(size: 13)).foregroundColor(.ember)
+                Image(systemName: "sparkles").font(.forgeDynamic(size: 13)).foregroundColor(.ember)
                 Text(isLive ? "ARIA · LIVE" : "ARIA")
-                    .font(.system(size: 11, weight: .bold)).tracking(0.5).foregroundColor(.ember)
+                    .font(.forgeDynamic(size: 11, weight: .bold)).tracking(0.5).foregroundColor(.ember)
                 Spacer()
             }
             Text(text)
-                .font(.system(size: 14))
+                .font(.forgeDynamic(size: 14))
                 .foregroundColor(.textPrimary)
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
@@ -4815,19 +4834,19 @@ struct AIInsightCard: View {
             HStack {
                 Circle().fill(insight.color).frame(width: 8, height: 8)
                     .shadow(color: insight.color.opacity(0.6), radius: 4)
-                Text(insight.title).font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
+                Text(insight.title).font(.forgeDynamic(size: 16, weight: .bold)).foregroundColor(.textPrimary)
                 Spacer()
             }
             Text(insight.insight)
-                .font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
+                .font(.forgeDynamic(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
                 .lineLimit(expanded ? nil : 3)
                 .animation(.easeInOut(duration: 0.25), value: expanded)
             Button {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) { expanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "arrow.right.circle.fill").font(.system(size: 13))
-                    Text(insight.action).font(.system(size: 13, weight: .semibold))
+                    Image(systemName: "arrow.right.circle.fill").font(.forgeDynamic(size: 13))
+                    Text(insight.action).font(.forgeDynamic(size: 13, weight: .semibold))
                 }
                 .foregroundColor(insight.color)
             }
