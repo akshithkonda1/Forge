@@ -68,8 +68,8 @@ enum ARIAMood: Equatable {
         switch self {
         case .energized: return Color.ember
         case .focused:   return Color(hex: "4A90D9")
-        case .calm:      return Color(hex: "A855F7")
-        case .pushed:    return Color(hex: "22C55E")
+        case .calm:      return Color.violet
+        case .pushed:    return Color.success
         }
     }
 
@@ -105,7 +105,7 @@ private func smartQuickActions(mood: ARIAMood, readiness: Int, messageCount: Int
     if hour < 10 {
         actions.append(("Morning brief", "sunrise.fill", mood.accentColor))
     } else if hour >= 20 {
-        actions.append(("Wind down plan", "moon.zzz.fill", Color(hex: "A855F7")))
+        actions.append(("Wind down plan", "moon.zzz.fill", Color.violet))
     } else {
         actions.append(("What now?", "sparkles", mood.accentColor))
     }
@@ -114,19 +114,19 @@ private func smartQuickActions(mood: ARIAMood, readiness: Int, messageCount: Int
     if readiness >= 85 {
         actions.append(("I'm fired up 🔥", "bolt.fill", Color.ember))
     } else if readiness < 55 {
-        actions.append(("Easy day options", "leaf.fill", Color(hex: "22C55E")))
+        actions.append(("Easy day options", "leaf.fill", Color.success))
     } else {
         actions.append(("Today's workout", "dumbbell.fill", Color.ember))
     }
 
     // Always useful
     actions.append(("How'd I sleep?", "moon.fill", Color(hex: "4A90D9")))
-    actions.append(("Am I progressing?", "chart.line.uptrend.xyaxis", Color(hex: "22C55E")))
+    actions.append(("Am I progressing?", "chart.line.uptrend.xyaxis", Color.success))
 
     if messageCount == 0 {
-        actions.append(("Something hurts", "heart.text.square.fill", Color(hex: "EF4444")))
+        actions.append(("Something hurts", "heart.text.square.fill", Color.danger))
     } else {
-        actions.append(("Change my plan", "arrow.triangle.2.circlepath", Color(hex: "F59E0B")))
+        actions.append(("Change my plan", "arrow.triangle.2.circlepath", Color.amber))
     }
 
     actions.append(("Motivate me", "flame.fill", Color.ember))
@@ -620,10 +620,10 @@ struct ChatHeaderView: View {
 
     private var scoreColor: Color {
         switch store.readiness.overall {
-        case 85...:  return Color(hex: "22C55E")
+        case 85...:  return Color.success
         case 70..<85: return Color.ember
         case 50..<70: return Color.steel
-        default:      return Color(hex: "EF4444")
+        default:      return Color.danger
         }
     }
 
@@ -674,9 +674,9 @@ struct ChatHeaderView: View {
                 // Presence dot
                 ZStack {
                     Circle().fill(Color(hex: "080808")).frame(width: 14, height: 14)
-                    Circle().fill(Color(hex: "22C55E")).frame(width: 9, height: 9)
-                        .shadow(color: Color(hex: "22C55E").opacity(0.7), radius: 3)
-                    Circle().fill(Color(hex: "22C55E").opacity(0.4))
+                    Circle().fill(Color.success).frame(width: 9, height: 9)
+                        .shadow(color: Color.success.opacity(0.7), radius: 3)
+                    Circle().fill(Color.success.opacity(0.4))
                         .frame(width: 9, height: 9)
                         .scaleEffect(pulse ? 2.0 : 1.0)
                         .opacity(pulse ? 0 : 0.7)
@@ -719,7 +719,7 @@ struct ChatHeaderView: View {
                 }
 
                 HStack(spacing: 5) {
-                    Circle().fill(Color(hex: "22C55E")).frame(width: 5, height: 5)
+                    Circle().fill(Color.success).frame(width: 5, height: 5)
                     Text("Active · Bond Lv.\(relationshipLevel) · Chat Lv.\(momentum.level)")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.textSecondary)
@@ -1189,7 +1189,7 @@ struct MessageBubbleView: View {
                             if !isTrainer {
                                 Image(systemName: "checkmark.circle.fill")
                                     .font(.system(size: 10))
-                                    .foregroundColor(Color(hex: "22C55E").opacity(0.75))
+                                    .foregroundColor(Color.success.opacity(0.75))
                             }
                         }
                         .padding(.horizontal, 4)
@@ -1338,8 +1338,8 @@ struct TypingIndicatorView: View {
     private var steps: [(String, String, Color, Double)] {[
         ("Analyzing…",       "brain.head.profile",  mood.accentColor,         0.9),
         ("Checking data…",   "gearshape.2.fill",    Color.steel,              0.85),
-        ("Formulating…",     "text.bubble.fill",    Color(hex: "22C55E"),     0.75),
-        ("Almost there…",    "sparkles",            Color(hex: "A855F7"),     0.6),
+        ("Formulating…",     "text.bubble.fill",    Color.success,     0.75),
+        ("Almost there…",    "sparkles",            Color.violet,     0.6),
     ]}
 
     var body: some View {
@@ -1733,9 +1733,9 @@ struct VoiceOrbOverlay: View {
         switch state {
         case .idle:       return Color(hex: "00D2FF")
         case .listening:  return Color.ember
-        case .processing: return Color(hex: "A855F7")
-        case .speaking:   return Color(hex: "22C55E")
-        case .error:      return Color(hex: "EF4444")
+        case .processing: return Color.violet
+        case .speaking:   return Color.success
+        case .error:      return Color.danger
         }
     }
 }
@@ -1754,16 +1754,16 @@ struct XPBurstView: View {
         HStack(spacing: 5) {
             Image(systemName: "bolt.fill")
                 .font(.system(size: 11, weight: .bold))
-                .foregroundColor(Color(hex: "FFD700"))
+                .foregroundColor(Color.gold)
             Text("+\(amount) XP")
                 .font(.system(size: 13, weight: .black, design: .rounded))
-                .foregroundColor(Color(hex: "FFD700"))
+                .foregroundColor(Color.gold)
         }
         .padding(.horizontal, 12).padding(.vertical, 7)
-        .background(Color(hex: "FFD700").opacity(0.15))
+        .background(Color.gold.opacity(0.15))
         .cornerRadius(FDS.Radius.pill)
-        .overlay(Capsule().stroke(Color(hex: "FFD700").opacity(0.4), lineWidth: 1))
-        .shadow(color: Color(hex: "FFD700").opacity(0.45), radius: 12, y: 4)
+        .overlay(Capsule().stroke(Color.gold.opacity(0.4), lineWidth: 1))
+        .shadow(color: Color.gold.opacity(0.45), radius: 12, y: 4)
         .scaleEffect(scale)
         .opacity(opacity)
         .offset(y: offset)
@@ -1790,10 +1790,10 @@ struct LevelUpBanner: View {
                 HStack(spacing: 12) {
                     ZStack {
                         Circle()
-                            .fill(LinearGradient(colors: [Color(hex: "FFD700"), Color(hex: "FFA500")],
+                            .fill(LinearGradient(colors: [Color.gold, Color(hex: "FFA500")],
                                                  startPoint: .top, endPoint: .bottom))
                             .frame(width: 52, height: 52)
-                            .shadow(color: Color(hex: "FFD700").opacity(0.6), radius: 16)
+                            .shadow(color: Color.gold.opacity(0.6), radius: 16)
                         Image(systemName: "crown.fill")
                             .font(.system(size: 24))
                             .foregroundColor(.white)
@@ -1802,7 +1802,7 @@ struct LevelUpBanner: View {
                         Text("LEVEL UP!")
                             .font(.system(size: 11, weight: .black))
                             .tracking(2.5)
-                            .foregroundColor(Color(hex: "FFD700"))
+                            .foregroundColor(Color.gold)
                         Text("You reached Level \(level)")
                             .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.textPrimary)
@@ -1815,12 +1815,12 @@ struct LevelUpBanner: View {
             .padding(20)
             .background(ZStack {
                 Color.surface.opacity(0.96)
-                LinearGradient(colors: [Color(hex: "FFD700").opacity(0.07), .clear], startPoint: .top, endPoint: .bottom)
+                LinearGradient(colors: [Color.gold.opacity(0.07), .clear], startPoint: .top, endPoint: .bottom)
             })
             .cornerRadius(FDS.Radius.xl)
             .overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl)
-                .stroke(Color(hex: "FFD700").opacity(0.35), lineWidth: 1.5))
-            .shadow(color: Color(hex: "FFD700").opacity(0.2), radius: 28, y: 10)
+                .stroke(Color.gold.opacity(0.35), lineWidth: 1.5))
+            .shadow(color: Color.gold.opacity(0.2), radius: 28, y: 10)
             .padding(.horizontal, 20).padding(.bottom, 120)
             .scaleEffect(appeared ? 1 : 0.82)
             .opacity(appeared ? 1 : 0)
@@ -1841,8 +1841,8 @@ struct MicroConfettiBurst: View {
     private struct BurstParticle: Identifiable {
         let id: Int; let color: Color; let angle: Double; let speed: CGFloat; let size: CGFloat
     }
-    private let colors: [Color] = [.ember, Color(hex: "22C55E"), Color.steel,
-                                    Color(hex: "FFD700"), Color(hex: "A855F7")]
+    private let colors: [Color] = [.ember, Color.success, Color.steel,
+                                    Color.gold, Color.violet]
 
     var body: some View {
         ZStack {
@@ -2060,9 +2060,9 @@ struct DataChartRichCardView: View {
 // MARK: - readinessColor helper
 private func readinessColor(_ score: Int) -> Color {
     switch score {
-    case 85...:   return Color(hex: "22C55E")
+    case 85...:   return Color.success
     case 70..<85: return Color.ember
     case 50..<70: return Color.steel
-    default:      return Color(hex: "EF4444")
+    default:      return Color.danger
     }
 }

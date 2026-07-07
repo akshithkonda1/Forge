@@ -111,7 +111,7 @@ struct MainTabView: View {
                 colors: [
                     Color.background,
                     Color.background.opacity(0.95),
-                    Color(hex: "0A0A0A")
+                    Color.background
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -397,7 +397,7 @@ struct ARIATabButton: View {
                                     LinearGradient(
                                         colors: isVoiceMode ? 
                                         [
-                                            Color(hex: "38BDF8").opacity(0.4),
+                                            Color.sky.opacity(0.4),
                                             Color(hex: "0EA5E9").opacity(0.2),
                                             Color.clear
                                         ] :
@@ -430,7 +430,7 @@ struct ARIATabButton: View {
                                 RadialGradient(
                                     colors: isVoiceMode ?
                                     [
-                                        Color(hex: "38BDF8").opacity(0.3),
+                                        Color.sky.opacity(0.3),
                                         Color(hex: "0EA5E9").opacity(0.15),
                                         Color.clear
                                     ] :
@@ -468,11 +468,11 @@ struct ARIATabButton: View {
                                 AngularGradient(
                                     gradient: Gradient(colors: isVoiceMode ?
                                         [
-                                            Color(hex: "38BDF8"),
+                                            Color.sky,
                                             Color(hex: "0EA5E9"),
                                             Color(hex: "0284C7"),
                                             Color(hex: "0EA5E9"),
-                                            Color(hex: "38BDF8")
+                                            Color.sky
                                         ] :
                                         [
                                             Color.ember,
@@ -518,7 +518,7 @@ struct ARIATabButton: View {
                             )
                             .shadow(
                                 color: isVoiceMode ?
-                                    Color(hex: "38BDF8").opacity(isActive ? 0.7 : 0.3) :
+                                    Color.sky.opacity(isActive ? 0.7 : 0.3) :
                                     Color.ember.opacity(isActive ? 0.7 : 0.3),
                                 radius: isActive ? 16 : 8,
                                 y: 4
@@ -553,7 +553,7 @@ struct ARIATabButton: View {
                         isVoiceMode ?
                         LinearGradient(
                             colors: [
-                                Color(hex: "38BDF8"),
+                                Color.sky,
                                 Color(hex: "0EA5E9")
                             ],
                             startPoint: .leading,
@@ -574,7 +574,7 @@ struct ARIATabButton: View {
                     .tracking(0.6)
                     .shadow(
                         color: isVoiceMode ? 
-                            Color(hex: "38BDF8").opacity(0.5) :
+                            Color.sky.opacity(0.5) :
                             (isActive ? Color.ember.opacity(0.5) : .clear),
                         radius: 4,
                         y: 1

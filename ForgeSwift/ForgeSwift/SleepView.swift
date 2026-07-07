@@ -74,7 +74,7 @@ let allSleepSounds: [SleepSoundItem] = [
     SleepSoundItem(name: "Rain",          icon: "cloud.rain.fill",          color: .steel,              category: .nature),
     SleepSoundItem(name: "Ocean",         icon: "water.waves",               color: Color(hex: "0EA5E9"), category: .nature),
     SleepSoundItem(name: "Forest",        icon: "tree.fill",                 color: .success,            category: .nature),
-    SleepSoundItem(name: "Thunder",       icon: "cloud.bolt.rain.fill",      color: Color(hex: "6366F1"), category: .nature),
+    SleepSoundItem(name: "Thunder",       icon: "cloud.bolt.rain.fill",      color: Color.indigo, category: .nature),
     SleepSoundItem(name: "White Noise",   icon: "waveform",                  color: .textTertiary,       category: .noise),
     SleepSoundItem(name: "Brown Noise",   icon: "waveform.path",             color: Color(hex: "92400E"), category: .noise),
     SleepSoundItem(name: "Pink Noise",    icon: "waveform.path.ecg",         color: Color(hex: "EC4899"), category: .noise),
@@ -82,7 +82,7 @@ let allSleepSounds: [SleepSoundItem] = [
     SleepSoundItem(name: "Fireplace",     icon: "flame.fill",                color: .ember,              category: .ambient),
     SleepSoundItem(name: "Café",          icon: "cup.and.saucer.fill",       color: Color(hex: "92400E"), category: .ambient),
     SleepSoundItem(name: "Tibetan Bowl",  icon: "bell.fill",                 color: Color(hex: "A78BFA"), category: .ambient),
-    SleepSoundItem(name: "Wind Chimes",   icon: "wind",                      color: Color(hex: "38BDF8"), category: .ambient),
+    SleepSoundItem(name: "Wind Chimes",   icon: "wind",                      color: Color.sky, category: .ambient),
     SleepSoundItem(name: "Lo-Fi",         icon: "music.note",                color: Color(hex: "F472B6"), category: .focus),
     SleepSoundItem(name: "Binaural",      icon: "headphones",                color: Color(hex: "818CF8"), category: .focus),
     SleepSoundItem(name: "432 Hz",        icon: "tuningfork",                color: .success,            category: .focus),
@@ -197,7 +197,7 @@ struct SleepBackground: View {
         case .overview: return Color(hex: "334155")
         case .alarm:    return Color.ember
         case .sounds:   return Color.steel
-        case .wakeUp:   return Color(hex: "F59E0B")
+        case .wakeUp:   return Color.amber
         }
     }
 
@@ -297,8 +297,8 @@ struct SleepHeaderView: View {
         switch tab {
         case .overview: return Color.steel
         case .alarm:    return Color.ember
-        case .sounds:   return Color(hex: "6366F1")
-        case .wakeUp:   return Color(hex: "F59E0B")
+        case .sounds:   return Color.indigo
+        case .wakeUp:   return Color.amber
         }
     }
 }
@@ -1019,7 +1019,7 @@ struct SleepSoundsTab: View {
                                         .font(.system(size: 13, weight: .semibold))
                                         .foregroundColor(sleepTimer == mins ? .white : .textTertiary)
                                         .padding(.horizontal, 14).padding(.vertical, 8)
-                                        .background(sleepTimer == mins ? Color(hex: "6366F1") : Color.surface)
+                                        .background(sleepTimer == mins ? Color.indigo : Color.surface)
                                         .cornerRadius(20)
                                 }
                                 .buttonStyle(.plain)
@@ -1039,7 +1039,7 @@ struct SleepSoundsTab: View {
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(selectedCategory == nil ? .white : .textTertiary)
                                     .padding(.horizontal, 14).padding(.vertical, 8)
-                                    .background(selectedCategory == nil ? Color(hex: "6366F1") : Color.surface)
+                                    .background(selectedCategory == nil ? Color.indigo : Color.surface)
                                     .cornerRadius(20)
                             }
                             .buttonStyle(.plain)
@@ -1054,7 +1054,7 @@ struct SleepSoundsTab: View {
                                         .font(.system(size: 13, weight: .semibold))
                                         .foregroundColor(selectedCategory == cat ? .white : .textTertiary)
                                         .padding(.horizontal, 14).padding(.vertical, 8)
-                                        .background(selectedCategory == cat ? Color(hex: "6366F1") : Color.surface)
+                                        .background(selectedCategory == cat ? Color.indigo : Color.surface)
                                         .cornerRadius(20)
                                 }
                                 .buttonStyle(.plain)
@@ -1119,8 +1119,8 @@ struct NowPlayingBar: View {
             Spacer()
 
             Button(action: onMixerTap) {
-                Image(systemName: "slider.horizontal.3").font(.system(size: 14)).foregroundColor(Color(hex: "6366F1"))
-                    .frame(width: 36, height: 36).background(Color(hex: "6366F1").opacity(0.12)).clipShape(Circle())
+                Image(systemName: "slider.horizontal.3").font(.system(size: 14)).foregroundColor(Color.indigo)
+                    .frame(width: 36, height: 36).background(Color.indigo.opacity(0.12)).clipShape(Circle())
             }
             Button(action: onStop) {
                 Image(systemName: "stop.fill").font(.system(size: 14)).foregroundColor(.textTertiary)
@@ -1130,8 +1130,8 @@ struct NowPlayingBar: View {
         .padding(.horizontal, 16).padding(.vertical, 14)
         .background(Color.surface)
         .cornerRadius(18)
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color(hex: "6366F1").opacity(0.3), lineWidth: 1))
-        .shadow(color: Color(hex: "6366F1").opacity(0.1), radius: 12, y: 4)
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.indigo.opacity(0.3), lineWidth: 1))
+        .shadow(color: Color.indigo.opacity(0.1), radius: 12, y: 4)
     }
 }
 
@@ -1143,7 +1143,7 @@ struct SoundWaveformBadge: View {
                 ForEach(0..<6, id: \.self) { i in
                     let h = 4 + 8 * abs(sin(t * 3 + Double(i) * 0.7))
                     RoundedRectangle(cornerRadius: 1)
-                        .fill(Color(hex: "6366F1").opacity(0.7))
+                        .fill(Color.indigo.opacity(0.7))
                         .frame(width: 2, height: CGFloat(h))
                 }
             }
@@ -1191,7 +1191,7 @@ struct SoundMixerPanel: View {
         .cornerRadius(16)
         .overlay {
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color(hex: "6366F1").opacity(0.25), lineWidth: 1)
+                .stroke(Color.indigo.opacity(0.25), lineWidth: 1)
         }
     }
 }
@@ -1416,7 +1416,7 @@ struct SunriseSimulationCard: View {
     }
 
     var body: some View {
-        WakeUpSection(icon: "sunrise.fill", title: "Sunrise Simulation", color: Color(hex: "F59E0B")) {
+        WakeUpSection(icon: "sunrise.fill", title: "Sunrise Simulation", color: Color.amber) {
             VStack(spacing: 16) {
                 Toggle(isOn: $enabled) {
                     VStack(alignment: .leading, spacing: 3) {
@@ -1426,7 +1426,7 @@ struct SunriseSimulationCard: View {
                             .font(.system(size: 12)).foregroundColor(.textTertiary)
                     }
                 }
-                .tint(Color(hex: "F59E0B"))
+                .tint(Color.amber)
 
                 if enabled {
                     VStack(spacing: 14) {
@@ -1438,7 +1438,7 @@ struct SunriseSimulationCard: View {
                                 Text("\(duration) min")
                                     .font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
                                 Stepper("", value: $duration, in: 5...60, step: 5)
-                                    .labelsHidden().tint(Color(hex: "F59E0B"))
+                                    .labelsHidden().tint(Color.amber)
                             }
                         }
 
@@ -1488,7 +1488,7 @@ struct SunriseSimulationCard: View {
                             Text("Full").font(.system(size: 9, weight: .medium)).foregroundColor(.textMuted)
                         }
                     }
-                    .padding(12).background(Color(hex: "F59E0B").opacity(0.06)).cornerRadius(12)
+                    .padding(12).background(Color.amber.opacity(0.06)).cornerRadius(12)
                     .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                 }
             }
@@ -1691,7 +1691,7 @@ struct WakeGreetingCard: View {
     @State private var showSleepScore = true
 
     var body: some View {
-        WakeUpSection(icon: "hand.wave.fill", title: "Wake Screen", color: Color(hex: "F59E0B")) {
+        WakeUpSection(icon: "hand.wave.fill", title: "Wake Screen", color: Color.amber) {
             VStack(spacing: 14) {
                 // Preview
                 ZStack {
@@ -1707,7 +1707,7 @@ struct WakeGreetingCard: View {
                             .multilineTextAlignment(.center)
                         HStack(spacing: 16) {
                             if showSleepScore { Label("Sleep 82", systemImage: "moon.stars.fill").foregroundColor(.steel) }
-                            if showWeather   { Label("72°F", systemImage: "sun.max.fill").foregroundColor(Color(hex: "F59E0B")) }
+                            if showWeather   { Label("72°F", systemImage: "sun.max.fill").foregroundColor(Color.amber) }
                             if showWorkout   { Label("Upper Body", systemImage: "dumbbell.fill").foregroundColor(.ember) }
                         }
                         .font(.system(size: 11, weight: .semibold))
@@ -1718,14 +1718,14 @@ struct WakeGreetingCard: View {
 
                 // Greeting field
                 TextField("Wake greeting…", text: $greeting)
-                    .font(.system(size: 14)).foregroundColor(.textPrimary).tint(Color(hex: "F59E0B"))
+                    .font(.system(size: 14)).foregroundColor(.textPrimary).tint(Color.amber)
                     .padding(.horizontal, 14).padding(.vertical, 11)
                     .background(Color.surfaceElevated).cornerRadius(12)
 
                 // Toggles
                 VStack(spacing: 2) {
                     WakeToggle(label: "Show sleep score", value: $showSleepScore, color: .steel)
-                    WakeToggle(label: "Show weather",     value: $showWeather,    color: Color(hex: "F59E0B"))
+                    WakeToggle(label: "Show weather",     value: $showWeather,    color: Color.amber)
                     WakeToggle(label: "Show today's workout", value: $showWorkout, color: .ember)
                 }
             }
@@ -2368,7 +2368,7 @@ struct SleepQuickActionsBar: View {
             QuickActionButton(icon: "moon.fill",                  title: "Tips",   color: .steel,   action: {})
             QuickActionButton(icon: "bell.badge.fill",            title: "Alarm",  color: .ember,   action: {})
             QuickActionButton(icon: "brain.head.profile",         title: "ARIA",   color: .steel,   action: onAITap)
-            QuickActionButton(icon: "chart.line.uptrend.xyaxis",  title: "Trends", color: Color(hex: "6366F1"), action: {})
+            QuickActionButton(icon: "chart.line.uptrend.xyaxis",  title: "Trends", color: Color.indigo, action: {})
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .background(Color.surface)
@@ -2655,7 +2655,7 @@ struct AdaptiveSunriseCard: View {
     }
 
     var body: some View {
-        WakeUpSection(icon: "sunrise.fill", title: "Adaptive Sunrise", color: Color(hex: "F59E0B")) {
+        WakeUpSection(icon: "sunrise.fill", title: "Adaptive Sunrise", color: Color.amber) {
             VStack(spacing: 16) {
                 Toggle(isOn: $enabled) {
                     VStack(alignment: .leading, spacing: 3) {
@@ -2665,7 +2665,7 @@ struct AdaptiveSunriseCard: View {
                             .font(.system(size: 12)).foregroundColor(.textTertiary)
                     }
                 }
-                .tint(Color(hex: "F59E0B"))
+                .tint(Color.amber)
 
                 if enabled {
                     VStack(spacing: 14) {
@@ -2676,7 +2676,7 @@ struct AdaptiveSunriseCard: View {
                                 Text("\(duration) min")
                                     .font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
                                 Stepper("", value: $duration, in: 5...60, step: 5)
-                                    .labelsHidden().tint(Color(hex: "F59E0B"))
+                                    .labelsHidden().tint(Color.amber)
                             }
                         }
 
@@ -2714,7 +2714,7 @@ struct AdaptiveSunriseCard: View {
                         }
                         .frame(height: 16)
                     }
-                    .padding(12).background(Color(hex: "F59E0B").opacity(0.06)).cornerRadius(12)
+                    .padding(12).background(Color.amber.opacity(0.06)).cornerRadius(12)
                     .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                 }
             }

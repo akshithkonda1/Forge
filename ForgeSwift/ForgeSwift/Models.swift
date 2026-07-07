@@ -128,7 +128,7 @@ enum WorkoutType: String, Codable, CaseIterable, Identifiable {
         case .hiit:         return .danger
         case .cardio:       return .steel
         case .yoga:         return .success
-        case .mobility:     return Color(hex: "A855F7")
+        case .mobility:     return Color.violet
         case .sportSpecific: return .textSecondary
         }
     }

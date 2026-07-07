@@ -160,7 +160,7 @@ struct CinematicHomeBackground: View {
 
     private var primaryColor: Color {
         switch readinessScore {
-        case 85...:  return Color(hex: "22C55E")
+        case 85...:  return Color.success
         case 70..<85: return Color.ember
         case 50..<70: return Color.steel
         default:      return Color(hex: "4B5563")
@@ -336,7 +336,7 @@ struct ReadinessParticleOverlay: View {
 
     private var accentColor: Color {
         switch readinessScore {
-        case 85...:  return Color(hex: "22C55E")
+        case 85...:  return Color.success
         case 70..<85: return Color.ember
         default:      return Color.steel
         }
@@ -400,8 +400,8 @@ struct CelebrationOverlay: View {
     }
 
     private let confettiColors: [Color] = [
-        .ember, Color(hex: "22C55E"), Color.steel,
-        Color(hex: "F59E0B"), Color(hex: "A855F7"), .white
+        .ember, Color.success, Color.steel,
+        Color.amber, Color.violet, .white
     ]
 
     var body: some View {
@@ -450,28 +450,28 @@ struct CelebrationOverlay: View {
                 VStack(spacing: 18) {
                     ZStack {
                         Circle()
-                            .fill(Color(hex: "22C55E").opacity(0.2))
+                            .fill(Color.success.opacity(0.2))
                             .frame(width: 90, height: 90)
                             .blur(radius: 20)
                         Image(systemName: "crown.fill")
                             .font(.system(size: 44))
                             .foregroundStyle(LinearGradient(
-                                colors: [Color(hex: "FFD700"), Color(hex: "FFA500")],
+                                colors: [Color.gold, Color(hex: "FFA500")],
                                 startPoint: .top, endPoint: .bottom
                             ))
-                            .shadow(color: Color(hex: "FFD700").opacity(0.6), radius: 20)
+                            .shadow(color: Color.gold.opacity(0.6), radius: 20)
                     }
 
                     VStack(spacing: 8) {
                         Text("PEAK PERFORMANCE")
                             .font(.system(size: 13, weight: .black))
                             .tracking(3.5)
-                            .foregroundColor(Color(hex: "22C55E"))
+                            .foregroundColor(Color.success)
 
                         Text("Readiness Score \(store_readiness_placeholder)")
                             .font(.system(size: 32, weight: .black, design: .rounded))
                             .foregroundStyle(LinearGradient(
-                                colors: [.white, Color(hex: "22C55E")],
+                                colors: [.white, Color.success],
                                 startPoint: .top, endPoint: .bottom
                             ))
 
@@ -496,14 +496,14 @@ struct CelebrationOverlay: View {
                     ZStack {
                         Color.surface.opacity(0.95)
                         LinearGradient(
-                            colors: [Color(hex: "22C55E").opacity(0.08), .clear],
+                            colors: [Color.success.opacity(0.08), .clear],
                             startPoint: .top, endPoint: .bottom
                         )
                     }
                 )
                 .cornerRadius(FDS.Radius.xl)
                 .overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl)
-                    .stroke(Color(hex: "22C55E").opacity(0.3), lineWidth: 1.5))
+                    .stroke(Color.success.opacity(0.3), lineWidth: 1.5))
                 .shadow(color: .black.opacity(0.3), radius: 40, y: 20)
                 .padding(.horizontal, 24)
                 .scaleEffect(bannerScale)
@@ -596,11 +596,11 @@ struct HomeHeaderView: View {
                     .foregroundColor(.textPrimary)
                 // Live HealthKit label
                 HStack(spacing: 5) {
-                    Circle().fill(Color(hex: "22C55E")).frame(width: 5, height: 5)
-                        .shadow(color: Color(hex: "22C55E").opacity(0.8), radius: 3)
+                    Circle().fill(Color.success).frame(width: 5, height: 5)
+                        .shadow(color: Color.success.opacity(0.8), radius: 3)
                     Text("Live from HealthKit")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(Color(hex: "22C55E"))
+                        .foregroundColor(Color.success)
                 }
             }
 
@@ -720,13 +720,13 @@ struct ARIAGreetingCard: View {
                                 .foregroundColor(.ember)
                                 .tracking(1.5)
                             HStack(spacing: 4) {
-                                Circle().fill(Color(hex: "22C55E")).frame(width: 5, height: 5)
+                                Circle().fill(Color.success).frame(width: 5, height: 5)
                                 Text("Online")
                                     .font(.system(size: 11, weight: .medium))
-                                    .foregroundColor(Color(hex: "22C55E"))
+                                    .foregroundColor(Color.success)
                             }
                             .padding(.horizontal, 7).padding(.vertical, 3)
-                            .background(Color(hex: "22C55E").opacity(0.1))
+                            .background(Color.success.opacity(0.1))
                             .cornerRadius(FDS.Radius.pill)
                         }
                         Text("AI Fitness Coach · Forge")
@@ -1126,9 +1126,9 @@ struct ReadinessTrendSection: View {
                     Text("\(abs(delta))%")
                         .font(.system(size: 11, weight: .bold))
                 }
-                .foregroundColor(delta >= 0 ? Color(hex: "22C55E") : .danger)
+                .foregroundColor(delta >= 0 ? Color.success : .danger)
                 .padding(.horizontal, 10).padding(.vertical, 5)
-                .background((delta >= 0 ? Color(hex: "22C55E") : Color.danger).opacity(0.1))
+                .background((delta >= 0 ? Color.success : Color.danger).opacity(0.1))
                 .cornerRadius(FDS.Radius.pill)
             }
 
@@ -1317,13 +1317,13 @@ struct TodayPlanCardView: View {
                     Spacer()
                     Text(matchScore > 0.75 ? "Well Matched" : matchScore > 0.5 ? "Manageable" : "Intensity Mismatch")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(matchScore > 0.75 ? Color(hex: "22C55E") : matchScore > 0.5 ? .ember : .danger)
+                        .foregroundColor(matchScore > 0.75 ? Color.success : matchScore > 0.5 ? .ember : .danger)
                 }
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 3).fill(Color.borderColor.opacity(0.5)).frame(height: 4)
                         RoundedRectangle(cornerRadius: 3)
-                            .fill(matchScore > 0.75 ? Color(hex: "22C55E") : matchScore > 0.5 ? Color.ember : Color.danger)
+                            .fill(matchScore > 0.75 ? Color.success : matchScore > 0.5 ? Color.ember : Color.danger)
                             .frame(width: appeared ? geo.size.width * matchScore : 0, height: 4)
                             .animation(.spring(response: 1.2, dampingFraction: 0.7).delay(0.5), value: appeared)
                     }
@@ -1486,7 +1486,7 @@ struct QuickStatsView: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
-                    MetricCard(icon: "figure.walk",      iconColor: Color(hex: "22C55E"),
+                    MetricCard(icon: "figure.walk",      iconColor: Color.success,
                                value: store.dailyMetrics.steps.formatted(), label: "Steps",       trend: .up,   trendValue: "+12%")
                     MetricCard(icon: "flame.fill",       iconColor: .ember,
                                value: "\(store.dailyMetrics.activeCalories)",  label: "Active Cal", trend: .up,   trendValue: "+8%")
@@ -1526,9 +1526,9 @@ struct MetricCard: View {
                                 .font(.system(size: 9, weight: .bold))
                             Text(trendValue).font(.system(size: 11, weight: .semibold))
                         }
-                        .foregroundColor(trend == .up ? Color(hex: "22C55E") : .danger)
+                        .foregroundColor(trend == .up ? Color.success : .danger)
                         .padding(.horizontal, 6).padding(.vertical, 3)
-                        .background((trend == .up ? Color(hex: "22C55E") : Color.danger).opacity(0.1))
+                        .background((trend == .up ? Color.success : Color.danger).opacity(0.1))
                         .cornerRadius(5)
                     }
                 }
@@ -1555,7 +1555,7 @@ struct InsightsSectionView: View {
         if store.readiness.overall >= 85 {
             r.append(Insight(icon: "crown.fill", title: "Peak Readiness Window 👑",
                 description: "You're in elite territory. This is your best time to PR or go heavy.",
-                color: Color(hex: "22C55E"), priority: .high))
+                color: Color.success, priority: .high))
         }
         if store.readiness.overall < 70 {
             r.append(Insight(icon: "bed.double.fill", title: "Consider a Rest Day",
@@ -1692,7 +1692,7 @@ struct RecentWorkoutRow: View {
                 }
             }
             Spacer()
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 26)).foregroundColor(Color(hex: "22C55E"))
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 26)).foregroundColor(Color.success)
         }
         .padding(16).background(Color.surface).cornerRadius(FDS.Radius.md)
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
@@ -1780,10 +1780,10 @@ struct VoiceQuickLaunchOrb: View {
 // These are local fallbacks if not available
 private func readinessColor(_ score: Int) -> Color {
     switch score {
-    case 85...:  return Color(hex: "22C55E")
+    case 85...:  return Color.success
     case 70..<85: return Color.ember
     case 50..<70: return Color.steel
-    default:      return Color(hex: "EF4444")
+    default:      return Color.danger
     }
 }
 

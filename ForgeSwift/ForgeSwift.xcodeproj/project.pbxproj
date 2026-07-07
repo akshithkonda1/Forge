@@ -97,6 +97,9 @@
 		F0B10000000000000000002F /* ForgeWidgetExtensionBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000020 /* ForgeWidgetExtensionBundle.swift */; };
 		F0B100000000000000000030 /* WorkoutActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */; };
 		F0B100000000000000000039 /* WatchAriaConfigBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002A /* WatchAriaConfigBridge.swift */; };
+		F0B10000000000000000003A /* ForgeSemanticColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002B /* ForgeSemanticColors.swift */; };
+		F0B10000000000000000003B /* ForgeElevation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002C /* ForgeElevation.swift */; };
+		F0B10000000000000000003C /* ForgeTypeScale.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002D /* ForgeTypeScale.swift */; };
 		F0B100000000000000000031 /* LifestyleWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000024 /* LifestyleWidget.swift */; };
 		F0B100000000000000000032 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000003 /* ForgeCore */; };
 		F0B100000000000000000033 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000004 /* ForgeCore */; };
@@ -271,6 +274,9 @@
 		F0F100000000000000000022 /* ForgeWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeWidgetExtension.entitlements; sourceTree = "<group>"; };
 		F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutActivityCoordinator.swift; sourceTree = "<group>"; };
 		F0F10000000000000000002A /* WatchAriaConfigBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAriaConfigBridge.swift; sourceTree = "<group>"; };
+		F0F10000000000000000002B /* ForgeSemanticColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSemanticColors.swift; sourceTree = "<group>"; };
+		F0F10000000000000000002C /* ForgeElevation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeElevation.swift; sourceTree = "<group>"; };
+		F0F10000000000000000002D /* ForgeTypeScale.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeTypeScale.swift; sourceTree = "<group>"; };
 		F0F100000000000000000024 /* LifestyleWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LifestyleWidget.swift; path = "../../ForgeWidget/LifestyleWidget.swift"; sourceTree = "<group>"; };
 		F0F100000000000000000025 /* ForgeWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ForgeWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0F100000000000000000026 /* SleepSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSummaryView.swift; sourceTree = "<group>"; };
@@ -414,6 +420,9 @@
 				1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator 2.swift */,
 				F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */,
 				F0F10000000000000000002A /* WatchAriaConfigBridge.swift */,
+				F0F10000000000000000002B /* ForgeSemanticColors.swift */,
+				F0F10000000000000000002C /* ForgeElevation.swift */,
+				F0F10000000000000000002D /* ForgeTypeScale.swift */,
 			);
 			path = ForgeSwift;
 			sourceTree = "<group>";
@@ -765,6 +774,9 @@
 				F0B10000000000000000001E /* ForgeWorkoutActivityAttributes.swift in Sources */,
 				F0B100000000000000000030 /* WorkoutActivityCoordinator.swift in Sources */,
 				F0B100000000000000000039 /* WatchAriaConfigBridge.swift in Sources */,
+				F0B10000000000000000003A /* ForgeSemanticColors.swift in Sources */,
+				F0B10000000000000000003B /* ForgeElevation.swift in Sources */,
+				F0B10000000000000000003C /* ForgeTypeScale.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

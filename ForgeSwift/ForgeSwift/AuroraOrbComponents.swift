@@ -28,7 +28,7 @@ struct AuroraOrbView: View {
         switch mood {
         case .energized, .pushed: return .ember
         case .focused: return .steel
-        case .calm: return Color(hex: "A855F7")
+        case .calm: return Color.violet
         }
     }
 

@@ -9,7 +9,7 @@ extension LinearGradient {
         startPoint: .topLeading, endPoint: .bottomTrailing
     )
     static let deepEmber = LinearGradient(
-        colors: [Color(hex: "1A0800"), Color(hex: "0A0A0A")],
+        colors: [Color(hex: "1A0800"), Color.background],
         startPoint: .top, endPoint: .bottom
     )
 }
@@ -126,9 +126,9 @@ enum OnboardingCoachingStyle: String, CaseIterable, Identifiable {
         switch self {
         case .driven:    return .ember
         case .balanced:  return .steel
-        case .supportive: return Color(hex: "22C55E")
-        case .scientist: return Color(hex: "A855F7")
-        case .elite:     return Color(hex: "F59E0B")
+        case .supportive: return Color.success
+        case .scientist: return Color.violet
+        case .elite:     return Color.amber
         }
     }
     var coreStyle: CoachingStyle {
@@ -1639,7 +1639,7 @@ struct ForgeAmbientBackground: View {
         case 0, 1: return .ember
         case 2, 3: return .steel
         case 4:    return .success
-        default:   return Color(hex: "A855F7")
+        default:   return Color.violet
         }
     }
 }
@@ -1925,9 +1925,9 @@ struct ExperienceLevelButton: View {
     private var levelColor: Color {
         switch level {
         case .beginner:     return .steel
-        case .intermediate: return Color(hex: "F59E0B")
+        case .intermediate: return Color.amber
         case .advanced:     return .ember
-        case .elite:        return Color(hex: "A855F7")
+        case .elite:        return Color.violet
         }
     }
 

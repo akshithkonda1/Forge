@@ -1246,7 +1246,7 @@ struct LifestyleBackground: View {
         switch segment {
         case .aiOptimization: return .ember
         case .restaurants:    return .steel
-        case .nutrition:      return Color(hex: "FFB84D")
+        case .nutrition:      return Color.amberLight
         case .wellbeing:      return .success
         }
     }
@@ -1553,12 +1553,12 @@ struct TodaysFocusCard: View {
         }
         
         if stats.sleepHours < 6.5 {
-            return ("Sleep Priority", "moon.zzz.fill", "High", "Aim for 8+ hours tonight", Color(hex: "A855F7"), [Color(hex: "A855F7"), Color(hex: "C77DFF")])
+            return ("Sleep Priority", "moon.zzz.fill", "High", "Aim for 8+ hours tonight", Color.violet, [Color.violet, Color(hex: "C77DFF")])
         }
         
         if stats.protein < 120 {
             let remaining = Int(180 - stats.protein)
-            return ("Protein Deficit", "fork.knife.circle.fill", "High", "Add \(remaining)g protein today", .ember, [.ember, Color(hex: "FFB84D")])
+            return ("Protein Deficit", "fork.knife.circle.fill", "High", "Add \(remaining)g protein today", .ember, [.ember, Color.amberLight])
         }
         
         if stats.steps < 5000 {
@@ -1777,7 +1777,7 @@ struct LiveHealthDashboard: View {
                     value: String(format: "%.1fh", stats.sleepHours),
                     target: "8h",
                     progress: stats.sleepHours / 8.0,
-                    color: Color(hex: "A855F7"),
+                    color: Color.violet,
                     appeared: appeared
                 )
                 
@@ -1811,7 +1811,7 @@ struct LiveHealthDashboard: View {
                         value: "\(Int(stats.exerciseMinutes))m",
                         target: "30m",
                         progress: stats.exerciseMinutes / 30.0,
-                        color: Color(hex: "FFB84D"),
+                        color: Color.amberLight,
                         appeared: appeared
                     )
                 }
@@ -1850,7 +1850,7 @@ private enum TrendMetric: String, CaseIterable, Identifiable {
         switch self {
         case .steps:          return .steel
         case .activeCalories: return .ember
-        case .sleep:          return Color(hex: "A855F7")
+        case .sleep:          return Color.violet
         case .hrv:            return .success
         }
     }
@@ -2414,8 +2414,8 @@ struct MultiArcQOLCard: View {
         ("Physical",  \.physicalHealth,  .success,                  96),
         ("Mental",    \.mentalWellbeing, .steel,                    78),
         ("Energy",    \.energyLevels,    .ember,                    60),
-        ("Sleep",     \.sleepQuality,    Color(hex: "A855F7"),      42),
-        ("Nutrition", \.nutritionScore,  Color(hex: "FFB84D"),      24),
+        ("Sleep",     \.sleepQuality,    Color.violet,      42),
+        ("Nutrition", \.nutritionScore,  Color.amberLight,      24),
     ]
 
     var body: some View {
@@ -2874,7 +2874,7 @@ struct OptimizationGoalsCard: View {
         }()
         return [
             ("Sleep → 8h", min(m.sleepAverage / 8.0, 1.0),
-             String(format: "%.1fh avg", m.sleepAverage), "8h", Color(hex: "A855F7")),
+             String(format: "%.1fh avg", m.sleepAverage), "8h", Color.violet),
             ("Lower stress", stressProgress,
              m.stressLevel.rawValue, "Low", .warning),
             ("Daily protein 180g", min(Double(protein) / 180.0, 1.0),
@@ -2996,7 +2996,7 @@ struct MacroRingsCard: View {
         return [
             Macro(label: "Carbs", current: Int(stats?.carbs ?? 0), target: 280, color: .steel, unit: "g", radius: 92),
             Macro(label: "Protein", current: Int(stats?.protein ?? 0), target: 180, color: .ember, unit: "g", radius: 68),
-            Macro(label: "Fats", current: Int(stats?.fat ?? 0), target: 70, color: Color(hex: "FFB84D"), unit: "g", radius: 44),
+            Macro(label: "Fats", current: Int(stats?.fat ?? 0), target: 70, color: Color.amberLight, unit: "g", radius: 44),
         ]
     }
 
@@ -3120,9 +3120,9 @@ struct AINutritionCoachCard: View {
             generated.append(("drop.fill", .steel, "Hydration is on track", "\(Int(stats.water)) of 8 glasses today. Keep sipping through the afternoon."))
         }
         if stats.sleepHours < 7 {
-            generated.append(("moon.stars.fill", Color(hex: "A855F7"), "Sleep is limiting recovery", "Last night: \(String(format: "%.1f", stats.sleepHours))h. Better sleep improves nutrient partitioning."))
+            generated.append(("moon.stars.fill", Color.violet, "Sleep is limiting recovery", "Last night: \(String(format: "%.1f", stats.sleepHours))h. Better sleep improves nutrient partitioning."))
         } else {
-            generated.append(("moon.stars.fill", Color(hex: "A855F7"), "Recovery window is strong", "Sleep and activity are aligned — great day to push training intensity."))
+            generated.append(("moon.stars.fill", Color.violet, "Recovery window is strong", "Sleep and activity are aligned — great day to push training intensity."))
         }
         return generated
     }
@@ -3255,8 +3255,8 @@ struct AINutritionCoachCard: View {
         return [
             ("Protein", min(Int((stats?.protein ?? 0) / 180 * 100), 100), Color.ember),
             ("Carbs", min(Int((stats?.carbs ?? 0) / 280 * 100), 100), Color.steel),
-            ("Fats", min(Int((stats?.fat ?? 0) / 70 * 100), 100), Color(hex: "FFB84D")),
-            ("Cal", min(Int(Double(stats?.totalCalories ?? 0) / 2600 * 100), 100), Color(hex: "A855F7")),
+            ("Fats", min(Int((stats?.fat ?? 0) / 70 * 100), 100), Color.amberLight),
+            ("Cal", min(Int(Double(stats?.totalCalories ?? 0) / 2600 * 100), 100), Color.violet),
         ]
     }
 }
@@ -3392,7 +3392,7 @@ struct AIMealRow: View {
                 HStack(spacing: 0) {
                     InlineMacroChip(label: "P", value: "\(suggestion.protein)g", color: .ember)
                     InlineMacroChip(label: "C", value: "\(suggestion.carbs)g",   color: .steel)
-                    InlineMacroChip(label: "F", value: "\(suggestion.fat)g",     color: Color(hex: "FFB84D"))
+                    InlineMacroChip(label: "F", value: "\(suggestion.fat)g",     color: Color.amberLight)
                 }
                 .padding(.horizontal, 13).padding(.bottom, 12)
                 .transition(.opacity.combined(with: .move(edge: .top)))
@@ -3570,8 +3570,8 @@ struct ScannedFoodConfirmSheet: View {
                 HStack(spacing: 10) {
                     macroPill("Cal", "\(Int(food.calories))", .ember)
                     macroPill("Protein", "\(Int(food.protein))g", .steel)
-                    macroPill("Carbs", "\(Int(food.carbs))g", Color(hex: "A855F7"))
-                    macroPill("Fat", "\(Int(food.fat))g", Color(hex: "FFB84D"))
+                    macroPill("Carbs", "\(Int(food.carbs))g", Color.violet)
+                    macroPill("Fat", "\(Int(food.fat))g", Color.amberLight)
                 }
                 .padding(.horizontal, 20)
 
@@ -4091,8 +4091,8 @@ struct MenuItemCard: View {
             HStack(spacing: 10) {
                 MacroChip(label: "Cal",  value: "\(item.calories)",  color: .ember)
                 MacroChip(label: "Prot", value: "\(item.protein)g",  color: .steel)
-                MacroChip(label: "Carb", value: "\(item.carbs)g",    color: Color(hex: "FFB84D"))
-                MacroChip(label: "Fat",  value: "\(item.fat)g",      color: Color(hex: "A855F7"))
+                MacroChip(label: "Carb", value: "\(item.carbs)g",    color: Color.amberLight)
+                MacroChip(label: "Fat",  value: "\(item.fat)g",      color: Color.violet)
             }
 
             if let onLog {
@@ -4265,7 +4265,7 @@ struct MindfulTrendCard: View {
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: "brain.head.profile")
-                        .font(.system(size: 16)).foregroundColor(Color(hex: "A855F7"))
+                        .font(.system(size: 16)).foregroundColor(Color.violet)
                     Text("Mindful Minutes").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
                 }
                 Spacer()
@@ -4284,7 +4284,7 @@ struct MindfulTrendCard: View {
                         x: .value("Day", day.date, unit: .day),
                         y: .value("Minutes", day.minutes)
                     )
-                    .foregroundStyle(Color(hex: "A855F7").gradient)
+                    .foregroundStyle(Color.violet.gradient)
                     .cornerRadius(4)
                 }
                 .chartXAxis {
@@ -4711,7 +4711,7 @@ struct AIInsightsModal: View {
                     title: "Sleep Debt Alert",
                     insight: "Last night: \(String(format: "%.1f", stats.sleepHours))h. Extending sleep toward 8h improves HRV and training readiness.",
                     action: "Set bedtime",
-                    color: Color(hex: "A855F7")
+                    color: Color.violet
                 ))
             }
             if stats.hrv < 45 {

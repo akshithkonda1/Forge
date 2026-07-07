@@ -70,8 +70,8 @@ enum TargetMuscle: String, CaseIterable, Identifiable, Hashable {
     var accent: Color {
         switch region {
         case .push: return .ember
-        case .pull: return Color(hex: "38BDF8")
-        case .legs: return Color(hex: "A855F7")
+        case .pull: return Color.sky
+        case .legs: return Color.violet
         case .core: return .success
         case .conditioning: return .warning
         }
@@ -1088,8 +1088,8 @@ extension TargetMuscle.Region {
     var accent: Color {
         switch self {
         case .push: return .ember
-        case .pull: return Color(hex: "38BDF8")
-        case .legs: return Color(hex: "A855F7")
+        case .pull: return Color.sky
+        case .legs: return Color.violet
         case .core: return .success
         case .conditioning: return .warning
         }
@@ -1231,9 +1231,9 @@ fileprivate struct WorkoutHRZone: Equatable {
 
 fileprivate let workoutHRZones: [WorkoutHRZone] = [
     WorkoutHRZone(label: "Rest",   color: .steel,               range: 0...99,    index: 0),
-    WorkoutHRZone(label: "Zone 1", color: Color(hex: "38BDF8"),  range: 100...114, index: 1),
+    WorkoutHRZone(label: "Zone 1", color: Color.sky,  range: 100...114, index: 1),
     WorkoutHRZone(label: "Zone 2", color: .success,              range: 115...133, index: 2),
-    WorkoutHRZone(label: "Zone 3", color: Color(hex: "F59E0B"),  range: 134...152, index: 3),
+    WorkoutHRZone(label: "Zone 3", color: Color.amber,  range: 134...152, index: 3),
     WorkoutHRZone(label: "Zone 4", color: .ember,                range: 153...171, index: 4),
     WorkoutHRZone(label: "Zone 5", color: .danger,               range: 172...220, index: 5),
 ]
@@ -1409,7 +1409,7 @@ struct WorkoutIdleView: View {
 
     private var quickActions: some View {
         HStack(spacing: 10) {
-            idleActionTile(icon: "books.vertical.fill", title: "Library", subtitle: "\(ExerciseLibrary.all.count) moves", accent: Color(hex: "38BDF8")) { showLibrary = true }
+            idleActionTile(icon: "books.vertical.fill", title: "Library", subtitle: "\(ExerciseLibrary.all.count) moves", accent: Color.sky) { showLibrary = true }
             idleActionTile(icon: "brain.head.profile", title: "ARIA Brief", subtitle: "Plan readout", accent: .ember) { showDashboard = true }
         }
     }
@@ -1755,7 +1755,7 @@ private struct WorkoutBackground: View {
                     let y2 = size.height * (0.75 + 0.12 * sin(t * 0.14))
                     let r2 = size.width  * 0.48
                     var p2 = Path(); p2.addEllipse(in: CGRect(x: x2-r2/2, y: y2-r2/2, width: r2, height: r2))
-                    ctx.fill(p2, with: .color(Color(hex: "38BDF8").opacity(0.028)))
+                    ctx.fill(p2, with: .color(Color.sky.opacity(0.028)))
                     let x3 = size.width  * (0.5 + 0.18 * sin(t * 0.09 + 1.0))
                     let y3 = size.height * (0.45 + 0.14 * cos(t * 0.12 + 0.5))
                     let r3 = size.width  * 0.38
@@ -1787,7 +1787,7 @@ private struct ReadinessIntensityArc: View {
     }
     private var matchColor: Color {
         let diff = abs(readinessFraction - intensityFraction)
-        return diff < 0.15 ? .success : diff < 0.35 ? Color(hex: "F59E0B") : .danger
+        return diff < 0.15 ? .success : diff < 0.35 ? Color.amber : .danger
     }
     private var matchLabel: String {
         let diff = abs(readinessFraction - intensityFraction)
@@ -1952,7 +1952,7 @@ struct WorkoutInsightsView: View {
         if store.readiness.overall >= 80 { r.append(("bolt.fill", "Readiness \(store.readiness.overall)% — primed for heavy top sets today.", .ember)) }
         else if store.readiness.overall < 65 { r.append(("bed.double.fill", "Recovery \(store.readiness.overall)% — ARIA trimmed volume to protect tomorrow.", .steel)) }
         // Balance read across the plan
-        if let lean = planRegionLean() { r.append(("scale.3d", lean, Color(hex: "A855F7"))) }
+        if let lean = planRegionLean() { r.append(("scale.3d", lean, Color.violet)) }
         if workout.intensity == .high || workout.intensity == .max {
             r.append(("exclamationmark.triangle.fill", "High intensity — run the mobility warm-up before loading.", .warning))
         }
@@ -2221,7 +2221,7 @@ struct ExerciseDetailSheet: View {
                             ("\(def.restSeconds)s rest", "clock.fill", .textTertiary),
                             ("Tempo \(def.tempo)", "metronome.fill", .ember),
                             ("RPE \(def.rpeTarget)", "bolt.fill", .warning),
-                            (def.level.label, "chart.bar.fill", Color(hex: "A855F7")),
+                            (def.level.label, "chart.bar.fill", Color.violet),
                             (def.equipment.label, def.equipment.icon, .success),
                         ])
                         // Cues
@@ -2336,7 +2336,7 @@ struct ARIADashboardView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(hex: "0A0A0A").ignoresSafeArea()
+                Color.background.ignoresSafeArea()
                 RadialGradient(colors: [Color.ember.opacity(appeared ? 0.10 : 0), .clear], center: .top, startRadius: 0, endRadius: 360)
                     .ignoresSafeArea().animation(.easeInOut(duration: 1.2), value: appeared)
                 ScrollView(showsIndicators: false) {
@@ -2854,7 +2854,7 @@ struct ActiveWorkoutView: View {
                 }
                 .padding(.horizontal, 12).padding(.vertical, 9).background(currentZone.color.opacity(0.13)).cornerRadius(100)
                 .overlay(Capsule().stroke(currentZone.color.opacity(0.35), lineWidth: 1)).animation(.easeInOut(duration: 0.7), value: currentZone.label)
-                let o2Color: Color = simulatedSpO2 < 94 ? .danger : simulatedSpO2 < 96 ? .warning : Color(hex: "38BDF8")
+                let o2Color: Color = simulatedSpO2 < 94 ? .danger : simulatedSpO2 < 96 ? .warning : Color.sky
                 primaryMetricChip(icon: "lungs.fill", iconColor: o2Color, value: "\(simulatedSpO2)%", unit: "O₂", accent: o2Color, glowing: simulatedSpO2 < 95)
                 liveChip(icon: "flame.fill", iconColor: .ember, value: "\(Int(estimatedCals))", unit: "kcal", accent: .ember)
                 liveChip(icon: "repeat", iconColor: .steel, value: "\(store.currentSet)/\(currentExercise?.sets ?? 0)", unit: "sets", accent: .steel)
@@ -3161,7 +3161,7 @@ struct ActiveWorkoutView: View {
 
     // MARK: Logic
 
-    private func rpeColor(_ rpe: Int) -> Color { rpe <= 4 ? .success : rpe <= 7 ? Color(hex: "F59E0B") : .danger }
+    private func rpeColor(_ rpe: Int) -> Color { rpe <= 4 ? .success : rpe <= 7 ? Color.amber : .danger }
     private func setupCurrentWeight() { currentWeight = currentExercise?.weight ?? 0 }
 
     private func confirmSet(exercise: Exercise) {
@@ -3479,7 +3479,7 @@ private struct SetLoggerPanel: View {
         default: return "All Out 🔥"
         }
     }
-    private func rpeColor(_ r: Int) -> Color { r <= 4 ? .success : r <= 7 ? Color(hex: "F59E0B") : .danger }
+    private func rpeColor(_ r: Int) -> Color { r <= 4 ? .success : r <= 7 ? Color.amber : .danger }
 
     var body: some View {
         ZStack {
@@ -3691,7 +3691,7 @@ struct RestTimerView: View {
 
     private var progress: CGFloat { totalRest > 0 ? CGFloat(restTimeLeft) / CGFloat(totalRest) : 0 }
     private var urgency: Bool { restTimeLeft <= 5 && restTimeLeft > 0 }
-    private var ringColor: Color { urgency ? .danger : Color(hex: "38BDF8") }
+    private var ringColor: Color { urgency ? .danger : Color.sky }
     private var breathLabel: String { breathPhase ? "Exhale slowly" : "Breathe in" }
 
     var body: some View {
@@ -3708,9 +3708,9 @@ struct RestTimerView: View {
                     .stroke(LinearGradient(colors: [ringColor, ringColor.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing), style: StrokeStyle(lineWidth: 5, lineCap: .round))
                     .frame(width: 170, height: 170).rotationEffect(.degrees(-90)).animation(.linear(duration: 1), value: progress).animation(.easeInOut(duration: 0.6), value: ringColor)
                 ZStack {
-                    Circle().stroke(Color(hex: "38BDF8").opacity(breathPhase ? 0.15 : 0.0), lineWidth: 1.5).frame(width: breathPhase ? 130 : 80, height: breathPhase ? 130 : 80).animation(.easeInOut(duration: 4).repeatForever(autoreverses: true), value: breathPhase)
-                    Circle().stroke(Color(hex: "38BDF8").opacity(breathPhase ? 0.25 : 0.08), lineWidth: 2).frame(width: breathPhase ? 100 : 60, height: breathPhase ? 100 : 60).animation(.easeInOut(duration: 4).repeatForever(autoreverses: true), value: breathPhase)
-                    Circle().fill(Color(hex: "38BDF8").opacity(breathPhase ? 0.15 : 0.04)).frame(width: breathPhase ? 80 : 50, height: breathPhase ? 80 : 50).animation(.easeInOut(duration: 4).repeatForever(autoreverses: true), value: breathPhase)
+                    Circle().stroke(Color.sky.opacity(breathPhase ? 0.15 : 0.0), lineWidth: 1.5).frame(width: breathPhase ? 130 : 80, height: breathPhase ? 130 : 80).animation(.easeInOut(duration: 4).repeatForever(autoreverses: true), value: breathPhase)
+                    Circle().stroke(Color.sky.opacity(breathPhase ? 0.25 : 0.08), lineWidth: 2).frame(width: breathPhase ? 100 : 60, height: breathPhase ? 100 : 60).animation(.easeInOut(duration: 4).repeatForever(autoreverses: true), value: breathPhase)
+                    Circle().fill(Color.sky.opacity(breathPhase ? 0.15 : 0.04)).frame(width: breathPhase ? 80 : 50, height: breathPhase ? 80 : 50).animation(.easeInOut(duration: 4).repeatForever(autoreverses: true), value: breathPhase)
                 }
                 .opacity(urgency ? 0 : 1)
                 VStack(spacing: 3) {
@@ -3721,7 +3721,7 @@ struct RestTimerView: View {
             }
             .frame(width: 220, height: 220)
             if !urgency {
-                Text(breathLabel).font(.system(size: 13, weight: .medium)).foregroundColor(Color(hex: "38BDF8").opacity(0.8)).animation(.easeInOut(duration: 0.5), value: breathPhase)
+                Text(breathLabel).font(.system(size: 13, weight: .medium)).foregroundColor(Color.sky.opacity(0.8)).animation(.easeInOut(duration: 0.5), value: breathPhase)
             }
             Text(nextLabel).font(.system(size: 14, weight: .medium)).foregroundColor(.textTertiary).multilineTextAlignment(.center).padding(.horizontal, 40)
             Button(action: onSkip) {
@@ -3759,12 +3759,12 @@ struct WorkoutSummaryView: View {
         switch workoutScore { case 90...: return "Elite"; case 80...: return "Excellent"; case 70...: return "Strong"; case 60...: return "Solid"; default: return "Good" }
     }
     private var scoreColor: Color {
-        switch workoutScore { case 90...: return Color(hex: "F59E0B"); case 80...: return .success; case 70...: return .ember; default: return .steel }
+        switch workoutScore { case 90...: return Color.amber; case 80...: return .success; case 70...: return .ember; default: return .steel }
     }
 
     var body: some View {
         ZStack {
-            Color(hex: "0A0A0A").ignoresSafeArea()
+            Color.background.ignoresSafeArea()
             RadialGradient(colors: [scoreColor.opacity(appeared ? 0.12 : 0), .clear], center: .top, startRadius: 0, endRadius: 400)
                 .ignoresSafeArea().animation(.easeInOut(duration: 1.5).delay(0.5), value: appeared)
             ScrollView(showsIndicators: false) {
@@ -3841,10 +3841,10 @@ struct WorkoutSummaryView: View {
                             ("scalemass.fill", "\(data.totalVolume.formattedVolume)", "Volume", Color.steel),
                             ("flame.fill", "\(data.caloriesBurned)", "Kcal", Color.ember),
                             ("repeat", "\(data.totalSets)", "Sets", Color.success),
-                            ("hand.raised.fill", "\(data.totalReps)", "Reps", Color(hex: "F59E0B")),
+                            ("hand.raised.fill", "\(data.totalReps)", "Reps", Color.amber),
                             ("heart.fill", "\(data.peakHR)", "Peak HR", Color.danger),
                             ("waveform.path.ecg", "\(data.avgHR)", "Avg HR", Color.steel),
-                            ("lungs.fill", "\(data.minO2)%", "Min O₂", data.minO2 < 94 ? Color.danger : Color(hex: "38BDF8")),
+                            ("lungs.fill", "\(data.minO2)%", "Min O₂", data.minO2 < 94 ? Color.danger : Color.sky),
                             ("bolt.fill", String(format: "%.1f", data.avgRPE), "Avg RPE", rpeColor(data.avgRPE)),
                             ("dumbbell.fill", "\(data.exercisesCompleted)", "Exercises", Color.ember),
                         ], id: \.0) { icon, value, label, color in darkStatCard(icon, value, label, color) }
@@ -3917,7 +3917,7 @@ struct WorkoutSummaryView: View {
         }
         .frame(maxWidth: .infinity).padding(.vertical, 18).background(Color.white.opacity(0.05)).cornerRadius(16).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.07), lineWidth: 1))
     }
-    private func rpeColor(_ rpe: Double) -> Color { rpe <= 4 ? .success : rpe <= 7 ? Color(hex: "F59E0B") : .danger }
+    private func rpeColor(_ rpe: Double) -> Color { rpe <= 4 ? .success : rpe <= 7 ? Color.amber : .danger }
     private func formatDuration(_ s: Int) -> String { let m = s / 60; let sec = s % 60; return m > 0 ? "\(m)m \(sec)s" : "\(sec)s" }
 }
 // MARK: - Zone Breakdown Card
@@ -3928,9 +3928,9 @@ private struct ZoneBreakdownCard: View {
     private struct ZoneBar { let zone: String; let color: Color; let range: ClosedRange<Int>; var count: Int = 0 }
     private var zoneBars: [ZoneBar] {
         var bars = [
-            ZoneBar(zone: "Z1", color: Color(hex: "38BDF8"), range: 100...114),
+            ZoneBar(zone: "Z1", color: Color.sky, range: 100...114),
             ZoneBar(zone: "Z2", color: .success, range: 115...133),
-            ZoneBar(zone: "Z3", color: Color(hex: "F59E0B"), range: 134...152),
+            ZoneBar(zone: "Z3", color: Color.amber, range: 134...152),
             ZoneBar(zone: "Z4", color: .ember, range: 153...171),
             ZoneBar(zone: "Z5", color: .danger, range: 172...220),
         ]
@@ -4003,7 +4003,7 @@ private struct HRSparklineCard: View {
                     let xStep = size.width / Double(pts.count - 1)
                     func y(_ v: Int) -> Double { size.height - (Double(v) - minV) / rng * size.height }
                     func pt(_ i: Int) -> CGPoint { CGPoint(x: Double(i) * xStep, y: y(pts[i])) }
-                    let zoneDefs: [(min: Int, max: Int, col: Color)] = [(100,114,Color(hex:"38BDF8")),(115,133,.success),(134,152,Color(hex:"F59E0B")),(153,171,.ember),(172,220,.danger)]
+                    let zoneDefs: [(min: Int, max: Int, col: Color)] = [(100,114,Color.sky),(115,133,.success),(134,152,Color.amber),(153,171,.ember),(172,220,.danger)]
                     for z in zoneDefs {
                         let yT = max(0.0, size.height - (Double(z.max) - minV) / rng * size.height)
                         let yB = min(size.height, size.height - (Double(z.min) - minV) / rng * size.height)
@@ -4192,7 +4192,7 @@ struct FormCheckCameraView: View {
             Text(title).font(.system(size: 18, weight: .bold)).foregroundColor(.white)
             Text(subtitle).font(.system(size: 13)).foregroundColor(.white.opacity(0.5)).multilineTextAlignment(.center).padding(.horizontal, 40)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity).background(Color(hex: "0A0A0A"))
+        .frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.background)
     }
 
     private var topBar: some View {

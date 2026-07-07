@@ -1018,7 +1018,7 @@ struct SettingsPageView: View {
                         ForgeToggle(isOn: notificationBinding(\.weeklySummary))
                     }
                     Divider().background(Color.borderColor)
-                    SettingsRow(icon: "drop.fill", iconColor: Color(hex: "38BDF8"), label: "Lifestyle Reminders") {
+                    SettingsRow(icon: "drop.fill", iconColor: Color.sky, label: "Lifestyle Reminders") {
                         ForgeToggle(isOn: notificationBinding(\.lifestyleReminders))
                     }
                 }
