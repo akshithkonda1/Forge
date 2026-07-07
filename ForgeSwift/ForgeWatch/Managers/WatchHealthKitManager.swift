@@ -228,6 +228,10 @@ final class WatchHealthKitManager {
             try await builder.beginCollection(at: Date())
         } catch {
             // Biofeedback is a bonus, never a blocker — session runs without it.
+            // If startActivity() already ran before beginCollection() threw,
+            // end the partially-started session so it doesn't linger at the
+            // OS level and block the next HKWorkoutSession — mindful or real.
+            captureSession?.end()
             captureSession = nil
             captureBuilder = nil
             captureDelegate = nil
