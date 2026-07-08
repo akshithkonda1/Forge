@@ -107,6 +107,7 @@
 		F0B100000000000000000041 /* NutritionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000032 /* NutritionViews.swift */; };
 		F0B100000000000000000042 /* WellbeingViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000033 /* WellbeingViews.swift */; };
 		F0B100000000000000000043 /* SleepAnalyticsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000034 /* SleepAnalyticsViews.swift */; };
+		F0B100000000000000000044 /* HomeBackgroundViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000035 /* HomeBackgroundViews.swift */; };
 		F0B100000000000000000031 /* LifestyleWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000024 /* LifestyleWidget.swift */; };
 		F0B100000000000000000032 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000003 /* ForgeCore */; };
 		F0B100000000000000000033 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000004 /* ForgeCore */; };
@@ -291,6 +292,7 @@
 		F0F100000000000000000032 /* NutritionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NutritionViews.swift; sourceTree = "<group>"; };
 		F0F100000000000000000033 /* WellbeingViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WellbeingViews.swift; sourceTree = "<group>"; };
 		F0F100000000000000000034 /* SleepAnalyticsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepAnalyticsViews.swift; sourceTree = "<group>"; };
+		F0F100000000000000000035 /* HomeBackgroundViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeBackgroundViews.swift; sourceTree = "<group>"; };
 		F0F100000000000000000024 /* LifestyleWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LifestyleWidget.swift; path = "../../ForgeWidget/LifestyleWidget.swift"; sourceTree = "<group>"; };
 		F0F100000000000000000025 /* ForgeWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ForgeWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0F100000000000000000026 /* SleepSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSummaryView.swift; sourceTree = "<group>"; };
@@ -444,6 +446,7 @@
 				F0F100000000000000000032 /* NutritionViews.swift */,
 				F0F100000000000000000033 /* WellbeingViews.swift */,
 				F0F100000000000000000034 /* SleepAnalyticsViews.swift */,
+				F0F100000000000000000035 /* HomeBackgroundViews.swift */,
 			);
 			path = ForgeSwift;
 			sourceTree = "<group>";
@@ -805,6 +808,7 @@
 				F0B100000000000000000041 /* NutritionViews.swift in Sources */,
 				F0B100000000000000000042 /* WellbeingViews.swift in Sources */,
 				F0B100000000000000000043 /* SleepAnalyticsViews.swift in Sources */,
+				F0B100000000000000000044 /* HomeBackgroundViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
