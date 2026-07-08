@@ -101,6 +101,9 @@
 		F0B10000000000000000003B /* ForgeElevation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002C /* ForgeElevation.swift */; };
 		F0B10000000000000000003C /* ForgeTypeScale.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002D /* ForgeTypeScale.swift */; };
 		F0B10000000000000000003D /* ForgeDynamicFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002E /* ForgeDynamicFont.swift */; };
+		F0B10000000000000000003E /* WorkoutSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002F /* WorkoutSupport.swift */; };
+		F0B10000000000000000003F /* WorkoutSummaryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000030 /* WorkoutSummaryViews.swift */; };
+		F0B100000000000000000040 /* ExerciseDetailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000031 /* ExerciseDetailViews.swift */; };
 		F0B100000000000000000031 /* LifestyleWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000024 /* LifestyleWidget.swift */; };
 		F0B100000000000000000032 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000003 /* ForgeCore */; };
 		F0B100000000000000000033 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000004 /* ForgeCore */; };
@@ -279,6 +282,9 @@
 		F0F10000000000000000002C /* ForgeElevation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeElevation.swift; sourceTree = "<group>"; };
 		F0F10000000000000000002D /* ForgeTypeScale.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeTypeScale.swift; sourceTree = "<group>"; };
 		F0F10000000000000000002E /* ForgeDynamicFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeDynamicFont.swift; sourceTree = "<group>"; };
+		F0F10000000000000000002F /* WorkoutSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSupport.swift; sourceTree = "<group>"; };
+		F0F100000000000000000030 /* WorkoutSummaryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSummaryViews.swift; sourceTree = "<group>"; };
+		F0F100000000000000000031 /* ExerciseDetailViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDetailViews.swift; sourceTree = "<group>"; };
 		F0F100000000000000000024 /* LifestyleWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LifestyleWidget.swift; path = "../../ForgeWidget/LifestyleWidget.swift"; sourceTree = "<group>"; };
 		F0F100000000000000000025 /* ForgeWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ForgeWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0F100000000000000000026 /* SleepSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSummaryView.swift; sourceTree = "<group>"; };
@@ -426,6 +432,9 @@
 				F0F10000000000000000002C /* ForgeElevation.swift */,
 				F0F10000000000000000002D /* ForgeTypeScale.swift */,
 				F0F10000000000000000002E /* ForgeDynamicFont.swift */,
+				F0F10000000000000000002F /* WorkoutSupport.swift */,
+				F0F100000000000000000030 /* WorkoutSummaryViews.swift */,
+				F0F100000000000000000031 /* ExerciseDetailViews.swift */,
 			);
 			path = ForgeSwift;
 			sourceTree = "<group>";
@@ -781,6 +790,9 @@
 				F0B10000000000000000003B /* ForgeElevation.swift in Sources */,
 				F0B10000000000000000003C /* ForgeTypeScale.swift in Sources */,
 				F0B10000000000000000003D /* ForgeDynamicFont.swift in Sources */,
+				F0B10000000000000000003E /* WorkoutSupport.swift in Sources */,
+				F0B10000000000000000003F /* WorkoutSummaryViews.swift in Sources */,
+				F0B100000000000000000040 /* ExerciseDetailViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

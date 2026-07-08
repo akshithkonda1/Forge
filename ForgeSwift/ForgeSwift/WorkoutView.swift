@@ -1003,20 +1003,6 @@ final class ARIACoachService: ObservableObject {
     }
 }
 
-private extension String {
-    var nilIfEmpty: String? { isEmpty ? nil : self }
-}
-
-private extension UIImage {
-    func downscaledJPEG(maxDimension: CGFloat, quality: CGFloat) -> Data? {
-        let longest = max(size.width, size.height)
-        let scale = longest > maxDimension ? maxDimension / longest : 1
-        let target = CGSize(width: size.width * scale, height: size.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: target)
-        let resized = renderer.image { _ in draw(in: CGRect(origin: .zero, size: target)) }
-        return resized.jpegData(compressionQuality: quality)
-    }
-}
 // MARK: - ARIA Session Snapshot (dashboard → coach)
 
 /// Everything ARIA needs to brief the athlete. Built from either a plan (pre-workout) or
@@ -1221,7 +1207,7 @@ struct CameraPreview: UIViewRepresentable {
 }
 // MARK: - HR Zone
 
-fileprivate struct WorkoutHRZone: Equatable {
+struct WorkoutHRZone: Equatable {
     let label: String
     let color: Color
     let range: ClosedRange<Int>
@@ -1229,7 +1215,7 @@ fileprivate struct WorkoutHRZone: Equatable {
     static func == (l: WorkoutHRZone, r: WorkoutHRZone) -> Bool { l.label == r.label }
 }
 
-fileprivate let workoutHRZones: [WorkoutHRZone] = [
+let workoutHRZones: [WorkoutHRZone] = [
     WorkoutHRZone(label: "Rest",   color: .steel,               range: 0...99,    index: 0),
     WorkoutHRZone(label: "Zone 1", color: Color.sky,  range: 100...114, index: 1),
     WorkoutHRZone(label: "Zone 2", color: .success,              range: 115...133, index: 2),
@@ -1237,13 +1223,13 @@ fileprivate let workoutHRZones: [WorkoutHRZone] = [
     WorkoutHRZone(label: "Zone 4", color: .ember,                range: 153...171, index: 4),
     WorkoutHRZone(label: "Zone 5", color: .danger,               range: 172...220, index: 5),
 ]
-fileprivate func workoutHRZone(for bpm: Int) -> WorkoutHRZone {
+func workoutHRZone(for bpm: Int) -> WorkoutHRZone {
     workoutHRZones.first { $0.range.contains(bpm) } ?? workoutHRZones[0]
 }
 
 // MARK: - Data Models
 
-fileprivate struct SetLogEntry: Identifiable {
+struct SetLogEntry: Identifiable {
     let id = UUID()
     let exerciseName: String
     let setNumber:    Int
@@ -1255,7 +1241,7 @@ fileprivate struct SetLogEntry: Identifiable {
     var volume: Int { repsPerformed * max(1, weightUsed) }
 }
 
-fileprivate struct PainEntry: Identifiable {
+struct PainEntry: Identifiable {
     let id = UUID()
     let location:     String
     let severity:     Int
@@ -1571,7 +1557,7 @@ struct WorkoutIdleView: View {
 }
 // MARK: - Adaptive Scaling Card
 
-private struct AdaptiveScalingCard: View {
+struct AdaptiveScalingCard: View {
     let scaling: PlanScaling
     let applied: Bool
     let onApply: () -> Void
@@ -1738,7 +1724,7 @@ struct MusicControlBar: View {
 
 // MARK: - Workout Background (animated mesh)
 
-private struct WorkoutBackground: View {
+struct WorkoutBackground: View {
     let accentColor: Color
     var body: some View {
         ZStack {
@@ -1771,7 +1757,7 @@ private struct WorkoutBackground: View {
 
 // MARK: - Readiness Intensity Arc
 
-private struct ReadinessIntensityArc: View {
+struct ReadinessIntensityArc: View {
     let readiness: Int
     let intensity: WorkoutIntensity
     @State private var appeared = false
@@ -3366,7 +3352,7 @@ struct ActiveWorkoutView: View {
 
 // MARK: - Auto-Regulation Strip
 
-private struct AutoRegStrip: View {
+struct AutoRegStrip: View {
     let recommendation: SetRecommendation
     var body: some View {
         HStack(spacing: 12) {
@@ -3394,7 +3380,7 @@ private struct AutoRegStrip: View {
 
 // MARK: - Substitution Banner
 
-private struct SubstitutionBanner: View {
+struct SubstitutionBanner: View {
     let target: ExerciseDefinition
     let reason: String
     let onApply: () -> Void
@@ -3433,7 +3419,7 @@ private struct SubstitutionBanner: View {
 }
 // MARK: - O2 Warning Banner
 
-private struct O2WarningBanner: View {
+struct O2WarningBanner: View {
     let spO2: Int
     let onDismiss: () -> Void
     var body: some View {
@@ -3462,7 +3448,7 @@ private struct O2WarningBanner: View {
 
 // MARK: - Set Logger Panel (adaptive)
 
-private struct SetLoggerPanel: View {
+struct SetLoggerPanel: View {
     let exercise: Exercise
     let definition: ExerciseDefinition?
     let currentSet: Int
@@ -3589,7 +3575,7 @@ private struct SetLoggerPanel: View {
 
 // MARK: - Pain Logger Panel
 
-private struct PainLoggerPanel: View {
+struct PainLoggerPanel: View {
     let exerciseName: String
     let onLog:    (PainEntry) -> Void
     let onCancel: () -> Void
@@ -3661,7 +3647,7 @@ private struct PainLoggerPanel: View {
 
 // MARK: - PR Banner
 
-private struct PRBannerView: View {
+struct PRBannerView: View {
     let exerciseName: String
     var body: some View {
         VStack {
@@ -3748,608 +3734,3 @@ struct RestTimerView: View {
     }
 }
 
-// MARK: - Workout Summary
-
-struct WorkoutSummaryView: View {
-    let data: WorkoutSummaryData
-    let onDismiss: () -> Void
-    @State private var appeared = false
-    @State private var scoreAppeared = false
-    @State private var showDashboard = false
-
-    private var workoutScore: Int {
-        var s = 60
-        if data.personalRecords.count > 0 { s += min(20, data.personalRecords.count * 7) }
-        if data.avgRPE >= 6 && data.avgRPE <= 8.5 { s += 10 }
-        if data.minO2 >= 95 { s += 5 }
-        if data.totalSets >= 12 { s += 5 }
-        return min(100, s)
-    }
-    private var scoreLabel: String {
-        switch workoutScore { case 90...: return "Elite"; case 80...: return "Excellent"; case 70...: return "Strong"; case 60...: return "Solid"; default: return "Good" }
-    }
-    private var scoreColor: Color {
-        switch workoutScore { case 90...: return Color.amber; case 80...: return .success; case 70...: return .ember; default: return .steel }
-    }
-
-    var body: some View {
-        ZStack {
-            Color.background.ignoresSafeArea()
-            RadialGradient(colors: [scoreColor.opacity(appeared ? 0.12 : 0), .clear], center: .top, startRadius: 0, endRadius: 400)
-                .ignoresSafeArea().animation(.easeInOut(duration: 1.5).delay(0.5), value: appeared)
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 0) {
-                    // Hero score
-                    VStack(spacing: 24) {
-                        ZStack {
-                            Circle().stroke(scoreColor.opacity(appeared ? 0.12 : 0), lineWidth: 1).frame(width: 220, height: 220).animation(.easeInOut(duration: 1.0).delay(0.4), value: appeared)
-                            Circle().stroke(Color.white.opacity(0.06), style: StrokeStyle(lineWidth: 8, lineCap: .round)).frame(width: 180, height: 180)
-                            Circle().trim(from: 0, to: scoreAppeared ? CGFloat(workoutScore) / 100 : 0)
-                                .stroke(LinearGradient(colors: [scoreColor.opacity(0.7), scoreColor, scoreColor.opacity(0.9)], startPoint: .topLeading, endPoint: .bottomTrailing), style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                                .frame(width: 180, height: 180).rotationEffect(.degrees(-90)).shadow(color: scoreColor.opacity(0.5), radius: 12)
-                                .animation(.spring(response: 1.4, dampingFraction: 0.75).delay(0.5), value: scoreAppeared)
-                            VStack(spacing: 4) {
-                                Image(systemName: "checkmark").font(.forgeDynamic(size: 22, weight: .black)).foregroundColor(scoreColor)
-                                    .scaleEffect(appeared ? 1 : 0.4).opacity(appeared ? 1 : 0).animation(.spring(response: 0.5, dampingFraction: 0.65).delay(0.3), value: appeared)
-                                Text("\(workoutScore)").font(.forgeDynamic(size: 52, weight: .black, design: .rounded)).foregroundColor(.white)
-                                    .scaleEffect(appeared ? 1 : 0.6).opacity(appeared ? 1 : 0).animation(.spring(response: 0.65, dampingFraction: 0.7).delay(0.2), value: appeared)
-                                Text(scoreLabel.uppercased()).font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(scoreColor).tracking(2.5)
-                                    .opacity(appeared ? 1 : 0).animation(.easeOut(duration: 0.5).delay(0.55), value: appeared)
-                            }
-                        }
-                        .frame(width: 220, height: 220)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("Workout score")
-                        .accessibilityValue("\(workoutScore) out of 100, \(scoreLabel)")
-                        VStack(spacing: 8) {
-                            Text("Workout Complete").font(.forgeDynamic(size: 26, weight: .bold)).foregroundColor(.white)
-                            HStack(spacing: 16) {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "clock.fill").font(.forgeDynamic(size: 12)).foregroundColor(.white.opacity(0.5))
-                                    Text(formatDuration(data.duration)).font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.white.opacity(0.7))
-                                }
-                                if !data.personalRecords.isEmpty {
-                                    HStack(spacing: 5) {
-                                        Image(systemName: "crown.fill").font(.forgeDynamic(size: 12)).foregroundColor(.warning)
-                                        Text("\(data.personalRecords.count) PR\(data.personalRecords.count == 1 ? "" : "s")").font(.forgeDynamic(size: 14, weight: .bold)).foregroundColor(.warning)
-                                    }
-                                    .padding(.horizontal, 10).padding(.vertical, 5).background(Color.warning.opacity(0.15)).cornerRadius(100)
-                                    .overlay(Capsule().stroke(Color.warning.opacity(0.3), lineWidth: 1))
-                                }
-                            }
-                        }
-                        .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 14).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3), value: appeared)
-                    }
-                    .padding(.top, 64).padding(.bottom, 28)
-
-                    // ARIA dashboard CTA
-                    Button { UIImpactFeedbackGenerator(style: .medium).impactOccurred(); showDashboard = true } label: {
-                        HStack(spacing: 12) {
-                            ZStack {
-                                Circle().fill(Color.ember.opacity(0.18)).frame(width: 38, height: 38)
-                                Image(systemName: "brain.head.profile").font(.forgeDynamic(size: 17)).foregroundColor(.ember)
-                            }
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Open ARIA Dashboard").font(.forgeDynamic(size: 15, weight: .bold)).foregroundColor(.white)
-                                Text("Muscle balance, auto-reg log & how to improve").font(.forgeDynamic(size: 11)).foregroundColor(.white.opacity(0.5))
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right").font(.forgeDynamic(size: 13, weight: .bold)).foregroundColor(.white.opacity(0.4))
-                        }
-                        .padding(16).background(Color.white.opacity(0.05)).cornerRadius(18)
-                        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.ember.opacity(0.25), lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 16).padding(.bottom, 20)
-                    .opacity(appeared ? 1 : 0).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.4), value: appeared)
-
-                    if !data.hrHistory.isEmpty {
-                        HRSparklineCard(hrHistory: data.hrHistory, peakHR: data.peakHR, avgHR: data.avgHR)
-                            .padding(.horizontal, 16).padding(.bottom, 20)
-                            .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 16).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.45), value: appeared)
-                    }
-
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        ForEach([
-                            ("scalemass.fill", "\(data.totalVolume.formattedVolume)", "Volume", Color.steel),
-                            ("flame.fill", "\(data.caloriesBurned)", "Kcal", Color.ember),
-                            ("repeat", "\(data.totalSets)", "Sets", Color.success),
-                            ("hand.raised.fill", "\(data.totalReps)", "Reps", Color.amber),
-                            ("heart.fill", "\(data.peakHR)", "Peak HR", Color.danger),
-                            ("waveform.path.ecg", "\(data.avgHR)", "Avg HR", Color.steel),
-                            ("lungs.fill", "\(data.minO2)%", "Min O₂", data.minO2 < 94 ? Color.danger : Color.sky),
-                            ("bolt.fill", String(format: "%.1f", data.avgRPE), "Avg RPE", rpeColor(data.avgRPE)),
-                            ("dumbbell.fill", "\(data.exercisesCompleted)", "Exercises", Color.ember),
-                        ], id: \.0) { icon, value, label, color in darkStatCard(icon, value, label, color) }
-                    }
-                    .padding(.horizontal, 16).padding(.bottom, 20)
-                    .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 20).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.5), value: appeared)
-
-                    ZoneBreakdownCard(hrHistory: data.hrHistory)
-                        .padding(.horizontal, 16).padding(.bottom, 20)
-                        .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 16).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.55), value: appeared)
-
-                    if !data.personalRecords.isEmpty {
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "crown.fill").font(.forgeDynamic(size: 14)).foregroundColor(.warning)
-                                Text("PERSONAL RECORDS").font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
-                            }
-                            ForEach(data.personalRecords, id: \.self) { pr in
-                                HStack(spacing: 12) {
-                                    ZStack { Circle().fill(Color.warning.opacity(0.15)).frame(width: 38, height: 38); Image(systemName: "crown.fill").font(.forgeDynamic(size: 15)).foregroundColor(.warning) }
-                                    Text(pr).font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(.white)
-                                    Spacer()
-                                    Text("NEW PR").font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.warning).tracking(1)
-                                        .padding(.horizontal, 8).padding(.vertical, 5).background(Color.warning.opacity(0.15)).cornerRadius(100).overlay(Capsule().stroke(Color.warning.opacity(0.3), lineWidth: 1))
-                                }
-                                .padding(16).background(Color.white.opacity(0.05)).cornerRadius(16).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.warning.opacity(0.2), lineWidth: 1))
-                            }
-                        }
-                        .padding(20).background(Color.white.opacity(0.04)).cornerRadius(22).overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.07), lineWidth: 1))
-                        .padding(.horizontal, 16).padding(.bottom, 20)
-                        .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 16).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.6), value: appeared)
-                    }
-
-                    VStack(spacing: 12) {
-                        Button { showDashboard = true } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: "paperplane.fill").font(.forgeDynamic(size: 16))
-                                Text("Send to ARIA").font(.forgeDynamic(size: 17, weight: .bold))
-                            }
-                            .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 58)
-                            .background(LinearGradient(colors: [Color.ember, Color.ember.opacity(0.82)], startPoint: .leading, endPoint: .trailing))
-                            .cornerRadius(18).shadow(color: Color.ember.opacity(0.5), radius: 18, y: 6)
-                        }
-                        Button(action: onDismiss) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "house.fill").font(.forgeDynamic(size: 15))
-                                Text("Back to Dashboard").font(.forgeDynamic(size: 16, weight: .semibold))
-                            }
-                            .foregroundColor(.white.opacity(0.6)).frame(maxWidth: .infinity).frame(height: 50)
-                            .background(Color.white.opacity(0.07)).cornerRadius(16).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.1), lineWidth: 1))
-                        }
-                    }
-                    .padding(.horizontal, 16).padding(.bottom, 60)
-                    .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 20).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.7), value: appeared)
-                }
-            }
-        }
-        .sheet(isPresented: $showDashboard) { ARIADashboardView(snapshot: data.ariaSnapshot, isPreWorkout: false) }
-        .onAppear {
-            withAnimation(.spring(response: 0.65, dampingFraction: 0.8).delay(0.1)) { appeared = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { scoreAppeared = true }
-        }
-    }
-
-    private func darkStatCard(_ icon: String, _ value: String, _ label: String, _ color: Color) -> some View {
-        VStack(spacing: 10) {
-            ZStack { Circle().fill(color.opacity(0.15)).frame(width: 40, height: 40); Image(systemName: icon).font(.forgeDynamic(size: 16)).foregroundColor(color) }
-            Text(value).font(.forgeDynamic(size: 18, weight: .black, design: .rounded)).foregroundColor(.white)
-            Text(label).font(.forgeDynamic(size: 10, weight: .semibold)).foregroundColor(.white.opacity(0.4)).multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity).padding(.vertical, 18).background(Color.white.opacity(0.05)).cornerRadius(16).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.07), lineWidth: 1))
-    }
-    private func rpeColor(_ rpe: Double) -> Color { rpe <= 4 ? .success : rpe <= 7 ? Color.amber : .danger }
-    private func formatDuration(_ s: Int) -> String { let m = s / 60; let sec = s % 60; return m > 0 ? "\(m)m \(sec)s" : "\(sec)s" }
-}
-// MARK: - Zone Breakdown Card
-
-private struct ZoneBreakdownCard: View {
-    let hrHistory: [Int]
-    @State private var barsAppeared = false
-    private struct ZoneBar { let zone: String; let color: Color; let range: ClosedRange<Int>; var count: Int = 0 }
-    private var zoneBars: [ZoneBar] {
-        var bars = [
-            ZoneBar(zone: "Z1", color: Color.sky, range: 100...114),
-            ZoneBar(zone: "Z2", color: .success, range: 115...133),
-            ZoneBar(zone: "Z3", color: Color.amber, range: 134...152),
-            ZoneBar(zone: "Z4", color: .ember, range: 153...171),
-            ZoneBar(zone: "Z5", color: .danger, range: 172...220),
-        ]
-        for hr in hrHistory { for i in bars.indices where bars[i].range.contains(hr) { bars[i].count += 1 } }
-        return bars
-    }
-    var body: some View {
-        let bars = zoneBars
-        let maxCount = max(1, bars.map { $0.count }.max() ?? 1)
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 8) {
-                Image(systemName: "waveform.path.ecg").font(.forgeDynamic(size: 13)).foregroundColor(.danger)
-                Text("HEART RATE ZONES").font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
-                Spacer()
-                Text("\(hrHistory.count) samples").font(.forgeDynamic(size: 11)).foregroundColor(.white.opacity(0.3))
-            }
-            HStack(alignment: .bottom, spacing: 10) {
-                ForEach(Array(bars.enumerated()), id: \.element.zone) { idx, bar in
-                    VStack(spacing: 8) {
-                        let fraction = barsAppeared ? CGFloat(bar.count) / CGFloat(maxCount) : 0
-                        ZStack(alignment: .bottom) {
-                            RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.06)).frame(maxWidth: .infinity, maxHeight: .infinity)
-                            RoundedRectangle(cornerRadius: 6).fill(LinearGradient(colors: [bar.color, bar.color.opacity(0.6)], startPoint: .top, endPoint: .bottom))
-                                .frame(maxWidth: .infinity).frame(height: max(4, 80 * fraction)).shadow(color: bar.color.opacity(0.4), radius: 4)
-                        }
-                        .frame(height: 80).animation(.spring(response: 0.9, dampingFraction: 0.75).delay(Double(idx) * 0.08), value: barsAppeared)
-                        Text(formatZoneTime(bar.count)).font(.forgeDynamic(size: 10, weight: .bold)).foregroundColor(bar.count > 0 ? bar.color : .white.opacity(0.2))
-                        Text(bar.zone).font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.white.opacity(0.35))
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-        }
-        .padding(20).background(Color.white.opacity(0.04)).cornerRadius(22).overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.07), lineWidth: 1))
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { barsAppeared = true } }
-    }
-    private func formatZoneTime(_ count: Int) -> String { let secs = count * 2; return secs < 60 ? "\(secs)s" : "\(secs / 60)m" }
-}
-
-// MARK: - HR Sparkline Card
-
-private struct HRSparklineCard: View {
-    let hrHistory: [Int]
-    let peakHR: Int
-    let avgHR:  Int
-    @State private var lineAppeared = false
-    private var smoothed: [Int] {
-        guard hrHistory.count > 4 else { return hrHistory }
-        let step = max(1, hrHistory.count / 60)
-        return stride(from: 0, to: hrHistory.count, by: step).map { hrHistory[$0] }
-    }
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                HStack(spacing: 6) {
-                    Image(systemName: "heart.fill").font(.forgeDynamic(size: 13)).foregroundColor(.danger)
-                    Text("HEART RATE").font(.forgeDynamic(size: 10, weight: .black)).foregroundColor(.white.opacity(0.4)).tracking(2.5)
-                }
-                Spacer()
-                HStack(spacing: 18) {
-                    VStack(spacing: 1) { Text("\(peakHR)").font(.forgeDynamic(size: 16, weight: .black, design: .monospaced)).foregroundColor(.danger); Text("peak").font(.forgeDynamic(size: 9, weight: .semibold)).foregroundColor(.white.opacity(0.35)) }
-                    VStack(spacing: 1) { Text("\(avgHR)").font(.forgeDynamic(size: 16, weight: .black, design: .monospaced)).foregroundColor(.white); Text("avg").font(.forgeDynamic(size: 9, weight: .semibold)).foregroundColor(.white.opacity(0.35)) }
-                }
-            }
-            GeometryReader { geo in
-                Canvas { ctx, size in
-                    let pts = smoothed
-                    guard pts.count > 1 else { return }
-                    let minV = Double(pts.min() ?? 60); let maxV = Double(pts.max() ?? 200); let rng = max(maxV - minV, 1)
-                    let xStep = size.width / Double(pts.count - 1)
-                    func y(_ v: Int) -> Double { size.height - (Double(v) - minV) / rng * size.height }
-                    func pt(_ i: Int) -> CGPoint { CGPoint(x: Double(i) * xStep, y: y(pts[i])) }
-                    let zoneDefs: [(min: Int, max: Int, col: Color)] = [(100,114,Color.sky),(115,133,.success),(134,152,Color.amber),(153,171,.ember),(172,220,.danger)]
-                    for z in zoneDefs {
-                        let yT = max(0.0, size.height - (Double(z.max) - minV) / rng * size.height)
-                        let yB = min(size.height, size.height - (Double(z.min) - minV) / rng * size.height)
-                        if yB > yT { ctx.fill(Path(CGRect(x: 0, y: yT, width: size.width, height: yB - yT)), with: .color(z.col.opacity(0.09))) }
-                    }
-                    var area = Path(); area.move(to: CGPoint(x: 0, y: size.height))
-                    for i in pts.indices { i == 0 ? area.move(to: pt(0)) : area.addLine(to: pt(i)) }
-                    area.addLine(to: CGPoint(x: size.width, y: size.height)); area.closeSubpath()
-                    ctx.fill(area, with: .color(Color.danger.opacity(0.10)))
-                    var line = Path(); for i in pts.indices { i == 0 ? line.move(to: pt(0)) : line.addLine(to: pt(i)) }
-                    ctx.stroke(line, with: .color(Color.danger.opacity(0.85)), lineWidth: 2)
-                }
-                .opacity(lineAppeared ? 1 : 0).animation(.easeInOut(duration: 0.8), value: lineAppeared)
-            }
-            .frame(height: 88)
-        }
-        .padding(20).background(Color.white.opacity(0.04)).cornerRadius(22).overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.07), lineWidth: 1))
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { lineAppeared = true } }
-    }
-}
-
-// MARK: - Exercise Demonstration
-
-enum ExerciseDemoTab: CaseIterable { case video, formCheck }
-
-struct ExerciseDemonstrationView: View {
-    let exercise: Exercise
-    var definition: ExerciseDefinition? = nil
-    @Binding var selectedTab: ExerciseDemoTab
-    var onLaunchCamera: (() -> Void)? = nil
-
-    var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 6) {
-                ForEach(ExerciseDemoTab.allCases, id: \.self) { tab in
-                    Button { withAnimation(.spring(response: 0.32, dampingFraction: 0.75)) { selectedTab = tab } } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: tab == .video ? "play.circle.fill" : "camera.fill").font(.forgeDynamic(size: 12))
-                            Text(tab == .video ? "Technique" : "ARIA Form Check").font(.forgeDynamic(size: 12, weight: .semibold))
-                        }
-                        .foregroundColor(selectedTab == tab ? .white : .textSecondary)
-                        .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(selectedTab == tab ? Color.ember : Color.surfaceElevated).cornerRadius(10)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.72), value: selectedTab)
-                    }
-                    .buttonStyle(.plain)
-                }
-                Spacer()
-            }
-            Group {
-                switch selectedTab {
-                case .video:     ExerciseTechniqueView(exercise: exercise, definition: definition)
-                case .formCheck: ExerciseFormCheckView(exercise: exercise, onLaunch: onLaunchCamera)
-                }
-            }
-            .id(selectedTab)
-            .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
-            .frame(height: 190)
-            .background(Color.background.opacity(0.5)).cornerRadius(14)
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
-            .animation(.spring(response: 0.38, dampingFraction: 0.78), value: selectedTab)
-        }
-    }
-}
-
-struct ExerciseTechniqueView: View {
-    let exercise: Exercise
-    var definition: ExerciseDefinition?
-    var body: some View {
-        ZStack {
-            LinearGradient(colors: [Color.ember.opacity(0.09), Color.ember.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            VStack(spacing: 10) {
-                Image(systemName: definition?.icon ?? "figure.strengthtraining.traditional").font(.forgeDynamic(size: 36)).foregroundColor(.ember.opacity(0.55))
-                if let def = definition {
-                    VStack(spacing: 6) {
-                        ForEach(def.cues.prefix(3), id: \.self) { cue in
-                            HStack(alignment: .top, spacing: 6) {
-                                Image(systemName: "checkmark.circle.fill").font(.forgeDynamic(size: 11)).foregroundColor(def.accent)
-                                Text(cue).font(.forgeDynamic(size: 12)).foregroundColor(.textSecondary).multilineTextAlignment(.leading)
-                                Spacer(minLength: 0)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                } else {
-                    Text(exercise.name).font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
-                    Text("Focus on controlled tempo and full range.").font(.forgeDynamic(size: 12)).foregroundColor(.textTertiary)
-                }
-            }
-            .padding(.vertical, 14)
-        }
-    }
-}
-
-struct ExerciseFormCheckView: View {
-    let exercise: Exercise
-    var onLaunch: (() -> Void)? = nil
-    @State private var showCamera = false
-    var body: some View {
-        ZStack {
-            LinearGradient(colors: [Color.success.opacity(0.08), Color.success.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            VStack(spacing: 10) {
-                Image(systemName: "camera.viewfinder").font(.forgeDynamic(size: 38)).foregroundColor(.success.opacity(0.5))
-                Text("ARIA Live Form Check").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                Text("Show ARIA your set — get real-time cues via the Claude vision API.").font(.forgeDynamic(size: 11)).foregroundColor(.textTertiary).multilineTextAlignment(.center).padding(.horizontal, 24)
-                Button {
-                    if let onLaunch { onLaunch() } else { showCamera = true }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "camera.fill").font(.forgeDynamic(size: 13))
-                        Text("Open Camera Coach").font(.forgeDynamic(size: 13, weight: .semibold))
-                    }
-                    .foregroundColor(.white).padding(.horizontal, 16).padding(.vertical, 8)
-                    .background(Color.success).cornerRadius(20).shadow(color: Color.success.opacity(0.35), radius: 8, y: 3)
-                }
-            }
-        }
-        .sheet(isPresented: $showCamera) { FormCheckCameraView(exercise: exercise, definition: ExerciseLibrary.definition(for: exercise), liveContext: nil) }
-    }
-}
-// MARK: - Form Check Camera (live ARIA vision coaching)
-
-@MainActor
-struct FormCheckCameraView: View {
-    @Environment(\.dismiss) private var dismiss
-    let exercise: Exercise
-    var definition: ExerciseDefinition?
-    var liveContext: ARIALiveContext?
-
-    @StateObject private var camera = FormCameraController()
-    @StateObject private var aria = ARIACoachService()
-    @State private var feedback: FormFeedback?
-    @State private var autoCoach = false
-    @State private var autoTask: Task<Void, Never>? = nil
-    @State private var captureFlash = false
-
-    private var context: ARIALiveContext {
-        liveContext ?? ARIALiveContext(
-            exerciseName: exercise.name,
-            setLabel: "Working set",
-            weight: exercise.weight ?? 0, reps: exercise.reps,
-            heartRate: 0, hrZone: 0, spO2: 98, elapsed: "—",
-            cues: definition?.cues ?? [])
-    }
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.black.ignoresSafeArea()
-                cameraLayer
-                if captureFlash { Color.white.opacity(0.6).ignoresSafeArea().transition(.opacity) }
-                VStack(spacing: 0) {
-                    topBar
-                    Spacer()
-                    if aria.isAnalyzing { analyzingPill.padding(.bottom, 12) }
-                    if let fb = feedback { feedbackCard(fb).padding(.horizontal, 16).padding(.bottom, 12) }
-                    controlBar.padding(.bottom, 28)
-                }
-            }
-            .navigationBarHidden(true)
-            .onAppear { camera.start() }
-            .onDisappear { camera.stop(); autoTask?.cancel() }
-        }
-    }
-
-    // ── Camera surface / permission states ────────────────────────────────────
-    @ViewBuilder
-    private var cameraLayer: some View {
-        switch camera.status {
-        case .running, .configuring:
-            CameraPreview(session: camera.session).ignoresSafeArea()
-        case .denied:
-            statePlaceholder(icon: "lock.fill", title: "Camera access needed",
-                             subtitle: "Enable camera in Settings so ARIA can watch your form.")
-        case .unavailable:
-            statePlaceholder(icon: "camera.metering.unknown", title: "No camera here",
-                             subtitle: "Run on a device to use ARIA's live form coach. You can still preview ARIA's analysis below.")
-        default:
-            ZStack { Color.black; ProgressView().tint(.white) }.ignoresSafeArea()
-        }
-    }
-
-    private func statePlaceholder(icon: String, title: String, subtitle: String) -> some View {
-        VStack(spacing: 14) {
-            Image(systemName: icon).font(.forgeDynamic(size: 44)).foregroundColor(.white.opacity(0.5))
-            Text(title).font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.white)
-            Text(subtitle).font(.forgeDynamic(size: 13)).foregroundColor(.white.opacity(0.5)).multilineTextAlignment(.center).padding(.horizontal, 40)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.background)
-    }
-
-    private var topBar: some View {
-        HStack(spacing: 12) {
-            Button { dismiss() } label: {
-                Image(systemName: "xmark").font(.forgeDynamic(size: 15, weight: .bold)).foregroundColor(.white).frame(width: 38, height: 38).background(.ultraThinMaterial).clipShape(Circle())
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(exercise.name).font(.forgeDynamic(size: 16, weight: .bold)).foregroundColor(.white)
-                HStack(spacing: 5) {
-                    Circle().fill(aria.hasAPIKey ? Color.success : Color.warning).frame(width: 6, height: 6)
-                    Text(aria.hasAPIKey ? "ARIA vision live" : "On-device preview").font(.forgeDynamic(size: 11, weight: .semibold)).foregroundColor(.white.opacity(0.7))
-                }
-            }
-            Spacer()
-            if camera.status == .running {
-                Button { camera.flip() } label: {
-                    Image(systemName: "arrow.triangle.2.circlepath.camera.fill").font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(.white).frame(width: 38, height: 38).background(.ultraThinMaterial).clipShape(Circle())
-                }
-            }
-        }
-        .padding(.horizontal, 16).padding(.top, 16)
-        .background(LinearGradient(colors: [.black.opacity(0.5), .clear], startPoint: .top, endPoint: .bottom))
-    }
-
-    private var analyzingPill: some View {
-        HStack(spacing: 8) {
-            ProgressView().tint(.white)
-            Text("ARIA is reading your form…").font(.forgeDynamic(size: 13, weight: .medium)).foregroundColor(.white)
-        }
-        .padding(.horizontal, 16).padding(.vertical, 10).background(.ultraThinMaterial).clipShape(Capsule())
-    }
-
-    private func feedbackCard(_ fb: FormFeedback) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle().stroke(Color.white.opacity(0.12), lineWidth: 5).frame(width: 54, height: 54)
-                    Circle().trim(from: 0, to: CGFloat(fb.score) / 100)
-                        .stroke(fb.status.color, style: StrokeStyle(lineWidth: 5, lineCap: .round)).frame(width: 54, height: 54).rotationEffect(.degrees(-90))
-                    Text("\(fb.score)").font(.forgeDynamic(size: 18, weight: .black, design: .rounded)).foregroundColor(.white)
-                }
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Image(systemName: fb.status.icon).font(.forgeDynamic(size: 12)).foregroundColor(fb.status.color)
-                        Text(fb.status.label).font(.forgeDynamic(size: 14, weight: .bold)).foregroundColor(fb.status.color)
-                        if !fb.isLive { Text("DEMO").font(.forgeDynamic(size: 8, weight: .black)).foregroundColor(.white.opacity(0.5)).padding(.horizontal, 4).padding(.vertical, 1).background(Color.white.opacity(0.12)).cornerRadius(3) }
-                    }
-                    Text(fb.summary).font(.forgeDynamic(size: 12)).foregroundColor(.white.opacity(0.8)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
-            }
-            if !fb.cues.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(fb.cues, id: \.self) { cue in
-                        HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: "arrow.right.circle.fill").font(.forgeDynamic(size: 12)).foregroundColor(.ember)
-                            Text(cue).font(.forgeDynamic(size: 13, weight: .medium)).foregroundColor(.white).lineSpacing(2)
-                            Spacer(minLength: 0)
-                        }
-                    }
-                }
-            }
-        }
-        .padding(16).background(.ultraThinMaterial).cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(fb.status.color.opacity(0.4), lineWidth: 1))
-    }
-
-    private var controlBar: some View {
-        HStack(spacing: 20) {
-            // Auto-coach toggle
-            Button { toggleAuto() } label: {
-                VStack(spacing: 4) {
-                    Image(systemName: autoCoach ? "bolt.fill" : "bolt.slash.fill").font(.forgeDynamic(size: 18)).foregroundColor(autoCoach ? .ember : .white.opacity(0.6))
-                    Text("Auto").font(.forgeDynamic(size: 10, weight: .semibold)).foregroundColor(.white.opacity(0.6))
-                }
-                .frame(width: 56, height: 56).background(.ultraThinMaterial).clipShape(Circle())
-            }
-            // Shutter
-            Button { Task { await analyze() } } label: {
-                ZStack {
-                    Circle().stroke(Color.white, lineWidth: 4).frame(width: 74, height: 74)
-                    Circle().fill(aria.isAnalyzing ? Color.white.opacity(0.4) : Color.white).frame(width: 60, height: 60)
-                    Image(systemName: "camera.fill").font(.forgeDynamic(size: 22, weight: .bold)).foregroundColor(.black)
-                }
-            }
-            .disabled(aria.isAnalyzing || (camera.status != .running && camera.status != .unavailable))
-            // Done
-            Button { dismiss() } label: {
-                VStack(spacing: 4) {
-                    Image(systemName: "checkmark").font(.forgeDynamic(size: 18, weight: .bold)).foregroundColor(.success)
-                    Text("Done").font(.forgeDynamic(size: 10, weight: .semibold)).foregroundColor(.white.opacity(0.6))
-                }
-                .frame(width: 56, height: 56).background(.ultraThinMaterial).clipShape(Circle())
-            }
-        }
-    }
-
-    private func analyze() async {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        withAnimation(.easeOut(duration: 0.12)) { captureFlash = true }
-        let image = await camera.capture()
-        withAnimation(.easeIn(duration: 0.25)) { captureFlash = false }
-        // On a real device we send the captured frame; otherwise ARIA returns an on-device read.
-        let fb: FormFeedback
-        if let image { fb = await aria.analyzeForm(image: image, context: context) }
-        else { fb = ARIACoachService.heuristicFeedback(for: context) }
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { feedback = fb }
-        if fb.status == .stop { UINotificationFeedbackGenerator().notificationOccurred(.error) }
-    }
-
-    private func toggleAuto() {
-        autoCoach.toggle()
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        if autoCoach {
-            autoTask = Task {
-                while !Task.isCancelled && autoCoach {
-                    await analyze()
-                    try? await Task.sleep(nanoseconds: 7_000_000_000)
-                }
-            }
-        } else {
-            autoTask?.cancel(); autoTask = nil
-        }
-    }
-}
-
-// MARK: - Corner Radius Helper
-
-private extension View {
-    func roundedCorners(_ radius: CGFloat, corners: UIRectCorner) -> some View {
-        clipShape(WorkoutRoundedCorner(radius: radius, corners: corners))
-    }
-}
-
-private struct WorkoutRoundedCorner: Shape {
-    let radius: CGFloat; let corners: UIRectCorner
-    func path(in rect: CGRect) -> Path {
-        Path(UIBezierPath(roundedRect: rect, byRoundingCorners: corners, cornerRadii: CGSize(width: radius, height: radius)).cgPath)
-    }
-}
-
-// MARK: - Comparable clamp
-
-extension Comparable {
-    func clamped(to range: ClosedRange<Self>) -> Self { min(max(self, range.lowerBound), range.upperBound) }
-}
