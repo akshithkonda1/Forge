@@ -1450,6 +1450,7 @@ private struct SecondaryButton: View {
             .foregroundColor(.textSecondary).frame(maxWidth: .infinity).padding(.vertical, 13)
             .background(Color.surfaceElevated).cornerRadius(13)
         }
+        .buttonStyle(.forgeTactile())
     }
 }
 

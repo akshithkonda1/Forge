@@ -3740,6 +3740,7 @@ struct RestTimerView: View {
                 .foregroundColor(.textSecondary).padding(.horizontal, 28).padding(.vertical, 14).background(Color.surfaceElevated).cornerRadius(100)
                 .overlay(Capsule().stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
             }
+            .buttonStyle(.forgeTactile())
             .accessibilityHint("Skips the remaining rest period.")
         }
         .frame(maxWidth: .infinity).padding(.vertical, 28)

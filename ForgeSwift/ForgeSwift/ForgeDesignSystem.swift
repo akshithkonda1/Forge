@@ -117,6 +117,28 @@ extension View {
     }
 }
 
+// ForgeTactileButtonStyle - signature press feedback: scale + haptic in one drop-in style
+struct ForgeTactileButtonStyle: ButtonStyle {
+    var haptic: UIImpactFeedbackGenerator.FeedbackStyle = .light
+    var scale: CGFloat = 0.96
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scale : 1.0)
+            .animation(FDS.adaptiveAnimation(FDS.Spring.snap), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed { FDS.haptic(haptic) }
+            }
+    }
+}
+
+extension ButtonStyle where Self == ForgeTactileButtonStyle {
+    static var forgeTactile: ForgeTactileButtonStyle { ForgeTactileButtonStyle() }
+    static func forgeTactile(haptic: UIImpactFeedbackGenerator.FeedbackStyle = .light, scale: CGFloat = 0.96) -> ForgeTactileButtonStyle {
+        ForgeTactileButtonStyle(haptic: haptic, scale: scale)
+    }
+}
+
 // ForgeEntrance - staggered entrance animation
 struct ForgeEntranceModifier: ViewModifier {
     let index: Int
