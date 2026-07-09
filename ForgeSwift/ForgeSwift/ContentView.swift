@@ -195,11 +195,11 @@ struct ForgeBottomNav: View {
             }
 
             HStack(spacing: 0) {
-                ForEach(tabs, id: \.self) { tab in
+                ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                     if tab == .chat {
-                        ARIATabButton(namespace: namespace)
+                        ARIATabButton(namespace: namespace, index: index + 1, count: tabs.count)
                     } else {
-                        RegularForgeTab(tab: tab, namespace: namespace)
+                        RegularForgeTab(tab: tab, namespace: namespace, index: index + 1, count: tabs.count)
                     }
                 }
             }
@@ -263,6 +263,8 @@ struct ForgeBottomNav: View {
 struct RegularForgeTab: View {
     let tab: TabItem
     var namespace: Namespace.ID
+    var index: Int = 1
+    var count: Int = 1
     @EnvironmentObject var store: AppStore
     @State private var pressed = false
     @State private var hovered = false
@@ -364,6 +366,7 @@ struct RegularForgeTab: View {
                     pressed = false
                 }
         )
+        .forgeTab(tab.label, isSelected: isActive, index: index, count: count)
     }
 }
 
@@ -371,7 +374,10 @@ struct RegularForgeTab: View {
 
 struct ARIATabButton: View {
     var namespace: Namespace.ID
+    var index: Int = 3
+    var count: Int = 5
     @EnvironmentObject var store: AppStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isVoiceMode = false
     @State private var pressed = false
     @State private var orbPulse = false
@@ -379,6 +385,20 @@ struct ARIATabButton: View {
     @State private var breathScale: CGFloat = 1.0
 
     private var isActive: Bool { store.activeTab == .chat }
+
+    private func toggleVoiceMode() {
+        let generator = UIImpactFeedbackGenerator(style: .rigid)
+        generator.impactOccurred()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            generator.impactOccurred(intensity: 0.7)
+        }
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.65)) {
+            isVoiceMode.toggle()
+        }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            store.activeTab = .chat
+        }
+    }
 
     var body: some View {
         Button {
@@ -391,11 +411,11 @@ struct ARIATabButton: View {
                 ZStack {
                     // EPIC particle rings when active
                     if isActive {
-                        ForEach(0..<3) { index in
+                        ForEach(0..<3) { ringIndex in
                             Circle()
                                 .stroke(
                                     LinearGradient(
-                                        colors: isVoiceMode ? 
+                                        colors: isVoiceMode ?
                                         [
                                             Color.sky.opacity(0.4),
                                             Color(hex: "0EA5E9").opacity(0.2),
@@ -411,13 +431,14 @@ struct ARIATabButton: View {
                                     ),
                                     lineWidth: 2
                                 )
-                                .frame(width: 48 + CGFloat(index * 8), height: 48 + CGFloat(index * 8))
+                                .frame(width: 48 + CGFloat(ringIndex * 8), height: 48 + CGFloat(ringIndex * 8))
                                 .scaleEffect(orbPulse ? 1.6 : 1.0)
-                                .opacity(orbPulse ? 0.0 : (0.5 - Double(index) * 0.15))
+                                .opacity(orbPulse ? 0.0 : (0.5 - Double(ringIndex) * 0.15))
                                 .animation(
-                                    .easeOut(duration: 2.0 + Double(index) * 0.3)
-                                    .repeatForever(autoreverses: false)
-                                    .delay(Double(index) * 0.2),
+                                    Animation.easeOut(duration: 2.0 + Double(ringIndex) * 0.3)
+                                        .repeatForever(autoreverses: false)
+                                        .delay(Double(ringIndex) * 0.2)
+                                        .forgeMotion(reduceMotion),
                                     value: orbPulse
                                 )
                         }
@@ -448,7 +469,7 @@ struct ARIATabButton: View {
                             .blur(radius: 20)
                             .scaleEffect(breathScale)
                             .animation(
-                                .easeInOut(duration: 2.5).repeatForever(autoreverses: true),
+                                Animation.easeInOut(duration: 2.5).repeatForever(autoreverses: true).forgeMotion(reduceMotion),
                                 value: breathScale
                             )
                     }
@@ -598,21 +619,10 @@ struct ARIATabButton: View {
                 }
         )
         .onLongPressGesture(minimumDuration: 0.6) {
-            // Epic haptic sequence
-            let generator = UIImpactFeedbackGenerator(style: .rigid)
-            generator.impactOccurred()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                generator.impactOccurred(intensity: 0.7)
-            }
-            
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.65)) {
-                isVoiceMode.toggle()
-            }
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                store.activeTab = .chat
-            }
+            toggleVoiceMode()
         }
         .onAppear {
+            guard !reduceMotion else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 orbPulse = true
                 breathScale = 1.08
@@ -623,6 +633,7 @@ struct ARIATabButton: View {
             }
         }
         .onChange(of: isActive) { _, active in
+            guard !reduceMotion else { return }
             if !active {
                 orbPulse = false
                 breathScale = 1.0
@@ -632,6 +643,11 @@ struct ARIATabButton: View {
                     breathScale = 1.08
                 }
             }
+        }
+        .forgeTab(isVoiceMode ? "ARIA, voice mode" : "ARIA", isSelected: isActive, index: index, count: count)
+        .accessibilityHint(isActive ? "" : "Opens the ARIA coach")
+        .accessibilityAction(named: isVoiceMode ? "Switch to chat mode" : "Switch to voice mode") {
+            toggleVoiceMode()
         }
     }
 }
