@@ -190,6 +190,7 @@ struct SleepView: View {
 
 struct SleepBackground: View {
     let tab: SleepTab
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase = false
 
     private var accent: Color {
@@ -210,7 +211,7 @@ struct SleepBackground: View {
             )
         }
         .onAppear {
-            withAnimation(.easeInOut(duration: 5).repeatForever(autoreverses: true)) { phase = true }
+            if !reduceMotion { withAnimation(.easeInOut(duration: 5).repeatForever(autoreverses: true)) { phase = true } }
         }
         .animation(.easeInOut(duration: 1.0), value: tab)
     }
@@ -572,6 +573,7 @@ struct AlarmTab: View {
 
 struct NextAlarmHero: View {
     let alarm: ForgeAlarm
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulse = false
 
     private var timeString: String {
@@ -650,7 +652,7 @@ struct NextAlarmHero: View {
         ))
         .shadow(color: Color.ember.opacity(0.12), radius: 24, y: 8)
         .onAppear {
-            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) { pulse = true }
+            if !reduceMotion { withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) { pulse = true } }
         }
     }
 }

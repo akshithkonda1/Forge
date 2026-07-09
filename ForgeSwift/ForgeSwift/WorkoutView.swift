@@ -1331,6 +1331,7 @@ struct WorkoutView: View {
 
 struct WorkoutIdleView: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var music = MusicControllerFactory.make(for: .appleMusic)
     @State private var appeared = false
     @State private var pulseOrb = false
@@ -1389,7 +1390,7 @@ struct WorkoutIdleView: View {
         }
         .onAppear {
             withAnimation(.spring(response: 0.72, dampingFraction: 0.8).delay(0.08)) { appeared = true }
-            withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) { pulseOrb = true }
+            if !reduceMotion { withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) { pulseOrb = true } }
         }
     }
 
@@ -3678,6 +3679,7 @@ struct RestTimerView: View {
     let totalRest:    Int
     let nextLabel:    String
     let onSkip:       () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var breathPhase = false
 
     private var progress: CGFloat { totalRest > 0 ? CGFloat(restTimeLeft) / CGFloat(totalRest) : 0 }
@@ -3699,9 +3701,9 @@ struct RestTimerView: View {
                     .stroke(LinearGradient(colors: [ringColor, ringColor.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing), style: StrokeStyle(lineWidth: 5, lineCap: .round))
                     .frame(width: 170, height: 170).rotationEffect(.degrees(-90)).animation(.linear(duration: 1), value: progress).animation(.easeInOut(duration: 0.6), value: ringColor)
                 ZStack {
-                    Circle().stroke(Color.sky.opacity(breathPhase ? 0.15 : 0.0), lineWidth: 1.5).frame(width: breathPhase ? 130 : 80, height: breathPhase ? 130 : 80).animation(.easeInOut(duration: 4).repeatForever(autoreverses: true), value: breathPhase)
-                    Circle().stroke(Color.sky.opacity(breathPhase ? 0.25 : 0.08), lineWidth: 2).frame(width: breathPhase ? 100 : 60, height: breathPhase ? 100 : 60).animation(.easeInOut(duration: 4).repeatForever(autoreverses: true), value: breathPhase)
-                    Circle().fill(Color.sky.opacity(breathPhase ? 0.15 : 0.04)).frame(width: breathPhase ? 80 : 50, height: breathPhase ? 80 : 50).animation(.easeInOut(duration: 4).repeatForever(autoreverses: true), value: breathPhase)
+                    Circle().stroke(Color.sky.opacity(breathPhase ? 0.15 : 0.0), lineWidth: 1.5).frame(width: breathPhase ? 130 : 80, height: breathPhase ? 130 : 80).animation(Animation.easeInOut(duration: 4).repeatForever(autoreverses: true).forgeMotion(reduceMotion), value: breathPhase)
+                    Circle().stroke(Color.sky.opacity(breathPhase ? 0.25 : 0.08), lineWidth: 2).frame(width: breathPhase ? 100 : 60, height: breathPhase ? 100 : 60).animation(Animation.easeInOut(duration: 4).repeatForever(autoreverses: true).forgeMotion(reduceMotion), value: breathPhase)
+                    Circle().fill(Color.sky.opacity(breathPhase ? 0.15 : 0.04)).frame(width: breathPhase ? 80 : 50, height: breathPhase ? 80 : 50).animation(Animation.easeInOut(duration: 4).repeatForever(autoreverses: true).forgeMotion(reduceMotion), value: breathPhase)
                 }
                 .opacity(urgency ? 0 : 1)
                 VStack(spacing: 3) {
@@ -3730,7 +3732,7 @@ struct RestTimerView: View {
             .accessibilityHint("Skips the remaining rest period.")
         }
         .frame(maxWidth: .infinity).padding(.vertical, 28)
-        .onAppear { withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) { breathPhase = true } }
+        .onAppear { if !reduceMotion { withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) { breathPhase = true } } }
     }
 }
 

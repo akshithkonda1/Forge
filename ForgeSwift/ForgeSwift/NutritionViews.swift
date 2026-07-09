@@ -146,6 +146,7 @@ struct MacroRingsCard: View {
 
 struct AINutritionCoachCard: View {
     @ObservedObject var vm: LifestyleViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var tipIndex = 0
     @State private var sparkleScale: Double = 1.0
     @State private var appeared = false
@@ -189,8 +190,10 @@ struct AINutritionCoachCard: View {
         .cornerRadius(20)
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.ember.opacity(0.2), lineWidth: 1))
         .onAppear {
-            withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) {
-                sparkleScale = 1.25
+            if !reduceMotion {
+                withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) {
+                    sparkleScale = 1.25
+                }
             }
             withAnimation(.easeOut(duration: 0.4)) { appeared = true }
         }
