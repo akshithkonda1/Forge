@@ -33,9 +33,26 @@ env:
   REFERENCE_POLICY_TYPE: TYPE_OF_REFERENCE_POLICY # set to pass the policy type associated with the IAM policy under analysis and the reference policy. This is required if you are using `CHECK_NO_NEW_ACCESS_CHECK` policy-check-type.
 
 jobs:
+  check-config:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Check whether placeholders have been replaced
+        id: check
+        run: |
+          if [ "$AWS_ROLE" != "MY_ROLE" ] && [ "$REGION" != "MY_AWS_REGION" ] && [ "$TEMPLATE_PATH" != "FILE_PATH_TO_THE_TF_PLAN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
   policy-validator:
+    needs: check-config
     # Skip until real AWS role/region/template values replace the template placeholders.
-    if: ${{ env.AWS_ROLE != 'MY_ROLE' && env.REGION != 'MY_AWS_REGION' && env.TEMPLATE_PATH != 'FILE_PATH_TO_THE_TF_PLAN' }}
+    # (This gate must live behind a job that reads `env`, since the `env` context
+    # is not available in `jobs.<job_id>.if` expressions.)
+    if: needs.check-config.outputs.configured == 'true'
     runs-on: ubuntu-latest # Virtual machine to run the workflow (configurable)
     #https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services#updating-your-github-actions-workflow
     #https://aws.amazon.com/blogs/security/use-iam-roles-to-connect-github-actions-to-actions-in-aws/
