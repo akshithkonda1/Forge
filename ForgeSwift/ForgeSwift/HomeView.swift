@@ -495,6 +495,7 @@ struct ReadinessSectionView: View {
                     Text("READINESS SCORE")
                         .font(.forgeDynamic(size: 10, weight: .bold))
                         .foregroundColor(.textTertiary).tracking(2)
+                        .forgeHeader()
                     Text("Updated just now")
                         .font(.forgeDynamic(size: 10)).foregroundColor(.textMuted)
                 }
@@ -916,6 +917,7 @@ struct TodayPlanCardView: View {
                 Text("TODAY'S PLAN")
                     .font(.forgeDynamic(size: 10, weight: .bold))
                     .foregroundColor(.textTertiary).tracking(2)
+                    .forgeHeader()
                 Spacer()
                 HStack(spacing: 4) {
                     Image(systemName: "sparkles").font(.forgeDynamic(size: 10))
@@ -1217,6 +1219,7 @@ struct InsightsSectionView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("INSIGHTS")
                     .font(.forgeDynamic(size: 10, weight: .bold)).foregroundColor(.textTertiary).tracking(2)
+                    .forgeHeader()
                 VStack(spacing: 10) {
                     ForEach(Array(insights.enumerated()), id: \.element.id) { i, insight in
                         InsightCard(insight: insight)
@@ -1273,6 +1276,7 @@ struct RecentActivityView: View {
             HStack {
                 Text("RECENT WORKOUTS")
                     .font(.forgeDynamic(size: 10, weight: .bold)).foregroundColor(.textTertiary).tracking(2)
+                    .forgeHeader()
                 Spacer()
                 Button("See All") { store.activeTab = .workout }
                     .font(.forgeDynamic(size: 12, weight: .medium)).foregroundColor(.ember)

@@ -1194,6 +1194,7 @@ struct SoundMixerPanel: View {
                         Image(systemName: "xmark").font(.forgeDynamic(size: 11, weight: .bold)).foregroundColor(.textMuted)
                             .frame(width: 28, height: 28).background(Color.surfaceElevated).clipShape(Circle())
                     }
+                    .accessibilityLabel("Remove sound")
                 }
             }
         }

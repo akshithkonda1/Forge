@@ -1493,6 +1493,7 @@ struct LocationMealConfirmationSheet: View {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.forgeDynamic(size: 26))
                                 .foregroundColor(.textTertiary)
+                                .accessibilityLabel("Close")
                         }
                     }
 

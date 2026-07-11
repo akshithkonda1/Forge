@@ -2106,7 +2106,7 @@ struct ExerciseLibraryView: View {
             TextField("Search 90+ movements…", text: $query)
                 .font(.forgeDynamic(size: 15)).foregroundColor(.textPrimary).tint(.ember)
             if !query.isEmpty {
-                Button { query = "" } label: { Image(systemName: "xmark.circle.fill").font(.forgeDynamic(size: 15)).foregroundColor(.textMuted) }
+                Button { query = "" } label: { Image(systemName: "xmark.circle.fill").font(.forgeDynamic(size: 15)).foregroundColor(.textMuted) }.accessibilityLabel("Clear search")
             }
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
@@ -3399,7 +3399,7 @@ struct SubstitutionBanner: View {
                         Text("\(reason) — try \(target.name)").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
                     }
                     Spacer()
-                    Button(action: onDismiss) { Image(systemName: "xmark").font(.forgeDynamic(size: 12, weight: .bold)).foregroundColor(.textMuted).frame(width: 28, height: 28).background(Color.surfaceElevated).clipShape(Circle()) }
+                    Button(action: onDismiss) { Image(systemName: "xmark").font(.forgeDynamic(size: 12, weight: .bold)).foregroundColor(.textMuted).frame(width: 28, height: 28).background(Color.surfaceElevated).clipShape(Circle()) }.accessibilityLabel("Dismiss")
                 }
                 Button(action: onApply) {
                     HStack(spacing: 8) {
@@ -3435,7 +3435,7 @@ struct O2WarningBanner: View {
                     Text("\(spO2)% — Slow down and breathe deeply").font(.forgeDynamic(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
                 }
                 Spacer()
-                Button(action: onDismiss) { Image(systemName: "xmark").font(.forgeDynamic(size: 12, weight: .bold)).foregroundColor(.textMuted).frame(width: 28, height: 28).background(Color.surfaceElevated).clipShape(Circle()) }
+                Button(action: onDismiss) { Image(systemName: "xmark").font(.forgeDynamic(size: 12, weight: .bold)).foregroundColor(.textMuted).frame(width: 28, height: 28).background(Color.surfaceElevated).clipShape(Circle()) }.accessibilityLabel("Dismiss")
             }
             .padding(.horizontal, 20).padding(.vertical, 14)
             .background(ZStack { Color.surface; LinearGradient(colors: [Color.danger.opacity(0.1), .clear], startPoint: .leading, endPoint: .trailing) })

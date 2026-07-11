@@ -514,6 +514,7 @@ struct AIInsightsModal: View {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.forgeDynamic(size: 28)).foregroundColor(.textTertiary.opacity(0.7))
                         }
+                        .accessibilityLabel("Close")
                     }
                     .padding(.horizontal, 20).padding(.bottom, 20)
 

@@ -583,6 +583,7 @@ struct WorkoutHistoryListView: View {
                                     .font(.system(size: 14))
                                     .foregroundColor(.textTertiary)
                             }
+                            .accessibilityLabel("Clear search")
                         }
                     }
                     .padding(12)

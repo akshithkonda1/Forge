@@ -917,6 +917,7 @@ struct NutritionDatabaseView: View {
                     Button { searchText = "" } label: {
                         Image(systemName: "xmark.circle.fill").foregroundColor(.textMuted)
                     }
+                    .accessibilityLabel("Clear search")
                 }
             }
             .padding(13)

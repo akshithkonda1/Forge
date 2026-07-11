@@ -1318,6 +1318,7 @@ struct ReplyPreviewBar: View {
                     .font(.forgeDynamic(size: 18))
                     .foregroundColor(.textMuted)
             }
+            .accessibilityLabel("Dismiss")
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
         .background(Color.surfaceElevated)
