@@ -843,6 +843,8 @@ struct AdaptiveSunriseCard: View {
                                 Slider(value: $colorTemp)
                                     .tint(.clear)
                                     .padding(.horizontal, 2)
+                                    .accessibilityLabel("Color temperature")
+                                    .accessibilityValue("\(Int(colorTemp * 100)) percent, warmer to cooler")
                             }
                         }
 

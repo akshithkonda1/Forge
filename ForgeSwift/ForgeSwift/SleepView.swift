@@ -697,6 +697,7 @@ struct AlarmRow: View {
                     .onChange(of: alarm.isEnabled) {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     }
+                    .accessibilityLabel("Alarm enabled")
             }
             .padding(.horizontal, 18).padding(.vertical, 16)
             .background(Color.surface)
@@ -1185,6 +1186,8 @@ struct SoundMixerPanel: View {
                         Text(item.sound.name).font(.forgeDynamic(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
                         Slider(value: $activeSounds[index].volume, in: 0...1)
                             .tint(item.sound.color)
+                            .accessibilityLabel("\(item.sound.name) volume")
+                            .accessibilityValue("\(Int(activeSounds[index].volume * 100)) percent")
                     }
                     Button {
                         withAnimation { 
@@ -1474,6 +1477,8 @@ struct SunriseSimulationCard: View {
                                 Slider(value: $colorTemp)
                                     .tint(.clear)
                                     .padding(.horizontal, 2)
+                                    .accessibilityLabel("Color temperature")
+                                    .accessibilityValue("\(Int(colorTemp * 100)) percent, warmer to cooler")
                             }
                         }
 
