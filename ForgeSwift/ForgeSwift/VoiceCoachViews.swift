@@ -15,7 +15,8 @@ struct VoiceCoachBar: View {
                     isThinking: coach.isThinking,
                     isListening: coach.isListening
                 )
-                
+                .accessibilityHidden(true)
+
                 // Text content
                 VStack(alignment: .leading, spacing: 4) {
                     if coach.isListening && !coach.transcribedText.isEmpty {
@@ -161,6 +162,8 @@ struct MicButton: View {
                 isPressed = pressing
             }
         }, perform: {})
+        .accessibilityLabel(coach.isListening ? "Stop listening" : "Start voice input")
+        .accessibilityValue(coach.isThinking ? "Thinking" : (coach.isSpeaking ? "Speaking" : ""))
     }
     
     var micBackground: Color {
@@ -245,5 +248,8 @@ struct VoiceToggleButton: View {
                 .cornerRadius(10)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Voice output")
+        .accessibilityValue(coach.isVoiceEnabled ? "On" : "Off")
+        .accessibilityAddTraits(.isToggle)
     }
 }

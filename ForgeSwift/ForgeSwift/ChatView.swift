@@ -1246,6 +1246,8 @@ struct MessageBubbleView: View {
                         }
                         .buttonStyle(.plain)
                         .animation(FDS.Spring.snap, value: selectedReact)
+                        .accessibilityLabel(r.label)
+                        .accessibilityAddTraits(selectedReact == r.emoji ? [.isButton, .isSelected] : .isButton)
                     }
                     if isTrainer { Spacer() }
                 }
@@ -1494,6 +1496,8 @@ struct ChatInputAreaView: View {
                 .disabled(isTyping)
                 .opacity(isTyping ? 0.42 : 1)
                 .animation(FDS.Spring.snap, value: isTyping)
+                .accessibilityLabel("Voice input")
+                .accessibilityHint("Dictate your message to ARIA")
 
                 // Text field
                 ZStack(alignment: .trailing) {
@@ -1556,6 +1560,7 @@ struct ChatInputAreaView: View {
                     .disabled(!canSend)
                     .padding(.trailing, 7)
                     .buttonStyle(ScaleButtonStyle())
+                    .accessibilityLabel("Send message")
                 }
                 .animation(.easeInOut(duration: 0.18), value: isInputFocused)
             }
@@ -1928,6 +1933,7 @@ struct WorkoutRichCardView: View {
                     Image(systemName: expanded ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
                         .font(.forgeDynamic(size: 22)).foregroundStyle(FDS.Gradient.ember)
                 }
+                .accessibilityLabel(expanded ? "Collapse workout details" : "Expand workout details")
             }
             .padding(16)
 
