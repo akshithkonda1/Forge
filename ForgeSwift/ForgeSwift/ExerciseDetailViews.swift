@@ -26,6 +26,8 @@ struct ExerciseDemonstrationView: View {
                         .animation(.spring(response: 0.3, dampingFraction: 0.72), value: selectedTab)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(tab == .video ? "Technique" : "ARIA Form Check")
+                    .accessibilityAddTraits(selectedTab == tab ? [.isButton, .isSelected] : .isButton)
                 }
                 Spacer()
             }
@@ -176,6 +178,7 @@ struct FormCheckCameraView: View {
             Button { dismiss() } label: {
                 Image(systemName: "xmark").font(.forgeDynamic(size: 15, weight: .bold)).foregroundColor(.white).frame(width: 38, height: 38).background(.ultraThinMaterial).clipShape(Circle())
             }
+            .accessibilityLabel("Close")
             VStack(alignment: .leading, spacing: 2) {
                 Text(exercise.name).font(.forgeDynamic(size: 16, weight: .bold)).foregroundColor(.white)
                 HStack(spacing: 5) {
@@ -188,6 +191,7 @@ struct FormCheckCameraView: View {
                 Button { camera.flip() } label: {
                     Image(systemName: "arrow.triangle.2.circlepath.camera.fill").font(.forgeDynamic(size: 15, weight: .semibold)).foregroundColor(.white).frame(width: 38, height: 38).background(.ultraThinMaterial).clipShape(Circle())
                 }
+                .accessibilityLabel("Flip camera")
             }
         }
         .padding(.horizontal, 16).padding(.top, 16)
@@ -247,6 +251,9 @@ struct FormCheckCameraView: View {
                 }
                 .frame(width: 56, height: 56).background(.ultraThinMaterial).clipShape(Circle())
             }
+            .accessibilityLabel("Auto coaching")
+            .accessibilityValue(autoCoach ? "On" : "Off")
+            .accessibilityAddTraits(.isToggle)
             // Shutter
             Button { Task { await analyze() } } label: {
                 ZStack {
@@ -256,6 +263,7 @@ struct FormCheckCameraView: View {
                 }
             }
             .disabled(aria.isAnalyzing || (camera.status != .running && camera.status != .unavailable))
+            .accessibilityLabel("Analyze my form")
             // Done
             Button { dismiss() } label: {
                 VStack(spacing: 4) {
@@ -264,6 +272,7 @@ struct FormCheckCameraView: View {
                 }
                 .frame(width: 56, height: 56).background(.ultraThinMaterial).clipShape(Circle())
             }
+            .accessibilityLabel("Done")
         }
     }
 

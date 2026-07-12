@@ -2976,6 +2976,18 @@ struct ActiveWorkoutView: View {
                                             Image(systemName: "plus").font(.forgeDynamic(size: 14, weight: .bold)).foregroundColor(.ember)
                                         }
                                     }
+                                    .accessibilityLabel("Increase weight")
+                                }
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("Weight")
+                                .accessibilityValue("\(currentWeight) pounds")
+                                .accessibilityAdjustableAction { direction in
+                                    switch direction {
+                                    case .increment: currentWeight += 5
+                                    case .decrement: currentWeight = max(0, currentWeight - 5)
+                                    default: break
+                                    }
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 }
                             }
                             .frame(maxWidth: .infinity)
