@@ -426,6 +426,9 @@ private struct OnboardingProgressBar: View {
                 }
                 .frame(height: 4)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(title)
+            .accessibilityValue("Step \(currentStep) of \(totalSteps)")
         }
         .padding(.horizontal, FDS.Spacing.xl)
         .padding(.top, 56)
@@ -1020,6 +1023,8 @@ private struct UnitToggle: View {
                         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(imperial ? "Imperial" : "Metric")
+                .accessibilityAddTraits(useImperial == imperial ? [.isButton, .isSelected] : .isButton)
             }
         }
         .padding(3)
@@ -1027,6 +1032,8 @@ private struct UnitToggle: View {
         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
             .stroke(Color.borderColor, lineWidth: 0.7))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Units")
     }
 }
 
@@ -1688,6 +1695,8 @@ struct ForgeSectionHeader: View {
         }
         .animation(FDS.Spring.hero, value: appeared)
         .onAppear { appeared = true }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -1822,6 +1831,9 @@ struct GenderSelectionCard: View {
         }
         .buttonStyle(.plain)
         .animation(FDS.Spring.standard, value: isSelected)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(gender.label)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -1903,6 +1915,9 @@ struct GoalCard: View {
         }
         .buttonStyle(.plain)
         .animation(FDS.Spring.standard, value: isSelected)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(goal.label)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -1961,6 +1976,9 @@ struct ExperienceLevelButton: View {
         }
         .buttonStyle(.plain)
         .animation(FDS.Spring.standard, value: isSelected)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(level.label). \(level.description)")
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -2008,6 +2026,9 @@ struct CoachingStyleCard: View {
         }
         .buttonStyle(.plain)
         .animation(FDS.Spring.standard, value: isSelected)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(style.label). \(style.description)")
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -2033,6 +2054,7 @@ struct TogglePill: View {
         }
         .buttonStyle(.plain)
         .animation(FDS.Spring.snap, value: isSelected)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 

@@ -62,10 +62,12 @@ struct HealthKitConnectionCard: View {
                         .shadow(color: Color.ember.opacity(0.3), radius: 8, y: 3)
                 }
                 .disabled(isRequesting)
+                .accessibilityLabel("Connect Apple Health")
             } else {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 24))
                     .foregroundColor(.success)
+                    .accessibilityLabel("Apple Health connected")
             }
         }
         .padding(16)

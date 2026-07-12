@@ -438,8 +438,11 @@ struct ExperienceLevelCard: View {
         }
         .buttonStyle(.plain)
         .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isSelected)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(level.label)\(isRecommended ? ", recommended" : "")")
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
-    
+
     private func levelIcon(_ level: ExperienceLevel) -> String {
         switch level {
         case .beginner: return "leaf.fill"
