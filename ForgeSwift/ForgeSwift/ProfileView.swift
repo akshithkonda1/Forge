@@ -1259,6 +1259,7 @@ struct SettingsPageView: View {
             .tracking(1)
             .padding(.top, 24)
             .padding(.bottom, 8)
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -1744,6 +1745,7 @@ struct SettingsRow<Trailing: View>: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -1819,12 +1821,16 @@ struct TimeRangePicker: View {
                     .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(range.rawValue)
+                .accessibilityAddTraits(selection == range ? [.isButton, .isSelected] : .isButton)
             }
         }
         .padding(4)
         .background(Color.surface)
         .cornerRadius(100)
         .overlay(Capsule().stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Time range")
     }
 }
 
@@ -2456,6 +2462,9 @@ struct CoachingStylePickerView: View {
                                 )
                             }
                             .buttonStyle(.plain)
+                            .accessibilityElement(children: .combine)
+                            .accessibilityAddTraits(selectedStyle == style ? [.isButton, .isSelected] : .isButton)
+                            .accessibilityHint(selectedStyle == style ? "" : "Selects this coaching style")
                         }
                     }
                     .padding(.horizontal)
