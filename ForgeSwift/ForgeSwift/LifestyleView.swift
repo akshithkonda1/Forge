@@ -1361,6 +1361,8 @@ struct SegmentedPillControl: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(seg.title)
+                    .accessibilityAddTraits(selected == seg ? [.isButton, .isSelected] : .isButton)
                 }
             }
             .padding(.vertical, 2)

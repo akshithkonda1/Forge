@@ -302,12 +302,15 @@ struct DataSourceCard: View {
                         .background(Color.ember)
                         .cornerRadius(8)
                 }
+                .accessibilityLabel("Connect \(title)")
             } else {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 24))
                     .foregroundColor(.success)
+                    .accessibilityLabel("\(title) connected")
             }
         }
+        .accessibilityElement(children: .combine)
         .padding(16)
         .background(Color.surface)
         .cornerRadius(18)

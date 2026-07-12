@@ -230,6 +230,10 @@ struct HabitRow: View {
             .padding(.vertical, 10)
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(name)
+        .accessibilityValue(isDone ? "Done" : "Not done")
+        .accessibilityHint("Double tap to toggle")
     }
 }
 
@@ -369,8 +373,12 @@ struct StressManagementCard: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(level.label)
+                    .accessibilityAddTraits(selectedLevel == i ? [.isButton, .isSelected] : .isButton)
                 }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Stress level")
 
             HStack(spacing: 8) {
                 Image(systemName: "lightbulb.fill").font(.forgeDynamic(size: 12)).foregroundColor(.warning)
