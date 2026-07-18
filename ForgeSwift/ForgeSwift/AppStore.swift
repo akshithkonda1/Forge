@@ -500,11 +500,15 @@ final class AppStore: ObservableObject {
     // MARK: - Published State
     
     // Onboarding
-    @Published var isOnboarded: Bool = false
+    @Published var isOnboarded: Bool = false {
+        didSet { UserDefaults.standard.set(isOnboarded, forKey: Self.onboardedDefaultsKey) }
+    }
     @Published var onboardingStep: Int = 0
 
     // User Profile
-    @Published var userProfile: UserProfile = mockProfile
+    @Published var userProfile: UserProfile = mockProfile {
+        didSet { persistUserProfile() }
+    }
 
     // Readiness & Metrics
     @Published var readiness: ReadinessData = mockReadiness
@@ -571,6 +575,9 @@ final class AppStore: ObservableObject {
         
         AriaContextStore.shared.configure()
 
+        // Restore persisted onboarding so a returning user skips setup entirely.
+        restoreOnboardingState()
+
         // Load seed data, then hydrate from HealthKit when authorized
         Task { @MainActor in
             self.chatMessages = mockChatMessages
@@ -579,6 +586,27 @@ final class AppStore: ObservableObject {
             self.personalRecords = mockPersonalRecords
             await self.refreshDailyData()
         }
+    }
+
+    // MARK: - Onboarding Persistence
+
+    private static let onboardedDefaultsKey = "forge.onboarding.completed"
+    private static let profileDefaultsKey = "forge.user.profile.v1"
+
+    /// Rehydrates a completed onboarding (flag + profile) on cold launch so the
+    /// user lands straight in the app instead of re-running setup every time.
+    private func restoreOnboardingState() {
+        guard UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) else { return }
+        if let data = UserDefaults.standard.data(forKey: Self.profileDefaultsKey),
+           let saved = try? JSONDecoder().decode(UserProfile.self, from: data) {
+            userProfile = saved
+        }
+        isOnboarded = true
+    }
+
+    private func persistUserProfile() {
+        guard let data = try? JSONEncoder().encode(userProfile) else { return }
+        UserDefaults.standard.set(data, forKey: Self.profileDefaultsKey)
     }
 
     // MARK: - Workout Actions
