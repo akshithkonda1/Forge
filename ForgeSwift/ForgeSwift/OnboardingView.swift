@@ -234,6 +234,10 @@ struct OnboardingView: View {
             TrainingPreferencesStage(coordinator: coordinator)
         case .coach:
             CoachRevealStage(coordinator: coordinator) {
+                coordinator.startChat()
+            }
+        case .chat:
+            AriaOnboardingChatStage(coordinator: coordinator) {
                 coordinator.complete(in: store)
             }
         }
@@ -299,6 +303,7 @@ private struct DevSkipButton: View {
         .animation(FDS.Spring.snap, value: expanded)
     }
 }
+#endif
 
 
 // MARK: - Scaffold
@@ -1378,9 +1383,9 @@ private struct CoachRevealStage: View {
             eyebrow: "ARIA",
             title: "Choose the voice that keeps you moving.",
             subtitle: "This shapes every check-in, plan adjustment, and recovery nudge.",
-            ctaTitle: coordinator.isCompleting ? "Launching ARIA…" : "Start training with ARIA",
-            ctaIcon: "flame.fill",
-            ctaEnabled: !coordinator.isCompleting,
+            ctaTitle: "Meet ARIA",
+            ctaIcon: "bubble.left.and.bubble.right.fill",
+            ctaEnabled: true,
             ctaAction: onFinish
         ) {
             VStack(spacing: 18) {
@@ -1486,6 +1491,240 @@ private struct SummaryPill: View {
             .padding(.vertical, 7)
             .background(Color.surfaceElevated)
             .clipShape(Capsule())
+    }
+}
+
+// MARK: - Stage 7: ARIA Chat (simulated coach)
+
+private struct AriaOnboardingChatStage: View {
+    @Bindable var coordinator: OnboardingCoordinator
+    let onFinish: () -> Void
+    @FocusState private var inputFocused: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            OnboardingProgressBar(
+                currentStep: coordinator.currentStep,
+                totalSteps: coordinator.totalSteps,
+                title: coordinator.route.title,
+                canGoBack: coordinator.canGoBack,
+                onBack: coordinator.goBack
+            )
+
+            ScrollViewReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        AriaChatIntro()
+                        ForEach(coordinator.chatMessages) { message in
+                            OnboardingChatBubble(message: message)
+                                .id(message.id)
+                        }
+                        if coordinator.isAriaTyping {
+                            AriaTypingBubble()
+                                .id("aria-typing")
+                        }
+                        Color.clear.frame(height: 1).id("chat-bottom")
+                    }
+                    .padding(.horizontal, FDS.Spacing.xl)
+                    .padding(.top, 8)
+                    .padding(.bottom, 16)
+                    .frame(maxWidth: 680, alignment: .leading)
+                    .frame(maxWidth: .infinity)
+                }
+                .onChange(of: coordinator.chatMessages.count) { _, _ in
+                    withAnimation(FDS.Spring.standard) { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+                }
+                .onChange(of: coordinator.isAriaTyping) { _, _ in
+                    withAnimation(FDS.Spring.standard) { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+                }
+            }
+
+            if coordinator.chatFinished {
+                OnboardingBottomBar(
+                    title: coordinator.isCompleting ? "Launching ARIA…" : "Start training with ARIA",
+                    icon: "flame.fill",
+                    isEnabled: !coordinator.isCompleting,
+                    action: onFinish
+                )
+            } else {
+                OnboardingChatComposer(coordinator: coordinator, inputFocused: $inputFocused)
+            }
+        }
+        .background(Color.background)
+        .ignoresSafeArea(edges: .bottom)
+        .task { coordinator.beginChatIfNeeded() }
+    }
+}
+
+private struct AriaChatIntro: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            AriaAvatar(size: 36)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("ARIA")
+                    .font(.subheadline.weight(.black))
+                    .foregroundColor(.textPrimary)
+                Text("Building your plan in real time")
+                    .font(.caption)
+                    .foregroundColor(.textMuted)
+            }
+            Spacer()
+        }
+        .padding(.vertical, 6)
+    }
+}
+
+private struct AriaAvatar: View {
+    var size: CGFloat = 34
+
+    var body: some View {
+        Circle()
+            .fill(FDS.Gradient.ember)
+            .frame(width: size, height: size)
+            .overlay(
+                Text("A")
+                    .font(.system(size: size * 0.42, weight: .black))
+                    .foregroundColor(.white)
+            )
+            .shadow(color: Color.ember.opacity(0.3), radius: 6, y: 2)
+    }
+}
+
+private struct OnboardingChatBubble: View {
+    let message: OnboardingChatMessage
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            if message.role == .aria {
+                AriaAvatar(size: 30)
+                bubble
+                Spacer(minLength: 28)
+            } else {
+                Spacer(minLength: 28)
+                bubble
+            }
+        }
+    }
+
+    private var bubble: some View {
+        Text(message.text)
+            .font(.callout)
+            .foregroundColor(message.role == .aria ? .textPrimary : .white)
+            .lineSpacing(3)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 15)
+            .padding(.vertical, 11)
+            .background(
+                message.role == .aria
+                    ? AnyShapeStyle(Color.surface)
+                    : AnyShapeStyle(FDS.Gradient.ember)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 19, style: .continuous)
+                    .stroke(message.role == .aria ? Color.borderColor : Color.clear, lineWidth: 0.7)
+            )
+    }
+}
+
+private struct AriaTypingBubble: View {
+    @State private var phase = 0
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            AriaAvatar(size: 30)
+            HStack(spacing: 5) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(Color.textMuted)
+                        .frame(width: 6, height: 6)
+                        .opacity(phase == index ? 1 : 0.3)
+                        .scaleEffect(phase == index ? 1.15 : 1)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
+            .background(Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 19, style: .continuous).stroke(Color.borderColor, lineWidth: 0.7))
+            Spacer(minLength: 28)
+        }
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 320_000_000)
+                withAnimation(.easeInOut(duration: 0.3)) { phase = (phase + 1) % 3 }
+            }
+        }
+    }
+}
+
+private struct OnboardingChatComposer: View {
+    @Bindable var coordinator: OnboardingCoordinator
+    var inputFocused: FocusState<Bool>.Binding
+
+    private var canSend: Bool {
+        !coordinator.chatInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !coordinator.isAriaTyping
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            if !coordinator.chatSuggestions.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(coordinator.chatSuggestions, id: \.self) { suggestion in
+                            Button {
+                                coordinator.sendChat(suggestion)
+                            } label: {
+                                Text(suggestion)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(.ember)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 9)
+                                    .background(Color.ember.opacity(0.12))
+                                    .clipShape(Capsule())
+                                    .overlay(Capsule().stroke(Color.ember.opacity(0.4), lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, FDS.Spacing.xl)
+                }
+            }
+
+            HStack(spacing: 10) {
+                TextField("Message ARIA…", text: $coordinator.chatInput, axis: .vertical)
+                    .focused(inputFocused)
+                    .font(.body)
+                    .foregroundColor(.textPrimary)
+                    .tint(.ember)
+                    .lineLimit(1...4)
+                    .disabled(coordinator.isAriaTyping)
+                    .onSubmit { coordinator.sendChat() }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 13)
+                    .background(Color.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous).stroke(Color.borderColor, lineWidth: 0.7))
+
+                Button {
+                    coordinator.sendChat()
+                } label: {
+                    Image(systemName: "arrow.up")
+                        .font(.headline.weight(.bold))
+                        .foregroundColor(.white)
+                        .frame(width: 48, height: 48)
+                        .background(canSend ? AnyShapeStyle(FDS.Gradient.ember) : AnyShapeStyle(Color.white.opacity(0.08)))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSend)
+                .animation(FDS.Spring.snap, value: canSend)
+            }
+            .padding(.horizontal, FDS.Spacing.xl)
+        }
+        .padding(.top, 10)
+        .padding(.bottom, 14)
+        .background(Color.background)
     }
 }
 
@@ -2091,4 +2330,3 @@ struct OnboardingFlowLayout: Layout {
         .environment(\.sizeCategory, .accessibilityExtraExtraExtraLarge)
         .preferredColorScheme(.dark)
 }
-#endif
