@@ -1,5 +1,9 @@
 import SwiftUI
 import Combine
+import Charts
+import WidgetKit
+import AVFoundation
+import UIKit
 import HealthKit
 import WorkoutKit
 import CoreLocation
@@ -179,8 +183,40 @@ final class SmartNotificationManager: ObservableObject {
         
         let trigger = UNCalendarNotificationTrigger(dateMatching: earlyTime, repeats: true)
         let request = UNNotificationRequest(identifier: "sleep-\(UUID())", content: content, trigger: trigger)
-        
+
         try? await UNUserNotificationCenter.current().add(request)
+    }
+
+    /// Replaces any prior recommendation notifications with the current top
+    /// high-impact picks. Non-repeating — each load reschedules from fresh data,
+    /// so the user is never nudged about a recommendation that no longer applies.
+    func scheduleRecommendationReminders(_ recommendations: [AIRecommendation]) async {
+        let center = UNUserNotificationCenter.current()
+
+        // Clear stale recommendation notifications so we never stack duplicates.
+        let pending = await center.pendingNotificationRequests()
+        let staleIDs = pending.map(\.identifier).filter { $0.hasPrefix("recommendation-") }
+        if !staleIDs.isEmpty {
+            center.removePendingNotificationRequests(withIdentifiers: staleIDs)
+        }
+
+        // Nudge the top high-impact recommendations, spaced a couple hours out.
+        let picks = Array(recommendations.filter { $0.impact == .high }.prefix(2))
+        for (i, rec) in picks.enumerated() {
+            let content = UNMutableNotificationContent()
+            content.title = "⚡️ \(rec.title)"
+            content.body = rec.description
+            content.sound = .default
+
+            let delay = TimeInterval((i + 1) * 2 * 3600)  // 2h, then 4h
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
+            let request = UNNotificationRequest(
+                identifier: "recommendation-\(rec.id.uuidString)",
+                content: content,
+                trigger: trigger
+            )
+            try? await center.add(request)
+        }
     }
 }
 
@@ -193,6 +229,42 @@ struct SmartReminder: Identifiable {
 
 enum ReminderType {
     case hydration, meal, sleep, workout, supplement
+}
+
+// MARK: - Widget Bridge (shared snapshot for the Home Screen widget)
+
+/// Snapshot the Lifestyle Home Screen widget reads from the shared App Group.
+/// Lives in the app target (so it compiles in CI); the widget extension — added
+/// separately in Xcode — decodes the same struct from the same suite + key.
+struct LifestyleWidgetSnapshot: Codable {
+    var qol: Int
+    var topTitle: String?
+    var topCategory: String?
+    var updatedAt: Date
+}
+
+enum LifestyleWidgetBridge {
+    /// Must match the App Group capability on BOTH the app and widget targets.
+    static let appGroup = "group.com.forge.ForgeSwift"
+    static let kind = "LifestyleWidget"
+    static let snapshotKey = "lifestyle.widget.snapshot"
+
+    /// Persists the latest QOL + top recommendation and pokes the widget to reload.
+    /// Safe before the App Group is configured: writes fall back to a private
+    /// domain and the reload is a no-op when no widget is installed.
+    static func update(metrics: LifestyleMetrics, recommendations: [AIRecommendation]) {
+        let top = recommendations.first
+        let snapshot = LifestyleWidgetSnapshot(
+            qol: metrics.qualityOfLifeScore,
+            topTitle: top?.title,
+            topCategory: top?.category.rawValue,
+            updatedAt: Date()
+        )
+        guard let defaults = UserDefaults(suiteName: appGroup),
+              let data = try? JSONEncoder().encode(snapshot) else { return }
+        defaults.set(data, forKey: snapshotKey)
+        WidgetCenter.shared.reloadTimelines(ofKind: kind)
+    }
 }
 
 // MARK: - Domain Models
@@ -577,12 +649,19 @@ struct DailyHabit: Identifiable, Codable, Equatable {
     var done: Bool
 }
 
+struct QOLDay: Identifiable, Codable {
+    var id = UUID()
+    let date: Date
+    let score: Int
+}
+
 @MainActor
 enum LifestyleWellbeingStore {
     private static let habitsKey = "lifestyle.dailyHabits"
     private static let streakKey = "lifestyle.habitStreak"
     private static let stressKey = "lifestyle.stressLevel"
     private static let habitsDateKey = "lifestyle.habitsDate"
+    private static let qolHistoryKey = "lifestyle.qolHistory"
 
     static let defaultHabits: [DailyHabit] = [
         DailyHabit(id: UUID(), name: "Morning sunlight (10 min)", done: false),
@@ -614,6 +693,27 @@ enum LifestyleWellbeingStore {
 
     static func habitStreak() -> Int {
         max(UserDefaults.standard.integer(forKey: streakKey), 1)
+    }
+
+    /// Records today's QOL score (one entry per day; last 30 days kept) and
+    /// returns the updated history, oldest first.
+    @discardableResult
+    static func recordQOL(_ score: Int) -> [QOLDay] {
+        let today = Calendar.current.startOfDay(for: Date())
+        var history = loadQOLHistory().filter { !Calendar.current.isDate($0.date, inSameDayAs: today) }
+        history.append(QOLDay(date: today, score: score))
+        history.sort { $0.date < $1.date }
+        if history.count > 30 { history = Array(history.suffix(30)) }
+        if let data = try? JSONEncoder().encode(history) {
+            UserDefaults.standard.set(data, forKey: qolHistoryKey)
+        }
+        return history
+    }
+
+    static func loadQOLHistory() -> [QOLDay] {
+        guard let data = UserDefaults.standard.data(forKey: qolHistoryKey),
+              let history = try? JSONDecoder().decode([QOLDay].self, from: data) else { return [] }
+        return history
     }
 
     private static func updateStreakIfNeeded(_ habits: [DailyHabit]) {
@@ -648,11 +748,22 @@ final class LifestyleViewModel: ObservableObject {
     // Real-time health data
     @Published var healthStats: DailyHealthStats?
     @Published var weeklyTrends: [WeeklyHealthTrend] = []
+    @Published var mindfulTrend: [MindfulDay] = []
+    @Published var qolHistory: [QOLDay] = []
     @Published var aiWorkouts: [AIWorkoutSuggestion] = []
     @Published var loggedMeals: [MealLog] = []
     @Published var mindfulMinutesToday: Int = 0
     @Published var mindfulMinutesWeek: Int = 0
-    
+
+    // Live ARIA insights — overlay real Claude/Bedrock reasoning onto the cards.
+    // When nil, the cards render their existing local heuristic content (fallback).
+    @Published var aiLifeAnalysis: String?
+    @Published var aiNutritionInsight: String?
+    @Published var aiBestPicksNote: String?
+    @Published var aiMealNote: String?
+    @Published var aiInsightsLive = false      // true when the last refresh came from the remote engine
+    @Published var aiInsightsLoading = false
+
     private let healthManager = HealthKitManager.shared
     private let workoutManager = WorkoutPlanManager()
     private let notificationManager = SmartNotificationManager.shared
@@ -670,8 +781,10 @@ final class LifestyleViewModel: ObservableObject {
 
             await healthManager.fetchTodayStats()
             await healthManager.fetchWeeklyTrends()
+            await healthManager.fetchMindfulTrend()
             healthStats = healthManager.todayStats
             weeklyTrends = healthManager.weeklyTrends
+            mindfulTrend = healthManager.mindfulTrend
             loggedMeals = healthManager.loggedMeals
 
             let now = Date()
@@ -688,8 +801,10 @@ final class LifestyleViewModel: ObservableObject {
             aiWorkouts = await ai
             mindfulMinutesToday = Int(await mindfulToday)
             mindfulMinutesWeek = Int(await mindfulWeek)
-            
+            qolHistory = LifestyleWellbeingStore.recordQOL(metrics.qualityOfLifeScore)
+
             await scheduleSmartReminders()
+            await notificationManager.scheduleRecommendationReminders(recommendations)
             syncAriaContext()
             error = nil
         } catch {
@@ -706,8 +821,76 @@ final class LifestyleViewModel: ObservableObject {
             recommendations: recommendations,
             loggedMeals: loggedMeals
         )
+        LifestyleWidgetBridge.update(metrics: metrics, recommendations: recommendations)
     }
-    
+
+    /// Overlays live Claude/Bedrock reasoning onto the heuristic cards. Best-effort:
+    /// on any failure the published fields stay nil and the cards keep rendering their
+    /// existing local content. Safe to call after `load()` / `refresh()`.
+    func refreshAIInsights(store: AppStore) async {
+        guard !aiInsightsLoading else { return }
+        aiInsightsLoading = true
+        defer { aiInsightsLoading = false }
+
+        // Make sure ARIA reasons over the latest lifestyle signals.
+        syncAriaContext()
+
+        let analysisResp = await store.ariaInsight(prompt: lifestyleAnalysisPrompt())
+        let nutritionResp = await store.ariaInsight(prompt: nutritionCoachPrompt())
+
+        aiLifeAnalysis = analysisResp.map { $0.proseSummary ?? $0.message }
+        aiNutritionInsight = nutritionResp.map { $0.proseSummary ?? $0.message }
+        // Remote engine answered (not the on-device fallback path).
+        aiInsightsLive = !AriaService.shared.isLocalFallback
+            && (analysisResp != nil || nutritionResp != nil)
+    }
+
+    private func lifestyleAnalysisPrompt() -> String {
+        let s = healthStats
+        return """
+        Analyze my lifestyle today in 2-3 sentences. QOL \(metrics.qualityOfLifeScore)/100, \
+        sleep \(String(format: "%.1f", metrics.sleepAverage))h, \(metrics.dailySteps) steps, \
+        stress \(metrics.stressLevel.rawValue), protein \(Int(s?.protein ?? 0))g, HRV \(Int(s?.hrv ?? 0))ms. \
+        What is the single highest-impact change I should make right now?
+        """
+    }
+
+    private func nutritionCoachPrompt() -> String {
+        let s = healthStats
+        return """
+        Coach my nutrition in 2-3 sentences. Today: \(Int(s?.protein ?? 0))g protein (target 180), \
+        \(s?.totalCalories ?? 0) kcal (target 2600), \(Int(s?.water ?? 0)) of 8 glasses water. \
+        Give one specific, actionable tip for my next meal.
+        """
+    }
+
+    /// Lazy ARIA coaching note for the restaurant "Best Picks" — fired only when the
+    /// Restaurants tab appears. Leaves the note nil (heuristic-only) on failure.
+    func refreshBestPicksNote(store: AppStore) async {
+        let gap = max(0, Int(180 - (healthStats?.protein ?? 0)))
+        let kcalLeft = max(0, 2600 - (healthStats?.totalCalories ?? 0))
+        let prompt = """
+        I'm picking a restaurant meal. I have about \(gap)g protein and \(kcalLeft) kcal left today. \
+        In 1-2 sentences, what should I prioritize ordering to close my protein gap without \
+        overshooting calories?
+        """
+        let resp = await store.ariaInsight(prompt: prompt)
+        aiBestPicksNote = resp.map { $0.proseSummary ?? $0.message }
+    }
+
+    /// Lazy ARIA dish suggestion for the Nutrition tab's meal-suggestions card.
+    /// Distinct from the macro coach tip; nil → heuristic rows only.
+    func refreshMealNote(store: AppStore) async {
+        let gap = max(0, Int(180 - (healthStats?.protein ?? 0)))
+        let kcalLeft = max(0, 2600 - (healthStats?.totalCalories ?? 0))
+        let prompt = """
+        Suggest one specific dish or meal to eat next, in a single sentence, to help me close \
+        a \(gap)g protein gap within \(kcalLeft) kcal remaining today.
+        """
+        let resp = await store.ariaInsight(prompt: prompt)
+        aiMealNote = resp.map { $0.proseSummary ?? $0.message }
+    }
+
     func logMeal(name: String, calories: Double, protein: Double, carbs: Double, fat: Double) async {
         let meal = MealLog(name: name, calories: calories, protein: protein, carbs: carbs, fat: fat)
         try? await healthManager.logMeal(meal)
@@ -1000,7 +1183,10 @@ struct LifestyleView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 110)
                 }
-                .refreshable { await vm.refresh() }
+                .refreshable {
+                    await vm.refresh()
+                    await vm.refreshAIInsights(store: store)
+                }
             }
 
             if showInsights {
@@ -1008,7 +1194,9 @@ struct LifestyleView: View {
                     isPresented: $showInsights,
                     recommendations: vm.recommendations,
                     metrics: vm.metrics,
-                    stats: vm.healthStats
+                    stats: vm.healthStats,
+                    summary: vm.aiLifeAnalysis,
+                    isLive: vm.aiInsightsLive
                 )
                     .zIndex(10)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -1026,7 +1214,10 @@ struct LifestyleView: View {
         }
         .animation(.easeInOut(duration: 0.3), value: showInsights)
         // Single load point — fixes double-call bug
-        .task { await vm.load() }
+        .task {
+            await vm.load()
+            await vm.refreshAIInsights(store: store)
+        }
         .onChange(of: vm.metrics.qualityOfLifeScore) { _, _ in vm.syncAriaContext() }
         .onChange(of: vm.recommendations.count) { _, _ in vm.syncAriaContext() }
         .alert("Error", isPresented: .constant(vm.error != nil), presenting: vm.error) { _ in
@@ -1200,9 +1391,10 @@ struct AIOptimizationContent: View {
             }
             
             MultiArcQOLCard(metrics: vm.metrics)
-            AILifeAnalysisCard(metrics: vm.metrics)
+            QOLTrendCard(history: vm.qolHistory)
+            AILifeAnalysisCard(metrics: vm.metrics, analysis: vm.aiLifeAnalysis, isLive: vm.aiInsightsLive)
             AIRecommendationsCard(recommendations: vm.recommendations, store: store)
-            OptimizationGoalsCard()
+            OptimizationGoalsCard(vm: vm)
             
             // NEW: Recovery & Performance
             if let stats = vm.healthStats {
@@ -1598,39 +1790,36 @@ struct LiveHealthDashboard: View {
                     color: .success,
                     appeared: appeared
                 )
-            }
-            
-            // Weekly Trend Sparkline
-            if !trends.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("7-Day Trends")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.textPrimary)
-                    
-                    HStack(spacing: 4) {
-                        ForEach(Array(trends.enumerated()), id: \.offset) { i, trend in
-                            let maxSteps = max(trends.map { $0.steps }.max() ?? 0, 1)
-                            let height = max(CGFloat(trend.steps), 0) / CGFloat(maxSteps) * 60
-                            
-                            VStack(spacing: 4) {
-                                Spacer()
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(LinearGradient(
-                                        colors: [Color.steel, Color.steel.opacity(0.5)],
-                                        startPoint: .top, endPoint: .bottom
-                                    ))
-                                    .frame(height: appeared ? height : 4)
-                                    .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(Double(i) * 0.05), value: appeared)
-                                
-                                Text(trend.date, format: .dateTime.weekday(.abbreviated))
-                                    .font(.system(size: 9, weight: .medium))
-                                    .foregroundColor(.textTertiary)
-                            }
-                        }
-                    }
-                    .frame(height: 80)
+
+                // Cardio fitness — surfaced from HealthKit, previously unused
+                if stats.vo2Max > 0 {
+                    HealthMetricTile(
+                        icon: "lungs.fill",
+                        label: "VO₂ Max",
+                        value: String(format: "%.0f", stats.vo2Max),
+                        target: "50",
+                        progress: stats.vo2Max / 50.0,
+                        color: Color(hex: "FF6B9D"),
+                        appeared: appeared
+                    )
                 }
-                .padding(.top, 8)
+
+                if stats.exerciseMinutes > 0 {
+                    HealthMetricTile(
+                        icon: "figure.run",
+                        label: "Exercise",
+                        value: "\(Int(stats.exerciseMinutes))m",
+                        target: "30m",
+                        progress: stats.exerciseMinutes / 30.0,
+                        color: Color(hex: "FFB84D"),
+                        appeared: appeared
+                    )
+                }
+            }
+
+            // Weekly Trend Chart (Swift Charts — interactive, multi-metric)
+            if !trends.isEmpty {
+                WeeklyTrendChart(trends: trends)
             }
         }
         .padding(22)
@@ -1645,6 +1834,106 @@ struct LiveHealthDashboard: View {
         )
         .shadow(color: .black.opacity(0.08), radius: 20, y: 8)
         .onAppear { appeared = true }
+    }
+}
+
+// MARK: - Weekly Trend Chart (Swift Charts)
+
+private enum TrendMetric: String, CaseIterable, Identifiable {
+    case steps = "Steps"
+    case activeCalories = "Active"
+    case sleep = "Sleep"
+    case hrv = "HRV"
+    var id: String { rawValue }
+
+    var color: Color {
+        switch self {
+        case .steps:          return .steel
+        case .activeCalories: return .ember
+        case .sleep:          return Color(hex: "A855F7")
+        case .hrv:            return .success
+        }
+    }
+
+    func value(_ t: WeeklyHealthTrend) -> Double {
+        switch self {
+        case .steps:          return Double(t.steps)
+        case .activeCalories: return Double(t.activeCalories)
+        case .sleep:          return t.sleepHours
+        case .hrv:            return t.avgHRV
+        }
+    }
+
+    func format(_ v: Double) -> String {
+        switch self {
+        case .steps:          return Int(v).formatted()
+        case .activeCalories: return "\(Int(v)) cal"
+        case .sleep:          return String(format: "%.1f h", v)
+        case .hrv:            return "\(Int(v)) ms"
+        }
+    }
+}
+
+/// Interactive 7-day chart replacing the old steps-only sparkline. Toggles between
+/// Steps / Active Cal / Sleep / HRV and supports tap-to-read on any day.
+struct WeeklyTrendChart: View {
+    let trends: [WeeklyHealthTrend]
+    @State private var metric: TrendMetric = .steps
+    @State private var selectedDate: Date?
+
+    private var selectedTrend: WeeklyHealthTrend? {
+        guard let selectedDate else { return nil }
+        return trends.min {
+            abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate))
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("7-Day Trends")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                Spacer()
+                if let t = selectedTrend {
+                    Text("\(t.date.formatted(.dateTime.weekday(.abbreviated))) · \(metric.format(metric.value(t)))")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(metric.color)
+                        .transition(.opacity)
+                }
+            }
+
+            Picker("Metric", selection: $metric) {
+                ForEach(TrendMetric.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+
+            Chart(trends) { t in
+                BarMark(
+                    x: .value("Day", t.date, unit: .day),
+                    y: .value(metric.rawValue, metric.value(t))
+                )
+                .foregroundStyle(metric.color.gradient)
+                .cornerRadius(5)
+                .opacity(selectedTrend == nil || selectedTrend?.id == t.id ? 1 : 0.35)
+            }
+            .chartXSelection(value: $selectedDate)
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .day)) { _ in
+                    AxisValueLabel(format: .dateTime.weekday(.narrow))
+                        .font(.system(size: 9))
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { _ in
+                    AxisGridLine()
+                    AxisValueLabel().font(.system(size: 9))
+                }
+            }
+            .frame(height: 150)
+            .animation(.easeInOut(duration: 0.25), value: metric)
+        }
+        .padding(.top, 8)
     }
 }
 
@@ -2236,6 +2525,8 @@ struct ArcLegendItem: View {
 
 struct AILifeAnalysisCard: View {
     let metrics: LifestyleMetrics
+    var analysis: String? = nil
+    var isLive: Bool = false
     @State private var appeared = false
     @State private var expanded = false
 
@@ -2257,9 +2548,12 @@ struct AILifeAnalysisCard: View {
                         .foregroundStyle(LinearGradient.ember)
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("AI Life Analysis")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.textPrimary)
+                    HStack(spacing: 6) {
+                        Text("AI Life Analysis")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.textPrimary)
+                        if analysis != nil { liveBadge }
+                    }
                     Text("Behavioral pattern analysis")
                         .font(.system(size: 12))
                         .foregroundColor(.textTertiary)
@@ -2288,7 +2582,7 @@ struct AILifeAnalysisCard: View {
             } label: {
                 HStack {
                     Image(systemName: "arrow.right.circle.fill").font(.system(size: 14))
-                    Text("View Full Analysis").font(.system(size: 14, weight: .semibold))
+                    Text(expanded ? "Hide Full Analysis" : "View Full Analysis").font(.system(size: 14, weight: .semibold))
                     Spacer()
                     Image(systemName: "chevron.down")
                         .font(.system(size: 12, weight: .semibold))
@@ -2300,12 +2594,57 @@ struct AILifeAnalysisCard: View {
                 .background(Color.ember.opacity(0.1))
                 .cornerRadius(12)
             }
+
+            if expanded {
+                fullAnalysisSection
+                    .padding(.top, 14)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
         .padding(22)
         .background(Color.surface)
         .cornerRadius(22)
         .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
         .onAppear { appeared = true }
+    }
+
+    private var liveBadge: some View {
+        Text(isLive ? "LIVE" : "ARIA")
+            .font(.system(size: 8, weight: .black))
+            .tracking(0.5)
+            .foregroundColor(.ember)
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .background(Color.ember.opacity(0.12))
+            .cornerRadius(5)
+    }
+
+    @ViewBuilder
+    private var fullAnalysisSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles").font(.system(size: 13)).foregroundColor(.ember)
+                Text(isLive ? "ARIA's analysis" : "Summary")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+            }
+            if let analysis {
+                Text(analysis)
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("Connect ARIA to unlock a personalized breakdown of how your sleep, nutrition, movement, and stress are interacting today.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textTertiary)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.surfaceElevated)
+        .cornerRadius(14)
     }
 }
 
@@ -2518,14 +2857,32 @@ struct RecommendationCard: View {
 // MARK: - Optimization Goals Card (fixed animate-on-appear)
 
 struct OptimizationGoalsCard: View {
+    @ObservedObject var vm: LifestyleViewModel
     @State private var appeared = false
 
-    private let goals: [(title: String, progress: Double, current: String, target: String, color: Color)] = [
-        ("Deep sleep → 90+ min", 0.75, "82 min avg", "90 min",   Color(hex: "A855F7")),
-        ("Reduce stress markers", 0.60, "Medium",     "Low",      .warning),
-        ("Daily protein 180g",    0.85, "150g avg",   "180g",     .ember),
-        ("Morning routine 7/7",   0.50, "3/7 days",   "7/7 days", .steel),
-    ]
+    // Derived from live HealthKit data (was a hardcoded array).
+    private var goals: [(title: String, progress: Double, current: String, target: String, color: Color)] {
+        let m = vm.metrics
+        let protein = Int(vm.healthStats?.protein ?? 0)
+        let mindfulWeek = vm.mindfulMinutesWeek
+        let stressProgress: Double = {
+            switch m.stressLevel {
+            case .low: return 1.0
+            case .medium: return 0.6
+            case .high: return 0.3
+            }
+        }()
+        return [
+            ("Sleep → 8h", min(m.sleepAverage / 8.0, 1.0),
+             String(format: "%.1fh avg", m.sleepAverage), "8h", Color(hex: "A855F7")),
+            ("Lower stress", stressProgress,
+             m.stressLevel.rawValue, "Low", .warning),
+            ("Daily protein 180g", min(Double(protein) / 180.0, 1.0),
+             "\(protein)g", "180g", .ember),
+            ("Mindfulness 70 min/wk", min(Double(mindfulWeek) / 70.0, 1.0),
+             "\(mindfulWeek) min", "70 min", .steel),
+        ]
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -2608,6 +2965,7 @@ struct GoalProgressItem: View {
 
 struct DailyNutritionView: View {
     @ObservedObject var vm: LifestyleViewModel
+    @EnvironmentObject var store: AppStore
 
     var body: some View {
         VStack(spacing: 20) {
@@ -2618,6 +2976,7 @@ struct DailyNutritionView: View {
             WaterIntakeCard(vm: vm)
             MicronutrientsCard(vm: vm)
         }
+        .task { await vm.refreshMealNote(store: store) }
     }
 }
 
@@ -2739,9 +3098,12 @@ struct MacroRingsCard: View {
 
 struct AINutritionCoachCard: View {
     @ObservedObject var vm: LifestyleViewModel
-    @State private var isAnalyzing = true
     @State private var tipIndex = 0
     @State private var sparkleScale: Double = 1.0
+    @State private var appeared = false
+
+    // Live ARIA insight overrides the local heuristic tip when present.
+    private var liveInsight: String? { vm.aiNutritionInsight }
 
     private var tips: [(icon: String, color: Color, headline: String, body: String)] {
         guard let stats = vm.healthStats else {
@@ -2770,7 +3132,7 @@ struct AINutritionCoachCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             coachHeader
-            if !isAnalyzing {
+            if appeared {
                 coachInsightSection
             }
         }
@@ -2782,13 +3144,7 @@ struct AINutritionCoachCard: View {
             withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) {
                 sparkleScale = 1.25
             }
-            Task {
-                try? await Task.sleep(nanoseconds: 1_200_000_000)
-                withAnimation(.easeOut(duration: 0.4)) {
-                    isAnalyzing = false
-                    sparkleScale = 1.0
-                }
-            }
+            withAnimation(.easeOut(duration: 0.4)) { appeared = true }
         }
     }
 
@@ -2799,11 +3155,14 @@ struct AINutritionCoachCard: View {
                 Image(systemName: "sparkles")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.ember)
-                    .scaleEffect(isAnalyzing ? sparkleScale : 1.0)
+                    .scaleEffect(coachHeaderIconScale)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text("AI Nutrition Coach").font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
-                Text(isAnalyzing ? "Analyzing today's intake…" : "Insight ready")
+                HStack(spacing: 6) {
+                    Text("AI Nutrition Coach").font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
+                    if liveInsight != nil { coachBadge }
+                }
+                Text(coachSubtitle)
                     .font(.system(size: 11, weight: .medium)).foregroundColor(.textTertiary)
             }
             Spacer()
@@ -2817,8 +3176,28 @@ struct AINutritionCoachCard: View {
                     .background(Color.surfaceElevated)
                     .clipShape(Circle())
             }
+            .opacity(liveInsight == nil ? 1 : 0.4)
+            .disabled(liveInsight != nil)
         }
     }
+
+    private var coachSubtitle: String {
+        if vm.aiInsightsLoading { return "Consulting ARIA…" }
+        if liveInsight != nil { return "Live insight" }
+        return "Insight ready"
+    }
+
+    private var coachBadge: some View {
+        Text(vm.aiInsightsLive ? "LIVE" : "ARIA")
+            .font(.system(size: 8, weight: .black))
+            .tracking(0.5)
+            .foregroundColor(.ember)
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .background(Color.ember.opacity(0.12))
+            .cornerRadius(5)
+    }
+
+    private var coachHeaderIconScale: CGFloat { vm.aiInsightsLoading ? sparkleScale : 1.0 }
 
     @ViewBuilder
     private var coachInsightSection: some View {
@@ -2829,22 +3208,23 @@ struct AINutritionCoachCard: View {
 
     private var tipDetailRow: some View {
         HStack(alignment: .top, spacing: 14) {
-            Image(systemName: tip.icon)
+            Image(systemName: liveInsight != nil ? "sparkles" : tip.icon)
                 .font(.system(size: 22))
-                .foregroundColor(tip.color)
+                .foregroundColor(liveInsight != nil ? .ember : tip.color)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 5) {
-                Text(tip.headline)
+                Text(liveInsight != nil ? "ARIA's take" : tip.headline)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.textPrimary)
-                Text(tip.body)
+                Text(liveInsight ?? tip.body)
                     .font(.system(size: 13))
                     .foregroundColor(.textSecondary)
                     .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .transition(.opacity.combined(with: .move(edge: .bottom)))
-        .id(tipIndex)
+        .id(liveInsight ?? "tip-\(tipIndex)")
     }
 
     private var macroSnapshotChips: some View {
@@ -2945,6 +3325,20 @@ struct AIMealSuggestionsCard: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.textTertiary)
 
+            if let note = vm.aiMealNote {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.steel)
+                    Text(note)
+                        .font(.system(size: 12))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.steel.opacity(0.08))
+                .cornerRadius(10)
+            }
+
             VStack(spacing: 10) {
                 ForEach(suggestions) { suggestion in
                     AIMealRow(suggestion: suggestion)
@@ -3023,8 +3417,207 @@ struct InlineMacroChip: View {
 
 // MARK: - Meal Log Card
 
+// MARK: - Barcode Meal Logging
+
+/// Nutrition lookup backed by the free Open Food Facts API (no key required).
+enum FoodLookup {
+    struct Result: Identifiable {
+        let id = UUID()
+        let found: Bool
+        let name: String
+        let calories: Double
+        let protein: Double
+        let carbs: Double
+        let fat: Double
+    }
+
+    static func lookup(barcode: String) async -> Result {
+        guard let url = URL(string: "https://world.openfoodfacts.org/api/v2/product/\(barcode).json?fields=product_name,nutriments"),
+              let (data, response) = try? await URLSession.shared.data(from: url),
+              let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              (json["status"] as? Int) == 1,
+              let product = json["product"] as? [String: Any]
+        else {
+            return Result(found: false, name: "", calories: 0, protein: 0, carbs: 0, fat: 0)
+        }
+
+        let nutriments = (product["nutriments"] as? [String: Any]) ?? [:]
+        func number(_ keys: [String]) -> Double {
+            for key in keys {
+                if let v = nutriments[key] as? Double { return v }
+                if let v = nutriments[key] as? Int { return Double(v) }
+                if let s = nutriments[key] as? String, let v = Double(s) { return v }
+            }
+            return 0
+        }
+
+        let name = (product["product_name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Scanned item"
+        // Prefer per-serving values; fall back to per-100g.
+        return Result(
+            found: true,
+            name: name,
+            calories: number(["energy-kcal_serving", "energy-kcal_100g", "energy-kcal"]),
+            protein: number(["proteins_serving", "proteins_100g", "proteins"]),
+            carbs: number(["carbohydrates_serving", "carbohydrates_100g", "carbohydrates"]),
+            fat: number(["fat_serving", "fat_100g", "fat"])
+        )
+    }
+}
+
+/// Live camera barcode scanner (EAN/UPC) wrapping AVFoundation.
+struct BarcodeScannerView: UIViewControllerRepresentable {
+    var onScan: (String) -> Void
+    var onCancel: () -> Void
+
+    func makeUIViewController(context: Context) -> ScannerViewController {
+        let vc = ScannerViewController()
+        vc.onScan = onScan
+        vc.onCancel = onCancel
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: ScannerViewController, context: Context) {}
+
+    final class ScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
+        var onScan: ((String) -> Void)?
+        var onCancel: (() -> Void)?
+        private let session = AVCaptureSession()
+        private var preview: AVCaptureVideoPreviewLayer?
+        private var didScan = false
+
+        override func viewDidLoad() {
+            super.viewDidLoad()
+            view.backgroundColor = .black
+
+            guard let device = AVCaptureDevice.default(for: .video),
+                  let input = try? AVCaptureDeviceInput(device: device),
+                  session.canAddInput(input) else { return }
+            session.addInput(input)
+
+            let output = AVCaptureMetadataOutput()
+            guard session.canAddOutput(output) else { return }
+            session.addOutput(output)
+            output.setMetadataObjectsDelegate(self, queue: .main)
+            output.metadataObjectTypes = [.ean13, .ean8, .upce, .code128]
+
+            let layer = AVCaptureVideoPreviewLayer(session: session)
+            layer.videoGravity = .resizeAspectFill
+            layer.frame = view.layer.bounds
+            view.layer.addSublayer(layer)
+            preview = layer
+
+            let cancel = UIButton(type: .system)
+            cancel.setTitle("Cancel", for: .normal)
+            cancel.setTitleColor(.white, for: .normal)
+            cancel.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+            cancel.translatesAutoresizingMaskIntoConstraints = false
+            cancel.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
+            view.addSubview(cancel)
+            NSLayoutConstraint.activate([
+                cancel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+                cancel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            ])
+        }
+
+        override func viewDidLayoutSubviews() {
+            super.viewDidLayoutSubviews()
+            preview?.frame = view.layer.bounds
+        }
+
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            guard !session.isRunning else { return }
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in self?.session.startRunning() }
+        }
+
+        override func viewWillDisappear(_ animated: Bool) {
+            super.viewWillDisappear(animated)
+            if session.isRunning { session.stopRunning() }
+        }
+
+        @objc private func cancelTapped() { onCancel?() }
+
+        func metadataOutput(_ output: AVCaptureMetadataOutput,
+                            didOutput metadataObjects: [AVMetadataObject],
+                            from connection: AVCaptureConnection) {
+            guard !didScan,
+                  let object = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
+                  let code = object.stringValue else { return }
+            didScan = true
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            onScan?(code)
+        }
+    }
+}
+
+/// Confirmation shown after a barcode scan resolves (or fails) before logging.
+struct ScannedFoodConfirmSheet: View {
+    let food: FoodLookup.Result
+    var onLog: () -> Void
+    var onDismiss: () -> Void
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Capsule().fill(Color.borderColor).frame(width: 40, height: 5).padding(.top, 10)
+
+            if food.found {
+                Image(systemName: "checkmark.seal.fill").font(.system(size: 40)).foregroundColor(.success)
+                Text(food.name)
+                    .font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                    .multilineTextAlignment(.center).padding(.horizontal, 20)
+
+                HStack(spacing: 10) {
+                    macroPill("Cal", "\(Int(food.calories))", .ember)
+                    macroPill("Protein", "\(Int(food.protein))g", .steel)
+                    macroPill("Carbs", "\(Int(food.carbs))g", Color(hex: "A855F7"))
+                    macroPill("Fat", "\(Int(food.fat))g", Color(hex: "FFB84D"))
+                }
+                .padding(.horizontal, 20)
+
+                Button(action: onLog) {
+                    Text("Log Meal").font(.system(size: 16, weight: .bold)).foregroundColor(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, 14)
+                        .background(Color.ember).cornerRadius(14)
+                }
+                .padding(.horizontal, 20)
+            } else {
+                Image(systemName: "barcode.viewfinder").font(.system(size: 40)).foregroundColor(.textTertiary)
+                Text("No nutrition data found").font(.system(size: 17, weight: .semibold)).foregroundColor(.textPrimary)
+                Text("We couldn't match that barcode. Try another product or log it manually.")
+                    .font(.system(size: 13)).foregroundColor(.textSecondary)
+                    .multilineTextAlignment(.center).padding(.horizontal, 30)
+            }
+
+            Button("Close", action: onDismiss)
+                .font(.system(size: 14, weight: .semibold)).foregroundColor(.textTertiary)
+                .padding(.bottom, 16)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity)
+        .presentationDetents([.medium])
+    }
+
+    private func macroPill(_ label: String, _ value: String, _ color: Color) -> some View {
+        VStack(spacing: 3) {
+            Text(value).font(.system(size: 15, weight: .bold)).foregroundColor(color)
+            Text(label).font(.system(size: 10, weight: .semibold)).foregroundColor(.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(color.opacity(0.08))
+        .cornerRadius(10)
+    }
+}
+
+// MARK: - Meal Log Card
+
 struct MealLogCard: View {
     @ObservedObject var vm: LifestyleViewModel
+    @State private var showScanner = false
+    @State private var scanResult: FoodLookup.Result?
+    @State private var isLookingUp = false
 
     private func mealIcon(for date: Date) -> String {
         let hour = Calendar.current.component(.hour, from: date)
@@ -3044,6 +3637,21 @@ struct MealLogCard: View {
                 Text("\(vm.loggedMeals.count) logged")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.textTertiary)
+                Button { showScanner = true } label: {
+                    HStack(spacing: 5) {
+                        if isLookingUp {
+                            ProgressView().scaleEffect(0.7)
+                        } else {
+                            Image(systemName: "barcode.viewfinder").font(.system(size: 13, weight: .semibold))
+                        }
+                        Text("Scan").font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(.ember)
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(Color.ember.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                .disabled(isLookingUp)
             }
 
             if vm.loggedMeals.isEmpty {
@@ -3084,6 +3692,30 @@ struct MealLogCard: View {
         .background(Color.surface)
         .cornerRadius(20)
         .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
+        .sheet(isPresented: $showScanner) {
+            BarcodeScannerView(
+                onScan: { code in
+                    showScanner = false
+                    Task {
+                        isLookingUp = true
+                        scanResult = await FoodLookup.lookup(barcode: code)
+                        isLookingUp = false
+                    }
+                },
+                onCancel: { showScanner = false }
+            )
+            .ignoresSafeArea()
+        }
+        .sheet(item: $scanResult) { food in
+            ScannedFoodConfirmSheet(food: food) {
+                Task {
+                    await vm.logMeal(name: food.name, calories: food.calories, protein: food.protein, carbs: food.carbs, fat: food.fat)
+                    scanResult = nil
+                }
+            } onDismiss: {
+                scanResult = nil
+            }
+        }
     }
 }
 
@@ -3206,6 +3838,7 @@ struct MicronutrientsCard: View {
 
 struct NutritionDatabaseView: View {
     @ObservedObject var vm: LifestyleViewModel
+    @EnvironmentObject var store: AppStore
     @State private var selectedCategory: RestaurantCategory = .all
     @State private var searchText = ""
     @State private var selectedRestaurant: Restaurant?
@@ -3280,6 +3913,7 @@ struct NutritionDatabaseView: View {
             RestaurantMenuSheet(restaurant: r, vm: vm)
         }
         .onAppear { appeared = true }
+        .task { await vm.refreshBestPicksNote(store: store) }
     }
 }
 
@@ -3540,6 +4174,21 @@ struct AIBestPicksSection: View {
                     .foregroundColor(.textTertiary)
             }
 
+            // Live ARIA coaching note over the protein-ranked picks (fallback: none).
+            if let note = vm.aiBestPicksNote {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.ember)
+                    Text(note)
+                        .font(.system(size: 12))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.ember.opacity(0.06))
+                .cornerRadius(10)
+            }
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(picks) { pick in
@@ -3597,9 +4246,136 @@ struct WellbeingView: View {
         VStack(spacing: 20) {
             DailyHabitsCard()
             MindfulnessCard(vm: vm)
+            MindfulTrendCard(trend: vm.mindfulTrend)
             StressManagementCard(stats: vm.healthStats)
             SleepOptimizationCard(stats: vm.healthStats, metrics: vm.metrics)
         }
+    }
+}
+
+// MARK: - Mindful Minutes Trend (Swift Charts)
+
+struct MindfulTrendCard: View {
+    let trend: [MindfulDay]
+
+    private var total: Int { Int(trend.reduce(0) { $0 + $1.minutes }) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "brain.head.profile")
+                        .font(.system(size: 16)).foregroundColor(Color(hex: "A855F7"))
+                    Text("Mindful Minutes").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                }
+                Spacer()
+                Text("\(total) min this week")
+                    .font(.system(size: 12, weight: .semibold)).foregroundColor(.textTertiary)
+            }
+
+            if trend.isEmpty || trend.allSatisfy({ $0.minutes == 0 }) {
+                Text("No mindful sessions logged this week. Even 5 minutes a day supports recovery.")
+                    .font(.system(size: 13)).foregroundColor(.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+            } else {
+                Chart(trend) { day in
+                    BarMark(
+                        x: .value("Day", day.date, unit: .day),
+                        y: .value("Minutes", day.minutes)
+                    )
+                    .foregroundStyle(Color(hex: "A855F7").gradient)
+                    .cornerRadius(4)
+                }
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .day)) { _ in
+                        AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.system(size: 9))
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks(position: .leading) { _ in
+                        AxisGridLine()
+                        AxisValueLabel().font(.system(size: 9))
+                    }
+                }
+                .frame(height: 120)
+            }
+        }
+        .padding(20)
+        .background(Color.surface)
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
+    }
+}
+
+// MARK: - QOL Trend (Swift Charts)
+
+struct QOLTrendCard: View {
+    let history: [QOLDay]
+
+    private var recent: [QOLDay] { Array(history.suffix(30)) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 16)).foregroundColor(.ember)
+                    Text("Quality of Life Trend")
+                        .font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                }
+                Spacer()
+                if let last = recent.last {
+                    Text("\(last.score)/100")
+                        .font(.system(size: 12, weight: .semibold)).foregroundColor(.ember)
+                }
+            }
+
+            if recent.count < 2 {
+                Text("Your QOL trend appears after a couple of days of tracking.")
+                    .font(.system(size: 13)).foregroundColor(.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+            } else {
+                Chart(recent) { day in
+                    AreaMark(
+                        x: .value("Day", day.date, unit: .day),
+                        y: .value("QOL", day.score)
+                    )
+                    .foregroundStyle(LinearGradient(
+                        colors: [Color.ember.opacity(0.25), Color.ember.opacity(0.02)],
+                        startPoint: .top, endPoint: .bottom
+                    ))
+                    .interpolationMethod(.catmullRom)
+
+                    LineMark(
+                        x: .value("Day", day.date, unit: .day),
+                        y: .value("QOL", day.score)
+                    )
+                    .foregroundStyle(Color.ember)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5))
+                    .interpolationMethod(.catmullRom)
+                }
+                .chartYScale(domain: 0...100)
+                .chartYAxis {
+                    AxisMarks(position: .leading, values: [0, 50, 100]) { _ in
+                        AxisGridLine()
+                        AxisValueLabel().font(.system(size: 9))
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                            .font(.system(size: 9))
+                    }
+                }
+                .frame(height: 140)
+            }
+        }
+        .padding(20)
+        .background(Color.surface)
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
     }
 }
 
@@ -3901,6 +4677,8 @@ struct AIInsightsModal: View {
     let recommendations: [AIRecommendation]
     let metrics: LifestyleMetrics
     let stats: DailyHealthStats?
+    var summary: String? = nil       // live ARIA narrative (nil → heuristic list only)
+    var isLive: Bool = false
 
     private var insights: [LifestyleInsight] {
         var items: [LifestyleInsight] = recommendations.map { rec in
@@ -3976,6 +4754,9 @@ struct AIInsightsModal: View {
 
                     ScrollView(showsIndicators: false) {
                         LazyVStack(spacing: 14) {
+                            if let summary {
+                                ariaBanner(summary)
+                            }
                             ForEach(insights) { insight in
                                 AIInsightCard(insight: insight)
                             }
@@ -3988,6 +4769,31 @@ struct AIInsightsModal: View {
                 .cornerRadius(28, corners: [.topLeft, .topRight])
             }
         }
+    }
+
+    @ViewBuilder
+    private func ariaBanner(_ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles").font(.system(size: 13)).foregroundColor(.ember)
+                Text(isLive ? "ARIA · LIVE" : "ARIA")
+                    .font(.system(size: 11, weight: .bold)).tracking(0.5).foregroundColor(.ember)
+                Spacer()
+            }
+            Text(text)
+                .font(.system(size: 14))
+                .foregroundColor(.textPrimary)
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(colors: [Color.ember.opacity(0.12), Color.ember.opacity(0.04)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+        )
+        .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.ember.opacity(0.25), lineWidth: 1))
     }
 
     private func dismiss() {

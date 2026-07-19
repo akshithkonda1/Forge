@@ -701,7 +701,21 @@ final class AppStore: ObservableObject {
 
         isGeneratingResponse = false
     }
-    
+
+    /// One-shot ARIA insight for non-chat surfaces (e.g. Lifestyle cards).
+    /// Uses the same remote-first path as `sendMessage` (with on-device fallback)
+    /// but does NOT append to the chat transcript. Returns nil only if both the
+    /// remote call and local generation throw — callers should fall back to their
+    /// existing local content in that case.
+    func ariaInsight(prompt: String, voiceMode: Bool = false) async -> AriaResponse? {
+        try? await AriaService.shared.sendMessage(
+            prompt,
+            store: self,
+            localGenerator: responseGenerator,
+            voiceMode: voiceMode
+        )
+    }
+
     /// Legacy method for backward compatibility - converts to async
     func trainerResponse(for text: String) -> (content: String, richCard: RichCardData?) {
         // This is synchronous fallback for compatibility

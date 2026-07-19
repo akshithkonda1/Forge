@@ -68,4 +68,6 @@ For client uploads, use the Cognito identity pool to obtain authenticated AWS cr
 
 ## Current limitation
 
-The Lambda is intentionally a placeholder. `GET /health` is public and returns a healthy response, while all other routes require a valid Cognito JWT and still return `501 Not Implemented` until you add real backend handlers.
+The Lambda is intentionally a placeholder. `GET /health` is public and returns a healthy response, while unimplemented routes still return `501 Not Implemented`. Implemented routes (see `lambda/routes/`) run behind the soft Cognito-or-test-user auth in `lambda/auth.py`.
+
+New routes need no Terraform change — `aws_apigatewayv2_route.proxy` (`ANY /{proxy+}`) forwards everything to the one Lambda, which dispatches by path in `lambda/handler.py`. Example: `POST /watch/aria/suggest` (`lambda/routes/watch.py`) is the Apple Watch app's deeper-coaching debrief call — a deterministic, tone-tested template engine (`lambda/services/watch_debrief.py`) that can later be upgraded to call Bedrock the same way `/ai/chat` does, with the deterministic response as the guaranteed fallback.

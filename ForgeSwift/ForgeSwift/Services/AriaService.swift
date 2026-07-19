@@ -22,6 +22,7 @@ final class AriaService: ObservableObject {
 
     func setBaseURL(_ urlString: String) {
         UserDefaults.standard.set(urlString, forKey: Self.baseURLKey)
+        WatchAriaConfigBridge.sync()
     }
 
     func sendMessage(
