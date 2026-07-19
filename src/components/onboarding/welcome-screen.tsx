@@ -1,162 +1,166 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useCallback, useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { ARIA_CINEMATIC_LINES } from "@/lib/aria-onboarding";
+import { AriaOrb } from "./aria-companion";
 
 interface WelcomeScreenProps {
   onNext: () => void;
 }
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.2,
-      delayChildren: 0.3,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] as const },
-  },
-};
-
-function ForgeFlameIcon() {
-  return (
-    <motion.svg
-      width="80"
-      height="80"
-      viewBox="0 0 80 80"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.8, ease: "easeOut" }}
-    >
-      {/* Outer flame */}
-      <motion.path
-        d="M40 8C40 8 18 28 18 48C18 60.15 27.85 70 40 70C52.15 70 62 60.15 62 48C62 28 40 8 40 8Z"
-        fill="url(#flame-gradient-outer)"
-        initial={{ pathLength: 0 }}
-        animate={{ pathLength: 1 }}
-        transition={{ duration: 1.2, ease: "easeInOut" }}
-      />
-      {/* Inner flame */}
-      <motion.path
-        d="M40 24C40 24 28 38 28 50C28 56.63 33.37 62 40 62C46.63 62 52 56.63 52 50C52 38 40 24 40 24Z"
-        fill="url(#flame-gradient-inner)"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 0.4 }}
-      />
-      {/* Core glow */}
-      <motion.ellipse
-        cx="40"
-        cy="52"
-        rx="6"
-        ry="8"
-        fill="#FFF"
-        opacity="0.3"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.3 }}
-        transition={{ duration: 0.6, delay: 0.8 }}
-      />
-      <defs>
-        <linearGradient id="flame-gradient-outer" x1="40" y1="8" x2="40" y2="70" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#FF6B2B" />
-          <stop offset="1" stopColor="#FF4D00" />
-        </linearGradient>
-        <linearGradient id="flame-gradient-inner" x1="40" y1="24" x2="40" y2="62" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#FFAD73" />
-          <stop offset="1" stopColor="#FF6B2B" />
-        </linearGradient>
-      </defs>
-    </motion.svg>
-  );
-}
-
 export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
+  const [lineIndex, setLineIndex] = useState(0);
+  const [typed, setTyped] = useState("");
+  const [doneTyping, setDoneTyping] = useState(false);
+
+  const fullLine = ARIA_CINEMATIC_LINES[lineIndex];
+  const isLast = lineIndex >= ARIA_CINEMATIC_LINES.length - 1;
+  const progress = (lineIndex + 1) / ARIA_CINEMATIC_LINES.length;
+
+  useEffect(() => {
+    setTyped("");
+    setDoneTyping(false);
+    let i = 0;
+    const id = window.setInterval(() => {
+      i += 1;
+      setTyped(fullLine.slice(0, i));
+      if (i >= fullLine.length) {
+        window.clearInterval(id);
+        setDoneTyping(true);
+      }
+    }, 22);
+    return () => window.clearInterval(id);
+  }, [fullLine, lineIndex]);
+
+  const advance = useCallback(() => {
+    if (!isLast) {
+      setLineIndex((n) => n + 1);
+      return;
+    }
+    onNext();
+  }, [isLast, onNext]);
+
   return (
-    <div className="flex min-h-[100dvh] flex-col items-center justify-center px-6">
-      {/* Background ambient glow */}
-      <div
-        className="pointer-events-none fixed inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse 50% 40% at 50% 40%, rgba(255,77,0,0.08) 0%, transparent 70%)",
-        }}
-      />
-
-      <motion.div
-        className="relative z-10 flex w-full max-w-md flex-col items-center text-center"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        {/* Flame icon */}
-        <motion.div variants={itemVariants} className="mb-8">
-          <div className="relative">
-            <ForgeFlameIcon />
-            {/* Glow behind icon */}
-            <div
-              className="absolute inset-0 -z-10 blur-2xl"
-              style={{
-                background: "radial-gradient(circle, rgba(255,77,0,0.3) 0%, transparent 70%)",
-              }}
-            />
-          </div>
-        </motion.div>
-
-        {/* Logo text */}
-        <motion.h1
-          variants={itemVariants}
-          className="text-gradient-ember mb-3 text-6xl font-black tracking-[0.2em]"
+    <div className="relative flex min-h-[100dvh] flex-col overflow-hidden">
+      {/* Ambient aurora */}
+      <div className="pointer-events-none fixed inset-0">
+        <div
+          className="absolute inset-0"
           style={{
-            fontFamily: "var(--font-display)",
-          }}
-        >
-          FORGE
-        </motion.h1>
-
-        {/* Tagline */}
-        <motion.p
-          variants={itemVariants}
-          className="mb-8 text-lg font-medium text-text-secondary"
-        >
-          Your AI Training Partner
-        </motion.p>
-
-        {/* Divider */}
-        <motion.div
-          variants={itemVariants}
-          className="mb-8 h-px w-16"
-          style={{
-            background: "linear-gradient(90deg, transparent, #FF4D00, transparent)",
+            background:
+              "radial-gradient(ellipse 60% 45% at 50% 32%, rgba(168,85,247,0.16) 0%, transparent 70%)",
           }}
         />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse 40% 30% at 70% 60%, rgba(255,77,0,0.10) 0%, transparent 65%)",
+          }}
+        />
+      </div>
 
-        {/* Description */}
-        <motion.p
-          variants={itemVariants}
-          className="mb-16 max-w-sm text-base leading-relaxed text-text-tertiary"
-        >
-          An AI coach that knows your body, adapts to your life, and pushes you
-          to be your best.
-        </motion.p>
-
-        {/* Get Started button */}
-        <motion.div variants={itemVariants} className="w-full">
-          <motion.button
+      <div className="relative z-10 flex flex-1 flex-col px-6 pb-8 pt-6">
+        <div className="flex justify-end">
+          <button
+            type="button"
             onClick={onNext}
+            className="rounded-full border border-border bg-surface/70 px-3.5 py-1.5 text-xs font-bold text-text-muted transition hover:text-text-secondary"
+          >
+            Skip intro
+          </button>
+        </div>
+
+        <div className="flex flex-1 flex-col items-center justify-center text-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="mb-8"
+          >
+            <AriaOrb mood="focused" size={148} speaking={!doneTyping} />
+          </motion.div>
+
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="mb-2 text-[11px] font-black uppercase tracking-[0.28em] text-ember"
+          >
+            FORGE × ARIA
+          </motion.p>
+          <motion.h1
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="mb-8 max-w-sm text-3xl font-black tracking-tight text-text-primary"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Meet your intelligence layer
+          </motion.h1>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="w-full max-w-md rounded-2xl border border-ember/30 bg-surface/90 p-5 text-left shadow-[0_0_40px_rgba(255,77,0,0.12)]"
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "h-2 w-2 rounded-full bg-ember",
+                    !doneTyping && "animate-pulse"
+                  )}
+                />
+                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-text-muted">
+                  ARIA
+                </span>
+              </div>
+              <span className="font-mono text-[11px] font-bold text-text-muted">
+                {lineIndex + 1}/{ARIA_CINEMATIC_LINES.length}
+              </span>
+            </div>
+
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={lineIndex}
+                className="min-h-[4.5rem] text-base font-medium leading-relaxed text-text-primary"
+              >
+                {typed}
+                {!doneTyping && (
+                  <span className="ml-0.5 inline-block h-4 w-0.5 translate-y-0.5 bg-ember animate-pulse" />
+                )}
+              </motion.p>
+            </AnimatePresence>
+
+            <div className="mt-4 h-0.5 overflow-hidden rounded-full bg-white/10">
+              <motion.div
+                className="h-full rounded-full bg-gradient-to-r from-ember to-ember-light"
+                animate={{ width: `${progress * 100}%` }}
+                transition={{ duration: 0.35 }}
+              />
+            </div>
+          </motion.div>
+        </div>
+
+        <div className="mx-auto w-full max-w-md space-y-3">
+          {!isLast && (
+            <button
+              type="button"
+              onClick={onNext}
+              className="w-full py-2 text-sm font-semibold text-text-muted transition hover:text-text-secondary"
+            >
+              Skip intro
+            </button>
+          )}
+          <motion.button
+            type="button"
+            onClick={advance}
             className={cn(
               "w-full rounded-xl px-8 py-4 text-lg font-semibold text-white",
-              "transition-all duration-300",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-ember focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             )}
             style={{
@@ -165,10 +169,10 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
             whileHover={{ scale: 1.02, boxShadow: "0 0 30px rgba(255,77,0,0.4)" }}
             whileTap={{ scale: 0.98 }}
           >
-            Get Started
+            {isLast ? "Continue with ARIA" : "Next"}
           </motion.button>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Watch, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
+import { whisperForStep } from "@/lib/aria-onboarding";
+import AriaCompanion from "./aria-companion";
 
 interface DeviceConnectionProps {
   onNext: () => void;
