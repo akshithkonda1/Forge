@@ -91,6 +91,25 @@ enum ExperienceLevel: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum TrainingEquipment: String, Codable, CaseIterable, Identifiable {
+    case commercialGym = "Commercial Gym"
+    case homeGym = "Home Gym"
+    case bodyweight = "Bodyweight Only"
+    case hotelGym = "Hotel / Travel"
+    case crossfitBox = "CrossFit Box"
+
+    var id: String { rawValue }
+    var icon: String {
+        switch self {
+        case .commercialGym: return "building.2.fill"
+        case .homeGym: return "house.fill"
+        case .bodyweight: return "figure.strengthtraining.functional"
+        case .hotelGym: return "suitcase.fill"
+        case .crossfitBox: return "flame.fill"
+        }
+    }
+}
+
 enum Gender: String, Codable, CaseIterable, Identifiable {
     case male = "Male"
     case female = "Female"
@@ -160,6 +179,7 @@ struct UserProfile: Codable {
     var coachingStyle: CoachingStyle
     var connectedDevices: [String]
     var weeklySchedule: [Int]
+    var trainingEquipment: TrainingEquipment
     
     // HealthKit-derived health metrics
     var age: Int?
@@ -437,7 +457,8 @@ let emptyProfile = UserProfile(
     preferredWorkouts: [],
     coachingStyle: .balanced,
     connectedDevices: [],
-    weeklySchedule: []
+    weeklySchedule: [],
+    trainingEquipment: .commercialGym
 )
 
 let emptyReadiness = ReadinessData(
@@ -467,7 +488,8 @@ let mockProfile = UserProfile(
     preferredWorkouts: [WorkoutType.strength, WorkoutType.hiit],
     coachingStyle: CoachingStyle.pushHard,
     connectedDevices: ["Apple Watch", "Oura Ring"],
-    weeklySchedule: [1, 3, 5]
+    weeklySchedule: [1, 3, 5],
+    trainingEquipment: .commercialGym
 )
 
 let mockReadiness = ReadinessData(

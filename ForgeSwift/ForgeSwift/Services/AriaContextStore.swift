@@ -217,6 +217,53 @@ final class AriaContextStore: ObservableObject {
         persist()
     }
 
+    /// Seeds ARIA's living model from the finished onboarding interview.
+    func seedFromOnboarding(
+        name: String,
+        goals: [String],
+        experienceLevel: String,
+        preferredWorkouts: [String],
+        coachingStyle: String,
+        healthConnected: Bool,
+        lifestyleTags: [String] = [],
+        constraints: [String] = []
+    ) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        context.currentGoals = goals
+        var tags: [String] = [
+            "onboarding:complete",
+            "experience:\(experienceLevel)",
+            "coach:\(coachingStyle)",
+            healthConnected ? "healthkit:connected" : "healthkit:pending",
+        ]
+        tags.append(contentsOf: preferredWorkouts.prefix(4).map { "likes:\($0)" })
+        tags.append(contentsOf: lifestyleTags)
+        context.lifestyleTags = Array(Set(tags)).sorted()
+        context.constraints = constraints
+        context.recentPatterns = ["first_session_setup"]
+        if constraints.contains(where: { $0.contains("guidance_only") }) {
+            context.recentPatterns.append("guidance_only_coaching")
+        }
+        if !trimmed.isEmpty {
+            context.lastInsights = [
+                "Met \(trimmed) during onboarding interview — coaching style \(coachingStyle), focus on \(goals.first ?? "general fitness")."
+            ]
+        } else {
+            context.lastInsights = [
+                "First connection established — coaching style \(coachingStyle)."
+            ]
+        }
+        if !constraints.isEmpty {
+            context.lastInsights.insert(
+                "Coach boundaries set from onboarding: \(constraints.prefix(4).joined(separator: ", ")).",
+                at: 0
+            )
+        }
+        context.relationshipLevel = max(context.relationshipLevel, 2)
+        context.lastUpdated = Date()
+        persist()
+    }
+
     /// Pushes live Lifestyle tab signals into ARIA's living context for Bedrock prompts.
     func syncLifestyleSignals(
         metrics: LifestyleMetrics,

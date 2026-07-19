@@ -139,6 +139,59 @@ enum AriaServiceError: Error {
     case badResponse
 }
 
+// MARK: - Onboarding guide (interview → first session)
+
+/// Local scripts for ARIA-led onboarding handoff into live chat.
+enum AriaOnboardingGuide {
+
+    static func firstSessionScript(profile: OnboardingProfile, healthConnected: Bool) -> String {
+        let name = profile.trimmedName.isEmpty ? "there" : profile.firstName
+        let goal = profile.fitnessGoals.first?.label.lowercased() ?? "general fitness"
+        let workouts = profile.preferredWorkouts.prefix(2).map(\.label).joined(separator: " & ")
+        let style = profile.coachingStyle
+        let sleep = profile.sleepBand.map { " Sleep rhythm: \($0.label.lowercased())." } ?? ""
+        let interests = profile.freeTimeInterests.prefix(2).map(\.label).joined(separator: " & ")
+        let lifeLine = interests.isEmpty ? "" : " Outside training you lean into \(interests)."
+        let healthLine = healthConnected
+            ? " Recovery signals are already in the loop."
+            : " Connect HealthKit anytime and I'll fold recovery into every call."
+        let guidanceLine = profile.guidanceOnlyMode
+            ? " Guidance mode is on for the conditions you shared — structure and pacing only, never medical advice."
+            : " I'm your lifestyle coach, not a doctor."
+
+        switch style {
+        case .driven:
+            return "\(name) — standards first. Week one targets \(goal)\(workouts.isEmpty ? "" : " through \(workouts)"). Show up. Execute. Earn progression.\(sleep)\(lifeLine)\(healthLine)\(guidanceLine)"
+        case .balanced:
+            return "\(name), your first block balances progressive work with recovery around \(goal)\(workouts.isEmpty ? "" : ", favoring \(workouts)"). Clear sessions, room to breathe.\(sleep)\(lifeLine)\(healthLine)\(guidanceLine)"
+        case .supportive:
+            return "\(name), we make this doable from day one. Small wins toward \(goal), clear next steps.\(sleep)\(lifeLine)\(healthLine)\(guidanceLine)"
+        case .scientist:
+            return "\(name) — intensity, volume, and recovery will map back to \(goal). I'll explain the why.\(sleep)\(lifeLine)\(healthLine)\(guidanceLine)"
+        case .elite:
+            return "\(name), performance is a system: readiness, output, recovery, adaptation — pointed at \(goal).\(sleep)\(lifeLine)\(healthLine)\(guidanceLine)"
+        }
+    }
+
+    static func mood(for style: OnboardingCoachingStyle) -> ARIAMood {
+        switch style {
+        case .driven, .elite: return .energized
+        case .supportive: return .pushed
+        case .scientist: return .focused
+        case .balanced: return .calm
+        }
+    }
+
+    static func welcomeChatMessage(profile: OnboardingProfile, healthConnected: Bool) -> String {
+        var message = firstSessionScript(profile: profile, healthConnected: healthConnected)
+        message += "\n\nOpen chat anytime — I'm already tracking the context we built together in onboarding."
+        if profile.guidanceOnlyMode {
+            message += "\n\nReminder: for any conditions you shared, I only provide lifestyle guidance — not diagnosis, treatment, or medical solutions."
+        }
+        return message
+    }
+}
+
 // MARK: - Data permissions
 
 /// User-controlled, per-domain grants for what ARIA may use. Persisted locally

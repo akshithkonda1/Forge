@@ -581,6 +581,24 @@ final class AppStore: ObservableObject {
         }
     }
 
+    // MARK: - Onboarding → ARIA handoff
+
+    /// Replaces mock chat with a personalized ARIA first message after onboarding.
+    func seedAriaWelcomeFromOnboarding(message: String, suggestedActions: [String] = []) {
+        let welcome = ChatMessage(
+            id: "aria-onboarding-\(UUID().uuidString.prefix(8))",
+            role: .trainer,
+            content: message,
+            timestamp: Date(),
+            suggestedActions: suggestedActions.isEmpty
+                ? ["Show today's plan", "How does readiness work?", "Adjust my goals"]
+                : suggestedActions,
+            confidence: 0.92
+        )
+        chatMessages = [welcome]
+        lastSuggestedActions = welcome.suggestedActions ?? []
+    }
+
     // MARK: - Workout Actions
 
     func startWorkout() {
@@ -846,14 +864,25 @@ final class AppStore: ObservableObject {
         name: String? = nil,
         coachingStyle: CoachingStyle? = nil,
         fitnessGoals: [UserFitnessGoal]? = nil,
-        experienceLevel: ExperienceLevel? = nil
+        experienceLevel: ExperienceLevel? = nil,
+        preferredWorkouts: [WorkoutType]? = nil,
+        weeklySchedule: [Int]? = nil,
+        trainingEquipment: TrainingEquipment? = nil,
+        connectedDevices: [String]? = nil,
+        age: Int? = nil,
+        weightKg: Double? = nil
     ) {
         if let name = name { userProfile.name = name }
         if let style = coachingStyle { userProfile.coachingStyle = style }
         if let goals = fitnessGoals { userProfile.fitnessGoals = goals }
         if let level = experienceLevel { userProfile.experienceLevel = level }
-        
-        // In production, persist to database
+        if let preferredWorkouts { userProfile.preferredWorkouts = preferredWorkouts }
+        if let weeklySchedule { userProfile.weeklySchedule = weeklySchedule.sorted() }
+        if let trainingEquipment { userProfile.trainingEquipment = trainingEquipment }
+        if let connectedDevices { userProfile.connectedDevices = connectedDevices }
+        if let age { userProfile.age = age }
+        if let weightKg { userProfile.weight = weightKg }
+        objectWillChange.send()
     }
     
     // MARK: - Sleep Management
