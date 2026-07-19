@@ -538,6 +538,8 @@ final class AppStore: ObservableObject {
     @Published var ariaPendingChatPrompt: String? = nil
     @Published var lastSuggestedActions: [String] = []
     @Published var healthKitLive: Bool = false
+    /// Last successful metrics refresh (Home status pill).
+    @Published var lastMetricsRefresh: Date? = nil
     
     // Streak tracking
     @Published var currentStreak: Int = 7
@@ -765,11 +767,13 @@ final class AppStore: ObservableObject {
 
         let samples = BiometricsObserveService.shared.samplesFromStore(self)
         _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
+        lastMetricsRefresh = Date()
         objectWillChange.send()
     }
 
-    func openChat(with prompt: String) {
+    func openChat(with prompt: String, voice: Bool = false) {
         ariaPendingChatPrompt = prompt
+        ariaVoiceMode = voice
         activeTab = .chat
     }
     
