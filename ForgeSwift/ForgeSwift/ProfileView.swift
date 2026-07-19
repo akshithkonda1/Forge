@@ -1449,6 +1449,7 @@ enum ForgePersistence {
     private static let notificationSettingsKey = "forge.notificationSettings"
     private static let briefNotificationSettingsKey = "forge.briefNotificationSettings"
     private static let briefNotificationsEnabledKey = "forge.briefNotificationsEnabled"
+    private static let nutritionPreferencesKey = "forge.nutritionPreferences"
 
     static func loadNotificationSettings() -> AppNotificationSettings {
         load(AppNotificationSettings.self, forKey: notificationSettingsKey) ?? AppNotificationSettings()
@@ -1475,6 +1476,14 @@ enum ForgePersistence {
         UserDefaults.standard.set(isEnabled, forKey: briefNotificationsEnabledKey)
     }
 
+    static func loadNutritionPreferences() -> NutritionPreferences {
+        load(NutritionPreferences.self, forKey: nutritionPreferencesKey) ?? NutritionPreferences()
+    }
+
+    static func saveNutritionPreferences(_ preferences: NutritionPreferences) {
+        save(preferences, forKey: nutritionPreferencesKey)
+    }
+
     private static func load<T: Decodable>(_ type: T.Type, forKey key: String) -> T? {
         guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
@@ -1493,6 +1502,14 @@ extension AppStore {
 
     var briefNotificationsEnabled: Bool {
         ForgePersistence.loadBriefNotificationsEnabled()
+    }
+
+    var nutritionPreferences: NutritionPreferences {
+        ForgePersistence.loadNutritionPreferences()
+    }
+
+    var lifestyleTargets: LifestyleTargets {
+        LifestyleTargets.resolve(profile: userProfile, overrides: nutritionPreferences)
     }
 
     var dataLoadState: DataLoadState {
@@ -1552,11 +1569,13 @@ extension AppStore {
     func updateNotificationSettings(_ settings: AppNotificationSettings) {
         ForgePersistence.saveNotificationSettings(settings)
         objectWillChange.send()
+        Task { await resyncNotifications() }
     }
 
     func setBriefNotificationsEnabled(_ isEnabled: Bool) {
         ForgePersistence.saveBriefNotificationsEnabled(isEnabled)
         objectWillChange.send()
+        Task { await resyncNotifications() }
     }
 
     func updateBriefNotificationSchedule(
@@ -1573,6 +1592,20 @@ extension AppStore {
         )
         ForgePersistence.saveBriefNotificationSettings(settings)
         objectWillChange.send()
+        Task { await resyncNotifications() }
+    }
+
+    func updateNutritionPreferences(_ preferences: NutritionPreferences) {
+        ForgePersistence.saveNutritionPreferences(preferences)
+        objectWillChange.send()
+    }
+
+    func resyncNotifications() async {
+        await ForgeNotificationScheduler.sync(
+            settings: notificationSettings,
+            briefEnabled: briefNotificationsEnabled,
+            brief: ForgePersistence.loadBriefNotificationSettings()
+        )
     }
 
     func loadDashboardFromAPI() async {
@@ -1583,12 +1616,6 @@ extension AppStore {
     func signOut() {
         isOnboarded = false
         activeTab = .home
-    }
-
-    func updateProfile(name: String? = nil, age: Int? = nil, weightKg: Double? = nil) {
-        if let name { userProfile.name = name }
-        if let age { userProfile.age = age }
-        if let weightKg { userProfile.weight = weightKg }
     }
 }
 

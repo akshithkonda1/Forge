@@ -52,3 +52,6 @@ infra/terraform/build/*.zip
 
 # simrunner generated reports
 backend/simrunner/reports/
+
+# Accidental nested monorepo clone (use ForgeWidget/ for widgets)
+/Forge/
