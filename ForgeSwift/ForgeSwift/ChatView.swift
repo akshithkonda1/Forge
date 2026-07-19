@@ -678,6 +678,11 @@ struct ChatView: View {
                 lifestyleTags: [store.userProfile.experienceLevel.label]
             )
             Task { proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store) }
+            consumePendingHomeHandoff()
+        }
+        .onChange(of: store.ariaPendingChatPrompt) { _, prompt in
+            guard prompt != nil else { return }
+            consumePendingHomeHandoff()
         }
         .onChange(of: store.readiness.overall) { _, val in
             withAnimation(FDS.Spring.standard) { ariaMood = ARIAMood.derive(readiness: val) }
@@ -688,6 +693,30 @@ struct ChatView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await store.refreshDailyData() } }
+        }
+    }
+
+    /// Home control-center → chat bridge (prompt + optional voice orb).
+    private func consumePendingHomeHandoff() {
+        let prompt = store.ariaPendingChatPrompt?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let wantsVoice = store.ariaVoiceMode
+        store.ariaPendingChatPrompt = nil
+
+        if wantsVoice {
+            store.ariaVoiceMode = true
+            choreographedHaptic(.voiceStart)
+            withAnimation(FDS.Spring.hero) { showVoiceOrb = true }
+            speech.startListening()
+        }
+
+        if let prompt, !prompt.isEmpty {
+            // Prefill input so user sees context; auto-send after a beat for seamless handoff.
+            inputText = prompt
+            if !wantsVoice {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    sendMessage(prompt)
+                }
+            }
         }
     }
 
