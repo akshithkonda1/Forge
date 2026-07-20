@@ -2,6 +2,13 @@
 <Scheme
    LastUpgradeVersion = "2700"
    version = "1.7">
+   <!--
+     Watch-only scheme for CI + local watch debugging.
+     Do NOT list the iOS ForgeSwift target here — building that for a
+     watchOS destination tries to type-check the entire phone app for watch.
+     Companion install: run the ForgeSwift (iPhone) scheme instead; it embeds
+     ForgeWatch via the Embed Watch Content build phase.
+   -->
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
@@ -15,9 +22,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "F0C100000000000000000001"
-               BuildableName = "ForgeWatch.app"
-               BlueprintName = "ForgeWatch"
+               BlueprintIdentifier = "F0C100000000000000000002"
+               BuildableName = "ForgeWatchWidgets.appex"
+               BlueprintName = "ForgeWatchWidgets"
                ReferencedContainer = "container:ForgeSwift.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -29,9 +36,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "AA0005000000000000000001"
-               BuildableName = "ForgeSwift.app"
-               BlueprintName = "ForgeSwift"
+               BlueprintIdentifier = "F0C100000000000000000001"
+               BuildableName = "ForgeWatch.app"
+               BlueprintName = "ForgeWatch"
                ReferencedContainer = "container:ForgeSwift.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
