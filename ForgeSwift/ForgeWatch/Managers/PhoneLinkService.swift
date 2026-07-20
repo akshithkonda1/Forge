@@ -4,13 +4,14 @@ import ForgeCore
 
 // MARK: - PhoneLinkService
 //
-// Thin WCSession wrapper that streams WorkoutLiveState to the iPhone so
-// the companion app can drive the Live Activity (lock screen + Dynamic
-// Island). Transport policy:
+// Thin WCSession wrapper that:
+//  1) Streams WorkoutLiveState → iPhone (Live Activity / Dynamic Island)
+//  2) Receives companion config (base URL, user id, first name) from iPhone
+//     so Xcode simulator pairs work even when App Groups do not share.
+//
+// Transport policy for workouts:
 //  - `sendMessage` when the phone is reachable (low latency, in-session)
-//  - `updateApplicationContext` as the always-works fallback (latest
-//    state wins — exactly the semantics a live summary wants)
-// Payload is the shared Codable struct; no bespoke dictionaries to drift.
+//  - `updateApplicationContext` as the always-works fallback (latest wins)
 
 final class PhoneLinkService: NSObject, WCSessionDelegate {
 
@@ -18,6 +19,9 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
 
     static let workoutStateKey = WorkoutLinkKeys.state
     static let workoutEndedKey = WorkoutLinkKeys.ended
+
+    /// Posted on the main queue when companion config is applied.
+    static let companionConfigDidUpdate = Notification.Name("forge.watch.companionConfigDidUpdate")
 
     private override init() {
         super.init()
@@ -37,7 +41,6 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
         let payload: [String: Any] = [Self.workoutStateKey: data]
         if WCSession.default.isReachable {
             WCSession.default.sendMessage(payload, replyHandler: nil) { _ in
-                // Reachability raced — fall back so the phone still converges.
                 try? WCSession.default.updateApplicationContext(payload)
             }
         } else {
@@ -58,6 +61,37 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
         }
     }
 
+    // MARK: Inbound companion config (from iPhone)
+
+    private func ingest(_ message: [String: Any]) {
+        // Workout payloads are iPhone-bound; ignore if present.
+        if message[Self.workoutStateKey] != nil || message[Self.workoutEndedKey] != nil {
+            return
+        }
+
+        let config: [String: String]? = {
+            if let nested = message["forge.companion.config"] as? [String: String] {
+                return nested
+            }
+            var flat: [String: String] = [:]
+            for key in ["forge.aria.baseURL", "forge.aria.userId", "forge.aria.authToken",
+                        "forge.user.firstName", "forge.companion.syncedAt"] {
+                if let v = message[key] as? String { flat[key] = v }
+            }
+            return flat.isEmpty ? nil : flat
+        }()
+
+        guard let config else { return }
+        let suite = UserDefaults(suiteName: WatchSnapshotStore.appGroupID)
+        for (k, v) in config {
+            suite?.set(v, forKey: k)
+            UserDefaults.standard.set(v, forKey: k)
+        }
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: Self.companionConfigDidUpdate, object: nil)
+        }
+    }
+
     // MARK: WCSessionDelegate
 
     func session(
@@ -65,6 +99,21 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: Error?
     ) {
-        // Nothing to do — sends check activationState at call time.
+        // Apply any context that was queued while the session was offline.
+        if activationState == .activated, !session.receivedApplicationContext.isEmpty {
+            ingest(session.receivedApplicationContext)
+        }
+    }
+
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        ingest(applicationContext)
+    }
+
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        ingest(message)
+    }
+
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        ingest(userInfo)
     }
 }
