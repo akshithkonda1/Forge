@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import type { FitnessGoal, ExperienceLevel, WorkoutType } from "@/types";
+import { whisperForStep } from "@/lib/aria-onboarding";
+import AriaCompanion from "./aria-companion";
 
 interface ProfileSetupProps {
   onNext: () => void;
@@ -118,6 +120,17 @@ export default function ProfileSetup({ onNext }: ProfileSetupProps) {
     }
   };
 
+  const whisper = useMemo(
+    () =>
+      whisperForStep("profile", {
+        name,
+        goals: selectedGoals,
+        experience: experienceLevel,
+        workouts: selectedWorkouts,
+      }),
+    [name, selectedGoals, experienceLevel, selectedWorkouts]
+  );
+
   return (
     <div className="flex min-h-[100dvh] flex-col px-6 pb-8 pt-12">
       {/* Section indicator */}
@@ -137,6 +150,10 @@ export default function ProfileSetup({ onNext }: ProfileSetupProps) {
         ))}
       </div>
 
+      <div className="mb-5 mt-4">
+        <AriaCompanion whisper={whisper} compact />
+      </div>
+
       {/* Content area */}
       <div className="flex flex-1 flex-col">
         <AnimatePresence mode="wait">
@@ -147,13 +164,13 @@ export default function ProfileSetup({ onNext }: ProfileSetupProps) {
               initial="enter"
               animate="center"
               exit="exit"
-              className="flex flex-1 flex-col pt-12"
+              className="flex flex-1 flex-col pt-4"
             >
               <h2 className="mb-2 text-3xl font-bold text-text-primary">
-                What&apos;s your name?
+                What should ARIA call you?
               </h2>
               <p className="mb-8 text-text-tertiary">
-                Your coach needs to know what to call you.
+                Your intelligence layer learns your name first — everything else gets personal from here.
               </p>
               <input
                 type="text"

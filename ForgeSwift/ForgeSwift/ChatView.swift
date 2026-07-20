@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import Speech
 
 // ╔═══════════════════════════════════════════════════════════════════════╗
 // ║  FORGE × ARIA — ULTIMATE CHAT                                          ║
@@ -227,44 +228,213 @@ func choreographedHaptic(_ event: HapticEvent) {
 }
 
 // ============================================================
-// MARK: - Speech Manager
+// MARK: - Speech Manager (real SFSpeechRecognizer)
 // ============================================================
 
+/// Shared dictation engine for Chat + Onboarding.
+/// Partial results stream into `recognizedText`; silence or stop finalizes.
 @MainActor
 final class SpeechManager: ObservableObject {
-    @Published var recognizedText: String     = ""
-    @Published var amplitude:      Float      = 0.0
-    @Published var voiceState:     VoiceState = .idle
-    private var listenTask: Task<Void, Never>?
+    @Published var recognizedText: String = ""
+    @Published var amplitude: Float = 0.0
+    @Published var voiceState: VoiceState = .idle
+    @Published var authorizationDenied = false
+
+    private let audioEngine = AVAudioEngine()
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    private var silenceTimer: Timer?
+    private let silenceThreshold: TimeInterval = 1.6
+    private var levelTimer: Timer?
+    /// When true, stopListening will not clear recognizedText (caller consumes it).
+    private var preserveTranscriptOnStop = false
+
+    var isListening: Bool { voiceState == .listening }
 
     func startListening() {
-        voiceState     = .listening
+        guard speechRecognizer?.isAvailable != false else {
+            voiceState = .error("Speech unavailable")
+            return
+        }
+
+        // Tear down any prior session cleanly
+        hardStop(clearText: true)
         recognizedText = ""
-        listenTask     = Task {
-            for step in 0..<40 {
-                guard !Task.isCancelled else { return }
-                let t = Double(step) / 40.0
-                amplitude = Float(0.25 + 0.75 * abs(sin(t * .pi * 4 + 0.3)))
-                try? await Task.sleep(nanoseconds: 70_000_000)
+        authorizationDenied = false
+        voiceState = .listening
+        amplitude = 0.15
+
+        SFSpeechRecognizer.requestAuthorization { [weak self] status in
+            Task { @MainActor in
+                guard let self else { return }
+                switch status {
+                case .authorized:
+                    self.beginRecognition()
+                case .denied, .restricted:
+                    self.authorizationDenied = true
+                    self.voiceState = .error("Mic / speech access needed")
+                case .notDetermined:
+                    self.voiceState = .idle
+                @unknown default:
+                    self.voiceState = .idle
+                }
             }
-            guard !Task.isCancelled else { return }
-            amplitude  = 0
-            voiceState = .processing
-            try? await Task.sleep(nanoseconds: 1_100_000_000)
-            guard !Task.isCancelled else { return }
-            recognizedText = "What should we do today?"
-            voiceState     = .idle
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
         }
     }
 
-    func stopListening() {
-        listenTask?.cancel(); listenTask = nil
-        amplitude  = 0
-        voiceState = .idle
+    /// Stop listening. If `submit` is true and text exists, leaves `recognizedText` set
+    /// and briefly moves through `.processing` → `.idle` so UI can react.
+    func stopListening(submit: Bool = true) {
+        silenceTimer?.invalidate()
+        silenceTimer = nil
+        preserveTranscriptOnStop = submit && !recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+        if preserveTranscriptOnStop {
+            voiceState = .processing
+            hardStop(clearText: false)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            // Deliver final idle so overlays can fire onRecognized
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                guard let self else { return }
+                self.voiceState = .idle
+                self.preserveTranscriptOnStop = false
+            }
+        } else {
+            hardStop(clearText: true)
+            voiceState = .idle
+            amplitude = 0
+        }
     }
 
-    deinit { listenTask?.cancel() }
+    func cancel() {
+        hardStop(clearText: true)
+        voiceState = .idle
+        amplitude = 0
+    }
+
+    // MARK: - Private
+
+    private func beginRecognition() {
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetooth])
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            voiceState = .error("Microphone error")
+            return
+        }
+
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let recognitionRequest else { return }
+        recognitionRequest.shouldReportPartialResults = true
+        if #available(iOS 13, *) {
+            recognitionRequest.requiresOnDeviceRecognition = false
+        }
+
+        let inputNode = audioEngine.inputNode
+        let format = inputNode.outputFormat(forBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            voiceState = .error("No microphone input")
+            return
+        }
+
+        inputNode.removeTap(onBus: 0)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            recognitionRequest.append(buffer)
+            self?.updateAmplitude(from: buffer)
+        }
+
+        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
+            guard let self else { return }
+            Task { @MainActor in
+                if let result {
+                    self.recognizedText = result.bestTranscription.formattedString
+                    self.resetSilenceTimer()
+                    if result.isFinal {
+                        self.stopListening(submit: true)
+                        return
+                    }
+                }
+                if let error, (error as NSError).code != 1, (error as NSError).code != 216 {
+                    // 1/216 often cancellation — ignore
+                    if self.voiceState == .listening {
+                        self.voiceState = .error("Couldn't hear that")
+                        self.hardStop(clearText: false)
+                    }
+                }
+            }
+        }
+
+        do {
+            audioEngine.prepare()
+            try audioEngine.start()
+            voiceState = .listening
+            startLevelPulseFallback()
+        } catch {
+            voiceState = .error("Microphone error")
+            hardStop(clearText: true)
+        }
+    }
+
+    private func resetSilenceTimer() {
+        silenceTimer?.invalidate()
+        silenceTimer = Timer.scheduledTimer(withTimeInterval: silenceThreshold, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.voiceState == .listening else { return }
+                guard !self.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                self.stopListening(submit: true)
+            }
+        }
+    }
+
+    private func updateAmplitude(from buffer: AVAudioPCMBuffer) {
+        guard let channel = buffer.floatChannelData?[0] else { return }
+        let frameCount = Int(buffer.frameLength)
+        guard frameCount > 0 else { return }
+        var sum: Float = 0
+        for i in 0..<frameCount {
+            let s = channel[i]
+            sum += s * s
+        }
+        let rms = sqrt(sum / Float(frameCount))
+        let level = min(1, max(0.08, rms * 12))
+        Task { @MainActor in
+            self.amplitude = level
+        }
+    }
+
+    /// Gentle pulse when audio level taps are quiet
+    private func startLevelPulseFallback() {
+        levelTimer?.invalidate()
+        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.voiceState == .listening else { return }
+                if self.amplitude < 0.12 {
+                    self.amplitude = Float.random(in: 0.12...0.28)
+                }
+            }
+        }
+    }
+
+    private func hardStop(clearText: Bool) {
+        silenceTimer?.invalidate()
+        silenceTimer = nil
+        levelTimer?.invalidate()
+        levelTimer = nil
+
+        if audioEngine.isRunning {
+            audioEngine.stop()
+        }
+        audioEngine.inputNode.removeTap(onBus: 0)
+        recognitionRequest?.endAudio()
+        recognitionTask?.cancel()
+        recognitionRequest = nil
+        recognitionTask = nil
+        amplitude = 0
+        if clearText { recognizedText = "" }
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
 }
 
 // ============================================================
@@ -483,7 +653,7 @@ struct ChatView: View {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { sendMessage(text) }
                     },
                     onCancel: {
-                        speech.stopListening()
+                        speech.cancel()
                         withAnimation(FDS.Spring.hero) { showVoiceOrb = false }
                     }
                 )
@@ -508,6 +678,11 @@ struct ChatView: View {
                 lifestyleTags: [store.userProfile.experienceLevel.label]
             )
             Task { proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store) }
+            consumePendingHomeHandoff()
+        }
+        .onChange(of: store.ariaPendingChatPrompt) { _, prompt in
+            guard prompt != nil else { return }
+            consumePendingHomeHandoff()
         }
         .onChange(of: store.readiness.overall) { _, val in
             withAnimation(FDS.Spring.standard) { ariaMood = ARIAMood.derive(readiness: val) }
@@ -518,6 +693,30 @@ struct ChatView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await store.refreshDailyData() } }
+        }
+    }
+
+    /// Home control-center → chat bridge (prompt + optional voice orb).
+    private func consumePendingHomeHandoff() {
+        let prompt = store.ariaPendingChatPrompt?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let wantsVoice = store.ariaVoiceMode
+        store.ariaPendingChatPrompt = nil
+
+        if wantsVoice {
+            store.ariaVoiceMode = true
+            choreographedHaptic(.voiceStart)
+            withAnimation(FDS.Spring.hero) { showVoiceOrb = true }
+            speech.startListening()
+        }
+
+        if let prompt, !prompt.isEmpty {
+            // Prefill input so user sees context; auto-send after a beat for seamless handoff.
+            inputText = prompt
+            if !wantsVoice {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    sendMessage(prompt)
+                }
+            }
         }
     }
 
