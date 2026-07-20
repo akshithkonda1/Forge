@@ -110,6 +110,8 @@
 		F0B100000000000000000021 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000002 /* ForgeCore */; };
 		F0B100000000000000000022 /* ForgeWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000019 /* ForgeWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F0B100000000000000000023 /* ForgeWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000018 /* ForgeWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FWNSCHED02 /* ForgeNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FWNSCHED01 /* ForgeNotificationScheduler.swift */; };
+		FWSETED02 /* SettingsEditorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FWSETED01 /* SettingsEditorViews.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -279,6 +281,8 @@
 		F0F100000000000000000027 /* KnownPlacesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownPlacesStore.swift; sourceTree = "<group>"; };
 		F0F100000000000000000028 /* WindDownScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindDownScheduler.swift; sourceTree = "<group>"; };
 		F0F100000000000000000029 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		FWNSCHED01 /* ForgeNotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeNotificationScheduler.swift; sourceTree = "<group>"; };
+		FWSETED01 /* SettingsEditorViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsEditorViews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -404,6 +408,8 @@
 				1E4DF7212F9FFB20004091AA /* ONBOARDING_IMPLEMENTATION_GUIDE.md */,
 				1E4DF7232F9FFB29004091AA /* ColorExtensions.swift */,
 				F0F1000000000000000000A2 /* LifestyleTargets.swift */,
+				FWSETED01 /* SettingsEditorViews.swift */,
+				FWNSCHED01 /* ForgeNotificationScheduler.swift */,
 				1E4DF7252F9FFB4A004091AA /* QUICK_START 2.md */,
 				1E4DF7272F9FFB89004091AA /* IMPLEMENTATION_SUMMARY.md */,
 				1E4DF7292FA006AC004091AA /* AWARD_WINNING_FEATURES.md */,
@@ -766,6 +772,8 @@
 				AA000100000000000000000B /* ProfileView.swift in Sources */,
 				1E4DF7242F9FFB29004091AA /* ColorExtensions.swift in Sources */,
 				F0F1000000000000000000A1 /* LifestyleTargets.swift in Sources */,
+				FWSETED02 /* SettingsEditorViews.swift in Sources */,
+				FWNSCHED02 /* ForgeNotificationScheduler.swift in Sources */,
 				F0B10000000000000000001E /* ForgeWorkoutActivityAttributes.swift in Sources */,
 				F0B100000000000000000030 /* WorkoutActivityCoordinator.swift in Sources */,
 				F0B100000000000000000039 /* WatchAriaConfigBridge.swift in Sources */,
