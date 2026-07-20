@@ -15,6 +15,7 @@ private struct ScrollOffsetKey: PreferenceKey {
 
 // MARK: - Primary action engine
 
+@MainActor
 enum HomePrimaryAction: Equatable {
     case startWorkout(id: String, name: String)
     case continueWorkout
@@ -775,6 +776,7 @@ struct HomeARIABriefingCard: View {
     }
 }
 
+@MainActor
 enum HomeARIABriefingBuilder {
     static func build(store: AppStore) -> String {
         let name = store.userProfile.name.components(separatedBy: " ").first ?? ""
@@ -1580,6 +1582,7 @@ private func readinessLabel(_ score: Int) -> String {
     }
 }
 
+@MainActor
 private func homeStatusLine(store: AppStore) -> String {
     let score = store.readiness.overall
     switch score {

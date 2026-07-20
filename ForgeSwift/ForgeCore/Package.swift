@@ -11,6 +11,10 @@ import PackageDescription
 let package = Package(
     name: "ForgeCore",
     platforms: [
+        // macOS is listed so `swift test` works on CI runners without an
+        // iOS/watchOS simulator destination. Production consumers are still
+        // the iPhone + Watch apps.
+        .macOS(.v14),
         .iOS(.v17),
         .watchOS(.v10),
     ],

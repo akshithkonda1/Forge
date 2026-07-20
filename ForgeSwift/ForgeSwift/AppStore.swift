@@ -620,10 +620,10 @@ final class AppStore: ObservableObject {
             role: .trainer,
             content: message,
             timestamp: Date(),
+            confidence: 0.92,
             suggestedActions: suggestedActions.isEmpty
                 ? ["Show today's plan", "How does readiness work?", "Adjust my goals"]
-                : suggestedActions,
-            confidence: 0.92
+                : suggestedActions
         )
         chatMessages = [welcome]
         lastSuggestedActions = welcome.suggestedActions ?? []

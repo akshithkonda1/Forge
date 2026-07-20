@@ -27,6 +27,12 @@ final class WorkoutActivityCoordinator: NSObject, WCSessionDelegate {
         let session = WCSession.default
         session.delegate = self
         session.activate()
+        // If already active (re-launch), push companion config immediately.
+        if session.activationState == .activated {
+            Task { @MainActor in
+                WatchAriaConfigBridge.sync()
+            }
+        }
     }
 
     // MARK: Payload handling
@@ -88,6 +94,13 @@ final class WorkoutActivityCoordinator: NSObject, WCSessionDelegate {
         if !context.isEmpty {
             handle(context)
         }
+        // Push ARIA base URL / user id so the watch can talk to the same backend
+        // even when App Groups do not share across the simulator pair.
+        if activationState == .activated {
+            Task { @MainActor in
+                WatchAriaConfigBridge.sync()
+            }
+        }
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
@@ -96,6 +109,20 @@ final class WorkoutActivityCoordinator: NSObject, WCSessionDelegate {
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
         handle(applicationContext)
+    }
+
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        guard session.isReachable else { return }
+        Task { @MainActor in
+            WatchAriaConfigBridge.sync()
+        }
+    }
+
+    func sessionWatchStateDidChange(_ session: WCSession) {
+        // Watch app installed / paired state flipped — re-push config.
+        Task { @MainActor in
+            WatchAriaConfigBridge.sync()
+        }
     }
 
     func sessionDidBecomeInactive(_ session: WCSession) {}
