@@ -411,9 +411,9 @@
 				1ARIA0272F9FF867004091AA /* Theme+Readiness.swift */,
 				1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */,
 				1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */,
-				1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator 2.swift */,
 				F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */,
 				F0F10000000000000000002A /* WatchAriaConfigBridge.swift */,
+				1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */,
 			);
 			path = ForgeSwift;
 			sourceTree = "<group>";

@@ -500,11 +500,15 @@ final class AppStore: ObservableObject {
     // MARK: - Published State
     
     // Onboarding
-    @Published var isOnboarded: Bool = false
+    @Published var isOnboarded: Bool = false {
+        didSet { UserDefaults.standard.set(isOnboarded, forKey: Self.onboardedDefaultsKey) }
+    }
     @Published var onboardingStep: Int = 0
 
     // User Profile
-    @Published var userProfile: UserProfile = mockProfile
+    @Published var userProfile: UserProfile = mockProfile {
+        didSet { persistUserProfile() }
+    }
 
     // Readiness & Metrics
     @Published var readiness: ReadinessData = mockReadiness
@@ -572,6 +576,9 @@ final class AppStore: ObservableObject {
         #endif
         
         AriaContextStore.shared.configure()
+
+        // Restore persisted onboarding so a returning user skips setup entirely.
+        restoreOnboardingState()
 
         // Load seed data, then hydrate from HealthKit when authorized
         Task { @MainActor in
