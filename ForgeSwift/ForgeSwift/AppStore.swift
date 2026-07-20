@@ -914,7 +914,7 @@ final class AppStore: ObservableObject {
     
     func mergeSleepDataLocally(_ local: [SleepData]) {
         guard !local.isEmpty else { return }
-        var merged = Dictionary(uniqueKeysWithValues: sleepData.map { ($0.date, $0) })
+        var merged = Dictionary(sleepData.map { ($0.date, $0) }, uniquingKeysWith: { _, new in new })
         for night in local {
             merged[night.date] = night
         }

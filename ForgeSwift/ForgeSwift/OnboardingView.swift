@@ -162,7 +162,9 @@ struct OnboardingProfile {
         UserProfile(
             name: name,
             gender: gender,
-            fitnessGoals: fitnessGoals.map(\.coreGoal),
+            fitnessGoals: fitnessGoals.map(\.coreGoal).reduce(into: [UserFitnessGoal]()) { acc, goal in
+                if !acc.contains(goal) { acc.append(goal) }   // several onboarding goals map to .generalFitness; dedupe to avoid duplicate Identifiable IDs
+            },
             experienceLevel: experienceLevel,
             preferredWorkouts: Array(Set(preferredWorkouts.map(\.coreType))),
             coachingStyle: coachingStyle.coreStyle,

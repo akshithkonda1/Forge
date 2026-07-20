@@ -382,8 +382,10 @@ final class HealthKitSleepService: ObservableObject {
     }
 
     private func formatHour(_ hour: Double) -> String {
-        let h = Int(hour) % 24
-        let m = Int((hour - Double(Int(hour))) * 60)
+        // Wrap into [0, 24) so a computed pre-midnight hour (e.g. 7 - 8 = -1) reads as 11 PM, not "-1 AM".
+        let norm = (hour.truncatingRemainder(dividingBy: 24) + 24).truncatingRemainder(dividingBy: 24)
+        let h = Int(norm) % 24
+        let m = Int((norm - Double(Int(norm))) * 60)
         let period = h >= 12 ? "PM" : "AM"
         let display = h % 12 == 0 ? 12 : h % 12
         return m > 0 ? "\(display):\(String(format: "%02d", m)) \(period)" : "\(display) \(period)"
