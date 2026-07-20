@@ -517,7 +517,6 @@ private struct AriaInterviewLayout: View {
         .animation(FDS.Spring.page, value: coordinator.step)
     }
 }
-#endif
 
 // MARK: - Composers
 
