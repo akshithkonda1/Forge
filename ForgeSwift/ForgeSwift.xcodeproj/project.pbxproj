@@ -34,6 +34,7 @@
 		1E4DF7202F9FFAEF004091AA /* Info.plist.PERMISSIONS in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF71F2F9FFAEF004091AA /* Info.plist.PERMISSIONS */; };
 		1E4DF7222F9FFB20004091AA /* ONBOARDING_IMPLEMENTATION_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF7212F9FFB20004091AA /* ONBOARDING_IMPLEMENTATION_GUIDE.md */; };
 		1E4DF7242F9FFB29004091AA /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7232F9FFB29004091AA /* ColorExtensions.swift */; };
+		F0F1000000000000000000A1 /* LifestyleTargets.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F1000000000000000000A2 /* LifestyleTargets.swift */; };
 		1E4DF7262F9FFB4A004091AA /* QUICK_START 2.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF7252F9FFB4A004091AA /* QUICK_START 2.md */; };
 		1E4DF7282F9FFB89004091AA /* IMPLEMENTATION_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF7272F9FFB89004091AA /* IMPLEMENTATION_SUMMARY.md */; };
 		1E4DF72A2FA006AC004091AA /* AWARD_WINNING_FEATURES.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF7292FA006AC004091AA /* AWARD_WINNING_FEATURES.md */; };
@@ -200,6 +201,7 @@
 		1E4DF71F2F9FFAEF004091AA /* Info.plist.PERMISSIONS */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Info.plist.PERMISSIONS; sourceTree = "<group>"; };
 		1E4DF7212F9FFB20004091AA /* ONBOARDING_IMPLEMENTATION_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ONBOARDING_IMPLEMENTATION_GUIDE.md; sourceTree = "<group>"; };
 		1E4DF7232F9FFB29004091AA /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
+		F0F1000000000000000000A2 /* LifestyleTargets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleTargets.swift; sourceTree = "<group>"; };
 		1E4DF7252F9FFB4A004091AA /* QUICK_START 2.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "QUICK_START 2.md"; sourceTree = "<group>"; };
 		1E4DF7272F9FFB89004091AA /* IMPLEMENTATION_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = IMPLEMENTATION_SUMMARY.md; sourceTree = "<group>"; };
 		1E4DF7292FA006AC004091AA /* AWARD_WINNING_FEATURES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AWARD_WINNING_FEATURES.md; sourceTree = "<group>"; };
@@ -401,6 +403,7 @@
 				1E4DF71F2F9FFAEF004091AA /* Info.plist.PERMISSIONS */,
 				1E4DF7212F9FFB20004091AA /* ONBOARDING_IMPLEMENTATION_GUIDE.md */,
 				1E4DF7232F9FFB29004091AA /* ColorExtensions.swift */,
+				F0F1000000000000000000A2 /* LifestyleTargets.swift */,
 				1E4DF7252F9FFB4A004091AA /* QUICK_START 2.md */,
 				1E4DF7272F9FFB89004091AA /* IMPLEMENTATION_SUMMARY.md */,
 				1E4DF7292FA006AC004091AA /* AWARD_WINNING_FEATURES.md */,
@@ -762,6 +765,7 @@
 				AA000100000000000000000A /* SleepView.swift in Sources */,
 				AA000100000000000000000B /* ProfileView.swift in Sources */,
 				1E4DF7242F9FFB29004091AA /* ColorExtensions.swift in Sources */,
+				F0F1000000000000000000A1 /* LifestyleTargets.swift in Sources */,
 				F0B10000000000000000001E /* ForgeWorkoutActivityAttributes.swift in Sources */,
 				F0B100000000000000000030 /* WorkoutActivityCoordinator.swift in Sources */,
 				F0B100000000000000000039 /* WatchAriaConfigBridge.swift in Sources */,

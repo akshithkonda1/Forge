@@ -439,7 +439,7 @@ struct PersonalRecord: Identifiable {
     var formattedValue: String {
         if unit == "min" {
             let minutes = Int(value)
-            let seconds = Int((value - Double(minutes)) * 100)
+            let seconds = Int(((value - Double(minutes)) * 100).rounded())
             return String(format: "%d:%02d", minutes, seconds)
         }
         if value == value.rounded() { return String(Int(value)) }

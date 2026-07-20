@@ -19,14 +19,14 @@ async def chat_with_aria(payload: dict[str, Any]) -> dict[str, Any]:
     rich = await _context.build_rich_context(request.user_id, request.recent_metrics)
     memory = await _context.memory_reference(request.user_id, request.message)
 
-    readiness = request.recent_metrics.get("readiness", 0)
-    if readiness < 55:
+    readiness = request.recent_metrics.get("readiness")
+    if readiness is not None and readiness < 55:
         message = (
             "Based on your recovery signals, I recommend prioritizing rest and mobility today. "
             "We can keep intensity low and focus on sleep quality tonight."
         )
         actions = ["Show recovery plan", "Adjust workout", "Review sleep"]
-    elif readiness >= 85:
+    elif readiness is not None and readiness >= 85:
         message = (
             "You're primed. This is a strong day to push performance — "
             "want me to line up a challenging session?"

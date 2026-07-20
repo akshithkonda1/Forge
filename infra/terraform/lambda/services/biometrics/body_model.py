@@ -37,6 +37,34 @@ _SYSTEM_TO_DOMAIN = {
 }
 
 
+def redact_snapshot(snap: dict[str, Any], permissions: "aria_engine.DataPermissions") -> dict[str, Any]:
+    """Redact denied domains from a snapshot dict so /ai/observe honors the same
+    permissions the ARIA context does. Systems and anomalies each map to a
+    coaching domain; the cross-signal derived estimates are dropped whenever
+    anything is restricted, since they can fuse a denied signal."""
+    if not permissions.restricted():
+        return snap
+
+    def _metric_domain(metric_value: str) -> str:
+        try:
+            return _SYSTEM_TO_DOMAIN.get(spec(MetricType(metric_value)).system, "")
+        except (ValueError, KeyError):
+            return ""
+
+    def _keep_anomaly(a: dict[str, Any]) -> bool:
+        domain = _metric_domain(str(a.get("metric", "")))
+        return not domain or permissions.allows(domain)
+
+    snap["systems"] = {
+        name: state
+        for name, state in snap.get("systems", {}).items()
+        if permissions.allows(_SYSTEM_TO_DOMAIN.get(System(name), name))
+    }
+    snap["anomalies"] = [a for a in snap.get("anomalies", []) if _keep_anomaly(a)]
+    snap["derived"] = {}
+    return snap
+
+
 @dataclass
 class MetricState:
     metric: MetricType

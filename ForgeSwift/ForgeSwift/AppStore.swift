@@ -590,6 +590,27 @@ final class AppStore: ObservableObject {
         }
     }
 
+    // MARK: - Onboarding Persistence
+
+    private static let onboardedDefaultsKey = "forge.onboarding.completed"
+    private static let profileDefaultsKey = "forge.user.profile.v1"
+
+    /// Rehydrates a completed onboarding (flag + profile) on cold launch so the
+    /// user lands straight in the app instead of re-running setup every time.
+    private func restoreOnboardingState() {
+        guard UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) else { return }
+        if let data = UserDefaults.standard.data(forKey: Self.profileDefaultsKey),
+           let saved = try? JSONDecoder().decode(UserProfile.self, from: data) {
+            userProfile = saved
+        }
+        isOnboarded = true
+    }
+
+    private func persistUserProfile() {
+        guard let data = try? JSONEncoder().encode(userProfile) else { return }
+        UserDefaults.standard.set(data, forKey: Self.profileDefaultsKey)
+    }
+
     // MARK: - Onboarding → ARIA handoff
 
     /// Replaces mock chat with a personalized ARIA first message after onboarding.
@@ -914,7 +935,7 @@ final class AppStore: ObservableObject {
     
     func mergeSleepDataLocally(_ local: [SleepData]) {
         guard !local.isEmpty else { return }
-        var merged = Dictionary(uniqueKeysWithValues: sleepData.map { ($0.date, $0) })
+        var merged = Dictionary(sleepData.map { ($0.date, $0) }, uniquingKeysWith: { _, new in new })
         for night in local {
             merged[night.date] = night
         }
