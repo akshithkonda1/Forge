@@ -62,7 +62,6 @@ enum WatchAriaConfigBridge {
         guard session.activationState == .activated else { return }
         // Only the iPhone side should push companion config.
         #if os(iOS)
-        guard session.isPaired || session.isWatchAppInstalled || true else { return }
         let envelope: [String: Any] = [WC.config: payload]
         do {
             try session.updateApplicationContext(envelope)

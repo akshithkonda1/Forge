@@ -1,4 +1,4 @@
-# Build the ForgeSwift Xcode project on macOS runners.
+# Build ForgeSwift (iOS) + ForgeWatch (watchOS) and test ForgeCore on macOS.
 
 name: Swift
 
@@ -21,9 +21,17 @@ concurrency:
   group: swift-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Shared xcodebuild flags — no signing in CI.
+  XCODE_FLAGS: >-
+    CODE_SIGNING_ALLOWED=NO
+    CODE_SIGN_IDENTITY=
+    ONLY_ACTIVE_ARCH=NO
+    EXCLUDED_ARCHS=x86_64
+
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-15
     defaults:
       run:
         working-directory: ForgeSwift
@@ -31,15 +39,71 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
 
-      - name: Build ForgeSwift
+      - name: Show Xcode / platforms
         run: |
+          xcodebuild -version
+          xcrun simctl list runtimes 2>/dev/null | head -40 || true
+          xcodebuild -project ForgeSwift.xcodeproj -list
+
+      - name: Resolve package dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project ForgeSwift.xcodeproj \
+            -scheme ForgeSwift
+
+      - name: Test ForgeCore
+        run: |
+          cd ForgeCore
+          swift test
+
+      - name: Build ForgeSwift (iOS Simulator)
+        run: |
+          set -euo pipefail
+          # Build only the iOS application target without forcing the
+          # ForgeWatch scheme dependency graph used by local Xcode schemes.
+          # Explicit -target still honors pbxproj target dependencies if any;
+          # we temporarily rely on skipping watch by not selecting the scheme.
           xcodebuild \
             -project ForgeSwift.xcodeproj \
             -scheme ForgeSwift \
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
+            -skipPackagePluginValidation \
             build \
             CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
             IPHONEOS_DEPLOYMENT_TARGET=17.0 \
-            ONLY_ACTIVE_ARCH=YES \
-            EXCLUDED_ARCHS=x86_64
+            ONLY_ACTIVE_ARCH=NO \
+            EXCLUDED_ARCHS=x86_64 \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: Build ForgeWatch (watchOS Simulator)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ForgeSwift.xcodeproj \
+            -scheme ForgeWatch \
+            -destination 'generic/platform=watchOS Simulator' \
+            -configuration Debug \
+            -skipPackagePluginValidation \
+            build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            WATCHOS_DEPLOYMENT_TARGET=10.0 \
+            ONLY_ACTIVE_ARCH=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: Build ForgeWatchWidgets (watchOS Simulator)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ForgeSwift.xcodeproj \
+            -target ForgeWatchWidgets \
+            -destination 'generic/platform=watchOS Simulator' \
+            -configuration Debug \
+            build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            WATCHOS_DEPLOYMENT_TARGET=10.0 \
+            ONLY_ACTIVE_ARCH=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO
