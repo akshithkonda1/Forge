@@ -140,15 +140,19 @@ def _value(raw: dict[str, Any]) -> float | None:
 
 
 def _timestamp(raw: dict[str, Any]) -> datetime:
+    """Always returns a timezone-aware datetime. Samples fused from different
+    sources mix tz-aware and tz-naive strings; normalizing here keeps the
+    chronological sort in classify_batch from raising on the comparison."""
     for key in ("timestamp", "startedAt", "startDate", "start", "date", "time"):
         val = raw.get(key)
         if isinstance(val, datetime):
-            return val
+            return val if val.tzinfo else val.replace(tzinfo=timezone.utc)
         if isinstance(val, str) and val:
             try:
-                return datetime.fromisoformat(val.replace("Z", "+00:00"))
+                dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
             except ValueError:
                 continue
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
     return datetime.now(timezone.utc)
 
 

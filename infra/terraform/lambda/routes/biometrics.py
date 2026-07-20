@@ -16,6 +16,7 @@ from typing import Any
 from responses import RouteError, ok
 from services import aria_engine
 from services.biometrics import BodyModel, classify_batch
+from services.biometrics.body_model import redact_snapshot
 from storage import dynamodb, keys
 
 
@@ -59,7 +60,7 @@ def handle_post_observe(body: dict[str, Any]) -> dict:
             **result.counts,
             "rejects": [r.to_dict() for r in result.rejects][:25],
         },
-        "snapshot": snapshot.to_dict(),
+        "snapshot": redact_snapshot(snapshot.to_dict(), permissions),
         "aria_context": _context_payload(context),
         "restricted_domains": permissions.restricted(),
     }

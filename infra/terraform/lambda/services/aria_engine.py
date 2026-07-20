@@ -578,7 +578,7 @@ _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     "activity": ("steps", "active", "move", "moving", "walk"),
     "body": ("weight", "vo2", "body fat", "bodyfat", "lean", "scale"),
     "nutrition": ("protein", "calorie", "nutrition", "eat", "diet", "hydrat", "water", "macro"),
-    "progress": ("progress", "trend", "month", "improving", "personal record", "pr"),
+    "progress": ("progress", "trend", "month", "improving", "personal record"),
 }
 
 
@@ -679,7 +679,7 @@ def _interpret_sleep(ctx: ARIAContext) -> Signal | None:
         direction = "negative"
         priority = "high"
 
-    if hours < 6:
+    if hours < 7:
         interp_bits.append(f"{hours:.1f} h is below the 7 h floor for cognitive recovery")
         direction = "negative"
         priority = "high"

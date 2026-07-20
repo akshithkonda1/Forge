@@ -54,7 +54,7 @@ def handle_post_ai_chat(body: dict[str, Any]) -> dict:
             "rich_card": None,
             "context_updates": {"relationship_level": updated_level},
             "memory_reference": memory,
-            "missing_fields": context.missing_fields,
+            "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
         }
     )
     return ok(response)
