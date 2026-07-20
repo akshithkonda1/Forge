@@ -78,13 +78,31 @@ def _has(text: str, *words: str) -> bool:
 
 # Keyword groups -------------------------------------------------------------
 _HIGH_INTENSITY = ("high intensity", "high-intensity", "go hard", "train hard", "as hard as possible",
-                   "heavy", " pr", "max effort", "push for a pr", "hiit")
+                   "heavy", "max effort", "push for a pr", "hiit")
 _INCREASE_LOAD = ("increase", "add load", "more volume", "build load", "push harder", "ramp up", "progress one variable")
 _REST_LANG = ("zone 2", "mobility", "easy", "recover", "rest", "light", "hold intensity back", "low intensity", "deload")
 _SLEEP_PRIORITY = ("sleep", "wind down", "bed", "rest")
 _HEDGE = ("mixed", "not sure", "uncertain", "wouldn't read too much", "watch the trend",
           "could", "might", "unclear", "genuinely mixed", "recheck", "i don't have enough")
 _SPECIFIC = (re.compile(r"\b\d+\s?(%|min|minutes|sets?|reps?|x)\b"), re.compile(r"zone\s?\d"))
+
+# Cues that flip a phrase from a recommendation into its opposite ("no high-intensity",
+# "don't add load"). Used by _advocates so hold/recovery advice isn't scored as its inverse.
+_NEGATION_CUES = ("no ", "not ", "n't", "avoid", "instead of", "rather than", "hold ",
+                  "without", "skip", "never", "less ", "reduce", "back off")
+
+
+def _advocates(text: str, phrases: tuple[str, ...]) -> bool:
+    """True only where the text actually recommends one of ``phrases`` — an
+    occurrence not immediately preceded by a negation. Substring matching alone
+    reads "no high-intensity work" as recommending high intensity; this doesn't."""
+    for phrase in phrases:
+        start = text.find(phrase)
+        while start != -1:
+            if not any(cue in text[max(0, start - 16):start] for cue in _NEGATION_CUES):
+                return True
+            start = text.find(phrase, start + 1)
+    return False
 
 
 def _is_timing_query(query: str, prose: str) -> bool:
@@ -129,8 +147,8 @@ def _score_context_utilization(text: str, ctx: ARIAContext, mult: float, failure
 
     # Contradiction: claims peak/recovered while data says otherwise.
     contradicts = (
-        (t.readiness_score < 50 and _has(text, "fully recovered", "you're primed", "peak", "great to go"))
-        or (ctx.is_overtrained and _has(text, "add load", "ramp up", "increase volume"))
+        (t.readiness_score < 50 and _has(text, "fully recovered", "you're primed", " peak", "great to go"))
+        or (ctx.is_overtrained and _advocates(text, ("add load", "ramp up", "increase volume")))
     )
     if contradicts:
         failures.append(f"Context utilization: response contradicts context (readiness={t.readiness_score}, acwr={ctx.acwr})")
@@ -152,10 +170,10 @@ def _score_context_utilization(text: str, ctx: ARIAContext, mult: float, failure
 def _score_directional(text: str, rec: str, ctx: ARIAContext, mult: float,
                        failures: list[str], response: ARIAResponse) -> float:
     t = ctx.today
-    recommends_high = _has(text, *_HIGH_INTENSITY)
+    recommends_high = _advocates(text, _HIGH_INTENSITY)
     surfaces_overtraining = _has(text, "overtrain", "acwr", "workload", "load is high", "back off", "too much", "rest", "deload")
     prioritizes_sleep = "sleep" in text and _has(text, "priorit", "before", "more sleep", "protect", "first", "over training")
-    recommends_increase = _has(text, *_INCREASE_LOAD)
+    recommends_increase = _advocates(text, _INCREASE_LOAD)
 
     if t.readiness_score < 50 and recommends_high:
         failures.append(f"Directional correctness: recommended high-intensity training when readiness={t.readiness_score}")
