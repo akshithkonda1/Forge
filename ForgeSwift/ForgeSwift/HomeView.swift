@@ -999,15 +999,26 @@ struct HomeCycleModule: View {
                         miniChip("My cycle", Color(hex: "EF4444"))
                         miniChip("Support", Color(hex: "6366F1"))
                     }
+                    miniChip("Private", Color(hex: "22C55E"))
                     Spacer()
+                }
+
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color(hex: "22C55E"))
+                    Text(CyclePrivacy.shortPromise)
+                        .font(FDS.TypeScale.body(11))
+                        .foregroundColor(.textTertiary)
+                        .lineLimit(2)
                 }
             }
             .padding(18)
             .forgeGlassCard(accent: accent)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Cycle Health, \(title)")
-        .accessibilityHint("Opens cycle tracking from Home")
+        .accessibilityLabel("Cycle Health, \(title). \(CyclePrivacy.shortPromise)")
+        .accessibilityHint("Opens private cycle tracking from Home")
     }
 
     private var progress: CGFloat {

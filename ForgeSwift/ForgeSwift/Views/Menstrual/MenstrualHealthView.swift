@@ -230,6 +230,7 @@ struct MenstrualHealthView: View {
             featureRow("drop.circle.fill", "Period episodes & predictions")
             featureRow("waveform.path.ecg", "Multi-signal confidence")
             featureRow("sparkles", "Phase-aware ARIA coaching")
+            featureRow("lock.shield.fill", CyclePrivacy.shortPromise)
 
             Button {
                 cycleStore.updateSettings {
@@ -787,7 +788,10 @@ struct MenstrualHealthView: View {
 
     private var settingsCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("PRIVACY").forgeSectionLabel()
+            Text("PRIVACY & CONTROL").forgeSectionLabel()
+
+            privacyShieldBanner
+
             Toggle(isOn: Binding(
                 get: { cycleStore.settings.shareWithAria },
                 set: { v in cycleStore.updateSettings { $0.shareWithAria = v } }
@@ -795,7 +799,7 @@ struct MenstrualHealthView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Share cycle with ARIA")
                         .foregroundColor(.textPrimary)
-                    Text("Coaching & training bias — never clinical claims.")
+                    Text("Read-only for your coaching. Off = ARIA never sees cycle phase.")
                         .font(FDS.TypeScale.body(11))
                         .foregroundColor(.textTertiary)
                 }
@@ -821,15 +825,59 @@ struct MenstrualHealthView: View {
             .tint(.ember)
         }
         .padding(18)
-        .forgeGlassCard(accent: .steel)
+        .forgeGlassCard(accent: Color(hex: "22C55E"))
+    }
+
+    private var privacyShieldBanner: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "lock.shield.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(Color(hex: "22C55E"))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(CyclePrivacy.title)
+                        .font(FDS.TypeScale.label(15))
+                        .foregroundColor(.textPrimary)
+                    Text(CyclePrivacy.shortPromise)
+                        .font(FDS.TypeScale.body(12))
+                        .foregroundColor(.textSecondary)
+                }
+            }
+            ForEach(CyclePrivacy.bullets, id: \.text) { item in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: item.icon)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color(hex: "22C55E"))
+                        .frame(width: 18)
+                    Text(item.text)
+                        .font(FDS.TypeScale.body(12))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(14)
+        .background(Color(hex: "22C55E").opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color(hex: "22C55E").opacity(0.22), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(CyclePrivacy.title + ". " + CyclePrivacy.shortPromise)
     }
 
     private var disclaimerFooter: some View {
-        Text(MenstrualCycleEngine.disclaimer)
-            .font(FDS.TypeScale.body(11))
-            .foregroundColor(.textTertiary)
-            .padding(.horizontal, 4)
-            .padding(.bottom, 8)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(CyclePrivacy.policy)
+                .font(FDS.TypeScale.body(11))
+                .foregroundColor(.textTertiary)
+            Text(MenstrualCycleEngine.disclaimer)
+                .font(FDS.TypeScale.body(11))
+                .foregroundColor(.textTertiary)
+        }
+        .padding(.horizontal, 4)
+        .padding(.bottom, 8)
     }
 
     // MARK: Partner / support
@@ -867,6 +915,9 @@ struct MenstrualHealthView: View {
             Text("Partners, spouses — and many fathers with daughters. Log period starts they share; ARIA coaches you on comfort, plans, and what not to say.")
                 .font(FDS.TypeScale.body(14))
                 .foregroundColor(.textSecondary)
+            Text(CyclePrivacy.shortPromise)
+                .font(FDS.TypeScale.body(12))
+                .foregroundStyle(Color(hex: "22C55E"))
             rolePicker
             Button {
                 cycleStore.updatePartnerSettings {
@@ -1144,7 +1195,12 @@ struct MenstrualHealthView: View {
                 get: { cycleStore.partnerSettings.shareWithAria },
                 set: { v in cycleStore.updatePartnerSettings { $0.shareWithAria = v } }
             )) {
-                Text("Share with ARIA").foregroundColor(.textPrimary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Share with ARIA").foregroundColor(.textPrimary)
+                    Text("Read for coaching only — never sold or resold.")
+                        .font(FDS.TypeScale.body(11))
+                        .foregroundColor(.textTertiary)
+                }
             }
             .tint(.ember)
             Toggle(isOn: Binding(

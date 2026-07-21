@@ -182,6 +182,8 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         Time: \(context.isEarlyMorning ? "Early morning (before 7am)" : context.isLateNight ? "Late night (after 10pm)" : "Daytime")
         \(cyclePromptBlock(context))
         
+        \(CyclePrivacy.ariaDirective)
+        
         User message: "\(input)"
         
         Respond in-character with the voice profile above. If they want a workout or themed plan, describe the session clearly.

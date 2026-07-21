@@ -517,6 +517,8 @@ struct PartnerSupportBrief: Equatable {
     It is not medical advice for them, not birth control, and not a substitute for their clinician. \
     Only log what they (or, for a minor, what is appropriate in your caregiver role) consent to share. \
     For daughters and children: protect privacy, skip body commentary, and escalate severe pain to a clinician.
+
+    \(CyclePrivacy.shortPromise) \(CyclePrivacy.partnerExtra)
     """
 }
 

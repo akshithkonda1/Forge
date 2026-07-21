@@ -16,6 +16,8 @@ enum MenstrualCycleEngine {
     Cycle insights are lifestyle estimates for training and recovery awareness — \
     not medical diagnosis, not birth control, and not a fertility treatment. \
     Always verify with a clinician for health decisions.
+
+    \(CyclePrivacy.shortPromise)
     """
 
     // MARK: Public

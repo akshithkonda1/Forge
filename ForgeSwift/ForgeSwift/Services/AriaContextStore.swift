@@ -235,6 +235,7 @@ final class AriaContextStore: ObservableObject {
     func clearCycleTags() {
         context.lifestyleTags = context.lifestyleTags.filter {
             !$0.hasPrefix("cycle:") && !$0.hasPrefix("cycle_phase:") && !$0.hasPrefix("cycle_day:")
+                && !$0.hasPrefix("cycle_privacy:")
         }
         context.recentPatterns = context.recentPatterns.filter { !$0.hasPrefix("cycle:") }
         context.lastUpdated = Date()
@@ -258,6 +259,7 @@ final class AriaContextStore: ObservableObject {
         }
         var tags = context.lifestyleTags.filter {
             !$0.hasPrefix("cycle:") && !$0.hasPrefix("cycle_phase:") && !$0.hasPrefix("cycle_day:")
+                && !$0.hasPrefix("cycle_privacy:")
         }
         tags.append("cycle:enabled")
         tags.append("cycle_phase:\(snap.phase.rawValue)")
@@ -266,6 +268,10 @@ final class AriaContextStore: ObservableObject {
         }
         tags.append("cycle:confidence:\(Int(snap.confidence * 100))")
         tags.append("cycle:quality:\(snap.dataQuality)")
+        // Explicit privacy contract in context so any processor sees the boundary.
+        tags.append("cycle_privacy:coaching_only")
+        tags.append("cycle_privacy:never_sell")
+        tags.append("cycle_privacy:user_controlled")
         if snap.recommendRecoveryBias {
             tags.append("cycle:recovery_bias")
         }
