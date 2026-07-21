@@ -88,10 +88,17 @@ struct HomeView: View {
     @State private var celebrationKey = 0
     @State private var showTrend = false
     @State private var proactiveInsight: String?
+    /// Cycle Health is opened only from Home (full-screen cover), not a bottom tab.
+    @State private var showCycleHealth = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var primaryAction: HomePrimaryAction {
         HomePrimaryAction.resolve(store: store)
+    }
+
+    /// Cycle entry lives on Home for everyone who may track self or support someone.
+    private var showsCycleEntry: Bool {
+        true
     }
 
     var body: some View {
@@ -148,33 +155,27 @@ struct HomeView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
-                        // Cycle intelligence — self (female) and/or partner sync (any gender)
-                        if store.userProfile.gender == .female
-                            || MenstrualHealthStore.shared.settings.enabled
-                            || MenstrualHealthStore.shared.partnerSettings.enabled
-                            || store.userProfile.gender == .male {
-                            CycleHealthChip(
-                                preferPartner: store.userProfile.gender == .male
-                                    && !MenstrualHealthStore.shared.settings.enabled
-                            ) {
-                                store.pendingProfileSubTab = "cycle"
-                                store.activeTab = .profile
+                        // 5. Cycle Health — entry only from Home (not bottom tabs)
+                        if showsCycleEntry {
+                            HomeCycleModule {
+                                FDS.haptic(.light)
+                                showCycleHealth = true
                             }
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
                         }
 
-                        // 5. Day preview telemetry
+                        // 6. Day preview telemetry
                         HomeDayPreviewStrip()
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
-                        // 6. Week rhythm
+                        // 7. Week rhythm
                         StreakCalendarSection()
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
-                        // 7. Optional trend
+                        // 8. Optional trend
                         HomeTrendSection(isExpanded: $showTrend)
                             .padding(.horizontal, 16)
                             .padding(.bottom, 140)
@@ -219,6 +220,22 @@ struct HomeView: View {
         .task {
             await store.refreshDailyData()
             proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store)
+            MenstrualHealthStore.shared.refresh(from: store)
+        }
+        .fullScreenCover(isPresented: $showCycleHealth) {
+            NavigationStack {
+                MenstrualHealthView()
+                    .environmentObject(store)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close") {
+                                showCycleHealth = false
+                            }
+                            .foregroundStyle(Color.ember)
+                        }
+                    }
+            }
+            .preferredColorScheme(.dark)
         }
     }
 
@@ -873,6 +890,150 @@ enum HomeARIABriefingBuilder {
         }
 
         return ([voiceCore] + chosen).joined(separator: " ")
+    }
+}
+
+// ============================================================
+// MARK: - Cycle Health entry (Home-only surface)
+// ============================================================
+
+/// Primary entry into Cycle Health. Not a bottom tab — opens full-screen from Home.
+struct HomeCycleModule: View {
+    @ObservedObject private var cycleStore = MenstrualHealthStore.shared
+    @EnvironmentObject private var store: AppStore
+    var onOpen: () -> Void
+
+    private var preferPartner: Bool {
+        store.userProfile.gender == .male && !cycleStore.settings.enabled
+    }
+
+    private var phase: MenstrualPhase {
+        if preferPartner || (cycleStore.partnerSettings.enabled && !cycleStore.settings.enabled) {
+            return cycleStore.partnerSnapshot.phase
+        }
+        return cycleStore.snapshot.phase
+    }
+
+    private var accent: Color { Color(hex: phase.accentHex) }
+
+    private var title: String {
+        if cycleStore.settings.enabled, let day = cycleStore.snapshot.dayInCycle {
+            return "\(cycleStore.snapshot.phase.label) · Day \(day)"
+        }
+        if cycleStore.partnerSettings.enabled, cycleStore.partnerSettings.consentAcknowledged {
+            let name = cycleStore.partnerSettings.displayName
+            if let day = cycleStore.partnerSnapshot.dayInCycle {
+                return "\(name) · Day \(day)"
+            }
+            return "Supporting \(name)"
+        }
+        return "Cycle Health"
+    }
+
+    private var subtitle: String {
+        if cycleStore.settings.enabled {
+            return cycleStore.snapshot.trainingNote
+        }
+        if cycleStore.partnerSettings.enabled {
+            return "Family support · open to log or ask ARIA"
+        }
+        return "Track your cycle or support someone you love"
+    }
+
+    var body: some View {
+        Button(action: onOpen) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("CYCLE")
+                        .forgeSectionLabel()
+                    Spacer()
+                    Text("Open")
+                        .font(FDS.TypeScale.label(12))
+                        .foregroundStyle(accent)
+                }
+
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .stroke(accent.opacity(0.22), lineWidth: 6)
+                            .frame(width: 56, height: 56)
+                        Circle()
+                            .trim(from: 0, to: progress)
+                            .stroke(accent, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                            .frame(width: 56, height: 56)
+                            .rotationEffect(.degrees(-90))
+                        Image(systemName: phase.icon)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(accent)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title)
+                            .font(FDS.TypeScale.title(17))
+                            .foregroundColor(.textPrimary)
+                            .lineLimit(1)
+                        Text(subtitle)
+                            .font(FDS.TypeScale.body(12))
+                            .foregroundColor(.textTertiary)
+                            .lineLimit(2)
+                    }
+
+                    Spacer(minLength: 4)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.textTertiary)
+                }
+
+                // Mini chips
+                HStack(spacing: 8) {
+                    if cycleStore.settings.enabled {
+                        miniChip("\(Int(cycleStore.snapshot.confidence * 100))% conf", accent)
+                        if let next = cycleStore.snapshot.nextPeriod {
+                            miniChip("Next \(shortDate(next.medianDayKey))", Color(hex: "EF4444"))
+                        }
+                    } else if cycleStore.partnerSettings.enabled {
+                        miniChip(cycleStore.partnerSettings.resolvedRole.shortLabel, Color(hex: "6366F1"))
+                        miniChip(cycleStore.partnerSnapshot.phase.shortLabel, accent)
+                    } else {
+                        miniChip("My cycle", Color(hex: "EF4444"))
+                        miniChip("Support", Color(hex: "6366F1"))
+                    }
+                    Spacer()
+                }
+            }
+            .padding(18)
+            .forgeGlassCard(accent: accent)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Cycle Health, \(title)")
+        .accessibilityHint("Opens cycle tracking from Home")
+    }
+
+    private var progress: CGFloat {
+        let snap = (preferPartner || !cycleStore.settings.enabled)
+            ? cycleStore.partnerSnapshot
+            : cycleStore.snapshot
+        guard let day = snap.dayInCycle else { return 0.12 }
+        let len = max(21, min(45, snap.cycleLengthMedian))
+        return min(0.95, CGFloat(day) / CGFloat(len))
+    }
+
+    private func miniChip(_ text: String, _ color: Color) -> some View {
+        Text(text)
+            .font(FDS.TypeScale.micro(10))
+            .foregroundStyle(color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(color.opacity(0.12))
+            .clipShape(Capsule())
+    }
+
+    private func shortDate(_ key: String) -> String {
+        guard let d = CycleDayKey.date(from: key) else { return key }
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        return f.string(from: d)
     }
 }
 

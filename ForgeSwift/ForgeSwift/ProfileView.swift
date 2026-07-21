@@ -846,7 +846,6 @@ struct SettingsPageView: View {
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
     @State private var showTrainingThemePicker = false
-    @State private var showCycleHealth = false
     @State private var showPrivacyPolicyURLAlert = false
     @State private var showTermsSheet = false
     @State private var showMyChartPlaceholderSheet = false
@@ -904,38 +903,6 @@ struct SettingsPageView: View {
                         )
                     }
                     .buttonStyle(.plain)
-
-                    if store.userProfile.gender == .female
-                        || store.userProfile.gender == .male
-                        || MenstrualHealthStore.shared.settings.enabled
-                        || MenstrualHealthStore.shared.partnerSettings.enabled
-                        || store.pendingProfileSubTab == "cycle" {
-                        Divider().background(Color.borderColor)
-                        Button(action: { showCycleHealth = true }) {
-                            let selfOn = MenstrualHealthStore.shared.settings.enabled
-                            let partnerOn = MenstrualHealthStore.shared.partnerSettings.enabled
-                            let snap = selfOn
-                                ? MenstrualHealthStore.shared.snapshot
-                                : MenstrualHealthStore.shared.partnerSnapshot
-                            SettingsRow(
-                                icon: partnerOn && !selfOn ? "heart.circle.fill" : snap.phase.icon,
-                                iconColor: Color(hex: snap.phase.accentHex),
-                                label: partnerOn && !selfOn ? "Support cycle" : "Cycle Health",
-                                trailingText: {
-                                    if selfOn { return snap.phase.shortLabel }
-                                    if partnerOn {
-                                        let p = MenstrualHealthStore.shared.partnerSettings
-                                        return p.resolvedRole == .child
-                                            ? "\(p.displayName) · child"
-                                            : p.displayName
-                                    }
-                                    return store.userProfile.gender == .male ? "Partner / daughter" : "Set up"
-                                }(),
-                                showChevron: true
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
 
                     Divider().background(Color.borderColor)
                     VStack(alignment: .leading, spacing: 0) {
@@ -1176,29 +1143,6 @@ struct SettingsPageView: View {
         }
         .sheet(isPresented: $showTrainingThemePicker) {
             TrainingThemePickerView()
-        }
-        .sheet(isPresented: $showCycleHealth) {
-            NavigationStack {
-                MenstrualHealthView()
-                    .environmentObject(store)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Done") { showCycleHealth = false }
-                        }
-                    }
-            }
-        }
-        .onAppear {
-            if store.pendingProfileSubTab == "cycle" {
-                showCycleHealth = true
-                store.pendingProfileSubTab = nil
-            }
-        }
-        .onChange(of: store.pendingProfileSubTab) { _, new in
-            if new == "cycle" {
-                showCycleHealth = true
-                store.pendingProfileSubTab = nil
-            }
         }
         .sheet(isPresented: $showDevicesSheet) {
             ConnectedDevicesSheet()
