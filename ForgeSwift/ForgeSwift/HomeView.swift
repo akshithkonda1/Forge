@@ -88,10 +88,18 @@ struct HomeView: View {
     @State private var celebrationKey = 0
     @State private var showTrend = false
     @State private var proactiveInsight: String?
+    /// Cycle Health is opened only from Home (full-screen cover), not a bottom tab.
+    @State private var showCycleHealth = false
+    @State private var cycleInitialPane: MenstrualHealthView.Pane? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var primaryAction: HomePrimaryAction {
         HomePrimaryAction.resolve(store: store)
+    }
+
+    /// Cycle entry lives on Home for everyone who may track self or support someone.
+    private var showsCycleEntry: Bool {
+        true
     }
 
     var body: some View {
@@ -125,13 +133,36 @@ struct HomeView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
-                        // 3. Primary control
+                        // 3. Dual primary controls (train + lifestyle)
                         HomePrimaryCTA(action: primaryAction)
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
-                        // 4. ARIA briefing
-                        if let insight = proactiveInsight,
+                        // 4. Today's agenda
+                        HomeAgendaCard()
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 16)
+
+                        // 5. Win of the day
+                        HomeWinCard()
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 12)
+
+                        // 6. Support pulse (partner cycle)
+                        if MenstrualHealthStore.shared.partnerSettings.enabled,
+                           MenstrualHealthStore.shared.partnerSettings.consentAcknowledged {
+                            HomeSupportPulseCard {
+                                FDS.haptic(.light)
+                                cycleInitialPane = .partner
+                                showCycleHealth = true
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 12)
+                        }
+
+                        // 7. ARIA briefing (suppressed in quiet mode for proactive card)
+                        if !store.quietMode,
+                           let insight = proactiveInsight,
                            AriaContextStore.shared.shouldBeProactive() {
                             ProactiveCardView(
                                 insight: insight,
@@ -144,37 +175,39 @@ struct HomeView: View {
                             .padding(.bottom, 12)
                         }
 
-                        HomeARIABriefingCard()
+                        if !store.quietMode {
+                            HomeARIABriefingCard()
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 16)
+                        }
+
+                        // 8. Lifestyle preview (full surface is its own tab)
+                        HomeLifestylePreviewCard()
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
-                        // Cycle intelligence — self (female) and/or partner sync (any gender)
-                        if store.userProfile.gender == .female
-                            || MenstrualHealthStore.shared.settings.enabled
-                            || MenstrualHealthStore.shared.partnerSettings.enabled
-                            || store.userProfile.gender == .male {
-                            CycleHealthChip(
-                                preferPartner: store.userProfile.gender == .male
-                                    && !MenstrualHealthStore.shared.settings.enabled
-                            ) {
-                                store.pendingProfileSubTab = "cycle"
-                                store.activeTab = .profile
+                        // 9. Cycle Health — entry only from Home (not bottom tabs)
+                        if showsCycleEntry {
+                            HomeCycleModule {
+                                FDS.haptic(.light)
+                                cycleInitialPane = .me
+                                showCycleHealth = true
                             }
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
                         }
 
-                        // 5. Day preview telemetry
+                        // 10. Day preview telemetry
                         HomeDayPreviewStrip()
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
-                        // 6. Week rhythm
+                        // 11. Week rhythm
                         StreakCalendarSection()
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
-                        // 7. Optional trend
+                        // 12. Optional trend
                         HomeTrendSection(isExpanded: $showTrend)
                             .padding(.horizontal, 16)
                             .padding(.bottom, 140)
@@ -219,6 +252,44 @@ struct HomeView: View {
         .task {
             await store.refreshDailyData()
             proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store)
+            MenstrualHealthStore.shared.refresh(from: store)
+        }
+        .fullScreenCover(isPresented: $showCycleHealth) {
+            NavigationStack {
+                MenstrualHealthView(initialPane: cycleInitialPane)
+                    .environmentObject(store)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close") {
+                                showCycleHealth = false
+                                cycleInitialPane = nil
+                            }
+                            .foregroundStyle(Color.ember)
+                        }
+                    }
+            }
+            .preferredColorScheme(.dark)
+        }
+        .onChange(of: store.pendingCycleHealthOpen) { _, open in
+            guard open else { return }
+            if store.pendingCyclePane == "partner" {
+                cycleInitialPane = .partner
+            } else {
+                cycleInitialPane = .me
+            }
+            showCycleHealth = true
+            store.pendingCycleHealthOpen = false
+            store.pendingCyclePane = nil
+        }
+        .onAppear {
+            if store.pendingCycleHealthOpen {
+                if store.pendingCyclePane == "partner" {
+                    cycleInitialPane = .partner
+                }
+                showCycleHealth = true
+                store.pendingCycleHealthOpen = false
+                store.pendingCyclePane = nil
+            }
         }
     }
 
@@ -288,6 +359,22 @@ struct HomeHeaderView: View {
             Spacer()
 
             Button {
+                FDS.haptic(.light)
+                store.setQuietMode(!store.quietMode)
+            } label: {
+                Image(systemName: store.quietMode ? "moon.fill" : "moon")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(store.quietMode ? .steel : .textTertiary)
+                    .frame(width: 40, height: 40)
+                    .background(Color.surface)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.borderColor, lineWidth: 0.5))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(store.quietMode ? "Quiet mode on" : "Quiet mode off")
+            .padding(.trailing, 8)
+
+            Button {
                 store.activeTab = .profile
             } label: {
                 ZStack(alignment: .topTrailing) {
@@ -327,23 +414,43 @@ struct HomeHeaderView: View {
 }
 
 private struct HomeDataStatusPill: View {
+    @EnvironmentObject private var store: AppStore
     let isLive: Bool
     let updatedAt: Date?
+    @State private var reconnecting = false
 
     var body: some View {
-        HStack(spacing: 5) {
-            Circle()
-                .fill(isLive ? Color(hex: "22C55E") : Color.textMuted)
-                .frame(width: 5, height: 5)
-                .shadow(color: isLive ? Color(hex: "22C55E").opacity(0.8) : .clear, radius: 3)
-            Text(statusText)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(isLive ? Color(hex: "22C55E") : .textMuted)
+        Button {
+            guard !isLive else { return }
+            reconnecting = true
+            Task {
+                await store.reconnectHealthKit()
+                reconnecting = false
+                FDS.notificationHaptic(store.healthKitLive ? .success : .warning)
+            }
+        } label: {
+            HStack(spacing: 5) {
+                if reconnecting {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Circle()
+                        .fill(isLive ? Color(hex: "22C55E") : Color.warning)
+                        .frame(width: 5, height: 5)
+                        .shadow(color: isLive ? Color(hex: "22C55E").opacity(0.8) : .clear, radius: 3)
+                }
+                Text(statusText)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(isLive ? Color(hex: "22C55E") : .warning)
+            }
         }
+        .buttonStyle(.plain)
+        .disabled(isLive || reconnecting)
         .accessibilityLabel(statusText)
+        .accessibilityHint(isLive ? "" : "Double tap to reconnect HealthKit")
     }
 
     private var statusText: String {
+        if reconnecting { return "Reconnecting…" }
         if isLive {
             if let updatedAt {
                 let mins = max(0, Int(Date().timeIntervalSince(updatedAt) / 60))
@@ -352,7 +459,7 @@ private struct HomeDataStatusPill: View {
             }
             return "HealthKit live"
         }
-        return "HealthKit offline"
+        return "HealthKit offline · tap to reconnect"
     }
 }
 
@@ -470,7 +577,17 @@ private struct HomeHeroReadinessCard: View {
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
 
-                VStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("WHY THIS SCORE")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1.4)
+                        .foregroundColor(.textTertiary)
+                        .padding(.top, 4)
+                    Text(readinessWhyCopy(store: store))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
                     ReadinessInsightRow(
                         icon: "moon.stars.fill",
                         title: "Deep Sleep",
@@ -483,6 +600,27 @@ private struct HomeHeroReadinessCard: View {
                         value: "\(store.dailyMetrics.hrv)ms",
                         color: .danger
                     )
+
+                    Button {
+                        FDS.haptic(.light)
+                        store.openChat(
+                            with: "Explain my readiness score of \(store.readiness.overall). Sleep \(store.readiness.sleepQuality), recovery \(store.readiness.recoveryScore), stress \(store.readiness.stressLevel), energy \(store.readiness.energyBank).",
+                            voice: false
+                        )
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                            Text("Explain my readiness")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .foregroundColor(.ember)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.ember.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 4)
                 }
                 .padding(.top, 12)
             }
@@ -565,18 +703,52 @@ private struct HomePrimaryCTA: View {
             .accessibilityLabel(action.title)
             .accessibilityHint(action.subtitle ?? "Double tap to activate")
 
-            // Secondary control
-            Button {
-                FDS.haptic(.light)
-                store.openChat(with: "What should I focus on today?", voice: false)
-            } label: {
-                Text("Ask ARIA instead")
-                    .font(.system(size: 13, weight: .semibold))
+            // Dual secondary row: ARIA + Lifestyle
+            HStack(spacing: 10) {
+                Button {
+                    FDS.haptic(.light)
+                    store.openChat(with: "What should I focus on today?", voice: false)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Ask ARIA")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
                     .foregroundColor(.textSecondary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 12)
+                    .background(Color.surfaceElevated)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.borderColor, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    FDS.haptic(.light)
+                    store.activeTab = .lifestyle
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "leaf.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Lifestyle")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundColor(Color(hex: "22C55E"))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color(hex: "22C55E").opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color(hex: "22C55E").opacity(0.25), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
     }
 
@@ -873,6 +1045,519 @@ enum HomeARIABriefingBuilder {
         }
 
         return ([voiceCore] + chosen).joined(separator: " ")
+    }
+}
+
+// ============================================================
+// MARK: - Cycle Health entry (Home-only surface)
+// ============================================================
+
+/// Primary entry into Cycle Health. Not a bottom tab — opens full-screen from Home.
+struct HomeCycleModule: View {
+    @ObservedObject private var cycleStore = MenstrualHealthStore.shared
+    @EnvironmentObject private var store: AppStore
+    var onOpen: () -> Void
+
+    private var preferPartner: Bool {
+        store.userProfile.gender == .male && !cycleStore.settings.enabled
+    }
+
+    private var phase: MenstrualPhase {
+        if preferPartner || (cycleStore.partnerSettings.enabled && !cycleStore.settings.enabled) {
+            return cycleStore.partnerSnapshot.phase
+        }
+        return cycleStore.snapshot.phase
+    }
+
+    private var accent: Color { Color(hex: phase.accentHex) }
+
+    private var title: String {
+        if cycleStore.settings.enabled, let day = cycleStore.snapshot.dayInCycle {
+            return "\(cycleStore.snapshot.phase.label) · Day \(day)"
+        }
+        if cycleStore.partnerSettings.enabled, cycleStore.partnerSettings.consentAcknowledged {
+            let name = cycleStore.partnerSettings.displayName
+            if let day = cycleStore.partnerSnapshot.dayInCycle {
+                return "\(name) · Day \(day)"
+            }
+            return "Supporting \(name)"
+        }
+        return "Cycle Health"
+    }
+
+    private var subtitle: String {
+        if cycleStore.settings.enabled {
+            return cycleStore.snapshot.trainingNote
+        }
+        if cycleStore.partnerSettings.enabled {
+            return "Family support · open to log or ask ARIA"
+        }
+        return "Track your cycle or support someone you love"
+    }
+
+    var body: some View {
+        Button(action: onOpen) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("CYCLE")
+                        .forgeSectionLabel()
+                    Spacer()
+                    Text("Open")
+                        .font(FDS.TypeScale.label(12))
+                        .foregroundStyle(accent)
+                }
+
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .stroke(accent.opacity(0.22), lineWidth: 6)
+                            .frame(width: 56, height: 56)
+                        Circle()
+                            .trim(from: 0, to: progress)
+                            .stroke(accent, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                            .frame(width: 56, height: 56)
+                            .rotationEffect(.degrees(-90))
+                        Image(systemName: phase.icon)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(accent)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title)
+                            .font(FDS.TypeScale.title(17))
+                            .foregroundColor(.textPrimary)
+                            .lineLimit(1)
+                        Text(subtitle)
+                            .font(FDS.TypeScale.body(12))
+                            .foregroundColor(.textTertiary)
+                            .lineLimit(2)
+                    }
+
+                    Spacer(minLength: 4)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.textTertiary)
+                }
+
+                // Mini chips
+                HStack(spacing: 8) {
+                    if cycleStore.settings.enabled {
+                        miniChip("\(Int(cycleStore.snapshot.confidence * 100))% conf", accent)
+                        if let next = cycleStore.snapshot.nextPeriod {
+                            miniChip("Next \(shortDate(next.medianDayKey))", Color(hex: "EF4444"))
+                        }
+                    } else if cycleStore.partnerSettings.enabled {
+                        miniChip(cycleStore.partnerSettings.resolvedRole.shortLabel, Color(hex: "6366F1"))
+                        miniChip(cycleStore.partnerSnapshot.phase.shortLabel, accent)
+                    } else {
+                        miniChip("My cycle", Color(hex: "EF4444"))
+                        miniChip("Support", Color(hex: "6366F1"))
+                    }
+                    miniChip("Private", Color(hex: "22C55E"))
+                    Spacer()
+                }
+
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color(hex: "22C55E"))
+                    Text(CyclePrivacy.shortPromise)
+                        .font(FDS.TypeScale.body(11))
+                        .foregroundColor(.textTertiary)
+                        .lineLimit(2)
+                }
+            }
+            .padding(18)
+            .forgeGlassCard(accent: accent)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Cycle Health, \(title). \(CyclePrivacy.shortPromise)")
+        .accessibilityHint("Opens private cycle tracking from Home")
+    }
+
+    private var progress: CGFloat {
+        let snap = (preferPartner || !cycleStore.settings.enabled)
+            ? cycleStore.partnerSnapshot
+            : cycleStore.snapshot
+        guard let day = snap.dayInCycle else { return 0.12 }
+        let len = max(21, min(45, snap.cycleLengthMedian))
+        return min(0.95, CGFloat(day) / CGFloat(len))
+    }
+
+    private func miniChip(_ text: String, _ color: Color) -> some View {
+        Text(text)
+            .font(FDS.TypeScale.micro(10))
+            .foregroundStyle(color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(color.opacity(0.12))
+            .clipShape(Capsule())
+    }
+
+    private func shortDate(_ key: String) -> String {
+        guard let d = CycleDayKey.date(from: key) else { return key }
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        return f.string(from: d)
+    }
+}
+
+// ============================================================
+// MARK: - Readiness why copy
+// ============================================================
+
+@MainActor
+private func readinessWhyCopy(store: AppStore) -> String {
+    var bits: [String] = []
+    let r = store.readiness
+    if r.sleepQuality < 55 {
+        bits.append("Sleep quality is dragging the score")
+    } else if r.sleepQuality >= 80 {
+        bits.append("Sleep looks supportive")
+    }
+    if r.recoveryScore < 55 {
+        bits.append("recovery markers are soft")
+    } else if r.recoveryScore >= 80 {
+        bits.append("recovery is solid")
+    }
+    if r.stressLevel >= 65 {
+        bits.append("stress is elevated")
+    }
+    if r.energyBank < 50 {
+        bits.append("energy bank is low")
+    }
+    let cycle = MenstrualHealthStore.shared
+    if cycle.settings.enabled, cycle.settings.shareWithAria, cycle.snapshot.recommendRecoveryBias {
+        bits.append("cycle phase suggests a recovery bias")
+    }
+    if bits.isEmpty {
+        return "Balanced drivers across sleep, recovery, stress, and energy. Readiness is a composite — not a single sensor."
+    }
+    let joined = bits.joined(separator: "; ")
+    return joined.prefix(1).uppercased() + joined.dropFirst() + "."
+}
+
+// ============================================================
+// MARK: - Win of the day
+// ============================================================
+
+private struct HomeWinCard: View {
+    @EnvironmentObject var store: AppStore
+
+    private var title: String {
+        if store.isWorkoutActive { return "Session in progress" }
+        if store.currentStreak >= 7 { return "\(store.currentStreak)-day streak" }
+        if store.currentStreak > 0 { return "Streak: \(store.currentStreak) days" }
+        return "Forge day zero energy"
+    }
+
+    private var subtitle: String {
+        if store.isWorkoutActive { return "Finish strong — then log recovery." }
+        if store.currentStreak >= 3 { return "Consistency is compounding. Protect sleep tonight." }
+        return "Complete today’s plan to light the streak."
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.ember.opacity(0.18))
+                    .frame(width: 42, height: 42)
+                Image(systemName: "flame.fill")
+                    .foregroundStyle(Color.ember)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text("WIN")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.6)
+                    .foregroundColor(.ember)
+                Text(title)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.textPrimary)
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundColor(.textTertiary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .forgeGlassCard(accent: .ember)
+    }
+}
+
+// ============================================================
+// MARK: - Support pulse
+// ============================================================
+
+private struct HomeSupportPulseCard: View {
+    @ObservedObject private var cycleStore = MenstrualHealthStore.shared
+    var onOpen: () -> Void
+
+    var body: some View {
+        Button(action: onOpen) {
+            HStack(spacing: 12) {
+                Image(systemName: cycleStore.partnerSnapshot.phase.icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color(hex: cycleStore.partnerSnapshot.phase.accentHex))
+                    .frame(width: 40, height: 40)
+                    .background(Color(hex: cycleStore.partnerSnapshot.phase.accentHex).opacity(0.15))
+                    .clipShape(Circle())
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("SUPPORTING")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1.4)
+                        .foregroundColor(.textTertiary)
+                    Text("\(cycleStore.partnerSettings.displayName) · \(cycleStore.partnerSnapshot.phase.shortLabel)")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.textPrimary)
+                    Text(cycleStore.partnerSupportBrief?.headline ?? "Open cycle support")
+                        .font(.system(size: 12))
+                        .foregroundColor(.textTertiary)
+                        .lineLimit(1)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.textMuted)
+            }
+            .padding(16)
+            .forgeGlassCard(accent: Color(hex: "6366F1"))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// ============================================================
+// MARK: - Agenda (today's command list)
+// ============================================================
+
+private struct HomeAgendaCard: View {
+    @EnvironmentObject var store: AppStore
+    @State private var appeared = false
+
+    private var items: [(icon: String, title: String, sub: String, color: Color, action: () -> Void)] {
+        var rows: [(icon: String, title: String, sub: String, color: Color, action: () -> Void)] = []
+
+        if store.isWorkoutActive {
+            rows.append((
+                "figure.strengthtraining.traditional",
+                "Continue session",
+                store.todayWorkout?.name ?? "Active workout",
+                .ember,
+                { store.activeTab = .workout }
+            ))
+        } else if let plan = store.todayWorkout {
+            rows.append((
+                "dumbbell.fill",
+                plan.name,
+                "\(plan.duration) min · \(plan.intensity.label)",
+                .ember,
+                { store.activeTab = .workout }
+            ))
+        } else {
+            rows.append((
+                "sparkles",
+                "Build today's plan",
+                "ARIA will shape a session from readiness",
+                .ember,
+                { store.openChat(with: "Build today's training plan from my readiness.", voice: false) }
+            ))
+        }
+
+        let sleepHours = store.dailyMetrics.totalSleep > 0
+            ? Double(store.dailyMetrics.totalSleep) / 60.0
+            : store.sleepData.first?.totalHours
+        if let h = sleepHours, h > 0 {
+            rows.append((
+                "moon.zzz.fill",
+                String(format: "Sleep · %.1fh", h),
+                store.readiness.overall < 60 ? "Protect recovery tonight" : "Review wind-down",
+                .steel,
+                { store.activeTab = .sleep }
+            ))
+        } else {
+            rows.append((
+                "moon.zzz.fill",
+                "Log or sync sleep",
+                "HealthKit sleep improves readiness",
+                .steel,
+                { store.activeTab = .sleep }
+            ))
+        }
+
+        rows.append((
+            "leaf.fill",
+            "Lifestyle check-in",
+            "Protein · water · meals",
+            Color(hex: "22C55E"),
+            { store.activeTab = .lifestyle }
+        ))
+
+        if MenstrualHealthStore.shared.settings.enabled {
+            let snap = MenstrualHealthStore.shared.snapshot
+            rows.append((
+                snap.phase.icon,
+                "Cycle · \(snap.phase.shortLabel)",
+                snap.dayInCycle.map { "Day \($0)" } ?? snap.phase.label,
+                Color(hex: snap.phase.accentHex),
+                {
+                    store.openChat(
+                        with: "I'm in \(snap.phase.label)"
+                            + (snap.dayInCycle.map { " (day \($0))" } ?? "")
+                            + ". How should I train and recover?",
+                        voice: false
+                    )
+                }
+            ))
+        }
+
+        return rows
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("TODAY'S AGENDA")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.textTertiary)
+                    .tracking(2)
+                Spacer()
+                Text("\(items.count) items")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.textMuted)
+            }
+
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                Button {
+                    FDS.haptic(.light)
+                    item.action()
+                } label: {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(item.color.opacity(0.16))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: item.icon)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(item.color)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.title)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.textPrimary)
+                                .lineLimit(1)
+                            Text(item.sub)
+                                .font(.system(size: 12))
+                                .foregroundColor(.textTertiary)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 4)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.textMuted)
+                    }
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(18)
+        .forgeGlassCard(accent: .ember.opacity(0.5))
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 12)
+        .onAppear { withAnimation(FDS.Spring.hero.delay(0.16)) { appeared = true } }
+    }
+}
+
+// ============================================================
+// MARK: - Lifestyle preview (Home control center)
+// ============================================================
+
+private struct HomeLifestylePreviewCard: View {
+    @EnvironmentObject var store: AppStore
+    @State private var appeared = false
+
+    var body: some View {
+        Button {
+            FDS.haptic(.light)
+            store.activeTab = .lifestyle
+        } label: {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("LIFESTYLE")
+                        .forgeSectionLabel()
+                    Spacer()
+                    Text("Open")
+                        .font(FDS.TypeScale.label(12))
+                        .foregroundStyle(Color(hex: "22C55E"))
+                }
+
+                HStack(spacing: 10) {
+                    lifestyleChip(
+                        icon: "figure.walk",
+                        value: store.dailyMetrics.steps > 0 ? store.dailyMetrics.steps.formatted() : "—",
+                        label: "Steps",
+                        color: Color(hex: "22C55E")
+                    )
+                    lifestyleChip(
+                        icon: "flame.fill",
+                        value: store.dailyMetrics.activeCalories > 0 ? "\(store.dailyMetrics.activeCalories)" : "—",
+                        label: "Active",
+                        color: .ember
+                    )
+                    lifestyleChip(
+                        icon: "heart.fill",
+                        value: store.dailyMetrics.hrv > 0 ? "\(store.dailyMetrics.hrv)" : "—",
+                        label: "HRV",
+                        color: .danger
+                    )
+                }
+
+                HStack(spacing: 8) {
+                    Image(systemName: "fork.knife")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color(hex: "FFB84D"))
+                    Text("Nutrition · hydration · wellbeing live on the Lifestyle tab")
+                        .font(FDS.TypeScale.body(12))
+                        .foregroundColor(.textTertiary)
+                        .lineLimit(2)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.textMuted)
+                }
+            }
+            .padding(18)
+            .forgeGlassCard(accent: Color(hex: "22C55E"))
+        }
+        .buttonStyle(.plain)
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 12)
+        .onAppear { withAnimation(FDS.Spring.hero.delay(0.22)) { appeared = true } }
+        .accessibilityLabel("Lifestyle preview")
+        .accessibilityHint("Opens the Lifestyle tab")
+    }
+
+    private func lifestyleChip(icon: String, value: String, label: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(color)
+            Text(value)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.textTertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.surfaceElevated.opacity(0.9))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

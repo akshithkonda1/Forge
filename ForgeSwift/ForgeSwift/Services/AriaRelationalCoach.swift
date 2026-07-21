@@ -254,6 +254,7 @@ enum AriaRelationalCoach {
 
     // MARK: Humanize structured briefs into conversation
 
+    @MainActor
     static func humanizeSupportReply(
         snapshot: MenstrualCycleSnapshot,
         settings: PartnerCycleSettings,

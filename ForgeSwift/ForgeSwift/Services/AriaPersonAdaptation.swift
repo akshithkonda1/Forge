@@ -834,11 +834,13 @@ struct AriaKnownPerson: Codable, Equatable, Identifiable {
         case id, name, primaryLabel, extraLabels, role, dynamics, archetype, customArchetypeId, speech, notes, isActive
     }
 
+    @MainActor
     var customArchetype: AriaCustomArchetype? {
         guard let customArchetypeId else { return nil }
         return AriaArchetypeStudio.shared.archetype(id: customArchetypeId)
     }
 
+    @MainActor
     var adaptation: AriaPersonAdaptation {
         var base = AriaPersonAdaptation.resolve(
             labelRaw: primaryLabel,

@@ -6,7 +6,7 @@ import Combine
 final class AriaContextStore: ObservableObject {
     static let shared = AriaContextStore()
 
-    @Published private(set) var context: AriaContext
+    @Published internal(set) var context: AriaContext
     @Published private(set) var lastProactiveInsight: String?
     @Published private(set) var permissions: AriaPermissionsStore
     @Published private(set) var lastObservedContext: ARIAContextPayload?
@@ -232,9 +232,23 @@ final class AriaContextStore: ObservableObject {
         persist()
     }
 
+    /// Quiet mode: ARIA should reduce unsolicited briefs and noise.
+    func setQuietMode(_ on: Bool) {
+        context.lifestyleTags = context.lifestyleTags.filter { !$0.hasPrefix("quiet_mode:") }
+        if on {
+            context.lifestyleTags.append("quiet_mode:true")
+            context.constraints = Array(Set(context.constraints + ["quiet_mode:true"]))
+        } else {
+            context.constraints = context.constraints.filter { $0 != "quiet_mode:true" }
+        }
+        context.lastUpdated = Date()
+        persist()
+    }
+
     func clearCycleTags() {
         context.lifestyleTags = context.lifestyleTags.filter {
             !$0.hasPrefix("cycle:") && !$0.hasPrefix("cycle_phase:") && !$0.hasPrefix("cycle_day:")
+                && !$0.hasPrefix("cycle_privacy:")
         }
         context.recentPatterns = context.recentPatterns.filter { !$0.hasPrefix("cycle:") }
         context.lastUpdated = Date()
@@ -258,6 +272,7 @@ final class AriaContextStore: ObservableObject {
         }
         var tags = context.lifestyleTags.filter {
             !$0.hasPrefix("cycle:") && !$0.hasPrefix("cycle_phase:") && !$0.hasPrefix("cycle_day:")
+                && !$0.hasPrefix("cycle_privacy:")
         }
         tags.append("cycle:enabled")
         tags.append("cycle_phase:\(snap.phase.rawValue)")
@@ -266,6 +281,10 @@ final class AriaContextStore: ObservableObject {
         }
         tags.append("cycle:confidence:\(Int(snap.confidence * 100))")
         tags.append("cycle:quality:\(snap.dataQuality)")
+        // Explicit privacy contract in context so any processor sees the boundary.
+        tags.append("cycle_privacy:coaching_only")
+        tags.append("cycle_privacy:never_sell")
+        tags.append("cycle_privacy:user_controlled")
         if snap.recommendRecoveryBias {
             tags.append("cycle:recovery_bias")
         }
@@ -527,7 +546,7 @@ final class AriaContextStore: ObservableObject {
         return nil
     }
 
-    private func persist() {
+    func persist() {
         if let data = try? JSONEncoder().encode(context) {
             defaults.set(data, forKey: storageKey)
         }

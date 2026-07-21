@@ -229,18 +229,45 @@ final class OnboardingCoordinator {
     func startIfNeeded() {
         guard !hasStarted else { return }
         hasStarted = true
+        seedFromSignUpDraft()
         Task { await runIntro() }
     }
 
+    /// Pulls name + first quest chosen during immersive Day 0 sign-up.
+    private func seedFromSignUpDraft() {
+        let draft = AppStore._signUpDraftProfile
+        if !draft.trimmedName.isEmpty {
+            profile.name = draft.trimmedName
+        }
+        if !draft.fitnessGoals.isEmpty {
+            profile.fitnessGoals = draft.fitnessGoals
+        }
+    }
+
     private func runIntro() async {
-        await ariaSay(
-            "I'm Aria — your lifestyle-based health coach. I learn how you move, sleep, stress, and live, then help you build plans that fit real life.",
-            mood: .focused
-        )
-        await ariaSay(
-            "I'm not a doctor. I don't diagnose or treat. I coach — structure, recovery, habits, and accountability. This takes about a minute. While we talk, I can load HealthKit in the background so day one already has signal.",
-            mood: .calm
-        )
+        let nameHint = profile.firstName
+        if !nameHint.isEmpty {
+            await ariaSay(
+                "Welcome, \(nameHint). I'm Aria — your lifestyle coach. You already claimed a quest; now we forge the system around it.",
+                mood: .energized
+            )
+        } else {
+            await ariaSay(
+                "I'm Aria — your lifestyle-based health coach. I learn how you move, sleep, stress, and live, then help you build plans that fit real life.",
+                mood: .focused
+            )
+        }
+        if let first = profile.fitnessGoals.first {
+            await ariaSay(
+                "Quest locked: \(first.label). I'm not a doctor — I coach structure, recovery, and habits. About a minute from here. HealthKit can load while we talk so day one already has signal.",
+                mood: .calm
+            )
+        } else {
+            await ariaSay(
+                "I'm not a doctor. I don't diagnose or treat. I coach — structure, recovery, habits, and accountability. This takes about a minute. While we talk, I can load HealthKit in the background so day one already has signal.",
+                mood: .calm
+            )
+        }
         await advanceTo(.age)
     }
 
@@ -254,6 +281,19 @@ final class OnboardingCoordinator {
             await ariaSay("First — how old are you? I need this for safety and to calibrate intensity.", mood: .focused)
             ariaOrbState = .listening
         case .name:
+            if !profile.trimmedName.isEmpty {
+                // Already claimed during Day 0 sign-up — confirm and skip typing.
+                await ariaSay(
+                    "I'll keep calling you \(profile.firstName). Say the word if that's wrong later — for now we move.",
+                    mood: .energized
+                )
+                appendUser(profile.trimmedName)
+                AriaContextStore.shared.updateProfile(
+                    lifestyleTags: ["onboarding:in_progress", "name:\(profile.trimmedName)"]
+                )
+                await advanceTo(.health)
+                return
+            }
             await ariaSay("What should I call you?", mood: .focused)
             ariaOrbState = .listening
         case .health:
@@ -263,7 +303,15 @@ final class OnboardingCoordinator {
             )
             ariaOrbState = .listening
         case .goals:
-            await ariaSay(personalizedGoalsPrompt(), mood: .focused)
+            if profile.fitnessGoals.count == 1 {
+                // First quest already locked at sign-up — let them confirm or add more.
+                await ariaSay(
+                    "You already locked \(profile.fitnessGoals[0].label). Keep it, or add a second goal before we continue.",
+                    mood: .energized
+                )
+            } else {
+                await ariaSay(personalizedGoalsPrompt(), mood: .focused)
+            }
             ariaOrbState = .listening
         case .experience:
             await ariaSay(experiencePrompt(), mood: .focused)

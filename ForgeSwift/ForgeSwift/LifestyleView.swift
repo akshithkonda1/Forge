@@ -1158,6 +1158,7 @@ struct LifestyleView: View {
     @StateObject private var locationLogger = LocationMealLogger()
     @State private var selectedSegment: LifestyleSegment = .aiOptimization
     @State private var showInsights = false
+    @State private var reconnectingHK = false
     @Namespace private var segmentNS
 
     var body: some View {
@@ -1171,6 +1172,47 @@ struct LifestyleView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 60)
                     .padding(.bottom, 16)
+
+                if !store.healthKitLive {
+                    Button {
+                        reconnectingHK = true
+                        Task {
+                            await store.reconnectHealthKit()
+                            reconnectingHK = false
+                            FDS.notificationHaptic(store.healthKitLive ? .success : .warning)
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "heart.text.square.fill")
+                                .foregroundStyle(Color.warning)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("HealthKit offline")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.textPrimary)
+                                Text(reconnectingHK ? "Reconnecting…" : "Tap to reconnect for live nutrition & recovery")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.textTertiary)
+                            }
+                            Spacer()
+                            if reconnectingHK {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .foregroundStyle(Color.ember)
+                            }
+                        }
+                        .padding(14)
+                        .background(Color.warning.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.warning.opacity(0.25), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 12)
+                }
 
                 SegmentedPillControl(selected: $selectedSegment, namespace: segmentNS)
                     .padding(.horizontal, 20)

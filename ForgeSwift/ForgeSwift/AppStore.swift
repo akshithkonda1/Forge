@@ -7,17 +7,28 @@ import FoundationModels
 // MARK: - Tab Enum
 
 enum TabItem: String, CaseIterable, Identifiable {
-    case home, chat, workout, lifestyle, sleep, profile
+    case home, workout, chat, lifestyle, sleep, progress, profile
     var id: String { rawValue }
-    var label: String { rawValue.capitalized }
+    var label: String {
+        switch self {
+        case .home: return "Home"
+        case .workout: return "Workout"
+        case .chat: return "ARIA"
+        case .lifestyle: return "Lifestyle"
+        case .sleep: return "Sleep"
+        case .progress: return "Progress"
+        case .profile: return "Profile"
+        }
+    }
     var systemImage: String {
         switch self {
-        case .home:     return "house.fill"
-        case .chat:     return "message.fill"
-        case .workout:  return "dumbbell.fill"
-        case .lifestyle: return "leaf.fill"
-        case .sleep:    return "moon.fill"
-        case .profile:  return "person.fill"
+        case .home:      return "house"
+        case .chat:      return "message"
+        case .workout:   return "dumbbell"
+        case .lifestyle: return "leaf"
+        case .sleep:     return "moon"
+        case .progress:  return "chart.line.uptrend.xyaxis"
+        case .profile:   return "person"
         }
     }
 }
@@ -182,6 +193,8 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         Time: \(context.isEarlyMorning ? "Early morning (before 7am)" : context.isLateNight ? "Late night (after 10pm)" : "Daytime")
         \(cyclePromptBlock(context))
         
+        \(CyclePrivacy.ariaDirective)
+        
         User message: "\(input)"
         
         Respond in-character with the voice profile above. If they want a workout or themed plan, describe the session clearly.
@@ -311,7 +324,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
                 && reading.primary != .crisis
                 && !lower.contains("feel") && !lower.contains("upset") && !lower.contains("fight")
             if !trainingOnly {
-                return AriaEmotionalSupportCoach.respond(
+                return await AriaEmotionalSupportCoach.respond(
                     reading: reading,
                     context: context,
                     input: input
@@ -326,7 +339,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
 
         // Menstrual / cycle coaching
         if isCycleQuery(lower) {
-            return generateCycleResponse(context: context, input: input)
+            return await generateCycleResponse(context: context, input: input)
         }
         
         // Low energy
@@ -431,16 +444,16 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         context: TrainerContext,
         input: String
     ) async -> TrainerResponse {
-        _ = AriaPersonRegistry.shared.adapt(to: input)
+        _ = await AriaPersonRegistry.shared.adapt(to: input)
         let studio = AriaArchetypeStudio.shared
-        let personName = AriaPersonRegistry.shared.activePerson?.name
+        let personName = await AriaPersonRegistry.shared.activePerson?.name
             ?? context.partnerCycleSettings?.displayName
             ?? "them"
 
         switch intent {
         case .list:
             let builtin = AriaPersonalArchetype.allCases.filter { $0 != .unknown }.map(\.label)
-            let custom = studio.customArchetypes.prefix(12).map { "\($0.name) (\($0.source.displayName))" }
+            let custom = await studio.customArchetypes.prefix(12).map { "\($0.name) (\($0.source.displayName))" }
             var msg = "**Built-in archetypes:** " + builtin.joined(separator: ", ") + "."
             if custom.isEmpty {
                 msg += "\n\nNo custom ones yet — say “create an archetype for someone who…” and I’ll invent one through ARIA’s backend intelligence (or on-device if you’re offline)."
@@ -459,7 +472,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
 
         case .create(let description, let name):
             let crafted = await studio.createArchetype(from: description, preferredName: name)
-            studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            await studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
             let sourceNote = "Forged via \(crafted.source.displayName)."
             let msg = """
             New archetype locked for **\(personName)**:
@@ -487,10 +500,10 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             )
 
         case .enrich(let extra):
-            if let activeId = AriaPersonRegistry.shared.activePerson?.customArchetypeId,
-               let existing = studio.archetype(id: activeId) {
+            if let activeId = await AriaPersonRegistry.shared.activePerson?.customArchetypeId,
+               let existing = await studio.archetype(id: activeId) {
                 let refined = await studio.enrich(existing, with: extra)
-                studio.apply(refined, toPersonId: AriaPersonRegistry.shared.activePersonId)
+                await studio.apply(refined, toPersonId: AriaPersonRegistry.shared.activePersonId)
                 return TrainerResponse(
                     content: """
                     Refined **\(refined.name)** for \(personName).
@@ -505,7 +518,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
                 )
             }
             let crafted = await studio.createArchetype(from: extra, preferredName: nil)
-            studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            await studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
             return TrainerResponse(
                 content: "No custom archetype was attached yet — I forged **\(crafted.name)** and applied it to \(personName).",
                 suggestedActions: ["Deepen this archetype", "Support script"],
@@ -513,8 +526,8 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             )
 
         case .assign(let name):
-            if let existing = studio.findByName(name) {
-                studio.apply(existing, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            if let existing = await studio.findByName(name) {
+                await studio.apply(existing, toPersonId: AriaPersonRegistry.shared.activePersonId)
                 return TrainerResponse(
                     content: "Attached **\(existing.name)** to \(personName).",
                     suggestedActions: ["How do I support them?", "Deepen this archetype"],
@@ -522,7 +535,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
                 )
             }
             let crafted = await studio.createArchetype(from: input, preferredName: name)
-            studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            await studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
             return TrainerResponse(
                 content: "Created and attached **\(crafted.name)** to \(personName).",
                 suggestedActions: ["Support script", "List archetypes"],
@@ -561,6 +574,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         )
     }
 
+    @MainActor
     private func generateCycleResponse(context: TrainerContext, input: String) -> TrainerResponse {
         let lower = input.lowercased()
         let mention = AriaRelationalCoach.detectSupportMention(in: input)
@@ -807,6 +821,13 @@ final class AppStore: ObservableObject {
     }
     @Published var onboardingStep: Int = 0
 
+    // Auth (local session gate — production wires IdP tokens)
+    @Published var isAuthenticated: Bool = false {
+        didSet { UserDefaults.standard.set(isAuthenticated, forKey: Self.authDefaultsKey) }
+    }
+    @Published var authProvider: String = ""
+    @Published var authEmail: String = ""
+
     // User Profile
     @Published var userProfile: UserProfile = mockProfile {
         didSet { persistUserProfile() }
@@ -838,6 +859,18 @@ final class AppStore: ObservableObject {
     // Navigation
     @Published var activeTab: TabItem = .home
     @Published var pendingProfileSubTab: String? = nil
+    /// When true, Home presents Cycle Health full-screen (Settings deep-link).
+    @Published var pendingCycleHealthOpen: Bool = false
+    /// Optional Cycle pane: "me" or "partner".
+    @Published var pendingCyclePane: String? = nil
+
+    // Quiet mode — damp proactive noise (persisted)
+    @Published var quietMode: Bool = UserDefaults.standard.bool(forKey: "forge.quiet.mode.v1") {
+        didSet {
+            UserDefaults.standard.set(quietMode, forKey: "forge.quiet.mode.v1")
+            AriaContextStore.shared.setQuietMode(quietMode)
+        }
+    }
 
     // ARIA bridge
     @Published var ariaVoiceMode: Bool = false
@@ -897,16 +930,54 @@ final class AppStore: ObservableObject {
 
     private static let onboardedDefaultsKey = "forge.onboarding.completed"
     private static let profileDefaultsKey = "forge.user.profile.v1"
+    private static let authDefaultsKey = "forge.auth.session.v1"
+    private static let authProviderKey = "forge.auth.provider.v1"
+    private static let authEmailKey = "forge.auth.email.v1"
 
-    /// Rehydrates a completed onboarding (flag + profile) on cold launch so the
-    /// user lands straight in the app instead of re-running setup every time.
+    /// Rehydrates auth + completed onboarding on cold launch.
     private func restoreOnboardingState() {
+        isAuthenticated = UserDefaults.standard.bool(forKey: Self.authDefaultsKey)
+        authProvider = UserDefaults.standard.string(forKey: Self.authProviderKey) ?? ""
+        authEmail = UserDefaults.standard.string(forKey: Self.authEmailKey) ?? ""
+        // Legacy: onboarded users from before auth gate count as signed in.
+        if !isAuthenticated, UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) {
+            isAuthenticated = true
+            authProvider = authProvider.isEmpty ? "legacy" : authProvider
+        }
         guard UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) else { return }
         if let data = UserDefaults.standard.data(forKey: Self.profileDefaultsKey),
            let saved = try? JSONDecoder().decode(UserProfile.self, from: data) {
             userProfile = saved
         }
         isOnboarded = true
+    }
+
+    /// Sign-up path: mark authenticated then run onboarding (HealthKit + profile).
+    func beginSignUp() {
+        isAuthenticated = true
+        authProvider = "signup"
+        UserDefaults.standard.set("signup", forKey: Self.authProviderKey)
+        isOnboarded = false
+        onboardingStep = 0
+    }
+
+    /// Completes auth for returning or new social/email users.
+    func authenticate(provider: String, email: String, displayName: String, isNewAccount: Bool) {
+        isAuthenticated = true
+        authProvider = provider
+        authEmail = email
+        UserDefaults.standard.set(provider, forKey: Self.authProviderKey)
+        UserDefaults.standard.set(email, forKey: Self.authEmailKey)
+        if !displayName.isEmpty, userProfile.name.isEmpty || userProfile.name == "Alex" || isNewAccount {
+            userProfile.name = displayName
+        }
+        if isNewAccount || !UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) {
+            isOnboarded = false
+            onboardingStep = 0
+        } else {
+            isOnboarded = true
+            Task { await refreshDailyData() }
+        }
     }
 
     private func persistUserProfile() {
@@ -1290,10 +1361,10 @@ final class AppStore: ObservableObject {
         let samples = BiometricsObserveService.shared.samplesFromStore(self)
         _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
 
-        // Menstrual cycle: auto-enable path for female profiles + HealthKit multi-signal sync.
+        // Menstrual cycle: auto-enable + quiet weekly HealthKit sync (or immediate if broken).
         MenstrualHealthStore.shared.enableForFemaleProfileIfNeeded(gender: userProfile.gender)
         if MenstrualHealthStore.shared.settings.enabled {
-            await MenstrualHealthStore.shared.syncFromHealthKit()
+            await MenstrualHealthStore.shared.quietWeeklyHealthKitSync(force: !authorized)
             MenstrualHealthStore.shared.refresh(from: self)
         }
 
@@ -1302,9 +1373,23 @@ final class AppStore: ObservableObject {
     }
 
     func openChat(with prompt: String, voice: Bool = false) {
+        if quietMode, !voice {
+            // Still allow explicit user-initiated chat; only damp auto prompts elsewhere.
+        }
         ariaPendingChatPrompt = prompt
         ariaVoiceMode = voice
         activeTab = .chat
+    }
+
+    /// Deep-link into Home Cycle Health full-screen (optional Support pane).
+    func openCycleHealth(pane: String? = nil) {
+        pendingCyclePane = pane
+        pendingCycleHealthOpen = true
+        activeTab = .home
+    }
+
+    func setQuietMode(_ on: Bool) {
+        quietMode = on
     }
     
     /// Update user metrics (typically from HealthKit integration)

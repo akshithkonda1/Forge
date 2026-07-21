@@ -266,6 +266,12 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
     var lastPeriodStartDayKey: String?
     var isCurrentlyBleeding: Bool
     var irregularityFlag: Bool
+    /// Prediction accuracy from user feedback (MAE days) when available.
+    var accuracyMAE: Double?
+    var accuracySampleCount: Int
+    var accuracyGrade: String
+    /// Days of calibration offset applied (auto-learned from actual starts).
+    var calibrationOffsetDays: Double
 
     static let empty = MenstrualCycleSnapshot(
         asOfDayKey: "",
@@ -291,8 +297,88 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
         disclaimer: MenstrualCycleEngine.disclaimer,
         lastPeriodStartDayKey: nil,
         isCurrentlyBleeding: false,
-        irregularityFlag: false
+        irregularityFlag: false,
+        accuracyMAE: nil,
+        accuracySampleCount: 0,
+        accuracyGrade: "learning",
+        calibrationOffsetDays: 0
     )
+}
+
+// MARK: - Prediction feedback & accuracy
+
+/// One actual period start vs the prediction that was live before it.
+struct CyclePredictionFeedback: Codable, Equatable, Identifiable {
+    var id: String { actualStartDayKey + "|" + predictedMedianDayKey }
+    var predictedMedianDayKey: String
+    var actualStartDayKey: String
+    /// Signed error: actual − predicted (days). Negative = period came early.
+    var errorDays: Int
+    var recordedAt: Date
+}
+
+struct CycleAccuracyReport: Codable, Equatable {
+    var sampleCount: Int
+    var maeDays: Double?
+    var medianAbsErrorDays: Double?
+    var withinOneDayRate: Double?
+    var withinTwoDayRate: Double?
+    /// EMA of signed errors applied as offset on next predictions.
+    var calibrationOffsetDays: Double
+    /// learning | solid | excellent | market_leading
+    var gradeLabel: String
+    var gradeDetail: String
+
+    static let empty = CycleAccuracyReport(
+        sampleCount: 0,
+        maeDays: nil,
+        medianAbsErrorDays: nil,
+        withinOneDayRate: nil,
+        withinTwoDayRate: nil,
+        calibrationOffsetDays: 0,
+        gradeLabel: "learning",
+        gradeDetail: "Log a few period starts so we can measure prediction error."
+    )
+
+    static func compute(from feedback: [CyclePredictionFeedback], calibrationOffset: Double) -> CycleAccuracyReport {
+        guard !feedback.isEmpty else {
+            return .empty
+        }
+        let absErrors = feedback.map { abs($0.errorDays) }
+        let mae = Double(absErrors.reduce(0, +)) / Double(absErrors.count)
+        let sorted = absErrors.sorted()
+        let med: Double = {
+            let m = sorted.count / 2
+            if sorted.count % 2 == 0 {
+                return Double(sorted[m - 1] + sorted[m]) / 2
+            }
+            return Double(sorted[m])
+        }()
+        let w1 = Double(absErrors.filter { $0 <= 1 }.count) / Double(absErrors.count)
+        let w2 = Double(absErrors.filter { $0 <= 2 }.count) / Double(absErrors.count)
+
+        let grade: (String, String)
+        if feedback.count >= 6, mae <= 1.2, w1 >= 0.7 {
+            grade = ("market_leading", "Among the most accurate consumer cycle predictors — multi-signal + feedback-corrected.")
+        } else if feedback.count >= 4, mae <= 1.8, w2 >= 0.75 {
+            grade = ("excellent", "Excellent personal accuracy with feedback auto-correction active.")
+        } else if feedback.count >= 2, mae <= 2.5 {
+            grade = ("solid", "Solid personalization — keep logging starts to tighten the window.")
+        } else {
+            grade = ("learning", "Still learning your rhythm. Accuracy improves after 2–3 confirmed starts.")
+        }
+
+        return CycleAccuracyReport(
+            sampleCount: feedback.count,
+            maeDays: mae,
+            medianAbsErrorDays: med,
+            withinOneDayRate: w1,
+            withinTwoDayRate: w2,
+            calibrationOffsetDays: calibrationOffset,
+            gradeLabel: grade.0,
+            gradeDetail: grade.1
+        )
+    }
 }
 
 // MARK: - User settings
@@ -307,6 +393,20 @@ struct MenstrualTrackingSettings: Codable, Equatable {
     var typicalLutealDays: Int
     var usesHormonalContraception: Bool
     var notes: String
+    /// User acknowledged cycle privacy policy before enabling share/tracking.
+    var privacyAcknowledged: Bool
+    /// Auto-learned day offset applied to next-period median (EMA of prediction errors).
+    var calibrationOffsetDays: Double
+    /// Encourages BBT/OPK + same-day confirm for sharper personal accuracy (not contraception).
+    var highAccuracyMode: Bool
+    /// Temporary widen when user reports still no period past the window.
+    var overdueWidenDays: Int
+
+    enum CodingKeys: String, CodingKey {
+        case enabled, shareWithAria, averageCycleOverride, averagePeriodOverride
+        case typicalLutealDays, usesHormonalContraception, notes
+        case privacyAcknowledged, calibrationOffsetDays, highAccuracyMode, overdueWidenDays
+    }
 
     static let `default` = MenstrualTrackingSettings(
         enabled: false,
@@ -315,8 +415,68 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         averagePeriodOverride: nil,
         typicalLutealDays: 14,
         usesHormonalContraception: false,
-        notes: ""
+        notes: "",
+        privacyAcknowledged: false,
+        calibrationOffsetDays: 0,
+        highAccuracyMode: false,
+        overdueWidenDays: 0
     )
+
+    init(
+        enabled: Bool,
+        shareWithAria: Bool,
+        averageCycleOverride: Int?,
+        averagePeriodOverride: Int?,
+        typicalLutealDays: Int,
+        usesHormonalContraception: Bool,
+        notes: String,
+        privacyAcknowledged: Bool = false,
+        calibrationOffsetDays: Double = 0,
+        highAccuracyMode: Bool = false,
+        overdueWidenDays: Int = 0
+    ) {
+        self.enabled = enabled
+        self.shareWithAria = shareWithAria
+        self.averageCycleOverride = averageCycleOverride
+        self.averagePeriodOverride = averagePeriodOverride
+        self.typicalLutealDays = typicalLutealDays
+        self.usesHormonalContraception = usesHormonalContraception
+        self.notes = notes
+        self.privacyAcknowledged = privacyAcknowledged
+        self.calibrationOffsetDays = calibrationOffsetDays
+        self.highAccuracyMode = highAccuracyMode
+        self.overdueWidenDays = overdueWidenDays
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try c.decode(Bool.self, forKey: .enabled)
+        shareWithAria = try c.decode(Bool.self, forKey: .shareWithAria)
+        averageCycleOverride = try c.decodeIfPresent(Int.self, forKey: .averageCycleOverride)
+        averagePeriodOverride = try c.decodeIfPresent(Int.self, forKey: .averagePeriodOverride)
+        typicalLutealDays = try c.decodeIfPresent(Int.self, forKey: .typicalLutealDays) ?? 14
+        usesHormonalContraception = try c.decodeIfPresent(Bool.self, forKey: .usesHormonalContraception) ?? false
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        privacyAcknowledged = try c.decodeIfPresent(Bool.self, forKey: .privacyAcknowledged) ?? false
+        calibrationOffsetDays = try c.decodeIfPresent(Double.self, forKey: .calibrationOffsetDays) ?? 0
+        highAccuracyMode = try c.decodeIfPresent(Bool.self, forKey: .highAccuracyMode) ?? false
+        overdueWidenDays = try c.decodeIfPresent(Int.self, forKey: .overdueWidenDays) ?? 0
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(enabled, forKey: .enabled)
+        try c.encode(shareWithAria, forKey: .shareWithAria)
+        try c.encodeIfPresent(averageCycleOverride, forKey: .averageCycleOverride)
+        try c.encodeIfPresent(averagePeriodOverride, forKey: .averagePeriodOverride)
+        try c.encode(typicalLutealDays, forKey: .typicalLutealDays)
+        try c.encode(usesHormonalContraception, forKey: .usesHormonalContraception)
+        try c.encode(notes, forKey: .notes)
+        try c.encode(privacyAcknowledged, forKey: .privacyAcknowledged)
+        try c.encode(calibrationOffsetDays, forKey: .calibrationOffsetDays)
+        try c.encode(highAccuracyMode, forKey: .highAccuracyMode)
+        try c.encode(overdueWidenDays, forKey: .overdueWidenDays)
+    }
 }
 
 // MARK: - Supported-person cycle (partner, child, family)
@@ -517,6 +677,8 @@ struct PartnerSupportBrief: Equatable {
     It is not medical advice for them, not birth control, and not a substitute for their clinician. \
     Only log what they (or, for a minor, what is appropriate in your caregiver role) consent to share. \
     For daughters and children: protect privacy, skip body commentary, and escalate severe pain to a clinician.
+
+    \(CyclePrivacy.shortPromise) \(CyclePrivacy.partnerExtra)
     """
 }
 

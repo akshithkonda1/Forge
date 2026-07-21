@@ -8,12 +8,18 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            if store.isOnboarded {
-                MainTabView()
-            } else {
-                OnboardingView()
+            Group {
+                if !store.isAuthenticated {
+                    AuthWelcomeView()
+                } else if !store.isOnboarded {
+                    OnboardingView()
+                } else {
+                    MainTabView()
+                }
             }
-            
+            .animation(.easeInOut(duration: 0.35), value: store.isAuthenticated)
+            .animation(.easeInOut(duration: 0.35), value: store.isOnboarded)
+
             // Epic splash screen
             if showSplash {
                 ForgeSplashScreen()
@@ -145,10 +151,11 @@ struct MainTabView: View {
             Group {
                 switch store.activeTab {
                 case .home:      HomeView()
-                case .chat:      ChatView()
                 case .workout:   WorkoutView()
+                case .chat:      ChatView()
                 case .lifestyle: LifestyleView()
                 case .sleep:     SleepView()
+                case .progress:  ProgressPageView()
                 case .profile:   ProfileTabView()
                 }
             }
@@ -173,7 +180,7 @@ struct MainTabView: View {
     }
     
     private func tabTransitionEdge(from: TabItem, to: TabItem) -> Edge {
-        let tabs: [TabItem] = [.home, .workout, .chat, .sleep, .profile]
+        let tabs: [TabItem] = [.home, .workout, .chat, .lifestyle, .sleep, .progress, .profile]
         guard let fromIndex = tabs.firstIndex(of: from),
               let toIndex = tabs.firstIndex(of: to) else {
             return .trailing
@@ -189,7 +196,8 @@ struct ForgeBottomNav: View {
     var namespace: Namespace.ID
     @Binding var dragOffset: CGFloat
     
-    private let tabs: [TabItem] = [.home, .workout, .chat, .sleep, .profile]
+    /// Home · Workout · Chat(ARIA) · Lifestyle · Sleep · Progress · Profile
+    private let tabs: [TabItem] = [.home, .workout, .chat, .lifestyle, .sleep, .progress, .profile]
     
     @State private var isPressed = false
     @State private var pressedTab: TabItem?
@@ -320,7 +328,7 @@ struct RegularForgeTab: View {
                     
                     // Icon with sophisticated animation
                     Image(systemName: isActive ? tab.systemImageFilled : tab.systemImage)
-                        .font(.system(size: 20, weight: isActive ? .semibold : .regular))
+                        .font(.system(size: 17, weight: isActive ? .semibold : .regular))
                         .foregroundStyle(
                             isActive ?
                             LinearGradient(
@@ -345,7 +353,9 @@ struct RegularForgeTab: View {
 
                 // Label with refined typography
                 Text(tab.label)
-                    .font(.system(size: 10, weight: isActive ? .bold : .medium, design: .rounded))
+                    .font(.system(size: 9, weight: isActive ? .bold : .medium, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                     .foregroundStyle(
                         isActive ?
                         LinearGradient(
@@ -665,6 +675,7 @@ extension TabItem {
         case .workout:   return "dumbbell.fill"
         case .lifestyle: return "leaf.fill"
         case .sleep:     return "moon.fill"
+        case .progress:  return "chart.line.uptrend.xyaxis"
         case .profile:   return "person.fill"
         }
     }
