@@ -68,6 +68,7 @@ struct MenstrualHealthView: View {
                         } else {
                             phaseOrbitCard
                             accuracyCard
+                            ariaAnalystCard
                             if cycleStore.settings.highAccuracyMode {
                                 highAccuracyCueCard
                             }
@@ -330,17 +331,19 @@ struct MenstrualHealthView: View {
 
     private var accuracyCard: some View {
         let report = cycleStore.accuracyReport
+        let eval = cycleStore.lastEvaluation
+        let gradeColor = Color(hex: eval.qualityGrade.accentHex)
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("PREDICTION ACCURACY")
                     .forgeSectionLabel()
                 Spacer()
-                Text(report.gradeLabel.replacingOccurrences(of: "_", with: " ").capitalized)
+                Text(eval.qualityGrade.label)
                     .font(FDS.TypeScale.micro(11))
-                    .foregroundStyle(Color(hex: "22C55E"))
+                    .foregroundStyle(gradeColor)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(Color(hex: "22C55E").opacity(0.12))
+                    .background(gradeColor.opacity(0.12))
                     .clipShape(Capsule())
             }
             HStack(spacing: 10) {
@@ -350,40 +353,163 @@ struct MenstrualHealthView: View {
                     color: Color(hex: "22C55E")
                 )
                 accuracyPill(
-                    title: "SAMPLES",
-                    value: "\(report.sampleCount)",
-                    color: .steel
-                )
-                accuracyPill(
                     title: "±1 DAY",
                     value: report.withinOneDayRate.map { "\(Int($0 * 100))%" } ?? "—",
+                    color: Color(hex: "A855F7")
+                )
+                accuracyPill(
+                    title: "±2 DAY",
+                    value: report.withinTwoDayRate.map { "\(Int($0 * 100))%" } ?? "—",
+                    color: .steel
+                )
+            }
+            HStack(spacing: 10) {
+                accuracyPill(
+                    title: "SAMPLES",
+                    value: "\(report.sampleCount)",
+                    color: .ember
+                )
+                accuracyPill(
+                    title: "PERIOD CONF",
+                    value: "\(Int(cycleStore.snapshot.periodTimingConfidence * 100))%",
+                    color: Color(hex: "38BDF8")
+                )
+                accuracyPill(
+                    title: "OVU CONF",
+                    value: "\(Int(cycleStore.snapshot.ovulationConfidence * 100))%",
                     color: Color(hex: "A855F7")
                 )
             }
             Text(report.gradeDetail)
                 .font(FDS.TypeScale.body(12))
                 .foregroundColor(.textSecondary)
+            Text(eval.userFacingSummary)
+                .font(FDS.TypeScale.body(12))
+                .foregroundColor(.textTertiary)
             if abs(report.calibrationOffsetDays) >= 0.2 {
-                Text("Auto-correct offset: \(report.calibrationOffsetDays >= 0 ? "+" : "")\(String(format: "%.1f", report.calibrationOffsetDays)) days")
+                Text("Bias auto-correct: \(report.calibrationOffsetDays >= 0 ? "+" : "")\(String(format: "%.1f", report.calibrationOffsetDays)) days · \(cycleStore.snapshot.predictionMethodSummary)")
                     .font(FDS.TypeScale.micro(11))
                     .foregroundColor(.textTertiary)
             }
-            Text("Market-leading accuracy comes from multi-signal inference + confirming actual starts — not a fake percentage badge.")
+
+            // Forecast trail
+            if !cycleStore.forecastArchive.filter({ !$0.isOpen }).isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("FORECAST TRAIL")
+                        .font(FDS.TypeScale.micro(10))
+                        .tracking(1.2)
+                        .foregroundColor(.textTertiary)
+                    ForEach(cycleStore.forecastArchive.filter { !$0.isOpen }.suffix(4).reversed()) { rec in
+                        HStack {
+                            Text(shortDate(rec.predictedMedianDayKey))
+                                .font(FDS.TypeScale.micro(11))
+                                .foregroundColor(.textSecondary)
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 9))
+                                .foregroundColor(.textMuted)
+                            Text((rec.scoredActualStartDayKey).map(shortDate) ?? "—")
+                                .font(FDS.TypeScale.micro(11))
+                                .foregroundColor(.textPrimary)
+                            Spacer()
+                            if let e = rec.scoredErrorDays {
+                                Text(e >= 0 ? "+\(e)d" : "\(e)d")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(abs(e) <= 1 ? Color(hex: "22C55E") : Color.warning)
+                            }
+                        }
+                    }
+                }
+                .padding(.top, 4)
+            }
+
+            Text("Personal timing error — multi-signal + confirms. Not a fake global % badge. Not itself birth control.")
                 .font(FDS.TypeScale.body(11))
                 .foregroundColor(.textMuted)
 
-            Button {
-                showAccuracyExplainer = true
-                FDS.haptic(.light)
-            } label: {
-                Text("How accuracy works")
-                    .font(FDS.TypeScale.label(13))
-                    .foregroundStyle(Color(hex: "22C55E"))
+            HStack(spacing: 14) {
+                Button {
+                    showAccuracyExplainer = true
+                    FDS.haptic(.light)
+                } label: {
+                    Text("Science & methods")
+                        .font(FDS.TypeScale.label(13))
+                        .foregroundStyle(Color(hex: "22C55E"))
+                }
+                .buttonStyle(.plain)
+
+                if cycleStore.settings.shareWithAria,
+                   let prompt = cycleStore.ariaChatPromptForCycle() {
+                    Button {
+                        store.openChat(with: prompt, voice: false)
+                    } label: {
+                        Text("Ask ARIA")
+                            .font(FDS.TypeScale.label(13))
+                            .foregroundStyle(Color.ember)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain)
         }
         .padding(18)
         .forgeGlassCard(accent: Color(hex: "22C55E"))
+    }
+
+    private var ariaAnalystCard: some View {
+        let brief = cycleStore.lastAriaBrief
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("ARIA · UNDERSTAND · EVALUATE · TEACH")
+                    .forgeSectionLabel()
+                Spacer()
+                if let g = brief?.evaluationGrade {
+                    Text(g.label)
+                        .font(FDS.TypeScale.micro(10))
+                        .foregroundStyle(Color(hex: g.accentHex))
+                }
+            }
+            if let brief {
+                analystBlock("Understood", brief.understood)
+                analystBlock("Evaluation", brief.evaluationPoints.joined(separator: " "))
+                analystBlock("Teaching", brief.teaching)
+                if let sexual = brief.sexualHealthLifestyleNote {
+                    analystBlock("Sexual health (lifestyle)", sexual)
+                }
+                Text(brief.disclaimer)
+                    .font(FDS.TypeScale.body(11))
+                    .foregroundColor(.textMuted)
+                Text(brief.privacyLine)
+                    .font(FDS.TypeScale.body(11))
+                    .foregroundColor(.textMuted)
+            } else {
+                Text("Log or confirm a start — ARIA will understand your data, evaluate quality, then teach next steps.")
+                    .font(FDS.TypeScale.body(13))
+                    .foregroundColor(.textSecondary)
+            }
+
+            if let msg = cycleStore.lastTeachingMessage {
+                Text(msg)
+                    .font(FDS.TypeScale.body(12))
+                    .foregroundColor(.textSecondary)
+                    .padding(12)
+                    .background(Color.ember.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+        }
+        .padding(18)
+        .forgeGlassCard(accent: .ember)
+    }
+
+    private func analystBlock(_ title: String, _ body: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased())
+                .font(FDS.TypeScale.micro(10))
+                .tracking(1.1)
+                .foregroundColor(.textTertiary)
+            Text(body)
+                .font(FDS.TypeScale.body(13))
+                .foregroundColor(.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private var highAccuracyCueCard: some View {
@@ -429,6 +555,7 @@ struct MenstrualHealthView: View {
                     flow: selectedFlow == .none ? .medium : selectedFlow
                 )
                 cycleStore.refresh(from: store)
+                cycleStore.refreshAnalyst(lastAction: "period_started_today")
                 showToast(msg)
             } label: {
                 Label("Period started today", systemImage: "flag.fill")
@@ -1738,17 +1865,17 @@ struct CycleAccuracyExplainerSheet: View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("How Forge learns your cycle")
+                    Text("Science behind your estimates")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundColor(.textPrimary)
 
-                    Text("Personal accuracy — not a fake global badge. We minimize your period-start error over time.")
+                    Text("Evidence-informed lifestyle methods. Personal timing error — not a global accuracy stamp. Forge is a coach, not a clinic.")
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
 
                     if let mae = report.maeDays {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("YOUR SCORE")
+                            Text("YOUR PERSONAL SCORE")
                                 .font(.system(size: 11, weight: .bold))
                                 .tracking(1.4)
                                 .foregroundColor(.textTertiary)
@@ -1765,16 +1892,30 @@ struct CycleAccuracyExplainerSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
 
-                    explainerRow("1", "Period episodes", "Cluster bleeding days into starts and lengths.")
-                    explainerRow("2", "Personal median + MAD", "Robust cycle length — outliers don’t wreck the model.")
-                    explainerRow("3", "Ovulation stack", "LH → BBT 3-over-6 → fertile mucus → calendar fallback.")
-                    explainerRow("4", "Prediction window", "P10–P90 style band, not a false single-day certainty.")
-                    explainerRow("5", "Feedback auto-correct", "Every confirmed start updates calibration (EMA bias).")
+                    explainerRow("1", "Period episodes", "Group bleeding days into starts (light+ preferred). Reduces false short cycles from lone spotting.")
+                    explainerRow("2", "Recency-weighted median + MAD", "Recent cycles count more; robust stats resist outlier months.")
+                    explainerRow("3", "Ensemble forecast", "Blend recency median, last cycle, robust median, and ovu+luteal when high-signal.")
+                    explainerRow("4", "Ovulation stack", "LH → BBT 3-over-6 → peak mucus → calendar. Stronger markers raise ovulation confidence.")
+                    explainerRow("5", "Learned luteal", "When LH/BBT and a later start exist, personalize luteal length (clamped 10–16d).")
+                    explainerRow("6", "Feedback calibration", "Predicted vs actual start → bias correction (adaptive EMA). Your body isn’t “wrong” — the estimate improves.")
+                    explainerRow("7", "ARIA understands & evaluates", "ARIA critiques data quality (sparse, noisy, conflicts) then teaches next steps — numbers stay engine-owned.")
 
-                    Text("Lifestyle coaching only — not medical diagnosis or contraception.")
+                    Text("Sexual health (lifestyle)")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.textPrimary)
+                        .padding(.top, 8)
+                    Text("ARIA may discuss contraception options and sexual-health materials as lifestyle education when relevant. Forge cycle tracking itself is not a contraceptive method and is not a substitute for clinician-guided birth control.")
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+
+                    Text(CyclePrivacy.shortPromise)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color(hex: "22C55E"))
+                        .padding(.top, 4)
+
+                    Text(MenstrualCycleEngine.disclaimer)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.textMuted)
-                        .padding(.top, 4)
                 }
                 .padding(20)
             }

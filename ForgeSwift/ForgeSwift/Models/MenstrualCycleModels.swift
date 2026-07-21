@@ -272,6 +272,14 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
     var accuracyGrade: String
     /// Days of calibration offset applied (auto-learned from actual starts).
     var calibrationOffsetDays: Double
+    /// 0…1 confidence in period-start timing specifically.
+    var periodTimingConfidence: Double
+    /// 0…1 confidence in ovulation/fertile labeling.
+    var ovulationConfidence: Double
+    /// Learned luteal days when enough high-signal cycles exist.
+    var learnedLutealDays: Double?
+    /// Engine method summary for transparency.
+    var predictionMethodSummary: String
 
     static let empty = MenstrualCycleSnapshot(
         asOfDayKey: "",
@@ -301,8 +309,144 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
         accuracyMAE: nil,
         accuracySampleCount: 0,
         accuracyGrade: "learning",
-        calibrationOffsetDays: 0
+        calibrationOffsetDays: 0,
+        periodTimingConfidence: 0,
+        ovulationConfidence: 0,
+        learnedLutealDays: nil,
+        predictionMethodSummary: ""
     )
+}
+
+// MARK: - Forecast archive (frozen predictions for honest MAE)
+
+/// Snapshot of what we advertised for the upcoming period — scored when actual start arrives.
+struct CycleForecastRecord: Codable, Equatable, Identifiable {
+    var id: String
+    var asOfDayKey: String
+    var anchorPeriodStartDayKey: String
+    var predictedMedianDayKey: String
+    var earliestDayKey: String
+    var latestDayKey: String
+    var cycleLengthUsed: Double
+    var calibrationOffsetUsed: Double
+    var confidence: Double
+    var methodSummary: String
+    var createdAt: Date
+    /// When scored against an actual start.
+    var scoredActualStartDayKey: String?
+    var scoredErrorDays: Int?
+
+    var isOpen: Bool { scoredActualStartDayKey == nil }
+}
+
+// MARK: - Data evaluation (lifestyle quality — not diagnosis)
+
+enum CycleQualityGrade: String, Codable, CaseIterable {
+    case sparse, noisy, mixed, solid, highSignal
+
+    var label: String {
+        switch self {
+        case .sparse: return "Sparse"
+        case .noisy: return "Noisy"
+        case .mixed: return "Mixed"
+        case .solid: return "Solid"
+        case .highSignal: return "High signal"
+        }
+    }
+
+    var accentHex: String {
+        switch self {
+        case .sparse: return "6B7280"
+        case .noisy: return "F59E0B"
+        case .mixed: return "38BDF8"
+        case .solid: return "22C55E"
+        case .highSignal: return "A855F7"
+        }
+    }
+}
+
+enum CycleEvalIssue: String, Codable, CaseIterable, Identifiable {
+    case sparseCycles
+    case highVariability
+    case signalConflictLhBbt
+    case spottingAmbiguous
+    case missingBbtInWindow
+    case missingOpkInWindow
+    case hormonalSimplified
+    case overdueWindow
+    case lowFeedback
+    case partnerSparse
+
+    var id: String { rawValue }
+
+    var lifestyleCopy: String {
+        switch self {
+        case .sparseCycles:
+            return "Only a few cycles logged — estimates stay wide until history grows."
+        case .highVariability:
+            return "Cycle lengths jump around — we keep a wider window on purpose."
+        case .signalConflictLhBbt:
+            return "Mid-cycle signals don’t fully agree — hierarchy applies, confidence stays humble."
+        case .spottingAmbiguous:
+            return "Spotting alone may not mark a full period start — confirm if flow increased."
+        case .missingBbtInWindow:
+            return "High-accuracy mode is on but BBT is thin near the fertile window."
+        case .missingOpkInWindow:
+            return "Optional OPK logging near fertile days can sharpen mid-cycle labels."
+        case .hormonalSimplified:
+            return "Hormonal contraception noted — phase labels are simplified for coaching."
+        case .overdueWindow:
+            return "Past the usual window — range widened and confidence tempered."
+        case .lowFeedback:
+            return "Few confirmed starts vs forecasts — confirm starts to teach the model."
+        case .partnerSparse:
+            return "Support logs are light — coaching stays general until more starts are shared."
+        }
+    }
+}
+
+struct CycleDataEvaluation: Codable, Equatable {
+    var qualityGrade: CycleQualityGrade
+    var issues: [CycleEvalIssue]
+    var trustForPrediction: String // low | medium | high
+    var userFacingSummary: String
+    var recommendedActions: [String]
+    var understoodSummary: String
+    var teachingSummary: String
+
+    static let empty = CycleDataEvaluation(
+        qualityGrade: .sparse,
+        issues: [],
+        trustForPrediction: "low",
+        userFacingSummary: "Not enough cycle signal yet for a sharp lifestyle estimate.",
+        recommendedActions: ["log_period_start"],
+        understoodSummary: "No active cycle data.",
+        teachingSummary: "Log period starts so Forge can learn your personal timing."
+    )
+}
+
+/// Redacted context for ARIA — numbers from engine only.
+struct CycleAIContext: Codable, Equatable {
+    var phase: String
+    var dayInCycle: Int?
+    var cycleLengthMedian: Double
+    var cycleLengthMAD: Double
+    var nextMedian: String?
+    var nextEarliest: String?
+    var nextLatest: String?
+    var ovulationMethod: String?
+    var confidence: Double
+    var periodTimingConfidence: Double
+    var ovulationConfidence: Double
+    var accuracyMAE: Double?
+    var accuracySampleCount: Int
+    var qualityGrade: String
+    var issues: [String]
+    var highAccuracyMode: Bool
+    var hormonal: Bool
+    var irregular: Bool
+    var lastUserAction: String?
+    var isPartner: Bool
 }
 
 // MARK: - Prediction feedback & accuracy
@@ -397,15 +541,18 @@ struct MenstrualTrackingSettings: Codable, Equatable {
     var privacyAcknowledged: Bool
     /// Auto-learned day offset applied to next-period median (EMA of prediction errors).
     var calibrationOffsetDays: Double
-    /// Encourages BBT/OPK + same-day confirm for sharper personal accuracy (not contraception).
+    /// Encourages BBT/OPK + same-day confirm for sharper personal timing estimates.
     var highAccuracyMode: Bool
     /// Temporary widen when user reports still no period past the window.
     var overdueWidenDays: Int
+    /// Personal luteal median learned from LH/BBT-confirmed cycles (nil = use typicalLutealDays).
+    var learnedLutealDays: Double?
 
     enum CodingKeys: String, CodingKey {
         case enabled, shareWithAria, averageCycleOverride, averagePeriodOverride
         case typicalLutealDays, usesHormonalContraception, notes
         case privacyAcknowledged, calibrationOffsetDays, highAccuracyMode, overdueWidenDays
+        case learnedLutealDays
     }
 
     static let `default` = MenstrualTrackingSettings(
@@ -419,7 +566,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         privacyAcknowledged: false,
         calibrationOffsetDays: 0,
         highAccuracyMode: false,
-        overdueWidenDays: 0
+        overdueWidenDays: 0,
+        learnedLutealDays: nil
     )
 
     init(
@@ -433,7 +581,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         privacyAcknowledged: Bool = false,
         calibrationOffsetDays: Double = 0,
         highAccuracyMode: Bool = false,
-        overdueWidenDays: Int = 0
+        overdueWidenDays: Int = 0,
+        learnedLutealDays: Double? = nil
     ) {
         self.enabled = enabled
         self.shareWithAria = shareWithAria
@@ -446,6 +595,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         self.calibrationOffsetDays = calibrationOffsetDays
         self.highAccuracyMode = highAccuracyMode
         self.overdueWidenDays = overdueWidenDays
+        self.learnedLutealDays = learnedLutealDays
     }
 
     init(from decoder: Decoder) throws {
@@ -461,6 +611,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         calibrationOffsetDays = try c.decodeIfPresent(Double.self, forKey: .calibrationOffsetDays) ?? 0
         highAccuracyMode = try c.decodeIfPresent(Bool.self, forKey: .highAccuracyMode) ?? false
         overdueWidenDays = try c.decodeIfPresent(Int.self, forKey: .overdueWidenDays) ?? 0
+        learnedLutealDays = try c.decodeIfPresent(Double.self, forKey: .learnedLutealDays)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -476,6 +627,15 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         try c.encode(calibrationOffsetDays, forKey: .calibrationOffsetDays)
         try c.encode(highAccuracyMode, forKey: .highAccuracyMode)
         try c.encode(overdueWidenDays, forKey: .overdueWidenDays)
+        try c.encodeIfPresent(learnedLutealDays, forKey: .learnedLutealDays)
+    }
+
+    /// Effective luteal for calendar fallback.
+    var effectiveLutealDays: Int {
+        if let learned = learnedLutealDays {
+            return max(10, min(16, Int(learned.rounded())))
+        }
+        return max(10, min(16, typicalLutealDays))
     }
 }
 

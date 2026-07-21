@@ -22,7 +22,12 @@ final class MenstrualHealthStore: ObservableObject {
     @Published private(set) var isSyncing = false
     @Published private(set) var accuracyReport: CycleAccuracyReport = .empty
     @Published private(set) var predictionFeedback: [CyclePredictionFeedback] = []
-    /// Last live next-period median we advertised (for feedback when actual start arrives).
+    /// Frozen forecasts scored on actual starts (honest MAE).
+    @Published private(set) var forecastArchive: [CycleForecastRecord] = []
+    @Published private(set) var lastEvaluation: CycleDataEvaluation = .empty
+    @Published private(set) var lastAriaBrief: CycleAriaAnalyst.Brief?
+    @Published private(set) var lastTeachingMessage: String?
+    /// Last live next-period median we advertised (cache; archive is source of truth).
     @Published private(set) var lastAdvertisedNextPeriodMedian: String?
     /// Short toast after model auto-corrects (cleared by UI).
     @Published var lastModelUpdateMessage: String?
@@ -33,6 +38,7 @@ final class MenstrualHealthStore: ObservableObject {
     private let partnerSettingsKey = "forge.menstrual.partner.settings.v1"
     private let partnerLogsKey = "forge.menstrual.partner.logs.v1"
     private let feedbackKey = "forge.menstrual.prediction.feedback.v1"
+    private let forecastKey = "forge.menstrual.forecast.archive.v1"
     private let advertisedKey = "forge.menstrual.advertised.next.v1"
     private let quietSyncKey = "forge.menstrual.quiet.sync.at"
 
@@ -64,6 +70,10 @@ final class MenstrualHealthStore: ObservableObject {
         if let data = defaults.data(forKey: feedbackKey),
            let f = try? JSONDecoder().decode([CyclePredictionFeedback].self, from: data) {
             predictionFeedback = f
+        }
+        if let data = defaults.data(forKey: forecastKey),
+           let f = try? JSONDecoder().decode([CycleForecastRecord].self, from: data) {
+            forecastArchive = f
         }
         lastAdvertisedNextPeriodMedian = defaults.string(forKey: advertisedKey)
         snapshot = .empty
@@ -290,29 +300,89 @@ final class MenstrualHealthStore: ObservableObject {
         snap.calibrationOffsetDays = settings.calibrationOffsetDays
         if accuracyReport.sampleCount > 0, let mae = accuracyReport.maeDays {
             snap.insights.insert(
-                "Prediction MAE: \(String(format: "%.1f", mae)) days across \(accuracyReport.sampleCount) confirmed starts (\(accuracyReport.gradeLabel.replacingOccurrences(of: "_", with: " "))).",
+                "Personal timing MAE: \(String(format: "%.1f", mae)) days over \(accuracyReport.sampleCount) confirms (\(accuracyReport.gradeLabel.replacingOccurrences(of: "_", with: " "))).",
                 at: 0
             )
         }
         snapshot = snap
-        // Remember what we currently advertise so the next real start can score us.
-        if let median = snap.nextPeriod?.medianDayKey {
-            lastAdvertisedNextPeriodMedian = median
-            defaults.set(median, forKey: advertisedKey)
-        }
+        archiveOpenForecastIfNeeded(from: snap)
+        lastEvaluation = CycleDataEvaluator.evaluate(
+            snapshot: snap,
+            settings: settings,
+            logs: logs,
+            feedback: predictionFeedback
+        )
+        lastAriaBrief = CycleAriaAnalyst.localBrief(
+            evaluation: lastEvaluation,
+            snapshot: snap
+        )
     }
 
-    /// Compare actual period start to the last advertised median; update calibration EMA.
+    /// Freeze one open forecast per anchor period start (honest MAE source).
+    private func archiveOpenForecastIfNeeded(from snap: MenstrualCycleSnapshot) {
+        guard let next = snap.nextPeriod,
+              let anchor = snap.lastPeriodStartDayKey else { return }
+        // Update cache
+        lastAdvertisedNextPeriodMedian = next.medianDayKey
+        defaults.set(next.medianDayKey, forKey: advertisedKey)
+
+        if let idx = forecastArchive.firstIndex(where: { $0.anchorPeriodStartDayKey == anchor && $0.isOpen }) {
+            // Refresh open forecast with latest engine view (same cycle)
+            var rec = forecastArchive[idx]
+            rec.predictedMedianDayKey = next.medianDayKey
+            rec.earliestDayKey = next.earliestDayKey
+            rec.latestDayKey = next.latestDayKey
+            rec.cycleLengthUsed = snap.cycleLengthMedian
+            rec.calibrationOffsetUsed = settings.calibrationOffsetDays
+            rec.confidence = snap.periodTimingConfidence
+            rec.methodSummary = snap.predictionMethodSummary
+            rec.asOfDayKey = snap.asOfDayKey
+            forecastArchive[idx] = rec
+        } else if !forecastArchive.contains(where: { $0.anchorPeriodStartDayKey == anchor }) {
+            let rec = CycleForecastRecord(
+                id: UUID().uuidString,
+                asOfDayKey: snap.asOfDayKey,
+                anchorPeriodStartDayKey: anchor,
+                predictedMedianDayKey: next.medianDayKey,
+                earliestDayKey: next.earliestDayKey,
+                latestDayKey: next.latestDayKey,
+                cycleLengthUsed: snap.cycleLengthMedian,
+                calibrationOffsetUsed: settings.calibrationOffsetDays,
+                confidence: snap.periodTimingConfidence,
+                methodSummary: snap.predictionMethodSummary,
+                createdAt: Date()
+            )
+            forecastArchive.append(rec)
+        }
+        if forecastArchive.count > 36 {
+            forecastArchive = Array(forecastArchive.suffix(36))
+        }
+        persistForecasts()
+    }
+
+    /// Score actual start against the correct archived forecast; adaptive calibration.
     func recordPredictionFeedbackIfNeeded(actualStartDayKey: String) {
-        guard let predicted = lastAdvertisedNextPeriodMedian
-                ?? snapshot.nextPeriod?.medianDayKey else { return }
-        // Avoid double-counting the same actual start.
         if predictionFeedback.contains(where: { $0.actualStartDayKey == actualStartDayKey }) {
             return
         }
-        guard let err = CycleDayKey.daysBetween(predicted, actualStartDayKey) else { return }
-        // Ignore absurd gaps (user re-logging old history far from the live forecast).
-        guard abs(err) <= 21 else { return }
+
+        // Prefer open forecast whose window is nearest to this actual start.
+        let open = forecastArchive.filter(\.isOpen)
+        let predicted: String
+        var forecastId: String?
+        if let best = open.min(by: { a, b in
+            abs((CycleDayKey.daysBetween(a.predictedMedianDayKey, actualStartDayKey) ?? 99))
+                < abs((CycleDayKey.daysBetween(b.predictedMedianDayKey, actualStartDayKey) ?? 99))
+        }), let err0 = CycleDayKey.daysBetween(best.predictedMedianDayKey, actualStartDayKey), abs(err0) <= 21 {
+            predicted = best.predictedMedianDayKey
+            forecastId = best.id
+        } else if let fallback = lastAdvertisedNextPeriodMedian ?? snapshot.nextPeriod?.medianDayKey {
+            predicted = fallback
+        } else {
+            return
+        }
+
+        guard let err = CycleDayKey.daysBetween(predicted, actualStartDayKey), abs(err) <= 21 else { return }
 
         let entry = CyclePredictionFeedback(
             predictedMedianDayKey: predicted,
@@ -326,14 +396,65 @@ final class MenstrualHealthStore: ObservableObject {
         }
         persistFeedback()
 
-        // EMA auto-correct: pull calibration toward observed signed error.
-        let alpha = 0.35
-        let newOffset = settings.calibrationOffsetDays * (1 - alpha) + Double(err) * alpha
-        updateSettings {
-            $0.calibrationOffsetDays = max(-5, min(5, newOffset))
-            $0.overdueWidenDays = 0
+        if let fid = forecastId, let idx = forecastArchive.firstIndex(where: { $0.id == fid }) {
+            forecastArchive[idx].scoredActualStartDayKey = actualStartDayKey
+            forecastArchive[idx].scoredErrorDays = err
+            persistForecasts()
         }
+
+        // Adaptive EMA: stronger alpha when last 3 errors share a sign.
+        let recent = predictionFeedback.suffix(3).map(\.errorDays)
+        let sameSign = recent.count >= 3
+            && (recent.allSatisfy { $0 > 0 } || recent.allSatisfy { $0 < 0 })
+        let alpha = sameSign ? 0.5 : 0.35
+        let newOffset = settings.calibrationOffsetDays * (1 - alpha) + Double(err) * alpha
+
+        // Learn luteal when prior cycle had high-signal ovulation
+        maybeLearnLuteal(actualStartDayKey: actualStartDayKey)
+
+        // Direct settings mutate without nested recompute storm
+        var s = settings
+        s.calibrationOffsetDays = max(-5, min(5, newOffset))
+        s.overdueWidenDays = 0
+        settings = s
+        persistSettings()
+
         lastModelUpdateMessage = "Model updated · last error \(err >= 0 ? "+" : "")\(err) days"
+        let eval = CycleDataEvaluator.evaluate(
+            snapshot: snapshot,
+            settings: settings,
+            logs: logs,
+            feedback: predictionFeedback,
+            lastAction: "period_start_confirmed"
+        )
+        lastEvaluation = eval
+        lastTeachingMessage = CycleAriaAnalyst.teachingAfterFeedback(
+            errorDays: err,
+            evaluation: eval,
+            snapshot: snapshot
+        )
+        lastAriaBrief = CycleAriaAnalyst.localBrief(
+            evaluation: eval,
+            snapshot: snapshot,
+            lastAction: "period_start_confirmed"
+        )
+    }
+
+    /// Update learned luteal from LH/BBT-tagged prior ovulation when next start arrives.
+    private func maybeLearnLuteal(actualStartDayKey: String) {
+        guard let method = snapshot.ovulationMethod,
+              method == "lh_surge" || method == "bbt_shift",
+              let ovuDay = snapshot.ovulationDayInCycle,
+              let lastStart = snapshot.lastPeriodStartDayKey,
+              let ovuKey = CycleDayKey.addDays(lastStart, ovuDay - 1),
+              let luteal = CycleDayKey.daysBetween(ovuKey, actualStartDayKey),
+              luteal >= 10, luteal <= 16
+        else { return }
+
+        let prior = settings.learnedLutealDays ?? Double(settings.typicalLutealDays)
+        let blended = prior * 0.6 + Double(luteal) * 0.4
+        settings.learnedLutealDays = blended
+        persistSettings()
     }
 
     func recomputePartner() {
@@ -523,6 +644,58 @@ final class MenstrualHealthStore: ObservableObject {
         if let data = try? JSONEncoder().encode(predictionFeedback) {
             defaults.set(data, forKey: feedbackKey)
         }
+    }
+
+    private func persistForecasts() {
+        if let data = try? JSONEncoder().encode(forecastArchive) {
+            defaults.set(data, forKey: forecastKey)
+        }
+    }
+
+    /// Refresh evaluation + local ARIA brief after a user action label.
+    func refreshAnalyst(lastAction: String? = nil, isPartner: Bool = false) {
+        let snap = isPartner ? partnerSnapshot : snapshot
+        let set = isPartner
+            ? MenstrualTrackingSettings(
+                enabled: partnerSettings.enabled,
+                shareWithAria: partnerSettings.shareWithAria,
+                averageCycleOverride: partnerSettings.averageCycleOverride,
+                averagePeriodOverride: partnerSettings.averagePeriodOverride,
+                typicalLutealDays: partnerSettings.typicalLutealDays,
+                usesHormonalContraception: partnerSettings.usesHormonalContraception,
+                notes: partnerSettings.notes,
+                highAccuracyMode: settings.highAccuracyMode
+            )
+            : settings
+        let logSet = isPartner ? partnerLogs : logs
+        let eval = CycleDataEvaluator.evaluate(
+            snapshot: snap,
+            settings: set,
+            logs: logSet,
+            feedback: isPartner ? [] : predictionFeedback,
+            lastAction: lastAction,
+            isPartner: isPartner
+        )
+        lastEvaluation = eval
+        lastAriaBrief = CycleAriaAnalyst.localBrief(
+            evaluation: eval,
+            snapshot: snap,
+            lastAction: lastAction,
+            isPartner: isPartner
+        )
+    }
+
+    func ariaChatPromptForCycle(isPartner: Bool = false) -> String? {
+        let share = isPartner ? partnerSettings.shareWithAria : settings.shareWithAria
+        guard share else { return nil }
+        let ctx = CycleAriaAnalyst.makeContext(
+            snapshot: isPartner ? partnerSnapshot : snapshot,
+            evaluation: lastEvaluation,
+            settings: settings,
+            lastAction: lastTeachingMessage,
+            isPartner: isPartner
+        )
+        return CycleAriaAnalyst.chatPrompt(context: ctx, evaluation: lastEvaluation)
     }
 }
 

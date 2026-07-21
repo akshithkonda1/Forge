@@ -13,9 +13,11 @@ import Foundation
 enum MenstrualCycleEngine {
 
     static let disclaimer = """
-    Cycle insights are lifestyle estimates for training and recovery awareness — \
-    not medical diagnosis, not birth control, and not a fertility treatment. \
-    Always verify with a clinician for health decisions.
+    Cycle insights are lifestyle estimates for training, recovery, and personal timing. \
+    They are not medical diagnosis or a fertility treatment. Forge’s tracker is not itself \
+    a contraceptive method — ARIA may discuss sexual-health and contraception materials as \
+    lifestyle education; use clinician-approved methods for pregnancy prevention. \
+    Always verify health decisions with a qualified professional.
 
     \(CyclePrivacy.shortPromise)
     """
@@ -43,8 +45,9 @@ enum MenstrualCycleEngine {
         let cycleLengths = interStartLengths(episodes)
         let periodLengths = episodes.map(\.dayCount)
 
+        let lutealDays = settings.effectiveLutealDays
         let medianCycle = settings.averageCycleOverride.map(Double.init)
-            ?? robustMedian(cycleLengths.map(Double.init), fallback: 28)
+            ?? recencyWeightedMedian(cycleLengths.map(Double.init), fallback: 28)
         let madCycle = medianAbsoluteDeviation(cycleLengths.map(Double.init), center: medianCycle)
         let medianPeriod = settings.averagePeriodOverride.map(Double.init)
             ?? robustMedian(periodLengths.map(Double.init), fallback: 5)
@@ -60,7 +63,7 @@ enum MenstrualCycleEngine {
             logs: sorted,
             lastPeriodStart: lastStart,
             cycleLength: medianCycle,
-            lutealDays: settings.typicalLutealDays,
+            lutealDays: lutealDays,
             asOfDayKey: dayKey
         )
 
@@ -80,17 +83,24 @@ enum MenstrualCycleEngine {
             hormonal: settings.usesHormonalContraception
         )
 
+        let ensemble = ensembleCycleLength(
+            lengths: cycleLengths,
+            recencyMedian: medianCycle,
+            ovulation: ovulation,
+            lutealDays: lutealDays,
+            dayInCycle: dayInCycle
+        )
+
         let nextPeriod = predictNextPeriod(
             lastStart: lastStart,
             lengths: cycleLengths,
-            median: medianCycle,
-            mad: madCycle + Double(max(0, settings.overdueWidenDays)),
+            median: ensemble.median,
+            mad: madCycle + Double(max(0, settings.overdueWidenDays)) + ensemble.extraSpread,
             calibrationOffsetDays: settings.calibrationOffsetDays
         )
 
         let nextOvuKey: String? = {
             guard let lastStart, let ovuDay = ovulation?.dayInCycle else { return nil }
-            // If we're past ovulation this cycle, project next cycle
             if let dic = dayInCycle, dic > ovuDay {
                 let nextStart = nextPeriod?.medianDayKey ?? CycleDayKey.addDays(lastStart, Int(medianCycle.rounded()))
                 guard let ns = nextStart else { return nil }
@@ -100,19 +110,24 @@ enum MenstrualCycleEngine {
         }()
 
         let irregular = madCycle >= 4 || (cycleLengths.count >= 3 && (cycleLengths.max()! - cycleLengths.min()!) >= 10)
-        let confidence = computeConfidence(
+        let hasLH = ovulation?.method == "lh_surge"
+        let hasBBT = ovulation?.method == "bbt_shift"
+
+        let periodConf = computePeriodTimingConfidence(
             cyclesObserved: cycleLengths.count,
             mad: madCycle,
-            hasLH: ovulation?.method == "lh_surge",
-            hasBBT: ovulation?.method == "bbt_shift",
-            hasMucus: ovulation?.method == "peak_mucus",
             hormonal: settings.usesHormonalContraception,
-            logsCount: sorted.count
+            calibrated: abs(settings.calibrationOffsetDays) > 0.2,
+            overdue: settings.overdueWidenDays > 0
         )
+        let ovuConf = ovulation?.confidence
+            ?? (settings.usesHormonalContraception ? 0.2 : 0.35)
+        let confidence = min(0.95, 0.55 * periodConf + 0.45 * ovuConf)
 
         let dataQuality: String = {
-            if cycleLengths.count >= 6 && confidence >= 0.75 { return "high" }
-            if cycleLengths.count >= 3 && confidence >= 0.5 { return "good" }
+            if cycleLengths.count >= 6 && periodConf >= 0.75 && (hasLH || hasBBT) { return "high" }
+            if cycleLengths.count >= 6 && periodConf >= 0.7 { return "high" }
+            if cycleLengths.count >= 3 && periodConf >= 0.5 { return "good" }
             if cycleLengths.count >= 1 { return "learning" }
             if !sorted.isEmpty { return "partial" }
             return "no_data"
@@ -133,8 +148,11 @@ enum MenstrualCycleEngine {
             cycles: cycleLengths.count,
             hormonal: settings.usesHormonalContraception
         )
+        insights.insert(
+            "Timing method: \(ensemble.summary). Windows use robust personal history — not a single false-precision day.",
+            at: 0
+        )
 
-        // Physiological context (coaching, not diagnosis)
         if let hrv = recentHRV, let base = baselineHRV, base > 0, phase == .luteal {
             let dip = Double(base - hrv) / Double(base)
             if dip >= 0.12 {
@@ -144,9 +162,6 @@ enum MenstrualCycleEngine {
         if let rhr = restingHR, phase == .luteal, rhr >= 65 {
             insights.append("Resting HR often ticks up in luteal. Pair with how you feel before adding load.")
         }
-
-        // Slight confidence lift when calibration has enough feedback-driven offset history.
-        let calibratedConfidence = min(0.95, confidence + (abs(settings.calibrationOffsetDays) > 0.25 ? 0.03 : 0))
 
         return MenstrualCycleSnapshot(
             asOfDayKey: dayKey,
@@ -163,7 +178,7 @@ enum MenstrualCycleEngine {
             fertileEndDayInCycle: ovulation.map { $0.dayInCycle + 1 },
             nextPeriod: nextPeriod,
             nextOvulationDayKey: nextOvuKey,
-            confidence: calibratedConfidence,
+            confidence: confidence,
             dataQuality: dataQuality,
             recommendRecoveryBias: recoveryBias,
             trainingNote: phase.trainingBias,
@@ -176,13 +191,18 @@ enum MenstrualCycleEngine {
             accuracyMAE: nil,
             accuracySampleCount: 0,
             accuracyGrade: "learning",
-            calibrationOffsetDays: settings.calibrationOffsetDays
+            calibrationOffsetDays: settings.calibrationOffsetDays,
+            periodTimingConfidence: periodConf,
+            ovulationConfidence: ovuConf,
+            learnedLutealDays: settings.learnedLutealDays,
+            predictionMethodSummary: ensemble.summary
         )
     }
 
     // MARK: Episodes
 
     static func buildPeriodEpisodes(from logs: [CycleDayLog]) -> [PeriodEpisode] {
+        // Prefer true bleeding clusters; spotting-only runs are weaker episode anchors.
         let bleedingDays = logs.filter { $0.flow.isBleeding }.map(\.dayKey).sorted()
         guard !bleedingDays.isEmpty else { return [] }
 
@@ -193,23 +213,46 @@ enum MenstrualCycleEngine {
             let prev = bleedingDays[i - 1]
             let cur = bleedingDays[i]
             let gap = CycleDayKey.daysBetween(prev, cur) ?? 99
-            // Allow 1 gap day (spotting pause) inside a period
             if gap <= 2 {
                 run.append(cur)
             } else {
-                episodes.append(makeEpisode(run, logs: logs))
+                if let ep = makeEpisodeIfValid(run, logs: logs) {
+                    episodes.append(ep)
+                }
                 run = [cur]
             }
         }
-        episodes.append(makeEpisode(run, logs: logs))
+        if let ep = makeEpisodeIfValid(run, logs: logs) {
+            episodes.append(ep)
+        }
         return episodes
     }
 
-    private static func makeEpisode(_ days: [String], logs: [CycleDayLog]) -> PeriodEpisode {
-        let peak = days.compactMap { d in logs.first(where: { $0.dayKey == d })?.flow }
-            .max(by: { $0.sortWeight < $1.sortWeight }) ?? .unspecified
-        let start = days.first!
-        let end = days.last!
+    /// Spotting-only isolated days don't open a new cycle; need light+ or multi-day bleed.
+    private static func makeEpisodeIfValid(_ days: [String], logs: [CycleDayLog]) -> PeriodEpisode? {
+        let flows = days.compactMap { d in logs.first(where: { $0.dayKey == d })?.flow }
+        let peak = flows.max(by: { $0.sortWeight < $1.sortWeight }) ?? .unspecified
+        let hasRealFlow = flows.contains { $0 == .light || $0 == .medium || $0 == .heavy }
+        let multiDaySpotting = days.count >= 2 && flows.contains(where: { $0.isBleeding })
+        guard hasRealFlow || multiDaySpotting else { return nil }
+
+        // True start: first medium/heavy if present within first 2 days; else first bleeding day.
+        let start: String = {
+            let ordered = days.sorted()
+            for key in ordered.prefix(2) {
+                if let f = logs.first(where: { $0.dayKey == key })?.flow,
+                   f == .medium || f == .heavy {
+                    return key
+                }
+            }
+            for key in ordered {
+                if let f = logs.first(where: { $0.dayKey == key })?.flow, f.isBleeding, f != .spotting {
+                    return key
+                }
+            }
+            return ordered.first!
+        }()
+        let end = days.sorted().last!
         let count = (CycleDayKey.daysBetween(start, end) ?? 0) + 1
         return PeriodEpisode(
             id: start,
@@ -349,10 +392,8 @@ enum MenstrualCycleEngine {
         calibrationOffsetDays: Double = 0
     ) -> CyclePredictionRange? {
         guard let lastStart else { return nil }
-        // Apply feedback-learned offset so predictions auto-correct toward actual starts.
         let med = Int((median + calibrationOffsetDays).rounded())
         let spread = max(1, Int(ceil(mad * 1.5)))
-        // Use empirical percentiles when enough cycles
         var low = med - spread
         var high = med + spread
         if lengths.count >= 4 {
@@ -361,10 +402,93 @@ enum MenstrualCycleEngine {
             low = sorted[max(0, sorted.count / 10)] + cal
             high = sorted[min(sorted.count - 1, (sorted.count * 9) / 10)] + cal
         }
+        // Ensure window contains median
+        low = min(low, med - 1)
+        high = max(high, med + 1)
         guard let earliest = CycleDayKey.addDays(lastStart, low),
               let medianKey = CycleDayKey.addDays(lastStart, med),
               let latest = CycleDayKey.addDays(lastStart, high) else { return nil }
         return CyclePredictionRange(earliestDayKey: earliest, medianDayKey: medianKey, latestDayKey: latest)
+    }
+
+    // MARK: Recency + ensemble
+
+    /// Exponential recency weights (half-life ~4 cycles).
+    private static func recencyWeightedMedian(_ values: [Double], fallback: Double) -> Double {
+        guard !values.isEmpty else { return fallback }
+        if values.count == 1 { return values[0] }
+        let clipped = values.map { min(45, max(18, $0)) }
+        // Weighted percentile-50 via duplicate expansion of recent samples
+        var expanded: [Double] = []
+        for (i, v) in clipped.enumerated() {
+            let age = clipped.count - 1 - i
+            let w = max(1, Int((pow(0.5, Double(age) / 4.0) * 8).rounded()))
+            expanded.append(contentsOf: Array(repeating: v, count: w))
+        }
+        return robustMedian(expanded, fallback: fallback)
+    }
+
+    private struct EnsembleResult {
+        var median: Double
+        var extraSpread: Double
+        var summary: String
+    }
+
+    private static func ensembleCycleLength(
+        lengths: [Int],
+        recencyMedian: Double,
+        ovulation: OvulationEstimate?,
+        lutealDays: Int,
+        dayInCycle: Int?
+    ) -> EnsembleResult {
+        var candidates: [Double] = [recencyMedian]
+        var parts = ["recency-weighted median"]
+
+        if let last = lengths.last {
+            candidates.append(Double(last))
+            parts.append("last cycle")
+        }
+        if lengths.count >= 3 {
+            candidates.append(robustMedian(lengths.map(Double.init), fallback: recencyMedian))
+            parts.append("robust median")
+        }
+        // High-signal: if ovulation observed this cycle and we're still pre-period, project luteal end
+        if let ovu = ovulation, ovu.method == "lh_surge" || ovu.method == "bbt_shift",
+           let dic = dayInCycle, dic >= ovu.dayInCycle {
+            let projected = Double(ovu.dayInCycle + lutealDays - 1)
+            if projected >= 18, projected <= 45 {
+                candidates.append(projected)
+                parts.append("ovu+\(lutealDays)d luteal")
+            }
+        }
+
+        let blend = robustMedian(candidates, fallback: recencyMedian)
+        let spreadExtra = candidates.count >= 3
+            ? medianAbsoluteDeviation(candidates, center: blend) * 0.35
+            : 0
+        return EnsembleResult(
+            median: blend,
+            extraSpread: spreadExtra,
+            summary: parts.joined(separator: " · ")
+        )
+    }
+
+    private static func computePeriodTimingConfidence(
+        cyclesObserved: Int,
+        mad: Double,
+        hormonal: Bool,
+        calibrated: Bool,
+        overdue: Bool
+    ) -> Double {
+        var c = 0.18
+        c += min(0.4, Double(cyclesObserved) * 0.07)
+        if mad <= 1.5 { c += 0.18 }
+        else if mad <= 3 { c += 0.1 }
+        else if mad >= 6 { c -= 0.12 }
+        if calibrated { c += 0.05 }
+        if overdue { c -= 0.12 }
+        if hormonal { c = min(c, 0.5) }
+        return max(0.05, min(0.95, c))
     }
 
     // MARK: Stats

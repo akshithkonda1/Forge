@@ -265,11 +265,26 @@ final class AriaContextStore: ObservableObject {
         persist()
     }
 
+    /// Ensure cycle privacy + ARIA analyst contract are available to the model.
+    func ensureCycleAnalystDirective() {
+        if !context.constraints.contains(where: { $0.hasPrefix("cycle_analyst:") }) {
+            context.constraints.append("cycle_analyst:understand_evaluate_teach")
+        }
+        // Keep privacy directive as insight once
+        if !context.lastInsights.contains(where: { $0.contains("CYCLE PRIVACY") }) {
+            addInsight(CyclePrivacy.ariaDirective)
+        }
+        if !context.lastInsights.contains(where: { $0.contains("Understand → Evaluate → Teach") }) {
+            addInsight(CycleAriaAnalyst.systemDirective)
+        }
+    }
+
     func applyCycleSnapshot(_ snap: MenstrualCycleSnapshot) {
         guard snap.trackingEnabled else {
             clearCycleTags()
             return
         }
+        ensureCycleAnalystDirective()
         var tags = context.lifestyleTags.filter {
             !$0.hasPrefix("cycle:") && !$0.hasPrefix("cycle_phase:") && !$0.hasPrefix("cycle_day:")
                 && !$0.hasPrefix("cycle_privacy:")
@@ -281,6 +296,7 @@ final class AriaContextStore: ObservableObject {
         }
         tags.append("cycle:confidence:\(Int(snap.confidence * 100))")
         tags.append("cycle:quality:\(snap.dataQuality)")
+        tags.append("cycle:data_grade:\(MenstrualHealthStore.shared.lastEvaluation.qualityGrade.rawValue)")
         // Explicit privacy contract in context so any processor sees the boundary.
         tags.append("cycle_privacy:coaching_only")
         tags.append("cycle_privacy:never_sell")
