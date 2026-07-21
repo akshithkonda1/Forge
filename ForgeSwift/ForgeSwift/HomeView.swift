@@ -2300,7 +2300,6 @@ private func readinessLabel(_ score: Int) -> String {
 }
 
 @MainActor
-@MainActor
 private func homeStatusLine(store: AppStore) -> String {
     let score = store.readiness.overall
     switch score {
