@@ -112,7 +112,6 @@ enum MenstrualCycleEngine {
         let irregular = madCycle >= 4 || (cycleLengths.count >= 3 && (cycleLengths.max()! - cycleLengths.min()!) >= 10)
         let hasLH = ovulation?.method == "lh_surge"
         let hasBBT = ovulation?.method == "bbt_shift"
-        let hasMucus = ovulation?.method == "peak_mucus"
 
         let periodConf = computePeriodTimingConfidence(
             cyclesObserved: cycleLengths.count,

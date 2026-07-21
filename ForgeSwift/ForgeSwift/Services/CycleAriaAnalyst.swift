@@ -136,7 +136,7 @@ enum CycleAriaAnalyst {
         ovuConf=\(String(format: "%.2f", context.ovulationConfidence)),
         MAE=\(context.accuracyMAE.map { String(format: "%.1f" , $0) } ?? "n/a") over \(context.accuracySampleCount),
         quality=\(context.qualityGrade), issues=\(context.issues.joined(separator: ",")),
-        lastAction=\(context.lastAction ?? "none"), partner=\(context.isPartner).
+        lastAction=\(context.lastUserAction ?? "none"), partner=\(context.isPartner).
 
         Local evaluation summary: \(evaluation.userFacingSummary)
         Teaching seed: \(evaluation.teachingSummary)
