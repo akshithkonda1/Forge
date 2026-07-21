@@ -6,7 +6,7 @@ import Combine
 final class AriaContextStore: ObservableObject {
     static let shared = AriaContextStore()
 
-    @Published private(set) var context: AriaContext
+    @Published internal(set) var context: AriaContext
     @Published private(set) var lastProactiveInsight: String?
     @Published private(set) var permissions: AriaPermissionsStore
     @Published private(set) var lastObservedContext: ARIAContextPayload?
@@ -546,7 +546,7 @@ final class AriaContextStore: ObservableObject {
         return nil
     }
 
-    private func persist() {
+    func persist() {
         if let data = try? JSONEncoder().encode(context) {
             defaults.set(data, forKey: storageKey)
         }

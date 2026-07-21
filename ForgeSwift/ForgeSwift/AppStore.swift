@@ -324,7 +324,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
                 && reading.primary != .crisis
                 && !lower.contains("feel") && !lower.contains("upset") && !lower.contains("fight")
             if !trainingOnly {
-                return AriaEmotionalSupportCoach.respond(
+                return await AriaEmotionalSupportCoach.respond(
                     reading: reading,
                     context: context,
                     input: input
@@ -339,7 +339,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
 
         // Menstrual / cycle coaching
         if isCycleQuery(lower) {
-            return generateCycleResponse(context: context, input: input)
+            return await generateCycleResponse(context: context, input: input)
         }
         
         // Low energy
@@ -444,16 +444,16 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         context: TrainerContext,
         input: String
     ) async -> TrainerResponse {
-        _ = AriaPersonRegistry.shared.adapt(to: input)
+        _ = await AriaPersonRegistry.shared.adapt(to: input)
         let studio = AriaArchetypeStudio.shared
-        let personName = AriaPersonRegistry.shared.activePerson?.name
+        let personName = await AriaPersonRegistry.shared.activePerson?.name
             ?? context.partnerCycleSettings?.displayName
             ?? "them"
 
         switch intent {
         case .list:
             let builtin = AriaPersonalArchetype.allCases.filter { $0 != .unknown }.map(\.label)
-            let custom = studio.customArchetypes.prefix(12).map { "\($0.name) (\($0.source.displayName))" }
+            let custom = await studio.customArchetypes.prefix(12).map { "\($0.name) (\($0.source.displayName))" }
             var msg = "**Built-in archetypes:** " + builtin.joined(separator: ", ") + "."
             if custom.isEmpty {
                 msg += "\n\nNo custom ones yet — say “create an archetype for someone who…” and I’ll invent one through ARIA’s backend intelligence (or on-device if you’re offline)."
@@ -472,7 +472,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
 
         case .create(let description, let name):
             let crafted = await studio.createArchetype(from: description, preferredName: name)
-            studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            await studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
             let sourceNote = "Forged via \(crafted.source.displayName)."
             let msg = """
             New archetype locked for **\(personName)**:
@@ -500,10 +500,10 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             )
 
         case .enrich(let extra):
-            if let activeId = AriaPersonRegistry.shared.activePerson?.customArchetypeId,
-               let existing = studio.archetype(id: activeId) {
+            if let activeId = await AriaPersonRegistry.shared.activePerson?.customArchetypeId,
+               let existing = await studio.archetype(id: activeId) {
                 let refined = await studio.enrich(existing, with: extra)
-                studio.apply(refined, toPersonId: AriaPersonRegistry.shared.activePersonId)
+                await studio.apply(refined, toPersonId: AriaPersonRegistry.shared.activePersonId)
                 return TrainerResponse(
                     content: """
                     Refined **\(refined.name)** for \(personName).
@@ -518,7 +518,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
                 )
             }
             let crafted = await studio.createArchetype(from: extra, preferredName: nil)
-            studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            await studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
             return TrainerResponse(
                 content: "No custom archetype was attached yet — I forged **\(crafted.name)** and applied it to \(personName).",
                 suggestedActions: ["Deepen this archetype", "Support script"],
@@ -526,8 +526,8 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             )
 
         case .assign(let name):
-            if let existing = studio.findByName(name) {
-                studio.apply(existing, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            if let existing = await studio.findByName(name) {
+                await studio.apply(existing, toPersonId: AriaPersonRegistry.shared.activePersonId)
                 return TrainerResponse(
                     content: "Attached **\(existing.name)** to \(personName).",
                     suggestedActions: ["How do I support them?", "Deepen this archetype"],
@@ -535,7 +535,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
                 )
             }
             let crafted = await studio.createArchetype(from: input, preferredName: name)
-            studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            await studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
             return TrainerResponse(
                 content: "Created and attached **\(crafted.name)** to \(personName).",
                 suggestedActions: ["Support script", "List archetypes"],
@@ -574,6 +574,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         )
     }
 
+    @MainActor
     private func generateCycleResponse(context: TrainerContext, input: String) -> TrainerResponse {
         let lower = input.lowercased()
         let mention = AriaRelationalCoach.detectSupportMention(in: input)
