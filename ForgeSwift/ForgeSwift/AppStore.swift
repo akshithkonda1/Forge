@@ -440,11 +440,10 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         switch intent {
         case .list:
             let builtin = AriaPersonalArchetype.allCases.filter { $0 != .unknown }.map(\.label)
-            let custom = studio.customArchetypes.prefix(12).map { "\($0.name) (\($0.source.rawValue))" }
+            let custom = studio.customArchetypes.prefix(12).map { "\($0.name) (\($0.source.displayName))" }
             var msg = "**Built-in archetypes:** " + builtin.joined(separator: ", ") + "."
             if custom.isEmpty {
-                msg += "\n\nNo custom ones yet — say “create an archetype for someone who…” and I’ll invent one"
-                msg += studio.canCallClaude ? " with Claude." : " offline (add ANTHROPIC_API_KEY for Claude)."
+                msg += "\n\nNo custom ones yet — say “create an archetype for someone who…” and I’ll invent one through ARIA’s backend intelligence (or on-device if you’re offline)."
             } else {
                 msg += "\n\n**ARIA-invented:** " + custom.joined(separator: ", ") + "."
             }
@@ -452,7 +451,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
                 content: msg,
                 suggestedActions: [
                     "Create an archetype for my wife",
-                    "Invent an archetype with Claude",
+                    "Invent an archetype for my daughter",
                     "List archetypes again",
                 ],
                 confidence: 0.95
@@ -461,16 +460,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         case .create(let description, let name):
             let crafted = await studio.createArchetype(from: description, preferredName: name)
             studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
-            let sourceNote: String = {
-                switch studio.lastSourceUsed {
-                case .claude: return "Claude helped forge this one."
-                case .backend: return "Backend reasoning helped forge this one."
-                case .local: return "Drafted offline — ask me to “learn more with Claude” to deepen it when a key is available."
-                case .hybrid: return "Hybrid local + prior Claude notes."
-                case .user: return "Saved from your wording."
-                case .none: return ""
-                }
-            }()
+            let sourceNote = "Forged via \(crafted.source.displayName)."
             let msg = """
             New archetype locked for **\(personName)**:
 
@@ -480,7 +470,6 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             Stance: \(crafted.supportStance)
             Avoid: \(crafted.avoid.prefix(4).joined(separator: "; "))
             Example: “\(crafted.exampleScript)”
-            Speech defaults: \(crafted.formality) · \(crafted.humor) · \(crafted.lengthBias) · \(crafted.expressiveness)
 
             \(sourceNote)
 
@@ -489,7 +478,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             return TrainerResponse(
                 content: msg,
                 suggestedActions: [
-                    "Deepen this archetype with Claude",
+                    "Deepen this archetype",
                     "How do I support them today?",
                     "Create another archetype",
                     "What should I train?",
@@ -509,17 +498,16 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
                     \(refined.tagline)
 
                     Speak-to-them: \(refined.speechGuidance)
-                    Source: \(studio.lastSourceUsed?.rawValue ?? refined.source.rawValue).
+                    Via \(refined.source.displayName).
                     """,
                     suggestedActions: ["How should I talk to them tonight?", "List archetypes"],
                     confidence: 0.9
                 )
             }
-            // No custom yet — create from enrich text
             let crafted = await studio.createArchetype(from: extra, preferredName: nil)
             studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
             return TrainerResponse(
-                content: "No custom archetype was attached yet — I forged **\(crafted.name)** from what you said and applied it to \(personName).",
+                content: "No custom archetype was attached yet — I forged **\(crafted.name)** and applied it to \(personName).",
                 suggestedActions: ["Deepen this archetype", "Support script"],
                 confidence: 0.88
             )
