@@ -319,6 +319,67 @@ struct MenstrualTrackingSettings: Codable, Equatable {
     )
 }
 
+// MARK: - Partner cycle (relationship sync)
+
+/// Tracking a partner's cycle so ARIA can coach *you* on support, plans, and sync —
+/// never medical advice for your partner. Enter only with their knowledge/consent.
+struct PartnerCycleSettings: Codable, Equatable {
+    var enabled: Bool
+    /// Optional first name / nickname used in ARIA copy ("Maya is in luteal…").
+    var partnerName: String
+    /// How you refer to them (partner, girlfriend, wife, spouse…).
+    var relationshipLabel: String
+    /// Share phase/day with ARIA for relationship coaching.
+    var shareWithAria: Bool
+    var averageCycleOverride: Int?
+    var averagePeriodOverride: Int?
+    var typicalLutealDays: Int
+    var usesHormonalContraception: Bool
+    /// User confirmed they have partner consent to log cycle data.
+    var consentAcknowledged: Bool
+    var notes: String
+
+    static let `default` = PartnerCycleSettings(
+        enabled: false,
+        partnerName: "",
+        relationshipLabel: "partner",
+        shareWithAria: true,
+        averageCycleOverride: nil,
+        averagePeriodOverride: nil,
+        typicalLutealDays: 14,
+        usesHormonalContraception: false,
+        consentAcknowledged: false,
+        notes: ""
+    )
+
+    var displayName: String {
+        let trimmed = partnerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? relationshipLabel.capitalized : trimmed
+    }
+}
+
+/// Relationship-support playbook derived from partner phase (for the user, not the partner's clinician).
+struct PartnerSupportBrief: Equatable {
+    var partnerLabel: String
+    var phase: MenstrualPhase
+    var dayInCycle: Int?
+    var confidence: Double
+    var headline: String
+    var supportMoves: [String]
+    var avoidMoves: [String]
+    var dateIdeas: [String]
+    var intimacyNote: String
+    var trainingTogetherNote: String
+    var communicationTip: String
+    var disclaimer: String
+
+    static let disclaimer = """
+    Partner cycle support is relationship lifestyle coaching based on data you enter. \
+    It is not medical advice for your partner, not birth control, and not a substitute \
+    for their clinician. Only log what your partner is comfortable sharing.
+    """
+}
+
 // MARK: - Day key helpers
 
 enum CycleDayKey {

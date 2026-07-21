@@ -241,6 +241,16 @@ final class AriaContextStore: ObservableObject {
         persist()
     }
 
+    func clearPartnerCycleTags() {
+        context.lifestyleTags = context.lifestyleTags.filter {
+            !$0.hasPrefix("partner_cycle:") && !$0.hasPrefix("partner_phase:") && !$0.hasPrefix("partner_day:")
+                && !$0.hasPrefix("partner_name:")
+        }
+        context.recentPatterns = context.recentPatterns.filter { !$0.hasPrefix("partner_cycle:") }
+        context.lastUpdated = Date()
+        persist()
+    }
+
     func applyCycleSnapshot(_ snap: MenstrualCycleSnapshot) {
         guard snap.trackingEnabled else {
             clearCycleTags()
@@ -273,6 +283,49 @@ final class AriaContextStore: ObservableObject {
             }
         }
         context.recentPatterns = Array(patterns.suffix(12))
+        context.lastUpdated = Date()
+        persist()
+    }
+
+    func applyPartnerCycleSnapshot(
+        _ snap: MenstrualCycleSnapshot,
+        partnerName: String,
+        relationshipLabel: String
+    ) {
+        guard snap.trackingEnabled || !partnerName.isEmpty else {
+            clearPartnerCycleTags()
+            return
+        }
+        var tags = context.lifestyleTags.filter {
+            !$0.hasPrefix("partner_cycle:") && !$0.hasPrefix("partner_phase:") && !$0.hasPrefix("partner_day:")
+                && !$0.hasPrefix("partner_name:")
+        }
+        tags.append("partner_cycle:enabled")
+        tags.append("partner_phase:\(snap.phase.rawValue)")
+        if let day = snap.dayInCycle {
+            tags.append("partner_day:\(day)")
+        }
+        let safeName = partnerName
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "_")
+            .prefix(24)
+        if !safeName.isEmpty {
+            tags.append("partner_name:\(safeName)")
+        }
+        tags.append("partner_cycle:rel:\(relationshipLabel.lowercased().replacingOccurrences(of: " ", with: "_"))")
+        tags.append("partner_cycle:confidence:\(Int(snap.confidence * 100))")
+        context.lifestyleTags = Array(Set(tags)).sorted()
+
+        var patterns = context.recentPatterns.filter { !$0.hasPrefix("partner_cycle:") }
+        patterns.append("partner_cycle:\(snap.phase.rawValue)")
+        context.recentPatterns = Array(patterns.suffix(12))
+        context.lastInsights.insert(
+            "Partner (\(partnerName)) cycle phase: \(snap.phase.label)" + (snap.dayInCycle.map { " day \($0)" } ?? "") + ".",
+            at: 0
+        )
+        if context.lastInsights.count > 15 {
+            context.lastInsights = Array(context.lastInsights.prefix(15))
+        }
         context.lastUpdated = Date()
         persist()
     }

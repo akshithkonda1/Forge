@@ -112,6 +112,8 @@ final class AriaService: ObservableObject {
         let lower = text.lowercased()
         let isCycle = lower.contains("period") || lower.contains("cycle") || lower.contains("luteal")
             || lower.contains("follicular") || lower.contains("ovulat") || lower.contains("pms")
+            || lower.contains("girlfriend") || lower.contains("wife") || lower.contains("partner cycle")
+            || lower.contains("support her") || lower.contains("her period") || lower.contains("her pms")
         if AriaThemeResolver.isPlanRequest(text) {
             let plan = AriaPlanEngine.evaluate(input: text, context: trainerContext)
             if plan.shouldPersistTheme {

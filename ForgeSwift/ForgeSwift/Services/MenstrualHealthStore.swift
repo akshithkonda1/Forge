@@ -3,6 +3,7 @@ import Combine
 import HealthKit
 
 /// Persists cycle logs, syncs HealthKit menstrual signals, exposes engine snapshot.
+/// Also holds an optional **partner** cycle (relationship sync) — never written to the user's HealthKit.
 @MainActor
 final class MenstrualHealthStore: ObservableObject {
     static let shared = MenstrualHealthStore()
@@ -10,12 +11,21 @@ final class MenstrualHealthStore: ObservableObject {
     @Published private(set) var settings: MenstrualTrackingSettings
     @Published private(set) var logs: [CycleDayLog]
     @Published private(set) var snapshot: MenstrualCycleSnapshot
+
+    /// Partner (e.g. girlfriend/wife) cycle logged by the user for relationship coaching.
+    @Published private(set) var partnerSettings: PartnerCycleSettings
+    @Published private(set) var partnerLogs: [CycleDayLog]
+    @Published private(set) var partnerSnapshot: MenstrualCycleSnapshot
+    @Published private(set) var partnerSupportBrief: PartnerSupportBrief?
+
     @Published private(set) var lastSyncAt: Date?
     @Published private(set) var isSyncing = false
 
     private let defaults = UserDefaults.standard
     private let settingsKey = "forge.menstrual.settings.v1"
     private let logsKey = "forge.menstrual.logs.v1"
+    private let partnerSettingsKey = "forge.menstrual.partner.settings.v1"
+    private let partnerLogsKey = "forge.menstrual.partner.logs.v1"
 
     private init() {
         if let data = defaults.data(forKey: settingsKey),
@@ -30,8 +40,23 @@ final class MenstrualHealthStore: ObservableObject {
         } else {
             logs = []
         }
+        if let data = defaults.data(forKey: partnerSettingsKey),
+           let s = try? JSONDecoder().decode(PartnerCycleSettings.self, from: data) {
+            partnerSettings = s
+        } else {
+            partnerSettings = .default
+        }
+        if let data = defaults.data(forKey: partnerLogsKey),
+           let l = try? JSONDecoder().decode([CycleDayLog].self, from: data) {
+            partnerLogs = l
+        } else {
+            partnerLogs = []
+        }
         snapshot = .empty
+        partnerSnapshot = .empty
+        partnerSupportBrief = nil
         recompute()
+        recomputePartner()
     }
 
     // MARK: Settings
@@ -45,6 +70,15 @@ final class MenstrualHealthStore: ObservableObject {
         pushAriaTags()
     }
 
+    func updatePartnerSettings(_ mutate: (inout PartnerCycleSettings) -> Void) {
+        var s = partnerSettings
+        mutate(&s)
+        partnerSettings = s
+        persistPartnerSettings()
+        recomputePartner()
+        pushAriaTags()
+    }
+
     func enableForFemaleProfileIfNeeded(gender: Gender) {
         guard gender == .female else { return }
         if !settings.enabled {
@@ -53,6 +87,12 @@ final class MenstrualHealthStore: ObservableObject {
                 $0.shareWithAria = true
             }
         }
+    }
+
+    /// Surface partner tracking for users who may support a female partner (any gender).
+    func enablePartnerTrackingIfAppropriate(gender: Gender) {
+        // Soft suggest only — do not auto-enable without consent flag.
+        _ = gender
     }
 
     // MARK: Logging
@@ -108,6 +148,46 @@ final class MenstrualHealthStore: ObservableObject {
         upsertLog(existing)
     }
 
+    // MARK: Partner logging (never HealthKit — partner is not the device owner)
+
+    func upsertPartnerLog(_ log: CycleDayLog) {
+        var entry = log
+        entry.source = entry.source == "healthkit" ? "manual" : entry.source
+        if let idx = partnerLogs.firstIndex(where: { $0.dayKey == entry.dayKey }) {
+            var merged = partnerLogs[idx]
+            merged.flow = entry.flow
+            merged.symptoms = entry.symptoms
+            if let n = entry.notes { merged.notes = n }
+            merged.source = "manual"
+            merged.updatedAt = Date()
+            partnerLogs[idx] = merged
+        } else {
+            partnerLogs.append(entry)
+        }
+        partnerLogs.sort { $0.dayKey < $1.dayKey }
+        if partnerLogs.count > 800 {
+            partnerLogs = Array(partnerLogs.suffix(800))
+        }
+        persistPartnerLogs()
+        recomputePartner()
+        pushAriaTags()
+    }
+
+    func logPartnerPeriodStart(on dayKey: String = CycleDayKey.key(), flow: MenstrualFlowLevel = .medium) {
+        upsertPartnerLog(CycleDayLog(dayKey: dayKey, flow: flow, source: "manual"))
+    }
+
+    func logPartnerToday(flow: MenstrualFlowLevel? = nil, symptoms: [CycleSymptom]? = nil, notes: String? = nil) {
+        let key = CycleDayKey.key()
+        var existing = partnerLogs.first(where: { $0.dayKey == key }) ?? CycleDayLog(dayKey: key)
+        if let flow { existing.flow = flow }
+        if let symptoms { existing.symptoms = symptoms }
+        if let notes { existing.notes = notes }
+        existing.source = "manual"
+        existing.updatedAt = Date()
+        upsertPartnerLog(existing)
+    }
+
     // MARK: Engine
 
     func recompute(readinessHRV: Int? = nil, baselineHRV: Int? = nil, restingHR: Int? = nil) {
@@ -120,15 +200,38 @@ final class MenstrualHealthStore: ObservableObject {
         )
     }
 
+    func recomputePartner() {
+        let engineSettings = MenstrualTrackingSettings(
+            enabled: partnerSettings.enabled && partnerSettings.consentAcknowledged,
+            shareWithAria: partnerSettings.shareWithAria,
+            averageCycleOverride: partnerSettings.averageCycleOverride,
+            averagePeriodOverride: partnerSettings.averagePeriodOverride,
+            typicalLutealDays: partnerSettings.typicalLutealDays,
+            usesHormonalContraception: partnerSettings.usesHormonalContraception,
+            notes: partnerSettings.notes
+        )
+        partnerSnapshot = MenstrualCycleEngine.evaluate(
+            logs: partnerLogs,
+            settings: engineSettings
+        )
+        if partnerSettings.enabled, partnerSettings.consentAcknowledged {
+            partnerSupportBrief = PartnerSupportCoach.brief(
+                snapshot: partnerSnapshot,
+                settings: partnerSettings
+            )
+        } else {
+            partnerSupportBrief = nil
+        }
+    }
+
     func refresh(from store: AppStore) {
         recompute(
             readinessHRV: store.dailyMetrics.hrv,
             baselineHRV: max(store.dailyMetrics.hrv, 40),
             restingHR: store.dailyMetrics.restingHR
         )
-        if settings.enabled, settings.shareWithAria {
-            pushAriaTags()
-        }
+        recomputePartner()
+        pushAriaTags()
     }
 
     // MARK: HealthKit
@@ -197,27 +300,44 @@ final class MenstrualHealthStore: ObservableObject {
     // MARK: ARIA bridge
 
     func pushAriaTags() {
-        guard settings.enabled, settings.shareWithAria else {
+        if settings.enabled, settings.shareWithAria {
+            AriaContextStore.shared.applyCycleSnapshot(snapshot)
+        } else {
             AriaContextStore.shared.clearCycleTags()
-            return
         }
-        AriaContextStore.shared.applyCycleSnapshot(snapshot)
+        if partnerSettings.enabled,
+           partnerSettings.consentAcknowledged,
+           partnerSettings.shareWithAria {
+            AriaContextStore.shared.applyPartnerCycleSnapshot(
+                partnerSnapshot,
+                partnerName: partnerSettings.displayName,
+                relationshipLabel: partnerSettings.relationshipLabel
+            )
+        } else {
+            AriaContextStore.shared.clearPartnerCycleTags()
+        }
     }
 
     func ariaContextLines() -> [String] {
-        guard settings.enabled, settings.shareWithAria else { return [] }
         var lines: [String] = []
-        lines.append("Cycle phase: \(snapshot.phase.label)")
-        if let d = snapshot.dayInCycle {
-            lines.append("Day in cycle: \(d)")
+        if settings.enabled, settings.shareWithAria {
+            lines.append("Self cycle phase: \(snapshot.phase.label)")
+            if let d = snapshot.dayInCycle {
+                lines.append("Self day in cycle: \(d)")
+            }
+            lines.append(snapshot.trainingNote)
         }
-        lines.append("Confidence: \(Int(snapshot.confidence * 100))% (\(snapshot.dataQuality))")
-        lines.append(snapshot.trainingNote)
-        lines.append(snapshot.readinessNote)
-        if let next = snapshot.nextPeriod {
-            lines.append("Next period window: \(next.earliestDayKey) → \(next.latestDayKey) (median \(next.medianDayKey))")
+        if partnerSettings.enabled, partnerSettings.consentAcknowledged, partnerSettings.shareWithAria {
+            lines.append("Partner (\(partnerSettings.displayName)) phase: \(partnerSnapshot.phase.label)")
+            if let d = partnerSnapshot.dayInCycle {
+                lines.append("Partner day in cycle: \(d)")
+            }
+            if let brief = partnerSupportBrief {
+                lines.append(brief.headline)
+                lines.append(brief.communicationTip)
+            }
+            lines.append(PartnerSupportBrief.disclaimer)
         }
-        lines.append(snapshot.disclaimer)
         return lines
     }
 
@@ -232,6 +352,18 @@ final class MenstrualHealthStore: ObservableObject {
     private func persistLogs() {
         if let data = try? JSONEncoder().encode(logs) {
             defaults.set(data, forKey: logsKey)
+        }
+    }
+
+    private func persistPartnerSettings() {
+        if let data = try? JSONEncoder().encode(partnerSettings) {
+            defaults.set(data, forKey: partnerSettingsKey)
+        }
+    }
+
+    private func persistPartnerLogs() {
+        if let data = try? JSONEncoder().encode(partnerLogs) {
+            defaults.set(data, forKey: partnerLogsKey)
         }
     }
 }

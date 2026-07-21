@@ -46,6 +46,9 @@ struct TrainerContext {
     var constraints: [String] = []
     /// Optional menstrual cycle snapshot when tracking is shared with ARIA.
     var cycleSnapshot: MenstrualCycleSnapshot? = nil
+    /// Partner cycle (relationship sync) when user opted in with consent.
+    var partnerCycleSnapshot: MenstrualCycleSnapshot? = nil
+    var partnerCycleSettings: PartnerCycleSettings? = nil
     
     var hour: Int {
         Calendar.current.component(.hour, from: currentTime)
@@ -188,20 +191,39 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
     }
 
     private func cyclePromptBlock(_ context: TrainerContext) -> String {
-        guard let c = context.cycleSnapshot, c.trackingEnabled else {
-            return "Cycle: not shared / unavailable"
+        var blocks: [String] = []
+        if let c = context.cycleSnapshot, c.trackingEnabled {
+            var lines = [
+                "Self cycle phase: \(c.phase.label)",
+                "Self day in cycle: \(c.dayInCycle.map(String.init) ?? "unknown")",
+                "Self confidence: \(Int(c.confidence * 100))% (\(c.dataQuality))",
+                "Training note: \(c.trainingNote)",
+                "Readiness note: \(c.readinessNote)",
+            ]
+            if let next = c.nextPeriod {
+                lines.append("Next period window: \(next.earliestDayKey)…\(next.latestDayKey)")
+            }
+            blocks.append(lines.joined(separator: "\n"))
+        } else {
+            blocks.append("Self cycle: not shared / unavailable")
         }
-        var lines = [
-            "Cycle phase: \(c.phase.label)",
-            "Day in cycle: \(c.dayInCycle.map(String.init) ?? "unknown")",
-            "Confidence: \(Int(c.confidence * 100))% (\(c.dataQuality))",
-            "Training note: \(c.trainingNote)",
-            "Readiness note: \(c.readinessNote)",
-        ]
-        if let next = c.nextPeriod {
-            lines.append("Next period window: \(next.earliestDayKey)…\(next.latestDayKey)")
+        if let p = context.partnerCycleSnapshot,
+           let s = context.partnerCycleSettings {
+            var lines = [
+                "Partner (\(s.displayName), \(s.relationshipLabel)) phase: \(p.phase.label)",
+                "Partner day in cycle: \(p.dayInCycle.map(String.init) ?? "unknown")",
+                "Partner confidence: \(Int(p.confidence * 100))%",
+                "Coach the USER on support/sync — not medical advice for the partner.",
+            ]
+            if let brief = MenstrualHealthStore.shared.partnerSupportBrief {
+                lines.append("Support headline: \(brief.headline)")
+                lines.append("Communication tip: \(brief.communicationTip)")
+            }
+            blocks.append(lines.joined(separator: "\n"))
+        } else {
+            blocks.append("Partner cycle: not enabled")
         }
-        return lines.joined(separator: "\n")
+        return blocks.joined(separator: "\n")
     }
     
     private func parseResponse(_ content: String, context: TrainerContext, input: String) -> TrainerResponse {
@@ -315,6 +337,17 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             || text.contains("luteal") || text.contains("follicular") || text.contains("ovulat")
             || text.contains("pms") || text.contains("cramp") || text.contains("my cycle")
             || text.contains("time of the month")
+            || text.contains("partner cycle") || text.contains("her period") || text.contains("her cycle")
+            || text.contains("girlfriend") || text.contains("wife") || text.contains("my partner")
+            || text.contains("support her") || text.contains("sync with") || text.contains("her pms")
+            || text.contains("date night") && (text.contains("cycle") || text.contains("period"))
+    }
+
+    private func isPartnerCycleQuery(_ text: String) -> Bool {
+        text.contains("partner") || text.contains("girlfriend") || text.contains("wife")
+            || text.contains("her period") || text.contains("her cycle") || text.contains("her pms")
+            || text.contains("support her") || text.contains("spouse") || text.contains("fiancé")
+            || text.contains("fiance") || text.contains("my girl")
     }
     
     private func isLowEnergyMention(_ text: String) -> Bool {
@@ -354,15 +387,61 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
     }
 
     private func generateCycleResponse(context: TrainerContext, input: String) -> TrainerResponse {
+        let lower = input.lowercased()
+
+        // Partner / relationship sync coaching (males or anyone supporting a partner).
+        if isPartnerCycleQuery(lower)
+            || (context.partnerCycleSnapshot != nil && !lower.contains("my period") && !lower.contains("my cycle")) {
+            if let partnerSnap = context.partnerCycleSnapshot,
+               let partnerSettings = context.partnerCycleSettings,
+               partnerSettings.enabled,
+               partnerSettings.consentAcknowledged {
+                let name = context.userProfile.name.split(separator: " ").first.map(String.init) ?? ""
+                let msg = PartnerSupportCoach.ariaMessage(
+                    snapshot: partnerSnap,
+                    settings: partnerSettings,
+                    userName: name,
+                    input: input
+                )
+                return TrainerResponse(
+                    content: msg,
+                    suggestedActions: [
+                        "Date ideas for this phase",
+                        "How should I train with her?",
+                        "Log her period start",
+                        "What should I avoid saying?",
+                    ],
+                    confidence: max(0.85, partnerSnap.confidence)
+                )
+            }
+            // Partner intent but not set up yet
+            if isPartnerCycleQuery(lower) {
+                let msg = """
+                I can help you sync support with your partner's cycle — a lot of couples do this well.
+
+                Open **Partner Cycle** in Cycle Health, confirm she consents to you logging period starts, add her name, then log when periods begin. I'll coach *you* on comfort, plans, training together, and communication by phase.
+
+                \(PartnerSupportBrief.disclaimer)
+                """
+                return TrainerResponse(
+                    content: msg,
+                    suggestedActions: ["Open partner cycle setup", "What should I train today?"],
+                    confidence: 0.82
+                )
+            }
+        }
+
         guard let cycle = context.cycleSnapshot, cycle.trackingEnabled else {
             let msg = """
             I can coach around your cycle once tracking is on — open Cycle Health to log periods, BBT, and OPKs, or sync Apple Health.
+
+            If you want to support a partner instead, enable **Partner Cycle** and log her period starts (with consent).
 
             \(MenstrualCycleEngine.disclaimer)
             """
             return TrainerResponse(
                 content: msg,
-                suggestedActions: ["Open cycle health", "What should I train today?"],
+                suggestedActions: ["Open cycle health", "Set up partner cycle", "What should I train today?"],
                 confidence: 0.8
             )
         }
@@ -384,7 +463,6 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         lines.append("\n" + cycle.disclaimer)
 
         // Offer a phase-aware plan when they ask what to do.
-        let lower = input.lowercased()
         if lower.contains("train") || lower.contains("workout") || lower.contains("should i") {
             let plan = AriaPlanEngine.evaluate(input: input, context: context)
             return TrainerResponse(
@@ -804,6 +882,17 @@ final class AppStore: ObservableObject {
             guard cycleStore.settings.enabled, cycleStore.settings.shareWithAria else { return nil }
             return cycleStore.snapshot
         }()
+        let partner: MenstrualCycleSnapshot? = {
+            guard cycleStore.partnerSettings.enabled,
+                  cycleStore.partnerSettings.consentAcknowledged,
+                  cycleStore.partnerSettings.shareWithAria else { return nil }
+            return cycleStore.partnerSnapshot
+        }()
+        let partnerSettings: PartnerCycleSettings? = {
+            guard cycleStore.partnerSettings.enabled,
+                  cycleStore.partnerSettings.consentAcknowledged else { return nil }
+            return cycleStore.partnerSettings
+        }()
         return TrainerContext(
             userProfile: userProfile,
             readiness: readiness,
@@ -814,7 +903,9 @@ final class AppStore: ObservableObject {
             conversationHistory: chatMessages,
             lifestyleTags: ctx.lifestyleTags,
             constraints: ctx.constraints,
-            cycleSnapshot: cycle
+            cycleSnapshot: cycle,
+            partnerCycleSnapshot: partner,
+            partnerCycleSettings: partnerSettings
         )
     }
 

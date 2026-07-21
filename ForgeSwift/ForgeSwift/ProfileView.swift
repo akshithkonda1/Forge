@@ -906,18 +906,26 @@ struct SettingsPageView: View {
                     .buttonStyle(.plain)
 
                     if store.userProfile.gender == .female
+                        || store.userProfile.gender == .male
                         || MenstrualHealthStore.shared.settings.enabled
+                        || MenstrualHealthStore.shared.partnerSettings.enabled
                         || store.pendingProfileSubTab == "cycle" {
                         Divider().background(Color.borderColor)
                         Button(action: { showCycleHealth = true }) {
-                            let snap = MenstrualHealthStore.shared.snapshot
+                            let selfOn = MenstrualHealthStore.shared.settings.enabled
+                            let partnerOn = MenstrualHealthStore.shared.partnerSettings.enabled
+                            let snap = selfOn
+                                ? MenstrualHealthStore.shared.snapshot
+                                : MenstrualHealthStore.shared.partnerSnapshot
                             SettingsRow(
-                                icon: snap.phase.icon,
+                                icon: partnerOn && !selfOn ? "heart.circle.fill" : snap.phase.icon,
                                 iconColor: Color(hex: snap.phase.accentHex),
-                                label: "Cycle Health",
-                                trailingText: MenstrualHealthStore.shared.settings.enabled
-                                    ? snap.phase.shortLabel
-                                    : "Set up",
+                                label: partnerOn && !selfOn ? "Partner Cycle" : "Cycle Health",
+                                trailingText: {
+                                    if selfOn { return snap.phase.shortLabel }
+                                    if partnerOn { return MenstrualHealthStore.shared.partnerSettings.displayName }
+                                    return store.userProfile.gender == .male ? "Partner sync" : "Set up"
+                                }(),
                                 showChevron: true
                             )
                         }

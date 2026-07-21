@@ -148,10 +148,15 @@ struct HomeView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
-                        // Cycle intelligence (female / tracking-enabled)
+                        // Cycle intelligence — self (female) and/or partner sync (any gender)
                         if store.userProfile.gender == .female
-                            || MenstrualHealthStore.shared.settings.enabled {
-                            CycleHealthChip {
+                            || MenstrualHealthStore.shared.settings.enabled
+                            || MenstrualHealthStore.shared.partnerSettings.enabled
+                            || store.userProfile.gender == .male {
+                            CycleHealthChip(
+                                preferPartner: store.userProfile.gender == .male
+                                    && !MenstrualHealthStore.shared.settings.enabled
+                            ) {
                                 store.pendingProfileSubTab = "cycle"
                                 store.activeTab = .profile
                             }

@@ -1,14 +1,29 @@
 import SwiftUI
 
-/// Premium menstrual cycle tracker — multi-signal accuracy surface for ARIA + the user.
+/// Premium menstrual cycle tracker — self tracking + partner relationship sync.
 struct MenstrualHealthView: View {
+    enum Pane: String, CaseIterable, Identifiable {
+        case me, partner
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .me: return "My cycle"
+            case .partner: return "Partner"
+            }
+        }
+    }
+
     @EnvironmentObject private var store: AppStore
     @ObservedObject private var cycleStore = MenstrualHealthStore.shared
     @Environment(\.dismiss) private var dismiss
 
+    @State private var pane: Pane = .me
     @State private var selectedFlow: MenstrualFlowLevel = .medium
     @State private var selectedSymptoms: Set<CycleSymptom> = []
     @State private var bbtText = ""
+    @State private var partnerFlow: MenstrualFlowLevel = .medium
+    @State private var partnerNameDraft = ""
+    @State private var partnerRelDraft = "partner"
     @State private var showDisclaimer = false
     @State private var appeared = false
 
@@ -16,16 +31,23 @@ struct MenstrualHealthView: View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 18) {
                 header
-                if !cycleStore.settings.enabled {
-                    enableCard
-                } else {
-                    phaseHero
-                    predictionCard
-                    accuracyCard
-                    todayLogger
-                    insightsCard
-                    settingsCard
-                    disclaimerFooter
+                panePicker
+
+                switch pane {
+                case .me:
+                    if !cycleStore.settings.enabled {
+                        enableCard
+                    } else {
+                        phaseHero
+                        predictionCard
+                        accuracyCard
+                        todayLogger
+                        insightsCard
+                        settingsCard
+                        disclaimerFooter
+                    }
+                case .partner:
+                    partnerContent
                 }
             }
             .padding(.horizontal, 16)
@@ -46,11 +68,19 @@ struct MenstrualHealthView: View {
                         Image(systemName: "arrow.triangle.2.circlepath")
                     }
                 }
-                .disabled(!cycleStore.settings.enabled)
+                .disabled(!cycleStore.settings.enabled || pane != .me)
             }
         }
         .onAppear {
             cycleStore.enableForFemaleProfileIfNeeded(gender: store.userProfile.gender)
+            // Males (and anyone) default to Partner pane when self-cycle is off.
+            if store.userProfile.gender == .male || store.userProfile.gender != .female {
+                if !cycleStore.settings.enabled {
+                    pane = .partner
+                }
+            }
+            partnerNameDraft = cycleStore.partnerSettings.partnerName
+            partnerRelDraft = cycleStore.partnerSettings.relationshipLabel
             cycleStore.refresh(from: store)
             Task { await cycleStore.syncFromHealthKit() }
             withAnimation(FDS.Spring.hero.delay(0.05)) { appeared = true }
@@ -61,15 +91,333 @@ struct MenstrualHealthView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Menstrual intelligence")
+            Text(pane == .me ? "Menstrual intelligence" : "Partner cycle sync")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundColor(.textPrimary)
-            Text("Multi-signal engine: period starts, BBT, OPK, mucus, symptoms, and personal cycle math.")
+            Text(
+                pane == .me
+                    ? "Multi-signal engine: period starts, BBT, OPK, mucus, symptoms, and personal cycle math."
+                    : "Log your partner's period starts (with consent). ARIA coaches you on support, dates, and training together — many couples use this."
+            )
                 .font(.system(size: 13))
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .opacity(appeared ? 1 : 0)
+    }
+
+    private var panePicker: some View {
+        HStack(spacing: 0) {
+            ForEach(Pane.allCases) { p in
+                Button {
+                    withAnimation(FDS.Spring.snap) { pane = p }
+                    FDS.selectionHaptic()
+                } label: {
+                    Text(p.label)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(pane == p ? .white : .textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(pane == p ? Color.ember : Color.clear)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .background(Color.surfaceElevated)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    // MARK: Partner pane
+
+    private var partnerContent: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            if !cycleStore.partnerSettings.enabled {
+                partnerEnableCard
+            } else if !cycleStore.partnerSettings.consentAcknowledged {
+                partnerConsentCard
+            } else {
+                partnerPhaseHero
+                if let brief = cycleStore.partnerSupportBrief {
+                    partnerSupportCard(brief)
+                }
+                partnerLogger
+                partnerSettingsCard
+                Text(PartnerSupportBrief.disclaimer)
+                    .font(.system(size: 11))
+                    .foregroundColor(.textTertiary)
+            }
+        }
+    }
+
+    private var partnerEnableCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Support your partner")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.textPrimary)
+            Text("For boyfriends, husbands, and partners who want to show up better. You log period starts she shares with you — ARIA tells you how to plan dates, train together, and communicate by phase.")
+                .font(.system(size: 13))
+                .foregroundColor(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                cycleStore.updatePartnerSettings {
+                    $0.enabled = true
+                    $0.shareWithAria = true
+                }
+                FDS.haptic(.medium)
+            } label: {
+                Text("Enable partner cycle")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color(hex: "6366F1"))
+                    .cornerRadius(14)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(18)
+        .forgeGlassCard(accent: Color(hex: "6366F1"))
+    }
+
+    private var partnerConsentCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Consent first")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.textPrimary)
+            Text("Only track what your partner is comfortable sharing. Period start dates are enough for solid support coaching.")
+                .font(.system(size: 13))
+                .foregroundColor(.textSecondary)
+
+            TextField("Partner's name (optional)", text: $partnerNameDraft)
+                .textFieldStyle(.roundedBorder)
+            TextField("Relationship label (partner / girlfriend / wife…)", text: $partnerRelDraft)
+                .textFieldStyle(.roundedBorder)
+
+            Button {
+                cycleStore.updatePartnerSettings {
+                    $0.consentAcknowledged = true
+                    $0.partnerName = partnerNameDraft
+                    $0.relationshipLabel = partnerRelDraft.isEmpty ? "partner" : partnerRelDraft
+                    $0.shareWithAria = true
+                }
+                FDS.notificationHaptic(.success)
+            } label: {
+                Text("I have their okay — continue")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.ember)
+                    .cornerRadius(14)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(18)
+        .forgeGlassCard(accent: .warning)
+    }
+
+    private var partnerPhaseHero: some View {
+        let snap = cycleStore.partnerSnapshot
+        let accent = Color(hex: snap.phase.accentHex)
+        let name = cycleStore.partnerSettings.displayName
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: snap.phase.icon)
+                    .foregroundColor(accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name.uppercased())
+                        .font(.system(size: 11, weight: .bold))
+                        .tracking(1.2)
+                        .foregroundColor(accent)
+                    Text(snap.phase.label)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.textPrimary)
+                    if let day = snap.dayInCycle {
+                        Text("Day \(day) · \(Int(snap.confidence * 100))% confidence")
+                            .font(.system(size: 13))
+                            .foregroundColor(.textSecondary)
+                    }
+                }
+                Spacer()
+            }
+            if let next = snap.nextPeriod {
+                Text("Next period window: \(shortDate(next.earliestDayKey)) – \(shortDate(next.latestDayKey))")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+            }
+            Button {
+                store.openChat(
+                    with: "Help me support \(name) — she's in \(snap.phase.label). What should I do?",
+                    voice: false
+                )
+            } label: {
+                Label("Ask ARIA how to show up", systemImage: "message.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(accent)
+                    .cornerRadius(12)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(18)
+        .forgeGlassCard(accent: accent)
+    }
+
+    private func partnerSupportCard(_ brief: PartnerSupportBrief) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("HOW YOU SHOW UP")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(1.6)
+                .foregroundColor(.textTertiary)
+            Text(brief.headline)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.textPrimary)
+            ForEach(brief.supportMoves.prefix(4), id: \.self) { line in
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(Color(hex: "22C55E"))
+                        .font(.system(size: 12))
+                    Text(line)
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+                }
+            }
+            Text("Ease off")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.textPrimary)
+                .padding(.top, 4)
+            ForEach(brief.avoidMoves.prefix(3), id: \.self) { line in
+                Text("• \(line)")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+            }
+            Text(brief.communicationTip)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.ember)
+                .padding(.top, 6)
+        }
+        .padding(18)
+        .forgeGlassCard(accent: Color(hex: "22C55E"))
+    }
+
+    private var partnerLogger: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("LOG FOR \(cycleStore.partnerSettings.displayName.uppercased())")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(1.6)
+                .foregroundColor(.textTertiary)
+            Text("Flow today")
+                .font(.system(size: 13))
+                .foregroundColor(.textSecondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach([MenstrualFlowLevel.none, .spotting, .light, .medium, .heavy], id: \.self) { level in
+                        Button {
+                            partnerFlow = level
+                            FDS.selectionHaptic()
+                        } label: {
+                            Text(level.label)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(partnerFlow == level ? .white : .textSecondary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(partnerFlow == level ? Color(hex: "6366F1") : Color.surfaceElevated)
+                                .cornerRadius(100)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            Button {
+                cycleStore.logPartnerToday(flow: partnerFlow)
+                FDS.notificationHaptic(.success)
+            } label: {
+                Text("Save partner log for today")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color(hex: "6366F1"))
+                    .cornerRadius(14)
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                cycleStore.logPartnerPeriodStart(flow: partnerFlow == .none ? .medium : partnerFlow)
+                FDS.notificationHaptic(.success)
+            } label: {
+                Text("Mark her period start today")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color(hex: "EF4444"))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(18)
+        .forgeGlassCard(accent: Color(hex: "6366F1"))
+    }
+
+    private var partnerSettingsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("PARTNER SETTINGS")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(1.6)
+                .foregroundColor(.textTertiary)
+            TextField("Name", text: $partnerNameDraft)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit {
+                    cycleStore.updatePartnerSettings { $0.partnerName = partnerNameDraft }
+                }
+            TextField("Relationship label", text: $partnerRelDraft)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit {
+                    cycleStore.updatePartnerSettings {
+                        $0.relationshipLabel = partnerRelDraft.isEmpty ? "partner" : partnerRelDraft
+                    }
+                }
+            Button("Save name & label") {
+                cycleStore.updatePartnerSettings {
+                    $0.partnerName = partnerNameDraft
+                    $0.relationshipLabel = partnerRelDraft.isEmpty ? "partner" : partnerRelDraft
+                }
+                FDS.haptic(.light)
+            }
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(.ember)
+
+            Toggle(isOn: Binding(
+                get: { cycleStore.partnerSettings.shareWithAria },
+                set: { v in cycleStore.updatePartnerSettings { $0.shareWithAria = v } }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Share partner cycle with ARIA")
+                        .foregroundColor(.textPrimary)
+                    Text("ARIA coaches you on support — never medical advice for her.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.textTertiary)
+                }
+            }
+            .tint(.ember)
+
+            Toggle(isOn: Binding(
+                get: { cycleStore.partnerSettings.enabled },
+                set: { v in
+                    cycleStore.updatePartnerSettings {
+                        $0.enabled = v
+                        if !v { $0.consentAcknowledged = false }
+                    }
+                }
+            )) {
+                Text("Partner tracking enabled")
+                    .foregroundColor(.textPrimary)
+            }
+            .tint(.ember)
+        }
+        .padding(18)
+        .forgeGlassCard(accent: .steel)
     }
 
     private var enableCard: some View {
@@ -459,25 +807,48 @@ struct MenstrualHealthView: View {
 
 struct CycleHealthChip: View {
     @ObservedObject private var cycleStore = MenstrualHealthStore.shared
+    var preferPartner: Bool = false
     var onTap: () -> Void
+
+    private var showingPartner: Bool {
+        preferPartner
+            || (cycleStore.partnerSettings.enabled && cycleStore.partnerSettings.consentAcknowledged
+                && !cycleStore.settings.enabled)
+    }
 
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 10) {
-                Image(systemName: cycleStore.snapshot.phase.icon)
-                    .foregroundColor(Color(hex: cycleStore.snapshot.phase.accentHex))
+                let phase = showingPartner ? cycleStore.partnerSnapshot.phase : cycleStore.snapshot.phase
+                Image(systemName: showingPartner ? "heart.circle.fill" : phase.icon)
+                    .foregroundColor(Color(hex: phase.accentHex))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(cycleStore.settings.enabled ? cycleStore.snapshot.phase.shortLabel : "Cycle")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.textPrimary)
-                    if cycleStore.settings.enabled, let day = cycleStore.snapshot.dayInCycle {
-                        Text("Day \(day) · \(Int(cycleStore.snapshot.confidence * 100))% conf")
-                            .font(.system(size: 11))
-                            .foregroundColor(.textTertiary)
+                    if showingPartner {
+                        Text(cycleStore.partnerSettings.displayName)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.textPrimary)
+                        if let day = cycleStore.partnerSnapshot.dayInCycle {
+                            Text("\(phase.shortLabel) · day \(day)")
+                                .font(.system(size: 11))
+                                .foregroundColor(.textTertiary)
+                        } else {
+                            Text(cycleStore.partnerSettings.enabled ? "Partner cycle" : "Set up partner cycle")
+                                .font(.system(size: 11))
+                                .foregroundColor(.textTertiary)
+                        }
                     } else {
-                        Text("Tap to set up")
-                            .font(.system(size: 11))
-                            .foregroundColor(.textTertiary)
+                        Text(cycleStore.settings.enabled ? phase.shortLabel : "Cycle")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.textPrimary)
+                        if cycleStore.settings.enabled, let day = cycleStore.snapshot.dayInCycle {
+                            Text("Day \(day) · \(Int(cycleStore.snapshot.confidence * 100))% conf")
+                                .font(.system(size: 11))
+                                .foregroundColor(.textTertiary)
+                        } else {
+                            Text("Tap to set up")
+                                .font(.system(size: 11))
+                                .foregroundColor(.textTertiary)
+                        }
                     }
                 }
                 Spacer()
@@ -486,7 +857,7 @@ struct CycleHealthChip: View {
                     .foregroundColor(.textTertiary)
             }
             .padding(14)
-            .forgeGlassCard(accent: Color(hex: cycleStore.snapshot.phase.accentHex))
+            .forgeGlassCard(accent: Color(hex: (showingPartner ? cycleStore.partnerSnapshot.phase : cycleStore.snapshot.phase).accentHex))
         }
         .buttonStyle(.plain)
     }
