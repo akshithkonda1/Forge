@@ -95,6 +95,12 @@ def handler(event, _context):
             return error_response(RouteError(exc.status_code, exc.args[0]))
 
     # --- ARIA contextual intelligence (body carries user_id for local + mobile clients) ---
+    if method == "POST" and path == "/ai/archetype":
+        try:
+            return aria.handle_post_ai_archetype(_parse_json_body(event))
+        except RouteError as exc:
+            return error_response(exc)
+
     if method == "POST" and path == "/ai/chat":
         try:
             return aria.handle_post_ai_chat(_parse_json_body(event))

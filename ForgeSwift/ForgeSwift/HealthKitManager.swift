@@ -314,6 +314,8 @@ class HealthKitManager: ObservableObject {
         coreWriteTypes.union([
             HKCategoryType(.sexualActivity),
             HKCategoryType(.mindfulSession),
+            HKCategoryType(.menstrualFlow),
+            HKQuantityType(.basalBodyTemperature),
         ])
     }
     
@@ -1310,6 +1312,134 @@ class HealthKitManager: ObservableObject {
         )
         cycleSummary = summary
         return summary
+    }
+
+    /// Full multi-signal menstrual bundle for the high-accuracy cycle engine.
+    func fetchMenstrualHealthBundle(days: Int = 400) async -> MenstrualHealthKitBundle {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            return MenstrualHealthKitBundle(flowSamples: [], bbtSamples: [], ovulationTests: [], mucusSamples: [])
+        }
+        let calendar = Calendar.current
+        let end = Date()
+        let start = calendar.date(byAdding: .day, value: -days, to: end) ?? end
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+
+        async let flowSamples = fetchCategorySamples(.menstrualFlow, predicate: predicate, limit: HKObjectQueryNoLimit)
+        async let mucusSamples = fetchCategorySamples(.cervicalMucusQuality, predicate: predicate, limit: HKObjectQueryNoLimit)
+        async let ovuSamples = fetchCategorySamples(.ovulationTestResult, predicate: predicate, limit: HKObjectQueryNoLimit)
+        async let bbtSamples = fetchQuantitySamples(.basalBodyTemperature, unit: .degreeCelsius(), predicate: predicate, limit: HKObjectQueryNoLimit)
+
+        let flow = await flowSamples
+        let mucus = await mucusSamples
+        let ovu = await ovuSamples
+        let bbt = await bbtSamples
+
+        let flowMapped: [(date: Date, flow: MenstrualFlowLevel)] = flow.compactMap { sample in
+            guard let value = HKCategoryValueMenstrualFlow(rawValue: sample.value) else { return nil }
+            let level: MenstrualFlowLevel
+            switch value {
+            case .none: level = .none
+            case .light: level = .light
+            case .medium: level = .medium
+            case .heavy: level = .heavy
+            case .unspecified: level = .unspecified
+            @unknown default: level = .unspecified
+            }
+            // Skip pure none samples unless marked cycle start
+            if level == .none { return nil }
+            return (sample.startDate, level)
+        }
+
+        let mucusMapped: [(date: Date, quality: CervicalMucusQuality)] = mucus.compactMap { sample in
+            guard let value = HKCategoryValueCervicalMucusQuality(rawValue: sample.value) else { return nil }
+            let q: CervicalMucusQuality
+            switch value {
+            case .dry: q = .dry
+            case .sticky: q = .sticky
+            case .creamy: q = .creamy
+            case .watery: q = .watery
+            case .eggWhite: q = .eggWhite
+            @unknown default: q = .unknown
+            }
+            return (sample.startDate, q)
+        }
+
+        let ovuMapped: [(date: Date, result: OvulationTestResult)] = ovu.compactMap { sample in
+            guard let value = HKCategoryValueOvulationTestResult(rawValue: sample.value) else { return nil }
+            let r: OvulationTestResult
+            switch value {
+            case .negative: r = .negative
+            case .luteinizingHormoneSurge: r = .lhSurge
+            case .indeterminate: r = .indeterminate
+            case .estrogenSurge: r = .estrogenSurge
+            case .positive: r = .positive
+            @unknown default: r = .unknown
+            }
+            return (sample.startDate, r)
+        }
+
+        let bbtMapped: [(date: Date, celsius: Double)] = bbt.map { ($0.date, $0.value) }
+
+        return MenstrualHealthKitBundle(
+            flowSamples: flowMapped,
+            bbtSamples: bbtMapped,
+            ovulationTests: ovuMapped,
+            mucusSamples: mucusMapped
+        )
+    }
+
+    func saveMenstrualFlow(dayKey: String, flow: MenstrualFlowLevel) async {
+        guard isAuthorized, let day = CycleDayKey.date(from: dayKey) else { return }
+        let type = HKCategoryType(.menstrualFlow)
+        let value: HKCategoryValueMenstrualFlow
+        switch flow {
+        case .none: value = .none
+        case .light, .spotting: value = .light
+        case .medium: value = .medium
+        case .heavy: value = .heavy
+        case .unspecified: value = .unspecified
+        }
+        let end = Calendar.current.date(byAdding: .hour, value: 1, to: day) ?? day
+        let metadata: [String: Any] = [
+            HKMetadataKeyMenstrualCycleStart: true
+        ]
+        let sample = HKCategorySample(
+            type: type,
+            value: value.rawValue,
+            start: day,
+            end: end,
+            metadata: metadata
+        )
+        do {
+            try await healthStore.save(sample)
+        } catch {
+            // Best-effort write; logging stays local even if HK write fails.
+            print("Menstrual flow HK save failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func fetchQuantitySamples(
+        _ identifier: HKQuantityTypeIdentifier,
+        unit: HKUnit,
+        predicate: NSPredicate?,
+        limit: Int
+    ) async -> [(date: Date, value: Double)] {
+        guard let type = HKQuantityType.quantityType(forIdentifier: identifier) else { return [] }
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: limit,
+                sortDescriptors: [sort]
+            ) { _, samples, _ in
+                let mapped = (samples as? [HKQuantitySample] ?? []).map {
+                    (date: $0.startDate, value: $0.quantity.doubleValue(for: unit))
+                }
+                continuation.resume(returning: mapped)
+            }
+            healthStore.execute(query)
+        }
     }
     
     // MARK: - Detailed Profile Data

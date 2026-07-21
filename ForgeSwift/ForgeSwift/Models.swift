@@ -186,8 +186,87 @@ struct UserProfile: Codable {
     var weight: Double?  // in kg
     var height: Double?  // in cm
 
+    /// Preferred ARIA narrative / programming style (Solo Leveling, classic, etc.).
+    var trainingTheme: AriaTrainingTheme
+    /// Free-time interest tags (e.g. `interest:gaming`) used when resolving themes.
+    var interestTags: [String]
+
     var initials: String {
         name.split(separator: " ").compactMap { $0.first.map { String($0).uppercased() } }.joined().prefix(2).description
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name, gender, fitnessGoals, experienceLevel, preferredWorkouts
+        case coachingStyle, connectedDevices, weeklySchedule, trainingEquipment
+        case age, weight, height, trainingTheme, interestTags
+    }
+
+    init(
+        name: String,
+        gender: Gender,
+        fitnessGoals: [UserFitnessGoal],
+        experienceLevel: ExperienceLevel,
+        preferredWorkouts: [WorkoutType],
+        coachingStyle: CoachingStyle,
+        connectedDevices: [String],
+        weeklySchedule: [Int],
+        trainingEquipment: TrainingEquipment,
+        age: Int? = nil,
+        weight: Double? = nil,
+        height: Double? = nil,
+        trainingTheme: AriaTrainingTheme = .classic,
+        interestTags: [String] = []
+    ) {
+        self.name = name
+        self.gender = gender
+        self.fitnessGoals = fitnessGoals
+        self.experienceLevel = experienceLevel
+        self.preferredWorkouts = preferredWorkouts
+        self.coachingStyle = coachingStyle
+        self.connectedDevices = connectedDevices
+        self.weeklySchedule = weeklySchedule
+        self.trainingEquipment = trainingEquipment
+        self.age = age
+        self.weight = weight
+        self.height = height
+        self.trainingTheme = trainingTheme
+        self.interestTags = interestTags
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        gender = try c.decode(Gender.self, forKey: .gender)
+        fitnessGoals = try c.decode([UserFitnessGoal].self, forKey: .fitnessGoals)
+        experienceLevel = try c.decode(ExperienceLevel.self, forKey: .experienceLevel)
+        preferredWorkouts = try c.decode([WorkoutType].self, forKey: .preferredWorkouts)
+        coachingStyle = try c.decode(CoachingStyle.self, forKey: .coachingStyle)
+        connectedDevices = try c.decode([String].self, forKey: .connectedDevices)
+        weeklySchedule = try c.decode([Int].self, forKey: .weeklySchedule)
+        trainingEquipment = try c.decode(TrainingEquipment.self, forKey: .trainingEquipment)
+        age = try c.decodeIfPresent(Int.self, forKey: .age)
+        weight = try c.decodeIfPresent(Double.self, forKey: .weight)
+        height = try c.decodeIfPresent(Double.self, forKey: .height)
+        trainingTheme = try c.decodeIfPresent(AriaTrainingTheme.self, forKey: .trainingTheme) ?? .classic
+        interestTags = try c.decodeIfPresent([String].self, forKey: .interestTags) ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(name, forKey: .name)
+        try c.encode(gender, forKey: .gender)
+        try c.encode(fitnessGoals, forKey: .fitnessGoals)
+        try c.encode(experienceLevel, forKey: .experienceLevel)
+        try c.encode(preferredWorkouts, forKey: .preferredWorkouts)
+        try c.encode(coachingStyle, forKey: .coachingStyle)
+        try c.encode(connectedDevices, forKey: .connectedDevices)
+        try c.encode(weeklySchedule, forKey: .weeklySchedule)
+        try c.encode(trainingEquipment, forKey: .trainingEquipment)
+        try c.encodeIfPresent(age, forKey: .age)
+        try c.encodeIfPresent(weight, forKey: .weight)
+        try c.encodeIfPresent(height, forKey: .height)
+        try c.encode(trainingTheme, forKey: .trainingTheme)
+        try c.encode(interestTags, forKey: .interestTags)
     }
 }
 

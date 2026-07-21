@@ -152,6 +152,8 @@ struct OnboardingProfile {
     var sleepBand: SleepRhythmBand?
     var freeTimeInterests: [LifestyleInterest] = []
     var lifeContext: LifeContextOption?
+    /// How ARIA should frame plans (Solo Leveling, classic coach, etc.).
+    var trainingTheme: AriaTrainingTheme = .classic
 
     // Coach constraints (not a clinical record)
     var reportedConditions: [ReportedCondition] = []
@@ -173,7 +175,9 @@ struct OnboardingProfile {
             trainingEquipment: .commercialGym,
             age: Calendar.current.dateComponents([.year], from: birthday, to: Date()).year,
             weight: weightKg,
-            height: heightCm
+            height: heightCm,
+            trainingTheme: trainingTheme,
+            interestTags: freeTimeInterests.map(\.tag)
         )
     }
 
@@ -182,6 +186,7 @@ struct OnboardingProfile {
         if let sleepBand { tags.append(sleepBand.tag) }
         tags.append(contentsOf: freeTimeInterests.map(\.tag))
         if let lifeContext, let t = lifeContext.tag { tags.append(t) }
+        if trainingTheme != .classic { tags.append(trainingTheme.lifestyleTag) }
         if !name.trimmingCharacters(in: .whitespaces).isEmpty {
             tags.append("name:\(name.trimmingCharacters(in: .whitespacesAndNewlines))")
         }
@@ -482,6 +487,31 @@ private struct AriaInterviewLayout: View {
                             coordinator.confirmInterests()
                         }
                     )
+                case .trainingTheme:
+                    VStack(spacing: 10) {
+                        OptionCardsComposer(
+                            options: AriaTrainingTheme.allCases.map {
+                                ($0.rawValue, $0.label, $0.tagline)
+                            },
+                            onSelect: { raw in
+                                dictation.cancel()
+                                if let theme = AriaTrainingTheme(rawValue: raw) {
+                                    coordinator.selectTrainingTheme(theme)
+                                }
+                            }
+                        )
+                        Button {
+                            dictation.cancel()
+                            coordinator.skipTrainingTheme()
+                        } label: {
+                            Text("Skip — classic coach")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.textSecondary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 case .lifeContext:
                     VStack(spacing: 10) {
                         OptionCardsComposer(

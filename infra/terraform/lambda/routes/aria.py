@@ -60,6 +60,82 @@ def handle_post_ai_chat(body: dict[str, Any]) -> dict:
     return ok(response)
 
 
+def handle_post_ai_archetype(body: dict[str, Any]) -> dict:
+    """POST /ai/archetype — invent a relational coaching archetype.
+
+    Uses a deterministic local forge so mobile clients always get a usable
+    archetype offline; optional Bedrock enrichment can layer on later.
+    """
+    description = str(body.get("description") or "").strip()
+    preferred = body.get("preferred_name")
+    preferred_name = str(preferred).strip() if preferred else None
+    if not description:
+        raise RouteError(400, "description is required.")
+
+    # Prefer backend studio if importable (monorepo local), else inline forge.
+    try:
+        import asyncio
+        from backend.app.ai.routes.archetype import create_archetype
+
+        result = asyncio.get_event_loop().run_until_complete(
+            create_archetype(
+                {
+                    "description": description,
+                    "preferred_name": preferred_name,
+                    "user_id": body.get("user_id"),
+                }
+            )
+        )
+        result.pop("status", None)
+        return ok(result)
+    except Exception:
+        pass
+
+    d = description.lower()
+    name = preferred_name or "Living Pattern"
+    related = None
+    speech = "Listen for their tempo. Reflect their words. Ask before advising."
+    avoid = ["generic advice", "one-size-fits-all scripts"]
+    formality, humor, expressiveness, length = "neutral", "none", "balanced", "medium"
+    example = "I'm here. What would help right now?"
+    if any(k in d for k in ("logic", "analyst", "data", "facts")):
+        name = preferred_name or "Clear Signal"
+        related = "analyst"
+        speech = "Use clean structure: situation → need → ask."
+        humor, expressiveness = "dry", "reserved"
+    elif any(k in d for k in ("teen", "daughter", "sensitive")):
+        name = preferred_name or "Private Flame"
+        related = "sensitiveTeen"
+        speech = "Very short. Validate first. No audience."
+        formality, length = "casual", "terse"
+        avoid = ["lectures", "public call-outs", "calm down"]
+        example = "I'm not mad. Want space or a snack?"
+    elif any(k in d for k in ("independent", "autonomy", "control")):
+        name = preferred_name or "Open Gate"
+        related = "sovereign"
+        speech = "Ask permission. Offer choices. Never corner."
+        avoid = ["orders", "you should"]
+
+    archetype = {
+        "id": f"arch_{abs(hash(description)) % 10_000_000}",
+        "name": name,
+        "slug": name.lower().replace(" ", "_"),
+        "tagline": description[:160],
+        "speechGuidance": speech,
+        "avoid": avoid,
+        "supportStance": "See them as a full person; adapt to what you know.",
+        "formality": formality,
+        "humor": humor,
+        "expressiveness": expressiveness,
+        "lengthBias": length,
+        "exampleScript": example,
+        "source": "backend",
+        "inspiredByDescription": description,
+        "relatedBuiltin": related,
+    }
+    return ok({"archetype": archetype, "model": "local-forge"})
+
+
 def handle_post_feedback_reaction(body: dict[str, Any]) -> dict:
     user_id = str(body.get("user_id") or "").strip()
     message_id = str(body.get("message_id") or "").strip()

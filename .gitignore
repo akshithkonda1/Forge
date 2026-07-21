@@ -55,3 +55,4 @@ backend/simrunner/reports/
 
 # Accidental nested monorepo clone (use ForgeWidget/ for widgets)
 /Forge/
+ForgeSwift/ForgeCore/.build/

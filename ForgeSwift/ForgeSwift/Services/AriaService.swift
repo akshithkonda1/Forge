@@ -51,6 +51,22 @@ final class AriaService: ObservableObject {
             if response.memoryReference == nil {
                 response.memoryReference = contextStore.memoryReference(for: text)
             }
+            // Backend prose without a card still gets a concrete themed plan card.
+            if AriaThemeResolver.isPlanRequest(text), response.richCard == nil {
+                let plan = AriaPlanEngine.evaluate(input: text, context: store.makeTrainerContext())
+                if plan.shouldPersistTheme {
+                    store.setTrainingTheme(plan.theme, source: "chat")
+                }
+                store.todayWorkout = plan.workoutPlan
+                response.richCard = Self.payload(from: plan.richCard)
+                if response.suggestedActions == nil {
+                    response.suggestedActions = plan.suggestedActions
+                }
+                // Prefer engine narrative when the remote reply is thin.
+                if response.message.count < 80 {
+                    response.message = plan.narrative
+                }
+            }
             return response
         }
 
@@ -88,17 +104,45 @@ final class AriaService: ObservableObject {
         generator: TrainerResponseGenerator,
         rich: AriaRichContext
     ) async throws -> AriaResponse {
-        let trainerContext = TrainerContext(
-            userProfile: store.userProfile,
-            readiness: store.readiness,
-            dailyMetrics: store.dailyMetrics,
-            sleepData: store.sleepData,
-            workoutHistory: store.workoutHistory,
-            currentTime: Date(),
-            conversationHistory: store.chatMessages
-        )
+        let trainerContext = store.makeTrainerContext()
 
-        let local = try await generator.generateResponse(for: text, context: trainerContext)
+        // Prefer the dynamic plan engine for any training / theme request so
+        // Solo Leveling (and siblings) always get a real themed session.
+        let local: TrainerResponse
+        let lower = text.lowercased()
+        let isCycle = lower.contains("period") || lower.contains("cycle") || lower.contains("luteal")
+            || lower.contains("follicular") || lower.contains("ovulat") || lower.contains("pms")
+            || lower.contains("girlfriend") || lower.contains("wife") || lower.contains("partner cycle")
+            || lower.contains("support her") || lower.contains("her period") || lower.contains("her pms")
+            || lower.contains("daughter") || lower.contains("as a dad") || lower.contains("as a father")
+            || lower.contains("my kid") || lower.contains("my child")
+            || AriaRelationalCoach.mentionsSupportContext(lower)
+            || lower.contains("show up for") || lower.contains("help me support")
+        let isEmotional = AriaEmotionalSupportCoach.isEmotionalSupportQuery(text, context: trainerContext)
+        let isArchetype = AriaArchetypeIntent.parse(text) != nil
+        if isArchetype {
+            local = try await RuleBasedResponseGenerator().generateResponse(for: text, context: trainerContext)
+        } else if isEmotional, !AriaThemeResolver.isPlanRequest(text) || lower.contains("feel") || lower.contains("fight") {
+            local = try await RuleBasedResponseGenerator().generateResponse(for: text, context: trainerContext)
+        } else if AriaThemeResolver.isPlanRequest(text) {
+            let plan = AriaPlanEngine.evaluate(input: text, context: trainerContext)
+            if plan.shouldPersistTheme {
+                store.setTrainingTheme(plan.theme, source: "plan_engine")
+            }
+            store.todayWorkout = plan.workoutPlan
+            local = TrainerResponse(
+                content: plan.narrative,
+                richCard: plan.richCard,
+                suggestedActions: plan.suggestedActions,
+                confidence: 0.93
+            )
+        } else if isCycle {
+            // Force rule-based cycle path for accuracy when user asks about menstruation.
+            local = try await RuleBasedResponseGenerator().generateResponse(for: text, context: trainerContext)
+        } else {
+            local = try await generator.generateResponse(for: text, context: trainerContext)
+        }
+
         let memory = contextStore.memoryReference(for: text)
 
         var message = local.content
@@ -153,6 +197,11 @@ enum AriaOnboardingGuide {
         let sleep = profile.sleepBand.map { " Sleep rhythm: \($0.label.lowercased())." } ?? ""
         let interests = profile.freeTimeInterests.prefix(2).map(\.label).joined(separator: " & ")
         let lifeLine = interests.isEmpty ? "" : " Outside training you lean into \(interests)."
+        let theme = profile.trainingTheme
+        let themeLine: String = {
+            guard theme != .classic else { return "" }
+            return " Training lens: \(theme.label) — \(theme.tagline)"
+        }()
         let healthLine = healthConnected
             ? " Recovery signals are already in the loop."
             : " Connect HealthKit anytime and I'll fold recovery into every call."
@@ -162,15 +211,15 @@ enum AriaOnboardingGuide {
 
         switch style {
         case .driven:
-            return "\(name) — standards first. Week one targets \(goal)\(workouts.isEmpty ? "" : " through \(workouts)"). Show up. Execute. Earn progression.\(sleep)\(lifeLine)\(healthLine)\(guidanceLine)"
+            return "\(name) — standards first. Week one targets \(goal)\(workouts.isEmpty ? "" : " through \(workouts)"). Show up. Execute. Earn progression.\(sleep)\(lifeLine)\(themeLine)\(healthLine)\(guidanceLine)"
         case .balanced:
-            return "\(name), your first block balances progressive work with recovery around \(goal)\(workouts.isEmpty ? "" : ", favoring \(workouts)"). Clear sessions, room to breathe.\(sleep)\(lifeLine)\(healthLine)\(guidanceLine)"
+            return "\(name), your first block balances progressive work with recovery around \(goal)\(workouts.isEmpty ? "" : ", favoring \(workouts)"). Clear sessions, room to breathe.\(sleep)\(lifeLine)\(themeLine)\(healthLine)\(guidanceLine)"
         case .supportive:
-            return "\(name), we make this doable from day one. Small wins toward \(goal), clear next steps.\(sleep)\(lifeLine)\(healthLine)\(guidanceLine)"
+            return "\(name), we make this doable from day one. Small wins toward \(goal), clear next steps.\(sleep)\(lifeLine)\(themeLine)\(healthLine)\(guidanceLine)"
         case .scientist:
-            return "\(name) — intensity, volume, and recovery will map back to \(goal). I'll explain the why.\(sleep)\(lifeLine)\(healthLine)\(guidanceLine)"
+            return "\(name) — intensity, volume, and recovery will map back to \(goal). I'll explain the why.\(sleep)\(lifeLine)\(themeLine)\(healthLine)\(guidanceLine)"
         case .elite:
-            return "\(name), performance is a system: readiness, output, recovery, adaptation — pointed at \(goal).\(sleep)\(lifeLine)\(healthLine)\(guidanceLine)"
+            return "\(name), performance is a system: readiness, output, recovery, adaptation — pointed at \(goal).\(sleep)\(lifeLine)\(themeLine)\(healthLine)\(guidanceLine)"
         }
     }
 
@@ -186,6 +235,7 @@ enum AriaOnboardingGuide {
     static func welcomeChatMessage(profile: OnboardingProfile, healthConnected: Bool) -> String {
         var message = firstSessionScript(profile: profile, healthConnected: healthConnected)
         message += "\n\nOpen chat anytime — I'm already tracking the context we built together in onboarding."
+        message += "\n\nOne human thing: if there's a partner, wife, or daughter whose cycle days you try to show up for, tell me in plain words. A lot of people do — I'll keep it practical and never clinical for them."
         if profile.guidanceOnlyMode {
             message += "\n\nReminder: for any conditions you shared, I only provide lifestyle guidance — not diagnosis, treatment, or medical solutions."
         }

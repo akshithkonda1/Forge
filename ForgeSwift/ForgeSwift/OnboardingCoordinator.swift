@@ -32,6 +32,7 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
     case workouts
     case sleep
     case freeTime
+    case trainingTheme
     case lifeContext
     case conditions
     case coaching
@@ -39,19 +40,20 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
 
     var progressLabel: String {
         switch self {
-        case .intro:       return "Hello"
-        case .age:         return "Safety"
-        case .name:        return "Identity"
-        case .health:      return "Signals"
-        case .goals:       return "Goals"
-        case .experience:  return "Level"
-        case .workouts:    return "Training"
-        case .sleep:       return "Sleep"
-        case .freeTime:    return "Lifestyle"
-        case .lifeContext: return "Context"
-        case .conditions:  return "Boundaries"
-        case .coaching:    return "Voice"
-        case .ready:       return "Ready"
+        case .intro:          return "Hello"
+        case .age:            return "Safety"
+        case .name:           return "Identity"
+        case .health:         return "Signals"
+        case .goals:          return "Goals"
+        case .experience:     return "Level"
+        case .workouts:       return "Training"
+        case .sleep:          return "Sleep"
+        case .freeTime:       return "Lifestyle"
+        case .trainingTheme:  return "Style"
+        case .lifeContext:    return "Context"
+        case .conditions:     return "Boundaries"
+        case .coaching:       return "Voice"
+        case .ready:          return "Ready"
         }
     }
 }
@@ -284,6 +286,15 @@ final class OnboardingCoordinator {
                 mood: .focused
             )
             ariaOrbState = .listening
+        case .trainingTheme:
+            let gamingHint = profile.freeTimeInterests.contains(.gaming) || profile.freeTimeInterests.contains(.reading)
+                ? " Into stories or games? I can train you like Solo Leveling — daily quests, rank windows from readiness."
+                : " Prefer classic coaching, or a world like Solo Leveling, Demon Slayer, or military ops?"
+            await ariaSay(
+                "How should your plans feel?\(gamingHint) Pick a style — or skip for classic.",
+                mood: .energized
+            )
+            ariaOrbState = .listening
         case .lifeContext:
             await ariaSay(
                 "Optional: anything about your living situation that affects time or energy? Skip anytime — Prefer not to say is always fine.",
@@ -472,6 +483,47 @@ final class OnboardingCoordinator {
                 let labels = profile.freeTimeInterests.prefix(3).map(\.label).joined(separator: ", ")
                 await ariaSay("I'll keep \(labels) in mind so training doesn't fight your life.", mood: .focused)
             }
+            await advanceTo(.trainingTheme)
+        }
+    }
+
+    func selectTrainingTheme(_ theme: AriaTrainingTheme) {
+        guard step == .trainingTheme else { return }
+        profile.trainingTheme = theme
+        appendUser(theme.label)
+        FDS.haptic(.light)
+        syncPartialContext()
+        Task {
+            if theme == .classic {
+                await ariaSay(
+                    "Classic coaching it is — clear plans, no gimmicks. You can always say “train like Solo Leveling” later and I’ll switch.",
+                    mood: .calm
+                )
+            } else if theme == .soloLeveling {
+                await ariaSay(
+                    "Solo Leveling locked. I’ll build daily quests, rank windows from readiness, and gate-clear sessions when your body can take it.",
+                    mood: .energized
+                )
+            } else {
+                await ariaSay(
+                    "\(theme.label) it is — \(theme.tagline) Every plan will respect readiness while staying in that world.",
+                    mood: .focused
+                )
+            }
+            await advanceTo(.lifeContext)
+        }
+    }
+
+    func skipTrainingTheme() {
+        guard step == .trainingTheme else { return }
+        profile.trainingTheme = .classic
+        appendUser("Skip — classic coach")
+        FDS.haptic(.light)
+        Task {
+            await ariaSay(
+                "Classic for now. Tell me any franchise later — I’ll rewrite the plan in that style.",
+                mood: .calm
+            )
             await advanceTo(.lifeContext)
         }
     }
@@ -685,8 +737,18 @@ final class OnboardingCoordinator {
             coachingStyle: profile.coachingStyle.label,
             healthConnected: healthConnected,
             lifestyleTags: profile.lifestyleTagsForContext(),
-            constraints: profile.constraintsForContext()
+            constraints: profile.constraintsForContext(),
+            trainingTheme: profile.trainingTheme
         )
+
+        // Seed today's plan under the chosen theme so Home isn't stuck on mock upper body.
+        if profile.trainingTheme != .classic || store.readiness.overall > 0 {
+            let plan = AriaPlanEngine.evaluate(
+                input: "Build my first \(profile.trainingTheme.label) training plan",
+                context: store.makeTrainerContext()
+            )
+            store.todayWorkout = plan.workoutPlan
+        }
 
         let welcome = AriaOnboardingGuide.welcomeChatMessage(
             profile: profile,

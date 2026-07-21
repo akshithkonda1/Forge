@@ -1,39 +1,46 @@
 import SwiftUI
 
-// MARK: - Color Design Tokens (mirrors globals.css)
+// MARK: - Color Design Tokens (premium dark system)
 
 extension Color {
-    // Backgrounds
-    static let background    = Color(hex: "0A0A0A")
-    static let surface       = Color(hex: "141414")
-    static let surfaceElevated = Color(hex: "1A1A1A")
-    static let surfaceHover  = Color(hex: "222222")
-    static let cardBackground = Color(hex: "141414") // Alias for surface
+    // Backgrounds — deeper, more cinematic blacks
+    static let background      = Color(hex: "050505")
+    static let surface         = Color(hex: "0E0E10")
+    static let surfaceElevated = Color(hex: "16161A")
+    static let surfaceHover    = Color(hex: "1C1C22")
+    static let cardBackground  = Color(hex: "0E0E10")
+    static let surfaceGlass    = Color.white.opacity(0.04)
 
-    // Borders
-    static let borderColor   = Color(hex: "2A2A2A")
-    static let borderLight   = Color(hex: "333333")
+    // Borders — hairline luminance
+    static let borderColor = Color(hex: "2A2A32")
+    static let borderLight = Color(hex: "3A3A44")
+    static let borderHairline = Color.white.opacity(0.08)
+    static let borderEmber = Color.ember.opacity(0.35)
 
-    // Ember (primary)
-    static let ember         = Color(hex: "FF4D00")
-    static let emberLight    = Color(hex: "FF6B2B")
-    static let emberDark     = Color(hex: "CC3D00")
+    // Ember (primary brand energy)
+    static let ember      = Color(hex: "FF4D00")
+    static let emberLight = Color(hex: "FF7A3D")
+    static let emberDark  = Color(hex: "C43A00")
+    static let emberSoft  = Color(hex: "FF4D00").opacity(0.14)
 
-    // Steel (secondary)
-    static let steel         = Color(hex: "3B82F6")
-    static let steelLight    = Color(hex: "60A5FA")
-    static let steelDark     = Color(hex: "2563EB")
+    // Steel (secondary / focus / recovery)
+    static let steel      = Color(hex: "5B8DEF")
+    static let steelLight = Color(hex: "7BA6F7")
+    static let steelDark  = Color(hex: "3D6FD4")
+
+    // Violet accent (ARIA / intelligence)
+    static let aurora = Color(hex: "A78BFA")
 
     // Text
-    static let textPrimary   = Color.white
+    static let textPrimary   = Color(hex: "FAFAFA")
     static let textSecondary = Color(hex: "A1A1AA")
     static let textTertiary  = Color(hex: "71717A")
     static let textMuted     = Color(hex: "52525B")
 
     // Status
-    static let success       = Color(hex: "22C55E")
-    static let warning       = Color(hex: "EAB308")
-    static let danger        = Color(hex: "EF4444")
+    static let success = Color(hex: "34D399")
+    static let warning = Color(hex: "FBBF24")
+    static let danger  = Color(hex: "F87171")
 
     // Hex initializer
     init(hex: String) {
@@ -42,16 +49,18 @@ extension Color {
         Scanner(string: hex).scanHexInt64(&int)
         let a, r, g, b: UInt64
         switch hex.count {
-        case 3:  (a,r,g,b) = (255,(int>>8)*17,(int>>4&0xF)*17,(int&0xF)*17)
-        case 6:  (a,r,g,b) = (255,int>>16,int>>8&0xFF,int&0xFF)
-        case 8:  (a,r,g,b) = (int>>24,int>>16&0xFF,int>>8&0xFF,int&0xFF)
-        default: (a,r,g,b) = (255,255,255,255)
+        case 3:  (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6:  (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8:  (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default: (a, r, g, b) = (255, 255, 255, 255)
         }
-        self.init(.sRGB,
-                  red:     Double(r)/255,
-                  green:   Double(g)/255,
-                  blue:    Double(b)/255,
-                  opacity: Double(a)/255)
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
     }
 }
 
@@ -59,16 +68,58 @@ extension Color {
 
 extension LinearGradient {
     static var emberGradient: LinearGradient {
-        LinearGradient(colors: [.ember, .emberLight],
-                       startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(
+            colors: [.emberLight, .ember, .emberDark],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
+
     static var sleepRing: LinearGradient {
-        LinearGradient(colors: [.steel, .steelLight, .steel],
-                       startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(
+            colors: [.steel, .steelLight, .aurora.opacity(0.8)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    static var premiumSurface: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.white.opacity(0.07),
+                Color.white.opacity(0.02),
+                Color.clear
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    static var premiumChrome: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.white.opacity(0.12),
+                Color.white.opacity(0.04),
+                Color.clear
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 }
 
-// MARK: - HR Zone helper (mirrors getHRZone in active-workout-view.tsx)
+extension RadialGradient {
+    static func ambientGlow(_ color: Color, opacity: Double = 0.18) -> RadialGradient {
+        RadialGradient(
+            colors: [color.opacity(opacity), color.opacity(opacity * 0.35), .clear],
+            center: .center,
+            startRadius: 4,
+            endRadius: 180
+        )
+    }
+}
+
+// MARK: - HR Zone helper
 
 struct HRZone {
     let zone: Int
@@ -84,18 +135,78 @@ func hrZone(for bpm: Int) -> HRZone {
     return HRZone(zone: 5, label: "Zone 5", color: .danger)
 }
 
-// MARK: - View Modifiers
+// MARK: - View Modifiers (global premium cards)
 
 struct ForgeCardModifier: ViewModifier {
+    var elevated: Bool = false
+    var accent: Color? = nil
+
     func body(content: Content) -> some View {
         content
-            .background(Color.surface)
-            .cornerRadius(16)
+            .background {
+                ZStack {
+                    RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
+                        .fill(elevated ? Color.surfaceElevated : Color.surface)
+                    RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
+                        .fill(LinearGradient.premiumSurface)
+                    if let accent {
+                        RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
+                            .fill(
+                                RadialGradient(
+                                    colors: [accent.opacity(0.12), .clear],
+                                    center: .topLeading,
+                                    startRadius: 10,
+                                    endRadius: 220
+                                )
+                            )
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.12),
+                                Color.white.opacity(0.04),
+                                (accent ?? Color.white).opacity(0.06)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+            .forgeCardShadow()
     }
 }
 
 extension View {
-    func forgeCard() -> some View {
-        modifier(ForgeCardModifier())
+    func forgeCard(elevated: Bool = false, accent: Color? = nil) -> some View {
+        modifier(ForgeCardModifier(elevated: elevated, accent: accent))
+    }
+
+    /// Screen chrome: deep black + subtle ambient gradient.
+    func forgeScreenBackground(accent: Color = .ember) -> some View {
+        background {
+            ZStack {
+                Color.background.ignoresSafeArea()
+                RadialGradient(
+                    colors: [accent.opacity(0.08), .clear],
+                    center: UnitPoint(x: 0.15, y: 0.08),
+                    startRadius: 20,
+                    endRadius: 420
+                )
+                .ignoresSafeArea()
+                RadialGradient(
+                    colors: [Color.steel.opacity(0.05), .clear],
+                    center: UnitPoint(x: 0.9, y: 0.75),
+                    startRadius: 10,
+                    endRadius: 360
+                )
+                .ignoresSafeArea()
+            }
+        }
     }
 }

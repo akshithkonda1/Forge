@@ -148,6 +148,22 @@ struct HomeView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
+                        // Cycle intelligence — self (female) and/or partner sync (any gender)
+                        if store.userProfile.gender == .female
+                            || MenstrualHealthStore.shared.settings.enabled
+                            || MenstrualHealthStore.shared.partnerSettings.enabled
+                            || store.userProfile.gender == .male {
+                            CycleHealthChip(
+                                preferPartner: store.userProfile.gender == .male
+                                    && !MenstrualHealthStore.shared.settings.enabled
+                            ) {
+                                store.pendingProfileSubTab = "cycle"
+                                store.activeTab = .profile
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 16)
+                        }
+
                         // 5. Day preview telemetry
                         HomeDayPreviewStrip()
                             .padding(.horizontal, 16)
@@ -373,9 +389,20 @@ private struct HomeScrollMiniHeader: View {
         .padding(.horizontal, 16)
         .padding(.top, 54)
         .padding(.bottom, 12)
-        .background(.ultraThinMaterial)
+        .background {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                LinearGradient.premiumChrome.opacity(0.5)
+            }
+            .ignoresSafeArea(edges: .top)
+        }
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.borderColor.opacity(0.5)).frame(height: 0.5)
+            LinearGradient(
+                colors: [Color.white.opacity(0.12), Color.white.opacity(0.02)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(height: 0.5)
         }
     }
 }
@@ -461,23 +488,7 @@ private struct HomeHeroReadinessCard: View {
             }
         }
         .padding(22)
-        .background(
-            ZStack {
-                Color.surface
-                RadialGradient(
-                    colors: [readinessColor(store.readiness.overall).opacity(0.1), .clear],
-                    center: .center,
-                    startRadius: 40,
-                    endRadius: 220
-                )
-            }
-        )
-        .cornerRadius(FDS.Radius.xl)
-        .overlay(
-            RoundedRectangle(cornerRadius: FDS.Radius.xl)
-                .stroke(readinessColor(store.readiness.overall).opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.07), radius: 20, y: 8)
+        .forgeGlassCard(accent: readinessColor(store.readiness.overall))
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 20)
         .onAppear { withAnimation(FDS.Spring.hero.delay(0.12)) { appeared = true } }
@@ -522,20 +533,25 @@ private struct HomePrimaryCTA: View {
                 .padding(.vertical, 18)
                 .padding(.horizontal, 20)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    action.isRecovery
-                        ? AnyShapeStyle(LinearGradient(
-                            colors: [Color.steel, Color.steel.opacity(0.85)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ))
-                        : AnyShapeStyle(FDS.Gradient.ember)
+                .background {
+                    ZStack {
+                        if action.isRecovery {
+                            FDS.Gradient.steel
+                        } else {
+                            FDS.Gradient.ember
+                        }
+                        LinearGradient.premiumChrome
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
                 )
-                .cornerRadius(FDS.Radius.lg)
                 .shadow(
-                    color: (action.isRecovery ? Color.steel : Color.ember).opacity(pressed ? 0.2 : 0.45),
-                    radius: pressed ? 6 : 18,
-                    y: pressed ? 2 : 8
+                    color: (action.isRecovery ? Color.steel : Color.ember).opacity(pressed ? 0.22 : 0.5),
+                    radius: pressed ? 8 : 22,
+                    y: pressed ? 3 : 10
                 )
             }
             .buttonStyle(.plain)
@@ -688,8 +704,8 @@ struct HomeARIABriefingCard: View {
                     store.openChat(with: "Let's talk about my day.", voice: false)
                 }
                 Spacer()
-                briefingChip(icon: "sparkles", label: "Ask anything") {
-                    store.openChat(with: "What should I know right now?", voice: false)
+                briefingChip(icon: themedPlanIcon, label: themedPlanLabel) {
+                    store.openChat(with: themedPlanPrompt, voice: false)
                 }
                 Spacer()
                 briefingChip(icon: "calendar", label: "Plan week") {
@@ -698,29 +714,7 @@ struct HomeARIABriefingCard: View {
             }
         }
         .padding(18)
-        .background(
-            ZStack {
-                Color.surface
-                LinearGradient(
-                    colors: [Color.ember.opacity(0.06), .clear],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-        )
-        .cornerRadius(FDS.Radius.xl)
-        .overlay(
-            RoundedRectangle(cornerRadius: FDS.Radius.xl)
-                .stroke(
-                    LinearGradient(
-                        colors: [Color.ember.opacity(0.35), Color.ember.opacity(0.08)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: Color.ember.opacity(0.1), radius: 20, y: 8)
+        .forgeGlassCard(accent: .ember)
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 18)
         .onAppear {
@@ -729,6 +723,30 @@ struct HomeARIABriefingCard: View {
                 pulseRing = true
             }
             startTypewriterIfNeeded()
+        }
+    }
+
+    private var themedPlanLabel: String {
+        switch store.userProfile.trainingTheme {
+        case .soloLeveling: return "Daily quest"
+        case .classic: return "Today's plan"
+        default: return store.userProfile.trainingTheme.label
+        }
+    }
+
+    private var themedPlanIcon: String {
+        store.userProfile.trainingTheme == .classic ? "sparkles" : store.userProfile.trainingTheme.icon
+    }
+
+    private var themedPlanPrompt: String {
+        let theme = store.userProfile.trainingTheme
+        switch theme {
+        case .soloLeveling:
+            return "Build today's Solo Leveling daily quest based on my readiness."
+        case .classic:
+            return "What should I train today based on my readiness?"
+        default:
+            return "Build a \(theme.label) training plan for me based on my readiness."
         }
     }
 
@@ -779,62 +797,82 @@ struct HomeARIABriefingCard: View {
 @MainActor
 enum HomeARIABriefingBuilder {
     static func build(store: AppStore) -> String {
-        let name = store.userProfile.name.components(separatedBy: " ").first ?? ""
-        let h = Calendar.current.component(.hour, from: Date())
-        let time = h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening"
-        let score = store.readiness.overall
-        let hrv = store.dailyMetrics.hrv
         let deep = store.dailyMetrics.deepSleep
         let deepStr = deep >= 60 ? "\(deep / 60)h \(deep % 60)m" : "\(deep)m"
-        let ctx = AriaContextStore.shared.context
-        let guidanceOnly = ctx.constraints.contains { $0.contains("guidance_only") }
+        let context = store.makeTrainerContext()
+        let theme = store.userProfile.trainingTheme
+        let score = store.readiness.overall
 
-        var parts: [String] = []
-        parts.append(name.isEmpty ? "\(time)." : "\(time), \(name).")
+        var facts = AriaSpeechFacts(
+            sessionTitle: store.todayWorkout?.name,
+            themeLabel: theme.label
+        )
 
-        if score >= 85 {
-            parts.append("You're in a high-readiness window at \(score).")
-        } else if score >= 70 {
-            parts.append("Readiness is solid at \(score) — good day to train with intent.")
-        } else if score >= 55 {
-            parts.append("Readiness sits at \(score). Keep quality high and volume honest.")
-        } else {
-            parts.append("Readiness is \(score). Today is for protection, not punishment.")
-        }
+        // Seed a few factual beats; voice engine varies delivery.
+        let voiceCore = AriaVoiceEngine.speak(
+            intent: .briefing,
+            context: context,
+            facts: facts,
+            themeOverride: theme
+        )
 
+        var extras: [String] = []
         if store.readiness.sleepQuality >= 80 {
-            parts.append("Deep sleep looked solid (\(deepStr)).")
+            extras.append("Deep sleep looked solid (\(deepStr)).")
         } else if store.readiness.sleepQuality < 60 {
-            parts.append("Deep sleep was only \(deepStr) — recovery may lag.")
+            extras.append("Deep sleep was only \(deepStr) — recovery may lag.")
         }
-
-        if hrv > 0 {
-            if hrv >= 50 {
-                parts.append("HRV holding strong at \(hrv)ms.")
-            } else if hrv < 40 {
-                parts.append("HRV is low at \(hrv)ms — nervous system wants ease.")
+        if store.dailyMetrics.hrv > 0 {
+            if store.dailyMetrics.hrv >= 50 {
+                extras.append("HRV holding at \(store.dailyMetrics.hrv)ms.")
+            } else if store.dailyMetrics.hrv < 40 {
+                extras.append("HRV is low at \(store.dailyMetrics.hrv)ms.")
             }
         }
-
-        if let workout = store.todayWorkout {
-            if score >= 70 {
-                parts.append("Primary control: \(workout.name).")
-            } else {
-                parts.append("If you move, bias light around \(workout.name) — or swap for recovery.")
+        if store.todayWorkout == nil {
+            if theme == .soloLeveling {
+                extras.append("No quest locked — ask for today's daily quest.")
+            } else if theme != .classic {
+                extras.append("No plan locked — I can build a \(theme.label) session.")
             }
-        } else {
-            parts.append("No plan locked yet — I can build one from your signals.")
         }
-
-        if guidanceOnly {
-            parts.append("Reminder: guidance and structure only — I'm your lifestyle coach, not a clinician.")
-        }
-
         if let goal = store.userProfile.fitnessGoals.first {
-            parts.append("Still aligned to \(goal.label.lowercased()).")
+            extras.append("Still aligned to \(goal.label.lowercased()).")
+        }
+        let pSettings = MenstrualHealthStore.shared.partnerSettings
+        if pSettings.enabled, pSettings.consentAcknowledged {
+            let who = pSettings.displayName
+            let phase = MenstrualHealthStore.shared.partnerSnapshot.phase
+            if phase == .menstruation || phase == .luteal {
+                extras.append(
+                    pSettings.resolvedRole == .child
+                        ? "\(who) may need the soft parent playbook today."
+                        : "Keep \(who) in mind — \(phase.shortLabel.lowercased()) energy."
+                )
+            } else if score % 3 == 0 {
+                extras.append("You're also looking out for \(who). Ask me anytime.")
+            }
+        } else if store.userProfile.gender == .male, score % 5 == 0 {
+            extras.append("Partner or daughter to support? I can learn that context.")
+        }
+        if let emotion = AriaContextStore.shared.context.lifestyleTags.first(where: { $0.hasPrefix("emotion:") && !$0.contains("about_other") }) {
+            let raw = emotion.replacingOccurrences(of: "emotion:", with: "")
+            if let need = AriaEmotionalNeed(rawValue: raw), need != .crisis, score % 2 == 0 {
+                extras.append("Still holding space for \(need.label.lowercased()) if you need it.")
+            }
+        }
+        // Keep briefing tight: voice core + at most two extras (salted by readiness).
+        let pickCount = min(2, extras.count)
+        let mixed = score &* 17 &+ abs(theme.rawValue.hashValue)
+        var rng = AriaSeededRNG(seed: UInt64(mixed == 0 ? 1 : mixed))
+        var chosen: [String] = []
+        var pool = extras
+        for _ in 0..<pickCount where !pool.isEmpty {
+            let i = rng.int(in: 0..<pool.count)
+            chosen.append(pool.remove(at: i))
         }
 
-        return parts.joined(separator: " ")
+        return ([voiceCore] + chosen).joined(separator: " ")
     }
 }
 
@@ -928,9 +966,7 @@ private struct HomeMetricTile: View {
         }
         .padding(14)
         .frame(width: 118, alignment: .leading)
-        .background(Color.surface)
-        .cornerRadius(FDS.Radius.lg)
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label): \(value)")
     }
@@ -1038,12 +1074,7 @@ private struct HomeTrendSection: View {
             }
         }
         .padding(18)
-        .background(Color.surface)
-        .cornerRadius(FDS.Radius.xl)
-        .overlay(
-            RoundedRectangle(cornerRadius: FDS.Radius.xl)
-                .stroke(Color.borderColor, lineWidth: 0.5)
-        )
+        .forgeGlassCard()
         .opacity(appeared ? 1 : 0)
         .onAppear {
             withAnimation(FDS.Spring.hero.delay(0.35)) { appeared = true }
@@ -1087,8 +1118,14 @@ struct BreakdownCardView: View {
             Spacer()
         }
         .padding(12)
-        .background(Color.surfaceElevated)
-        .cornerRadius(12)
+        .background {
+            ZStack {
+                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                    .fill(Color.surfaceElevated.opacity(0.9))
+                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                    .stroke(Color.borderHairline, lineWidth: 1)
+            }
+        }
         .opacity(appeared ? 1 : 0)
         .onAppear {
             withAnimation(FDS.Spring.hero.delay(0.05 * Double(index))) { appeared = true }
@@ -1301,12 +1338,7 @@ struct StreakCalendarSection: View {
             }
         }
         .padding(18)
-        .background(Color.surface)
-        .cornerRadius(FDS.Radius.xl)
-        .overlay(
-            RoundedRectangle(cornerRadius: FDS.Radius.xl)
-                .stroke(Color.ember.opacity(0.12), lineWidth: 1)
-        )
+        .forgeGlassCard(accent: .ember)
         .opacity(appeared ? 1 : 0)
         .onAppear { withAnimation(FDS.Spring.hero.delay(0.32)) { appeared = true } }
         .accessibilityElement(children: .combine)

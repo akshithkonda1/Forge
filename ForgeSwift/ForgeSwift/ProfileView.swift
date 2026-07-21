@@ -44,26 +44,26 @@ struct ProfileTabView: View {
                     }
                 }
                 .padding(4)
-                .background(Color.surface)
-                .cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
+                .background {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                            .fill(Color.surface.opacity(0.95))
+                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                            .fill(LinearGradient.premiumSurface)
+                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                            .stroke(Color.borderHairline, lineWidth: 1)
+                    }
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 60)
             .padding(.bottom, 8)
-            .background(
+            .background {
                 ZStack {
-                    Color.background.opacity(0.95)
-                    Rectangle()
-                        .fill(LinearGradient(
-                            colors: [Color.clear, Color.borderColor.opacity(0.1)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ))
-                        .frame(height: 1)
-                        .offset(y: 50)
+                    Color.background.opacity(0.92)
+                    LinearGradient.premiumChrome.opacity(0.4)
                 }
-            )
+            }
 
             // Content with transitions
             Group {
@@ -90,7 +90,7 @@ struct ProfileTabView: View {
             }
             .id(subTab)
         }
-        .background(Color.background.ignoresSafeArea())
+        .forgeScreenBackground(accent: .steel)
         .onAppear { applyPendingProfileSubTab() }
         .onChange(of: store.pendingProfileSubTab) { _, _ in applyPendingProfileSubTab() }
     }
@@ -845,6 +845,8 @@ struct SettingsPageView: View {
     @State private var showDevicesSheet = false
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
+    @State private var showTrainingThemePicker = false
+    @State private var showCycleHealth = false
     @State private var showPrivacyPolicyURLAlert = false
     @State private var showTermsSheet = false
     @State private var showMyChartPlaceholderSheet = false
@@ -891,12 +893,62 @@ struct SettingsPageView: View {
                     .buttonStyle(.plain)
 
                     Divider().background(Color.borderColor)
+
+                    Button(action: { showTrainingThemePicker = true }) {
+                        SettingsRow(
+                            icon: store.userProfile.trainingTheme.icon,
+                            iconColor: Color(hex: store.userProfile.trainingTheme.accentHex),
+                            label: "Training Theme",
+                            trailingText: store.userProfile.trainingTheme.label,
+                            showChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    if store.userProfile.gender == .female
+                        || store.userProfile.gender == .male
+                        || MenstrualHealthStore.shared.settings.enabled
+                        || MenstrualHealthStore.shared.partnerSettings.enabled
+                        || store.pendingProfileSubTab == "cycle" {
+                        Divider().background(Color.borderColor)
+                        Button(action: { showCycleHealth = true }) {
+                            let selfOn = MenstrualHealthStore.shared.settings.enabled
+                            let partnerOn = MenstrualHealthStore.shared.partnerSettings.enabled
+                            let snap = selfOn
+                                ? MenstrualHealthStore.shared.snapshot
+                                : MenstrualHealthStore.shared.partnerSnapshot
+                            SettingsRow(
+                                icon: partnerOn && !selfOn ? "heart.circle.fill" : snap.phase.icon,
+                                iconColor: Color(hex: snap.phase.accentHex),
+                                label: partnerOn && !selfOn ? "Support cycle" : "Cycle Health",
+                                trailingText: {
+                                    if selfOn { return snap.phase.shortLabel }
+                                    if partnerOn {
+                                        let p = MenstrualHealthStore.shared.partnerSettings
+                                        return p.resolvedRole == .child
+                                            ? "\(p.displayName) · child"
+                                            : p.displayName
+                                    }
+                                    return store.userProfile.gender == .male ? "Partner / daughter" : "Set up"
+                                }(),
+                                showChevron: true
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Divider().background(Color.borderColor)
                     VStack(alignment: .leading, spacing: 0) {
                         Text(store.userProfile.coachingStyle.description)
                             .font(.system(size: 12))
                             .foregroundColor(.textTertiary)
                             .lineSpacing(2)
                             .padding(.horizontal, 16).padding(.vertical, 10)
+                        Text(store.userProfile.trainingTheme.tagline)
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(hex: store.userProfile.trainingTheme.accentHex).opacity(0.9))
+                            .lineSpacing(2)
+                            .padding(.horizontal, 16).padding(.bottom, 10)
                         Divider().background(Color.borderColor)
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Training Goals")
@@ -1121,6 +1173,32 @@ struct SettingsPageView: View {
         }
         .sheet(isPresented: $showCoachingStylePicker) {
             CoachingStylePickerView()
+        }
+        .sheet(isPresented: $showTrainingThemePicker) {
+            TrainingThemePickerView()
+        }
+        .sheet(isPresented: $showCycleHealth) {
+            NavigationStack {
+                MenstrualHealthView()
+                    .environmentObject(store)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { showCycleHealth = false }
+                        }
+                    }
+            }
+        }
+        .onAppear {
+            if store.pendingProfileSubTab == "cycle" {
+                showCycleHealth = true
+                store.pendingProfileSubTab = nil
+            }
+        }
+        .onChange(of: store.pendingProfileSubTab) { _, new in
+            if new == "cycle" {
+                showCycleHealth = true
+                store.pendingProfileSubTab = nil
+            }
         }
         .sheet(isPresented: $showDevicesSheet) {
             ConnectedDevicesSheet()

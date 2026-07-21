@@ -768,35 +768,39 @@ struct ChatBackground: View {
 
     var body: some View {
         ZStack {
-            Color(.sRGB, red: 8.0/255.0, green: 8.0/255.0, blue: 8.0/255.0, opacity: 1.0)
+            Color.background
+            RadialGradient(
+                colors: [mood.accentColor.opacity(0.12), Color.aurora.opacity(0.04), .clear],
+                center: UnitPoint(x: 0.2, y: 0.05),
+                startRadius: 10,
+                endRadius: 380
+            )
+            RadialGradient(
+                colors: [Color.ember.opacity(0.06), .clear],
+                center: UnitPoint(x: 0.9, y: 0.9),
+                startRadius: 8,
+                endRadius: 300
+            )
             if !reduceMotion {
-                // Fallback gradient animation if MeshGradientOverlay isn't available
-                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+                TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { timeline in
                     Canvas { context, size in
                         let time = timeline.date.timeIntervalSinceReferenceDate
                         let colors = [
-                            Color(hex: "00FFF0").opacity(0.03),
-                            Color(hex: "0080FF").opacity(0.025),
-                            Color(hex: "6000FF").opacity(0.02),
-                            mood.accentColor.opacity(0.015)
+                            Color(hex: "00FFF0").opacity(0.035),
+                            Color(hex: "0080FF").opacity(0.03),
+                            Color.aurora.opacity(0.025),
+                            mood.accentColor.opacity(0.02)
                         ]
-                        
                         for i in 0..<4 {
-                            let x = size.width * CGFloat(i) / 4 + CGFloat(sin(time * 0.3 + Double(i))) * 40
-                            let y = size.height / 2 + CGFloat(cos(time * 0.4 + Double(i))) * 60
-                            let rect = CGRect(x: x, y: y, width: size.width / 2, height: size.height / 2)
-                            
-                            context.fill(
-                                Path(ellipseIn: rect),
-                                with: .color(colors[i])
-                            )
+                            let x = size.width * CGFloat(i) / 4 + CGFloat(sin(time * 0.3 + Double(i))) * 36
+                            let y = size.height / 2 + CGFloat(cos(time * 0.4 + Double(i))) * 50
+                            let rect = CGRect(x: x, y: y, width: size.width / 2.2, height: size.height / 2.2)
+                            context.fill(Path(ellipseIn: rect), with: .color(colors[i]))
                         }
                     }
                 }
-                .blur(radius: 60)
-                .opacity(0.18)
-                
-                mood.accentColor.opacity(0.04)
+                .blur(radius: 70)
+                .opacity(0.22)
             }
         }
         .animation(.easeInOut(duration: 1.4), value: mood)
@@ -945,8 +949,12 @@ struct ChatHeaderView: View {
                     .textCase(.uppercase)
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(Color.surfaceElevated)
-            .cornerRadius(FDS.Radius.pill)
+            .background {
+                ZStack {
+                    Capsule().fill(Color.surfaceElevated.opacity(0.95))
+                    Capsule().stroke(Color.borderHairline, lineWidth: 1)
+                }
+            }
             .overlay(Capsule().stroke(scoreColor.opacity(0.35), lineWidth: 1))
             .shadow(color: scoreColor.opacity(0.2), radius: 8, y: 3)
         }
