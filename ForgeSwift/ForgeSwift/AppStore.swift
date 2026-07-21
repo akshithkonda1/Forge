@@ -210,10 +210,12 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         if let p = context.partnerCycleSnapshot,
            let s = context.partnerCycleSettings {
             var lines = [
-                "Partner (\(s.displayName), \(s.relationshipLabel)) phase: \(p.phase.label)",
-                "Partner day in cycle: \(p.dayInCycle.map(String.init) ?? "unknown")",
-                "Partner confidence: \(Int(p.confidence * 100))%",
-                "Coach the USER on support/sync — not medical advice for the partner.",
+                "Supported person: \(s.displayName) (\(s.relationshipLabel), role: \(s.resolvedRole.label))",
+                "Their phase: \(p.phase.label)",
+                "Their day in cycle: \(p.dayInCycle.map(String.init) ?? "unknown")",
+                "Confidence: \(Int(p.confidence * 100))%",
+                "VOICE: warm, human, specific. Coach the USER on how to show up — never medical advice for them.",
+                "ASK natural follow-ups when context is thin (consent, last period start, how they're doing).",
             ]
             if let brief = MenstrualHealthStore.shared.partnerSupportBrief {
                 lines.append("Support headline: \(brief.headline)")
@@ -221,7 +223,9 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
             }
             blocks.append(lines.joined(separator: "\n"))
         } else {
-            blocks.append("Partner cycle: not enabled")
+            blocks.append(
+                "Supported-person cycle: not enabled. If user mentions wife/girlfriend/daughter/partner, ask gently whether they want support coaching — human, not salesy."
+            )
         }
         return blocks.joined(separator: "\n")
     }
@@ -385,22 +389,56 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
     // MARK: - Response Generation
     
     private func generateGreeting(context: TrainerContext) -> TrainerResponse {
-        let content = AriaVoiceEngine.speak(intent: .greeting, context: context)
-        return TrainerResponse(content: content, confidence: 0.9)
+        var content = AriaVoiceEngine.speak(intent: .greeting, context: context)
+        let salt = UInt64(context.conversationHistory.count * 17 + context.readiness.overall)
+        if let addon = AriaRelationalCoach.greetingAddon(
+            settings: context.partnerCycleSettings,
+            snapshot: context.partnerCycleSnapshot,
+            salt: salt
+        ) {
+            content += "\n\n" + addon
+        } else if context.partnerCycleSettings == nil,
+                  context.userProfile.gender == .male,
+                  context.conversationHistory.count < 4 {
+            // Soft humanizing invite early in the relationship with ARIA
+            var rng = AriaSeededRNG(seed: salt == 0 ? 7 : salt)
+            if rng.chance(0.4) {
+                content += "\n\n" + rng.pick([
+                    "By the way — I can also help you support a partner or a kid's cycle days if that's part of your life. Just say so in plain words.",
+                    "Random but real: a lot of guys use me to show up better for a wife, girlfriend, or daughter. No pressure — only if you want that.",
+                ])
+            }
+        }
+        return TrainerResponse(
+            content: content,
+            suggestedActions: context.partnerCycleSettings != nil
+                ? ["How do I support them today?", "What should I train?"]
+                : ["What should I train today?", "I support my partner's cycle", "I'm a dad — help with my daughter"],
+            confidence: 0.9
+        )
     }
 
     private func generateCycleResponse(context: TrainerContext, input: String) -> TrainerResponse {
         let lower = input.lowercased()
+        let mention = AriaRelationalCoach.detectSupportMention(in: input)
 
-        // Partner / relationship sync coaching (males or anyone supporting a partner).
+        // Learn names/roles from natural language ("my wife Maya", "my daughter").
+        if let mention {
+            Task { @MainActor in
+                AriaRelationalCoach.applyMentionIfNeeded(mention, store: MenstrualHealthStore.shared)
+            }
+        }
+
+        // Partner / family / parent sync coaching.
         if isPartnerCycleQuery(lower)
+            || mention != nil
             || (context.partnerCycleSnapshot != nil && !lower.contains("my period") && !lower.contains("my cycle")) {
             if let partnerSnap = context.partnerCycleSnapshot,
                let partnerSettings = context.partnerCycleSettings,
                partnerSettings.enabled,
                partnerSettings.consentAcknowledged {
                 let name = context.userProfile.name.split(separator: " ").first.map(String.init) ?? ""
-                let msg = PartnerSupportCoach.ariaMessage(
+                let msg = AriaRelationalCoach.humanizeSupportReply(
                     snapshot: partnerSnap,
                     settings: partnerSettings,
                     userName: name,
@@ -438,19 +476,17 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
                     confidence: max(0.85, partnerSnap.confidence)
                 )
             }
-            // Partner intent but not set up yet
-            if isPartnerCycleQuery(lower) {
-                let msg = """
-                I can help you support someone else's cycle — partners, and yes, a lot of **dads with daughters** do this well too.
-
-                Open **Cycle Health → Support**, pick the relationship (partner / daughter / family), confirm consent (or appropriate caregiver context), then log period starts they share with you. I'll coach *you* on comfort, plans, school/sports logistics, and what to say — never medical advice for them.
-
-                \(PartnerSupportBrief.disclaimer)
-                """
+            // Mentioned support person but not fully set up — human invite
+            if isPartnerCycleQuery(lower) || mention != nil {
                 return TrainerResponse(
-                    content: msg,
-                    suggestedActions: ["Set up partner or daughter support", "What should I train today?"],
-                    confidence: 0.82
+                    content: AriaRelationalCoach.humanSetupReply(mention: mention),
+                    suggestedActions: [
+                        "My partner — set this up",
+                        "My daughter — parent support",
+                        "She said it's okay to track starts",
+                        "What should I train today?",
+                    ],
+                    confidence: 0.88
                 )
             }
         }
@@ -822,6 +858,8 @@ final class AppStore: ObservableObject {
             applyTrainingThemeIfDetected(from: text)
             // Learn voice dials ("be hype", "just the facts", "keep it short", …).
             applyVoicePreferenceIfDetected(from: text)
+            // Learn partner/daughter/family support context from plain language.
+            applySupportContextIfDetected(from: text)
 
             let aria = try await AriaService.shared.sendMessage(
                 text,
@@ -940,6 +978,34 @@ final class AppStore: ObservableObject {
         // Always remember an explicit franchise ask; locks force persist even if already set.
         if lock || userProfile.trainingTheme != theme {
             setTrainingTheme(theme, source: "chat")
+        }
+    }
+
+    /// Soft-learns who the user supports (partner, daughter, family) from chat.
+    func applySupportContextIfDetected(from text: String) {
+        guard let mention = AriaRelationalCoach.detectSupportMention(in: text) else { return }
+        AriaRelationalCoach.applyMentionIfNeeded(mention, store: MenstrualHealthStore.shared)
+        // Natural consent phrases unlock full coaching.
+        let lower = text.lowercased()
+        if lower.contains("she said it's okay") || lower.contains("she is okay")
+            || lower.contains("with her consent") || lower.contains("she knows")
+            || lower.contains("we're okay tracking") || lower.contains("as her dad")
+            || lower.contains("as her father") || lower.contains("i'm her parent") {
+            MenstrualHealthStore.shared.updatePartnerSettings {
+                $0.consentAcknowledged = true
+                $0.enabled = true
+                $0.shareWithAria = true
+            }
+            AriaContextStore.shared.addInsight(
+                "Support consent acknowledged in chat — relational coaching unlocked."
+            )
+        }
+        // Period start for them: "her period started today"
+        if lower.contains("period started") || lower.contains("started her period")
+            || lower.contains("on her period") && (lower.contains("today") || lower.contains("now")) {
+            if MenstrualHealthStore.shared.partnerSettings.consentAcknowledged {
+                MenstrualHealthStore.shared.logPartnerPeriodStart(flow: .medium)
+            }
         }
     }
 

@@ -463,6 +463,25 @@ final class AriaContextStore: ObservableObject {
         }
         let readiness = store.readiness.overall
         let theme = trainingTheme
+        let cycleStore = MenstrualHealthStore.shared
+        let day = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
+        let salt = UInt64(day * 31 + readiness + context.relationshipLevel * 7)
+
+        // Human relational check-ins (partner / daughter) interleave with training prompts.
+        if let relational = AriaRelationalCoach.proactiveQuestion(
+            userGender: store.userProfile.gender,
+            partnerSettings: cycleStore.partnerSettings,
+            partnerSnapshot: cycleStore.partnerSettings.enabled ? cycleStore.partnerSnapshot : nil,
+            readiness: readiness,
+            salt: salt
+        ), salt % 3 != 0 || readiness >= 60 {
+            // Prefer relational message often when support context is live or for invites.
+            if cycleStore.partnerSettings.enabled || salt % 2 == 0 {
+                lastProactiveInsight = relational
+                return
+            }
+        }
+
         if readiness < 55 {
             if theme == .soloLeveling {
                 lastProactiveInsight = "Readiness is low — Safe Zone day. Want a Solo Leveling recovery quest?"

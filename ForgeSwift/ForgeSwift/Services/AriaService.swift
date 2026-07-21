@@ -116,6 +116,8 @@ final class AriaService: ObservableObject {
             || lower.contains("support her") || lower.contains("her period") || lower.contains("her pms")
             || lower.contains("daughter") || lower.contains("as a dad") || lower.contains("as a father")
             || lower.contains("my kid") || lower.contains("my child")
+            || AriaRelationalCoach.mentionsSupportContext(lower)
+            || lower.contains("show up for") || lower.contains("help me support")
         if AriaThemeResolver.isPlanRequest(text) {
             let plan = AriaPlanEngine.evaluate(input: text, context: trainerContext)
             if plan.shouldPersistTheme {
@@ -227,6 +229,7 @@ enum AriaOnboardingGuide {
     static func welcomeChatMessage(profile: OnboardingProfile, healthConnected: Bool) -> String {
         var message = firstSessionScript(profile: profile, healthConnected: healthConnected)
         message += "\n\nOpen chat anytime — I'm already tracking the context we built together in onboarding."
+        message += "\n\nOne human thing: if there's a partner, wife, or daughter whose cycle days you try to show up for, tell me in plain words. A lot of people do — I'll keep it practical and never clinical for them."
         if profile.guidanceOnlyMode {
             message += "\n\nReminder: for any conditions you shared, I only provide lifestyle guidance — not diagnosis, treatment, or medical solutions."
         }

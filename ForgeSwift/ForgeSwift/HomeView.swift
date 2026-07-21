@@ -839,6 +839,22 @@ enum HomeARIABriefingBuilder {
         if let goal = store.userProfile.fitnessGoals.first {
             extras.append("Still aligned to \(goal.label.lowercased()).")
         }
+        let pSettings = MenstrualHealthStore.shared.partnerSettings
+        if pSettings.enabled, pSettings.consentAcknowledged {
+            let who = pSettings.displayName
+            let phase = MenstrualHealthStore.shared.partnerSnapshot.phase
+            if phase == .menstruation || phase == .luteal {
+                extras.append(
+                    pSettings.resolvedRole == .child
+                        ? "\(who) may need the soft parent playbook today."
+                        : "Keep \(who) in mind — \(phase.shortLabel.lowercased()) energy."
+                )
+            } else if score % 3 == 0 {
+                extras.append("You're also looking out for \(who). Ask me anytime.")
+            }
+        } else if store.userProfile.gender == .male, score % 5 == 0 {
+            extras.append("Partner or daughter to support? I can learn that context.")
+        }
         // Keep briefing tight: voice core + at most two extras (salted by readiness).
         let pickCount = min(2, extras.count)
         let mixed = score &* 17 &+ abs(theme.rawValue.hashValue)
