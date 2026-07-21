@@ -223,9 +223,10 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         }
         if let p = context.partnerCycleSnapshot,
            let s = context.partnerCycleSettings {
+            let adapt = AriaPersonRegistry.shared.adaptationForCurrentPartnerSettings(s)
             var lines = [
-                "Supported person: \(s.displayName) (\(s.relationshipLabel), role: \(s.resolvedRole.label))",
-                "Their phase: \(p.phase.label)",
+                adapt.promptDirective,
+                "Their cycle phase: \(p.phase.label)",
                 "Their day in cycle: \(p.dayInCycle.map(String.init) ?? "unknown")",
                 "Confidence: \(Int(p.confidence * 100))%",
                 "VOICE: warm, human, specific. Coach the USER on how to show up — never medical advice for them.",
@@ -236,9 +237,11 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
                 lines.append("Communication tip: \(brief.communicationTip)")
             }
             blocks.append(lines.joined(separator: "\n"))
+        } else if let adapt = AriaPersonRegistry.shared.activeAdaptation {
+            blocks.append(adapt.promptDirective)
         } else {
             blocks.append(
-                "Supported-person cycle: not enabled. If user mentions wife/girlfriend/daughter/partner, ask gently whether they want support coaching — human, not salesy."
+                "No active person lens. If user mentions wife/girlfriend/daughter/partner, INSTANTLY adapt tone to that label and ask gently about support coaching."
             )
         }
         return blocks.joined(separator: "\n")
@@ -765,6 +768,7 @@ final class AppStore: ObservableObject {
         #endif
         
         AriaContextStore.shared.configure()
+        AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
 
         // Restore persisted onboarding so a returning user skips setup entirely.
         restoreOnboardingState()
@@ -1013,7 +1017,17 @@ final class AppStore: ObservableObject {
 
     /// Soft-learns who the user supports (partner, daughter, family) from chat.
     func applySupportContextIfDetected(from text: String) {
-        guard let mention = AriaRelationalCoach.detectSupportMention(in: text) else { return }
+        // Instant adaptation from any relationship label/name in the message.
+        _ = AriaPersonRegistry.shared.adapt(to: text)
+        AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
+
+        guard let mention = AriaRelationalCoach.detectSupportMention(in: text) else {
+            // Still learn dynamics / remember-clauses for active person
+            if let id = AriaPersonRegistry.shared.activePersonId {
+                AriaPersonRegistry.shared.learnDynamics(from: text, personId: id)
+            }
+            return
+        }
         AriaRelationalCoach.applyMentionIfNeeded(mention, store: MenstrualHealthStore.shared)
         // Natural consent phrases unlock full coaching.
         let lower = text.lowercased()

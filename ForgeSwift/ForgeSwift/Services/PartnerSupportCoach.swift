@@ -27,14 +27,32 @@ enum PartnerSupportCoach {
         userName: String,
         input: String
     ) -> String {
+        // Instant label adaptation (wife vs girlfriend vs daughter…)
+        let adaptation = AriaPersonRegistry.shared.adapt(to: input)
+            ?? AriaPersonRegistry.shared.adaptationForCurrentPartnerSettings(settings)
+        var settings = settings
+        settings.supportRole = adaptation.role
+        if settings.relationshipLabel != adaptation.label.rawValue {
+            let parsed = AriaRelationshipLabel.parse(from: settings.relationshipLabel)
+            if parsed == .other || settings.relationshipLabel == "partner" {
+                settings.relationshipLabel = adaptation.label.displayLabel
+            }
+        }
+
         let brief = brief(snapshot: snapshot, settings: settings)
         let lower = input.lowercased()
         var lines: [String] = []
 
         let you = userName.isEmpty ? "You" : userName
-        let roleTag = brief.role == .child ? "parent / caregiver sync" : "relationship sync"
-        lines.append("\(you) — \(roleTag) for **\(brief.partnerLabel)** (\(brief.role.label)).")
+        lines.append(adaptation.voicePreamble)
+        let roleTag = adaptation.caregiverMode ? "parent / caregiver sync" : "relationship sync"
+        lines.append("\(you) — \(roleTag) for **\(adaptation.who)** (\(adaptation.label.displayLabel)).")
         lines.append(brief.headline)
+        lines.append(adaptation.supportStance)
+        lines.append(adaptation.communicationAdvice)
+        if !adaptation.dynamics.userTags.isEmpty {
+            lines.append("What I know about how you two work: " + adaptation.dynamics.userTags.prefix(5).joined(separator: " · "))
+        }
         if snapshot.trackingEnabled, snapshot.confidence > 0 {
             lines.append("Model confidence \(Int(snapshot.confidence * 100))% · \(snapshot.dataQuality) · \(snapshot.cyclesObserved) cycles logged.")
         }

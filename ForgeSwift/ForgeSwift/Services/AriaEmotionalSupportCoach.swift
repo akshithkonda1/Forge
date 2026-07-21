@@ -269,12 +269,35 @@ enum AriaEmotionalSupportCoach {
         }
 
         let you = context.userProfile.name.split(separator: " ").first.map(String.init) ?? ""
+        // Instant label adaptation (wife ≠ girlfriend ≠ daughter)
+        let adaptation = AriaPersonRegistry.shared.adapt(to: input)
+            ?? context.partnerCycleSettings.map {
+                AriaPersonRegistry.shared.adaptationForCurrentPartnerSettings($0)
+            }
         let who = reading.aboutName
+            ?? adaptation?.name
             ?? context.partnerCycleSettings?.displayName
-            ?? (reading.isAboutOther ? "them" : nil)
+            ?? (reading.isAboutOther ? adaptation?.who : nil)
 
-        let body = composeBody(reading: reading, context: context, userName: you, otherName: who, input: input)
-        let actions = suggestedActions(for: reading)
+        var body = composeBody(
+            reading: reading,
+            context: context,
+            userName: you,
+            otherName: who,
+            input: input,
+            adaptation: adaptation
+        )
+        if let adaptation, reading.isAboutOther || adaptation.caregiverMode || adaptation.intimacyCoachingAllowed {
+            body = adaptation.voicePreamble + "\n\n" + body
+                + "\n\n" + adaptation.communicationAdvice
+                + "\n" + adaptation.conflictAdvice
+            if !adaptation.dynamics.userTags.isEmpty {
+                body += "\n\nWhat you've taught me about them: "
+                    + adaptation.dynamics.userTags.prefix(4).joined(separator: " · ")
+                    + "."
+            }
+        }
+        let actions = suggestedActions(for: reading, adaptation: adaptation)
 
         // Persist light context tags for continuity
         Task { @MainActor in
@@ -293,17 +316,25 @@ enum AriaEmotionalSupportCoach {
         context: TrainerContext,
         userName: String,
         otherName: String?,
-        input: String
+        input: String,
+        adaptation: AriaPersonAdaptation? = nil
     ) -> String {
         var rng = AriaSeededRNG(seed: UInt64(abs(input.hashValue) &+ reading.primary.hashValue))
         let nameBit = userName.isEmpty ? "" : "\(userName) — "
         let aboutOther = reading.isAboutOther
-        let role = reading.aboutRole ?? context.partnerCycleSettings?.resolvedRole
-        let person = otherName ?? "them"
+        let role = adaptation?.role ?? reading.aboutRole ?? context.partnerCycleSettings?.resolvedRole
+        let person = otherName ?? adaptation?.who ?? "them"
 
         let opener = rng.pick(openers(for: reading.primary, aboutOther: aboutOther, role: role, person: person))
         let validate = rng.pick(validationLines(for: reading.primary, aboutOther: aboutOther, person: person))
-        let moves = practicalMoves(for: reading, context: context, person: person, role: role, rng: &rng)
+        let moves = practicalMoves(
+            for: reading,
+            context: context,
+            person: person,
+            role: role,
+            adaptation: adaptation,
+            rng: &rng
+        )
         let say = scriptLine(for: reading, person: person, role: role, aboutOther: aboutOther, rng: &rng)
         let closer = rng.pick(closers(for: reading.primary, aboutOther: aboutOther))
 
@@ -435,10 +466,11 @@ enum AriaEmotionalSupportCoach {
     }
 
     private static func practicalMoves(
-        reading: AriaEmotionalReading,
+        for reading: AriaEmotionalReading,
         context: TrainerContext,
         person: String,
         role: CycleSupportRole?,
+        adaptation: AriaPersonAdaptation? = nil,
         rng: inout AriaSeededRNG
     ) -> [String] {
         if reading.isAboutOther {
@@ -451,6 +483,7 @@ enum AriaEmotionalSupportCoach {
                         ? "With \(person): shorter sentences, lower volume, no audience (siblings/relatives)."
                         : "Ask \(person) if they want solutions or just a witness for 5 minutes.",
                     "Repair later with a clean apology for your part only — no \"but you.\"",
+                    adaptation?.conflictAdvice ?? "Keep the repair about impact, not character.",
                 ]
             case .anxiety, .overwhelm:
                 return [
@@ -614,16 +647,23 @@ enum AriaEmotionalSupportCoach {
         ]
     }
 
-    private static func suggestedActions(for reading: AriaEmotionalReading) -> [String] {
+    private static func suggestedActions(
+        for reading: AriaEmotionalReading,
+        adaptation: AriaPersonAdaptation? = nil
+    ) -> [String] {
         if reading.primary == .crisis {
             return ["I need emergency resources again", "Talk about something lighter"]
         }
         if reading.isAboutOther {
-            switch reading.aboutRole {
+            let role = adaptation?.role ?? reading.aboutRole
+            switch role {
             case .child:
                 return ["Parent script for tonight", "How do I support her period day?", "I need to calm down first", "What should I train?"]
             case .romantic:
-                return ["Repair script", "Date idea that won't stress her", "Help me listen better", "What should I train?"]
+                let wife = adaptation?.label == .wife || adaptation?.label == .spouse
+                return wife
+                    ? ["Repair as a spouse", "Share the load tonight", "Help me listen better", "What should I train?"]
+                    : ["Repair script", "Date idea that won't stress her", "Help me listen better", "What should I train?"]
             default:
                 return ["What do I say?", "How do I help without fixing?", "I need support too"]
             }

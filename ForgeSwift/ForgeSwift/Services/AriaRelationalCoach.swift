@@ -115,7 +115,14 @@ enum AriaRelationalCoach {
     /// If user names a wife/daughter/etc., seed support tracking (consent still required for full engine).
     @MainActor
     static func applyMentionIfNeeded(_ mention: AriaSupportMention, store: MenstrualHealthStore) {
-        var changed = false
+        // Instant person adaptation from label/name
+        let person = AriaPersonRegistry.shared.upsert(
+            name: mention.name ?? "",
+            label: mention.relationshipLabel,
+            role: mention.role
+        )
+        AriaPersonRegistry.shared.setActive(person.id)
+
         if !store.partnerSettings.enabled {
             store.updatePartnerSettings {
                 $0.enabled = true
@@ -124,25 +131,26 @@ enum AriaRelationalCoach {
                 if let n = mention.name { $0.partnerName = n }
                 $0.shareWithAria = true
             }
-            changed = true
         } else {
             store.updatePartnerSettings {
-                if $0.supportRole == .other || $0.supportRole == .romantic && mention.role == .child {
+                if $0.supportRole == .other || ($0.supportRole == .romantic && mention.role == .child) {
                     $0.supportRole = mention.role
                 }
-                if $0.relationshipLabel == "partner" || $0.relationshipLabel.isEmpty {
+                // Switch label when user clearly names a different relationship
+                if mention.relationshipLabel != $0.relationshipLabel {
                     $0.relationshipLabel = mention.relationshipLabel
+                    $0.supportRole = mention.role
                 }
-                if $0.partnerName.isEmpty, let n = mention.name {
+                if let n = mention.name, !n.isEmpty {
                     $0.partnerName = n
                 }
             }
-            changed = true
         }
-        if changed {
-            AriaContextStore.shared.addInsight(
-                humanMemoryLine(mention: mention, consented: store.partnerSettings.consentAcknowledged)
-            )
+        AriaContextStore.shared.addInsight(
+            humanMemoryLine(mention: mention, consented: store.partnerSettings.consentAcknowledged)
+        )
+        if let adapt = AriaPersonRegistry.shared.activeAdaptation {
+            AriaContextStore.shared.addInsight(adapt.voicePreamble)
         }
     }
 
@@ -252,33 +260,38 @@ enum AriaRelationalCoach {
         userName: String,
         input: String
     ) -> String {
+        let adaptation = AriaPersonRegistry.shared.adapt(to: input)
+            ?? AriaPersonRegistry.shared.adaptationForCurrentPartnerSettings(settings)
         let core = PartnerSupportCoach.ariaMessage(
             snapshot: snapshot,
             settings: settings,
             userName: userName,
             input: input
         )
-        let name = settings.displayName
+        let name = adaptation.who
         let lower = input.lowercased()
-        var openers: [String] = []
+        var openers: [String] = [adaptation.voicePreamble]
 
-        switch settings.resolvedRole {
-        case .child:
-            openers = [
-                "Alright — parent mode, no awkwardness.",
-                "Got it. Supporting \(name) is the job today.",
-                "Yeah. Dads who pay attention here make a real difference.",
-                "I'm with you. Let's keep this practical and kind.",
+        switch adaptation.label {
+        case .wife, .spouse:
+            openers += [
+                "Marriage lens on — protect the long game with \(name).",
+                "Spouse mode: share load, repair clean, no scoreboard.",
             ]
-        case .romantic:
-            openers = [
+        case .girlfriend, .boyfriend, .fiance, .partner:
+            openers += [
                 "Okay — let's treat \(name) like a person, not a calendar.",
-                "Good that you're thinking about her. Here's how to make it real.",
                 "Love that you're asking. Small moves beat grand speeches.",
-                "Alright. Human first, advice second.",
             ]
+        case .daughter, .teen, .child, .son:
+            openers += [
+                "Alright — parent mode, no awkwardness.",
+                "Yeah. Showing up for \(name) here makes a real difference.",
+            ]
+        case .sister, .brother, .sibling:
+            openers += ["Sibling mode — loyal, low hierarchy."]
         default:
-            openers = [
+            openers += [
                 "Okay — supportive without overstepping.",
                 "Got it. Keep it kind and useful.",
             ]
