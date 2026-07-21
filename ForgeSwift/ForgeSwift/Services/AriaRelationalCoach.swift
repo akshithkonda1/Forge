@@ -320,16 +320,19 @@ enum AriaRelationalCoach {
     static func humanSetupReply(mention: AriaSupportMention?) -> String {
         if let m = mention {
             let who = m.name ?? m.relationshipLabel
+            let label = AriaRelationshipLabel.parse(from: m.relationshipLabel)
+            let arch = AriaPersonalArchetype.defaults(for: label)
             switch m.role {
             case .child:
                 return """
                 Yeah — supporting a daughter or kid through cycles is more common than people admit, and it matters.
 
                 I'll treat this as **parent support**, not romance talk: supplies, sports, school days, privacy, what not to joke about.
+                Default read on \(who): **\(arch.label)** energy — \(arch.speechGuidance)
 
                 Two gentle asks:
                 1. Does \(who) know you're noting period starts to help (not to police)?
-                2. Want me to open that in Cycle Health → Support, or tell me when her last period started?
+                2. How does \(who) *talk* — short texts, long rants, jokes first? Teach me and I'll match scripts to their voice.
 
                 Only what she's okay sharing. I'll keep it human.
                 """
@@ -337,15 +340,16 @@ enum AriaRelationalCoach {
                 return """
                 Love that you're thinking about \(who). Partners who plan around real life — not just gym PRs — last longer.
 
-                If she's okay with it, I can remember period starts and coach *you* on comfort days, date energy, and training together.
+                Relationship lens: **\(label.displayLabel)**. I'll adapt like it's \(who), not a generic "partner."
+                If you tell me their archetype (analyst, nurturer, sovereign…) or how they speak (short texts, hates "calm down"), I'll lock that in.
 
-                Quick human check: has she said it's alright for you to track starts? If yes, tell me her name (if you want) and roughly when the last period began — or set it in Cycle Health → Support.
+                Quick human check: has she said it's alright for you to track starts? If yes, name + last period start — or Cycle Health → Support.
                 """
             default:
                 return """
                 Got it — you want to support \(who). I'll keep advice practical and in-bounds.
 
-                With their okay, log period starts in Cycle Health → Support. Then ask me anytime: “How do I show up today?”
+                Teach me labels + how they speak (“short replies”, “always joking”, “logical”) and I'll adapt scripts instantly.
                 """
             }
         }
@@ -353,9 +357,9 @@ enum AriaRelationalCoach {
         return """
         Totally. ARIA isn't only about *your* numbers.
 
-        A lot of people use me to support a **partner** — and a surprising number of **dads** use me for a **daughter**: when periods hit, how to help with sports, what to stock, what never to say out loud.
+        A lot of people use me to support a **partner** — and a surprising number of **dads** use me for a **daughter**. I also learn **who they are** (archetype) and **how they speak**, so advice sounds like them, not a template.
 
-        Is there someone whose cycle you try to plan around? Partner, wife, daughter, family? Tell me in plain words and we'll go from there — only with consent.
+        Who are we talking about — and how do they talk when they're stressed?
         """
     }
 

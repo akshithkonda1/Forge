@@ -291,6 +291,10 @@ enum AriaEmotionalSupportCoach {
             body = adaptation.voicePreamble + "\n\n" + body
                 + "\n\n" + adaptation.communicationAdvice
                 + "\n" + adaptation.conflictAdvice
+            if adaptation.archetype != .unknown {
+                body += "\n\n**Archetype:** \(adaptation.archetype.label) — \(adaptation.archetype.speechGuidance)"
+            }
+            body += "\n\n**Their speech style:** \(adaptation.speech.coachingSummary)"
             if !adaptation.dynamics.userTags.isEmpty {
                 body += "\n\nWhat you've taught me about them: "
                     + adaptation.dynamics.userTags.prefix(4).joined(separator: " · ")
@@ -335,7 +339,16 @@ enum AriaEmotionalSupportCoach {
             adaptation: adaptation,
             rng: &rng
         )
-        let say = scriptLine(for: reading, person: person, role: role, aboutOther: aboutOther, rng: &rng)
+        var say = scriptLine(for: reading, person: person, role: role, aboutOther: aboutOther, rng: &rng)
+        if let adaptation {
+            say = adaptation.personalizeScript(say)
+            // Prefer their channel hint in the script preface
+            if adaptation.speech.channelBias == .textFirst, aboutOther {
+                say = "(Text-friendly)\n" + say
+            } else if adaptation.speech.channelBias == .inPerson, aboutOther {
+                say = "(Better in person)\n" + say
+            }
+        }
         let closer = rng.pick(closers(for: reading.primary, aboutOther: aboutOther))
 
         var cycleNote: String?

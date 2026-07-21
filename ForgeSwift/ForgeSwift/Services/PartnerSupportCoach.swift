@@ -50,6 +50,11 @@ enum PartnerSupportCoach {
         lines.append(brief.headline)
         lines.append(adaptation.supportStance)
         lines.append(adaptation.communicationAdvice)
+        if adaptation.archetype != .unknown {
+            lines.append("**\(adaptation.who.capitalized)'s vibe:** \(adaptation.archetype.label) — \(adaptation.archetype.tagline)")
+            lines.append("Talk to them like this: \(adaptation.archetype.speechGuidance)")
+        }
+        lines.append("**How they speak:** \(adaptation.speech.coachingSummary)")
         if !adaptation.dynamics.userTags.isEmpty {
             lines.append("What I know about how you two work: " + adaptation.dynamics.userTags.prefix(5).joined(separator: " · "))
         }

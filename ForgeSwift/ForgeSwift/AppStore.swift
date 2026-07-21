@@ -1022,13 +1022,23 @@ final class AppStore: ObservableObject {
         AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
 
         guard let mention = AriaRelationalCoach.detectSupportMention(in: text) else {
-            // Still learn dynamics / remember-clauses for active person
+            // Still learn dynamics / archetype / speech for active person
             if let id = AriaPersonRegistry.shared.activePersonId {
                 AriaPersonRegistry.shared.learnDynamics(from: text, personId: id)
+            }
+            // Global archetype teaching without an active person name
+            if AriaPersonalArchetype.detect(in: text) != nil || text.lowercased().contains("she talks")
+                || text.lowercased().contains("he talks") || text.lowercased().contains("texts short") {
+                if let id = AriaPersonRegistry.shared.activePersonId {
+                    AriaPersonRegistry.shared.learnDynamics(from: text, personId: id)
+                }
             }
             return
         }
         AriaRelationalCoach.applyMentionIfNeeded(mention, store: MenstrualHealthStore.shared)
+        if let id = AriaPersonRegistry.shared.activePersonId {
+            AriaPersonRegistry.shared.learnDynamics(from: text, personId: id)
+        }
         // Natural consent phrases unlock full coaching.
         let lower = text.lowercased()
         if lower.contains("she said it's okay") || lower.contains("she is okay")

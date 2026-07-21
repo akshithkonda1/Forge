@@ -172,6 +172,8 @@ final class AriaPersonRegistry: ObservableObject {
         guard let idx = people.firstIndex(where: { $0.id == personId }) else { return }
         let lower = text.lowercased()
         var d = people[idx].dynamics
+        var speech = people[idx].speech
+        var archetype = people[idx].archetype
         var changed = false
 
         if lower.contains("long distance") || lower.contains("long-distance") {
@@ -187,6 +189,9 @@ final class AriaPersonRegistry: ObservableObject {
             || lower.contains("hates calm down") {
             if !d.userTags.contains("never say calm down") {
                 d.userTags.append("never say calm down")
+            }
+            if !speech.triggerPhrases.contains("calm down") {
+                speech.triggerPhrases.append("calm down")
             }
             changed = true
         }
@@ -206,6 +211,28 @@ final class AriaPersonRegistry: ObservableObject {
             d.conflictStyle = .repairFast; changed = true
         }
 
+        // Archetype teaching
+        if let arch = AriaPersonalArchetype.detect(in: text) {
+            archetype = arch
+            changed = true
+            AriaContextStore.shared.addInsight(
+                "Archetype for \(people[idx].name.isEmpty ? people[idx].primaryLabel : people[idx].name): \(arch.label) — \(arch.tagline)"
+            )
+        }
+        // Explicit "she's more of a guardian"
+        if lower.contains("archetype") || lower.contains("personality type") || lower.contains("she's a ")
+            || lower.contains("he's a ") || lower.contains("they're a ") || lower.contains("type of person") {
+            if let arch = AriaPersonalArchetype.detect(in: text) {
+                archetype = arch
+                changed = true
+            }
+        }
+
+        // Speech style teaching
+        if AriaSpeechStyleProfile.learn(from: text, into: &speech) {
+            changed = true
+        }
+
         // Teachable tags: "remember she hates X"
         if lower.contains("remember she") || lower.contains("remember he") || lower.contains("remember they")
             || lower.contains("note that") || lower.contains("always remember") {
@@ -219,9 +246,30 @@ final class AriaPersonRegistry: ObservableObject {
 
         if changed {
             d.lastUpdated = Date()
+            speech.lastUpdated = Date()
             people[idx].dynamics = d
+            people[idx].speech = speech
+            people[idx].archetype = archetype
             persist()
         }
+    }
+
+    func setArchetype(_ archetype: AriaPersonalArchetype, personId: String? = nil) {
+        let id = personId ?? activePersonId
+        guard let id, let idx = people.firstIndex(where: { $0.id == id }) else { return }
+        people[idx].archetype = archetype
+        // Refresh speech defaults lightly without wiping learned phrases
+        var speech = people[idx].speech
+        let refreshed = AriaSpeechStyleProfile.defaults(
+            for: AriaRelationshipLabel.parse(from: people[idx].primaryLabel),
+            archetype: archetype
+        )
+        speech.formality = refreshed.formality
+        speech.pace = refreshed.pace
+        speech.humor = refreshed.humor
+        speech.emotionalExpressiveness = refreshed.emotionalExpressiveness
+        people[idx].speech = speech
+        persist()
     }
 
     private func extractRememberClause(from text: String) -> String? {
@@ -271,9 +319,11 @@ extension AriaContextStore {
         tags.append("rel_dyn:tension:\(Int(adapt.dynamics.tension * 100))")
         tags.append("rel_dyn:comm:\(adapt.dynamics.communication.rawValue)")
         tags.append("rel_dyn:conflict:\(adapt.dynamics.conflictStyle.rawValue)")
+        tags.append("person_archetype:\(adapt.archetype.rawValue)")
+        tags.append("person_speech:\(adapt.speech.length.rawValue)_\(adapt.speech.formality.rawValue)")
         context.lifestyleTags = Array(Set(tags)).sorted()
         context.lastInsights.insert(
-            "Active relationship lens: \(adapt.who) — \(adapt.supportStance)",
+            "Active lens: \(adapt.who) · \(adapt.archetype.label) · \(adapt.speech.coachingSummary)",
             at: 0
         )
         if context.lastInsights.count > 15 {
