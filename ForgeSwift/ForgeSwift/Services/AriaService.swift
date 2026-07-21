@@ -118,7 +118,10 @@ final class AriaService: ObservableObject {
             || lower.contains("my kid") || lower.contains("my child")
             || AriaRelationalCoach.mentionsSupportContext(lower)
             || lower.contains("show up for") || lower.contains("help me support")
-        if AriaThemeResolver.isPlanRequest(text) {
+        let isEmotional = AriaEmotionalSupportCoach.isEmotionalSupportQuery(text, context: trainerContext)
+        if isEmotional, !AriaThemeResolver.isPlanRequest(text) || lower.contains("feel") || lower.contains("fight") {
+            local = try await RuleBasedResponseGenerator().generateResponse(for: text, context: trainerContext)
+        } else if AriaThemeResolver.isPlanRequest(text) {
             let plan = AriaPlanEngine.evaluate(input: text, context: trainerContext)
             if plan.shouldPersistTheme {
                 store.setTrainingTheme(plan.theme, source: "plan_engine")

@@ -467,6 +467,18 @@ final class AriaContextStore: ObservableObject {
         let day = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
         let salt = UInt64(day * 31 + readiness + context.relationshipLevel * 7)
 
+        // Emotional continuity: if last turn was emotional, check in humanly.
+        if let emotionTag = context.lifestyleTags.first(where: { $0.hasPrefix("emotion:") && $0 != "emotion:about_other" }),
+           salt % 2 == 0 {
+            let raw = emotionTag.replacingOccurrences(of: "emotion:", with: "")
+            if let need = AriaEmotionalNeed(rawValue: raw), need != .crisis {
+                lastProactiveInsight = need == .parentingStress || context.lifestyleTags.contains("emotion:about_other")
+                    ? "Still thinking about how you're supporting them — want a softer script or just a check-in?"
+                    : "Last time felt heavy (\(need.label.lowercased())). Want to vent another minute, or shift to something steady?"
+                return
+            }
+        }
+
         // Human relational check-ins (partner / daughter) interleave with training prompts.
         if let relational = AriaRelationalCoach.proactiveQuestion(
             userGender: store.userProfile.gender,

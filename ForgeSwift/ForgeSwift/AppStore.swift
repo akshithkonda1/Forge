@@ -144,6 +144,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         )
         let lower = input.lowercased()
         let intent: AriaSpeechIntent = {
+            if AriaEmotionalSupportCoach.detect(in: input, context: context) != nil { return .checkIn }
             if AriaThemeResolver.isPlanRequest(input) { return .trainingPlan }
             if lower.contains("tired") || lower.contains("exhausted") { return .lowEnergy }
             if lower.contains("sleep") { return .sleep }
@@ -185,9 +186,22 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         
         Respond in-character with the voice profile above. If they want a workout or themed plan, describe the session clearly.
         Use cycle context for training bias only — never medical or contraceptive advice.
+        If emotional keywords appear (fight, anxious, overwhelmed, sad, parenting stress, PMS mood), lead with human emotional support: validate, practical moves, optional scripts. Not therapy. Crisis → urge real emergency resources.
+        \(emotionalPromptBlock(input, context))
         """
         
         return prompt
+    }
+
+    private func emotionalPromptBlock(_ input: String, _ context: TrainerContext) -> String {
+        guard let reading = AriaEmotionalSupportCoach.detect(in: input, context: context) else {
+            return "Emotional read: none strong"
+        }
+        return """
+        Emotional read: \(reading.primary.label) (score \(String(format: "%.1f", reading.score)))
+        About someone else: \(reading.isAboutOther)
+        Keywords: \(reading.matchedKeywords.joined(separator: ", "))
+        """
     }
 
     private func cyclePromptBlock(_ context: TrainerContext) -> String {
@@ -279,6 +293,22 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         // Context-aware greetings
         if isGreeting(lower) {
             return generateGreeting(context: context)
+        }
+
+        // Emotional support (keywords + family/partner context) — before pure training when loaded
+        if let reading = AriaEmotionalSupportCoach.detect(in: input, context: context) {
+            // Pure training asks without emotional load still go to training below
+            let trainingOnly = AriaThemeResolver.isPlanRequest(input)
+                && reading.matchedKeywords.count <= 1
+                && reading.primary != .crisis
+                && !lower.contains("feel") && !lower.contains("upset") && !lower.contains("fight")
+            if !trainingOnly {
+                return AriaEmotionalSupportCoach.respond(
+                    reading: reading,
+                    context: context,
+                    input: input
+                )
+            }
         }
         
         // Training / themed plan request (Solo Leveling, daily quest, etc.)

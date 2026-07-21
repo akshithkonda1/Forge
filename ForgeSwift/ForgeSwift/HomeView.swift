@@ -855,6 +855,12 @@ enum HomeARIABriefingBuilder {
         } else if store.userProfile.gender == .male, score % 5 == 0 {
             extras.append("Partner or daughter to support? I can learn that context.")
         }
+        if let emotion = AriaContextStore.shared.context.lifestyleTags.first(where: { $0.hasPrefix("emotion:") && !$0.contains("about_other") }) {
+            let raw = emotion.replacingOccurrences(of: "emotion:", with: "")
+            if let need = AriaEmotionalNeed(rawValue: raw), need != .crisis, score % 2 == 0 {
+                extras.append("Still holding space for \(need.label.lowercased()) if you need it.")
+            }
+        }
         // Keep briefing tight: voice core + at most two extras (salted by readiness).
         let pickCount = min(2, extras.count)
         let mixed = score &* 17 &+ abs(theme.rawValue.hashValue)

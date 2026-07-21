@@ -76,6 +76,8 @@ enum AriaRelationalCoach {
             || lower.contains("fiancé") || lower.contains("fiance") || lower.contains("my sister")
             || lower.contains("for my daughter") || lower.contains("for my wife")
             || lower.contains("for my girlfriend")
+            || lower.contains("she's upset") || lower.contains("she is upset") || lower.contains("help her calm")
+            || lower.contains("emotional support") || lower.contains("family stress")
     }
 
     /// Pull a likely first name after "my wife/daughter X" or "named X".
