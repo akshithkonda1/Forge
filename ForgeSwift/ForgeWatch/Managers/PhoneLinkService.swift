@@ -116,4 +116,8 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         ingest(userInfo)
     }
+
+    #if os(watchOS)
+    // watchOS does not require sessionDidBecomeInactive / Deactivate.
+    #endif
 }

@@ -2,6 +2,11 @@
 <Scheme
    LastUpgradeVersion = "2700"
    version = "1.7">
+   <!--
+     Dual launch: builds iPhone + Watch, runs the iPhone app, then a post-action
+     launches ForgeWatch on every booted watchOS Simulator so both "pop up".
+     Destination in Xcode: pick your paired iPhone (Watch must be booted/paired).
+   -->
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
@@ -79,7 +84,13 @@
             ReferencedContainer = "container:ForgeSwift.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <!-- After iPhone launches, also launch the watch app on booted watch sims. -->
+      <EnvironmentVariables>
+         <EnvironmentVariable
+            key = "FORGE_LAUNCH_WATCH_COMPANION"
+            value = "1"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
       <PostActions>
          <ExecutionAction
             ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
