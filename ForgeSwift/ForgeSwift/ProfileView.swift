@@ -44,26 +44,26 @@ struct ProfileTabView: View {
                     }
                 }
                 .padding(4)
-                .background(Color.surface)
-                .cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
+                .background {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                            .fill(Color.surface.opacity(0.95))
+                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                            .fill(LinearGradient.premiumSurface)
+                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                            .stroke(Color.borderHairline, lineWidth: 1)
+                    }
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 60)
             .padding(.bottom, 8)
-            .background(
+            .background {
                 ZStack {
-                    Color.background.opacity(0.95)
-                    Rectangle()
-                        .fill(LinearGradient(
-                            colors: [Color.clear, Color.borderColor.opacity(0.1)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ))
-                        .frame(height: 1)
-                        .offset(y: 50)
+                    Color.background.opacity(0.92)
+                    LinearGradient.premiumChrome.opacity(0.4)
                 }
-            )
+            }
 
             // Content with transitions
             Group {
@@ -90,7 +90,7 @@ struct ProfileTabView: View {
             }
             .id(subTab)
         }
-        .background(Color.background.ignoresSafeArea())
+        .forgeScreenBackground(accent: .steel)
         .onAppear { applyPendingProfileSubTab() }
         .onChange(of: store.pendingProfileSubTab) { _, _ in applyPendingProfileSubTab() }
     }

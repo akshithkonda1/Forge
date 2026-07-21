@@ -373,9 +373,20 @@ private struct HomeScrollMiniHeader: View {
         .padding(.horizontal, 16)
         .padding(.top, 54)
         .padding(.bottom, 12)
-        .background(.ultraThinMaterial)
+        .background {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                LinearGradient.premiumChrome.opacity(0.5)
+            }
+            .ignoresSafeArea(edges: .top)
+        }
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.borderColor.opacity(0.5)).frame(height: 0.5)
+            LinearGradient(
+                colors: [Color.white.opacity(0.12), Color.white.opacity(0.02)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(height: 0.5)
         }
     }
 }
@@ -461,23 +472,7 @@ private struct HomeHeroReadinessCard: View {
             }
         }
         .padding(22)
-        .background(
-            ZStack {
-                Color.surface
-                RadialGradient(
-                    colors: [readinessColor(store.readiness.overall).opacity(0.1), .clear],
-                    center: .center,
-                    startRadius: 40,
-                    endRadius: 220
-                )
-            }
-        )
-        .cornerRadius(FDS.Radius.xl)
-        .overlay(
-            RoundedRectangle(cornerRadius: FDS.Radius.xl)
-                .stroke(readinessColor(store.readiness.overall).opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.07), radius: 20, y: 8)
+        .forgeGlassCard(accent: readinessColor(store.readiness.overall))
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 20)
         .onAppear { withAnimation(FDS.Spring.hero.delay(0.12)) { appeared = true } }
@@ -522,20 +517,25 @@ private struct HomePrimaryCTA: View {
                 .padding(.vertical, 18)
                 .padding(.horizontal, 20)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    action.isRecovery
-                        ? AnyShapeStyle(LinearGradient(
-                            colors: [Color.steel, Color.steel.opacity(0.85)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ))
-                        : AnyShapeStyle(FDS.Gradient.ember)
+                .background {
+                    ZStack {
+                        if action.isRecovery {
+                            FDS.Gradient.steel
+                        } else {
+                            FDS.Gradient.ember
+                        }
+                        LinearGradient.premiumChrome
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
                 )
-                .cornerRadius(FDS.Radius.lg)
                 .shadow(
-                    color: (action.isRecovery ? Color.steel : Color.ember).opacity(pressed ? 0.2 : 0.45),
-                    radius: pressed ? 6 : 18,
-                    y: pressed ? 2 : 8
+                    color: (action.isRecovery ? Color.steel : Color.ember).opacity(pressed ? 0.22 : 0.5),
+                    radius: pressed ? 8 : 22,
+                    y: pressed ? 3 : 10
                 )
             }
             .buttonStyle(.plain)
@@ -698,29 +698,7 @@ struct HomeARIABriefingCard: View {
             }
         }
         .padding(18)
-        .background(
-            ZStack {
-                Color.surface
-                LinearGradient(
-                    colors: [Color.ember.opacity(0.06), .clear],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-        )
-        .cornerRadius(FDS.Radius.xl)
-        .overlay(
-            RoundedRectangle(cornerRadius: FDS.Radius.xl)
-                .stroke(
-                    LinearGradient(
-                        colors: [Color.ember.opacity(0.35), Color.ember.opacity(0.08)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: Color.ember.opacity(0.1), radius: 20, y: 8)
+        .forgeGlassCard(accent: .ember)
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 18)
         .onAppear {
@@ -928,9 +906,7 @@ private struct HomeMetricTile: View {
         }
         .padding(14)
         .frame(width: 118, alignment: .leading)
-        .background(Color.surface)
-        .cornerRadius(FDS.Radius.lg)
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label): \(value)")
     }
@@ -1038,12 +1014,7 @@ private struct HomeTrendSection: View {
             }
         }
         .padding(18)
-        .background(Color.surface)
-        .cornerRadius(FDS.Radius.xl)
-        .overlay(
-            RoundedRectangle(cornerRadius: FDS.Radius.xl)
-                .stroke(Color.borderColor, lineWidth: 0.5)
-        )
+        .forgeGlassCard()
         .opacity(appeared ? 1 : 0)
         .onAppear {
             withAnimation(FDS.Spring.hero.delay(0.35)) { appeared = true }
@@ -1087,8 +1058,14 @@ struct BreakdownCardView: View {
             Spacer()
         }
         .padding(12)
-        .background(Color.surfaceElevated)
-        .cornerRadius(12)
+        .background {
+            ZStack {
+                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                    .fill(Color.surfaceElevated.opacity(0.9))
+                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                    .stroke(Color.borderHairline, lineWidth: 1)
+            }
+        }
         .opacity(appeared ? 1 : 0)
         .onAppear {
             withAnimation(FDS.Spring.hero.delay(0.05 * Double(index))) { appeared = true }
@@ -1301,12 +1278,7 @@ struct StreakCalendarSection: View {
             }
         }
         .padding(18)
-        .background(Color.surface)
-        .cornerRadius(FDS.Radius.xl)
-        .overlay(
-            RoundedRectangle(cornerRadius: FDS.Radius.xl)
-                .stroke(Color.ember.opacity(0.12), lineWidth: 1)
-        )
+        .forgeGlassCard(accent: .ember)
         .opacity(appeared ? 1 : 0)
         .onAppear { withAnimation(FDS.Spring.hero.delay(0.32)) { appeared = true } }
         .accessibilityElement(children: .combine)

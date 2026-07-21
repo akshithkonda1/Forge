@@ -37,60 +37,78 @@ struct ForgeSplashScreen: View {
     @State private var logoScale: CGFloat = 0.5
     @State private var logoOpacity: Double = 0
     @State private var glowIntensity: Double = 0
+    @State private var ringPulse = false
     
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.background.ignoresSafeArea()
+            RadialGradient(
+                colors: [Color.ember.opacity(0.16 * glowIntensity), Color.aurora.opacity(0.06 * glowIntensity), .clear],
+                center: .center,
+                startRadius: 20,
+                endRadius: 320
+            )
+            .ignoresSafeArea()
             
-            VStack(spacing: 16) {
-                // Forge logo with glow
+            VStack(spacing: 18) {
                 ZStack {
-                    // Outer glow
+                    Circle()
+                        .stroke(Color.ember.opacity(0.2), lineWidth: 1)
+                        .frame(width: ringPulse ? 168 : 140, height: ringPulse ? 168 : 140)
+                        .opacity(ringPulse ? 0 : 0.8)
                     Circle()
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    Color.ember.opacity(glowIntensity * 0.4),
-                                    Color.ember.opacity(glowIntensity * 0.2),
+                                    Color.ember.opacity(glowIntensity * 0.45),
+                                    Color.ember.opacity(glowIntensity * 0.12),
                                     Color.clear
                                 ],
                                 center: .center,
-                                startRadius: 30,
-                                endRadius: 120
+                                startRadius: 24,
+                                endRadius: 130
                             )
                         )
                         .frame(width: 240, height: 240)
-                        .blur(radius: 30)
+                        .blur(radius: 28)
                     
-                    // Main logo
                     Image(systemName: "flame.fill")
-                        .font(.system(size: 72, weight: .bold))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Color.ember, Color(hex: "FF3B00")],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .shadow(color: Color.ember.opacity(0.8), radius: 20, y: 10)
+                        .font(.system(size: 68, weight: .bold))
+                        .foregroundStyle(FDS.Gradient.ember)
+                        .shadow(color: Color.ember.opacity(0.75), radius: 22, y: 8)
                 }
                 .scaleEffect(logoScale)
                 .opacity(logoOpacity)
                 
                 Text("FORGE")
-                    .font(.system(size: 28, weight: .black, design: .rounded))
-                    .tracking(4)
-                    .foregroundColor(.white)
+                    .font(.system(size: 30, weight: .black, design: .rounded))
+                    .tracking(6)
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.white, Color.white.opacity(0.72)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
                     .opacity(logoOpacity)
+                
+                Text("ARIA · Intelligence Layer")
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .tracking(1.6)
+                    .foregroundColor(.textTertiary)
+                    .opacity(logoOpacity * 0.9)
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.8, dampingFraction: 0.6)) {
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.62)) {
                 logoScale = 1.0
                 logoOpacity = 1.0
             }
-            withAnimation(.easeInOut(duration: 1.5).delay(0.2)) {
+            withAnimation(.easeInOut(duration: 1.4).delay(0.15)) {
                 glowIntensity = 1.0
+            }
+            withAnimation(.easeOut(duration: 1.8).repeatForever(autoreverses: false)) {
+                ringPulse = true
             }
         }
     }
@@ -106,19 +124,24 @@ struct MainTabView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Background with subtle gradient
-            LinearGradient(
-                colors: [
-                    Color.background,
-                    Color.background.opacity(0.95),
-                    Color(hex: "0A0A0A")
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+            // Premium ambient canvas
+            ZStack {
+                Color.background
+                RadialGradient(
+                    colors: [Color.ember.opacity(0.07), .clear],
+                    center: UnitPoint(x: 0.2, y: 0.0),
+                    startRadius: 10,
+                    endRadius: 380
+                )
+                RadialGradient(
+                    colors: [Color.steel.opacity(0.05), .clear],
+                    center: UnitPoint(x: 0.95, y: 0.85),
+                    startRadius: 8,
+                    endRadius: 320
+                )
+            }
             .ignoresSafeArea()
             
-            // Content with parallax effect
             Group {
                 switch store.activeTab {
                 case .home:      HomeView()
@@ -131,14 +154,14 @@ struct MainTabView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.bottom, 82)
-            .offset(y: dragOffset * 0.1) // Subtle parallax
+            .offset(y: dragOffset * 0.08)
             .transition(.asymmetric(
                 insertion: .move(edge: tabTransitionEdge(from: previousTab, to: store.activeTab))
                     .combined(with: .opacity),
                 removal: .move(edge: tabTransitionEdge(from: store.activeTab, to: previousTab))
                     .combined(with: .opacity)
             ))
-            .animation(.spring(response: 0.5, dampingFraction: 0.82), value: store.activeTab)
+            .animation(FDS.Spring.page, value: store.activeTab)
             .id(store.activeTab)
 
             ForgeBottomNav(namespace: namespace, dragOffset: $dragOffset)
@@ -208,36 +231,30 @@ struct ForgeBottomNav: View {
             .padding(.top, 2)
             .background(
                 ZStack {
-                    // Premium glass effect
-                    Color(hex: "080808").opacity(0.85)
-                    
-                    // Subtle gradient overlay
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.04),
-                            Color.white.opacity(0.01),
-                            Color.clear
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    
-                    // Noise texture simulation
-                    Color.white.opacity(0.02)
+                    Color(hex: "060608").opacity(0.88)
+                    LinearGradient.premiumChrome
+                    Color.white.opacity(0.015)
                         .blendMode(.overlay)
                 }
-                .background(.ultraThinMaterial.opacity(0.3))
+                .background(.ultraThinMaterial.opacity(0.45))
             )
 
-            // Safe area extension
             ZStack {
-                Color(hex: "080808")
-                Color.white.opacity(0.01)
+                Color(hex: "060608")
+                Color.white.opacity(0.015)
             }
             .frame(height: safeAreaBottom)
         }
-        .shadow(color: .black.opacity(0.6), radius: 32, y: -8)
-        .shadow(color: Color.ember.opacity(store.activeTab == .chat ? 0.1 : 0), radius: 20, y: -5)
+        .overlay(alignment: .top) {
+            LinearGradient(
+                colors: [Color.white.opacity(0.14), Color.white.opacity(0.02), .clear],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(height: 0.6)
+        }
+        .shadow(color: .black.opacity(0.55), radius: 28, y: -10)
+        .shadow(color: Color.ember.opacity(store.activeTab == .chat ? 0.14 : 0.04), radius: 24, y: -6)
         .gesture(
             DragGesture()
                 .onChanged { gesture in
