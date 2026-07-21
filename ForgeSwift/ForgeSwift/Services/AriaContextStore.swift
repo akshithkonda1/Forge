@@ -217,6 +217,86 @@ final class AriaContextStore: ObservableObject {
         persist()
     }
 
+    /// Sticky voice dials (voice:hype, voice:clinical, …) used by AriaVoiceEngine.
+    func setVoicePreferenceTags(_ tags: [String]) {
+        var next = context.lifestyleTags.filter { !$0.hasPrefix("voice:") }
+        next.append(contentsOf: tags.filter { $0.hasPrefix("voice:") })
+        context.lifestyleTags = Array(Set(next)).sorted()
+        context.lastUpdated = Date()
+        persist()
+    }
+
+    func clearVoicePreferenceTags() {
+        context.lifestyleTags = context.lifestyleTags.filter { !$0.hasPrefix("voice:") }
+        context.lastUpdated = Date()
+        persist()
+    }
+
+    func clearCycleTags() {
+        context.lifestyleTags = context.lifestyleTags.filter {
+            !$0.hasPrefix("cycle:") && !$0.hasPrefix("cycle_phase:") && !$0.hasPrefix("cycle_day:")
+        }
+        context.recentPatterns = context.recentPatterns.filter { !$0.hasPrefix("cycle:") }
+        context.lastUpdated = Date()
+        persist()
+    }
+
+    func applyCycleSnapshot(_ snap: MenstrualCycleSnapshot) {
+        guard snap.trackingEnabled else {
+            clearCycleTags()
+            return
+        }
+        var tags = context.lifestyleTags.filter {
+            !$0.hasPrefix("cycle:") && !$0.hasPrefix("cycle_phase:") && !$0.hasPrefix("cycle_day:")
+        }
+        tags.append("cycle:enabled")
+        tags.append("cycle_phase:\(snap.phase.rawValue)")
+        if let day = snap.dayInCycle {
+            tags.append("cycle_day:\(day)")
+        }
+        tags.append("cycle:confidence:\(Int(snap.confidence * 100))")
+        tags.append("cycle:quality:\(snap.dataQuality)")
+        if snap.recommendRecoveryBias {
+            tags.append("cycle:recovery_bias")
+        }
+        if snap.isCurrentlyBleeding {
+            tags.append("cycle:bleeding")
+        }
+        context.lifestyleTags = Array(Set(tags)).sorted()
+
+        var patterns = context.recentPatterns.filter { !$0.hasPrefix("cycle:") }
+        patterns.append("cycle:\(snap.phase.rawValue)")
+        if let note = snap.insights.first {
+            context.lastInsights.insert("Cycle: \(note)", at: 0)
+            if context.lastInsights.count > 15 {
+                context.lastInsights = Array(context.lastInsights.prefix(15))
+            }
+        }
+        context.recentPatterns = Array(patterns.suffix(12))
+        context.lastUpdated = Date()
+        persist()
+    }
+
+    /// Persists preferred narrative training theme on lifestyle tags.
+    func setTrainingTheme(_ theme: AriaTrainingTheme) {
+        var tags = context.lifestyleTags.filter { !$0.hasPrefix("training_theme:") }
+        tags.append(theme.lifestyleTag)
+        context.lifestyleTags = Array(Set(tags)).sorted()
+        if theme != .classic {
+            context.recentPatterns = context.recentPatterns.filter { !$0.hasPrefix("theme:") }
+            context.recentPatterns.append("theme:\(theme.rawValue)")
+            if context.recentPatterns.count > 12 {
+                context.recentPatterns = Array(context.recentPatterns.suffix(12))
+            }
+        }
+        context.lastUpdated = Date()
+        persist()
+    }
+
+    var trainingTheme: AriaTrainingTheme {
+        AriaThemeResolver.detectFromTags(context.lifestyleTags) ?? .classic
+    }
+
     /// Seeds ARIA's living model from the finished onboarding interview.
     func seedFromOnboarding(
         name: String,
@@ -226,7 +306,8 @@ final class AriaContextStore: ObservableObject {
         coachingStyle: String,
         healthConnected: Bool,
         lifestyleTags: [String] = [],
-        constraints: [String] = []
+        constraints: [String] = [],
+        trainingTheme: AriaTrainingTheme = .classic
     ) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         context.currentGoals = goals
@@ -238,16 +319,22 @@ final class AriaContextStore: ObservableObject {
         ]
         tags.append(contentsOf: preferredWorkouts.prefix(4).map { "likes:\($0)" })
         tags.append(contentsOf: lifestyleTags)
+        tags.append(trainingTheme.lifestyleTag)
         context.lifestyleTags = Array(Set(tags)).sorted()
         context.constraints = constraints
         context.recentPatterns = ["first_session_setup"]
+        if trainingTheme != .classic {
+            context.recentPatterns.append("theme:\(trainingTheme.rawValue)")
+        }
         if constraints.contains(where: { $0.contains("guidance_only") }) {
             context.recentPatterns.append("guidance_only_coaching")
         }
         if !trimmed.isEmpty {
-            context.lastInsights = [
-                "Met \(trimmed) during onboarding interview — coaching style \(coachingStyle), focus on \(goals.first ?? "general fitness")."
-            ]
+            var insight = "Met \(trimmed) during onboarding interview — coaching style \(coachingStyle), focus on \(goals.first ?? "general fitness")."
+            if trainingTheme != .classic {
+                insight += " Training theme: \(trainingTheme.label)."
+            }
+            context.lastInsights = [insight]
         } else {
             context.lastInsights = [
                 "First connection established — coaching style \(coachingStyle)."
@@ -311,10 +398,23 @@ final class AriaContextStore: ObservableObject {
             return
         }
         let readiness = store.readiness.overall
+        let theme = trainingTheme
         if readiness < 55 {
-            lastProactiveInsight = "Your recovery is dipping — want a lighter plan today?"
+            if theme == .soloLeveling {
+                lastProactiveInsight = "Readiness is low — Safe Zone day. Want a Solo Leveling recovery quest?"
+            } else if theme != .classic {
+                lastProactiveInsight = "Recovery is dipping. Want a lighter \(theme.label) session?"
+            } else {
+                lastProactiveInsight = "Your recovery is dipping — want a lighter plan today?"
+            }
         } else if readiness >= 85 {
-            lastProactiveInsight = "You're primed. I can line up a performance-focused session."
+            if theme == .soloLeveling {
+                lastProactiveInsight = "S-Rank window. Ready for a full daily quest + gate clear?"
+            } else if theme != .classic {
+                lastProactiveInsight = "You're primed. I can build a \(theme.label) performance session."
+            } else {
+                lastProactiveInsight = "You're primed. I can line up a performance-focused session."
+            }
         } else if let insight = context.lastInsights.first {
             lastProactiveInsight = "Building on last time: \(insight)"
         } else {

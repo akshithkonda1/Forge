@@ -40,6 +40,12 @@ struct TrainerContext {
     let workoutHistory: [WorkoutHistory]
     let currentTime: Date
     let conversationHistory: [ChatMessage]
+    /// Living ARIA tags (lifestyle + training theme preference).
+    var lifestyleTags: [String] = []
+    /// Coach boundaries (conditions, guidance_only, etc.).
+    var constraints: [String] = []
+    /// Optional menstrual cycle snapshot when tracking is shared with ARIA.
+    var cycleSnapshot: MenstrualCycleSnapshot? = nil
     
     var hour: Int {
         Calendar.current.component(.hour, from: currentTime)
@@ -50,6 +56,21 @@ struct TrainerContext {
     var averageWeeklySleepScore: Double {
         let scores = sleepData.prefix(7).map { Double($0.score) }
         return scores.isEmpty ? 0 : scores.reduce(0, +) / Double(scores.count)
+    }
+
+    /// Resolved theme for this turn (profile + tags; chat input applied by plan engine).
+    var preferredTrainingTheme: AriaTrainingTheme {
+        AriaThemeResolver.resolve(
+            preferred: userProfile.trainingTheme,
+            lifestyleTags: lifestyleTags,
+            freeTimeTags: userProfile.interestTags
+        )
+    }
+
+    /// Effective readiness for programming: soft-lifts expected luteal/period dips so ARIA doesn't over-react.
+    var programmingReadiness: Int {
+        let bonus = cycleSnapshot.map { MenstrualCycleEngine.readinessInterpretationBonus(for: $0) } ?? 0
+        return min(100, readiness.overall + bonus)
     }
 }
 
@@ -78,25 +99,14 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
     private let model = SystemLanguageModel.default
     
     init() {
+        // Base identity; per-turn voice directives are injected in buildPrompt.
         let instructions = """
-        You are an AI personal trainer named Forge. You provide personalized fitness coaching with a direct, authentic, and knowledgeable tone.
-        
-        Your communication style:
-        - Be conversational and real, not overly formal
-        - Reference specific biometric data when relevant (HRV, sleep, readiness scores)
-        - Adapt training recommendations based on recovery metrics
-        - Balance empathy with accountability
-        - Provide actionable, specific guidance
-        
-        Your expertise includes:
-        - Strength training programming
-        - Recovery optimization
-        - Sleep quality analysis
-        - Workout adaptation based on readiness
-        - Progressive overload principles
-        
-        When the user's readiness is low, prioritize recovery. When it's high, push for performance.
-        Keep responses concise but informative. Use natural language, not robotic.
+        You are ARIA — an adaptive lifestyle & training coach inside Forge.
+        You can speak in infinite combinations of register, energy, metaphor, humor, and directness.
+        Always follow the per-message VOICE PROFILE block when present.
+        Reference biometrics when useful. Never invent medical advice.
+        Theme the language when the user wants Solo Leveling / other narrative styles, but keep plans real and safe.
+        Vary phrasing every turn — never sound like a script repeating itself.
         """
         
         self.session = LanguageModelSession(instructions: instructions)
@@ -123,13 +133,42 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
     }
     
     private func buildPrompt(input: String, context: TrainerContext) -> String {
+        let theme = AriaThemeResolver.resolve(
+            input: input,
+            preferred: context.userProfile.trainingTheme,
+            lifestyleTags: context.lifestyleTags,
+            freeTimeTags: context.userProfile.interestTags
+        )
+        let lower = input.lowercased()
+        let intent: AriaSpeechIntent = {
+            if AriaThemeResolver.isPlanRequest(input) { return .trainingPlan }
+            if lower.contains("tired") || lower.contains("exhausted") { return .lowEnergy }
+            if lower.contains("sleep") { return .sleep }
+            if lower.contains("pain") || lower.contains("hurt") { return .pain }
+            if lower.contains("progress") { return .progress }
+            if lower.contains("motivate") { return .motivation }
+            if lower.contains("hello") || lower.contains("hey") { return .greeting }
+            return .checkIn
+        }()
+        let voice = AriaVoiceEngine.resolveProfile(
+            context: context,
+            intent: intent,
+            input: input,
+            themeOverride: theme
+        )
         let prompt = """
+        \(voice.promptDirective)
+
         User: \(context.userProfile.name)
         Experience Level: \(context.userProfile.experienceLevel.label)
         Goals: \(context.userProfile.fitnessGoals.map { $0.label }.joined(separator: ", "))
+        Coaching style preference: \(context.userProfile.coachingStyle.label)
+        Training theme: \(theme.label) — \(theme.tagline)
+        Equipment: \(context.userProfile.trainingEquipment.rawValue)
+        Constraints: \(context.constraints.isEmpty ? "none" : context.constraints.joined(separator: ", "))
         
         Current Metrics:
-        - Readiness: \(context.readiness.overall)/100
+        - Readiness: \(context.readiness.overall)/100 (\(theme.rankLabel(for: context.readiness.overall)))
         - HRV: \(context.dailyMetrics.hrv)ms
         - Resting HR: \(context.dailyMetrics.restingHR) bpm
         - Sleep Quality: \(context.readiness.sleepQuality)/100
@@ -137,82 +176,55 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         - Recovery Score: \(context.readiness.recoveryScore)/100
         
         Time: \(context.isEarlyMorning ? "Early morning (before 7am)" : context.isLateNight ? "Late night (after 10pm)" : "Daytime")
+        \(cyclePromptBlock(context))
         
         User message: "\(input)"
         
-        Provide a personalized response based on their current state and question.
+        Respond in-character with the voice profile above. If they want a workout or themed plan, describe the session clearly.
+        Use cycle context for training bias only — never medical or contraceptive advice.
         """
         
         return prompt
     }
+
+    private func cyclePromptBlock(_ context: TrainerContext) -> String {
+        guard let c = context.cycleSnapshot, c.trackingEnabled else {
+            return "Cycle: not shared / unavailable"
+        }
+        var lines = [
+            "Cycle phase: \(c.phase.label)",
+            "Day in cycle: \(c.dayInCycle.map(String.init) ?? "unknown")",
+            "Confidence: \(Int(c.confidence * 100))% (\(c.dataQuality))",
+            "Training note: \(c.trainingNote)",
+            "Readiness note: \(c.readinessNote)",
+        ]
+        if let next = c.nextPeriod {
+            lines.append("Next period window: \(next.earliestDayKey)…\(next.latestDayKey)")
+        }
+        return lines.joined(separator: "\n")
+    }
     
     private func parseResponse(_ content: String, context: TrainerContext, input: String) -> TrainerResponse {
-        // Check if we should generate a workout plan or data chart based on content
         var richCard: RichCardData? = nil
+        var suggested: [String]? = nil
         let lowerInput = input.lowercased()
         
-        // Generate workout plan if appropriate
-        if lowerInput.contains("workout") || lowerInput.contains("train") {
-            richCard = generateWorkoutPlan(for: context)
-        }
-        // Generate sleep chart if discussing sleep
-        else if lowerInput.contains("sleep") {
+        if AriaThemeResolver.isPlanRequest(input)
+            || lowerInput.contains("workout")
+            || lowerInput.contains("train") {
+            let plan = AriaPlanEngine.evaluate(input: input, context: context)
+            richCard = plan.richCard
+            suggested = plan.suggestedActions
+        } else if lowerInput.contains("sleep") {
             richCard = generateSleepChart(for: context)
         }
         
         return TrainerResponse(
             content: content,
             richCard: richCard,
+            suggestedActions: suggested,
             confidence: 0.95
         )
-    }
-    
-    private func generateWorkoutPlan(for context: TrainerContext) -> RichCardData {
-        // Generate workout based on readiness
-        let readiness = context.readiness.overall
-        
-        if readiness >= 80 {
-            return RichCardData(
-                type: .workoutPlan,
-                workoutName: "Upper Body Power",
-                workoutDuration: 55,
-                workoutExercises: [
-                    ("Barbell Bench Press", 4, "6-8"),
-                    ("Weighted Pull-Ups", 4, "6-8"),
-                    ("Overhead Press", 3, "8-10"),
-                    ("Barbell Rows", 3, "8-10"),
-                    ("Incline DB Press", 3, "10-12"),
-                    ("Face Pulls", 3, "15-20"),
-                ]
-            )
-        } else if readiness >= 60 {
-            return RichCardData(
-                type: .workoutPlan,
-                workoutName: "Upper Body Volume",
-                workoutDuration: 50,
-                workoutExercises: [
-                    ("Barbell Bench Press", 3, "8-10"),
-                    ("Lat Pulldown", 3, "10-12"),
-                    ("Dumbbell Press", 3, "10-12"),
-                    ("Cable Row", 3, "10-12"),
-                    ("Lateral Raises", 3, "12-15"),
-                    ("Tricep Pushdowns", 3, "12-15"),
-                ]
-            )
-        } else {
-            return RichCardData(
-                type: .workoutPlan,
-                workoutName: "Active Recovery Upper",
-                workoutDuration: 35,
-                workoutExercises: [
-                    ("Push-Ups (controlled)", 3, "12"),
-                    ("Band Pull-Aparts", 3, "20"),
-                    ("Dumbbell Press (light)", 3, "15"),
-                    ("TRX Rows", 3, "15"),
-                    ("Shoulder Circles", 2, "20"),
-                ]
-            )
-        }
     }
     
     private func generateSleepChart(for context: TrainerContext) -> RichCardData {
@@ -243,9 +255,14 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             return generateGreeting(context: context)
         }
         
-        // Training request
-        if isTrainingRequest(lower) {
-            return generateTrainingResponse(context: context)
+        // Training / themed plan request (Solo Leveling, daily quest, etc.)
+        if AriaThemeResolver.isPlanRequest(input) || isTrainingRequest(lower) {
+            return generateTrainingResponse(input: input, context: context)
+        }
+
+        // Menstrual / cycle coaching
+        if isCycleQuery(lower) {
+            return generateCycleResponse(context: context, input: input)
         }
         
         // Low energy
@@ -260,7 +277,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         
         // Pain/injury
         if isPainMention(lower) {
-            return generatePainResponse(lower)
+            return generatePainResponse(input: lower, context: context)
         }
         
         // Progress check
@@ -270,16 +287,16 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         
         // Gratitude
         if isGratitude(lower) {
-            return generateGratitudeResponse()
+            return generateGratitudeResponse(context: context)
         }
         
         // Motivation
         if isMotivationRequest(lower) {
-            return generateMotivationResponse()
+            return generateMotivationResponse(context: context)
         }
         
         // Fallback
-        return generateFallbackResponse()
+        return generateFallbackResponse(context: context)
     }
     
     // MARK: - Query Detection
@@ -290,8 +307,14 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
     }
     
     private func isTrainingRequest(_ text: String) -> Bool {
-        text.contains("what should i") || text.contains("train today") || 
-        text.contains("workout today") || text.contains("what should we")
+        AriaThemeResolver.isPlanRequest(text)
+    }
+
+    private func isCycleQuery(_ text: String) -> Bool {
+        text.contains("period") || text.contains("menstrual") || text.contains("cycle day")
+            || text.contains("luteal") || text.contains("follicular") || text.contains("ovulat")
+            || text.contains("pms") || text.contains("cramp") || text.contains("my cycle")
+            || text.contains("time of the month")
     }
     
     private func isLowEnergyMention(_ text: String) -> Bool {
@@ -326,85 +349,97 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
     // MARK: - Response Generation
     
     private func generateGreeting(context: TrainerContext) -> TrainerResponse {
-        var greetings: [String] = []
-        
-        if context.isEarlyMorning {
-            greetings = [
-                "Morning, \(context.userProfile.name). You're up early. Training or just couldn't sleep?",
-                "Damn, you're up. Feeling good or just restless?",
-                "Early bird today, huh? What's the plan?",
-            ]
-        } else if context.isLateNight {
-            greetings = [
-                "Late night check-in? What's on your mind?",
-                "Can't sleep or just wired from today? Talk to me.",
-                "Yo. Everything good? Kinda late for you.",
-            ]
-        } else if context.readiness.overall < 65 {
-            greetings = [
-                "Hey. Noticed you're at \(context.readiness.overall)% today — how you actually feeling?",
-                "What's up. Your numbers are a little off today, just checking in.",
-                "Hey \(context.userProfile.name). Body's telling me you might need an easy day — you feel that too?",
-            ]
-        } else {
-            greetings = [
-                "Yo, what's good?",
-                "Hey \(context.userProfile.name), what do you need?",
-                "What's up, talk to me.",
-                "Hey. How's everything feeling today?",
-                "Yo. What are we working on?",
-            ]
+        let content = AriaVoiceEngine.speak(intent: .greeting, context: context)
+        return TrainerResponse(content: content, confidence: 0.9)
+    }
+
+    private func generateCycleResponse(context: TrainerContext, input: String) -> TrainerResponse {
+        guard let cycle = context.cycleSnapshot, cycle.trackingEnabled else {
+            let msg = """
+            I can coach around your cycle once tracking is on — open Cycle Health to log periods, BBT, and OPKs, or sync Apple Health.
+
+            \(MenstrualCycleEngine.disclaimer)
+            """
+            return TrainerResponse(
+                content: msg,
+                suggestedActions: ["Open cycle health", "What should I train today?"],
+                confidence: 0.8
+            )
         }
-        
-        return TrainerResponse(content: greetings.randomElement()!)
+
+        var lines: [String] = []
+        lines.append("You're in **\(cycle.phase.label)**" + (cycle.dayInCycle.map { " · day \($0)" } ?? "") + ".")
+        lines.append("Engine confidence \(Int(cycle.confidence * 100))% (\(cycle.dataQuality)). Cycles observed: \(cycle.cyclesObserved).")
+        if let method = cycle.ovulationMethod, let ovu = cycle.ovulationDayInCycle {
+            lines.append("Ovulation estimate: day \(ovu) via \(method.replacingOccurrences(of: "_", with: " ")).")
+        }
+        if let next = cycle.nextPeriod {
+            lines.append("Next period window: \(next.earliestDayKey) → \(next.latestDayKey) (median \(next.medianDayKey)).")
+        }
+        lines.append(cycle.trainingNote)
+        lines.append(cycle.readinessNote)
+        for insight in cycle.insights.prefix(3) {
+            lines.append("• \(insight)")
+        }
+        lines.append("\n" + cycle.disclaimer)
+
+        // Offer a phase-aware plan when they ask what to do.
+        let lower = input.lowercased()
+        if lower.contains("train") || lower.contains("workout") || lower.contains("should i") {
+            let plan = AriaPlanEngine.evaluate(input: input, context: context)
+            return TrainerResponse(
+                content: lines.joined(separator: "\n\n") + "\n\n" + plan.narrative,
+                richCard: plan.richCard,
+                suggestedActions: plan.suggestedActions,
+                confidence: max(0.85, cycle.confidence)
+            )
+        }
+
+        return TrainerResponse(
+            content: lines.joined(separator: "\n\n"),
+            suggestedActions: ["Build a phase-aware workout", "Log period start", "Explain fertile window"],
+            confidence: max(0.85, cycle.confidence)
+        )
     }
     
-    private func generateTrainingResponse(context: TrainerContext) -> TrainerResponse {
-        let readiness = context.readiness.overall
-        let response: String
-        let workoutPlan: RichCardData
-        
-        if readiness >= 80 {
-            response = "Alright so — you're at \(readiness)/100, HRV came in at \(context.dailyMetrics.hrv), resting HR is \(context.dailyMetrics.restingHR). Body's ready for some damage. Let's go heavy today. Upper body power work, big compounds, low reps. Gonna feel amazing."
-            workoutPlan = RichCardData(type: .workoutPlan, workoutName: "Upper Body Power", workoutDuration: 55, workoutExercises: [
-                ("Barbell Bench Press", 4, "6-8"), ("Weighted Pull-Ups", 4, "6-8"),
-                ("Overhead Press", 3, "8-10"), ("Barbell Rows", 3, "8-10"),
-                ("Incline DB Press", 3, "10-12"), ("Face Pulls", 3, "15-20"),
-            ])
-        } else if readiness >= 60 {
-            response = "You're sitting at \(readiness)/100. HRV's \(context.dailyMetrics.hrv), heart rate \(context.dailyMetrics.restingHR) — totally fine, not spectacular. We can work with this. Upper body but I'm pulling back the volume a bit. Quality reps, don't chase PRs today."
-            workoutPlan = RichCardData(type: .workoutPlan, workoutName: "Upper Body Volume", workoutDuration: 50, workoutExercises: [
-                ("Barbell Bench Press", 3, "8-10"), ("Lat Pulldown", 3, "10-12"),
-                ("Dumbbell Press", 3, "10-12"), ("Cable Row", 3, "10-12"),
-                ("Lateral Raises", 3, "12-15"), ("Tricep Pushdowns", 3, "12-15"),
-            ])
-        } else {
-            response = "Yeah so... readiness is \(readiness)/100. HRV at \(context.dailyMetrics.hrv), resting HR is \(context.dailyMetrics.restingHR). That's lower than I want to see. You stressed? Not sleeping well? Either way, we're backing off today. Light upper body work, more like movement practice than training. Save the real work for when your body's actually ready."
-            workoutPlan = RichCardData(type: .workoutPlan, workoutName: "Active Recovery Upper", workoutDuration: 35, workoutExercises: [
-                ("Push-Ups (controlled)", 3, "12"), ("Band Pull-Aparts", 3, "20"),
-                ("Dumbbell Press (light)", 3, "15"), ("TRX Rows", 3, "15"),
-                ("Shoulder Circles", 2, "20"),
-            ])
-        }
-        
-        return TrainerResponse(content: response, richCard: workoutPlan)
+    private func generateTrainingResponse(input: String, context: TrainerContext) -> TrainerResponse {
+        let plan = AriaPlanEngine.evaluate(input: input, context: context)
+        return TrainerResponse(
+            content: plan.narrative,
+            richCard: plan.richCard,
+            suggestedActions: plan.suggestedActions,
+            confidence: 0.92
+        )
     }
     
     private func generateLowEnergyResponse(context: TrainerContext) -> TrainerResponse {
-        let empathy = [
-            "Yeah, I hear you. Some days just hit different. Look — skipping entirely? Waste. Going hard anyway? Stupid. So we meet in the middle. 30 minutes, easy movement, get some blood flow going. You'll feel better after, trust me.",
-            "Felt that way yesterday too, huh? Listen, your body's trying to tell you something. We're not doing anything heavy today. Recovery flow, stretch it out, move light. Think of it like... maintenance, not training. You'll bounce back faster.",
-            "Okay real talk — there's tired, and then there's *tired*. Which one? Like, 'I stayed up late' tired or 'my body's wrecked' tired? Either way we're backing off, I just need to know how much.",
-            "Gotcha. Days like this separate smart athletes from broken ones. We're going light. Mobility, blood flow, maybe some easy bodyweight stuff. No ego, no grinding. Just movement. Sound good?",
-        ]
-        
-        let workoutPlan = RichCardData(type: .workoutPlan, workoutName: "Recovery Flow", workoutDuration: 30, workoutExercises: [
-            ("Foam Rolling", 1, "5 min"), ("World's Greatest Stretch", 2, "8 each side"),
-            ("Band Pull-Aparts", 3, "15"), ("Goblet Squats (light)", 2, "10"),
-            ("Dead Hangs", 3, "30 sec"), ("Walk or Bike (easy)", 1, "10 min"),
-        ])
-        
-        return TrainerResponse(content: empathy.randomElement()!, richCard: workoutPlan)
+        let recovery = AriaPlanEngine.evaluate(input: "low energy recovery session", context: context)
+        // Force soft recovery framing even if readiness is high — user said they're tired.
+        let facts = AriaSpeechFacts(
+            sessionTitle: "Recovery Flow",
+            sessionDuration: 30,
+            sessionIntensity: "low intensity",
+            sessionFlavor: "Mobility, blood flow, no ego."
+        )
+        let content = AriaVoiceEngine.speak(
+            intent: .lowEnergy,
+            context: context,
+            input: "tired",
+            facts: facts
+        )
+        let workoutPlan = recovery.richCard.type == .workoutPlan && recovery.readiness < 70
+            ? recovery.richCard
+            : RichCardData(type: .workoutPlan, workoutName: "Recovery Flow", workoutDuration: 30, workoutExercises: [
+                ("Foam Rolling", 1, "5 min"), ("World's Greatest Stretch", 2, "8 each side"),
+                ("Band Pull-Aparts", 3, "15"), ("Goblet Squats (light)", 2, "10"),
+                ("Dead Hangs", 3, "30 sec"), ("Walk or Bike (easy)", 1, "10 min"),
+            ])
+        return TrainerResponse(
+            content: content,
+            richCard: workoutPlan,
+            suggestedActions: ["Start recovery flow", "Just talk", "Plan an easier week"],
+            confidence: 0.9
+        )
     }
     
     private func generateSleepAnalysis(context: TrainerContext) -> TrainerResponse {
@@ -413,15 +448,20 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         let totalHrs = lastSleep?.totalHours ?? Double(context.dailyMetrics.totalSleep) / 60
         let scores = context.sleepData.prefix(7).map { Double($0.score) }.reversed().map { $0 }
         let avg = context.averageWeeklySleepScore
-        
-        let analysis: String
-        if deepMin >= 90 && totalHrs >= 7 {
-            analysis = "Last night? \(String(format: "%.1f", totalHrs)) hours, \(deepMin) minutes deep. That's legit. Deep sleep is where you actually rebuild — muscles repair, hormones regulate, nervous system resets. You're doing it right. Keep this up and your training's gonna reflect it."
-        } else if deepMin < 60 {
-            analysis = "So... \(String(format: "%.1f", totalHrs)) hours total but only \(deepMin) minutes deep sleep. That's rough. Deep sleep is literally non-negotiable for recovery. Without it you're just breaking down without building back up. What's going on — stress? Late caffeine? Blue light before bed? We gotta fix this or your training's gonna stall."
-        } else {
-            analysis = "Slept \(String(format: "%.1f", totalHrs)) hours, got \(deepMin) minutes deep. Not bad, not great. You need more consistent sleep if you want real progress. I know life happens, but sleep is where the magic happens. Try to get to bed 30 minutes earlier tonight, see if that helps."
-        }
+
+        let band: AriaSpeechFacts.SleepSpeechBand = {
+            if deepMin >= 90 && totalHrs >= 7 { return .strong }
+            if deepMin < 60 { return .weak }
+            return .ok
+        }()
+
+        let facts = AriaSpeechFacts(
+            sleepHours: totalHrs,
+            deepMinutes: deepMin,
+            sleepAvg: Int(avg),
+            sleepBand: band
+        )
+        let analysis = AriaVoiceEngine.speak(intent: .sleep, context: context, facts: facts)
         
         let chartData = RichCardData(
             type: .dataChart,
@@ -431,24 +471,20 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             chartColor: .steel
         )
         
-        return TrainerResponse(content: analysis, richCard: chartData)
+        return TrainerResponse(content: analysis, richCard: chartData, confidence: 0.9)
     }
     
-    private func generatePainResponse(_ input: String) -> TrainerResponse {
-        let isSorenessMention = input.contains("sore") || input.contains("doms")
-        if isSorenessMention {
-            return TrainerResponse(content: "Soreness or actual pain? Big difference. DOMS from yesterday's workout? Normal, means you worked. Sharp pain when you move a certain way? Red flag. Which one we talking about?")
-        } else {
-            return TrainerResponse(content: "Whoa, stop. Where's the pain? Sharp or dull? Does it hurt when you move it or just when you load it? Need details before we do anything. If it's sharp, we're working around it completely. If it's just tight or achy, we can probably move through it carefully. Talk to me.")
-        }
+    private func generatePainResponse(input: String, context: TrainerContext) -> TrainerResponse {
+        let content = AriaVoiceEngine.speak(intent: .pain, context: context, input: input)
+        return TrainerResponse(content: content, confidence: 0.88)
     }
     
     private func generateProgressResponse(context: TrainerContext) -> TrainerResponse {
-        let encouragement = [
-            "Bro you've been killing it. Last month alone — 18 workouts, 3 new PRs, recovery metrics up 22%. Bench went from 205 to 225, squat's at 315 now. That's not luck, that's showing up consistently. Keep this pace and you're gonna surprise yourself in 3 months.",
-            "Let me check... yeah okay, you're doing better than you think. 18 sessions in 4 weeks, bench up 20 pounds, squat hit 315. Most people aren't consistent enough to see these numbers. You are. That's the whole game right there — just keep showing up and the results pile up.",
-            "Pulled your stats. Last 30 days you've been ridiculously consistent. 18 workouts, zero missed sessions, 3 PRs. Bench jumped from 205 to 225. Squat's at 315. Your recovery's improving too — HRV trending up, sleep's been solid. This is what real progress looks like. Not flashy, just steady.",
-        ]
+        let facts = AriaSpeechFacts(
+            recentSessions: context.workoutHistory.count,
+            streak: nil
+        )
+        let content = AriaVoiceEngine.speak(intent: .progress, context: context, facts: facts)
         
         let chartData = RichCardData(
             type: .dataChart,
@@ -458,37 +494,22 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             chartColor: .ember
         )
         
-        return TrainerResponse(content: encouragement.randomElement()!, richCard: chartData)
+        return TrainerResponse(content: content, richCard: chartData, confidence: 0.88)
     }
     
-    private func generateGratitudeResponse() -> TrainerResponse {
-        let gratitude = [
-            "You're doing the work, I'm just here to keep you honest.",
-            "Don't thank me yet, we're just getting started.",
-            "Appreciate it. Now go hit that workout.",
-            "All you, I'm just steering. Keep showing up.",
-        ]
-        return TrainerResponse(content: gratitude.randomElement()!)
+    private func generateGratitudeResponse(context: TrainerContext) -> TrainerResponse {
+        let content = AriaVoiceEngine.speak(intent: .gratitude, context: context)
+        return TrainerResponse(content: content, confidence: 0.9)
     }
     
-    private func generateMotivationResponse() -> TrainerResponse {
-        let motivation = [
-            "Motivation? Nah. Motivation is temporary. You need discipline. Motivation gets you to the gym once. Discipline gets you there 200 times a year. Stop waiting to feel like it. Just show up. That's the secret nobody wants to hear.",
-            "You don't need me to pump you up. You need to remember why you started. Write that down. Then go do the work even when you don't feel like it. That's how you build something real.",
-            "Real talk — the best workouts happen on days you don't want to train. Those are the ones that count. Anyone can show up when they're motivated. You? You're gonna show up when you're not. That's what separates you.",
-        ]
-        return TrainerResponse(content: motivation.randomElement()!)
+    private func generateMotivationResponse(context: TrainerContext) -> TrainerResponse {
+        let content = AriaVoiceEngine.speak(intent: .motivation, context: context)
+        return TrainerResponse(content: content, confidence: 0.9)
     }
     
-    private func generateFallbackResponse() -> TrainerResponse {
-        let fallbacks = [
-            "Not sure I follow. You asking about training? Recovery? Something specific bothering you? Just say it straight, I got you.",
-            "Hmm, lost me a bit there. Rephrase that? Are we talking workouts, sleep, nutrition, or something else?",
-            "I want to give you a real answer but I need more context. What specifically are you asking about?",
-            "Hold up, clarify that for me. You mean today's workout or overall programming or...?",
-            "Yeah I'm not quite tracking. Break it down for me — what do you actually need right now?",
-        ]
-        return TrainerResponse(content: fallbacks.randomElement()!)
+    private func generateFallbackResponse(context: TrainerContext) -> TrainerResponse {
+        let content = AriaVoiceEngine.speak(intent: .fallback, context: context)
+        return TrainerResponse(content: content, confidence: 0.7)
     }
 }
 
@@ -695,6 +716,11 @@ final class AppStore: ObservableObject {
         isGeneratingResponse = true
 
         do {
+            // Learn theme preference from chat ("train like Solo Leveling", locks, etc.).
+            applyTrainingThemeIfDetected(from: text)
+            // Learn voice dials ("be hype", "just the facts", "keep it short", …).
+            applyVoicePreferenceIfDetected(from: text)
+
             let aria = try await AriaService.shared.sendMessage(
                 text,
                 store: self,
@@ -703,6 +729,11 @@ final class AppStore: ObservableObject {
             )
 
             lastSuggestedActions = aria.suggestedActions ?? []
+
+            // If ARIA built a session, surface it as today's plan.
+            if let card = aria.toRichCardData(), card.type == .workoutPlan {
+                adoptWorkoutFromRichCard(card)
+            }
 
             let trainerMessage = ChatMessage(
                 id: UUID().uuidString,
@@ -751,15 +782,7 @@ final class AppStore: ObservableObject {
         var result: (String, RichCardData?) = ("I'm thinking...", nil)
         
         Task { @MainActor in
-            let context = TrainerContext(
-                userProfile: userProfile,
-                readiness: readiness,
-                dailyMetrics: dailyMetrics,
-                sleepData: sleepData,
-                workoutHistory: workoutHistory,
-                currentTime: Date(),
-                conversationHistory: chatMessages
-            )
+            let context = makeTrainerContext()
             
             do {
                 let response = try await responseGenerator.generateResponse(for: text, context: context)
@@ -770,6 +793,132 @@ final class AppStore: ObservableObject {
         }
         
         return result
+    }
+
+    /// Builds a full `TrainerContext` including living ARIA tags/constraints + cycle.
+    func makeTrainerContext() -> TrainerContext {
+        let ctx = AriaContextStore.shared.context
+        let cycleStore = MenstrualHealthStore.shared
+        cycleStore.refresh(from: self)
+        let cycle: MenstrualCycleSnapshot? = {
+            guard cycleStore.settings.enabled, cycleStore.settings.shareWithAria else { return nil }
+            return cycleStore.snapshot
+        }()
+        return TrainerContext(
+            userProfile: userProfile,
+            readiness: readiness,
+            dailyMetrics: dailyMetrics,
+            sleepData: sleepData,
+            workoutHistory: workoutHistory,
+            currentTime: Date(),
+            conversationHistory: chatMessages,
+            lifestyleTags: ctx.lifestyleTags,
+            constraints: ctx.constraints,
+            cycleSnapshot: cycle
+        )
+    }
+
+    /// Detects fandom/theme requests and persists preference for future plans.
+    func applyTrainingThemeIfDetected(from text: String) {
+        guard let theme = AriaThemeResolver.detect(in: text) else { return }
+        let lock = AriaThemeResolver.isThemePreferenceLock(text)
+        // Always remember an explicit franchise ask; locks force persist even if already set.
+        if lock || userProfile.trainingTheme != theme {
+            setTrainingTheme(theme, source: "chat")
+        }
+    }
+
+    /// Sticky voice dials from natural language so ARIA can be steered mid-conversation.
+    func applyVoicePreferenceIfDetected(from text: String) {
+        let lower = text.lowercased()
+        var tags: [String] = []
+        if lower.contains("be hype") || lower.contains("hype me") || lower.contains("pump me") {
+            tags.append("voice:hype")
+        }
+        if lower.contains("be gentle") || lower.contains("softer") || lower.contains("be soft") {
+            tags.append("voice:soft")
+        }
+        if lower.contains("just the facts") || lower.contains("data mode") || lower.contains("be clinical")
+            || lower.contains("talk data") || lower.contains("numbers only") {
+            tags.append("voice:clinical")
+        }
+        if lower.contains("talk street") || lower.contains("be casual") || lower.contains("less formal") {
+            tags.append("voice:street")
+        }
+        if lower.contains("in character") || lower.contains("full theme") || lower.contains("mythic") {
+            tags.append("voice:mythic")
+        }
+        if lower.contains("keep it short") || lower.contains("tl;dr") || lower.contains("be brief") {
+            tags.append("voice:tight")
+        }
+        if lower.contains("go deep") || lower.contains("in detail") || lower.contains("explain more") {
+            tags.append("voice:expansive")
+        }
+        if lower.contains("be funny") || lower.contains("lighten up") {
+            tags.append("voice:playful")
+        }
+        if lower.contains("no bs") || lower.contains("be blunt") || lower.contains("be real") {
+            tags.append("voice:blunt")
+        }
+        if lower.contains("reset voice") || lower.contains("normal voice") || lower.contains("default voice") {
+            AriaContextStore.shared.clearVoicePreferenceTags()
+            return
+        }
+        guard !tags.isEmpty else { return }
+        AriaContextStore.shared.setVoicePreferenceTags(tags)
+    }
+
+    func setTrainingTheme(_ theme: AriaTrainingTheme, source: String = "settings") {
+        let changed = userProfile.trainingTheme != theme
+        userProfile.trainingTheme = theme
+        AriaContextStore.shared.setTrainingTheme(theme)
+        guard changed else {
+            objectWillChange.send()
+            return
+        }
+        AriaContextStore.shared.addInsight(
+            "Training theme set to \(theme.label) via \(source)."
+        )
+        // Rebuild today's plan under the new lens when readiness is known.
+        if readiness.overall > 0 {
+            let plan = AriaPlanEngine.evaluate(
+                input: "Build today's \(theme.label) training plan",
+                context: makeTrainerContext()
+            )
+            todayWorkout = plan.workoutPlan
+        }
+        objectWillChange.send()
+    }
+
+    func adoptWorkoutFromRichCard(_ card: RichCardData) {
+        guard card.type == .workoutPlan,
+              let name = card.workoutName,
+              let duration = card.workoutDuration,
+              let moves = card.workoutExercises else { return }
+        let exercises = moves.enumerated().map { idx, move in
+            Exercise(
+                id: "aria-live-\(idx)",
+                name: move.name,
+                sets: move.sets,
+                reps: move.reps,
+                weight: nil,
+                restSeconds: 60,
+                notes: nil
+            )
+        }
+        let intensity: WorkoutIntensity = {
+            if duration >= 50 { return .high }
+            if duration >= 35 { return .moderate }
+            return .low
+        }()
+        todayWorkout = WorkoutPlan(
+            id: "aria-today-\(UUID().uuidString.prefix(6))",
+            name: name,
+            type: .strength,
+            duration: duration,
+            intensity: intensity,
+            exercises: exercises
+        )
     }
     
     // MARK: - Data Management
@@ -795,6 +944,14 @@ final class AppStore: ObservableObject {
 
         let samples = BiometricsObserveService.shared.samplesFromStore(self)
         _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
+
+        // Menstrual cycle: auto-enable path for female profiles + HealthKit multi-signal sync.
+        MenstrualHealthStore.shared.enableForFemaleProfileIfNeeded(gender: userProfile.gender)
+        if MenstrualHealthStore.shared.settings.enabled {
+            await MenstrualHealthStore.shared.syncFromHealthKit()
+            MenstrualHealthStore.shared.refresh(from: self)
+        }
+
         lastMetricsRefresh = Date()
         objectWillChange.send()
     }
@@ -916,7 +1073,9 @@ final class AppStore: ObservableObject {
         trainingEquipment: TrainingEquipment? = nil,
         connectedDevices: [String]? = nil,
         age: Int? = nil,
-        weightKg: Double? = nil
+        weightKg: Double? = nil,
+        trainingTheme: AriaTrainingTheme? = nil,
+        interestTags: [String]? = nil
     ) {
         if let name = name { userProfile.name = name }
         if let style = coachingStyle { userProfile.coachingStyle = style }
@@ -928,6 +1087,11 @@ final class AppStore: ObservableObject {
         if let connectedDevices { userProfile.connectedDevices = connectedDevices }
         if let age { userProfile.age = age }
         if let weightKg { userProfile.weight = weightKg }
+        if let interestTags { userProfile.interestTags = interestTags }
+        if let trainingTheme {
+            setTrainingTheme(trainingTheme, source: "profile")
+            return
+        }
         objectWillChange.send()
     }
     

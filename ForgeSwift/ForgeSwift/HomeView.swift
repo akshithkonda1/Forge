@@ -148,6 +148,17 @@ struct HomeView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
+                        // Cycle intelligence (female / tracking-enabled)
+                        if store.userProfile.gender == .female
+                            || MenstrualHealthStore.shared.settings.enabled {
+                            CycleHealthChip {
+                                store.pendingProfileSubTab = "cycle"
+                                store.activeTab = .profile
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 16)
+                        }
+
                         // 5. Day preview telemetry
                         HomeDayPreviewStrip()
                             .padding(.horizontal, 16)
@@ -688,8 +699,8 @@ struct HomeARIABriefingCard: View {
                     store.openChat(with: "Let's talk about my day.", voice: false)
                 }
                 Spacer()
-                briefingChip(icon: "sparkles", label: "Ask anything") {
-                    store.openChat(with: "What should I know right now?", voice: false)
+                briefingChip(icon: themedPlanIcon, label: themedPlanLabel) {
+                    store.openChat(with: themedPlanPrompt, voice: false)
                 }
                 Spacer()
                 briefingChip(icon: "calendar", label: "Plan week") {
@@ -707,6 +718,30 @@ struct HomeARIABriefingCard: View {
                 pulseRing = true
             }
             startTypewriterIfNeeded()
+        }
+    }
+
+    private var themedPlanLabel: String {
+        switch store.userProfile.trainingTheme {
+        case .soloLeveling: return "Daily quest"
+        case .classic: return "Today's plan"
+        default: return store.userProfile.trainingTheme.label
+        }
+    }
+
+    private var themedPlanIcon: String {
+        store.userProfile.trainingTheme == .classic ? "sparkles" : store.userProfile.trainingTheme.icon
+    }
+
+    private var themedPlanPrompt: String {
+        let theme = store.userProfile.trainingTheme
+        switch theme {
+        case .soloLeveling:
+            return "Build today's Solo Leveling daily quest based on my readiness."
+        case .classic:
+            return "What should I train today based on my readiness?"
+        default:
+            return "Build a \(theme.label) training plan for me based on my readiness."
         }
     }
 
@@ -757,62 +792,60 @@ struct HomeARIABriefingCard: View {
 @MainActor
 enum HomeARIABriefingBuilder {
     static func build(store: AppStore) -> String {
-        let name = store.userProfile.name.components(separatedBy: " ").first ?? ""
-        let h = Calendar.current.component(.hour, from: Date())
-        let time = h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening"
-        let score = store.readiness.overall
-        let hrv = store.dailyMetrics.hrv
         let deep = store.dailyMetrics.deepSleep
         let deepStr = deep >= 60 ? "\(deep / 60)h \(deep % 60)m" : "\(deep)m"
-        let ctx = AriaContextStore.shared.context
-        let guidanceOnly = ctx.constraints.contains { $0.contains("guidance_only") }
+        let context = store.makeTrainerContext()
+        let theme = store.userProfile.trainingTheme
+        let score = store.readiness.overall
 
-        var parts: [String] = []
-        parts.append(name.isEmpty ? "\(time)." : "\(time), \(name).")
+        var facts = AriaSpeechFacts(
+            sessionTitle: store.todayWorkout?.name,
+            themeLabel: theme.label
+        )
 
-        if score >= 85 {
-            parts.append("You're in a high-readiness window at \(score).")
-        } else if score >= 70 {
-            parts.append("Readiness is solid at \(score) — good day to train with intent.")
-        } else if score >= 55 {
-            parts.append("Readiness sits at \(score). Keep quality high and volume honest.")
-        } else {
-            parts.append("Readiness is \(score). Today is for protection, not punishment.")
-        }
+        // Seed a few factual beats; voice engine varies delivery.
+        let voiceCore = AriaVoiceEngine.speak(
+            intent: .briefing,
+            context: context,
+            facts: facts,
+            themeOverride: theme
+        )
 
+        var extras: [String] = []
         if store.readiness.sleepQuality >= 80 {
-            parts.append("Deep sleep looked solid (\(deepStr)).")
+            extras.append("Deep sleep looked solid (\(deepStr)).")
         } else if store.readiness.sleepQuality < 60 {
-            parts.append("Deep sleep was only \(deepStr) — recovery may lag.")
+            extras.append("Deep sleep was only \(deepStr) — recovery may lag.")
         }
-
-        if hrv > 0 {
-            if hrv >= 50 {
-                parts.append("HRV holding strong at \(hrv)ms.")
-            } else if hrv < 40 {
-                parts.append("HRV is low at \(hrv)ms — nervous system wants ease.")
+        if store.dailyMetrics.hrv > 0 {
+            if store.dailyMetrics.hrv >= 50 {
+                extras.append("HRV holding at \(store.dailyMetrics.hrv)ms.")
+            } else if store.dailyMetrics.hrv < 40 {
+                extras.append("HRV is low at \(store.dailyMetrics.hrv)ms.")
             }
         }
-
-        if let workout = store.todayWorkout {
-            if score >= 70 {
-                parts.append("Primary control: \(workout.name).")
-            } else {
-                parts.append("If you move, bias light around \(workout.name) — or swap for recovery.")
+        if store.todayWorkout == nil {
+            if theme == .soloLeveling {
+                extras.append("No quest locked — ask for today's daily quest.")
+            } else if theme != .classic {
+                extras.append("No plan locked — I can build a \(theme.label) session.")
             }
-        } else {
-            parts.append("No plan locked yet — I can build one from your signals.")
         }
-
-        if guidanceOnly {
-            parts.append("Reminder: guidance and structure only — I'm your lifestyle coach, not a clinician.")
-        }
-
         if let goal = store.userProfile.fitnessGoals.first {
-            parts.append("Still aligned to \(goal.label.lowercased()).")
+            extras.append("Still aligned to \(goal.label.lowercased()).")
+        }
+        // Keep briefing tight: voice core + at most two extras (salted by readiness).
+        let pickCount = min(2, extras.count)
+        let mixed = score &* 17 &+ abs(theme.rawValue.hashValue)
+        var rng = AriaSeededRNG(seed: UInt64(mixed == 0 ? 1 : mixed))
+        var chosen: [String] = []
+        var pool = extras
+        for _ in 0..<pickCount where !pool.isEmpty {
+            let i = rng.int(in: 0..<pool.count)
+            chosen.append(pool.remove(at: i))
         }
 
-        return parts.joined(separator: " ")
+        return ([voiceCore] + chosen).joined(separator: " ")
     }
 }
 

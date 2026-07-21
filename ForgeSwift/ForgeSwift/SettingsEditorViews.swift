@@ -100,6 +100,68 @@ struct TrainingScheduleEditorView: View {
     }
 }
 
+// MARK: - Training Theme Picker
+
+struct TrainingThemePickerView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: AppStore
+    @State private var selection: AriaTrainingTheme = .classic
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Text("ARIA builds real sessions in the language of the world you pick — readiness still decides intensity.")
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+                        .listRowBackground(Color.clear)
+                }
+
+                ForEach(AriaTrainingTheme.allCases) { theme in
+                    Button {
+                        selection = theme
+                    } label: {
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: theme.icon)
+                                .font(.system(size: 18))
+                                .foregroundColor(Color(hex: theme.accentHex))
+                                .frame(width: 28)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(theme.label)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.textPrimary)
+                                Text(theme.tagline)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer()
+                            if selection == theme {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(Color(hex: theme.accentHex))
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .navigationTitle("Training Theme")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        store.setTrainingTheme(selection, source: "settings")
+                        dismiss()
+                    }
+                    .foregroundColor(.ember)
+                }
+            }
+            .onAppear { selection = store.userProfile.trainingTheme }
+        }
+    }
+}
+
 // MARK: - Equipment Picker
 
 struct EquipmentPickerView: View {

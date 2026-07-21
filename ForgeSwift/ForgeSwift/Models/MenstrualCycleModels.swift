@@ -1,0 +1,352 @@
+import Foundation
+import SwiftUI
+
+// MARK: - Flow & signals
+
+enum MenstrualFlowLevel: String, Codable, CaseIterable, Identifiable {
+    case unspecified, none, spotting, light, medium, heavy
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .unspecified: return "Unspecified"
+        case .none: return "None"
+        case .spotting: return "Spotting"
+        case .light: return "Light"
+        case .medium: return "Medium"
+        case .heavy: return "Heavy"
+        }
+    }
+
+    var isBleeding: Bool {
+        switch self {
+        case .spotting, .light, .medium, .heavy: return true
+        default: return false
+        }
+    }
+
+    var sortWeight: Int {
+        switch self {
+        case .none: return 0
+        case .unspecified: return 1
+        case .spotting: return 2
+        case .light: return 3
+        case .medium: return 4
+        case .heavy: return 5
+        }
+    }
+
+    static func fromHealthKitLabel(_ raw: String) -> MenstrualFlowLevel {
+        let l = raw.lowercased()
+        if l.contains("heavy") { return .heavy }
+        if l.contains("medium") { return .medium }
+        if l.contains("light") { return .light }
+        if l.contains("spot") { return .spotting }
+        if l.contains("none") { return .none }
+        return .unspecified
+    }
+}
+
+enum OvulationTestResult: String, Codable, CaseIterable {
+    case negative, lhSurge, estrogenSurge, positive, indeterminate, unknown
+
+    var indicatesNearOvulation: Bool {
+        self == .lhSurge || self == .positive || self == .estrogenSurge
+    }
+}
+
+enum CervicalMucusQuality: String, Codable, CaseIterable {
+    case dry, sticky, creamy, watery, eggWhite, unknown
+
+    /// Higher = more fertile-type mucus (Billings / standard FAM).
+    var fertilityScore: Int {
+        switch self {
+        case .eggWhite: return 5
+        case .watery: return 4
+        case .creamy: return 2
+        case .sticky: return 1
+        case .dry, .unknown: return 0
+        }
+    }
+}
+
+enum CycleSymptom: String, Codable, CaseIterable, Identifiable {
+    case cramps, headache, bloating, fatigue, moodLow, moodHigh
+    case breastTenderness, backache, acne, cravings, insomnia, nausea
+    case energyHigh, libidoHigh, brainFog
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .cramps: return "Cramps"
+        case .headache: return "Headache"
+        case .bloating: return "Bloating"
+        case .fatigue: return "Fatigue"
+        case .moodLow: return "Low mood"
+        case .moodHigh: return "High mood"
+        case .breastTenderness: return "Breast tenderness"
+        case .backache: return "Backache"
+        case .acne: return "Acne"
+        case .cravings: return "Cravings"
+        case .insomnia: return "Insomnia"
+        case .nausea: return "Nausea"
+        case .energyHigh: return "High energy"
+        case .libidoHigh: return "Higher libido"
+        case .brainFog: return "Brain fog"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .cramps: return "bolt.heart.fill"
+        case .headache: return "brain.head.profile"
+        case .bloating: return "circle.hexagongrid.fill"
+        case .fatigue: return "battery.25"
+        case .moodLow: return "cloud.rain.fill"
+        case .moodHigh: return "sun.max.fill"
+        case .breastTenderness: return "heart.fill"
+        case .backache: return "figure.stand"
+        case .acne: return "face.dashed"
+        case .cravings: return "fork.knife"
+        case .insomnia: return "moon.zzz.fill"
+        case .nausea: return "cross.case.fill"
+        case .energyHigh: return "bolt.fill"
+        case .libidoHigh: return "flame.fill"
+        case .brainFog: return "aqi.medium"
+        }
+    }
+}
+
+// MARK: - Daily log
+
+struct CycleDayLog: Identifiable, Codable, Equatable, Hashable {
+    var id: String { dayKey }
+    /// yyyy-MM-dd in local calendar
+    var dayKey: String
+    var flow: MenstrualFlowLevel
+    var symptoms: [CycleSymptom]
+    var bbtCelsius: Double?
+    var ovulationTest: OvulationTestResult?
+    var mucus: CervicalMucusQuality?
+    var notes: String?
+    var source: String // "manual" | "healthkit" | "merged"
+    var updatedAt: Date
+
+    init(
+        dayKey: String,
+        flow: MenstrualFlowLevel = .none,
+        symptoms: [CycleSymptom] = [],
+        bbtCelsius: Double? = nil,
+        ovulationTest: OvulationTestResult? = nil,
+        mucus: CervicalMucusQuality? = nil,
+        notes: String? = nil,
+        source: String = "manual",
+        updatedAt: Date = Date()
+    ) {
+        self.dayKey = dayKey
+        self.flow = flow
+        self.symptoms = symptoms
+        self.bbtCelsius = bbtCelsius
+        self.ovulationTest = ovulationTest
+        self.mucus = mucus
+        self.notes = notes
+        self.source = source
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - Episodes & phases
+
+struct PeriodEpisode: Identifiable, Codable, Equatable {
+    var id: String
+    var startDayKey: String
+    var endDayKey: String
+    var peakFlow: MenstrualFlowLevel
+    var dayCount: Int
+}
+
+enum MenstrualPhase: String, Codable, CaseIterable, Identifiable {
+    case unknown
+    case menstruation
+    case follicular
+    case fertileWindow
+    case ovulation
+    case luteal
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .unknown: return "Learning your cycle"
+        case .menstruation: return "Menstruation"
+        case .follicular: return "Follicular"
+        case .fertileWindow: return "Fertile window"
+        case .ovulation: return "Ovulation"
+        case .luteal: return "Luteal"
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .unknown: return "—"
+        case .menstruation: return "Period"
+        case .follicular: return "Follicular"
+        case .fertileWindow: return "Fertile"
+        case .ovulation: return "Ovulation"
+        case .luteal: return "Luteal"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .unknown: return "circle.dashed"
+        case .menstruation: return "drop.fill"
+        case .follicular: return "leaf.fill"
+        case .fertileWindow: return "waveform.path.ecg"
+        case .ovulation: return "sparkles"
+        case .luteal: return "moon.fill"
+        }
+    }
+
+    var accentHex: String {
+        switch self {
+        case .unknown: return "6B7280"
+        case .menstruation: return "EF4444"
+        case .follicular: return "22C55E"
+        case .fertileWindow: return "F59E0B"
+        case .ovulation: return "A855F7"
+        case .luteal: return "6366F1"
+        }
+    }
+
+    var trainingBias: String {
+        switch self {
+        case .unknown: return "Use readiness as the primary dial until we learn your pattern."
+        case .menstruation: return "Favor technique, mobility, and auto-regulated intensity; heavy compounds optional."
+        case .follicular: return "Often a strong window for progressive overload and skill work."
+        case .fertileWindow: return "Power and intensity can feel available — mind hydration and sleep."
+        case .ovulation: return "Peak force potential for many; watch joint stiffness and warm up thoroughly."
+        case .luteal: return "Volume and heat tolerance may dip; quality over ego, more recovery buffer."
+        }
+    }
+}
+
+// MARK: - Snapshot (engine output)
+
+struct CyclePredictionRange: Codable, Equatable {
+    var earliestDayKey: String
+    var medianDayKey: String
+    var latestDayKey: String
+}
+
+struct MenstrualCycleSnapshot: Codable, Equatable {
+    var asOfDayKey: String
+    var trackingEnabled: Bool
+    var phase: MenstrualPhase
+    var dayInCycle: Int?
+    var cycleLengthMedian: Double
+    var cycleLengthMAD: Double
+    var periodLengthMedian: Double
+    var cyclesObserved: Int
+    var ovulationDayInCycle: Int?
+    var ovulationMethod: String?
+    var fertileStartDayInCycle: Int?
+    var fertileEndDayInCycle: Int?
+    var nextPeriod: CyclePredictionRange?
+    var nextOvulationDayKey: String?
+    /// 0…1 overall confidence in phase + timing
+    var confidence: Double
+    var dataQuality: String
+    var recommendRecoveryBias: Bool
+    var trainingNote: String
+    var readinessNote: String
+    var insights: [String]
+    var disclaimer: String
+    var lastPeriodStartDayKey: String?
+    var isCurrentlyBleeding: Bool
+    var irregularityFlag: Bool
+
+    static let empty = MenstrualCycleSnapshot(
+        asOfDayKey: "",
+        trackingEnabled: false,
+        phase: .unknown,
+        dayInCycle: nil,
+        cycleLengthMedian: 28,
+        cycleLengthMAD: 0,
+        periodLengthMedian: 5,
+        cyclesObserved: 0,
+        ovulationDayInCycle: nil,
+        ovulationMethod: nil,
+        fertileStartDayInCycle: nil,
+        fertileEndDayInCycle: nil,
+        nextPeriod: nil,
+        nextOvulationDayKey: nil,
+        confidence: 0,
+        dataQuality: "no_data",
+        recommendRecoveryBias: false,
+        trainingNote: "Cycle tracking off or no data yet.",
+        readinessNote: "Readiness uses biometrics only.",
+        insights: [],
+        disclaimer: MenstrualCycleEngine.disclaimer,
+        lastPeriodStartDayKey: nil,
+        isCurrentlyBleeding: false,
+        irregularityFlag: false
+    )
+}
+
+// MARK: - User settings
+
+struct MenstrualTrackingSettings: Codable, Equatable {
+    var enabled: Bool
+    /// When true, ARIA uses cycle for training language + intensity bias (never medical claims).
+    var shareWithAria: Bool
+    var averageCycleOverride: Int?
+    var averagePeriodOverride: Int?
+    /// Typical luteal length if known (default 14).
+    var typicalLutealDays: Int
+    var usesHormonalContraception: Bool
+    var notes: String
+
+    static let `default` = MenstrualTrackingSettings(
+        enabled: false,
+        shareWithAria: true,
+        averageCycleOverride: nil,
+        averagePeriodOverride: nil,
+        typicalLutealDays: 14,
+        usesHormonalContraception: false,
+        notes: ""
+    )
+}
+
+// MARK: - Day key helpers
+
+enum CycleDayKey {
+    private static let formatter: DateFormatter = {
+        let f = DateFormatter()
+        f.calendar = Calendar.current
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = Calendar.current.timeZone
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    static func key(for date: Date = Date()) -> String {
+        formatter.string(from: Calendar.current.startOfDay(for: date))
+    }
+
+    static func date(from key: String) -> Date? {
+        formatter.date(from: key)
+    }
+
+    static func addDays(_ key: String, _ days: Int) -> String? {
+        guard let d = date(from: key),
+              let next = Calendar.current.date(byAdding: .day, value: days, to: d) else { return nil }
+        return self.key(for: next)
+    }
+
+    static func daysBetween(_ a: String, _ b: String) -> Int? {
+        guard let da = date(from: a), let db = date(from: b) else { return nil }
+        return Calendar.current.dateComponents([.day], from: da, to: db).day
+    }
+}
