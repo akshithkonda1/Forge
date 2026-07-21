@@ -298,6 +298,11 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             return generateGreeting(context: context)
         }
 
+        // Invent / enrich archetypes (Claude when available)
+        if let intent = AriaArchetypeIntent.parse(input) {
+            return await generateArchetypeStudioResponse(intent: intent, context: context, input: input)
+        }
+
         // Emotional support (keywords + family/partner context) — before pure training when loaded
         if let reading = AriaEmotionalSupportCoach.detect(in: input, context: context) {
             // Pure training asks without emotional load still go to training below
@@ -421,6 +426,123 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
     
     // MARK: - Response Generation
     
+    private func generateArchetypeStudioResponse(
+        intent: AriaArchetypeIntent,
+        context: TrainerContext,
+        input: String
+    ) async -> TrainerResponse {
+        _ = AriaPersonRegistry.shared.adapt(to: input)
+        let studio = AriaArchetypeStudio.shared
+        let personName = AriaPersonRegistry.shared.activePerson?.name
+            ?? context.partnerCycleSettings?.displayName
+            ?? "them"
+
+        switch intent {
+        case .list:
+            let builtin = AriaPersonalArchetype.allCases.filter { $0 != .unknown }.map(\.label)
+            let custom = studio.customArchetypes.prefix(12).map { "\($0.name) (\($0.source.rawValue))" }
+            var msg = "**Built-in archetypes:** " + builtin.joined(separator: ", ") + "."
+            if custom.isEmpty {
+                msg += "\n\nNo custom ones yet — say “create an archetype for someone who…” and I’ll invent one"
+                msg += studio.canCallClaude ? " with Claude." : " offline (add ANTHROPIC_API_KEY for Claude)."
+            } else {
+                msg += "\n\n**ARIA-invented:** " + custom.joined(separator: ", ") + "."
+            }
+            return TrainerResponse(
+                content: msg,
+                suggestedActions: [
+                    "Create an archetype for my wife",
+                    "Invent an archetype with Claude",
+                    "List archetypes again",
+                ],
+                confidence: 0.95
+            )
+
+        case .create(let description, let name):
+            let crafted = await studio.createArchetype(from: description, preferredName: name)
+            studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            let sourceNote: String = {
+                switch studio.lastSourceUsed {
+                case .claude: return "Claude helped forge this one."
+                case .backend: return "Backend reasoning helped forge this one."
+                case .local: return "Drafted offline — ask me to “learn more with Claude” to deepen it when a key is available."
+                case .hybrid: return "Hybrid local + prior Claude notes."
+                case .user: return "Saved from your wording."
+                case .none: return ""
+                }
+            }()
+            let msg = """
+            New archetype locked for **\(personName)**:
+
+            **\(crafted.name)** — \(crafted.tagline)
+
+            Speak to them: \(crafted.speechGuidance)
+            Stance: \(crafted.supportStance)
+            Avoid: \(crafted.avoid.prefix(4).joined(separator: "; "))
+            Example: “\(crafted.exampleScript)”
+            Speech defaults: \(crafted.formality) · \(crafted.humor) · \(crafted.lengthBias) · \(crafted.expressiveness)
+
+            \(sourceNote)
+
+            I’ll use this the next time we talk about \(personName). Teach me more anytime (“she texts short”, “deepen this archetype”).
+            """
+            return TrainerResponse(
+                content: msg,
+                suggestedActions: [
+                    "Deepen this archetype with Claude",
+                    "How do I support them today?",
+                    "Create another archetype",
+                    "What should I train?",
+                ],
+                confidence: 0.92
+            )
+
+        case .enrich(let extra):
+            if let activeId = AriaPersonRegistry.shared.activePerson?.customArchetypeId,
+               let existing = studio.archetype(id: activeId) {
+                let refined = await studio.enrich(existing, with: extra)
+                studio.apply(refined, toPersonId: AriaPersonRegistry.shared.activePersonId)
+                return TrainerResponse(
+                    content: """
+                    Refined **\(refined.name)** for \(personName).
+
+                    \(refined.tagline)
+
+                    Speak-to-them: \(refined.speechGuidance)
+                    Source: \(studio.lastSourceUsed?.rawValue ?? refined.source.rawValue).
+                    """,
+                    suggestedActions: ["How should I talk to them tonight?", "List archetypes"],
+                    confidence: 0.9
+                )
+            }
+            // No custom yet — create from enrich text
+            let crafted = await studio.createArchetype(from: extra, preferredName: nil)
+            studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            return TrainerResponse(
+                content: "No custom archetype was attached yet — I forged **\(crafted.name)** from what you said and applied it to \(personName).",
+                suggestedActions: ["Deepen this archetype", "Support script"],
+                confidence: 0.88
+            )
+
+        case .assign(let name):
+            if let existing = studio.findByName(name) {
+                studio.apply(existing, toPersonId: AriaPersonRegistry.shared.activePersonId)
+                return TrainerResponse(
+                    content: "Attached **\(existing.name)** to \(personName).",
+                    suggestedActions: ["How do I support them?", "Deepen this archetype"],
+                    confidence: 0.9
+                )
+            }
+            let crafted = await studio.createArchetype(from: input, preferredName: name)
+            studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            return TrainerResponse(
+                content: "Created and attached **\(crafted.name)** to \(personName).",
+                suggestedActions: ["Support script", "List archetypes"],
+                confidence: 0.9
+            )
+        }
+    }
+
     private func generateGreeting(context: TrainerContext) -> TrainerResponse {
         var content = AriaVoiceEngine.speak(intent: .greeting, context: context)
         let salt = UInt64(context.conversationHistory.count * 17 + context.readiness.overall)

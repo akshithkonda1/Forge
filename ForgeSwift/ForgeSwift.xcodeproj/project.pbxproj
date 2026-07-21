@@ -36,6 +36,7 @@
 		1ARIA0462F9FF867004091AA /* AriaRelationalCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0472F9FF867004091AA /* AriaRelationalCoach.swift */; };
 		1ARIA0482F9FF867004091AA /* AriaEmotionalSupportCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0492F9FF867004091AA /* AriaEmotionalSupportCoach.swift */; };
 		1ARIA0522F9FF867004091AA /* AriaPersonRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0532F9FF867004091AA /* AriaPersonRegistry.swift */; };
+		1ARIA0542F9FF867004091AA /* AriaArchetypeStudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0552F9FF867004091AA /* AriaArchetypeStudio.swift */; };
 		1ARIA0502F9FF867004091AA /* AriaPersonAdaptation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0512F9FF867004091AA /* AriaPersonAdaptation.swift */; };
 		1ARIA0382F9FF867004091AA /* MenstrualCycleEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */; };
 		1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */; };
@@ -217,6 +218,7 @@
 		1ARIA0472F9FF867004091AA /* AriaRelationalCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaRelationalCoach.swift; sourceTree = "<group>"; };
 		1ARIA0492F9FF867004091AA /* AriaEmotionalSupportCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaEmotionalSupportCoach.swift; sourceTree = "<group>"; };
 		1ARIA0532F9FF867004091AA /* AriaPersonRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPersonRegistry.swift; sourceTree = "<group>"; };
+		1ARIA0552F9FF867004091AA /* AriaArchetypeStudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaArchetypeStudio.swift; sourceTree = "<group>"; };
 		1ARIA0512F9FF867004091AA /* AriaPersonAdaptation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPersonAdaptation.swift; sourceTree = "<group>"; };
 		1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngine.swift; sourceTree = "<group>"; };
 		1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleModels.swift; sourceTree = "<group>"; };
@@ -389,6 +391,7 @@
 				1ARIA0472F9FF867004091AA /* AriaRelationalCoach.swift */,
 				1ARIA0492F9FF867004091AA /* AriaEmotionalSupportCoach.swift */,
 				1ARIA0532F9FF867004091AA /* AriaPersonRegistry.swift */,
+				1ARIA0552F9FF867004091AA /* AriaArchetypeStudio.swift */,
 				1ARIA0512F9FF867004091AA /* AriaPersonAdaptation.swift */,
 				1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */,
 				1ARIA0092F9FF867004091AA /* FeedbackService.swift */,
@@ -793,6 +796,7 @@
 				1ARIA0462F9FF867004091AA /* AriaRelationalCoach.swift in Sources */,
 				1ARIA0482F9FF867004091AA /* AriaEmotionalSupportCoach.swift in Sources */,
 				1ARIA0522F9FF867004091AA /* AriaPersonRegistry.swift in Sources */,
+				1ARIA0542F9FF867004091AA /* AriaArchetypeStudio.swift in Sources */,
 				1ARIA0502F9FF867004091AA /* AriaPersonAdaptation.swift in Sources */,
 				1ARIA0382F9FF867004091AA /* MenstrualCycleEngine.swift in Sources */,
 				1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */,

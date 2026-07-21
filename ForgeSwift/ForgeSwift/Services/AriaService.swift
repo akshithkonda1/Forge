@@ -119,7 +119,10 @@ final class AriaService: ObservableObject {
             || AriaRelationalCoach.mentionsSupportContext(lower)
             || lower.contains("show up for") || lower.contains("help me support")
         let isEmotional = AriaEmotionalSupportCoach.isEmotionalSupportQuery(text, context: trainerContext)
-        if isEmotional, !AriaThemeResolver.isPlanRequest(text) || lower.contains("feel") || lower.contains("fight") {
+        let isArchetype = AriaArchetypeIntent.parse(text) != nil
+        if isArchetype {
+            local = try await RuleBasedResponseGenerator().generateResponse(for: text, context: trainerContext)
+        } else if isEmotional, !AriaThemeResolver.isPlanRequest(text) || lower.contains("feel") || lower.contains("fight") {
             local = try await RuleBasedResponseGenerator().generateResponse(for: text, context: trainerContext)
         } else if AriaThemeResolver.isPlanRequest(text) {
             let plan = AriaPlanEngine.evaluate(input: text, context: trainerContext)

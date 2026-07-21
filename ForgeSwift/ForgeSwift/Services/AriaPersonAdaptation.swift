@@ -762,10 +762,19 @@ struct AriaPersonAdaptation: Equatable {
         if !dynamics.userTags.isEmpty {
             lines.append("USER-TAUGHT TAGS: \(dynamics.userTags.joined(separator: ", "))")
         }
+        if let customTag = dynamics.userTags.first(where: { $0.hasPrefix("custom_archetype:") }) {
+            lines.append("CUSTOM_ARCHETYPE: \(customTag.replacingOccurrences(of: "custom_archetype:", with: ""))")
+        }
+        if let tagline = dynamics.userTags.first(where: { $0.hasPrefix("custom_tagline:") }) {
+            lines.append("CUSTOM_TAGLINE: \(tagline.replacingOccurrences(of: "custom_tagline:", with: ""))")
+        }
+        if let speak = dynamics.userTags.first(where: { $0.hasPrefix("custom_speak:") }) {
+            lines.append("CUSTOM_SPEAK_TO_THEM: \(speak.replacingOccurrences(of: "custom_speak:", with: ""))")
+        }
         if !speech.signaturePhrases.isEmpty {
             lines.append("THEIR PHRASES: \(speech.signaturePhrases.prefix(5).joined(separator: " | "))")
         }
-        lines.append("Adapt every sentence to THIS person — relationship label + archetype + speech style. Girlfriend scripts must not apply to a daughter; analyst scripts must not sound like jester banter.")
+        lines.append("Adapt every sentence to THIS person — relationship label + archetype + speech style (+ custom ARIA-invented archetype if present). Girlfriend scripts must not apply to a daughter; analyst scripts must not sound like jester banter.")
         return lines.joined(separator: "\n")
     }
 
@@ -815,22 +824,67 @@ struct AriaKnownPerson: Codable, Equatable, Identifiable {
     var role: CycleSupportRole
     var dynamics: AriaRelationshipDynamics
     var archetype: AriaPersonalArchetype
+    /// When set, overrides builtin archetype for coaching.
+    var customArchetypeId: String?
     var speech: AriaSpeechStyleProfile
     var notes: String
     var isActive: Bool
 
     enum CodingKeys: String, CodingKey {
-        case id, name, primaryLabel, extraLabels, role, dynamics, archetype, speech, notes, isActive
+        case id, name, primaryLabel, extraLabels, role, dynamics, archetype, customArchetypeId, speech, notes, isActive
+    }
+
+    var customArchetype: AriaCustomArchetype? {
+        guard let customArchetypeId else { return nil }
+        return AriaArchetypeStudio.shared.archetype(id: customArchetypeId)
     }
 
     var adaptation: AriaPersonAdaptation {
-        AriaPersonAdaptation.resolve(
+        var base = AriaPersonAdaptation.resolve(
             labelRaw: primaryLabel,
             name: name.isEmpty ? nil : name,
             dynamics: dynamics,
             archetype: archetype,
             speech: speech
         )
+        if let custom = customArchetype {
+            // Overlay invented archetype onto adaptation voice fields via speech + tags
+            base.archetype = AriaPersonalArchetype(rawValue: custom.relatedBuiltin ?? "") ?? base.archetype
+            if base.archetype == .unknown, let related = custom.relatedBuiltin,
+               let b = AriaPersonalArchetype(rawValue: related) {
+                base.archetype = b
+            }
+            // Encode custom identity in dynamics tags for prompt injection
+            var d = base.dynamics
+            let stamp = "custom_archetype:\(custom.name)"
+            if !d.userTags.contains(where: { $0.hasPrefix("custom_archetype:") }) {
+                d.userTags.insert(stamp, at: 0)
+            }
+            d.userTags.removeAll { $0.hasPrefix("custom_tagline:") }
+            d.userTags.append("custom_tagline:\(custom.tagline)")
+            d.userTags.removeAll { $0.hasPrefix("custom_speak:") }
+            d.userTags.append("custom_speak:\(custom.speechGuidance)")
+            base.dynamics = d
+            if let f = AriaSpeechStyleProfile.Formality(rawValue: custom.formality) {
+                base.speech.formality = f
+            }
+            if let h = AriaSpeechStyleProfile.HumorStyle(rawValue: custom.humor) {
+                base.speech.humor = h
+            }
+            if let e = AriaSpeechStyleProfile.Expressiveness(rawValue: custom.expressiveness) {
+                base.speech.emotionalExpressiveness = e
+            }
+            if let len = AriaSpeechStyleProfile.LengthBias(rawValue: custom.lengthBias) {
+                base.speech.length = len
+            }
+            if !custom.exampleScript.isEmpty {
+                base.speech.sampleLines = [custom.exampleScript] + base.speech.sampleLines
+            }
+            for a in custom.avoid where !base.speech.triggerPhrases.contains(a) {
+                base.speech.triggerPhrases.append(a)
+            }
+        }
+        return base
     }
 
     init(
@@ -841,6 +895,7 @@ struct AriaKnownPerson: Codable, Equatable, Identifiable {
         role: CycleSupportRole,
         dynamics: AriaRelationshipDynamics,
         archetype: AriaPersonalArchetype,
+        customArchetypeId: String? = nil,
         speech: AriaSpeechStyleProfile,
         notes: String,
         isActive: Bool
@@ -852,6 +907,7 @@ struct AriaKnownPerson: Codable, Equatable, Identifiable {
         self.role = role
         self.dynamics = dynamics
         self.archetype = archetype
+        self.customArchetypeId = customArchetypeId
         self.speech = speech
         self.notes = notes
         self.isActive = isActive
@@ -867,6 +923,7 @@ struct AriaKnownPerson: Codable, Equatable, Identifiable {
         dynamics = try c.decode(AriaRelationshipDynamics.self, forKey: .dynamics)
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
         isActive = try c.decodeIfPresent(Bool.self, forKey: .isActive) ?? true
+        customArchetypeId = try c.decodeIfPresent(String.self, forKey: .customArchetypeId)
         let label = AriaRelationshipLabel.parse(from: primaryLabel)
         archetype = try c.decodeIfPresent(AriaPersonalArchetype.self, forKey: .archetype)
             ?? .defaults(for: label)
@@ -885,6 +942,7 @@ struct AriaKnownPerson: Codable, Equatable, Identifiable {
             role: parsed.role,
             dynamics: .defaults(for: parsed),
             archetype: arch,
+            customArchetypeId: nil,
             speech: .defaults(for: parsed, archetype: arch),
             notes: "",
             isActive: true

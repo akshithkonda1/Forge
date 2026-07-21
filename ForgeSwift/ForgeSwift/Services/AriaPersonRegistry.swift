@@ -258,6 +258,7 @@ final class AriaPersonRegistry: ObservableObject {
         let id = personId ?? activePersonId
         guard let id, let idx = people.firstIndex(where: { $0.id == id }) else { return }
         people[idx].archetype = archetype
+        people[idx].customArchetypeId = nil
         // Refresh speech defaults lightly without wiping learned phrases
         var speech = people[idx].speech
         let refreshed = AriaSpeechStyleProfile.defaults(
@@ -270,6 +271,44 @@ final class AriaPersonRegistry: ObservableObject {
         speech.emotionalExpressiveness = refreshed.emotionalExpressiveness
         people[idx].speech = speech
         persist()
+    }
+
+    func applyCustomArchetype(_ custom: AriaCustomArchetype, personId: String) {
+        guard let idx = people.firstIndex(where: { $0.id == personId }) else { return }
+        people[idx].customArchetypeId = custom.id
+        if let related = custom.relatedBuiltin, let b = AriaPersonalArchetype(rawValue: related) {
+            people[idx].archetype = b
+        }
+        if let f = AriaSpeechStyleProfile.Formality(rawValue: custom.formality) {
+            people[idx].speech.formality = f
+        }
+        if let h = AriaSpeechStyleProfile.HumorStyle(rawValue: custom.humor) {
+            people[idx].speech.humor = h
+        }
+        if let e = AriaSpeechStyleProfile.Expressiveness(rawValue: custom.expressiveness) {
+            people[idx].speech.emotionalExpressiveness = e
+        }
+        if let len = AriaSpeechStyleProfile.LengthBias(rawValue: custom.lengthBias) {
+            people[idx].speech.length = len
+        }
+        people[idx].speech.sampleLines.insert(custom.exampleScript, at: 0)
+        for a in custom.avoid where !people[idx].speech.triggerPhrases.contains(a) {
+            people[idx].speech.triggerPhrases.append(a)
+        }
+        var tags = people[idx].dynamics.userTags.filter {
+            !$0.hasPrefix("custom_archetype:") && !$0.hasPrefix("custom_tagline:") && !$0.hasPrefix("custom_speak:")
+        }
+        tags.insert("custom_archetype:\(custom.name)", at: 0)
+        tags.append("custom_tagline:\(custom.tagline)")
+        tags.append("custom_speak:\(custom.speechGuidance)")
+        people[idx].dynamics.userTags = tags
+        persist()
+        AriaContextStore.shared.addInsight(
+            "Applied invented archetype “\(custom.name)” to \(people[idx].name.isEmpty ? people[idx].primaryLabel : people[idx].name) (source: \(custom.source.rawValue))."
+        )
+        if people[idx].isActive {
+            AriaContextStore.shared.applyActivePerson(people[idx])
+        }
     }
 
     private func extractRememberClause(from text: String) -> String? {
