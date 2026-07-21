@@ -348,6 +348,9 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             || text.contains("her period") || text.contains("her cycle") || text.contains("her pms")
             || text.contains("support her") || text.contains("spouse") || text.contains("fiancé")
             || text.contains("fiance") || text.contains("my girl")
+            || text.contains("daughter") || text.contains("my kid") || text.contains("my child")
+            || text.contains("my teen") || text.contains("as a dad") || text.contains("as a father")
+            || text.contains("as a parent") || text.contains("my sister") || text.contains("for my daughter")
     }
     
     private func isLowEnergyMention(_ text: String) -> Bool {
@@ -403,29 +406,50 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
                     userName: name,
                     input: input
                 )
+                let role = partnerSettings.resolvedRole
+                let actions: [String] = {
+                    switch role {
+                    case .child:
+                        return [
+                            "How do I support my daughter today?",
+                            "School / sports tips",
+                            "What should I avoid saying?",
+                            "Log her period start",
+                        ]
+                    case .romantic:
+                        return [
+                            "Date ideas for this phase",
+                            "How should I train with her?",
+                            "Log her period start",
+                            "What should I avoid saying?",
+                        ]
+                    default:
+                        return [
+                            "How should I show up?",
+                            "Low-key plan ideas",
+                            "Log period start",
+                            "What should I avoid?",
+                        ]
+                    }
+                }()
                 return TrainerResponse(
                     content: msg,
-                    suggestedActions: [
-                        "Date ideas for this phase",
-                        "How should I train with her?",
-                        "Log her period start",
-                        "What should I avoid saying?",
-                    ],
+                    suggestedActions: actions,
                     confidence: max(0.85, partnerSnap.confidence)
                 )
             }
             // Partner intent but not set up yet
             if isPartnerCycleQuery(lower) {
                 let msg = """
-                I can help you sync support with your partner's cycle — a lot of couples do this well.
+                I can help you support someone else's cycle — partners, and yes, a lot of **dads with daughters** do this well too.
 
-                Open **Partner Cycle** in Cycle Health, confirm she consents to you logging period starts, add her name, then log when periods begin. I'll coach *you* on comfort, plans, training together, and communication by phase.
+                Open **Cycle Health → Support**, pick the relationship (partner / daughter / family), confirm consent (or appropriate caregiver context), then log period starts they share with you. I'll coach *you* on comfort, plans, school/sports logistics, and what to say — never medical advice for them.
 
                 \(PartnerSupportBrief.disclaimer)
                 """
                 return TrainerResponse(
                     content: msg,
-                    suggestedActions: ["Open partner cycle setup", "What should I train today?"],
+                    suggestedActions: ["Set up partner or daughter support", "What should I train today?"],
                     confidence: 0.82
                 )
             }

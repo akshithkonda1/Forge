@@ -311,7 +311,8 @@ final class MenstrualHealthStore: ObservableObject {
             AriaContextStore.shared.applyPartnerCycleSnapshot(
                 partnerSnapshot,
                 partnerName: partnerSettings.displayName,
-                relationshipLabel: partnerSettings.relationshipLabel
+                relationshipLabel: partnerSettings.relationshipLabel,
+                role: partnerSettings.resolvedRole
             )
         } else {
             AriaContextStore.shared.clearPartnerCycleTags()

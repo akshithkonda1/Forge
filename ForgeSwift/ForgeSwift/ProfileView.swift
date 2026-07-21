@@ -920,11 +920,16 @@ struct SettingsPageView: View {
                             SettingsRow(
                                 icon: partnerOn && !selfOn ? "heart.circle.fill" : snap.phase.icon,
                                 iconColor: Color(hex: snap.phase.accentHex),
-                                label: partnerOn && !selfOn ? "Partner Cycle" : "Cycle Health",
+                                label: partnerOn && !selfOn ? "Support cycle" : "Cycle Health",
                                 trailingText: {
                                     if selfOn { return snap.phase.shortLabel }
-                                    if partnerOn { return MenstrualHealthStore.shared.partnerSettings.displayName }
-                                    return store.userProfile.gender == .male ? "Partner sync" : "Set up"
+                                    if partnerOn {
+                                        let p = MenstrualHealthStore.shared.partnerSettings
+                                        return p.resolvedRole == .child
+                                            ? "\(p.displayName) · child"
+                                            : p.displayName
+                                    }
+                                    return store.userProfile.gender == .male ? "Partner / daughter" : "Set up"
                                 }(),
                                 showChevron: true
                             )

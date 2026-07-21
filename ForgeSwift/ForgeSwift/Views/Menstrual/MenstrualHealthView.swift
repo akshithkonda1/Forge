@@ -8,7 +8,7 @@ struct MenstrualHealthView: View {
         var label: String {
             switch self {
             case .me: return "My cycle"
-            case .partner: return "Partner"
+            case .partner: return "Support"
             }
         }
     }
@@ -24,6 +24,7 @@ struct MenstrualHealthView: View {
     @State private var partnerFlow: MenstrualFlowLevel = .medium
     @State private var partnerNameDraft = ""
     @State private var partnerRelDraft = "partner"
+    @State private var supportRole: CycleSupportRole = .romantic
     @State private var showDisclaimer = false
     @State private var appeared = false
 
@@ -81,6 +82,7 @@ struct MenstrualHealthView: View {
             }
             partnerNameDraft = cycleStore.partnerSettings.partnerName
             partnerRelDraft = cycleStore.partnerSettings.relationshipLabel
+            supportRole = cycleStore.partnerSettings.resolvedRole
             cycleStore.refresh(from: store)
             Task { await cycleStore.syncFromHealthKit() }
             withAnimation(FDS.Spring.hero.delay(0.05)) { appeared = true }
@@ -91,13 +93,13 @@ struct MenstrualHealthView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(pane == .me ? "Menstrual intelligence" : "Partner cycle sync")
+            Text(pane == .me ? "Menstrual intelligence" : "Support someone")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundColor(.textPrimary)
             Text(
                 pane == .me
                     ? "Multi-signal engine: period starts, BBT, OPK, mucus, symptoms, and personal cycle math."
-                    : "Log your partner's period starts (with consent). ARIA coaches you on support, dates, and training together — many couples use this."
+                    : "Partners, spouses — and a lot of fathers with daughters. Log period starts they share with you; ARIA coaches you on how to show up."
             )
                 .font(.system(size: 13))
                 .foregroundColor(.textSecondary)
@@ -151,21 +153,27 @@ struct MenstrualHealthView: View {
 
     private var partnerEnableCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Support your partner")
+            Text("Who are you supporting?")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(.textPrimary)
-            Text("For boyfriends, husbands, and partners who want to show up better. You log period starts she shares with you — ARIA tells you how to plan dates, train together, and communicate by phase.")
+            Text("Boyfriends and husbands use this for partners. **A lot of fathers use it for daughters** — supplies, sports, school days, and what not to say. Family and friends work too.")
                 .font(.system(size: 13))
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            rolePicker
+
             Button {
                 cycleStore.updatePartnerSettings {
                     $0.enabled = true
                     $0.shareWithAria = true
+                    $0.supportRole = supportRole
+                    $0.relationshipLabel = supportRole.suggestedLabels.first ?? "partner"
                 }
+                partnerRelDraft = supportRole.suggestedLabels.first ?? "partner"
                 FDS.haptic(.medium)
             } label: {
-                Text("Enable partner cycle")
+                Text("Enable support tracking")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -179,30 +187,80 @@ struct MenstrualHealthView: View {
         .forgeGlassCard(accent: Color(hex: "6366F1"))
     }
 
+    private var rolePicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Relationship type")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.textTertiary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(CycleSupportRole.allCases) { role in
+                        Button {
+                            supportRole = role
+                            partnerRelDraft = role.suggestedLabels.first ?? partnerRelDraft
+                            FDS.selectionHaptic()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: role.icon)
+                                Text(role.shortLabel)
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundColor(supportRole == role ? .white : .textSecondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(supportRole == role ? Color(hex: "6366F1") : Color.surfaceElevated)
+                            .cornerRadius(100)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
     private var partnerConsentCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Consent first")
+            Text(supportRole == .child ? "Care & consent" : "Consent first")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(.textPrimary)
-            Text("Only track what your partner is comfortable sharing. Period start dates are enough for solid support coaching.")
+            Text(
+                supportRole == .child
+                    ? "For a daughter or child: only track what is appropriate in your caregiver role, preferably with her knowledge. Period starts are enough. This is for support — not surveillance."
+                    : "Only track what they are comfortable sharing. Period start dates are enough for solid support coaching."
+            )
                 .font(.system(size: 13))
                 .foregroundColor(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-            TextField("Partner's name (optional)", text: $partnerNameDraft)
+            rolePicker
+
+            TextField(supportRole == .child ? "Name (optional)" : "Name (optional)", text: $partnerNameDraft)
                 .textFieldStyle(.roundedBorder)
-            TextField("Relationship label (partner / girlfriend / wife…)", text: $partnerRelDraft)
+            TextField(
+                supportRole == .child
+                    ? "Label (daughter / child / teen…)"
+                    : "Label (partner / girlfriend / wife…)",
+                text: $partnerRelDraft
+            )
                 .textFieldStyle(.roundedBorder)
 
             Button {
                 cycleStore.updatePartnerSettings {
                     $0.consentAcknowledged = true
                     $0.partnerName = partnerNameDraft
-                    $0.relationshipLabel = partnerRelDraft.isEmpty ? "partner" : partnerRelDraft
+                    $0.supportRole = supportRole
+                    $0.relationshipLabel = partnerRelDraft.isEmpty
+                        ? (supportRole.suggestedLabels.first ?? "partner")
+                        : partnerRelDraft
                     $0.shareWithAria = true
                 }
                 FDS.notificationHaptic(.success)
             } label: {
-                Text("I have their okay — continue")
+                Text(
+                    supportRole == .child
+                        ? "I'm using this as a supportive parent — continue"
+                        : "I have their okay — continue"
+                )
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -246,10 +304,11 @@ struct MenstrualHealthView: View {
                     .foregroundColor(.textSecondary)
             }
             Button {
-                store.openChat(
-                    with: "Help me support \(name) — she's in \(snap.phase.label). What should I do?",
-                    voice: false
-                )
+                let role = cycleStore.partnerSettings.resolvedRole
+                let prompt = role == .child
+                    ? "Help me support my daughter \(name) — she's in \(snap.phase.label). What should I do as her dad/parent?"
+                    : "Help me support \(name) — \(snap.phase.label) phase. What should I do?"
+                store.openChat(with: prompt, voice: false)
             } label: {
                 Label("Ask ARIA how to show up", systemImage: "message.fill")
                     .font(.system(size: 14, weight: .semibold))
@@ -267,7 +326,7 @@ struct MenstrualHealthView: View {
 
     private func partnerSupportCard(_ brief: PartnerSupportBrief) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("HOW YOU SHOW UP")
+            Text(brief.role == .child ? "DAD / PARENT PLAYBOOK" : "HOW YOU SHOW UP")
                 .font(.system(size: 10, weight: .bold))
                 .tracking(1.6)
                 .foregroundColor(.textTertiary)
@@ -297,6 +356,12 @@ struct MenstrualHealthView: View {
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.ember)
                 .padding(.top, 6)
+            if brief.role == .child {
+                Text(brief.intimacyNote)
+                    .font(.system(size: 12))
+                    .foregroundColor(.textTertiary)
+                    .padding(.top, 4)
+            }
         }
         .padding(18)
         .forgeGlassCard(accent: Color(hex: "22C55E"))
@@ -304,7 +369,10 @@ struct MenstrualHealthView: View {
 
     private var partnerLogger: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("LOG FOR \(cycleStore.partnerSettings.displayName.uppercased())")
+            let isChild = cycleStore.partnerSettings.resolvedRole == .child
+            Text(isChild
+                 ? "LOG FOR \(cycleStore.partnerSettings.displayName.uppercased()) (PARENT SUPPORT)"
+                 : "LOG FOR \(cycleStore.partnerSettings.displayName.uppercased())")
                 .font(.system(size: 10, weight: .bold))
                 .tracking(1.6)
                 .foregroundColor(.textTertiary)
@@ -348,7 +416,9 @@ struct MenstrualHealthView: View {
                 cycleStore.logPartnerPeriodStart(flow: partnerFlow == .none ? .medium : partnerFlow)
                 FDS.notificationHaptic(.success)
             } label: {
-                Text("Mark her period start today")
+                Text(cycleStore.partnerSettings.resolvedRole == .child
+                     ? "Mark period start today"
+                     : "Mark her period start today")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(Color(hex: "EF4444"))
                     .frame(maxWidth: .infinity)
@@ -362,26 +432,24 @@ struct MenstrualHealthView: View {
 
     private var partnerSettingsCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("PARTNER SETTINGS")
+            Text("SUPPORT SETTINGS")
                 .font(.system(size: 10, weight: .bold))
                 .tracking(1.6)
                 .foregroundColor(.textTertiary)
+
+            rolePicker
+
             TextField("Name", text: $partnerNameDraft)
                 .textFieldStyle(.roundedBorder)
-                .onSubmit {
-                    cycleStore.updatePartnerSettings { $0.partnerName = partnerNameDraft }
-                }
             TextField("Relationship label", text: $partnerRelDraft)
                 .textFieldStyle(.roundedBorder)
-                .onSubmit {
-                    cycleStore.updatePartnerSettings {
-                        $0.relationshipLabel = partnerRelDraft.isEmpty ? "partner" : partnerRelDraft
-                    }
-                }
-            Button("Save name & label") {
+            Button("Save name, role & label") {
                 cycleStore.updatePartnerSettings {
                     $0.partnerName = partnerNameDraft
-                    $0.relationshipLabel = partnerRelDraft.isEmpty ? "partner" : partnerRelDraft
+                    $0.supportRole = supportRole
+                    $0.relationshipLabel = partnerRelDraft.isEmpty
+                        ? (supportRole.suggestedLabels.first ?? "partner")
+                        : partnerRelDraft
                 }
                 FDS.haptic(.light)
             }
@@ -393,9 +461,9 @@ struct MenstrualHealthView: View {
                 set: { v in cycleStore.updatePartnerSettings { $0.shareWithAria = v } }
             )) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Share partner cycle with ARIA")
+                    Text("Share with ARIA")
                         .foregroundColor(.textPrimary)
-                    Text("ARIA coaches you on support — never medical advice for her.")
+                    Text("ARIA coaches you on support — never medical advice for them.")
                         .font(.system(size: 11))
                         .foregroundColor(.textTertiary)
                 }
@@ -411,7 +479,7 @@ struct MenstrualHealthView: View {
                     }
                 }
             )) {
-                Text("Partner tracking enabled")
+                Text("Support tracking enabled")
                     .foregroundColor(.textPrimary)
             }
             .tint(.ember)

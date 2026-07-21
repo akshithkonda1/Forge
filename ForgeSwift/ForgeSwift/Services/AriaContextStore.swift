@@ -290,7 +290,8 @@ final class AriaContextStore: ObservableObject {
     func applyPartnerCycleSnapshot(
         _ snap: MenstrualCycleSnapshot,
         partnerName: String,
-        relationshipLabel: String
+        relationshipLabel: String,
+        role: CycleSupportRole = .other
     ) {
         guard snap.trackingEnabled || !partnerName.isEmpty else {
             clearPartnerCycleTags()
@@ -313,14 +314,24 @@ final class AriaContextStore: ObservableObject {
             tags.append("partner_name:\(safeName)")
         }
         tags.append("partner_cycle:rel:\(relationshipLabel.lowercased().replacingOccurrences(of: " ", with: "_"))")
+        tags.append("partner_cycle:role:\(role.rawValue)")
         tags.append("partner_cycle:confidence:\(Int(snap.confidence * 100))")
         context.lifestyleTags = Array(Set(tags)).sorted()
 
         var patterns = context.recentPatterns.filter { !$0.hasPrefix("partner_cycle:") }
         patterns.append("partner_cycle:\(snap.phase.rawValue)")
         context.recentPatterns = Array(patterns.suffix(12))
+        let who: String = {
+            switch role {
+            case .child: return "Daughter/child"
+            case .romantic: return "Partner"
+            case .family: return "Family member"
+            case .friend: return "Friend"
+            case .other: return "Supported person"
+            }
+        }()
         context.lastInsights.insert(
-            "Partner (\(partnerName)) cycle phase: \(snap.phase.label)" + (snap.dayInCycle.map { " day \($0)" } ?? "") + ".",
+            "\(who) (\(partnerName)) cycle phase: \(snap.phase.label)" + (snap.dayInCycle.map { " day \($0)" } ?? "") + ".",
             at: 0
         )
         if context.lastInsights.count > 15 {

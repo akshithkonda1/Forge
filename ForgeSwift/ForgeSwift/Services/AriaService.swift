@@ -114,6 +114,8 @@ final class AriaService: ObservableObject {
             || lower.contains("follicular") || lower.contains("ovulat") || lower.contains("pms")
             || lower.contains("girlfriend") || lower.contains("wife") || lower.contains("partner cycle")
             || lower.contains("support her") || lower.contains("her period") || lower.contains("her pms")
+            || lower.contains("daughter") || lower.contains("as a dad") || lower.contains("as a father")
+            || lower.contains("my kid") || lower.contains("my child")
         if AriaThemeResolver.isPlanRequest(text) {
             let plan = AriaPlanEngine.evaluate(input: text, context: trainerContext)
             if plan.shouldPersistTheme {
