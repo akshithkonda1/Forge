@@ -1207,6 +1207,7 @@ struct HomeCycleModule: View {
 // MARK: - Readiness why copy
 // ============================================================
 
+@MainActor
 private func readinessWhyCopy(store: AppStore) -> String {
     var bits: [String] = []
     let r = store.readiness
@@ -2298,6 +2299,7 @@ private func readinessLabel(_ score: Int) -> String {
     }
 }
 
+@MainActor
 @MainActor
 private func homeStatusLine(store: AppStore) -> String {
     let score = store.readiness.overall
