@@ -84,7 +84,7 @@ enum MenstrualCycleEngine {
             lastStart: lastStart,
             lengths: cycleLengths,
             median: medianCycle,
-            mad: madCycle,
+            mad: madCycle + Double(max(0, settings.overdueWidenDays)),
             calibrationOffsetDays: settings.calibrationOffsetDays
         )
 

@@ -24,6 +24,8 @@ final class MenstrualHealthStore: ObservableObject {
     @Published private(set) var predictionFeedback: [CyclePredictionFeedback] = []
     /// Last live next-period median we advertised (for feedback when actual start arrives).
     @Published private(set) var lastAdvertisedNextPeriodMedian: String?
+    /// Short toast after model auto-corrects (cleared by UI).
+    @Published var lastModelUpdateMessage: String?
 
     private let defaults = UserDefaults.standard
     private let settingsKey = "forge.menstrual.settings.v1"
@@ -212,7 +214,49 @@ final class MenstrualHealthStore: ObservableObject {
     }
 
     func logPartnerPeriodStart(on dayKey: String = CycleDayKey.key(), flow: MenstrualFlowLevel = .medium) {
+        // Partner predictions retained; score against last partner forecast when available.
+        if let predicted = partnerSnapshot.nextPeriod?.medianDayKey,
+           let err = CycleDayKey.daysBetween(predicted, dayKey),
+           abs(err) <= 21 {
+            lastModelUpdateMessage = "Support model updated · error \(err >= 0 ? "+" : "")\(err) days"
+        }
         upsertPartnerLog(CycleDayLog(dayKey: dayKey, flow: flow, source: "manual"))
+    }
+
+    /// User says period started today (feedback + log).
+    @discardableResult
+    func confirmPeriodStartedToday(flow: MenstrualFlowLevel = .medium) -> String {
+        let key = CycleDayKey.key()
+        logPeriodStart(on: key, flow: flow)
+        updateSettings { $0.overdueWidenDays = 0 }
+        let msg = lastModelUpdateMessage ?? "Period logged · model refreshed"
+        return msg
+    }
+
+    /// Manual early/late correction: period came `days` before (negative) or after (positive) prediction.
+    @discardableResult
+    func confirmPeriodOffsetFromPrediction(daysFromPredicted: Int, flow: MenstrualFlowLevel = .medium) -> String {
+        guard let predicted = lastAdvertisedNextPeriodMedian ?? snapshot.nextPeriod?.medianDayKey,
+              let actual = CycleDayKey.addDays(predicted, daysFromPredicted) else {
+            let key = CycleDayKey.key()
+            logPeriodStart(on: key, flow: flow)
+            return lastModelUpdateMessage ?? "Period logged"
+        }
+        logPeriodStart(on: actual, flow: flow)
+        updateSettings { $0.overdueWidenDays = 0 }
+        return lastModelUpdateMessage ?? "Model updated · error \(daysFromPredicted >= 0 ? "+" : "")\(daysFromPredicted) days"
+    }
+
+    /// Still no period past window — widen forecast, lower certainty, keep history.
+    @discardableResult
+    func reportStillNoPeriod() -> String {
+        updateSettings {
+            $0.overdueWidenDays = min(10, $0.overdueWidenDays + 2)
+        }
+        recompute()
+        let msg = "Window widened · still waiting (confidence tempered)"
+        lastModelUpdateMessage = msg
+        return msg
     }
 
     func logPartnerToday(flow: MenstrualFlowLevel? = nil, symptoms: [CycleSymptom]? = nil, notes: String? = nil) {
@@ -287,7 +331,9 @@ final class MenstrualHealthStore: ObservableObject {
         let newOffset = settings.calibrationOffsetDays * (1 - alpha) + Double(err) * alpha
         updateSettings {
             $0.calibrationOffsetDays = max(-5, min(5, newOffset))
+            $0.overdueWidenDays = 0
         }
+        lastModelUpdateMessage = "Model updated · last error \(err >= 0 ? "+" : "")\(err) days"
     }
 
     func recomputePartner() {

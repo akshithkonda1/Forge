@@ -80,6 +80,34 @@ struct ProgressPageView: View {
                     ForgeSkeletonBlock(height: 160, cornerRadius: 16)
                     ForgeSkeletonBlock(height: 220, cornerRadius: 16)
                     ForgeSkeletonBlock(height: 160, cornerRadius: 16)
+                } else if store.workoutHistory.isEmpty && store.progressSummary == nil && store.personalRecords.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.system(size: 36, weight: .semibold))
+                            .foregroundStyle(Color.ember)
+                        Text("No sessions yet")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.textPrimary)
+                        Text("Complete a workout and your history, PRs, and streaks will show up here.")
+                            .font(.system(size: 14))
+                            .foregroundColor(.textSecondary)
+                            .multilineTextAlignment(.center)
+                        Button {
+                            store.activeTab = .workout
+                        } label: {
+                            Text("Start a session")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 22)
+                                .padding(.vertical, 14)
+                                .background(FDS.Gradient.ember)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(28)
+                    .forgeGlassCard(accent: .ember)
                 } else {
                     // Time range selector
                     TimeRangePicker(selection: $selectedTimeRange)
@@ -771,6 +799,12 @@ struct SettingsPageView: View {
     @State private var showTermsSheet = false
     @State private var showMyChartPlaceholderSheet = false
     @State private var showDataPermissions = false
+    @State private var showGoalsEditor = false
+    @State private var showScheduleEditor = false
+    @State private var showEquipmentPicker = false
+    @State private var showWorkoutsEditor = false
+    @State private var showBackendURL = false
+    @State private var backendURLDraft = AriaService.shared.baseURL.absoluteString
     @State private var briefSettings: BriefNotificationSettings
 
     let dayLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
@@ -971,12 +1005,32 @@ struct SettingsPageView: View {
                         }()
                     )
                     Divider().background(Color.borderColor)
-                    SettingsRow(
-                        icon: "house.fill",
-                        iconColor: Color(hex: "EF4444"),
-                        label: "Open Cycle Health",
-                        trailingText: "From Home"
-                    )
+                    SettingsRow(icon: "scope", iconColor: Color(hex: "A855F7"), label: "High-accuracy mode") {
+                        ForgeToggle(isOn: Binding(
+                            get: { MenstrualHealthStore.shared.settings.highAccuracyMode },
+                            set: { v in MenstrualHealthStore.shared.updateSettings { $0.highAccuracyMode = v } }
+                        ))
+                    }
+                    Divider().background(Color.borderColor)
+                    SettingsRow(icon: "eye.fill", iconColor: .ember, label: "Share cycle with ARIA") {
+                        ForgeToggle(isOn: Binding(
+                            get: { MenstrualHealthStore.shared.settings.shareWithAria },
+                            set: { v in MenstrualHealthStore.shared.updateSettings { $0.shareWithAria = v } }
+                        ))
+                    }
+                    Divider().background(Color.borderColor)
+                    Button {
+                        store.openCycleHealth(pane: "me")
+                    } label: {
+                        SettingsRow(
+                            icon: "house.fill",
+                            iconColor: Color(hex: "EF4444"),
+                            label: "Open Cycle Health",
+                            trailingText: "Home",
+                            showChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 // Data & Privacy
@@ -989,27 +1043,71 @@ struct SettingsPageView: View {
                     .buttonStyle(.plain)
                 }
 
+                // Focus / quiet
+                sectionHeader("Focus")
+                SectionCard {
+                    SettingsRow(icon: "moon.fill", iconColor: .steel, label: "Quiet mode") {
+                        ForgeToggle(isOn: Binding(
+                            get: { store.quietMode },
+                            set: { store.setQuietMode($0) }
+                        ))
+                    }
+                }
+
                 // Workout Preferences
                 sectionHeader("Workout Preferences")
                 SectionCard {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Preferred Types").font(.system(size: 14, weight: .medium)).foregroundColor(.textPrimary)
-                        FlowLayout(spacing: 8) {
-                            ForEach(store.userProfile.preferredWorkouts) { type in
-                                Text(type.label)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(.textSecondary)
-                                    .padding(.horizontal, 12).padding(.vertical, 5)
-                                    .background(Color.surfaceElevated)
-                                    .cornerRadius(100)
+                    Button { showGoalsEditor = true } label: {
+                        SettingsRow(
+                            icon: "target",
+                            iconColor: .ember,
+                            label: "Training Goals",
+                            trailingText: "\(store.userProfile.fitnessGoals.count)",
+                            showChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    Divider().background(Color.borderColor)
+                    Button { showWorkoutsEditor = true } label: {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Text("Preferred Types").font(.system(size: 14, weight: .medium)).foregroundColor(.textPrimary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.textMuted)
+                            }
+                            FlowLayout(spacing: 8) {
+                                ForEach(store.userProfile.preferredWorkouts) { type in
+                                    Text(type.label)
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.textSecondary)
+                                        .padding(.horizontal, 12).padding(.vertical, 5)
+                                        .background(Color.surfaceElevated)
+                                        .cornerRadius(100)
+                                }
                             }
                         }
+                        .padding(.horizontal, 16).padding(.vertical, 12)
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 12)
+                    .buttonStyle(.plain)
                     Divider().background(Color.borderColor)
-                    SettingsRow(icon: "dumbbell.fill", iconColor: .ember, label: "Training Schedule", trailingText: scheduleDays)
+                    Button { showScheduleEditor = true } label: {
+                        SettingsRow(icon: "dumbbell.fill", iconColor: .ember, label: "Training Schedule",
+                                    trailingText: scheduleDays.isEmpty ? "Set days" : scheduleDays, showChevron: true)
+                    }
+                    .buttonStyle(.plain)
                     Divider().background(Color.borderColor)
-                    SettingsRow(icon: nil, iconColor: nil, label: "Equipment", trailingText: "Commercial Gym")
+                    Button { showEquipmentPicker = true } label: {
+                        SettingsRow(
+                            icon: store.userProfile.trainingEquipment.icon,
+                            iconColor: .steel,
+                            label: "Equipment",
+                            trailingText: store.userProfile.trainingEquipment.rawValue,
+                            showChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 // Notifications
@@ -1117,6 +1215,17 @@ struct SettingsPageView: View {
                     Divider().background(Color.borderColor)
                     SettingsRow(icon: "info.circle.fill", iconColor: .textSecondary, label: "About Forge",
                                 trailingText: "v1.0")
+                    Divider().background(Color.borderColor)
+                    Button { showBackendURL = true } label: {
+                        SettingsRow(
+                            icon: "server.rack",
+                            iconColor: .steel,
+                            label: "ARIA backend URL",
+                            trailingText: "Bedrock",
+                            showChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 // Log Out
@@ -1160,6 +1269,47 @@ struct SettingsPageView: View {
         .sheet(isPresented: $showDataPermissions) {
             DataPermissionsView()
                 .environmentObject(store)
+        }
+        .sheet(isPresented: $showGoalsEditor) {
+            FitnessGoalsEditorView()
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showScheduleEditor) {
+            TrainingScheduleEditorView()
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showEquipmentPicker) {
+            EquipmentPickerView()
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showWorkoutsEditor) {
+            PreferredWorkoutsEditorView()
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showBackendURL) {
+            NavigationStack {
+                Form {
+                    Section("Backend (Bedrock path)") {
+                        TextField("https://…", text: $backendURLDraft)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .keyboardType(.URL)
+                    }
+                    Section {
+                        Button("Save") {
+                            AriaService.shared.setBaseURL(backendURLDraft)
+                            showBackendURL = false
+                        }
+                    }
+                }
+                .navigationTitle("ARIA backend")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close") { showBackendURL = false }
+                    }
+                }
+            }
+            .preferredColorScheme(.dark)
         }
         .alert("Privacy Policy Required", isPresented: $showPrivacyPolicyURLAlert) {
             Button("OK", role: .cancel) { }

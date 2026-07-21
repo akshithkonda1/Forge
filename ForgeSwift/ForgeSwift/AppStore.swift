@@ -858,6 +858,18 @@ final class AppStore: ObservableObject {
     // Navigation
     @Published var activeTab: TabItem = .home
     @Published var pendingProfileSubTab: String? = nil
+    /// When true, Home presents Cycle Health full-screen (Settings deep-link).
+    @Published var pendingCycleHealthOpen: Bool = false
+    /// Optional Cycle pane: "me" or "partner".
+    @Published var pendingCyclePane: String? = nil
+
+    // Quiet mode — damp proactive noise (persisted)
+    @Published var quietMode: Bool = UserDefaults.standard.bool(forKey: "forge.quiet.mode.v1") {
+        didSet {
+            UserDefaults.standard.set(quietMode, forKey: "forge.quiet.mode.v1")
+            AriaContextStore.shared.setQuietMode(quietMode)
+        }
+    }
 
     // ARIA bridge
     @Published var ariaVoiceMode: Bool = false
@@ -1360,9 +1372,23 @@ final class AppStore: ObservableObject {
     }
 
     func openChat(with prompt: String, voice: Bool = false) {
+        if quietMode, !voice {
+            // Still allow explicit user-initiated chat; only damp auto prompts elsewhere.
+        }
         ariaPendingChatPrompt = prompt
         ariaVoiceMode = voice
         activeTab = .chat
+    }
+
+    /// Deep-link into Home Cycle Health full-screen (optional Support pane).
+    func openCycleHealth(pane: String? = nil) {
+        pendingCyclePane = pane
+        pendingCycleHealthOpen = true
+        activeTab = .home
+    }
+
+    func setQuietMode(_ on: Bool) {
+        quietMode = on
     }
     
     /// Update user metrics (typically from HealthKit integration)

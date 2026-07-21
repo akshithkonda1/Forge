@@ -397,11 +397,15 @@ struct MenstrualTrackingSettings: Codable, Equatable {
     var privacyAcknowledged: Bool
     /// Auto-learned day offset applied to next-period median (EMA of prediction errors).
     var calibrationOffsetDays: Double
+    /// Encourages BBT/OPK + same-day confirm for sharper personal accuracy (not contraception).
+    var highAccuracyMode: Bool
+    /// Temporary widen when user reports still no period past the window.
+    var overdueWidenDays: Int
 
     enum CodingKeys: String, CodingKey {
         case enabled, shareWithAria, averageCycleOverride, averagePeriodOverride
         case typicalLutealDays, usesHormonalContraception, notes
-        case privacyAcknowledged, calibrationOffsetDays
+        case privacyAcknowledged, calibrationOffsetDays, highAccuracyMode, overdueWidenDays
     }
 
     static let `default` = MenstrualTrackingSettings(
@@ -413,7 +417,9 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         usesHormonalContraception: false,
         notes: "",
         privacyAcknowledged: false,
-        calibrationOffsetDays: 0
+        calibrationOffsetDays: 0,
+        highAccuracyMode: false,
+        overdueWidenDays: 0
     )
 
     init(
@@ -425,7 +431,9 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         usesHormonalContraception: Bool,
         notes: String,
         privacyAcknowledged: Bool = false,
-        calibrationOffsetDays: Double = 0
+        calibrationOffsetDays: Double = 0,
+        highAccuracyMode: Bool = false,
+        overdueWidenDays: Int = 0
     ) {
         self.enabled = enabled
         self.shareWithAria = shareWithAria
@@ -436,6 +444,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         self.notes = notes
         self.privacyAcknowledged = privacyAcknowledged
         self.calibrationOffsetDays = calibrationOffsetDays
+        self.highAccuracyMode = highAccuracyMode
+        self.overdueWidenDays = overdueWidenDays
     }
 
     init(from decoder: Decoder) throws {
@@ -449,6 +459,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
         privacyAcknowledged = try c.decodeIfPresent(Bool.self, forKey: .privacyAcknowledged) ?? false
         calibrationOffsetDays = try c.decodeIfPresent(Double.self, forKey: .calibrationOffsetDays) ?? 0
+        highAccuracyMode = try c.decodeIfPresent(Bool.self, forKey: .highAccuracyMode) ?? false
+        overdueWidenDays = try c.decodeIfPresent(Int.self, forKey: .overdueWidenDays) ?? 0
     }
 
     func encode(to encoder: Encoder) throws {
@@ -462,6 +474,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         try c.encode(notes, forKey: .notes)
         try c.encode(privacyAcknowledged, forKey: .privacyAcknowledged)
         try c.encode(calibrationOffsetDays, forKey: .calibrationOffsetDays)
+        try c.encode(highAccuracyMode, forKey: .highAccuracyMode)
+        try c.encode(overdueWidenDays, forKey: .overdueWidenDays)
     }
 }
 

@@ -232,6 +232,19 @@ final class AriaContextStore: ObservableObject {
         persist()
     }
 
+    /// Quiet mode: ARIA should reduce unsolicited briefs and noise.
+    func setQuietMode(_ on: Bool) {
+        context.lifestyleTags = context.lifestyleTags.filter { !$0.hasPrefix("quiet_mode:") }
+        if on {
+            context.lifestyleTags.append("quiet_mode:true")
+            context.constraints = Array(Set(context.constraints + ["quiet_mode:true"]))
+        } else {
+            context.constraints = context.constraints.filter { $0 != "quiet_mode:true" }
+        }
+        context.lastUpdated = Date()
+        persist()
+    }
+
     func clearCycleTags() {
         context.lifestyleTags = context.lifestyleTags.filter {
             !$0.hasPrefix("cycle:") && !$0.hasPrefix("cycle_phase:") && !$0.hasPrefix("cycle_day:")
