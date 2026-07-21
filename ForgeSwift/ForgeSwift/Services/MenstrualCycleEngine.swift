@@ -84,7 +84,8 @@ enum MenstrualCycleEngine {
             lastStart: lastStart,
             lengths: cycleLengths,
             median: medianCycle,
-            mad: madCycle
+            mad: madCycle,
+            calibrationOffsetDays: settings.calibrationOffsetDays
         )
 
         let nextOvuKey: String? = {
@@ -144,6 +145,9 @@ enum MenstrualCycleEngine {
             insights.append("Resting HR often ticks up in luteal. Pair with how you feel before adding load.")
         }
 
+        // Slight confidence lift when calibration has enough feedback-driven offset history.
+        let calibratedConfidence = min(0.95, confidence + (abs(settings.calibrationOffsetDays) > 0.25 ? 0.03 : 0))
+
         return MenstrualCycleSnapshot(
             asOfDayKey: dayKey,
             trackingEnabled: true,
@@ -159,7 +163,7 @@ enum MenstrualCycleEngine {
             fertileEndDayInCycle: ovulation.map { $0.dayInCycle + 1 },
             nextPeriod: nextPeriod,
             nextOvulationDayKey: nextOvuKey,
-            confidence: confidence,
+            confidence: calibratedConfidence,
             dataQuality: dataQuality,
             recommendRecoveryBias: recoveryBias,
             trainingNote: phase.trainingBias,
@@ -168,7 +172,11 @@ enum MenstrualCycleEngine {
             disclaimer: disclaimer,
             lastPeriodStartDayKey: lastStart,
             isCurrentlyBleeding: bleedingToday,
-            irregularityFlag: irregular
+            irregularityFlag: irregular,
+            accuracyMAE: nil,
+            accuracySampleCount: 0,
+            accuracyGrade: "learning",
+            calibrationOffsetDays: settings.calibrationOffsetDays
         )
     }
 
@@ -337,18 +345,21 @@ enum MenstrualCycleEngine {
         lastStart: String?,
         lengths: [Int],
         median: Double,
-        mad: Double
+        mad: Double,
+        calibrationOffsetDays: Double = 0
     ) -> CyclePredictionRange? {
         guard let lastStart else { return nil }
-        let med = Int(median.rounded())
+        // Apply feedback-learned offset so predictions auto-correct toward actual starts.
+        let med = Int((median + calibrationOffsetDays).rounded())
         let spread = max(1, Int(ceil(mad * 1.5)))
         // Use empirical percentiles when enough cycles
         var low = med - spread
         var high = med + spread
         if lengths.count >= 4 {
             let sorted = lengths.sorted()
-            low = sorted[max(0, sorted.count / 10)]
-            high = sorted[min(sorted.count - 1, (sorted.count * 9) / 10)]
+            let cal = Int(calibrationOffsetDays.rounded())
+            low = sorted[max(0, sorted.count / 10)] + cal
+            high = sorted[min(sorted.count - 1, (sorted.count * 9) / 10)] + cal
         }
         guard let earliest = CycleDayKey.addDays(lastStart, low),
               let medianKey = CycleDayKey.addDays(lastStart, med),

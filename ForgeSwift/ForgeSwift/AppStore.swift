@@ -7,17 +7,28 @@ import FoundationModels
 // MARK: - Tab Enum
 
 enum TabItem: String, CaseIterable, Identifiable {
-    case home, chat, workout, lifestyle, sleep, profile
+    case home, workout, chat, lifestyle, sleep, progress, profile
     var id: String { rawValue }
-    var label: String { rawValue.capitalized }
+    var label: String {
+        switch self {
+        case .home: return "Home"
+        case .workout: return "Workout"
+        case .chat: return "ARIA"
+        case .lifestyle: return "Lifestyle"
+        case .sleep: return "Sleep"
+        case .progress: return "Progress"
+        case .profile: return "Profile"
+        }
+    }
     var systemImage: String {
         switch self {
-        case .home:     return "house.fill"
-        case .chat:     return "message.fill"
-        case .workout:  return "dumbbell.fill"
-        case .lifestyle: return "leaf.fill"
-        case .sleep:    return "moon.fill"
-        case .profile:  return "person.fill"
+        case .home:      return "house"
+        case .chat:      return "message"
+        case .workout:   return "dumbbell"
+        case .lifestyle: return "leaf"
+        case .sleep:     return "moon"
+        case .progress:  return "chart.line.uptrend.xyaxis"
+        case .profile:   return "person"
         }
     }
 }
@@ -809,6 +820,13 @@ final class AppStore: ObservableObject {
     }
     @Published var onboardingStep: Int = 0
 
+    // Auth (local session gate — production wires IdP tokens)
+    @Published var isAuthenticated: Bool = false {
+        didSet { UserDefaults.standard.set(isAuthenticated, forKey: Self.authDefaultsKey) }
+    }
+    @Published var authProvider: String = ""
+    @Published var authEmail: String = ""
+
     // User Profile
     @Published var userProfile: UserProfile = mockProfile {
         didSet { persistUserProfile() }
@@ -899,16 +917,54 @@ final class AppStore: ObservableObject {
 
     private static let onboardedDefaultsKey = "forge.onboarding.completed"
     private static let profileDefaultsKey = "forge.user.profile.v1"
+    private static let authDefaultsKey = "forge.auth.session.v1"
+    private static let authProviderKey = "forge.auth.provider.v1"
+    private static let authEmailKey = "forge.auth.email.v1"
 
-    /// Rehydrates a completed onboarding (flag + profile) on cold launch so the
-    /// user lands straight in the app instead of re-running setup every time.
+    /// Rehydrates auth + completed onboarding on cold launch.
     private func restoreOnboardingState() {
+        isAuthenticated = UserDefaults.standard.bool(forKey: Self.authDefaultsKey)
+        authProvider = UserDefaults.standard.string(forKey: Self.authProviderKey) ?? ""
+        authEmail = UserDefaults.standard.string(forKey: Self.authEmailKey) ?? ""
+        // Legacy: onboarded users from before auth gate count as signed in.
+        if !isAuthenticated, UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) {
+            isAuthenticated = true
+            authProvider = authProvider.isEmpty ? "legacy" : authProvider
+        }
         guard UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) else { return }
         if let data = UserDefaults.standard.data(forKey: Self.profileDefaultsKey),
            let saved = try? JSONDecoder().decode(UserProfile.self, from: data) {
             userProfile = saved
         }
         isOnboarded = true
+    }
+
+    /// Sign-up path: mark authenticated then run onboarding (HealthKit + profile).
+    func beginSignUp() {
+        isAuthenticated = true
+        authProvider = "signup"
+        UserDefaults.standard.set("signup", forKey: Self.authProviderKey)
+        isOnboarded = false
+        onboardingStep = 0
+    }
+
+    /// Completes auth for returning or new social/email users.
+    func authenticate(provider: String, email: String, displayName: String, isNewAccount: Bool) {
+        isAuthenticated = true
+        authProvider = provider
+        authEmail = email
+        UserDefaults.standard.set(provider, forKey: Self.authProviderKey)
+        UserDefaults.standard.set(email, forKey: Self.authEmailKey)
+        if !displayName.isEmpty, userProfile.name.isEmpty || userProfile.name == "Alex" || isNewAccount {
+            userProfile.name = displayName
+        }
+        if isNewAccount || !UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) {
+            isOnboarded = false
+            onboardingStep = 0
+        } else {
+            isOnboarded = true
+            Task { await refreshDailyData() }
+        }
     }
 
     private func persistUserProfile() {
@@ -1292,10 +1348,10 @@ final class AppStore: ObservableObject {
         let samples = BiometricsObserveService.shared.samplesFromStore(self)
         _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
 
-        // Menstrual cycle: auto-enable path for female profiles + HealthKit multi-signal sync.
+        // Menstrual cycle: auto-enable + quiet weekly HealthKit sync (or immediate if broken).
         MenstrualHealthStore.shared.enableForFemaleProfileIfNeeded(gender: userProfile.gender)
         if MenstrualHealthStore.shared.settings.enabled {
-            await MenstrualHealthStore.shared.syncFromHealthKit()
+            await MenstrualHealthStore.shared.quietWeeklyHealthKitSync(force: !authorized)
             MenstrualHealthStore.shared.refresh(from: self)
         }
 

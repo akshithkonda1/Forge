@@ -20,12 +20,19 @@ final class MenstrualHealthStore: ObservableObject {
 
     @Published private(set) var lastSyncAt: Date?
     @Published private(set) var isSyncing = false
+    @Published private(set) var accuracyReport: CycleAccuracyReport = .empty
+    @Published private(set) var predictionFeedback: [CyclePredictionFeedback] = []
+    /// Last live next-period median we advertised (for feedback when actual start arrives).
+    @Published private(set) var lastAdvertisedNextPeriodMedian: String?
 
     private let defaults = UserDefaults.standard
     private let settingsKey = "forge.menstrual.settings.v1"
     private let logsKey = "forge.menstrual.logs.v1"
     private let partnerSettingsKey = "forge.menstrual.partner.settings.v1"
     private let partnerLogsKey = "forge.menstrual.partner.logs.v1"
+    private let feedbackKey = "forge.menstrual.prediction.feedback.v1"
+    private let advertisedKey = "forge.menstrual.advertised.next.v1"
+    private let quietSyncKey = "forge.menstrual.quiet.sync.at"
 
     private init() {
         if let data = defaults.data(forKey: settingsKey),
@@ -52,6 +59,11 @@ final class MenstrualHealthStore: ObservableObject {
         } else {
             partnerLogs = []
         }
+        if let data = defaults.data(forKey: feedbackKey),
+           let f = try? JSONDecoder().decode([CyclePredictionFeedback].self, from: data) {
+            predictionFeedback = f
+        }
+        lastAdvertisedNextPeriodMedian = defaults.string(forKey: advertisedKey)
         snapshot = .empty
         partnerSnapshot = .empty
         partnerSupportBrief = nil
@@ -124,7 +136,33 @@ final class MenstrualHealthStore: ObservableObject {
     }
 
     func logPeriodStart(on dayKey: String = CycleDayKey.key(), flow: MenstrualFlowLevel = .medium) {
+        // Capture feedback vs advertised prediction before logs change the engine state.
+        recordPredictionFeedbackIfNeeded(actualStartDayKey: dayKey)
         upsertLog(CycleDayLog(dayKey: dayKey, flow: flow, source: "manual"))
+    }
+
+    /// Delete a single day log (day edit wipe).
+    func deleteLog(dayKey: String) {
+        logs.removeAll { $0.dayKey == dayKey }
+        persistLogs()
+        recompute()
+        pushAriaTags()
+    }
+
+    /// Wipe self cycle logs (and optionally settings). Keeps partner logs by design.
+    func wipeSelfCycleData(includingSettings: Bool = false) {
+        logs = []
+        predictionFeedback = []
+        lastAdvertisedNextPeriodMedian = nil
+        defaults.removeObject(forKey: feedbackKey)
+        defaults.removeObject(forKey: advertisedKey)
+        persistLogs()
+        if includingSettings {
+            settings = .default
+            persistSettings()
+        }
+        recompute()
+        pushAriaTags()
     }
 
     func logToday(
@@ -191,13 +229,65 @@ final class MenstrualHealthStore: ObservableObject {
     // MARK: Engine
 
     func recompute(readinessHRV: Int? = nil, baselineHRV: Int? = nil, restingHR: Int? = nil) {
-        snapshot = MenstrualCycleEngine.evaluate(
+        var snap = MenstrualCycleEngine.evaluate(
             logs: logs,
             settings: settings,
             recentHRV: readinessHRV,
             baselineHRV: baselineHRV,
             restingHR: restingHR
         )
+        accuracyReport = CycleAccuracyReport.compute(
+            from: predictionFeedback,
+            calibrationOffset: settings.calibrationOffsetDays
+        )
+        snap.accuracyMAE = accuracyReport.maeDays
+        snap.accuracySampleCount = accuracyReport.sampleCount
+        snap.accuracyGrade = accuracyReport.gradeLabel
+        snap.calibrationOffsetDays = settings.calibrationOffsetDays
+        if accuracyReport.sampleCount > 0, let mae = accuracyReport.maeDays {
+            snap.insights.insert(
+                "Prediction MAE: \(String(format: "%.1f", mae)) days across \(accuracyReport.sampleCount) confirmed starts (\(accuracyReport.gradeLabel.replacingOccurrences(of: "_", with: " "))).",
+                at: 0
+            )
+        }
+        snapshot = snap
+        // Remember what we currently advertise so the next real start can score us.
+        if let median = snap.nextPeriod?.medianDayKey {
+            lastAdvertisedNextPeriodMedian = median
+            defaults.set(median, forKey: advertisedKey)
+        }
+    }
+
+    /// Compare actual period start to the last advertised median; update calibration EMA.
+    func recordPredictionFeedbackIfNeeded(actualStartDayKey: String) {
+        guard let predicted = lastAdvertisedNextPeriodMedian
+                ?? snapshot.nextPeriod?.medianDayKey else { return }
+        // Avoid double-counting the same actual start.
+        if predictionFeedback.contains(where: { $0.actualStartDayKey == actualStartDayKey }) {
+            return
+        }
+        guard let err = CycleDayKey.daysBetween(predicted, actualStartDayKey) else { return }
+        // Ignore absurd gaps (user re-logging old history far from the live forecast).
+        guard abs(err) <= 21 else { return }
+
+        let entry = CyclePredictionFeedback(
+            predictedMedianDayKey: predicted,
+            actualStartDayKey: actualStartDayKey,
+            errorDays: err,
+            recordedAt: Date()
+        )
+        predictionFeedback.append(entry)
+        if predictionFeedback.count > 24 {
+            predictionFeedback = Array(predictionFeedback.suffix(24))
+        }
+        persistFeedback()
+
+        // EMA auto-correct: pull calibration toward observed signed error.
+        let alpha = 0.35
+        let newOffset = settings.calibrationOffsetDays * (1 - alpha) + Double(err) * alpha
+        updateSettings {
+            $0.calibrationOffsetDays = max(-5, min(5, newOffset))
+        }
     }
 
     func recomputePartner() {
@@ -244,8 +334,23 @@ final class MenstrualHealthStore: ObservableObject {
         let bundle = await HealthKitManager.shared.fetchMenstrualHealthBundle(days: days)
         mergeHealthKit(bundle)
         lastSyncAt = Date()
+        defaults.set(Date().timeIntervalSince1970, forKey: quietSyncKey)
         recompute()
         pushAriaTags()
+    }
+
+    /// Quiet weekly HealthKit menstrual sync. Runs full sync if never run, >7 days, or forced (e.g. HealthKit offline).
+    func quietWeeklyHealthKitSync(force: Bool = false) async {
+        guard settings.enabled else { return }
+        let last = defaults.double(forKey: quietSyncKey)
+        let week: TimeInterval = 7 * 24 * 60 * 60
+        let stale = last <= 0 || (Date().timeIntervalSince1970 - last) >= week
+        guard force || stale || lastSyncAt == nil else {
+            // Still refresh engine from local logs.
+            recompute()
+            return
+        }
+        await syncFromHealthKit()
     }
 
     private func mergeHealthKit(_ bundle: MenstrualHealthKitBundle) {
@@ -365,6 +470,12 @@ final class MenstrualHealthStore: ObservableObject {
     private func persistPartnerLogs() {
         if let data = try? JSONEncoder().encode(partnerLogs) {
             defaults.set(data, forKey: partnerLogsKey)
+        }
+    }
+
+    private func persistFeedback() {
+        if let data = try? JSONEncoder().encode(predictionFeedback) {
+            defaults.set(data, forKey: feedbackKey)
         }
     }
 }

@@ -4,104 +4,25 @@ import SwiftUI
 
 struct ProfileTabView: View {
     @EnvironmentObject var store: AppStore
-    @State private var subTab: SubTab = .progress
-    @Namespace private var tabAnimation
-
-    enum SubTab: String, CaseIterable {
-        case progress = "Progress"
-        case lifestyle = "Lifestyle"
-        case settings = "Settings"
-    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Enhanced sticky sub-tab bar with matched geometry effect
-            VStack(spacing: 0) {
-                HStack(spacing: 0) {
-                    ForEach(SubTab.allCases, id: \.self) { tab in
-                        Button(action: {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                subTab = tab
-                            }
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        }) {
-                            ZStack {
-                                if subTab == tab {
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.ember)
-                                        .matchedGeometryEffect(id: "tab", in: tabAnimation)
-                                        .shadow(color: Color.ember.opacity(0.3), radius: 8, y: 2)
-                                }
-                                Text(tab.rawValue)
-                                    .font(.system(size: 14, weight: subTab == tab ? .semibold : .medium))
-                                    .foregroundColor(subTab == tab ? .white : .textTertiary)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 36)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
+        // Progress + Lifestyle live on bottom tabs; Profile is account + settings.
+        SettingsPageView()
+            .forgeScreenBackground(accent: .steel)
+            .onAppear {
+                // Legacy deep links: Progress / Lifestyle sub-tabs now map to root tabs.
+                if let pending = store.pendingProfileSubTab {
+                    switch pending.lowercased() {
+                    case "progress":
+                        store.activeTab = .progress
+                    case "lifestyle":
+                        store.activeTab = .lifestyle
+                    default:
+                        break
                     }
-                }
-                .padding(4)
-                .background {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                            .fill(Color.surface.opacity(0.95))
-                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                            .fill(LinearGradient.premiumSurface)
-                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                            .stroke(Color.borderHairline, lineWidth: 1)
-                    }
+                    store.pendingProfileSubTab = nil
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 60)
-            .padding(.bottom, 8)
-            .background {
-                ZStack {
-                    Color.background.opacity(0.92)
-                    LinearGradient.premiumChrome.opacity(0.4)
-                }
-            }
-
-            // Content with transitions
-            Group {
-                switch subTab {
-                case .progress:
-                    ProgressPageView()
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
-                case .lifestyle:
-                    LifestyleView()
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
-                case .settings:
-                    SettingsPageView()
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
-                }
-            }
-            .id(subTab)
-        }
-        .forgeScreenBackground(accent: .steel)
-        .onAppear { applyPendingProfileSubTab() }
-        .onChange(of: store.pendingProfileSubTab) { _, _ in applyPendingProfileSubTab() }
-    }
-
-    private func applyPendingProfileSubTab() {
-        guard let pending = store.pendingProfileSubTab,
-              let match = SubTab.allCases.first(where: { $0.rawValue == pending }) else { return }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-            subTab = match
-        }
-        store.pendingProfileSubTab = nil
     }
 }
 
@@ -152,7 +73,7 @@ struct ProgressPageView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Share progress")
                 }
-                .padding(.top, 16)
+                .padding(.top, 56)
 
                 if isInitialLoading {
                     ForgeSkeletonBlock(height: 88, cornerRadius: 16)
@@ -976,6 +897,88 @@ struct SettingsPageView: View {
                     }
                 }
 
+                // Account
+                sectionHeader("Account")
+                SectionCard {
+                    SettingsRow(
+                        icon: "person.crop.circle.fill",
+                        iconColor: .ember,
+                        label: store.authEmail.isEmpty ? "Signed in" : store.authEmail,
+                        trailingText: store.authProvider.isEmpty ? "Session" : store.authProvider.capitalized
+                    )
+                    Divider().background(Color.borderColor)
+                    SettingsRow(
+                        icon: "checkmark.shield.fill",
+                        iconColor: .success,
+                        label: "Session",
+                        trailingText: store.isAuthenticated ? "Active" : "None"
+                    )
+                }
+
+                // Health
+                sectionHeader("Apple Health")
+                SectionCard {
+                    SettingsRow(
+                        icon: "heart.text.square.fill",
+                        iconColor: store.healthKitLive ? .success : .warning,
+                        label: "HealthKit",
+                        trailingText: store.healthKitLive ? "Connected" : "Offline"
+                    )
+                    Divider().background(Color.borderColor)
+                    Button {
+                        Task {
+                            await store.reconnectHealthKit()
+                            FDS.notificationHaptic(store.healthKitLive ? .success : .warning)
+                        }
+                    } label: {
+                        SettingsRow(
+                            icon: "arrow.triangle.2.circlepath",
+                            iconColor: .ember,
+                            label: store.healthKitLive ? "Resync HealthKit" : "Reconnect HealthKit",
+                            trailingText: "Now",
+                            showChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    Divider().background(Color.borderColor)
+                    SettingsRow(
+                        icon: "calendar.badge.clock",
+                        iconColor: .steel,
+                        label: "Cycle quiet sync",
+                        trailingText: "Weekly"
+                    )
+                }
+
+                // Cycle privacy (Home opens the full Cycle surface)
+                sectionHeader("Cycle privacy")
+                SectionCard {
+                    SettingsRow(
+                        icon: "lock.shield.fill",
+                        iconColor: Color(hex: "22C55E"),
+                        label: "Coaching-only data",
+                        trailingText: MenstrualHealthStore.shared.settings.enabled ? "On" : "Off"
+                    )
+                    Divider().background(Color.borderColor)
+                    SettingsRow(
+                        icon: "chart.line.uptrend.xyaxis",
+                        iconColor: .ember,
+                        label: "Prediction accuracy",
+                        trailingText: {
+                            if let mae = MenstrualHealthStore.shared.accuracyReport.maeDays {
+                                return String(format: "MAE %.1fd", mae)
+                            }
+                            return "Learning"
+                        }()
+                    )
+                    Divider().background(Color.borderColor)
+                    SettingsRow(
+                        icon: "house.fill",
+                        iconColor: Color(hex: "EF4444"),
+                        label: "Open Cycle Health",
+                        trailingText: "From Home"
+                    )
+                }
+
                 // Data & Privacy
                 sectionHeader("Data & Privacy")
                 SectionCard {
@@ -1636,8 +1639,29 @@ extension AppStore {
     }
 
     func signOut() {
+        isAuthenticated = false
         isOnboarded = false
+        authProvider = ""
+        authEmail = ""
+        UserDefaults.standard.set(false, forKey: "forge.auth.session.v1")
+        UserDefaults.standard.removeObject(forKey: "forge.auth.provider.v1")
+        UserDefaults.standard.removeObject(forKey: "forge.auth.email.v1")
         activeTab = .home
+        onboardingStep = 0
+    }
+
+    /// Force HealthKit reconnect from Settings / Home offline pill.
+    func reconnectHealthKit() async {
+        do {
+            try await HealthKitManager.shared.requestAuthorization()
+            healthKitLive = await HealthKitManager.shared.checkAuthorizationStatus()
+            if healthKitLive {
+                await refreshDailyData()
+            }
+        } catch {
+            healthKitLive = false
+        }
+        objectWillChange.send()
     }
 }
 

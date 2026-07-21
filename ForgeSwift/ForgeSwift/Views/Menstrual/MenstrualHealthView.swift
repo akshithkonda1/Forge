@@ -36,6 +36,13 @@ struct MenstrualHealthView: View {
     @State private var ringPulse = false
     @State private var logExpanded = true
     @State private var historyExpanded = false
+    @State private var privacyAccepted = false
+    @State private var editingDayKey: String?
+    @State private var editFlow: MenstrualFlowLevel = .medium
+    @State private var editSymptoms: Set<CycleSymptom> = []
+    @State private var editNotes = ""
+    @State private var showWipeConfirm = false
+    @State private var showDayEditor = false
 
     private var accent: Color {
         let phase = pane == .me ? cycleStore.snapshot.phase : cycleStore.partnerSnapshot.phase
@@ -55,6 +62,7 @@ struct MenstrualHealthView: View {
                             enableCard
                         } else {
                             phaseOrbitCard
+                            accuracyCard
                             dayStrip
                             predictionGrid
                             quickLogCard
@@ -228,14 +236,23 @@ struct MenstrualHealthView: View {
                 .font(FDS.TypeScale.body(14))
                 .foregroundColor(.textSecondary)
             featureRow("drop.circle.fill", "Period episodes & predictions")
-            featureRow("waveform.path.ecg", "Multi-signal confidence")
+            featureRow("waveform.path.ecg", "Multi-signal confidence + feedback MAE")
             featureRow("sparkles", "Phase-aware ARIA coaching")
             featureRow("lock.shield.fill", CyclePrivacy.shortPromise)
 
+            Toggle(isOn: $privacyAccepted) {
+                Text("I understand cycle data is for my coaching only — never sold")
+                    .font(FDS.TypeScale.body(13))
+                    .foregroundColor(.textSecondary)
+            }
+            .tint(Color(hex: "22C55E"))
+
             Button {
+                guard privacyAccepted else { return }
                 cycleStore.updateSettings {
                     $0.enabled = true
                     $0.shareWithAria = true
+                    $0.privacyAcknowledged = true
                 }
                 FDS.haptic(.medium)
                 Task { await cycleStore.syncFromHealthKit() }
@@ -247,18 +264,87 @@ struct MenstrualHealthView: View {
                     .padding(.vertical, 16)
                     .background(
                         LinearGradient(
-                            colors: [Color(hex: "F87171"), Color(hex: "EF4444"), Color(hex: "DC2626")],
+                            colors: privacyAccepted
+                                ? [Color(hex: "F87171"), Color(hex: "EF4444"), Color(hex: "DC2626")]
+                                : [Color.surfaceElevated, Color.surfaceElevated],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: Color(hex: "EF4444").opacity(0.4), radius: 16, y: 6)
+                    .shadow(color: Color(hex: "EF4444").opacity(privacyAccepted ? 0.4 : 0), radius: 16, y: 6)
             }
             .buttonStyle(.plain)
+            .disabled(!privacyAccepted)
         }
         .padding(22)
         .forgeGlassCard(accent: Color(hex: "EF4444"))
+    }
+
+    // MARK: Accuracy
+
+    private var accuracyCard: some View {
+        let report = cycleStore.accuracyReport
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("PREDICTION ACCURACY")
+                    .forgeSectionLabel()
+                Spacer()
+                Text(report.gradeLabel.replacingOccurrences(of: "_", with: " ").capitalized)
+                    .font(FDS.TypeScale.micro(11))
+                    .foregroundStyle(Color(hex: "22C55E"))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color(hex: "22C55E").opacity(0.12))
+                    .clipShape(Capsule())
+            }
+            HStack(spacing: 10) {
+                accuracyPill(
+                    title: "MAE",
+                    value: report.maeDays.map { String(format: "%.1fd" , $0) } ?? "—",
+                    color: Color(hex: "22C55E")
+                )
+                accuracyPill(
+                    title: "SAMPLES",
+                    value: "\(report.sampleCount)",
+                    color: .steel
+                )
+                accuracyPill(
+                    title: "±1 DAY",
+                    value: report.withinOneDayRate.map { "\(Int($0 * 100))%" } ?? "—",
+                    color: Color(hex: "A855F7")
+                )
+            }
+            Text(report.gradeDetail)
+                .font(FDS.TypeScale.body(12))
+                .foregroundColor(.textSecondary)
+            if abs(report.calibrationOffsetDays) >= 0.2 {
+                Text("Auto-correct offset: \(report.calibrationOffsetDays >= 0 ? "+" : "")\(String(format: "%.1f", report.calibrationOffsetDays)) days")
+                    .font(FDS.TypeScale.micro(11))
+                    .foregroundColor(.textTertiary)
+            }
+            Text("Market-leading accuracy comes from multi-signal inference + confirming actual starts — not a fake percentage badge.")
+                .font(FDS.TypeScale.body(11))
+                .foregroundColor(.textMuted)
+        }
+        .padding(18)
+        .forgeGlassCard(accent: Color(hex: "22C55E"))
+    }
+
+    private func accuracyPill(title: String, value: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            Text(title)
+                .font(FDS.TypeScale.micro(9))
+                .tracking(1.1)
+                .foregroundColor(.textTertiary)
+            Text(value)
+                .font(FDS.TypeScale.label(15))
+                .foregroundColor(.textPrimary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(color.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func featureRow(_ icon: String, _ text: String) -> some View {
@@ -438,26 +524,42 @@ struct MenstrualHealthView: View {
             guard let d = CycleDayKey.date(from: key) else { return "·" }
             return "\(Calendar.current.component(.day, from: d))"
         }()
-        return VStack(spacing: 6) {
-            Text(dayNum)
-                .font(FDS.TypeScale.micro(10))
-                .foregroundColor(isToday ? accent : .textTertiary)
-            Circle()
-                .fill(flowDotColor(flow))
-                .frame(width: flow.isBleeding ? 14 : 8, height: flow.isBleeding ? 14 : 8)
-                .overlay {
-                    if isToday {
-                        Circle().strokeBorder(Color.white.opacity(0.5), lineWidth: 1.5)
-                            .frame(width: 20, height: 20)
+        return Button {
+            openDayEditor(key: key)
+        } label: {
+            VStack(spacing: 6) {
+                Text(dayNum)
+                    .font(FDS.TypeScale.micro(10))
+                    .foregroundColor(isToday ? accent : .textTertiary)
+                Circle()
+                    .fill(flowDotColor(flow))
+                    .frame(width: flow.isBleeding ? 14 : 8, height: flow.isBleeding ? 14 : 8)
+                    .overlay {
+                        if isToday {
+                            Circle().strokeBorder(Color.white.opacity(0.5), lineWidth: 1.5)
+                                .frame(width: 20, height: 20)
+                        }
                     }
+                if !(log?.symptoms.isEmpty ?? true) {
+                    Circle().fill(Color.ember.opacity(0.7)).frame(width: 3, height: 3)
+                } else {
+                    Circle().fill(Color.clear).frame(width: 3, height: 3)
                 }
-            if !(log?.symptoms.isEmpty ?? true) {
-                Circle().fill(Color.ember.opacity(0.7)).frame(width: 3, height: 3)
-            } else {
-                Circle().fill(Color.clear).frame(width: 3, height: 3)
             }
+            .frame(width: 36)
         }
-        .frame(width: 36)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Edit day \(dayNum)")
+    }
+
+    private func openDayEditor(key: String) {
+        editingDayKey = key
+        let log = cycleStore.logs.first { $0.dayKey == key }
+        editFlow = log?.flow ?? .none
+        editSymptoms = Set(log?.symptoms ?? [])
+        editNotes = log?.notes ?? ""
+        showDayEditor = true
+        FDS.haptic(.light)
     }
 
     private func flowDotColor(_ flow: MenstrualFlowLevel) -> Color {
@@ -823,9 +925,112 @@ struct MenstrualHealthView: View {
                     .foregroundColor(.textPrimary)
             }
             .tint(.ember)
+
+            Button(role: .destructive) {
+                showWipeConfirm = true
+            } label: {
+                HStack {
+                    Image(systemName: "trash.fill")
+                    Text("Wipe my cycle logs")
+                        .font(FDS.TypeScale.label(14))
+                    Spacer()
+                }
+                .foregroundColor(.danger)
+                .padding(.vertical, 8)
+            }
+            .buttonStyle(.plain)
         }
         .padding(18)
         .forgeGlassCard(accent: Color(hex: "22C55E"))
+        .confirmationDialog(
+            "Wipe all self cycle logs?",
+            isPresented: $showWipeConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Wipe logs only", role: .destructive) {
+                cycleStore.wipeSelfCycleData(includingSettings: false)
+                FDS.notificationHaptic(.warning)
+            }
+            Button("Wipe logs + disable tracking", role: .destructive) {
+                cycleStore.wipeSelfCycleData(includingSettings: true)
+                FDS.notificationHaptic(.warning)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Partner / support logs are kept. This cannot be undone.")
+        }
+        .sheet(isPresented: $showDayEditor) {
+            dayEditorSheet
+        }
+    }
+
+    private var dayEditorSheet: some View {
+        NavigationStack {
+            Form {
+                Section("Day") {
+                    Text(editingDayKey.map(shortDate) ?? "—")
+                        .foregroundColor(.secondary)
+                }
+                Section("Flow") {
+                    Picker("Flow", selection: $editFlow) {
+                        ForEach([MenstrualFlowLevel.none, .spotting, .light, .medium, .heavy], id: \.self) { level in
+                            Text(level.label).tag(level)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                Section("Symptoms") {
+                    ForEach(CycleSymptom.allCases) { symptom in
+                        Toggle(symptom.label, isOn: Binding(
+                            get: { editSymptoms.contains(symptom) },
+                            set: { on in
+                                if on { editSymptoms.insert(symptom) } else { editSymptoms.remove(symptom) }
+                            }
+                        ))
+                    }
+                }
+                Section("Notes") {
+                    TextField("Optional notes", text: $editNotes, axis: .vertical)
+                        .lineLimit(2...4)
+                }
+                if let key = editingDayKey, cycleStore.logs.contains(where: { $0.dayKey == key }) {
+                    Section {
+                        Button("Delete this day", role: .destructive) {
+                            cycleStore.deleteLog(dayKey: key)
+                            showDayEditor = false
+                            FDS.notificationHaptic(.warning)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Edit day")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showDayEditor = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        guard let key = editingDayKey else { return }
+                        cycleStore.upsertLog(
+                            CycleDayLog(
+                                dayKey: key,
+                                flow: editFlow,
+                                symptoms: Array(editSymptoms),
+                                notes: editNotes.isEmpty ? nil : editNotes,
+                                source: "manual"
+                            )
+                        )
+                        cycleStore.refresh(from: store)
+                        showDayEditor = false
+                        FDS.notificationHaptic(.success)
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .preferredColorScheme(.dark)
     }
 
     private var privacyShieldBanner: some View {

@@ -132,12 +132,17 @@ struct HomeView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
-                        // 3. Primary control
+                        // 3. Dual primary controls (train + lifestyle)
                         HomePrimaryCTA(action: primaryAction)
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
-                        // 4. ARIA briefing
+                        // 4. Today's agenda
+                        HomeAgendaCard()
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 16)
+
+                        // 5. ARIA briefing
                         if let insight = proactiveInsight,
                            AriaContextStore.shared.shouldBeProactive() {
                             ProactiveCardView(
@@ -155,7 +160,12 @@ struct HomeView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
-                        // 5. Cycle Health — entry only from Home (not bottom tabs)
+                        // 6. Lifestyle preview (full surface is its own tab)
+                        HomeLifestylePreviewCard()
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 16)
+
+                        // 7. Cycle Health — entry only from Home (not bottom tabs)
                         if showsCycleEntry {
                             HomeCycleModule {
                                 FDS.haptic(.light)
@@ -165,17 +175,17 @@ struct HomeView: View {
                             .padding(.bottom, 16)
                         }
 
-                        // 6. Day preview telemetry
+                        // 8. Day preview telemetry
                         HomeDayPreviewStrip()
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
-                        // 7. Week rhythm
+                        // 9. Week rhythm
                         StreakCalendarSection()
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
 
-                        // 8. Optional trend
+                        // 10. Optional trend
                         HomeTrendSection(isExpanded: $showTrend)
                             .padding(.horizontal, 16)
                             .padding(.bottom, 140)
@@ -344,23 +354,43 @@ struct HomeHeaderView: View {
 }
 
 private struct HomeDataStatusPill: View {
+    @EnvironmentObject private var store: AppStore
     let isLive: Bool
     let updatedAt: Date?
+    @State private var reconnecting = false
 
     var body: some View {
-        HStack(spacing: 5) {
-            Circle()
-                .fill(isLive ? Color(hex: "22C55E") : Color.textMuted)
-                .frame(width: 5, height: 5)
-                .shadow(color: isLive ? Color(hex: "22C55E").opacity(0.8) : .clear, radius: 3)
-            Text(statusText)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(isLive ? Color(hex: "22C55E") : .textMuted)
+        Button {
+            guard !isLive else { return }
+            reconnecting = true
+            Task {
+                await store.reconnectHealthKit()
+                reconnecting = false
+                FDS.notificationHaptic(store.healthKitLive ? .success : .warning)
+            }
+        } label: {
+            HStack(spacing: 5) {
+                if reconnecting {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Circle()
+                        .fill(isLive ? Color(hex: "22C55E") : Color.warning)
+                        .frame(width: 5, height: 5)
+                        .shadow(color: isLive ? Color(hex: "22C55E").opacity(0.8) : .clear, radius: 3)
+                }
+                Text(statusText)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(isLive ? Color(hex: "22C55E") : .warning)
+            }
         }
+        .buttonStyle(.plain)
+        .disabled(isLive || reconnecting)
         .accessibilityLabel(statusText)
+        .accessibilityHint(isLive ? "" : "Double tap to reconnect HealthKit")
     }
 
     private var statusText: String {
+        if reconnecting { return "Reconnecting…" }
         if isLive {
             if let updatedAt {
                 let mins = max(0, Int(Date().timeIntervalSince(updatedAt) / 60))
@@ -369,7 +399,7 @@ private struct HomeDataStatusPill: View {
             }
             return "HealthKit live"
         }
-        return "HealthKit offline"
+        return "HealthKit offline · tap to reconnect"
     }
 }
 
@@ -582,18 +612,52 @@ private struct HomePrimaryCTA: View {
             .accessibilityLabel(action.title)
             .accessibilityHint(action.subtitle ?? "Double tap to activate")
 
-            // Secondary control
-            Button {
-                FDS.haptic(.light)
-                store.openChat(with: "What should I focus on today?", voice: false)
-            } label: {
-                Text("Ask ARIA instead")
-                    .font(.system(size: 13, weight: .semibold))
+            // Dual secondary row: ARIA + Lifestyle
+            HStack(spacing: 10) {
+                Button {
+                    FDS.haptic(.light)
+                    store.openChat(with: "What should I focus on today?", voice: false)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Ask ARIA")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
                     .foregroundColor(.textSecondary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 12)
+                    .background(Color.surfaceElevated)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.borderColor, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    FDS.haptic(.light)
+                    store.activeTab = .lifestyle
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "leaf.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Lifestyle")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundColor(Color(hex: "22C55E"))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color(hex: "22C55E").opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color(hex: "22C55E").opacity(0.25), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
     }
 
@@ -1045,6 +1109,238 @@ struct HomeCycleModule: View {
         let f = DateFormatter()
         f.dateFormat = "MMM d"
         return f.string(from: d)
+    }
+}
+
+// ============================================================
+// MARK: - Agenda (today's command list)
+// ============================================================
+
+private struct HomeAgendaCard: View {
+    @EnvironmentObject var store: AppStore
+    @State private var appeared = false
+
+    private var items: [(icon: String, title: String, sub: String, color: Color, action: () -> Void)] {
+        var rows: [(icon: String, title: String, sub: String, color: Color, action: () -> Void)] = []
+
+        if store.isWorkoutActive {
+            rows.append((
+                "figure.strengthtraining.traditional",
+                "Continue session",
+                store.todayWorkout?.name ?? "Active workout",
+                .ember,
+                { store.activeTab = .workout }
+            ))
+        } else if let plan = store.todayWorkout {
+            rows.append((
+                "dumbbell.fill",
+                plan.name,
+                "\(plan.duration) min · \(plan.intensity.label)",
+                .ember,
+                { store.activeTab = .workout }
+            ))
+        } else {
+            rows.append((
+                "sparkles",
+                "Build today's plan",
+                "ARIA will shape a session from readiness",
+                .ember,
+                { store.openChat(with: "Build today's training plan from my readiness.", voice: false) }
+            ))
+        }
+
+        let sleepHours = store.dailyMetrics.totalSleep > 0
+            ? Double(store.dailyMetrics.totalSleep) / 60.0
+            : store.sleepData.first?.totalHours
+        if let h = sleepHours, h > 0 {
+            rows.append((
+                "moon.zzz.fill",
+                String(format: "Sleep · %.1fh", h),
+                store.readiness.overall < 60 ? "Protect recovery tonight" : "Review wind-down",
+                .steel,
+                { store.activeTab = .sleep }
+            ))
+        } else {
+            rows.append((
+                "moon.zzz.fill",
+                "Log or sync sleep",
+                "HealthKit sleep improves readiness",
+                .steel,
+                { store.activeTab = .sleep }
+            ))
+        }
+
+        rows.append((
+            "leaf.fill",
+            "Lifestyle check-in",
+            "Protein · water · meals",
+            Color(hex: "22C55E"),
+            { store.activeTab = .lifestyle }
+        ))
+
+        if MenstrualHealthStore.shared.settings.enabled {
+            let snap = MenstrualHealthStore.shared.snapshot
+            rows.append((
+                snap.phase.icon,
+                "Cycle · \(snap.phase.shortLabel)",
+                snap.dayInCycle.map { "Day \($0)" } ?? snap.phase.label,
+                Color(hex: snap.phase.accentHex),
+                {
+                    store.openChat(
+                        with: "I'm in \(snap.phase.label)"
+                            + (snap.dayInCycle.map { " (day \($0))" } ?? "")
+                            + ". How should I train and recover?",
+                        voice: false
+                    )
+                }
+            ))
+        }
+
+        return rows
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("TODAY'S AGENDA")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.textTertiary)
+                    .tracking(2)
+                Spacer()
+                Text("\(items.count) items")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.textMuted)
+            }
+
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                Button {
+                    FDS.haptic(.light)
+                    item.action()
+                } label: {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(item.color.opacity(0.16))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: item.icon)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(item.color)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.title)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.textPrimary)
+                                .lineLimit(1)
+                            Text(item.sub)
+                                .font(.system(size: 12))
+                                .foregroundColor(.textTertiary)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 4)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.textMuted)
+                    }
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(18)
+        .forgeGlassCard(accent: .ember.opacity(0.5))
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 12)
+        .onAppear { withAnimation(FDS.Spring.hero.delay(0.16)) { appeared = true } }
+    }
+}
+
+// ============================================================
+// MARK: - Lifestyle preview (Home control center)
+// ============================================================
+
+private struct HomeLifestylePreviewCard: View {
+    @EnvironmentObject var store: AppStore
+    @State private var appeared = false
+
+    var body: some View {
+        Button {
+            FDS.haptic(.light)
+            store.activeTab = .lifestyle
+        } label: {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("LIFESTYLE")
+                        .forgeSectionLabel()
+                    Spacer()
+                    Text("Open")
+                        .font(FDS.TypeScale.label(12))
+                        .foregroundStyle(Color(hex: "22C55E"))
+                }
+
+                HStack(spacing: 10) {
+                    lifestyleChip(
+                        icon: "figure.walk",
+                        value: store.dailyMetrics.steps > 0 ? store.dailyMetrics.steps.formatted() : "—",
+                        label: "Steps",
+                        color: Color(hex: "22C55E")
+                    )
+                    lifestyleChip(
+                        icon: "flame.fill",
+                        value: store.dailyMetrics.activeCalories > 0 ? "\(store.dailyMetrics.activeCalories)" : "—",
+                        label: "Active",
+                        color: .ember
+                    )
+                    lifestyleChip(
+                        icon: "heart.fill",
+                        value: store.dailyMetrics.hrv > 0 ? "\(store.dailyMetrics.hrv)" : "—",
+                        label: "HRV",
+                        color: .danger
+                    )
+                }
+
+                HStack(spacing: 8) {
+                    Image(systemName: "fork.knife")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color(hex: "FFB84D"))
+                    Text("Nutrition · hydration · wellbeing live on the Lifestyle tab")
+                        .font(FDS.TypeScale.body(12))
+                        .foregroundColor(.textTertiary)
+                        .lineLimit(2)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.textMuted)
+                }
+            }
+            .padding(18)
+            .forgeGlassCard(accent: Color(hex: "22C55E"))
+        }
+        .buttonStyle(.plain)
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 12)
+        .onAppear { withAnimation(FDS.Spring.hero.delay(0.22)) { appeared = true } }
+        .accessibilityLabel("Lifestyle preview")
+        .accessibilityHint("Opens the Lifestyle tab")
+    }
+
+    private func lifestyleChip(icon: String, value: String, label: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(color)
+            Text(value)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.textTertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.surfaceElevated.opacity(0.9))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
