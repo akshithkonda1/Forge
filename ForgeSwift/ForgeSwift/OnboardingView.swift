@@ -213,10 +213,11 @@ struct OnboardingProfile {
 }
 
 extension AppStore {
-    private static var _tempOnboardingProfile: OnboardingProfile?
+    /// Shared draft filled during immersive sign-up (name + first quest).
+    static var _signUpDraftProfile = OnboardingProfile()
     var tempOnboardingProfile: OnboardingProfile {
-        get { Self._tempOnboardingProfile ?? OnboardingProfile() }
-        set { Self._tempOnboardingProfile = newValue }
+        get { Self._signUpDraftProfile }
+        set { Self._signUpDraftProfile = newValue }
     }
 }
 
@@ -325,6 +326,10 @@ private struct AriaInterviewLayout: View {
                                 .font(.caption2.weight(.bold))
                                 .foregroundColor(.ember)
                                 .transition(.opacity)
+                        } else {
+                            Text("· interview")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundColor(.textMuted)
                         }
                     }
                     Text(coordinator.step.progressLabel)
@@ -334,21 +339,49 @@ private struct AriaInterviewLayout: View {
 
                 Spacer()
 
+                // Quest XP chip — addictive progress language
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("QUEST \(min(coordinator.step.rawValue + 1, AriaInterviewStep.allCases.count))/\(AriaInterviewStep.allCases.count)")
+                        .font(.system(size: 10, weight: .black))
+                        .tracking(0.6)
+                        .foregroundColor(.ember)
+                    Text("\(Int(coordinator.progress * 100))%")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(.textPrimary)
+                        .contentTransition(.numericText())
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.ember.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
                 HealthKitStatusPill(state: coordinator.healthKitState)
             }
             .animation(FDS.Spring.snap, value: dictation.isListening)
+            .animation(FDS.Spring.snap, value: coordinator.step)
 
-            // Progress
+            // XP-style progress with glow
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.08)).frame(height: 3)
+                    Capsule().fill(Color.white.opacity(0.08)).frame(height: 5)
                     Capsule()
                         .fill(FDS.Gradient.ember)
-                        .frame(width: max(8, geo.size.width * coordinator.progress), height: 3)
+                        .frame(width: max(10, geo.size.width * coordinator.progress), height: 5)
+                        .shadow(color: Color.ember.opacity(0.55), radius: 6, y: 0)
                         .animation(FDS.Spring.standard, value: coordinator.progress)
                 }
             }
-            .frame(height: 3)
+            .frame(height: 5)
+
+            // Milestone dots
+            HStack(spacing: 4) {
+                ForEach(AriaInterviewStep.allCases, id: \.rawValue) { s in
+                    Circle()
+                        .fill(s.rawValue <= coordinator.step.rawValue ? Color.ember : Color.white.opacity(0.12))
+                        .frame(width: 5, height: 5)
+                }
+            }
+            .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, FDS.Spacing.xl)
         .padding(.top, 12)

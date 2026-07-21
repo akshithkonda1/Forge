@@ -31,6 +31,7 @@
 		1ARIA0562F9FF867004091AA /* CyclePrivacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0572F9FF867004091AA /* CyclePrivacy.swift */; };
 		1AUTH0012F9FF867004091AA /* AuthWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */; };
 		1AUTH0032F9FF867004091AA /* AuthSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0042F9FF867004091AA /* AuthSignInView.swift */; };
+		1AUTH0052F9FF867004091AA /* AuthSignUpFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */; };
 		1ARIA0322F9FF867004091AA /* AriaPlanEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */; };
 		1ARIA0342F9FF867004091AA /* AriaVoiceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */; };
 		1ARIA0422F9FF867004091AA /* MenstrualHealthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0432F9FF867004091AA /* MenstrualHealthView.swift */; };
@@ -263,6 +264,7 @@
 		AA0002000000000000000005 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthWelcomeView.swift; sourceTree = "<group>"; };
 		1AUTH0042F9FF867004091AA /* AuthSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSignInView.swift; sourceTree = "<group>"; };
+		1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSignUpFlowView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000006 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000007 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000008 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
@@ -418,6 +420,7 @@
 				AA0002000000000000000005 /* ContentView.swift */,
 				1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */,
 				1AUTH0042F9FF867004091AA /* AuthSignInView.swift */,
+				1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */,
 				AA0002000000000000000006 /* OnboardingView.swift */,
 				AA0002000000000000000007 /* HomeView.swift */,
 				AA0002000000000000000008 /* ChatView.swift */,
@@ -818,6 +821,7 @@
 				AA0001000000000000000005 /* ContentView.swift in Sources */,
 				1AUTH0012F9FF867004091AA /* AuthWelcomeView.swift in Sources */,
 				1AUTH0032F9FF867004091AA /* AuthSignInView.swift in Sources */,
+				1AUTH0052F9FF867004091AA /* AuthSignUpFlowView.swift in Sources */,
 				AA0001000000000000000006 /* OnboardingView.swift in Sources */,
 				1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */,
 				1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */,

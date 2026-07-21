@@ -1,7 +1,7 @@
 import SwiftUI
 import AuthenticationServices
 
-// MARK: - Sign In
+// MARK: - Sign In (returning athletes)
 
 struct AuthSignInView: View {
     @EnvironmentObject var store: AppStore
@@ -11,118 +11,138 @@ struct AuthSignInView: View {
     @State private var password = ""
     @State private var isBusy = false
     @State private var errorMessage: String?
-    @State private var mode: Mode = .signIn
-
-    enum Mode: String, CaseIterable {
-        case signIn = "Sign in"
-        case signUp = "Create account"
-    }
+    @State private var appeared = false
 
     var body: some View {
         NavigationStack {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text(mode == .signIn ? "Welcome back" : "Join Forge")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.textPrimary)
-                        .padding(.top, 8)
+            ZStack {
+                Color.background.ignoresSafeArea()
+                RadialGradient(
+                    colors: [Color.ember.opacity(0.14), Color.steel.opacity(0.05), .clear],
+                    center: UnitPoint(x: 0.5, y: 0.0),
+                    startRadius: 10,
+                    endRadius: 360
+                )
+                .ignoresSafeArea()
 
-                    Text(
-                        mode == .signIn
-                            ? "Sign in to continue with HealthKit, ARIA, and your plan."
-                            : "Create an account, then complete a short onboarding."
-                    )
-                    .font(.system(size: 14))
-                    .foregroundColor(.textSecondary)
-
-                    Picker("Mode", selection: $mode) {
-                        ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-
-                    // Social (simulated local session — production would wire ASAuthorization / Google)
-                    VStack(spacing: 10) {
-                        SignInWithAppleButton(.signIn) { request in
-                            request.requestedScopes = [.fullName, .email]
-                        } onCompletion: { result in
-                            handleApple(result)
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 22) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("WELCOME BACK")
+                                .font(.system(size: 11, weight: .bold))
+                                .tracking(2)
+                                .foregroundColor(.ember)
+                            Text("Your forge is\nwaiting.")
+                                .font(.system(size: 30, weight: .black, design: .rounded))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.white, Color.white.opacity(0.78)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                            Text("Pick up readiness, ARIA, and your streak where you left off.")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundColor(.textSecondary)
                         }
-                        .signInWithAppleButtonStyle(.white)
-                        .frame(height: 48)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .padding(.top, 8)
+                        .opacity(appeared ? 1 : 0)
+
+                        VStack(spacing: 10) {
+                            SignInWithAppleButton(.signIn) { request in
+                                request.requestedScopes = [.fullName, .email]
+                            } onCompletion: { result in
+                                handleApple(result)
+                            }
+                            .signInWithAppleButtonStyle(.white)
+                            .frame(height: 52)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                            Button {
+                                completeSocialSignIn(provider: "google", displayName: "Athlete")
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "g.circle.fill")
+                                        .font(.system(size: 20))
+                                    Text("Continue with Google")
+                                        .font(.system(size: 16, weight: .bold))
+                                }
+                                .foregroundColor(.textPrimary)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 52)
+                                .background(Color.surfaceElevated)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(Color.borderColor, lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(AuthPressButtonStyle())
+                        }
+
+                        HStack {
+                            Rectangle().fill(Color.borderColor).frame(height: 1)
+                            Text("or email")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.textMuted)
+                            Rectangle().fill(Color.borderColor).frame(height: 1)
+                        }
+
+                        VStack(spacing: 12) {
+                            field(title: "Email", text: $email, contentType: .emailAddress, secure: false)
+                            field(title: "Password", text: $password, contentType: .password, secure: true)
+                        }
+
+                        if let errorMessage {
+                            Text(errorMessage)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.danger)
+                        }
 
                         Button {
-                            completeSocialSignIn(provider: "google", displayName: "Athlete")
+                            submitEmail()
                         } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: "g.circle.fill")
-                                    .font(.system(size: 20))
-                                Text("Continue with Google")
-                                    .font(.system(size: 16, weight: .semibold))
+                            HStack {
+                                if isBusy { ProgressView().tint(.white) }
+                                Text(isBusy ? "Entering…" : "Enter Forge")
+                                    .font(.system(size: 16, weight: .bold))
+                                Spacer(minLength: 0)
+                                Image(systemName: "arrow.right")
+                                    .font(.system(size: 14, weight: .bold))
                             }
-                            .foregroundColor(.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 48)
-                            .background(Color.surfaceElevated)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(Color.borderColor, lineWidth: 1)
-                            )
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 17)
+                            .background {
+                                if canSubmit {
+                                    FDS.Gradient.ember
+                                } else {
+                                    Color.surfaceElevated
+                                }
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .shadow(color: canSubmit ? Color.ember.opacity(0.4) : .clear, radius: 16, y: 8)
                         }
-                        .buttonStyle(.plain)
-                    }
+                        .buttonStyle(AuthPressButtonStyle())
+                        .disabled(!canSubmit || isBusy)
 
-                    HStack {
-                        Rectangle().fill(Color.borderColor).frame(height: 1)
-                        Text("or email")
+                        Text("New here? Close and tap Start forging on the welcome screen.")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.textMuted)
-                        Rectangle().fill(Color.borderColor).frame(height: 1)
+                            .foregroundColor(.textTertiary)
+                            .padding(.bottom, 28)
                     }
-
-                    VStack(spacing: 12) {
-                        field(title: "Email", text: $email, contentType: .emailAddress, secure: false)
-                        field(title: "Password", text: $password, contentType: .password, secure: true)
-                    }
-
-                    if let errorMessage {
-                        Text(errorMessage)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.danger)
-                    }
-
-                    Button {
-                        submitEmail()
-                    } label: {
-                        HStack {
-                            if isBusy { ProgressView().tint(.white) }
-                            Text(mode == .signIn ? "Sign in with email" : "Create account with email")
-                                .font(.system(size: 16, weight: .bold))
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(canSubmit ? FDS.Gradient.ember : LinearGradient(colors: [Color.surfaceElevated], startPoint: .leading, endPoint: .trailing))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!canSubmit || isBusy)
-
-                    Text("After sign-in, HealthKit connects during onboarding (or Settings if you already finished setup).")
-                        .font(.system(size: 12))
-                        .foregroundColor(.textTertiary)
-                        .padding(.bottom, 24)
+                    .padding(.horizontal, 22)
                 }
-                .padding(.horizontal, 20)
             }
-            .background(Color.background.ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
                         .foregroundStyle(Color.ember)
                 }
             }
+        }
+        .onAppear {
+            withAnimation(FDS.Spring.hero) { appeared = true }
         }
     }
 
@@ -137,8 +157,9 @@ struct AuthSignInView: View {
         secure: Bool
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .tracking(1.2)
                 .foregroundColor(.textTertiary)
             Group {
                 if secure {
@@ -152,11 +173,11 @@ struct AuthSignInView: View {
                         .autocorrectionDisabled()
                 }
             }
-            .font(.system(size: 16))
+            .font(.system(size: 16, weight: .medium))
             .foregroundColor(.textPrimary)
-            .padding(14)
+            .padding(15)
             .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
     }
 
@@ -172,7 +193,6 @@ struct AuthSignInView: View {
             }
             completeSocialSignIn(provider: "apple", displayName: name)
         case .failure(let error):
-            // User cancelled is silent; other failures surface.
             if (error as NSError).code != ASAuthorizationError.canceled.rawValue {
                 errorMessage = error.localizedDescription
             }
@@ -186,7 +206,7 @@ struct AuthSignInView: View {
             provider: provider,
             email: "\(provider)@forge.local",
             displayName: displayName,
-            isNewAccount: mode == .signUp
+            isNewAccount: false
         )
         isBusy = false
         dismiss()
@@ -201,7 +221,7 @@ struct AuthSignInView: View {
             provider: "email",
             email: email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
             displayName: local.capitalized,
-            isNewAccount: mode == .signUp
+            isNewAccount: false
         )
         isBusy = false
         dismiss()
