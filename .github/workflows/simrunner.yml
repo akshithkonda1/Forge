@@ -27,7 +27,7 @@ jobs:
 
     steps:
       # Actions must be pinned to a full-length commit SHA (repo policy).
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       # No setup-python: the harness is stdlib-only and Python 3.10+, so the
       # runner's system python3 (3.12 on ubuntu-24.04) is sufficient.
