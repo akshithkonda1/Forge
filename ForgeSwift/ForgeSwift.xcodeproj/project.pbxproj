@@ -11,7 +11,6 @@
 		1E26215F2F9496930005B7B1 /* LIFESTYLE_VIEW_IMPROVEMENTS.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E26215E2F9496930005B7B1 /* LIFESTYLE_VIEW_IMPROVEMENTS.md */; };
 		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
 		1E4DF70E2F9FF2B4004091AA /* APPSTORE_USAGE_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF70D2F9FF2B3004091AA /* APPSTORE_USAGE_GUIDE.md */; };
-		1E4DF7102F9FF2E7004091AA /* AI_INTEGRATION_EXAMPLE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70F2F9FF2E7004091AA /* AI_INTEGRATION_EXAMPLE.swift */; };
 		1E4DF7122F9FF31F004091AA /* REFACTOR_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF7112F9FF31F004091AA /* REFACTOR_SUMMARY.md */; };
 		1E4DF7142F9FF348004091AA /* QUICK_START.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF7132F9FF348004091AA /* QUICK_START.md */; };
 		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
@@ -68,7 +67,6 @@
 		1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */; };
 		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
 		1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */; };
-		1E9C571A2F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57192F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift */; };
 		1E9C571C2F9160F600F365E3 /* Info.plist.additions.xml in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C571B2F9160F600F365E3 /* Info.plist.additions.xml */; };
 		1E9C571E2F91615B00F365E3 /* README_VOICE_COACH.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C571D2F91615B00F365E3 /* README_VOICE_COACH.md */; };
 		1E9C57202F9161A900F365E3 /* INTEGRATION_VISUAL_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C571F2F9161A900F365E3 /* INTEGRATION_VISUAL_GUIDE.md */; };
@@ -199,7 +197,6 @@
 		1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MusicControllerFactory.swift; sourceTree = SOURCE_ROOT; };
 		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
 		1E4DF70D2F9FF2B3004091AA /* APPSTORE_USAGE_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = APPSTORE_USAGE_GUIDE.md; sourceTree = "<group>"; };
-		1E4DF70F2F9FF2E7004091AA /* AI_INTEGRATION_EXAMPLE.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_INTEGRATION_EXAMPLE.swift; sourceTree = "<group>"; };
 		1E4DF7112F9FF31F004091AA /* REFACTOR_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = REFACTOR_SUMMARY.md; sourceTree = "<group>"; };
 		1E4DF7132F9FF348004091AA /* QUICK_START.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = QUICK_START.md; sourceTree = "<group>"; };
 		1E4DF7152F9FF867004091AA /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
@@ -253,7 +250,6 @@
 		1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachManager.swift; sourceTree = "<group>"; };
 		1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachViews.swift; sourceTree = "<group>"; };
 		1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachIntegration.swift; sourceTree = "<group>"; };
-		1E9C57192F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QUICK_INTEGRATION_SNIPPET.swift; sourceTree = "<group>"; };
 		1E9C571B2F9160F600F365E3 /* Info.plist.additions.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Info.plist.additions.xml; sourceTree = "<group>"; };
 		1E9C571D2F91615B00F365E3 /* README_VOICE_COACH.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README_VOICE_COACH.md; sourceTree = "<group>"; };
 		1E9C571F2F9161A900F365E3 /* INTEGRATION_VISUAL_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = INTEGRATION_VISUAL_GUIDE.md; sourceTree = "<group>"; };
@@ -438,7 +434,6 @@
 				1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */,
 				1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */,
 				1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */,
-				1E9C57192F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift */,
 				1E9C571B2F9160F600F365E3 /* Info.plist.additions.xml */,
 				1E9C571D2F91615B00F365E3 /* README_VOICE_COACH.md */,
 				1E9C571F2F9161A900F365E3 /* INTEGRATION_VISUAL_GUIDE.md */,
@@ -450,7 +445,6 @@
 				1E26215E2F9496930005B7B1 /* LIFESTYLE_VIEW_IMPROVEMENTS.md */,
 				1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */,
 				1E4DF70D2F9FF2B3004091AA /* APPSTORE_USAGE_GUIDE.md */,
-				1E4DF70F2F9FF2E7004091AA /* AI_INTEGRATION_EXAMPLE.swift */,
 				1E4DF7112F9FF31F004091AA /* REFACTOR_SUMMARY.md */,
 				1E4DF7132F9FF348004091AA /* QUICK_START.md */,
 				1ARIA0172F9FF867004091AA /* AriaModels */,
@@ -836,12 +830,10 @@
 				1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */,
 				1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */,
 				1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */,
-				1E4DF7102F9FF2E7004091AA /* AI_INTEGRATION_EXAMPLE.swift in Sources */,
 				AA0001000000000000000007 /* HomeView.swift in Sources */,
 				AA0001000000000000000008 /* ChatView.swift in Sources */,
 				1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */,
 				1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator.swift in Sources */,
-				1E9C571A2F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift in Sources */,
 				1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */,
 				AA0001000000000000000009 /* WorkoutView.swift in Sources */,
 				AA000100000000000000000A /* SleepView.swift in Sources */,

@@ -1131,25 +1131,6 @@ final class AppStore: ObservableObject {
     }
 
     /// Legacy method for backward compatibility - converts to async
-    func trainerResponse(for text: String) -> (content: String, richCard: RichCardData?) {
-        // This is synchronous fallback for compatibility
-        // In production, you should use sendMessage() instead
-        var result: (String, RichCardData?) = ("I'm thinking...", nil)
-        
-        Task { @MainActor in
-            let context = makeTrainerContext()
-            
-            do {
-                let response = try await responseGenerator.generateResponse(for: text, context: context)
-                result = (response.content, response.richCard)
-            } catch {
-                result = ("Sorry, I couldn't process that. Try again?", nil)
-            }
-        }
-        
-        return result
-    }
-
     /// Builds a full `TrainerContext` including living ARIA tags/constraints + cycle.
     func makeTrainerContext() -> TrainerContext {
         let ctx = AriaContextStore.shared.context
