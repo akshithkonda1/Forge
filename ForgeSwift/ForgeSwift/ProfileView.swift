@@ -1873,18 +1873,6 @@ enum ForgePersistence {
 }
 
 extension AppStore {
-    var notificationSettings: AppNotificationSettings {
-        ForgePersistence.loadNotificationSettings()
-    }
-
-    var briefNotificationsEnabled: Bool {
-        ForgePersistence.loadBriefNotificationsEnabled()
-    }
-
-    var nutritionPreferences: NutritionPreferences {
-        ForgePersistence.loadNutritionPreferences()
-    }
-
     var lifestyleTargets: LifestyleTargets {
         LifestyleTargets.resolve(profile: userProfile, overrides: nutritionPreferences)
     }
@@ -1944,15 +1932,11 @@ extension AppStore {
     }
 
     func updateNotificationSettings(_ settings: AppNotificationSettings) {
-        ForgePersistence.saveNotificationSettings(settings)
-        objectWillChange.send()
-        Task { await resyncNotifications() }
+        notificationSettings = settings   // didSet persists + reschedules
     }
 
     func setBriefNotificationsEnabled(_ isEnabled: Bool) {
-        ForgePersistence.saveBriefNotificationsEnabled(isEnabled)
-        objectWillChange.send()
-        Task { await resyncNotifications() }
+        briefNotificationsEnabled = isEnabled   // didSet persists + reschedules
     }
 
     func updateBriefNotificationSchedule(
@@ -1973,8 +1957,7 @@ extension AppStore {
     }
 
     func updateNutritionPreferences(_ preferences: NutritionPreferences) {
-        ForgePersistence.saveNutritionPreferences(preferences)
-        objectWillChange.send()
+        nutritionPreferences = preferences   // didSet persists
     }
 
     func resyncNotifications() async {

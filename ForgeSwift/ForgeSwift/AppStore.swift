@@ -872,6 +872,25 @@ final class AppStore: ObservableObject {
         }
     }
 
+    // Settings — @Published so SwiftUI observes them directly, instead of
+    // decoding UserDefaults on every access with a manual objectWillChange.
+    // didSet persists (and reschedules notifications) the same way as before.
+    @Published var notificationSettings: AppNotificationSettings = ForgePersistence.loadNotificationSettings() {
+        didSet {
+            ForgePersistence.saveNotificationSettings(notificationSettings)
+            Task { await resyncNotifications() }
+        }
+    }
+    @Published var briefNotificationsEnabled: Bool = ForgePersistence.loadBriefNotificationsEnabled() {
+        didSet {
+            ForgePersistence.saveBriefNotificationsEnabled(briefNotificationsEnabled)
+            Task { await resyncNotifications() }
+        }
+    }
+    @Published var nutritionPreferences: NutritionPreferences = ForgePersistence.loadNutritionPreferences() {
+        didSet { ForgePersistence.saveNutritionPreferences(nutritionPreferences) }
+    }
+
     // ARIA bridge
     @Published var ariaVoiceMode: Bool = false
     @Published var ariaPendingChatPrompt: String? = nil
