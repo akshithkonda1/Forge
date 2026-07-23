@@ -1363,6 +1363,9 @@ final class AppStore: ObservableObject {
 
         // Menstrual cycle: auto-enable + quiet weekly HealthKit sync (or immediate if broken).
         MenstrualHealthStore.shared.enableForFemaleProfileIfNeeded(gender: userProfile.gender)
+        if let sex = userProfile.biologicalSex {
+            MenstrualHealthStore.shared.enableForBiologicalSexIfNeeded(sex)
+        }
         if MenstrualHealthStore.shared.settings.enabled {
             await MenstrualHealthStore.shared.quietWeeklyHealthKitSync(force: !authorized)
             MenstrualHealthStore.shared.refresh(from: self)

@@ -103,6 +103,16 @@ final class MenstrualHealthStore: ObservableObject {
         }
     }
 
+    /// Auto-enable cycle tracking for female/intersex biological sex captured during onboarding.
+    func enableForBiologicalSexIfNeeded(_ sex: BiologicalSex) {
+        guard sex.cycleAutoEnabled, !settings.enabled else { return }
+        updateSettings {
+            $0.enabled = true
+            $0.privacyAcknowledged = true
+            $0.shareWithAria = true
+        }
+    }
+
     /// Surface partner tracking for users who may support a female partner (any gender).
     func enablePartnerTrackingIfAppropriate(gender: Gender) {
         // Soft suggest only — do not auto-enable without consent flag.
