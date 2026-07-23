@@ -664,7 +664,7 @@ final class MenstrualHealthStore: ObservableObject {
                 typicalLutealDays: partnerSettings.typicalLutealDays,
                 usesHormonalContraception: partnerSettings.usesHormonalContraception,
                 notes: partnerSettings.notes,
-                highAccuracyMode: settings.highAccuracyMode
+                highAccuracyMode: false
             )
             : settings
         let logSet = isPartner ? partnerLogs : logs
@@ -692,7 +692,7 @@ final class MenstrualHealthStore: ObservableObject {
             snapshot: isPartner ? partnerSnapshot : snapshot,
             evaluation: lastEvaluation,
             settings: settings,
-            lastAction: lastTeachingMessage,
+            lastAction: nil,
             isPartner: isPartner
         )
         return CycleAriaAnalyst.chatPrompt(context: ctx, evaluation: lastEvaluation)

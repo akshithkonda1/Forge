@@ -104,6 +104,7 @@ enum ForgeNotificationScheduler {
             ID.briefMorning, ID.briefEvening,
         ]
         center.removePendingNotificationRequests(withIdentifiers: ids)
+        center.removeDeliveredNotifications(withIdentifiers: ids)
     }
 
     private static func scheduleDaily(id: String, hour: Int, minute: Int, title: String, body: String) async {

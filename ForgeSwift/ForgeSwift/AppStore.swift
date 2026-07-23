@@ -1373,9 +1373,7 @@ final class AppStore: ObservableObject {
     }
 
     func openChat(with prompt: String, voice: Bool = false) {
-        if quietMode, !voice {
-            // Still allow explicit user-initiated chat; only damp auto prompts elsewhere.
-        }
+        if quietMode, !voice { return }
         ariaPendingChatPrompt = prompt
         ariaVoiceMode = voice
         activeTab = .chat
