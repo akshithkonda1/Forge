@@ -6,7 +6,7 @@ import Combine
 final class AriaContextStore: ObservableObject {
     static let shared = AriaContextStore()
 
-    @Published internal(set) var context: AriaContext
+    @Published var context: AriaContext
     @Published private(set) var lastProactiveInsight: String?
     @Published private(set) var permissions: AriaPermissionsStore
     @Published private(set) var lastObservedContext: ARIAContextPayload?

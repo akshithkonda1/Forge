@@ -975,7 +975,7 @@ enum HomeARIABriefingBuilder {
         let theme = store.userProfile.trainingTheme
         let score = store.readiness.overall
 
-        var facts = AriaSpeechFacts(
+        let facts = AriaSpeechFacts(
             sessionTitle: store.todayWorkout?.name,
             themeLabel: theme.label
         )
@@ -1668,7 +1668,7 @@ private struct HomeTrendSection: View {
 
     /// Real-ish series from sleep scores when available; otherwise empty.
     private var trendData: [(day: String, score: Int)] {
-        let cal = Calendar.current
+        _ = Calendar.current
         let f = DateFormatter()
         f.dateFormat = "EEE"
         let sleeps = store.sleepData.prefix(7)

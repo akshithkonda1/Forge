@@ -23,7 +23,7 @@ enum ForgeNotificationScheduler {
         briefEnabled: Bool,
         brief: BriefNotificationSettings
     ) async {
-        try? await center.requestAuthorization(options: [.alert, .sound, .badge])
+        do { try await center.requestAuthorization(options: [.alert, .sound, .badge]) } catch {}
 
         await removeAllForgeNotifications()
 

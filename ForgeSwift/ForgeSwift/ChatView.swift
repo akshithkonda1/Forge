@@ -318,7 +318,7 @@ final class SpeechManager: ObservableObject {
     private func beginRecognition() {
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetooth])
+            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetoothHFP])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             voiceState = .error("Microphone error")

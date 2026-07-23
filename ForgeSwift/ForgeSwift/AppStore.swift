@@ -137,7 +137,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
     
     func generateResponse(for input: String, context: TrainerContext) async throws -> TrainerResponse {
         // Build contextual prompt
-        let prompt = buildPrompt(input: input, context: context)
+        let prompt = await buildPrompt(input: input, context: context)
         
         // Generate response from Foundation Models
         let response = try await session.respond(to: prompt)
@@ -146,6 +146,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         return parseResponse(response.content, context: context, input: input)
     }
     
+    @MainActor
     private func buildPrompt(input: String, context: TrainerContext) -> String {
         let theme = AriaThemeResolver.resolve(
             input: input,
@@ -217,6 +218,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         """
     }
 
+    @MainActor
     private func cyclePromptBlock(_ context: TrainerContext) -> String {
         var blocks: [String] = []
         if let c = context.cycleSnapshot, c.trackingEnabled {
@@ -439,21 +441,22 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
     
     // MARK: - Response Generation
     
+    @MainActor
     private func generateArchetypeStudioResponse(
         intent: AriaArchetypeIntent,
         context: TrainerContext,
         input: String
     ) async -> TrainerResponse {
-        _ = await AriaPersonRegistry.shared.adapt(to: input)
+        _ = AriaPersonRegistry.shared.adapt(to: input)
         let studio = AriaArchetypeStudio.shared
-        let personName = await AriaPersonRegistry.shared.activePerson?.name
+        let personName = AriaPersonRegistry.shared.activePerson?.name
             ?? context.partnerCycleSettings?.displayName
             ?? "them"
 
         switch intent {
         case .list:
             let builtin = AriaPersonalArchetype.allCases.filter { $0 != .unknown }.map(\.label)
-            let custom = await studio.customArchetypes.prefix(12).map { "\($0.name) (\($0.source.displayName))" }
+            let custom = studio.customArchetypes.prefix(12).map { "\($0.name) (\($0.source.displayName))" }
             var msg = "**Built-in archetypes:** " + builtin.joined(separator: ", ") + "."
             if custom.isEmpty {
                 msg += "\n\nNo custom ones yet — say “create an archetype for someone who…” and I’ll invent one through ARIA’s backend intelligence (or on-device if you’re offline)."
@@ -472,7 +475,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
 
         case .create(let description, let name):
             let crafted = await studio.createArchetype(from: description, preferredName: name)
-            await studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
             let sourceNote = "Forged via \(crafted.source.displayName)."
             let msg = """
             New archetype locked for **\(personName)**:
@@ -500,10 +503,10 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             )
 
         case .enrich(let extra):
-            if let activeId = await AriaPersonRegistry.shared.activePerson?.customArchetypeId,
-               let existing = await studio.archetype(id: activeId) {
+            if let activeId = AriaPersonRegistry.shared.activePerson?.customArchetypeId,
+               let existing = studio.archetype(id: activeId) {
                 let refined = await studio.enrich(existing, with: extra)
-                await studio.apply(refined, toPersonId: AriaPersonRegistry.shared.activePersonId)
+                studio.apply(refined, toPersonId: AriaPersonRegistry.shared.activePersonId)
                 return TrainerResponse(
                     content: """
                     Refined **\(refined.name)** for \(personName).
@@ -518,7 +521,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
                 )
             }
             let crafted = await studio.createArchetype(from: extra, preferredName: nil)
-            await studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
             return TrainerResponse(
                 content: "No custom archetype was attached yet — I forged **\(crafted.name)** and applied it to \(personName).",
                 suggestedActions: ["Deepen this archetype", "Support script"],
@@ -526,8 +529,8 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             )
 
         case .assign(let name):
-            if let existing = await studio.findByName(name) {
-                await studio.apply(existing, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            if let existing = studio.findByName(name) {
+                studio.apply(existing, toPersonId: AriaPersonRegistry.shared.activePersonId)
                 return TrainerResponse(
                     content: "Attached **\(existing.name)** to \(personName).",
                     suggestedActions: ["How do I support them?", "Deepen this archetype"],
@@ -535,7 +538,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
                 )
             }
             let crafted = await studio.createArchetype(from: input, preferredName: name)
-            await studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
+            studio.apply(crafted, toPersonId: AriaPersonRegistry.shared.activePersonId)
             return TrainerResponse(
                 content: "Created and attached **\(crafted.name)** to \(personName).",
                 suggestedActions: ["Support script", "List archetypes"],
@@ -872,6 +875,25 @@ final class AppStore: ObservableObject {
         }
     }
 
+    // Settings — @Published so SwiftUI observes them directly, instead of
+    // decoding UserDefaults on every access with a manual objectWillChange.
+    // didSet persists (and reschedules notifications) the same way as before.
+    @Published var notificationSettings: AppNotificationSettings = ForgePersistence.loadNotificationSettings() {
+        didSet {
+            ForgePersistence.saveNotificationSettings(notificationSettings)
+            Task { await resyncNotifications() }
+        }
+    }
+    @Published var briefNotificationsEnabled: Bool = ForgePersistence.loadBriefNotificationsEnabled() {
+        didSet {
+            ForgePersistence.saveBriefNotificationsEnabled(briefNotificationsEnabled)
+            Task { await resyncNotifications() }
+        }
+    }
+    @Published var nutritionPreferences: NutritionPreferences = ForgePersistence.loadNutritionPreferences() {
+        didSet { ForgePersistence.saveNutritionPreferences(nutritionPreferences) }
+    }
+
     // ARIA bridge
     @Published var ariaVoiceMode: Bool = false
     @Published var ariaPendingChatPrompt: String? = nil
@@ -1131,25 +1153,6 @@ final class AppStore: ObservableObject {
     }
 
     /// Legacy method for backward compatibility - converts to async
-    func trainerResponse(for text: String) -> (content: String, richCard: RichCardData?) {
-        // This is synchronous fallback for compatibility
-        // In production, you should use sendMessage() instead
-        var result: (String, RichCardData?) = ("I'm thinking...", nil)
-        
-        Task { @MainActor in
-            let context = makeTrainerContext()
-            
-            do {
-                let response = try await responseGenerator.generateResponse(for: text, context: context)
-                result = (response.content, response.richCard)
-            } catch {
-                result = ("Sorry, I couldn't process that. Try again?", nil)
-            }
-        }
-        
-        return result
-    }
-
     /// Builds a full `TrainerContext` including living ARIA tags/constraints + cycle.
     func makeTrainerContext() -> TrainerContext {
         let ctx = AriaContextStore.shared.context

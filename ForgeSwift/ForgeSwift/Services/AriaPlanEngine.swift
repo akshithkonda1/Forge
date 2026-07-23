@@ -643,7 +643,7 @@ enum AriaPlanEngine {
             }
         }
 
-        var facts = AriaSpeechFacts(
+        let facts = AriaSpeechFacts(
             sessionTitle: session.title,
             sessionDuration: session.duration,
             sessionIntensity: session.intensity.label.lowercased() + " intensity",

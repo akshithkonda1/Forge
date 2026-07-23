@@ -290,32 +290,36 @@ final class MenstrualHealthStore: ObservableObject {
             baselineHRV: baselineHRV,
             restingHR: restingHR
         )
-        accuracyReport = CycleAccuracyReport.compute(
+        let report = CycleAccuracyReport.compute(
             from: predictionFeedback,
             calibrationOffset: settings.calibrationOffsetDays
         )
-        snap.accuracyMAE = accuracyReport.maeDays
-        snap.accuracySampleCount = accuracyReport.sampleCount
-        snap.accuracyGrade = accuracyReport.gradeLabel
+        snap.accuracyMAE = report.maeDays
+        snap.accuracySampleCount = report.sampleCount
+        snap.accuracyGrade = report.gradeLabel
         snap.calibrationOffsetDays = settings.calibrationOffsetDays
-        if accuracyReport.sampleCount > 0, let mae = accuracyReport.maeDays {
+        if report.sampleCount > 0, let mae = report.maeDays {
             snap.insights.insert(
-                "Personal timing MAE: \(String(format: "%.1f", mae)) days over \(accuracyReport.sampleCount) confirms (\(accuracyReport.gradeLabel.replacingOccurrences(of: "_", with: " "))).",
+                "Personal timing MAE: \(String(format: "%.1f", mae)) days over \(report.sampleCount) confirms (\(report.gradeLabel.replacingOccurrences(of: "_", with: " "))).",
                 at: 0
             )
         }
-        snapshot = snap
-        archiveOpenForecastIfNeeded(from: snap)
-        lastEvaluation = CycleDataEvaluator.evaluate(
-            snapshot: snap,
-            settings: settings,
-            logs: logs,
-            feedback: predictionFeedback
-        )
-        lastAriaBrief = CycleAriaAnalyst.localBrief(
-            evaluation: lastEvaluation,
-            snapshot: snap
-        )
+        // Defer @Published mutations to avoid publishing during a view update.
+        Task { @MainActor in
+            accuracyReport = report
+            snapshot = snap
+            archiveOpenForecastIfNeeded(from: snap)
+            lastEvaluation = CycleDataEvaluator.evaluate(
+                snapshot: snap,
+                settings: settings,
+                logs: logs,
+                feedback: predictionFeedback
+            )
+            lastAriaBrief = CycleAriaAnalyst.localBrief(
+                evaluation: lastEvaluation,
+                snapshot: snap
+            )
+        }
     }
 
     /// Freeze one open forecast per anchor period start (honest MAE source).
