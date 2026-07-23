@@ -183,7 +183,7 @@ enum AriaVoiceEngine {
 
         switch coaching {
         case .pushHard:
-            register = rng.pick([.street, .peer, .razor])
+            register = rng.pick([.street, .peer, .pro])
             energy = rng.pick([.hype, .razor, .steady])
             directness = .blunt
             humor = rng.pick([.dry, .none, .none])
@@ -207,7 +207,7 @@ enum AriaVoiceEngine {
             humor = .none
             length = rng.pick([.medium, .tight])
         case .ultraElite:
-            register = rng.pick([.pro, .clinical, .razor])
+            register = rng.pick([.pro, .clinical, .mythic])
             energy = rng.pick([.razor, .steady, .hype])
             directness = rng.pick([.blunt, .straight])
             humor = rng.pick([.none, .dry])
@@ -778,7 +778,7 @@ enum AriaVoiceEngine {
     }
 
     private static func statusLine(
-        profile: AriaVoiceProfile,
+        _ profile: AriaVoiceProfile,
         context: TrainerContext,
         facts: AriaSpeechFacts,
         rng: inout AriaSeededRNG
@@ -813,7 +813,7 @@ enum AriaVoiceEngine {
     }
 
     private static func lightMetricHook(
-        profile: AriaVoiceProfile,
+        _ profile: AriaVoiceProfile,
         context: TrainerContext,
         rng: inout AriaSeededRNG
     ) -> String? {
@@ -842,7 +842,7 @@ enum AriaVoiceEngine {
     }
 
     private static func whyLine(
-        profile: AriaVoiceProfile,
+        _ profile: AriaVoiceProfile,
         context: TrainerContext,
         rng: inout AriaSeededRNG
     ) -> String {

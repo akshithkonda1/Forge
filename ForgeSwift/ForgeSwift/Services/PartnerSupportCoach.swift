@@ -21,6 +21,7 @@ enum PartnerSupportCoach {
     }
 
     /// Full ARIA chat monologue.
+    @MainActor
     static func ariaMessage(
         snapshot: MenstrualCycleSnapshot,
         settings: PartnerCycleSettings,

@@ -249,6 +249,7 @@ enum AriaEmotionalSupportCoach {
 
     // MARK: Response
 
+    @MainActor
     static func respond(
         reading: AriaEmotionalReading,
         context: TrainerContext,

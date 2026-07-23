@@ -1207,6 +1207,7 @@ struct HomeCycleModule: View {
 // MARK: - Readiness why copy
 // ============================================================
 
+@MainActor
 private func readinessWhyCopy(store: AppStore) -> String {
     var bits: [String] = []
     let r = store.readiness

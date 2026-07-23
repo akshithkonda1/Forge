@@ -157,9 +157,14 @@ struct MenstrualHealthView: View {
         }
         .onAppear {
             cycleStore.enableForFemaleProfileIfNeeded(gender: store.userProfile.gender)
+            if let sex = store.userProfile.biologicalSex {
+                cycleStore.enableForBiologicalSexIfNeeded(sex)
+            }
             if let initialPane {
                 pane = initialPane
-            } else if store.userProfile.gender != .female, !cycleStore.settings.enabled {
+            } else if store.userProfile.gender != .female,
+                      store.userProfile.biologicalSex?.cycleAutoEnabled != true,
+                      !cycleStore.settings.enabled {
                 pane = .partner
             }
             partnerNameDraft = cycleStore.partnerSettings.partnerName
