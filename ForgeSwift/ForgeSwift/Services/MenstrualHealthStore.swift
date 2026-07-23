@@ -82,6 +82,7 @@ final class MenstrualHealthStore: ObservableObject {
         persistSettings()
         recompute()
         pushAriaTags()
+        Task { await ForgeNotificationScheduler.syncCycleNotifications(settings: settings, snapshot: snapshot) }
     }
 
     func updatePartnerSettings(_ mutate: (inout PartnerCycleSettings) -> Void) {
@@ -300,6 +301,7 @@ final class MenstrualHealthStore: ObservableObject {
             lastAdvertisedNextPeriodMedian = median
             defaults.set(median, forKey: advertisedKey)
         }
+        Task { await ForgeNotificationScheduler.syncCycleNotifications(settings: settings, snapshot: snapshot) }
     }
 
     /// Compare actual period start to the last advertised median; update calibration EMA.
