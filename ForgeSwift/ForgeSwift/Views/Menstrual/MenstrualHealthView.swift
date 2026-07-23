@@ -80,6 +80,7 @@ struct MenstrualHealthView: View {
                             }
                             insightsCard
                             ariaCoachCard
+                            sexualHealthCard
                             settingsCard
                             disclaimerFooter
                         }
@@ -1079,6 +1080,13 @@ struct MenstrualHealthView: View {
         .buttonStyle(.plain)
     }
 
+    private var sexualHealthCard: some View {
+        SexualHealthEntryCard(
+            store: store,
+            cycleStore: cycleStore
+        )
+    }
+
     private var settingsCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("PRIVACY & CONTROL").forgeSectionLabel()
@@ -1806,5 +1814,93 @@ struct CycleAccuracyExplainerSheet: View {
                     .foregroundColor(.textSecondary)
             }
         }
+    }
+}
+
+// MARK: - Sexual Health Entry Card
+
+private struct SexualHealthEntryCard: View {
+    let store: AppStore
+    let cycleStore: MenstrualHealthStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("SEXUAL HEALTH & CONTRACEPTION")
+                .font(FDS.TypeScale.label(11))
+                .foregroundColor(.textTertiary)
+                .tracking(0.8)
+
+            VStack(spacing: 8) {
+                entryButton(
+                    icon: "pills.fill",
+                    label: "Contraception methods",
+                    subtitle: "Biology-first overview with effectiveness data",
+                    prompt: SexualHealthCoach.contraceptionOverviewPrompt(
+                        biologicalSex: store.userProfile.biologicalSex,
+                        snapshot: cycleStore.snapshot.phase != .unknown ? cycleStore.snapshot : nil,
+                        isEducational: store.userProfile.educationalCycleMode,
+                        isHormonal: cycleStore.settings.usesHormonalContraception
+                    )
+                )
+                entryButton(
+                    icon: "calendar.badge.checkmark",
+                    label: "Fertility awareness (FAM)",
+                    subtitle: "How reliable is FAM for your cycle specifically",
+                    prompt: SexualHealthCoach.famReliabilityPrompt(snapshot: cycleStore.snapshot)
+                )
+                entryButton(
+                    icon: "heart.circle.fill",
+                    label: "Wellbeing in my phase",
+                    subtitle: "Hormonal context for energy, mood & libido",
+                    prompt: SexualHealthCoach.phaseWellnessPrompt(
+                        phase: cycleStore.snapshot.phase,
+                        snapshot: cycleStore.snapshot.phase != .unknown ? cycleStore.snapshot : nil
+                    )
+                )
+                entryButton(
+                    icon: "clock.badge.checkmark",
+                    label: "Fertility timing (TTC)",
+                    subtitle: "Optimise timing using your ovulation data",
+                    prompt: SexualHealthCoach.ttcPrompt(snapshot: cycleStore.snapshot)
+                )
+            }
+
+            Text(SexualHealthCurriculum.medicalDisclaimer)
+                .font(FDS.TypeScale.micro(10))
+                .foregroundColor(.textTertiary)
+                .padding(.top, 2)
+        }
+        .padding(16)
+        .forgeGlassCard(accent: Color(hex: "EC4899"))
+    }
+
+    private func entryButton(icon: String, label: String, subtitle: String, prompt: String) -> some View {
+        Button {
+            store.openChat(with: prompt, voice: false)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 15))
+                    .foregroundColor(.ember)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label)
+                        .font(FDS.TypeScale.label(14))
+                        .foregroundColor(.textPrimary)
+                    Text(subtitle)
+                        .font(FDS.TypeScale.body(11))
+                        .foregroundColor(.textTertiary)
+                }
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.textTertiary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color.surfaceElevated)
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 }

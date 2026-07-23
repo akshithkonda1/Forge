@@ -42,6 +42,8 @@ enum CyclePrivacy {
     export for marketing, or treat it as shareable content. Never sell, train on, or store \
     cycle data beyond what the product already holds for the user’s own coaching. \
     If the user has not shared cycle data with ARIA, do not assume phase details.
+
+    \(SexualHealthCoach.ariaDirective)
     """
 
     static let partnerExtra = """
