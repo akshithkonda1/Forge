@@ -9,9 +9,9 @@ struct ForgeSwiftApp: App {
         // Listens for watch workout state and mirrors it into a Live
         // Activity (lock screen + Dynamic Island). Also owns WCSession
         // on the phone so companion config can flow to ForgeWatch.
+        // Owns WCSession on the phone; pushes companion config in activationDidCompleteWith
+        // once the session is actually active. The onAppear sync below is the UI-ready pass.
         WorkoutActivityCoordinator.shared.activate()
-        // Base URL + user id (name synced again in onAppear once store is live).
-        Task { @MainActor in WatchAriaConfigBridge.sync() }
     }
 
     var body: some Scene {
