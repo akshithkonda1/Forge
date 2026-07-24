@@ -74,6 +74,9 @@ enum CycleSymptom: String, Codable, CaseIterable, Identifiable {
     case cramps, headache, bloating, fatigue, moodLow, moodHigh
     case breastTenderness, backache, acne, cravings, insomnia, nausea
     case energyHigh, libidoHigh, brainFog
+    // Extended symptom set
+    case hotFlash, nightSweats, anxietyHigh, spotting, libidoLow
+    case pelvicPain, constipation, diarrhea, appetiteUp, appetiteDown, vaginalDryness
 
     var id: String { rawValue }
 
@@ -94,6 +97,17 @@ enum CycleSymptom: String, Codable, CaseIterable, Identifiable {
         case .energyHigh: return "High energy"
         case .libidoHigh: return "Higher libido"
         case .brainFog: return "Brain fog"
+        case .hotFlash: return "Hot flash"
+        case .nightSweats: return "Night sweats"
+        case .anxietyHigh: return "Anxiety"
+        case .spotting: return "Spotting"
+        case .libidoLow: return "Lower libido"
+        case .pelvicPain: return "Pelvic pain"
+        case .constipation: return "Constipation"
+        case .diarrhea: return "Diarrhea"
+        case .appetiteUp: return "Increased appetite"
+        case .appetiteDown: return "Decreased appetite"
+        case .vaginalDryness: return "Vaginal dryness"
         }
     }
 
@@ -114,6 +128,17 @@ enum CycleSymptom: String, Codable, CaseIterable, Identifiable {
         case .energyHigh: return "bolt.fill"
         case .libidoHigh: return "flame.fill"
         case .brainFog: return "aqi.medium"
+        case .hotFlash: return "thermometer.sun.fill"
+        case .nightSweats: return "thermometer.medium"
+        case .anxietyHigh: return "waveform.path.ecg.rectangle"
+        case .spotting: return "drop"
+        case .libidoLow: return "flame"
+        case .pelvicPain: return "bolt.heart"
+        case .constipation: return "arrow.down.circle"
+        case .diarrhea: return "arrow.up.circle"
+        case .appetiteUp: return "plus.circle.fill"
+        case .appetiteDown: return "minus.circle.fill"
+        case .vaginalDryness: return "humidity"
         }
     }
 }
@@ -132,6 +157,8 @@ struct CycleDayLog: Identifiable, Codable, Equatable, Hashable {
     var notes: String?
     var source: String // "manual" | "healthkit" | "merged"
     var updatedAt: Date
+    /// 0–10 pain intensity scale, used for endometriosis / pelvic pain tracking.
+    var painScale: Int?
 
     init(
         dayKey: String,
@@ -142,7 +169,8 @@ struct CycleDayLog: Identifiable, Codable, Equatable, Hashable {
         mucus: CervicalMucusQuality? = nil,
         notes: String? = nil,
         source: String = "manual",
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        painScale: Int? = nil
     ) {
         self.dayKey = dayKey
         self.flow = flow
@@ -153,6 +181,39 @@ struct CycleDayLog: Identifiable, Codable, Equatable, Hashable {
         self.notes = notes
         self.source = source
         self.updatedAt = updatedAt
+        self.painScale = painScale
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case dayKey, flow, symptoms, bbtCelsius, ovulationTest, mucus, notes, source, updatedAt, painScale
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        dayKey = try c.decode(String.self, forKey: .dayKey)
+        flow = try c.decodeIfPresent(MenstrualFlowLevel.self, forKey: .flow) ?? .none
+        symptoms = try c.decodeIfPresent([CycleSymptom].self, forKey: .symptoms) ?? []
+        bbtCelsius = try c.decodeIfPresent(Double.self, forKey: .bbtCelsius)
+        ovulationTest = try c.decodeIfPresent(OvulationTestResult.self, forKey: .ovulationTest)
+        mucus = try c.decodeIfPresent(CervicalMucusQuality.self, forKey: .mucus)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes)
+        source = try c.decodeIfPresent(String.self, forKey: .source) ?? "manual"
+        updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
+        painScale = try c.decodeIfPresent(Int.self, forKey: .painScale)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(dayKey, forKey: .dayKey)
+        try c.encode(flow, forKey: .flow)
+        try c.encode(symptoms, forKey: .symptoms)
+        try c.encodeIfPresent(bbtCelsius, forKey: .bbtCelsius)
+        try c.encodeIfPresent(ovulationTest, forKey: .ovulationTest)
+        try c.encodeIfPresent(mucus, forKey: .mucus)
+        try c.encodeIfPresent(notes, forKey: .notes)
+        try c.encode(source, forKey: .source)
+        try c.encode(updatedAt, forKey: .updatedAt)
+        try c.encodeIfPresent(painScale, forKey: .painScale)
     }
 }
 
@@ -232,6 +293,58 @@ enum MenstrualPhase: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Condition modes
+
+enum CycleCondition: String, Codable, CaseIterable, Identifiable {
+    case none, pcos, endometriosis, perimenopause, thyroid, other
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .none: return "None / Not specified"
+        case .pcos: return "PCOS"
+        case .endometriosis: return "Endometriosis"
+        case .perimenopause: return "Perimenopause"
+        case .thyroid: return "Thyroid condition"
+        case .other: return "Other condition"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .none: return "checkmark.circle"
+        case .pcos: return "waveform.path.ecg"
+        case .endometriosis: return "bolt.heart"
+        case .perimenopause: return "thermometer.sun"
+        case .thyroid: return "cross.case"
+        case .other: return "ellipsis.circle"
+        }
+    }
+
+    /// Guidance injected into ARIA context when this condition is active.
+    var ariaGuidance: String {
+        switch self {
+        case .none: return ""
+        case .pcos: return "The user has PCOS. Cycles may be irregular or anovulatory — do not treat long or irregular cycles as anomalies. OPK tests may show multiple LH surges without ovulation. Discuss insulin resistance, androgen effects (acne, hirsutism), and that consistency in tracking over many cycles is key to identifying patterns. Never suggest PCOS is 'just' irregular periods."
+        case .endometriosis: return "The user has endometriosis. Expect elevated pain scores, particularly pelvic and low-back pain during menstruation and sometimes throughout the cycle. Validate their experience — endometriosis pain is real and often underdiagnosed. Recommend phase-specific pain management strategies. Red flags to suggest seeing a doctor: pain that disrupts daily life or worsens over time."
+        case .perimenopause: return "The user is perimenopausal. Cycle lengths are variable and unpredictable — do not treat irregularity as an error. Fertile window predictions are unreliable. Symptoms: hot flashes, night sweats, vaginal dryness, mood changes, sleep disruption are all perimenopausal. Discuss what is happening hormonally (falling estrogen + progesterone). HRT: acknowledge it exists and is evidence-based, recommend consulting a doctor for personal guidance."
+        case .thyroid: return "The user has a thyroid condition. Both hypothyroid and hyperthyroid can affect cycle regularity and BBT baselines. BBT readings may be shifted (hypothyroid = lower baseline, hyperthyroid = higher). Account for this in temperature interpretation. Medication timing affects BBT — recommend taking temperature before any thyroid medication."
+        case .other: return "The user has indicated a health condition affecting their cycle. Be attentive to patterns they describe and avoid making strong assumptions about cycle regularity."
+        }
+    }
+
+    /// Whether this condition inherently produces irregular cycles (suppress irregularity flag).
+    var suppressesIrregularityFlag: Bool {
+        self == .pcos || self == .perimenopause
+    }
+
+    /// Whether fertile window predictions are unreliable for this condition.
+    var suppressesFertileWindow: Bool {
+        self == .perimenopause
+    }
+}
+
 // MARK: - Snapshot (engine output)
 
 struct CyclePredictionRange: Codable, Equatable {
@@ -280,6 +393,10 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
     var learnedLutealDays: Double?
     /// Engine method summary for transparency.
     var predictionMethodSummary: String
+    /// Active health condition affecting cycle interpretation (nil = none).
+    var condition: CycleCondition?
+    /// True when Apple Watch wrist temperature (Series 8+) is contributing to BBT.
+    var wristTemperatureAvailable: Bool
 
     static let empty = MenstrualCycleSnapshot(
         asOfDayKey: "",
@@ -313,7 +430,9 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
         periodTimingConfidence: 0,
         ovulationConfidence: 0,
         learnedLutealDays: nil,
-        predictionMethodSummary: ""
+        predictionMethodSummary: "",
+        condition: nil,
+        wristTemperatureAvailable: false
     )
 }
 
@@ -552,6 +671,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
     var bbtReminderHour: Int
     var fertileWindowAlertEnabled: Bool
     var periodReminderEnabled: Bool
+    /// Active health condition for personalised engine behaviour and ARIA coaching.
+    var condition: CycleCondition
 
     enum CodingKeys: String, CodingKey {
         case enabled, shareWithAria, averageCycleOverride, averagePeriodOverride
@@ -559,6 +680,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         case privacyAcknowledged, calibrationOffsetDays, highAccuracyMode, overdueWidenDays
         case learnedLutealDays
         case bbtReminderEnabled, bbtReminderHour, fertileWindowAlertEnabled, periodReminderEnabled
+        case condition
     }
 
     static let `default` = MenstrualTrackingSettings(
@@ -592,7 +714,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         bbtReminderEnabled: Bool = false,
         bbtReminderHour: Int = 7,
         fertileWindowAlertEnabled: Bool = false,
-        periodReminderEnabled: Bool = false
+        periodReminderEnabled: Bool = false,
+        condition: CycleCondition = .none
     ) {
         self.enabled = enabled
         self.shareWithAria = shareWithAria
@@ -610,6 +733,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         self.bbtReminderHour = bbtReminderHour
         self.fertileWindowAlertEnabled = fertileWindowAlertEnabled
         self.periodReminderEnabled = periodReminderEnabled
+        self.condition = condition
     }
 
     init(from decoder: Decoder) throws {
@@ -630,6 +754,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         bbtReminderHour = try c.decodeIfPresent(Int.self, forKey: .bbtReminderHour) ?? 7
         fertileWindowAlertEnabled = try c.decodeIfPresent(Bool.self, forKey: .fertileWindowAlertEnabled) ?? false
         periodReminderEnabled = try c.decodeIfPresent(Bool.self, forKey: .periodReminderEnabled) ?? false
+        condition = try c.decodeIfPresent(CycleCondition.self, forKey: .condition) ?? .none
     }
 
     func encode(to encoder: Encoder) throws {
@@ -650,6 +775,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         try c.encode(bbtReminderHour, forKey: .bbtReminderHour)
         try c.encode(fertileWindowAlertEnabled, forKey: .fertileWindowAlertEnabled)
         try c.encode(periodReminderEnabled, forKey: .periodReminderEnabled)
+        try c.encode(condition, forKey: .condition)
     }
 
     /// Effective luteal for calendar fallback.

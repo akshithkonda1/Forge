@@ -307,6 +307,16 @@ final class AriaContextStore: ObservableObject {
         if snap.isCurrentlyBleeding {
             tags.append("cycle:bleeding")
         }
+        if let condition = snap.condition, condition != .none {
+            tags.append("cycle:condition:\(condition.rawValue)")
+            let guidance = condition.ariaGuidance
+            if !guidance.isEmpty,
+               !context.constraints.contains(where: { $0.hasPrefix("cycle_condition_context:") }) {
+                context.constraints.append("cycle_condition_context:\(guidance)")
+            }
+        } else {
+            context.constraints.removeAll { $0.hasPrefix("cycle_condition_context:") }
+        }
         context.lifestyleTags = Array(Set(tags)).sorted()
 
         var patterns = context.recentPatterns.filter { !$0.hasPrefix("cycle:") }

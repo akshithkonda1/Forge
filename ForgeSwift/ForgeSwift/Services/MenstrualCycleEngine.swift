@@ -109,7 +109,12 @@ enum MenstrualCycleEngine {
             return CycleDayKey.addDays(lastStart, (ovulation?.dayInCycle ?? 14) - 1)
         }()
 
-        let irregular = madCycle >= 4 || (cycleLengths.count >= 3 && (cycleLengths.max()! - cycleLengths.min()!) >= 10)
+        // Conditions like PCOS and perimenopause inherently produce irregular cycles —
+        // use a much wider threshold so the flag only fires for truly unexpected variance.
+        let irregularThreshold: Double = settings.condition.suppressesIrregularityFlag ? 10 : 4
+        let irregularRangeThreshold = settings.condition.suppressesIrregularityFlag ? 18 : 10
+        let irregular = madCycle >= irregularThreshold
+            || (cycleLengths.count >= 3 && (cycleLengths.max()! - cycleLengths.min()!) >= irregularRangeThreshold)
         let hasLH = ovulation?.method == "lh_surge"
         let hasBBT = ovulation?.method == "bbt_shift"
 
@@ -163,6 +168,8 @@ enum MenstrualCycleEngine {
             insights.append("Resting HR often ticks up in luteal. Pair with how you feel before adding load.")
         }
 
+        // Perimenopause: fertile window predictions are unreliable — suppress them.
+        let suppressFertile = settings.condition.suppressesFertileWindow
         return MenstrualCycleSnapshot(
             asOfDayKey: dayKey,
             trackingEnabled: true,
@@ -172,12 +179,12 @@ enum MenstrualCycleEngine {
             cycleLengthMAD: madCycle,
             periodLengthMedian: medianPeriod,
             cyclesObserved: cycleLengths.count,
-            ovulationDayInCycle: ovulation?.dayInCycle,
-            ovulationMethod: ovulation?.method,
-            fertileStartDayInCycle: ovulation.map { max(1, $0.dayInCycle - 5) },
-            fertileEndDayInCycle: ovulation.map { $0.dayInCycle + 1 },
+            ovulationDayInCycle: suppressFertile ? nil : ovulation?.dayInCycle,
+            ovulationMethod: suppressFertile ? nil : ovulation?.method,
+            fertileStartDayInCycle: suppressFertile ? nil : ovulation.map { max(1, $0.dayInCycle - 5) },
+            fertileEndDayInCycle: suppressFertile ? nil : ovulation.map { $0.dayInCycle + 1 },
             nextPeriod: nextPeriod,
-            nextOvulationDayKey: nextOvuKey,
+            nextOvulationDayKey: suppressFertile ? nil : nextOvuKey,
             confidence: confidence,
             dataQuality: dataQuality,
             recommendRecoveryBias: recoveryBias,
@@ -195,7 +202,9 @@ enum MenstrualCycleEngine {
             periodTimingConfidence: periodConf,
             ovulationConfidence: ovuConf,
             learnedLutealDays: settings.learnedLutealDays,
-            predictionMethodSummary: ensemble.summary
+            predictionMethodSummary: ensemble.summary,
+            condition: settings.condition == .none ? nil : settings.condition,
+            wristTemperatureAvailable: false
         )
     }
 
