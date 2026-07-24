@@ -1,6 +1,8 @@
 import Foundation
 import Combine
 import HealthKit
+import ActivityKit
+import ForgeCore
 
 /// Persists cycle logs, syncs HealthKit menstrual signals, exposes engine snapshot.
 /// Also holds an optional **partner** cycle (relationship sync) — never written to the user's HealthKit.
@@ -299,6 +301,52 @@ final class MenstrualHealthStore: ObservableObject {
         if let median = snap.nextPeriod?.medianDayKey {
             lastAdvertisedNextPeriodMedian = median
             defaults.set(median, forKey: advertisedKey)
+        }
+
+        // Sync cycle data to WatchSnapshot (drives complications + lockscreen widget).
+        if snap.trackingEnabled {
+            WatchSnapshotStore.update(reloadWidgets: false) { ws in
+                ws.cyclePhase = snap.phase.rawValue
+                ws.cycleDayInCycle = snap.dayInCycle
+                ws.cycleFertileWindowOpen = (snap.phase == .fertileWindow || snap.phase == .ovulation)
+                ws.cycleFertileScore = nil  // populated when fertileScore is added to snapshot
+                if let nextPeriod = snap.nextPeriod,
+                   let nextDate = CycleDayKey.date(from: nextPeriod.medianDayKey) {
+                    ws.cycleNextPeriodDaysAway = Calendar.current.dateComponents([.day], from: Date(), to: nextDate).day
+                } else {
+                    ws.cycleNextPeriodDaysAway = nil
+                }
+            }
+        }
+
+        // Manage cycle Live Activity for the fertile window.
+        if #available(iOS 16.2, *) {
+            let isInFertileWindow = snap.phase == .fertileWindow || snap.phase == .ovulation
+            Task {
+                if isInFertileWindow && snap.trackingEnabled {
+                    let state = CycleLiveActivityAttributes.ContentState(
+                        phase: snap.phase.rawValue,
+                        dayInCycle: snap.dayInCycle,
+                        fertileScore: nil,
+                        daysUntilOvulation: nil,
+                        isActiveFertileWindow: true,
+                        isCurrentlyBleeding: snap.isCurrentlyBleeding
+                    )
+                    if Activity<CycleLiveActivityAttributes>.activities.isEmpty {
+                        try? Activity.request(
+                            attributes: CycleLiveActivityAttributes(),
+                            contentState: state,
+                            pushType: nil
+                        )
+                    } else {
+                        await Activity<CycleLiveActivityAttributes>.activities.first?.update(using: state)
+                    }
+                } else {
+                    for activity in Activity<CycleLiveActivityAttributes>.activities {
+                        await activity.end(dismissalPolicy: .immediate)
+                    }
+                }
+            }
         }
     }
 

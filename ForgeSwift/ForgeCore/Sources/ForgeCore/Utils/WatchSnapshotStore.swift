@@ -30,6 +30,12 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
     public var activeWorkout: WorkoutLiveState?
     /// Tonight's suggested wind-down start (SleepQualityComplication line).
     public var tonightWindDown: Date?
+    // Cycle phase fields — synced from MenstrualHealthStore.recompute()
+    public var cyclePhase: String?
+    public var cycleDayInCycle: Int?
+    public var cycleFertileWindowOpen: Bool?
+    public var cycleFertileScore: Int?
+    public var cycleNextPeriodDaysAway: Int?
     public var updatedAt: Date
 
     public init(updatedAt: Date = Date()) {
