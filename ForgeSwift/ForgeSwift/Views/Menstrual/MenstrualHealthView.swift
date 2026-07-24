@@ -1237,6 +1237,13 @@ struct MenstrualHealthView: View {
 
             CycleNotificationSettingsCard(cycleStore: cycleStore)
 
+            CycleConditionSelectorCard(
+                condition: Binding(
+                    get: { cycleStore.settings.condition },
+                    set: { cycleStore.updateCondition($0) }
+                )
+            )
+
             Toggle(isOn: Binding(
                 get: { cycleStore.settings.shareWithAria },
                 set: { v in cycleStore.updateSettings { $0.shareWithAria = v } }
@@ -2239,6 +2246,53 @@ private struct TWWSectionCard: View {
             }
             .buttonStyle(.bordered)
             .tint(Color.ember)
+        }
+        .padding()
+        .forgeGlassCard(accent: .ember)
+    }
+}
+
+// MARK: - Condition Selector Card
+
+private struct CycleConditionSelectorCard: View {
+    @Binding var condition: CycleCondition
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("HEALTH CONDITION")
+                    .font(FDS.TypeScale.label(12))
+                    .foregroundColor(.textSecondary)
+                Text("Personalises cycle predictions and ARIA coaching")
+                    .font(FDS.TypeScale.body(11))
+                    .foregroundColor(.textTertiary)
+            }
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                ForEach(CycleCondition.allCases) { c in
+                    Button {
+                        condition = c
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: c.icon)
+                                .font(.title3)
+                            Text(c.label)
+                                .font(.caption2)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(condition == c ? Color.ember.opacity(0.15) : Color.surfaceElevated)
+                        .foregroundStyle(condition == c ? Color.ember : Color.textSecondary)
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: FDS.Radius.sm)
+                                .strokeBorder(condition == c ? Color.ember : Color.clear, lineWidth: 1.5)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
         .padding()
         .forgeGlassCard(accent: .ember)

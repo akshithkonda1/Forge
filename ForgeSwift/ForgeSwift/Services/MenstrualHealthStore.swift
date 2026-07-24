@@ -95,6 +95,10 @@ final class MenstrualHealthStore: ObservableObject {
         Task { await ForgeNotificationScheduler.syncCycleNotifications(settings: settings, snapshot: snapshot) }
     }
 
+    func updateCondition(_ condition: CycleCondition) {
+        updateSettings { $0.condition = condition }
+    }
+
     func updatePartnerSettings(_ mutate: (inout PartnerCycleSettings) -> Void) {
         var s = partnerSettings
         mutate(&s)
