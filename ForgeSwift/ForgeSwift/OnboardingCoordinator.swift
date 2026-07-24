@@ -917,6 +917,8 @@ struct OnboardingAriaBot {
                         suggestions: ["2–3 days", "4–5 days", "6+ days"])
     }
 
+    // `step` is a 0-indexed conversation turn counter (0, 1, 2…), NOT OnboardingRoute.rawValue.
+    // Passing the wrong index causes premature synthesis (default branch) after turn 0.
     func reply(step: Int, input: String, answers: [String], profile: OnboardingProfile) -> AriaTurn {
         switch step {
         case 0:

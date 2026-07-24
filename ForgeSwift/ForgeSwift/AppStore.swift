@@ -1372,8 +1372,8 @@ final class AppStore: ObservableObject {
         objectWillChange.send()
     }
 
-    func openChat(with prompt: String, voice: Bool = false) {
-        if quietMode, !voice { return }
+    func openChat(with prompt: String, voice: Bool = false, isProactive: Bool = false) {
+        if quietMode, !voice, isProactive { return }
         ariaPendingChatPrompt = prompt
         ariaVoiceMode = voice
         activeTab = .chat
