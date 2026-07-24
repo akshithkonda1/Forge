@@ -8,12 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */; };
-		1E26215F2F9496930005B7B1 /* LIFESTYLE_VIEW_IMPROVEMENTS.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E26215E2F9496930005B7B1 /* LIFESTYLE_VIEW_IMPROVEMENTS.md */; };
 		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
-		1E4DF70E2F9FF2B4004091AA /* APPSTORE_USAGE_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF70D2F9FF2B3004091AA /* APPSTORE_USAGE_GUIDE.md */; };
-		1E4DF7102F9FF2E7004091AA /* AI_INTEGRATION_EXAMPLE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70F2F9FF2E7004091AA /* AI_INTEGRATION_EXAMPLE.swift */; };
-		1E4DF7122F9FF31F004091AA /* REFACTOR_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF7112F9FF31F004091AA /* REFACTOR_SUMMARY.md */; };
-		1E4DF7142F9FF348004091AA /* QUICK_START.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF7132F9FF348004091AA /* QUICK_START.md */; };
 		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
 		1EHKS0022F9FF867004091AA /* HealthKitSleepService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */; };
 		1ARIA0022F9FF867004091AA /* AriaContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0012F9FF867004091AA /* AriaContext.swift */; };
@@ -50,31 +45,13 @@
 		1E4DF71A2F9FFA70004091AA /* OnboardingDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */; };
 		1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */; };
 		1E4DF71E2F9FFAE1004091AA /* SmartProfileSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF71D2F9FFAE1004091AA /* SmartProfileSetupView.swift */; };
-		1E4DF7202F9FFAEF004091AA /* Info.plist.PERMISSIONS in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF71F2F9FFAEF004091AA /* Info.plist.PERMISSIONS */; };
-		1E4DF7222F9FFB20004091AA /* ONBOARDING_IMPLEMENTATION_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF7212F9FFB20004091AA /* ONBOARDING_IMPLEMENTATION_GUIDE.md */; };
-		1E4DF7242F9FFB29004091AA /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7232F9FFB29004091AA /* ColorExtensions.swift */; };
 		F0F1000000000000000000A1 /* LifestyleTargets.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F1000000000000000000A2 /* LifestyleTargets.swift */; };
-		1E4DF7262F9FFB4A004091AA /* QUICK_START 2.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF7252F9FFB4A004091AA /* QUICK_START 2.md */; };
-		1E4DF7282F9FFB89004091AA /* IMPLEMENTATION_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF7272F9FFB89004091AA /* IMPLEMENTATION_SUMMARY.md */; };
-		1E4DF72A2FA006AC004091AA /* AWARD_WINNING_FEATURES.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF7292FA006AC004091AA /* AWARD_WINNING_FEATURES.md */; };
-		1E4DF72C2FA006D3004091AA /* INFO_PLIST_SETUP.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF72B2FA006D3004091AA /* INFO_PLIST_SETUP.md */; };
-		1E4DF72E2FA00716004091AA /* AWARD_WINNING_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF72D2FA00716004091AA /* AWARD_WINNING_SUMMARY.md */; };
-		1E4DF7302FA0074B004091AA /* QUICK_START 3.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E4DF72F2FA0074B004091AA /* QUICK_START 3.md */; };
-		1E58C1F92F93097E002D3256 /* CHATVIEW_IMPROVEMENTS.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E58C1F82F93097D002D3256 /* CHATVIEW_IMPROVEMENTS.md */; };
-		1E58C1FB2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E58C1FA2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md */; };
 		1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */; };
 		1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */; };
 		1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */; };
 		1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */; };
 		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
 		1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */; };
-		1E9C571A2F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57192F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift */; };
-		1E9C571C2F9160F600F365E3 /* Info.plist.additions.xml in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C571B2F9160F600F365E3 /* Info.plist.additions.xml */; };
-		1E9C571E2F91615B00F365E3 /* README_VOICE_COACH.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C571D2F91615B00F365E3 /* README_VOICE_COACH.md */; };
-		1E9C57202F9161A900F365E3 /* INTEGRATION_VISUAL_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C571F2F9161A900F365E3 /* INTEGRATION_VISUAL_GUIDE.md */; };
-		1E9C57222F91620B00F365E3 /* AURORA_ORB_FEATURES.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C57212F91620B00F365E3 /* AURORA_ORB_FEATURES.md */; };
-		1E9C57242F91624B00F365E3 /* AURORA_ORB_COMPARISON.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C57232F91624B00F365E3 /* AURORA_ORB_COMPARISON.md */; };
-		1E9C57262F91628F00F365E3 /* AURORA_ORB_CUSTOMIZATION.md in Resources */ = {isa = PBXBuildFile; fileRef = 1E9C57252F91628F00F365E3 /* AURORA_ORB_CUSTOMIZATION.md */; };
 		1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED842E22F90C15300693D3E /* LifestyleView.swift */; };
 		AA0001000000000000000001 /* ForgeSwiftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000001 /* ForgeSwiftApp.swift */; };
 		AA0001000000000000000002 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000002 /* Theme.swift */; };
@@ -195,13 +172,8 @@
 
 /* Begin PBXFileReference section */
 		1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbComponents.swift; sourceTree = "<group>"; };
-		1E26215E2F9496930005B7B1 /* LIFESTYLE_VIEW_IMPROVEMENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = LIFESTYLE_VIEW_IMPROVEMENTS.md; sourceTree = "<group>"; };
 		1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MusicControllerFactory.swift; sourceTree = SOURCE_ROOT; };
 		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
-		1E4DF70D2F9FF2B3004091AA /* APPSTORE_USAGE_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = APPSTORE_USAGE_GUIDE.md; sourceTree = "<group>"; };
-		1E4DF70F2F9FF2E7004091AA /* AI_INTEGRATION_EXAMPLE.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_INTEGRATION_EXAMPLE.swift; sourceTree = "<group>"; };
-		1E4DF7112F9FF31F004091AA /* REFACTOR_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = REFACTOR_SUMMARY.md; sourceTree = "<group>"; };
-		1E4DF7132F9FF348004091AA /* QUICK_START.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = QUICK_START.md; sourceTree = "<group>"; };
 		1E4DF7152F9FF867004091AA /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepService.swift; sourceTree = "<group>"; };
 		1ARIA0012F9FF867004091AA /* AriaContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContext.swift; sourceTree = "<group>"; };
@@ -235,31 +207,13 @@
 		1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDataManager.swift; sourceTree = "<group>"; };
 		1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedDataConnectionView.swift; sourceTree = "<group>"; };
 		1E4DF71D2F9FFAE1004091AA /* SmartProfileSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartProfileSetupView.swift; sourceTree = "<group>"; };
-		1E4DF71F2F9FFAEF004091AA /* Info.plist.PERMISSIONS */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Info.plist.PERMISSIONS; sourceTree = "<group>"; };
-		1E4DF7212F9FFB20004091AA /* ONBOARDING_IMPLEMENTATION_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ONBOARDING_IMPLEMENTATION_GUIDE.md; sourceTree = "<group>"; };
-		1E4DF7232F9FFB29004091AA /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
 		F0F1000000000000000000A2 /* LifestyleTargets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleTargets.swift; sourceTree = "<group>"; };
-		1E4DF7252F9FFB4A004091AA /* QUICK_START 2.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "QUICK_START 2.md"; sourceTree = "<group>"; };
-		1E4DF7272F9FFB89004091AA /* IMPLEMENTATION_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = IMPLEMENTATION_SUMMARY.md; sourceTree = "<group>"; };
-		1E4DF7292FA006AC004091AA /* AWARD_WINNING_FEATURES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AWARD_WINNING_FEATURES.md; sourceTree = "<group>"; };
-		1E4DF72B2FA006D3004091AA /* INFO_PLIST_SETUP.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = INFO_PLIST_SETUP.md; sourceTree = "<group>"; };
-		1E4DF72D2FA00716004091AA /* AWARD_WINNING_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AWARD_WINNING_SUMMARY.md; sourceTree = "<group>"; };
-		1E4DF72F2FA0074B004091AA /* QUICK_START 3.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "QUICK_START 3.md"; sourceTree = "<group>"; };
-		1E58C1F82F93097D002D3256 /* CHATVIEW_IMPROVEMENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHATVIEW_IMPROVEMENTS.md; sourceTree = "<group>"; };
-		1E58C1FA2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHATVIEW_USAGE_GUIDE.md; sourceTree = "<group>"; };
 		1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeDesignSystem.swift; sourceTree = "<group>"; };
 		1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+ForgeCardShadow.swift"; sourceTree = "<group>"; };
 		1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OnboardingCoordinator.swift"; sourceTree = "<group>"; };
 		1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachManager.swift; sourceTree = "<group>"; };
 		1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachViews.swift; sourceTree = "<group>"; };
 		1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachIntegration.swift; sourceTree = "<group>"; };
-		1E9C57192F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QUICK_INTEGRATION_SNIPPET.swift; sourceTree = "<group>"; };
-		1E9C571B2F9160F600F365E3 /* Info.plist.additions.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Info.plist.additions.xml; sourceTree = "<group>"; };
-		1E9C571D2F91615B00F365E3 /* README_VOICE_COACH.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README_VOICE_COACH.md; sourceTree = "<group>"; };
-		1E9C571F2F9161A900F365E3 /* INTEGRATION_VISUAL_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = INTEGRATION_VISUAL_GUIDE.md; sourceTree = "<group>"; };
-		1E9C57212F91620B00F365E3 /* AURORA_ORB_FEATURES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AURORA_ORB_FEATURES.md; sourceTree = "<group>"; };
-		1E9C57232F91624B00F365E3 /* AURORA_ORB_COMPARISON.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AURORA_ORB_COMPARISON.md; sourceTree = "<group>"; };
-		1E9C57252F91628F00F365E3 /* AURORA_ORB_CUSTOMIZATION.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AURORA_ORB_CUSTOMIZATION.md; sourceTree = "<group>"; };
 		1ED842E22F90C15300693D3E /* LifestyleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000001 /* ForgeSwiftApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSwiftApp.swift; sourceTree = "<group>"; };
 		AA0002000000000000000002 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -438,21 +392,7 @@
 				1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */,
 				1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */,
 				1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */,
-				1E9C57192F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift */,
-				1E9C571B2F9160F600F365E3 /* Info.plist.additions.xml */,
-				1E9C571D2F91615B00F365E3 /* README_VOICE_COACH.md */,
-				1E9C571F2F9161A900F365E3 /* INTEGRATION_VISUAL_GUIDE.md */,
-				1E9C57212F91620B00F365E3 /* AURORA_ORB_FEATURES.md */,
-				1E9C57232F91624B00F365E3 /* AURORA_ORB_COMPARISON.md */,
-				1E9C57252F91628F00F365E3 /* AURORA_ORB_CUSTOMIZATION.md */,
-				1E58C1F82F93097D002D3256 /* CHATVIEW_IMPROVEMENTS.md */,
-				1E58C1FA2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md */,
-				1E26215E2F9496930005B7B1 /* LIFESTYLE_VIEW_IMPROVEMENTS.md */,
 				1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */,
-				1E4DF70D2F9FF2B3004091AA /* APPSTORE_USAGE_GUIDE.md */,
-				1E4DF70F2F9FF2E7004091AA /* AI_INTEGRATION_EXAMPLE.swift */,
-				1E4DF7112F9FF31F004091AA /* REFACTOR_SUMMARY.md */,
-				1E4DF7132F9FF348004091AA /* QUICK_START.md */,
 				1ARIA0172F9FF867004091AA /* AriaModels */,
 				1ARIA0162F9FF867004091AA /* Views */,
 				1EHKS0032F9FF867004091AA /* Services */,
@@ -461,18 +401,9 @@
 				1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */,
 				1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */,
 				1E4DF71D2F9FFAE1004091AA /* SmartProfileSetupView.swift */,
-				1E4DF71F2F9FFAEF004091AA /* Info.plist.PERMISSIONS */,
-				1E4DF7212F9FFB20004091AA /* ONBOARDING_IMPLEMENTATION_GUIDE.md */,
-				1E4DF7232F9FFB29004091AA /* ColorExtensions.swift */,
 				F0F1000000000000000000A2 /* LifestyleTargets.swift */,
 				FWSETED01 /* SettingsEditorViews.swift */,
 				FWNSCHED01 /* ForgeNotificationScheduler.swift */,
-				1E4DF7252F9FFB4A004091AA /* QUICK_START 2.md */,
-				1E4DF7272F9FFB89004091AA /* IMPLEMENTATION_SUMMARY.md */,
-				1E4DF7292FA006AC004091AA /* AWARD_WINNING_FEATURES.md */,
-				1E4DF72B2FA006D3004091AA /* INFO_PLIST_SETUP.md */,
-				1E4DF72D2FA00716004091AA /* AWARD_WINNING_SUMMARY.md */,
-				1E4DF72F2FA0074B004091AA /* QUICK_START 3.md */,
 				1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */,
 				1ARIA0272F9FF867004091AA /* Theme+Readiness.swift */,
 				1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */,
@@ -735,27 +666,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1E4DF7202F9FFAEF004091AA /* Info.plist.PERMISSIONS in Resources */,
-				1E9C57202F9161A900F365E3 /* INTEGRATION_VISUAL_GUIDE.md in Resources */,
-				1E58C1FB2F9309CB002D3256 /* CHATVIEW_USAGE_GUIDE.md in Resources */,
-				1E9C571E2F91615B00F365E3 /* README_VOICE_COACH.md in Resources */,
-				1E4DF72A2FA006AC004091AA /* AWARD_WINNING_FEATURES.md in Resources */,
-				1E58C1F92F93097E002D3256 /* CHATVIEW_IMPROVEMENTS.md in Resources */,
-				1E4DF7282F9FFB89004091AA /* IMPLEMENTATION_SUMMARY.md in Resources */,
-				1E4DF7142F9FF348004091AA /* QUICK_START.md in Resources */,
-				1E9C57222F91620B00F365E3 /* AURORA_ORB_FEATURES.md in Resources */,
-				1E4DF7122F9FF31F004091AA /* REFACTOR_SUMMARY.md in Resources */,
 				AA000100000000000000000C /* Assets.xcassets in Resources */,
-				1E4DF70E2F9FF2B4004091AA /* APPSTORE_USAGE_GUIDE.md in Resources */,
-				1E26215F2F9496930005B7B1 /* LIFESTYLE_VIEW_IMPROVEMENTS.md in Resources */,
-				1E4DF7262F9FFB4A004091AA /* QUICK_START 2.md in Resources */,
-				1E9C57242F91624B00F365E3 /* AURORA_ORB_COMPARISON.md in Resources */,
-				1E9C57262F91628F00F365E3 /* AURORA_ORB_CUSTOMIZATION.md in Resources */,
-				1E4DF72E2FA00716004091AA /* AWARD_WINNING_SUMMARY.md in Resources */,
-				1E4DF7222F9FFB20004091AA /* ONBOARDING_IMPLEMENTATION_GUIDE.md in Resources */,
-				1E4DF72C2FA006D3004091AA /* INFO_PLIST_SETUP.md in Resources */,
-				1E9C571C2F9160F600F365E3 /* Info.plist.additions.xml in Resources */,
-				1E4DF7302FA0074B004091AA /* QUICK_START 3.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -836,17 +747,14 @@
 				1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */,
 				1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */,
 				1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */,
-				1E4DF7102F9FF2E7004091AA /* AI_INTEGRATION_EXAMPLE.swift in Sources */,
 				AA0001000000000000000007 /* HomeView.swift in Sources */,
 				AA0001000000000000000008 /* ChatView.swift in Sources */,
 				1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */,
 				1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator.swift in Sources */,
-				1E9C571A2F9160E800F365E3 /* QUICK_INTEGRATION_SNIPPET.swift in Sources */,
 				1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */,
 				AA0001000000000000000009 /* WorkoutView.swift in Sources */,
 				AA000100000000000000000A /* SleepView.swift in Sources */,
 				AA000100000000000000000B /* ProfileView.swift in Sources */,
-				1E4DF7242F9FFB29004091AA /* ColorExtensions.swift in Sources */,
 				F0F1000000000000000000A1 /* LifestyleTargets.swift in Sources */,
 				FWSETED02 /* SettingsEditorViews.swift in Sources */,
 				FWNSCHED02 /* ForgeNotificationScheduler.swift in Sources */,

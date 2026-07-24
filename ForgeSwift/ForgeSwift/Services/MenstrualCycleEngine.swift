@@ -109,12 +109,7 @@ enum MenstrualCycleEngine {
             return CycleDayKey.addDays(lastStart, (ovulation?.dayInCycle ?? 14) - 1)
         }()
 
-        // Conditions like PCOS and perimenopause inherently produce irregular cycles —
-        // use a much wider threshold so the flag only fires for truly unexpected variance.
-        let irregularThreshold: Double = settings.condition.suppressesIrregularityFlag ? 10 : 4
-        let irregularRangeThreshold = settings.condition.suppressesIrregularityFlag ? 18 : 10
-        let irregular = madCycle >= irregularThreshold
-            || (cycleLengths.count >= 3 && (cycleLengths.max()! - cycleLengths.min()!) >= irregularRangeThreshold)
+        let irregular = madCycle >= 4 || (cycleLengths.count >= 3 && (cycleLengths.max()! - cycleLengths.min()!) >= 10)
         let hasLH = ovulation?.method == "lh_surge"
         let hasBBT = ovulation?.method == "bbt_shift"
 
@@ -168,8 +163,6 @@ enum MenstrualCycleEngine {
             insights.append("Resting HR often ticks up in luteal. Pair with how you feel before adding load.")
         }
 
-        // Perimenopause: fertile window predictions are unreliable — suppress them.
-        let suppressFertile = settings.condition.suppressesFertileWindow
         return MenstrualCycleSnapshot(
             asOfDayKey: dayKey,
             trackingEnabled: true,
@@ -184,7 +177,7 @@ enum MenstrualCycleEngine {
             fertileStartDayInCycle: suppressFertile ? nil : ovulation.map { max(1, $0.dayInCycle - 5) },
             fertileEndDayInCycle: suppressFertile ? nil : ovulation.map { $0.dayInCycle + 1 },
             nextPeriod: nextPeriod,
-            nextOvulationDayKey: suppressFertile ? nil : nextOvuKey,
+            nextOvulationDayKey: nextOvuKey,
             confidence: confidence,
             dataQuality: dataQuality,
             recommendRecoveryBias: recoveryBias,
@@ -202,9 +195,7 @@ enum MenstrualCycleEngine {
             periodTimingConfidence: periodConf,
             ovulationConfidence: ovuConf,
             learnedLutealDays: settings.learnedLutealDays,
-            predictionMethodSummary: ensemble.summary,
-            condition: settings.condition == .none ? nil : settings.condition,
-            wristTemperatureAvailable: false
+            predictionMethodSummary: ensemble.summary
         )
     }
 

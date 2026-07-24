@@ -414,14 +414,6 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
     var learnedLutealDays: Double?
     /// Engine method summary for transparency.
     var predictionMethodSummary: String
-    /// User's stated cycle goal, passed through from settings.
-    var cycleGoal: CycleGoal?
-    /// Days elapsed since confirmed ovulation (only set in luteal phase with confirmed ovulation).
-    var twwDaysElapsed: Int?
-    /// Active health condition affecting cycle interpretation (nil = none).
-    var condition: CycleCondition?
-    /// True when Apple Watch wrist temperature (Series 8+) is contributing to BBT.
-    var wristTemperatureAvailable: Bool
 
     static let empty = MenstrualCycleSnapshot(
         asOfDayKey: "",
@@ -455,11 +447,7 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
         periodTimingConfidence: 0,
         ovulationConfidence: 0,
         learnedLutealDays: nil,
-        predictionMethodSummary: "",
-        cycleGoal: nil,
-        twwDaysElapsed: nil,
-        condition: nil,
-        wristTemperatureAvailable: false
+        predictionMethodSummary: ""
     )
 }
 
@@ -693,23 +681,12 @@ struct MenstrualTrackingSettings: Codable, Equatable {
     var overdueWidenDays: Int
     /// Personal luteal median learned from LH/BBT-confirmed cycles (nil = use typicalLutealDays).
     var learnedLutealDays: Double?
-    // Notification preferences
-    var bbtReminderEnabled: Bool
-    var bbtReminderHour: Int
-    var fertileWindowAlertEnabled: Bool
-    var periodReminderEnabled: Bool
-    /// User's stated cycle goal.
-    var cycleGoal: CycleGoal
-    /// Active health condition for personalised engine behaviour and ARIA coaching.
-    var condition: CycleCondition
 
     enum CodingKeys: String, CodingKey {
         case enabled, shareWithAria, averageCycleOverride, averagePeriodOverride
         case typicalLutealDays, usesHormonalContraception, notes
         case privacyAcknowledged, calibrationOffsetDays, highAccuracyMode, overdueWidenDays
         case learnedLutealDays
-        case bbtReminderEnabled, bbtReminderHour, fertileWindowAlertEnabled, periodReminderEnabled
-        case cycleGoal, condition
     }
 
     static let `default` = MenstrualTrackingSettings(
@@ -724,9 +701,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         calibrationOffsetDays: 0,
         highAccuracyMode: false,
         overdueWidenDays: 0,
-        learnedLutealDays: nil,
-        cycleGoal: .general,
-        condition: .none
+        learnedLutealDays: nil
     )
 
     init(
@@ -741,13 +716,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         calibrationOffsetDays: Double = 0,
         highAccuracyMode: Bool = false,
         overdueWidenDays: Int = 0,
-        learnedLutealDays: Double? = nil,
-        bbtReminderEnabled: Bool = false,
-        bbtReminderHour: Int = 7,
-        fertileWindowAlertEnabled: Bool = false,
-        periodReminderEnabled: Bool = false,
-        cycleGoal: CycleGoal = .general,
-        condition: CycleCondition = .none
+        learnedLutealDays: Double? = nil
     ) {
         self.enabled = enabled
         self.shareWithAria = shareWithAria
@@ -761,12 +730,6 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         self.highAccuracyMode = highAccuracyMode
         self.overdueWidenDays = overdueWidenDays
         self.learnedLutealDays = learnedLutealDays
-        self.bbtReminderEnabled = bbtReminderEnabled
-        self.bbtReminderHour = bbtReminderHour
-        self.fertileWindowAlertEnabled = fertileWindowAlertEnabled
-        self.periodReminderEnabled = periodReminderEnabled
-        self.cycleGoal = cycleGoal
-        self.condition = condition
     }
 
     init(from decoder: Decoder) throws {
@@ -783,12 +746,6 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         highAccuracyMode = try c.decodeIfPresent(Bool.self, forKey: .highAccuracyMode) ?? false
         overdueWidenDays = try c.decodeIfPresent(Int.self, forKey: .overdueWidenDays) ?? 0
         learnedLutealDays = try c.decodeIfPresent(Double.self, forKey: .learnedLutealDays)
-        bbtReminderEnabled = try c.decodeIfPresent(Bool.self, forKey: .bbtReminderEnabled) ?? false
-        bbtReminderHour = try c.decodeIfPresent(Int.self, forKey: .bbtReminderHour) ?? 7
-        fertileWindowAlertEnabled = try c.decodeIfPresent(Bool.self, forKey: .fertileWindowAlertEnabled) ?? false
-        periodReminderEnabled = try c.decodeIfPresent(Bool.self, forKey: .periodReminderEnabled) ?? false
-        cycleGoal = try c.decodeIfPresent(CycleGoal.self, forKey: .cycleGoal) ?? .general
-        condition = try c.decodeIfPresent(CycleCondition.self, forKey: .condition) ?? .none
     }
 
     func encode(to encoder: Encoder) throws {
@@ -805,12 +762,6 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         try c.encode(highAccuracyMode, forKey: .highAccuracyMode)
         try c.encode(overdueWidenDays, forKey: .overdueWidenDays)
         try c.encodeIfPresent(learnedLutealDays, forKey: .learnedLutealDays)
-        try c.encode(bbtReminderEnabled, forKey: .bbtReminderEnabled)
-        try c.encode(bbtReminderHour, forKey: .bbtReminderHour)
-        try c.encode(fertileWindowAlertEnabled, forKey: .fertileWindowAlertEnabled)
-        try c.encode(periodReminderEnabled, forKey: .periodReminderEnabled)
-        try c.encode(cycleGoal, forKey: .cycleGoal)
-        try c.encode(condition, forKey: .condition)
     }
 
     /// Effective luteal for calendar fallback.
