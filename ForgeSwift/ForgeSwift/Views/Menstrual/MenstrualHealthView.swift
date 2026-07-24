@@ -74,6 +74,16 @@ struct MenstrualHealthView: View {
                             }
                             dayStrip
                             predictionGrid
+                            CycleGoalSelectorCard(
+                                goal: cycleStore.settings.cycleGoal,
+                                onUpdate: { cycleStore.updateCycleGoal($0) }
+                            )
+                            if cycleStore.settings.cycleGoal == .ttc,
+                               let tww = cycleStore.snapshot.twwDaysElapsed {
+                                TWWSectionCard(daysElapsed: tww) {
+                                    store.openChat(with: "I'm on day \(tww) of my two-week wait. What should I know?")
+                                }
+                            }
                             predictionFeedbackCard
                             quickLogCard
                             if historyExpanded || !cycleStore.logs.isEmpty {
@@ -2151,5 +2161,86 @@ private struct CycleNotificationSettingsCard: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+    }
+}
+
+// MARK: - Cycle Goal Selector Card
+
+private struct CycleGoalSelectorCard: View {
+    let goal: CycleGoal
+    let onUpdate: (CycleGoal) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Your cycle goal")
+                .font(FDS.TypeScale.body(12))
+                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                ForEach(CycleGoal.allCases) { g in
+                    Button {
+                        onUpdate(g)
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: g.icon)
+                                .font(.title3)
+                            Text(g.label)
+                                .font(FDS.TypeScale.body(11))
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(goal == g ? Color.ember.opacity(0.15) : Color.surfaceElevated)
+                        .foregroundStyle(goal == g ? Color.ember : .secondary)
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: FDS.Radius.sm)
+                                .strokeBorder(goal == g ? Color.ember : Color.clear, lineWidth: 1.5)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            if goal == .avoidPregnancy {
+                Label("FAM requires consistent tracking — not a substitute for medical contraception.", systemImage: "exclamationmark.triangle.fill")
+                    .font(FDS.TypeScale.body(11))
+                    .foregroundStyle(.orange)
+                    .padding(.top, 2)
+            }
+        }
+        .padding()
+        .forgeGlassCard(accent: .ember)
+    }
+}
+
+// MARK: - Two-Week Wait Card
+
+private struct TWWSectionCard: View {
+    let daysElapsed: Int
+    let onAskARIA: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "hourglass")
+                    .foregroundStyle(Color.ember)
+                Text("Two-Week Wait")
+                    .font(FDS.TypeScale.body(15))
+                    .fontWeight(.semibold)
+            }
+            Text("Day \(daysElapsed) of your two-week wait")
+                .font(FDS.TypeScale.body(14))
+            Text("\(max(0, 14 - daysElapsed)) days until you can test")
+                .font(FDS.TypeScale.body(12))
+                .foregroundStyle(.secondary)
+            ProgressView(value: Double(min(daysElapsed, 14)), total: 14.0)
+                .tint(Color.ember)
+            Button("Ask ARIA about the two-week wait") {
+                onAskARIA()
+            }
+            .buttonStyle(.bordered)
+            .tint(Color.ember)
+        }
+        .padding()
+        .forgeGlassCard(accent: .ember)
     }
 }

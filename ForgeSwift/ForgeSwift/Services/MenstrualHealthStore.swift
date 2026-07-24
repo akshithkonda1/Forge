@@ -130,6 +130,10 @@ final class MenstrualHealthStore: ObservableObject {
         _ = gender
     }
 
+    func updateCycleGoal(_ goal: CycleGoal) {
+        updateSettings { $0.cycleGoal = goal }
+    }
+
     // MARK: Logging
 
     func upsertLog(_ log: CycleDayLog) {
@@ -314,6 +318,16 @@ final class MenstrualHealthStore: ObservableObject {
                 "Personal timing MAE: \(String(format: "%.1f", mae)) days over \(accuracyReport.sampleCount) confirms (\(accuracyReport.gradeLabel.replacingOccurrences(of: "_", with: " "))).",
                 at: 0
             )
+        }
+        snap.cycleGoal = settings.cycleGoal
+        if snap.phase == .luteal,
+           let dayInCycle = snap.dayInCycle,
+           let ovulationDay = snap.ovulationDayInCycle,
+           snap.ovulationMethod != nil {
+            let elapsed = dayInCycle - ovulationDay
+            if elapsed > 0 && elapsed <= 14 {
+                snap.twwDaysElapsed = elapsed
+            }
         }
         snapshot = snap
         archiveOpenForecastIfNeeded(from: snap)

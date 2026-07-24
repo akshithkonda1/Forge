@@ -307,6 +307,10 @@ final class AriaContextStore: ObservableObject {
         if snap.isCurrentlyBleeding {
             tags.append("cycle:bleeding")
         }
+        tags.append("cycle:goal:\(snap.cycleGoal?.rawValue ?? "general")")
+        if let tww = snap.twwDaysElapsed {
+            tags.append("cycle:tww_day:\(tww)")
+        }
         context.lifestyleTags = Array(Set(tags)).sorted()
 
         var patterns = context.recentPatterns.filter { !$0.hasPrefix("cycle:") }
