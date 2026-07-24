@@ -230,6 +230,10 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
             if let next = c.nextPeriod {
                 lines.append("Next period window: \(next.earliestDayKey)…\(next.latestDayKey)")
             }
+            let phaseDirective = CyclePhaseCoachingDirective.directive(for: c.phase, domain: .general)
+            if !phaseDirective.isEmpty {
+                lines.append("## Phase Coaching Directive\n\(phaseDirective)")
+            }
             blocks.append(lines.joined(separator: "\n"))
         } else {
             blocks.append("Self cycle: not shared / unavailable")
