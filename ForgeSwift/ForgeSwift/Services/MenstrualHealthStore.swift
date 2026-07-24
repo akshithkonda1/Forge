@@ -92,6 +92,7 @@ final class MenstrualHealthStore: ObservableObject {
         persistSettings()
         recompute()
         pushAriaTags()
+        Task { await ForgeNotificationScheduler.syncCycleNotifications(settings: settings, snapshot: snapshot) }
     }
 
     func updatePartnerSettings(_ mutate: (inout PartnerCycleSettings) -> Void) {
@@ -326,6 +327,12 @@ final class MenstrualHealthStore: ObservableObject {
             evaluation: lastEvaluation,
             snapshot: snap
         )
+        // Remember what we currently advertise so the next real start can score us.
+        if let median = snap.nextPeriod?.medianDayKey {
+            lastAdvertisedNextPeriodMedian = median
+            defaults.set(median, forKey: advertisedKey)
+        }
+        Task { await ForgeNotificationScheduler.syncCycleNotifications(settings: settings, snapshot: snapshot) }
     }
 
     /// Freeze one open forecast per anchor period start (honest MAE source).

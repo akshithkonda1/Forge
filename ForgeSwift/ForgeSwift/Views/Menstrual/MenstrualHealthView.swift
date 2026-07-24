@@ -1225,6 +1225,8 @@ struct MenstrualHealthView: View {
 
             privacyShieldBanner
 
+            CycleNotificationSettingsCard(cycleStore: cycleStore)
+
             Toggle(isOn: Binding(
                 get: { cycleStore.settings.shareWithAria },
                 set: { v in cycleStore.updateSettings { $0.shareWithAria = v } }
@@ -2048,5 +2050,106 @@ private struct SexualHealthEntryCard: View {
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Cycle Notification Settings Card
+
+private struct CycleNotificationSettingsCard: View {
+    @ObservedObject var cycleStore: MenstrualHealthStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("NOTIFICATIONS")
+                .font(FDS.TypeScale.label(12))
+                .foregroundColor(.textSecondary)
+                .tracking(0.8)
+
+            VStack(spacing: 0) {
+                notifRow(
+                    icon: "thermometer",
+                    title: "Daily BBT reminder",
+                    subtitle: "Log your temperature before getting up",
+                    isOn: Binding(
+                        get: { cycleStore.settings.bbtReminderEnabled },
+                        set: { val in cycleStore.updateSettings { $0.bbtReminderEnabled = val } }
+                    )
+                )
+
+                if cycleStore.settings.bbtReminderEnabled {
+                    Divider().padding(.leading, 40)
+                    HStack(spacing: 10) {
+                        Image(systemName: "clock")
+                            .font(.subheadline)
+                            .foregroundColor(.ember)
+                            .frame(width: 28)
+                        Text("Reminder time")
+                            .font(FDS.TypeScale.body(14))
+                            .foregroundColor(.textPrimary)
+                        Spacer()
+                        Picker("Hour", selection: Binding(
+                            get: { cycleStore.settings.bbtReminderHour },
+                            set: { val in cycleStore.updateSettings { $0.bbtReminderHour = val } }
+                        )) {
+                            ForEach(4..<10) { h in
+                                Text("\(h):00 AM").tag(h)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .tint(.ember)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                }
+
+                Divider().padding(.leading, 40)
+                notifRow(
+                    icon: "calendar.badge.exclamationmark",
+                    title: "Fertile window alert",
+                    subtitle: "2 days before your fertile window opens",
+                    isOn: Binding(
+                        get: { cycleStore.settings.fertileWindowAlertEnabled },
+                        set: { val in cycleStore.updateSettings { $0.fertileWindowAlertEnabled = val } }
+                    )
+                )
+
+                Divider().padding(.leading, 40)
+                notifRow(
+                    icon: "bell.badge",
+                    title: "Period reminder",
+                    subtitle: "1 day before your predicted period start",
+                    isOn: Binding(
+                        get: { cycleStore.settings.periodReminderEnabled },
+                        set: { val in cycleStore.updateSettings { $0.periodReminderEnabled = val } }
+                    )
+                )
+            }
+            .background(Color.surfaceElevated)
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        }
+    }
+
+    @ViewBuilder
+    private func notifRow(icon: String, title: String, subtitle: String, isOn: Binding<Bool>) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.subheadline)
+                .foregroundColor(.ember)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(FDS.TypeScale.body(14))
+                    .foregroundColor(.textPrimary)
+                Text(subtitle)
+                    .font(FDS.TypeScale.body(11))
+                    .foregroundColor(.textTertiary)
+            }
+            Spacer()
+            Toggle("", isOn: isOn)
+                .tint(.ember)
+                .labelsHidden()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 }
