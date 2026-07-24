@@ -156,7 +156,14 @@ final class AriaContextStore: ObservableObject {
             lifestyle: .init(
                 tags: context.lifestyleTags,
                 recentPatterns: patterns,
-                goals: context.currentGoals
+                goals: context.currentGoals,
+                cyclePhaseDirective: {
+                    guard let phaseTag = context.lifestyleTags.first(where: { $0.hasPrefix("cycle_phase:") }) else { return nil }
+                    let phaseRaw = String(phaseTag.dropFirst("cycle_phase:".count))
+                    guard let phase = MenstrualPhase(rawValue: phaseRaw), phase != .unknown else { return nil }
+                    let text = CyclePhaseCoachingDirective.directive(for: phase, domain: .general)
+                    return text.isEmpty ? nil : text
+                }()
             )
         )
         return payload
