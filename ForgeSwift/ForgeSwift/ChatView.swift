@@ -3,19 +3,19 @@ import AVFoundation
 import Speech
 
 // ╔═══════════════════════════════════════════════════════════════════════╗
-// ║  FORGE × ARIA — ULTIMATE CHAT                                          ║
+// ║  FORGE × ARIA — ULTIMATE CHAT                                         ║
 // ║  Psychoactively useful · Addictive · Fun · Award-winning              ║
-// ║                                                                        ║
+// ║                                                                       ║
 // ║  ARIA Mood System (energized/focused/calm/pushed)                     ║
 // ║  Momentum streak engine + fire badges                                 ║
 // ║  Smart contextual chips that update with time of day                  ║
 // ║  Haptic choreography (every interaction has a unique feel)            ║
 // ║  Message reactions with micro-confetti burst                          ║
 // ║  Celebration moments for milestones                                   ║
-// ║  Progressive disclosure of ARIA's personality                        ║
+// ║  Progressive disclosure of ARIA's personality                         ║
 // ║  Swipe-to-reply on messages                                           ║
-// ║  XP / dopamine reward loop on send                                   ║
-// ║  Full VoiceState machine + AuroraOrbView integration                 ║
+// ║  XP / dopamine reward loop on send                                    ║
+// ║  Full VoiceState machine + AuroraOrbView integration                  ║
 // ║  All FDS tokens · Proper Task cancellation                            ║
 // ╚═══════════════════════════════════════════════════════════════════════╝
 
@@ -190,19 +190,30 @@ enum HapticEvent {
     case typing             // Very light
 }
 
-func choreographedHaptic(_ event: HapticEvent) {
+/// Haptic strength scales with ARIA's mood: a supportive or wind-down moment
+/// should feel softer than a high-energy one. `nil` keeps the neutral feel.
+private func moodHapticScale(_ mood: ARIAMood?) -> CGFloat {
+    switch mood {
+    case .calm, .pushed: return 0.62
+    case .energized:     return 1.0
+    case .focused, nil:  return 0.82
+    }
+}
+
+func choreographedHaptic(_ event: HapticEvent, mood: ARIAMood? = nil) {
+    let scale = moodHapticScale(mood)
     switch event {
     case .messageSent:
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: scale)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: scale)
         }
     case .messageReceived:
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: scale)
     case .reactionAdded:
         UISelectionFeedbackGenerator().selectionChanged()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: scale)
         }
     case .milestone:
         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
@@ -210,9 +221,9 @@ func choreographedHaptic(_ event: HapticEvent) {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         }
     case .voiceStart:
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred(intensity: scale)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: scale)
         }
     case .quickChipTap:
         UISelectionFeedbackGenerator().selectionChanged()
@@ -223,7 +234,7 @@ func choreographedHaptic(_ event: HapticEvent) {
             }
         }
     case .typing:
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.3)
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.3 * scale)
     }
 }
 
@@ -245,8 +256,44 @@ final class SpeechManager: ObservableObject {
     private var recognitionTask: SFSpeechRecognitionTask?
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private var silenceTimer: Timer?
-    private let silenceThreshold: TimeInterval = 1.6
     private var levelTimer: Timer?
+
+    /// ARIA's current mood, mirrored in so dictation paces itself to the
+    /// conversation. Calm/supportive moments mean the user is more likely to be
+    /// thinking mid-sentence, so we wait longer before deciding they're done.
+    var conversationalMood: ARIAMood = .focused
+
+    /// Rolling average of how long the user's utterances run, in words. Someone
+    /// who speaks in long thoughts gets a longer grace period than someone
+    /// firing off three-word commands.
+    private var averageUtteranceWords: Double = 0
+    private var utteranceSampleCount: Int = 0
+
+    private var silenceThreshold: TimeInterval {
+        var threshold: TimeInterval = {
+            switch conversationalMood {
+            case .calm, .pushed: return 2.1
+            case .focused:       return 1.7
+            case .energized:     return 1.45
+            }
+        }()
+        // Long-form speakers pause mid-thought; give them up to ~0.5s more.
+        if averageUtteranceWords > 12 {
+            threshold += min(0.5, (averageUtteranceWords - 12) * 0.04)
+        }
+        return min(2.6, threshold)
+    }
+
+    private func recordUtteranceLength(_ text: String) {
+        let words = Double(text.split(separator: " ").count)
+        guard words > 0 else { return }
+        utteranceSampleCount += 1
+        // Exponential moving average — recent speaking style dominates.
+        averageUtteranceWords = utteranceSampleCount == 1
+            ? words
+            : (averageUtteranceWords * 0.7) + (words * 0.3)
+    }
+
     /// When true, stopListening will not clear recognizedText (caller consumes it).
     private var preserveTranscriptOnStop = false
 
@@ -291,6 +338,7 @@ final class SpeechManager: ObservableObject {
         preserveTranscriptOnStop = submit && !recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
         if preserveTranscriptOnStop {
+            recordUtteranceLength(recognizedText)
             voiceState = .processing
             hardStop(clearText: false)
             UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -318,7 +366,11 @@ final class SpeechManager: ObservableObject {
     private func beginRecognition() {
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetoothHFP])
+            // `.allowBluetooth` was renamed `.allowBluetoothHFP` in the iOS 26
+            // SDK. Both are the same option value; the old spelling is merely
+            // deprecated there, and it's the only one that compiles against
+            // earlier SDKs — which is what CI builds with.
+            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .AVAudioSession.CategoryOptions.allowBluetoothHFP.CategoryOptions.allowBluetoothHFP])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             voiceState = .error("Microphone error")
@@ -441,40 +493,58 @@ final class SpeechManager: ObservableObject {
 // MARK: - Momentum / XP Engine
 // ============================================================
 
+/// Celebration choreography for chat momentum. The *numbers* live in `AppStore`
+/// (so they persist across launches); this only owns the transient animation
+/// state that shouldn't survive a relaunch.
 @MainActor
 final class MomentumEngine: ObservableObject {
-    @Published var xp:             Int    = 0
-    @Published var level:          Int    = 1
     @Published var showXPBurst:    Bool   = false
     @Published var lastXPGain:     Int    = 0
     @Published var showLevelUp:    Bool   = false
 
+    private weak var store: AppStore?
     private let xpPerLevel = 100
+    private var burstResetTask:    Task<Void, Never>?
+    private var levelUpResetTask:  Task<Void, Never>?
+
+    func bind(to store: AppStore) { self.store = store }
+
+    var xp:         Int    { store?.chatXP ?? 0 }
+    var level:      Int    { store?.chatLevel ?? 1 }
+    var xpProgress: Double { store?.chatXPProgress ?? 0 }
+    var xpToNext:   Int    { store?.chatXPToNextLevel ?? xpPerLevel }
 
     func award(xp amount: Int) {
+        guard let store else { return }
         lastXPGain = amount
-        xp        += amount
+        let leveledUp = store.awardChatXP(amount)
+
         withAnimation(FDS.Spring.hero) { showXPBurst = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
-            withAnimation(FDS.Spring.standard) { self.showXPBurst = false }
+        burstResetTask?.cancel()
+        burstResetTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_400_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(FDS.Spring.standard) { self?.showXPBurst = false }
         }
-        checkLevelUp()
+
+        guard leveledUp else { return }
+        choreographedHaptic(.milestone)
+        withAnimation(FDS.Spring.hero) { showLevelUp = true }
+        levelUpResetTask?.cancel()
+        levelUpResetTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2_800_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(FDS.Spring.standard) { self?.showLevelUp = false }
+        }
     }
 
-    private func checkLevelUp() {
-        let newLevel = (xp / xpPerLevel) + 1
-        if newLevel > level {
-            level = newLevel
-            choreographedHaptic(.milestone)
-            withAnimation(FDS.Spring.hero) { showLevelUp = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) {
-                withAnimation(FDS.Spring.standard) { self.showLevelUp = false }
-            }
-        }
+    /// Cancels pending celebration resets when chat leaves the screen.
+    func cancelPendingAnimations() {
+        burstResetTask?.cancel();   burstResetTask = nil
+        levelUpResetTask?.cancel(); levelUpResetTask = nil
+        showXPBurst = false
+        showLevelUp = false
     }
-
-    var xpProgress: Double { Double(xp % xpPerLevel) / Double(xpPerLevel) }
-    var xpToNext:   Int    { xpPerLevel - (xp % xpPerLevel) }
 }
 
 // ============================================================
@@ -537,6 +607,11 @@ struct ChatView: View {
     @State private var showContextInspector = false
     @State private var proactiveInsight: String?
 
+    // Cancellable timers for transient UI so nothing fires after teardown.
+    @State private var milestoneResetTask:    Task<Void, Never>? = nil
+    @State private var reactionBurstTask:     Task<Void, Never>? = nil
+    @State private var proactiveInsightTask:  Task<Void, Never>? = nil
+
     @FocusState private var isInputFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -585,7 +660,10 @@ struct ChatView: View {
                     onReactionBurst:  { pt in
                         reactionBurstAt   = pt
                         showReactionBurst = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                        reactionBurstTask?.cancel()
+                        reactionBurstTask = Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 1_200_000_000)
+                            guard !Task.isCancelled else { return }
                             showReactionBurst = false
                         }
                     }
@@ -608,7 +686,8 @@ struct ChatView: View {
                     replyTarget:      swipeReplyTarget,
                     onSend:           sendMessage,
                     onMicTap: {
-                        choreographedHaptic(.voiceStart)
+                        choreographedHaptic(.voiceStart, mood: ariaMood)
+                        speech.conversationalMood = ariaMood
                         withAnimation(FDS.Spring.hero) { showVoiceOrb = true }
                         speech.startListening()
                     }
@@ -657,9 +736,8 @@ struct ChatView: View {
                         withAnimation(FDS.Spring.hero) { showVoiceOrb = false }
                     }
                 )
-                .ignoresSafeArea()
                 .zIndex(100)
-                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
         .animation(FDS.Spring.hero, value: showVoiceOrb)
@@ -671,13 +749,20 @@ struct ChatView: View {
             )
         }
         .onAppear {
+            momentum.bind(to: store)
             ariaMood = ARIAMood.derive(readiness: store.readiness.overall)
+            speech.conversationalMood = ariaMood
             ariaContext.configure(userId: store.userProfile.name)
             ariaContext.updateProfile(
                 goals: store.userProfile.fitnessGoals.map(\.label),
                 lifestyleTags: [store.userProfile.experienceLevel.label]
             )
-            Task { proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store) }
+            proactiveInsightTask?.cancel()
+            proactiveInsightTask = Task { @MainActor in
+                let insight = await AriaService.shared.fetchProactiveMessage(store: store)
+                guard !Task.isCancelled else { return }
+                proactiveInsight = insight
+            }
             consumePendingHomeHandoff()
         }
         .onChange(of: store.ariaPendingChatPrompt) { _, prompt in
@@ -686,6 +771,18 @@ struct ChatView: View {
         }
         .onChange(of: store.readiness.overall) { _, val in
             withAnimation(FDS.Spring.standard) { ariaMood = ARIAMood.derive(readiness: val) }
+        }
+        .onChange(of: ariaMood) { _, mood in
+            speech.conversationalMood = mood
+        }
+        .onDisappear {
+            // Nothing should keep running once chat is off-screen.
+            speech.cancel()
+            momentum.cancelPendingAnimations()
+            milestoneResetTask?.cancel()
+            reactionBurstTask?.cancel()
+            proactiveInsightTask?.cancel()
+            showVoiceOrb = false
         }
         .onChange(of: speech.recognizedText) { _, text in
             guard !text.isEmpty else { return }
@@ -704,7 +801,8 @@ struct ChatView: View {
 
         if wantsVoice {
             store.ariaVoiceMode = true
-            choreographedHaptic(.voiceStart)
+            choreographedHaptic(.voiceStart, mood: ariaMood)
+            speech.conversationalMood = ariaMood
             withAnimation(FDS.Spring.hero) { showVoiceOrb = true }
             speech.startListening()
         }
@@ -726,7 +824,7 @@ struct ChatView: View {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, !isTyping else { return }
 
-        choreographedHaptic(.messageSent)
+        choreographedHaptic(.messageSent, mood: ariaMood)
 
         if trimmed.lowercased().contains("not feeling") {
             withAnimation(FDS.Spring.standard) { ariaMood = .pushed }
@@ -744,13 +842,16 @@ struct ChatView: View {
         Task {
             await store.sendMessage(trimmed)
             isTyping = false
-            choreographedHaptic(.messageReceived)
+            choreographedHaptic(.messageReceived, mood: ariaMood)
 
             let count = store.chatMessages.filter { $0.role == .trainer }.count
             if [5, 10, 25, 50].contains(count) {
-                choreographedHaptic(.milestone)
+                choreographedHaptic(.milestone, mood: ariaMood)
                 withAnimation(FDS.Spring.hero) { showMilestone = true }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                milestoneResetTask?.cancel()
+                milestoneResetTask = Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 2_500_000_000)
+                    guard !Task.isCancelled else { return }
                     withAnimation(FDS.Spring.standard) { showMilestone = false }
                 }
             }
@@ -1804,6 +1905,10 @@ struct SmartChip: View {
 // MARK: - Voice Orb Overlay
 // ============================================================
 
+/// Voice capture surface. Deliberately *non-modal*: it rises from the bottom
+/// over a light scrim so the conversation stays visible and the user never
+/// loses their place. The orb still gets a hero entrance and live amplitude —
+/// premium, but no longer the whole screen.
 struct VoiceOrbOverlay: View {
     @ObservedObject var speech:  SpeechManager
     let mood:         ARIAMood
@@ -1811,120 +1916,151 @@ struct VoiceOrbOverlay: View {
     let onRecognized: (String) -> Void
     let onCancel:     () -> Void
 
-    @State private var stars: [StarDatum] = {
-        let w = UIScreen.main.bounds.width; let h = UIScreen.main.bounds.height
-        return (0..<65).map { i in
-            StarDatum(id: i, x: .random(in: 0...w), y: .random(in: 0...h),
-                      size: .random(in: 0.8...3.2), baseOpacity: .random(in: 0.08...0.5),
-                      phaseOffset: .random(in: 0...(.pi*2)))
-        }
-    }()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var orbRevealed:    Bool   = false
     @State private var contentOpacity: Double = 0
-    @State private var pulseKey:       Int    = 0
 
-    private struct StarDatum: Identifiable {
-        let id: Int; let x, y, size: CGFloat; let baseOpacity, phaseOffset: Double
-    }
+    private var accent: Color { orbAccent(speech.voiceState) }
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            // Star field
-            TimelineView(.animation(minimumInterval: 1.0/20.0)) { tl in
-                let t = tl.date.timeIntervalSinceReferenceDate
-                Canvas { ctx, size in
-                    for star in stars {
-                        let o = star.baseOpacity * (0.35 + 0.65 * abs(sin(t * 0.8 + star.phaseOffset)))
-                        let rect = CGRect(x: star.x - star.size/2, y: star.y - star.size/2,
-                                          width: star.size, height: star.size)
-                        ctx.fill(Path(ellipseIn: rect), with: .color(Color.white.opacity(o)))
-                    }
-                }
-            }
-            .ignoresSafeArea()
-
-            // Mood-tinted radial
-            RadialGradient(
-                colors: [speech.voiceState.orbState == .idle ? Color.clear : mood.accentColor.opacity(0.15), .clear],
-                center: .center, startRadius: 60, endRadius: 320
-            )
-            .ignoresSafeArea()
-            .animation(.easeInOut(duration: 0.8), value: speech.voiceState.label)
+        ZStack(alignment: .bottom) {
+            // Scrim — dims but never hides the transcript behind it.
+            Color.black.opacity(0.32)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture { onCancel() }
+                .accessibilityLabel("Dismiss voice input")
+                .accessibilityAddTraits(.isButton)
 
             VStack(spacing: 0) {
-                Spacer()
+                // Grab affordance
+                Capsule()
+                    .fill(Color.white.opacity(0.22))
+                    .frame(width: 38, height: 4)
+                    .padding(.top, 10)
+                    .padding(.bottom, 18)
 
-                // AuroraOrbView — the full award-winning orb
-                AuroraOrbView(
-                    state:     speech.voiceState.orbState,
-                    amplitude: speech.amplitude,
-                    mood:      mood,
-                    size:      248
-                )
-                .scaleEffect(orbRevealed ? 1.0 : 0.5)
-                .opacity(orbRevealed ? 1 : 0)
+                ZStack {
+                    // Mood halo behind the orb — the only ambient effect left.
+                    if !reduceMotion {
+                        RadialGradient(
+                            colors: [mood.accentColor.opacity(0.22), .clear],
+                            center: .center, startRadius: 20, endRadius: 150
+                        )
+                        .frame(width: 300, height: 300)
+                        .blur(radius: 16)
+                        .animation(.easeInOut(duration: 0.8), value: speech.voiceState.label)
+                    }
 
-                Spacer().frame(height: 44)
+                    AuroraOrbView(
+                        state:     speech.voiceState.orbState,
+                        amplitude: speech.amplitude,
+                        mood:      mood,
+                        size:      156
+                    )
+                    .scaleEffect(orbRevealed ? 1.0 : 0.62)
+                    .opacity(orbRevealed ? 1 : 0)
+                }
+                .frame(height: 176)
 
                 // State labels
-                VStack(spacing: 10) {
+                VStack(spacing: 6) {
                     Text(speech.voiceState.label)
-                        .font(.system(size: 26, weight: .semibold))
+                        .font(.system(size: 19, weight: .semibold))
                         .foregroundStyle(LinearGradient(
-                            colors: [orbAccent(speech.voiceState), .white.opacity(0.82)],
+                            colors: [accent, .white.opacity(0.85)],
                             startPoint: .leading, endPoint: .trailing
                         ))
-                        .shadow(color: orbAccent(speech.voiceState).opacity(0.65), radius: 14)
+                        .shadow(color: accent.opacity(0.5), radius: 10)
                         .id(speech.voiceState.label)
                         .transition(.asymmetric(
-                            insertion: .opacity.combined(with: .offset(y: 8)),
-                            removal:   .opacity.combined(with: .offset(y: -8))
+                            insertion: .opacity.combined(with: .offset(y: 6)),
+                            removal:   .opacity.combined(with: .offset(y: -6))
                         ))
                         .animation(FDS.Spring.standard, value: speech.voiceState.label)
 
                     Text(speech.voiceState.sublabel)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.white.opacity(0.5))
                 }
                 .opacity(contentOpacity)
+                .padding(.top, 4)
 
-                Spacer().frame(height: 52)
-
-                // Recognized text preview
+                // Live transcript
                 if !speech.recognizedText.isEmpty {
                     Text("\"\(speech.recognizedText)\"")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white.opacity(0.78))
+                        .foregroundColor(.white.opacity(0.82))
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal, 36).padding(.bottom, 20)
-                        .transition(.opacity.combined(with: .offset(y: 8)))
+                        .lineLimit(3)
+                        .padding(.horizontal, 28)
+                        .padding(.top, 16)
+                        .transition(.opacity.combined(with: .offset(y: 6)))
+                        .animation(FDS.Spring.standard, value: speech.recognizedText)
                 }
 
-                // Cancel
-                Button(action: onCancel) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "xmark.circle.fill").font(.system(size: 18))
-                        Text("Cancel").font(.system(size: 16, weight: .semibold))
+                // Actions — cancel always reachable, send-now when there's text.
+                HStack(spacing: 12) {
+                    Button(action: onCancel) {
+                        HStack(spacing: 7) {
+                            Image(systemName: "xmark").font(.system(size: 14, weight: .semibold))
+                            Text("Cancel").font(.system(size: 15, weight: .semibold))
+                        }
+                        .foregroundColor(.white.opacity(0.82))
+                        .padding(.horizontal, 22).padding(.vertical, 13)
+                        .background(Capsule().fill(Color.white.opacity(0.10)))
+                        .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
                     }
-                    .foregroundStyle(LinearGradient(
-                        colors: [.white, orbAccent(speech.voiceState).opacity(0.85)],
-                        startPoint: .leading, endPoint: .trailing
-                    ))
-                    .padding(.horizontal, 36).padding(.vertical, 16)
-                    .background(Capsule().fill(Color.white.opacity(0.09)))
-                    .overlay(Capsule().stroke(
-                        LinearGradient(colors: [orbAccent(speech.voiceState).opacity(0.55), Color.white.opacity(0.15)],
-                                       startPoint: .leading, endPoint: .trailing), lineWidth: 1.5
-                    ))
-                    .shadow(color: orbAccent(speech.voiceState).opacity(0.3), radius: 14, y: 4)
+                    .buttonStyle(ScaleButtonStyle())
+                    .accessibilityLabel("Cancel voice input")
+
+                    if !speech.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button { speech.stopListening(submit: true) } label: {
+                            HStack(spacing: 7) {
+                                Image(systemName: "arrow.up").font(.system(size: 14, weight: .bold))
+                                Text("Send").font(.system(size: 15, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24).padding(.vertical, 13)
+                            .background(Capsule().fill(
+                                LinearGradient(colors: [accent, accent.opacity(0.7)],
+                                               startPoint: .leading, endPoint: .trailing)
+                            ))
+                            .shadow(color: accent.opacity(0.35), radius: 12, y: 4)
+                        }
+                        .buttonStyle(ScaleButtonStyle())
+                        .transition(.scale.combined(with: .opacity))
+                        .accessibilityLabel("Send what I said")
+                    }
                 }
-                .buttonStyle(ScaleButtonStyle())
                 .opacity(contentOpacity)
-                .padding(.bottom, 72)
+                .padding(.top, 22)
+                .padding(.bottom, 26)
+                .animation(FDS.Spring.snap, value: speech.recognizedText.isEmpty)
             }
+            .frame(maxWidth: .infinity)
+            .background(
+                ZStack {
+                    Rectangle().fill(.ultraThinMaterial)
+                    Rectangle().fill(Color.background.opacity(0.55))
+                    LinearGradient(
+                        colors: [mood.accentColor.opacity(0.10), .clear],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                }
+            )
+            .cornerRadius(28, corners: [.topLeft, .topRight])
+            .overlay(alignment: .top) {
+                LinearGradient(
+                    colors: [accent.opacity(0.45), .clear],
+                    startPoint: .leading, endPoint: .trailing
+                )
+                .frame(height: 1)
+            }
+            .shadow(color: .black.opacity(0.4), radius: 24, y: -6)
+            .ignoresSafeArea(edges: .bottom)
+            .offset(y: orbRevealed ? 0 : 40)
         }
         .onChange(of: speech.voiceState) { _, state in
             if case .idle = state, !speech.recognizedText.isEmpty {
@@ -1932,7 +2068,10 @@ struct VoiceOrbOverlay: View {
             }
         }
         .onAppear {
-            withAnimation(FDS.Spring.hero) { orbRevealed = true; contentOpacity = 1 }
+            withAnimation(reduceMotion ? .easeOut(duration: 0.2) : FDS.Spring.hero) {
+                orbRevealed = true
+                contentOpacity = 1
+            }
         }
     }
 

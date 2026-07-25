@@ -157,7 +157,8 @@ final class AriaContextStore: ObservableObject {
                 tags: context.lifestyleTags,
                 recentPatterns: patterns,
                 goals: context.currentGoals
-            )
+            ),
+            conversation: store.conversationContextPayload()
         )
         return payload
     }

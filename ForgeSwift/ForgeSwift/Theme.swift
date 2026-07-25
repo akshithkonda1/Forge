@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // MARK: - Color Design Tokens (premium dark system)
 
@@ -61,6 +64,22 @@ extension Color {
             blue: Double(b) / 255,
             opacity: Double(a) / 255
         )
+    }
+
+    /// Round-trip partner to `init(hex:)` — lets colors ride along in `Codable` models.
+    /// Falls back to steel-grey for colors UIKit can't resolve to RGB (e.g. some
+    /// dynamic system colors), so persistence never loses a card.
+    var forgeHexString: String {
+        #if canImport(UIKit)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a) else { return "8A94A6" }
+        return String(
+            format: "%02X%02X%02X",
+            Int((r * 255).rounded()), Int((g * 255).rounded()), Int((b * 255).rounded())
+        )
+        #else
+        return "8A94A6"
+        #endif
     }
 }
 

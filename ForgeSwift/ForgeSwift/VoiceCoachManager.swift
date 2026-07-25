@@ -124,10 +124,12 @@ final class VoiceCoachManager: NSObject {
         isThinking = true
         
         conversationHistory.append(["role": "user", "content": userMessage])
-        
+        trimConversationHistory()
+
         do {
             let response = try await callClaude(messages: conversationHistory)
             conversationHistory.append(["role": "assistant", "content": response])
+            trimConversationHistory()
             lastCoachMessage = response
             isThinking = false
             speak(response)
@@ -147,6 +149,14 @@ final class VoiceCoachManager: NSObject {
     
     func clearHistory() {
         conversationHistory = []
+    }
+
+    /// Mid-workout coaching only needs the last few exchanges; anything older
+    /// just inflates every request. Keeps the window at 12 turns.
+    private func trimConversationHistory() {
+        let maxTurns = 12
+        guard conversationHistory.count > maxTurns else { return }
+        conversationHistory = Array(conversationHistory.suffix(maxTurns))
     }
     
     // MARK: - Private: Speech Recognition

@@ -166,7 +166,7 @@ enum WorkoutIntensity: String, Codable {
     }
 }
 
-enum MessageRole: String { case trainer, user }
+enum MessageRole: String, Codable { case trainer, user }
 
 // MARK: - Data Models
 
@@ -320,22 +320,62 @@ struct WorkoutPlan: Identifiable {
     }
 }
 
+/// One movement inside a workout-plan rich card.
+/// A named struct (rather than a tuple) so cards survive `Codable` persistence.
+struct RichCardExercise: Codable, Hashable {
+    var name: String
+    var sets: Int
+    var reps: String
+
+    init(name: String, sets: Int, reps: String) {
+        self.name = name
+        self.sets = sets
+        self.reps = reps
+    }
+}
+
 // Rich card attached to a chat message
-struct RichCardData {
-    enum CardType { case workoutPlan, dataChart }
+struct RichCardData: Codable {
+    enum CardType: String, Codable { case workoutPlan, dataChart }
     var type: CardType
     // workout-plan fields
     var workoutName: String?
     var workoutDuration: Int?
-    var workoutExercises: [(name: String, sets: Int, reps: String)]?
+    var workoutExercises: [RichCardExercise]?
     // data-chart fields
     var chartTitle: String?
     var chartValues: [Double]?
     var chartInsight: String?
-    var chartColor: Color?
+    /// Colors aren't `Codable`; the hex string is what actually persists.
+    var chartColorHex: String?
+
+    var chartColor: Color? {
+        get { chartColorHex.map { Color(hex: $0) } }
+        set { chartColorHex = newValue?.forgeHexString }
+    }
+
+    init(
+        type: CardType,
+        workoutName: String? = nil,
+        workoutDuration: Int? = nil,
+        workoutExercises: [RichCardExercise]? = nil,
+        chartTitle: String? = nil,
+        chartValues: [Double]? = nil,
+        chartInsight: String? = nil,
+        chartColor: Color? = nil
+    ) {
+        self.type = type
+        self.workoutName = workoutName
+        self.workoutDuration = workoutDuration
+        self.workoutExercises = workoutExercises
+        self.chartTitle = chartTitle
+        self.chartValues = chartValues
+        self.chartInsight = chartInsight
+        self.chartColorHex = chartColor?.forgeHexString
+    }
 }
 
-struct ChatMessage: Identifiable {
+struct ChatMessage: Identifiable, Codable {
     var id: String
     var role: MessageRole
     var content: String
@@ -633,12 +673,12 @@ let mockChatMessages: [ChatMessage] = {
                 workoutName: "Upper Body Power",
                 workoutDuration: 55,
                 workoutExercises: [
-                    ("Barbell Bench Press", 4, "6-8"),
-                    ("Weighted Pull-Ups", 4, "6-8"),
-                    ("Overhead Press", 3, "8-10"),
-                    ("Barbell Rows", 3, "8-10"),
-                    ("Incline DB Press", 3, "10-12"),
-                    ("Face Pulls", 3, "15-20"),
+                    RichCardExercise(name: "Barbell Bench Press", sets: 4, reps: "6-8"),
+                    RichCardExercise(name: "Weighted Pull-Ups", sets: 4, reps: "6-8"),
+                    RichCardExercise(name: "Overhead Press", sets: 3, reps: "8-10"),
+                    RichCardExercise(name: "Barbell Rows", sets: 3, reps: "8-10"),
+                    RichCardExercise(name: "Incline DB Press", sets: 3, reps: "10-12"),
+                    RichCardExercise(name: "Face Pulls", sets: 3, reps: "15-20"),
                 ]
             )
         ),

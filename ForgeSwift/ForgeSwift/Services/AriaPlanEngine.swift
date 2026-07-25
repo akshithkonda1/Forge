@@ -106,7 +106,9 @@ enum AriaPlanEngine {
             type: .workoutPlan,
             workoutName: session.title,
             workoutDuration: session.duration,
-            workoutExercises: session.moves.map { ($0.name, $0.sets, $0.reps) }
+            workoutExercises: session.moves.map {
+                RichCardExercise(name: $0.name, sets: $0.sets, reps: $0.reps)
+            }
         )
 
         let actions = suggestedActions(theme: theme, band: band, guidanceOnly: guidanceOnly)
