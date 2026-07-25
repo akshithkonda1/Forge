@@ -13,6 +13,10 @@ struct ARIAContextPayload: Codable, Equatable {
     var profile: ProfileDomain
     var progress: ProgressDomain
     var lifestyle: LifestyleDomain
+    /// Token-efficient conversational memory: a handful of verbatim recent
+    /// turns plus compressed anchors for everything older. Optional so older
+    /// backends that don't know the field simply ignore it.
+    var conversation: ConversationDomain? = nil
 
     struct SleepDomain: Codable, Equatable {
         var durationMinutes: Double?
@@ -81,6 +85,20 @@ struct ARIAContextPayload: Codable, Equatable {
         var tags: [String]
         var recentPatterns: [String]
         var goals: [String]
+    }
+
+    struct ConversationDomain: Codable, Equatable {
+        /// Verbatim recent turns, oldest first.
+        var recentTurns: [Turn]
+        /// Compressed anchors for turns older than the recent window.
+        var summary: String?
+        /// Turns exchanged in total, including the compressed ones.
+        var totalTurns: Int
+
+        struct Turn: Codable, Equatable {
+            var role: String
+            var content: String
+        }
     }
 }
 

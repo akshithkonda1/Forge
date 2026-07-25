@@ -50,7 +50,15 @@ struct TrainerContext {
     let sleepData: [SleepData]
     let workoutHistory: [WorkoutHistory]
     let currentTime: Date
+    /// Recent turns only — older history is compressed into `conversationSummary`
+    /// so prompts stay cheap without losing continuity.
     let conversationHistory: [ChatMessage]
+    /// Total turns exchanged ever, including those trimmed out of
+    /// `conversationHistory`. Use this (not `conversationHistory.count`) for any
+    /// relationship-depth or "early conversation" heuristic.
+    var totalMessageCount: Int = 0
+    /// Compressed memory anchors for everything older than the recent window.
+    var conversationSummary: String? = nil
     /// Living ARIA tags (lifestyle + training theme preference).
     var lifestyleTags: [String] = []
     /// Coach boundaries (conditions, guidance_only, etc.).
@@ -549,7 +557,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
 
     private func generateGreeting(context: TrainerContext) -> TrainerResponse {
         var content = AriaVoiceEngine.speak(intent: .greeting, context: context)
-        let salt = UInt64(context.conversationHistory.count * 17 + context.readiness.overall)
+        let salt = UInt64(context.totalMessageCount * 17 + context.readiness.overall)
         if let addon = AriaRelationalCoach.greetingAddon(
             settings: context.partnerCycleSettings,
             snapshot: context.partnerCycleSnapshot,
@@ -558,7 +566,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             content += "\n\n" + addon
         } else if context.partnerCycleSettings == nil,
                   context.userProfile.gender == .male,
-                  context.conversationHistory.count < 4 {
+                  context.totalMessageCount < 4 {
             // Soft humanizing invite early in the relationship with ARIA
             var rng = AriaSeededRNG(seed: salt == 0 ? 7 : salt)
             if rng.chance(0.4) {
@@ -728,9 +736,12 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         let workoutPlan = recovery.richCard.type == .workoutPlan && recovery.readiness < 70
             ? recovery.richCard
             : RichCardData(type: .workoutPlan, workoutName: "Recovery Flow", workoutDuration: 30, workoutExercises: [
-                ("Foam Rolling", 1, "5 min"), ("World's Greatest Stretch", 2, "8 each side"),
-                ("Band Pull-Aparts", 3, "15"), ("Goblet Squats (light)", 2, "10"),
-                ("Dead Hangs", 3, "30 sec"), ("Walk or Bike (easy)", 1, "10 min"),
+                RichCardExercise(name: "Foam Rolling", sets: 1, reps: "5 min"),
+                RichCardExercise(name: "World's Greatest Stretch", sets: 2, reps: "8 each side"),
+                RichCardExercise(name: "Band Pull-Aparts", sets: 3, reps: "15"),
+                RichCardExercise(name: "Goblet Squats (light)", sets: 2, reps: "10"),
+                RichCardExercise(name: "Dead Hangs", sets: 3, reps: "30 sec"),
+                RichCardExercise(name: "Walk or Bike (easy)", sets: 1, reps: "10 min"),
             ])
         return TrainerResponse(
             content: content,
@@ -852,6 +863,15 @@ final class AppStore: ObservableObject {
     @Published var chatMessages: [ChatMessage] = []
     @Published var isGeneratingResponse: Bool = false
 
+    // Chat momentum — lives here (not in the view) so XP and level survive
+    // relaunches and stay consistent with the rest of the ARIA context.
+    @Published var chatXP: Int = UserDefaults.standard.integer(forKey: AppStore.chatXPKey) {
+        didSet { UserDefaults.standard.set(chatXP, forKey: Self.chatXPKey) }
+    }
+    @Published var chatLevel: Int = max(1, UserDefaults.standard.integer(forKey: AppStore.chatLevelKey)) {
+        didSet { UserDefaults.standard.set(chatLevel, forKey: Self.chatLevelKey) }
+    }
+
     // Sleep
     @Published var sleepData: [SleepData] = []
 
@@ -938,14 +958,68 @@ final class AppStore: ObservableObject {
         // Restore persisted onboarding so a returning user skips setup entirely.
         restoreOnboardingState()
 
+        // Chat transcript is restored synchronously so the first render of
+        // ChatView already has real history — no mock flash on cold launch.
+        restoreChatHistory()
+
         // Load seed data, then hydrate from HealthKit when authorized
         Task { @MainActor in
-            self.chatMessages = mockChatMessages
             self.sleepData = mockSleepData
             self.workoutHistory = mockWorkoutHistory
             self.personalRecords = mockPersonalRecords
             await self.refreshDailyData()
         }
+    }
+
+    // MARK: - Chat Persistence & Momentum
+
+    private static let chatHistoryKey = "forge.chat.history.v2"
+    private static let chatXPKey = "forge.chat.xp.v1"
+    private static let chatLevelKey = "forge.chat.level.v1"
+    /// Enough transcript for real continuity, small enough to stay cheap to
+    /// store and to summarize into the prompt context.
+    private static let maxPersistedMessages = 80
+    private static let xpPerChatLevel = 100
+
+    var chatXPProgress: Double { Double(chatXP % Self.xpPerChatLevel) / Double(Self.xpPerChatLevel) }
+    var chatXPToNextLevel: Int { Self.xpPerChatLevel - (chatXP % Self.xpPerChatLevel) }
+
+    /// Awards XP and returns `true` when the award crossed a level boundary,
+    /// so the caller can fire the celebration without owning the numbers.
+    @discardableResult
+    func awardChatXP(_ amount: Int) -> Bool {
+        guard amount > 0 else { return false }
+        chatXP += amount
+        let newLevel = (chatXP / Self.xpPerChatLevel) + 1
+        guard newLevel > chatLevel else { return false }
+        chatLevel = newLevel
+        return true
+    }
+
+    private func persistChatHistory() {
+        let recent = Array(chatMessages.suffix(Self.maxPersistedMessages))
+        guard let data = try? JSONEncoder().encode(recent) else { return }
+        UserDefaults.standard.set(data, forKey: Self.chatHistoryKey)
+    }
+
+    private func restoreChatHistory() {
+        guard let data = UserDefaults.standard.data(forKey: Self.chatHistoryKey),
+              let saved = try? JSONDecoder().decode([ChatMessage].self, from: data),
+              !saved.isEmpty else {
+            // First launch (or a transcript we can no longer decode): seed the
+            // demo conversation only when the user hasn't onboarded yet.
+            chatMessages = isOnboarded ? [] : mockChatMessages
+            return
+        }
+        chatMessages = saved
+    }
+
+    /// Wipes the transcript and momentum — used by sign-out / reset flows.
+    func clearChatHistory() {
+        chatMessages = []
+        chatXP = 0
+        chatLevel = 1
+        UserDefaults.standard.removeObject(forKey: Self.chatHistoryKey)
     }
 
     // MARK: - Onboarding Persistence
@@ -1023,6 +1097,7 @@ final class AppStore: ObservableObject {
         )
         chatMessages = [welcome]
         lastSuggestedActions = welcome.suggestedActions ?? []
+        persistChatHistory()
     }
 
     // MARK: - Workout Actions
@@ -1077,6 +1152,7 @@ final class AppStore: ObservableObject {
 
     func addMessage(_ message: ChatMessage) {
         chatMessages.append(message)
+        persistChatHistory()
     }
     
     /// Send a message through ARIA (remote when available, local fallback).
@@ -1136,6 +1212,7 @@ final class AppStore: ObservableObject {
         }
 
         isGeneratingResponse = false
+        persistChatHistory()
     }
 
     /// One-shot ARIA insight for non-chat surfaces (e.g. Lifestyle cards).
@@ -1149,6 +1226,53 @@ final class AppStore: ObservableObject {
             store: self,
             localGenerator: responseGenerator,
             voiceMode: voiceMode
+        )
+    }
+
+    /// How many recent turns ride along verbatim in every prompt. Everything
+    /// older is compressed by `conversationMemoryAnchors()`.
+    private static let recentTurnWindow = 12
+
+    /// Compresses pre-window history into a few "memory anchors" — what the user
+    /// asked for, plus ARIA's own durable insights — instead of replaying the
+    /// whole transcript on every turn.
+    private func conversationMemoryAnchors() -> String? {
+        var anchors: [String] = []
+
+        let olderCount = max(0, chatMessages.count - Self.recentTurnWindow)
+        if olderCount > 0 {
+            let older = chatMessages.prefix(olderCount)
+            let userThemes = older
+                .filter { $0.role == .user }
+                .suffix(3)
+                .map { $0.content.prefix(110).trimmingCharacters(in: .whitespacesAndNewlines) }
+            if !userThemes.isEmpty {
+                anchors.append("Earlier the user asked about: " + userThemes.joined(separator: " | "))
+            }
+            anchors.append("\(olderCount) earlier turns omitted for brevity.")
+        }
+
+        let insights = AriaContextStore.shared.context.lastInsights.prefix(3)
+        if !insights.isEmpty {
+            anchors.append("Standing insights: " + insights.joined(separator: " | "))
+        }
+
+        return anchors.isEmpty ? nil : anchors.joined(separator: "\n")
+    }
+
+    /// The conversational slice that rides along with every remote ARIA call:
+    /// recent turns verbatim, everything older compressed into anchors.
+    func conversationContextPayload() -> ARIAContextPayload.ConversationDomain {
+        let recent = chatMessages.suffix(Self.recentTurnWindow).map {
+            ARIAContextPayload.ConversationDomain.Turn(
+                role: $0.role.rawValue,
+                content: String($0.content.prefix(600))
+            )
+        }
+        return .init(
+            recentTurns: Array(recent),
+            summary: conversationMemoryAnchors(),
+            totalTurns: chatMessages.count
         )
     }
 
@@ -1180,7 +1304,9 @@ final class AppStore: ObservableObject {
             sleepData: sleepData,
             workoutHistory: workoutHistory,
             currentTime: Date(),
-            conversationHistory: chatMessages,
+            conversationHistory: Array(chatMessages.suffix(Self.recentTurnWindow)),
+            totalMessageCount: chatMessages.count,
+            conversationSummary: conversationMemoryAnchors(),
             lifestyleTags: ctx.lifestyleTags,
             constraints: ctx.constraints,
             cycleSnapshot: cycle,

@@ -169,7 +169,7 @@ enum AriaVoiceEngine {
             readiness: readiness,
             hour: context.hour,
             day: Calendar.current.ordinality(of: .day, in: .year, for: context.currentTime) ?? 0,
-            msgCount: context.conversationHistory.count
+            msgCount: context.totalMessageCount
         )
 
         var rng = AriaSeededRNG(seed: salt)
@@ -365,7 +365,7 @@ enum AriaVoiceEngine {
 
     private static func relationshipLevel(from context: TrainerContext) -> Int {
         // Infer from conversation depth + tags when full AriaContext isn't on TrainerContext.
-        let chatDepth = min(8, context.conversationHistory.count / 4)
+        let chatDepth = min(8, context.totalMessageCount / 4)
         if context.lifestyleTags.contains(where: { $0.contains("onboarding:complete") }) {
             return max(2, chatDepth + 2)
         }

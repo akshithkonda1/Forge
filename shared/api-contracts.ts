@@ -331,6 +331,14 @@ export interface AriaContext {
     recentPatterns: string[];
     goals: string[];
   };
+  /** Token-efficient conversational memory. Recent turns arrive verbatim;
+   *  everything older is compressed into `summary` anchors so long histories
+   *  don't grow the prompt without bound. Optional for older clients. */
+  conversation?: {
+    recentTurns: Array<{ role: "user" | "trainer"; content: string }>;
+    summary?: string | null;
+    totalTurns: number;
+  };
 }
 
 /** Per-domain grants. Accepts a `{domain: boolean}` map, an `{allow|deny: []}`
