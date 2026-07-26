@@ -88,7 +88,7 @@ This is how you safely ship an AI health coach that gives advice like "your read
 - `shared/api-contracts.ts` for type safety between frontend and backend (Pydantic models in Python stay in sync manually for now).
 - Strong CI/CD: separate workflows for Swift, Python backend, frontend, SimRunner, Terraform policy validation, AWS deploy.
 
-**Note on duplication**: `clients/ios/Forge/` contains an earlier/parallel SwiftUI implementation. `ForgeSwift/` is the primary, significantly more advanced codebase. Consolidation is planned.
+`ForgeSwift/` is the sole iOS codebase — no parallel/duplicate client remains.
 
 ---
 
@@ -277,7 +277,7 @@ Full documentation: [`backend/simrunner/README.md`](backend/simrunner/README.md)
 - [ ] End-to-end HealthKit → normalized backend → ARIA context pipeline
 - [ ] Full user auth / persistence / profile management
 - [ ] Polish remaining iOS screens and widget experience
-- [ ] Consolidate iOS duplication (ForgeSwift/ vs clients/ios/Forge/)
+- [x] Consolidate iOS duplication — `ForgeSwift/` is the sole client
 
 ### Phase 3 — Platform Integrations
 - [ ] Strava, Garmin, WHOOP, Oura adapters (or Terra/Vital middleware)

@@ -121,7 +121,6 @@ Manual checks:
 - Backend ARIA endpoint integration
 - HomeKit environment sensors (`AISleepEnvironmentView` still static)
 - Chronotype onboarding illustrations
-- `clients/ios/` duplicate tree (canonical app: `ForgeSwift/`)
 
 ## Related
 
