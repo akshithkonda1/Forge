@@ -24,35 +24,12 @@ let package = Package(
     targets: [
         .target(
             name: "ForgeCore",
-            path: "Sources/ForgeCore",
-            exclude: [
-                "DesignSystem/ForgeDS 2.swift",
-                "DesignSystem/ForgePalette 2.swift",
-                "HealthKit/HealthKitQueryHelpers 2.swift",
-                "Intelligence/ContextRules 2.swift",
-                "Intelligence/MindfulnessSuggestionEngine 2.swift",
-                "Intelligence/SleepStoryEngine 2.swift",
-                "Intelligence/WindDownPredictor 2.swift",
-                "Intelligence/WorkoutSuggestionEngine 2.swift",
-                "Models/HRZones 2.swift",
-                "Models/LifestyleContext 2.swift",
-                "Models/MindfulnessPractice 2.swift",
-                "Models/Readiness 2.swift",
-                "Models/SleepModels 2.swift",
-                "Models/WatchARIAContext 2.swift",
-                "Models/WorkoutLiveState 2.swift",
-                "Models/WorkoutModels 2.swift",
-                "Utils/WatchSnapshotStore 2.swift",
-            ]
+            path: "Sources/ForgeCore"
         ),
         .testTarget(
             name: "ForgeCoreTests",
             dependencies: ["ForgeCore"],
-            path: "Tests/ForgeCoreTests",
-            exclude: [
-                "ContextRulesTests 2.swift",
-                "ReadinessCalculatorTests 2.swift",
-            ]
+            path: "Tests/ForgeCoreTests"
         ),
     ]
 )
