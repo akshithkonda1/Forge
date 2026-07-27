@@ -160,6 +160,10 @@ struct OnboardingProfile {
     var conditionsNote: String?
     var guidanceOnlyMode: Bool = false
 
+    // Biological sex — drives cycle auto-enable and educational mode
+    var biologicalSex: BiologicalSex? = nil
+    var educationalCycleMode: Bool = false
+
     func toCoreProfile() -> UserProfile {
         UserProfile(
             name: name,
@@ -177,7 +181,9 @@ struct OnboardingProfile {
             weight: weightKg,
             height: heightCm,
             trainingTheme: trainingTheme,
-            interestTags: freeTimeInterests.map(\.tag)
+            interestTags: freeTimeInterests.map(\.tag),
+            biologicalSex: biologicalSex,
+            educationalCycleMode: educationalCycleMode
         )
     }
 
@@ -462,6 +468,8 @@ private struct AriaInterviewLayout: View {
                             coordinator.confirmGoals()
                         }
                     )
+                case .biologicalSex:
+                    BiologicalSexStepView(coordinator: coordinator)
                 case .experience:
                     OptionCardsComposer(
                         options: ExperienceLevel.allCases.map { ($0.rawValue, $0.label, $0.description) },

@@ -114,9 +114,9 @@ ForgeSwift/
 ## Next Steps
 
 1. ✅ Live Bedrock/Claude reasoning — `services/aria_engine.generate_response_live` overlays a real Claude (Bedrock Converse) call on the deterministic engine, opt-in via `ARIA_BEDROCK_ENABLED`, with automatic fallback to the deterministic envelope on any failure
-2. Wire `ChatView` → `AriaService` with offline fallback
-3. Ship Context Inspector + Proactive cards
-4. Connect feedback loop end-to-end
+2. ✅ Wire `ChatView` → `AriaService` with offline fallback — `ChatView.sendMessage` → `AppStore.sendMessage` → `AriaService.sendMessage(localGenerator:)`. Header shows ⚡ Local badge when `isLocalFallback == true`.
+3. ✅ Ship Context Inspector + Proactive cards — `ContextInspectorView` on avatar long-press; `ProactiveCardView` in ChatView + HomeView; memory reference pill rendered above high-confidence trainer bubbles; relationship level in chat header.
+4. ✅ Connect feedback loop end-to-end — reactions wired `MessageBubbleView` → `FeedbackService.processReaction`; plan outcomes wired `AppStore.endWorkout` → `FeedbackService.processPlanOutcome`; `backend/app/ai/routes/feedback.py` created per folder spec.
 
 ---
 

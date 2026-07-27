@@ -202,11 +202,14 @@ struct AuthSignInView: View {
     private func completeSocialSignIn(provider: String, displayName: String) {
         isBusy = true
         errorMessage = nil
+        // isNewAccount: true when this device has no completed onboarding record.
+        // TODO: replace placeholder email with real OAuth identity once OAuth ships.
+        let isNew = !UserDefaults.standard.bool(forKey: "forge.onboarding.completed")
         store.authenticate(
             provider: provider,
             email: "\(provider)@forge.local",
             displayName: displayName,
-            isNewAccount: false
+            isNewAccount: isNew
         )
         isBusy = false
         dismiss()
@@ -217,11 +220,12 @@ struct AuthSignInView: View {
         isBusy = true
         errorMessage = nil
         let local = email.split(separator: "@").first.map(String.init) ?? "Athlete"
+        let isNew = !UserDefaults.standard.bool(forKey: "forge.onboarding.completed")
         store.authenticate(
             provider: "email",
             email: email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
             displayName: local.capitalized,
-            isNewAccount: false
+            isNewAccount: isNew
         )
         isBusy = false
         dismiss()

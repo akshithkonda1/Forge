@@ -1645,11 +1645,31 @@ struct MusicControlBar: View {
     private func playingView(track: NowPlayingTrack) -> some View {
         HStack(spacing: 14) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(LinearGradient(colors: [accent, accent.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 44, height: 44)
-                    .shadow(color: accent.opacity(0.4), radius: 8, y: 3)
+                AsyncImage(url: track.artworkURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    default:
+                        LinearGradient(
+                            colors: [accent, accent.opacity(0.7)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                        .overlay(
+                            Image(systemName: controller.service.iconName)
+                                .font(.system(size: 17, weight: .bold))
+                                .foregroundColor(.white)
+                                .opacity(phase == .empty ? 0 : 1)
+                        )
+                    }
+                }
+                .frame(width: 44, height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .shadow(color: track.artworkURL != nil ? .black.opacity(0.25) : accent.opacity(0.4), radius: 8, y: 3)
+
                 if track.isPlaying {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.black.opacity(0.35))
+                        .frame(width: 44, height: 44)
                     HStack(spacing: 2) {
                         ForEach(0..<4, id: \.self) { i in
                             TimelineView(.animation(minimumInterval: 0.1)) { tl in
@@ -1659,8 +1679,6 @@ struct MusicControlBar: View {
                             }
                         }
                     }
-                } else {
-                    Image(systemName: controller.service.iconName).font(.system(size: 17, weight: .bold)).foregroundColor(.white)
                 }
             }
             VStack(alignment: .leading, spacing: 3) {

@@ -109,7 +109,12 @@ enum MenstrualCycleEngine {
             return CycleDayKey.addDays(lastStart, (ovulation?.dayInCycle ?? 14) - 1)
         }()
 
-        let irregular = madCycle >= 4 || (cycleLengths.count >= 3 && (cycleLengths.max()! - cycleLengths.min()!) >= 10)
+        // Conditions like PCOS and perimenopause inherently produce irregular cycles —
+        // use a much wider threshold so the flag only fires for truly unexpected variance.
+        let irregularThreshold: Double = settings.condition.suppressesIrregularityFlag ? 10 : 4
+        let irregularRangeThreshold = settings.condition.suppressesIrregularityFlag ? 18 : 10
+        let irregular = madCycle >= irregularThreshold
+            || (cycleLengths.count >= 3 && (cycleLengths.max()! - cycleLengths.min()!) >= irregularRangeThreshold)
         let hasLH = ovulation?.method == "lh_surge"
         let hasBBT = ovulation?.method == "bbt_shift"
 
@@ -163,6 +168,27 @@ enum MenstrualCycleEngine {
             insights.append("Resting HR often ticks up in luteal. Pair with how you feel before adding load.")
         }
 
+        // Perimenopause: fertile window predictions are unreliable — suppress them.
+        let suppressFertile = settings.condition.suppressesFertileWindow
+        let fertileStart = suppressFertile ? nil : ovulation.map { max(1, $0.dayInCycle - 5) }
+        let fertileEnd = suppressFertile ? nil : ovulation.map { $0.dayInCycle + 1 }
+        let fertileScore = suppressFertile ? nil : computeFertileScore(
+            dayInCycle: dayInCycle,
+            ovulationDay: ovulation?.dayInCycle,
+            fertileStart: fertileStart,
+            fertileEnd: fertileEnd,
+            ovulationConfidence: ovuConf,
+            ovulationMethod: ovulation?.method,
+            hormonal: settings.usesHormonalContraception,
+            cyclesObserved: cycleLengths.count,
+            mad: madCycle
+        )
+        if let fertileScore, fertileScore >= 70, !suppressFertile {
+            insights.append(
+                "Fertile Score \(fertileScore)/100 — multi-signal confidence that you are in or near the fertile window (lifestyle timing, not contraception)."
+            )
+        }
+
         return MenstrualCycleSnapshot(
             asOfDayKey: dayKey,
             trackingEnabled: true,
@@ -172,12 +198,12 @@ enum MenstrualCycleEngine {
             cycleLengthMAD: madCycle,
             periodLengthMedian: medianPeriod,
             cyclesObserved: cycleLengths.count,
-            ovulationDayInCycle: ovulation?.dayInCycle,
-            ovulationMethod: ovulation?.method,
-            fertileStartDayInCycle: ovulation.map { max(1, $0.dayInCycle - 5) },
-            fertileEndDayInCycle: ovulation.map { $0.dayInCycle + 1 },
+            ovulationDayInCycle: suppressFertile ? nil : ovulation?.dayInCycle,
+            ovulationMethod: suppressFertile ? nil : ovulation?.method,
+            fertileStartDayInCycle: fertileStart,
+            fertileEndDayInCycle: fertileEnd,
             nextPeriod: nextPeriod,
-            nextOvulationDayKey: nextOvuKey,
+            nextOvulationDayKey: suppressFertile ? nil : nextOvuKey,
             confidence: confidence,
             dataQuality: dataQuality,
             recommendRecoveryBias: recoveryBias,
@@ -195,8 +221,61 @@ enum MenstrualCycleEngine {
             periodTimingConfidence: periodConf,
             ovulationConfidence: ovuConf,
             learnedLutealDays: settings.learnedLutealDays,
-            predictionMethodSummary: ensemble.summary
+            predictionMethodSummary: ensemble.summary,
+            condition: settings.condition == .none ? nil : settings.condition,
+            wristTemperatureAvailable: false,
+            fertileScore: fertileScore
         )
+    }
+
+    // MARK: Fertile Score (0…100)
+
+    /// Multi-signal fertile-window confidence for UI, Live Activity, and ARIA.
+    /// Lifestyle timing aid only — never presented as contraception.
+    static func computeFertileScore(
+        dayInCycle: Int?,
+        ovulationDay: Int?,
+        fertileStart: Int?,
+        fertileEnd: Int?,
+        ovulationConfidence: Double,
+        ovulationMethod: String?,
+        hormonal: Bool,
+        cyclesObserved: Int,
+        mad: Double
+    ) -> Int? {
+        guard !hormonal else { return nil }
+        guard let dayInCycle, let ovulationDay else { return nil }
+
+        let start = fertileStart ?? max(1, ovulationDay - 5)
+        let end = fertileEnd ?? (ovulationDay + 1)
+
+        // Distance from peak ovulation day: peak = 1.0, linear falloff outside window to 0.
+        let distance = abs(dayInCycle - ovulationDay)
+        let windowHalf = max(1, max(ovulationDay - start, end - ovulationDay))
+        let proximity: Double
+        if dayInCycle >= start && dayInCycle <= end {
+            proximity = max(0.35, 1.0 - (Double(distance) / Double(windowHalf + 1)) * 0.55)
+        } else if distance <= 3 {
+            proximity = max(0.08, 0.32 - Double(distance - windowHalf) * 0.08)
+        } else {
+            proximity = 0.04
+        }
+
+        let methodBoost: Double = {
+            switch ovulationMethod {
+            case "lh_surge": return 1.0
+            case "bbt_shift": return 0.88
+            case "peak_mucus", "mucus": return 0.72
+            default: return 0.55
+            }
+        }()
+
+        let historyBoost = min(1.0, 0.55 + 0.08 * Double(min(cyclesObserved, 6)))
+        let regularity = mad <= 2 ? 1.0 : mad <= 4 ? 0.9 : mad <= 7 ? 0.75 : 0.55
+        let conf = max(0.15, min(1.0, ovulationConfidence))
+
+        let raw = 100.0 * proximity * methodBoost * historyBoost * regularity * (0.55 + 0.45 * conf)
+        return Int(max(0, min(100, raw.rounded())))
     }
 
     // MARK: Episodes

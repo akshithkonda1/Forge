@@ -130,6 +130,18 @@ enum Gender: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum BiologicalSex: String, Codable, CaseIterable, Identifiable {
+    case female = "Female"
+    case male = "Male"
+    case intersex = "Intersex"
+    case preferNotToSay = "Prefer not to say"
+
+    var id: String { rawValue }
+    var label: String { rawValue }
+    /// Female and intersex users get cycle tracking auto-enabled.
+    var cycleAutoEnabled: Bool { self == .female || self == .intersex }
+}
+
 enum WorkoutType: String, Codable, CaseIterable, Identifiable {
     case strength, cardio, hiit, yoga, mobility
     case sportSpecific = "sport-specific"
@@ -191,6 +203,11 @@ struct UserProfile: Codable {
     /// Free-time interest tags (e.g. `interest:gaming`) used when resolving themes.
     var interestTags: [String]
 
+    /// Captured during onboarding to auto-configure cycle health features.
+    var biologicalSex: BiologicalSex?
+    /// Males who opted into cycle health education during onboarding.
+    var educationalCycleMode: Bool
+
     var initials: String {
         name.split(separator: " ").compactMap { $0.first.map { String($0).uppercased() } }.joined().prefix(2).description
     }
@@ -199,6 +216,7 @@ struct UserProfile: Codable {
         case name, gender, fitnessGoals, experienceLevel, preferredWorkouts
         case coachingStyle, connectedDevices, weeklySchedule, trainingEquipment
         case age, weight, height, trainingTheme, interestTags
+        case biologicalSex, educationalCycleMode
     }
 
     init(
@@ -215,7 +233,9 @@ struct UserProfile: Codable {
         weight: Double? = nil,
         height: Double? = nil,
         trainingTheme: AriaTrainingTheme = .classic,
-        interestTags: [String] = []
+        interestTags: [String] = [],
+        biologicalSex: BiologicalSex? = nil,
+        educationalCycleMode: Bool = false
     ) {
         self.name = name
         self.gender = gender
@@ -231,6 +251,8 @@ struct UserProfile: Codable {
         self.height = height
         self.trainingTheme = trainingTheme
         self.interestTags = interestTags
+        self.biologicalSex = biologicalSex
+        self.educationalCycleMode = educationalCycleMode
     }
 
     init(from decoder: Decoder) throws {
@@ -249,6 +271,8 @@ struct UserProfile: Codable {
         height = try c.decodeIfPresent(Double.self, forKey: .height)
         trainingTheme = try c.decodeIfPresent(AriaTrainingTheme.self, forKey: .trainingTheme) ?? .classic
         interestTags = try c.decodeIfPresent([String].self, forKey: .interestTags) ?? []
+        biologicalSex = try c.decodeIfPresent(BiologicalSex.self, forKey: .biologicalSex)
+        educationalCycleMode = try c.decodeIfPresent(Bool.self, forKey: .educationalCycleMode) ?? false
     }
 
     func encode(to encoder: Encoder) throws {
@@ -267,6 +291,8 @@ struct UserProfile: Codable {
         try c.encodeIfPresent(height, forKey: .height)
         try c.encode(trainingTheme, forKey: .trainingTheme)
         try c.encode(interestTags, forKey: .interestTags)
+        try c.encodeIfPresent(biologicalSex, forKey: .biologicalSex)
+        try c.encode(educationalCycleMode, forKey: .educationalCycleMode)
     }
 }
 
