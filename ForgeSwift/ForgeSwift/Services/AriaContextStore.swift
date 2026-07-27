@@ -62,12 +62,27 @@ final class AriaContextStore: ObservableObject {
         let lastSleep = store.sleepData.first
         let nights = store.sleepData.count
 
+        // Cross-zone consistency: keep sleep / readiness / training / cycle tight
+        // before any prompt assembly so remote + local paths share one truth.
+        let zone = CrossZoneConsistency.snapshot(from: store)
+        let zoneConstraints = CrossZoneConsistency.coachingConstraints(for: zone)
+        context.constraints.removeAll { $0.hasPrefix("cross_zone:") }
+        for c in zoneConstraints where !context.constraints.contains(c) {
+            context.constraints.append(c)
+        }
+        // Lifestyle tags that every surface (and SimRunner-shaped payloads) can read.
+        context.lifestyleTags.removeAll { $0.hasPrefix("cross_zone:") }
+        context.lifestyleTags.append(contentsOf: zoneConstraints.filter { !$0.contains("directive:") })
+
         var patterns = context.recentPatterns
         if store.readiness.overall < 55, !patterns.contains("low_readiness_streak") {
             patterns.append("low_readiness_streak")
         }
         if let lastSleep, lastSleep.score >= 85, !patterns.contains("strong_sleep_recovery") {
             patterns.append("strong_sleep_recovery")
+        }
+        if CrossZoneConsistency.blocksHighIntensity(zone), !patterns.contains("recovery_day_signal") {
+            patterns.append("recovery_day_signal")
         }
         context.recentPatterns = patterns
 

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1WC1012F9FF867004091AA /* CrossZoneConsistency.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */; };
 		1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0022F9FF867004091AA /* SexualHealthCoach.swift */; };
 		1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */; };
 		1WC0052F9FF867004091AA /* CyclePhaseCoachingDirective.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */; };
@@ -179,6 +180,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrossZoneConsistency.swift; sourceTree = "<group>"; };
 		1WC0022F9FF867004091AA /* SexualHealthCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCoach.swift; sourceTree = "<group>"; };
 		1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCurriculum.swift; sourceTree = "<group>"; };
 		1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseCoachingDirective.swift; sourceTree = "<group>"; };
@@ -367,6 +369,7 @@
 				1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */,
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
 				1ARIA0072F9FF867004091AA /* AriaContextStore.swift */,
+				1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */,
 				1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */,
 				1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */,
 				1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */,
@@ -731,6 +734,7 @@
 				1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */,
 				1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */,
 				1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */,
+				1WC1012F9FF867004091AA /* CrossZoneConsistency.swift in Sources */,
 				1ARIA0102F9FF867004091AA /* FeedbackService.swift in Sources */,
 				1ARIA0122F9FF867004091AA /* ContextInspectorView.swift in Sources */,
 				1ARIA0142F9FF867004091AA /* ProactiveCardView.swift in Sources */,

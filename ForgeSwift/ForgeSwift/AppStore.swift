@@ -319,6 +319,12 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
     
     func generateResponse(for input: String, context: TrainerContext) async throws -> TrainerResponse {
         let lower = input.lowercased()
+
+        // Mission-critical safety: never green-light high intensity when recovery
+        // signals dominate. Matches SimRunner directional-correctness hard gate.
+        if wantsHighIntensityOverride(lower), context.readiness.overall < 55 {
+            return generateSafetyRecoveryHold(context: context, input: input)
+        }
         
         // Context-aware greetings
         if isGreeting(lower) {
@@ -391,6 +397,34 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
     }
     
     // MARK: - Query Detection
+
+    private func wantsHighIntensityOverride(_ text: String) -> Bool {
+        let needles = [
+            "train hard", "as hard as possible", "train as hard", "push through",
+            "max effort", "go hard", "pr day", "hit a pr", "hiit", "all out",
+            "ignore my readiness", "override readiness",
+        ]
+        return needles.contains { text.contains($0) }
+    }
+
+    private func generateSafetyRecoveryHold(context: TrainerContext, input: String) -> TrainerResponse {
+        let r = context.readiness.overall
+        let name = context.userProfile.name.split(separator: " ").first.map(String.init) ?? "there"
+        let content = """
+        I hear the drive, \(name) — and I'm not going to green-light max effort today.
+
+        Your readiness is \(r)/100. Pushing high intensity here is how niggles become setbacks. \
+        What I *will* back: Zone 2, mobility, technique work, or a full rest day. That choice \
+        protects tomorrow's sessions, not just today's ego.
+
+        Want a recovery-shaped session or a clean rest plan?
+        """
+        return TrainerResponse(
+            content: content,
+            suggestedActions: ["Build a recovery session", "Full rest day", "Why is readiness low?"],
+            confidence: 0.95
+        )
+    }
     
     private func isGreeting(_ text: String) -> Bool {
         text.contains("hello") || text.contains("hey") || text.contains("hi ") || 
@@ -977,16 +1011,41 @@ final class AppStore: ObservableObject {
 
     // MARK: - Chat Persistence & Momentum
 
-    private static let chatHistoryKey = "forge.chat.history.v2"
+    /// Versioned single-document session: transcript + XP/level + durable anchors.
+    /// Survives app restarts without mock flash; migrates from legacy v1/v2 keys.
+    private static let chatSessionKey = "forge.chat.session.v3"
+    private static let chatHistoryKeyLegacyV2 = "forge.chat.history.v2"
+    private static let chatHistoryKeyLegacyV1 = "forge.chat.history.v1"
     private static let chatXPKey = "forge.chat.xp.v1"
     private static let chatLevelKey = "forge.chat.level.v1"
+    private static let durableMemoryKey = "forge.chat.durable_memory.v1"
     /// Enough transcript for real continuity, small enough to stay cheap to
     /// store and to summarize into the prompt context.
     private static let maxPersistedMessages = 80
     private static let xpPerChatLevel = 100
+    /// Verbatim turns that ride with every remote/local prompt.
+    private static let recentTurnWindow = 10
+    /// Cap for durable memory anchors persisted independently of the transcript.
+    private static let maxDurableAnchors = 12
+
+    /// Durable memory anchors (goals, injuries, standing insights) — not full history.
+    @Published private(set) var durableMemoryAnchors: [String] = []
+
+    /// Message currently being typewriter-revealed (nil when idle).
+    @Published var streamingMessageId: String? = nil
+    @Published var streamingVisibleCount: Int = 0
 
     var chatXPProgress: Double { Double(chatXP % Self.xpPerChatLevel) / Double(Self.xpPerChatLevel) }
     var chatXPToNextLevel: Int { Self.xpPerChatLevel - (chatXP % Self.xpPerChatLevel) }
+
+    private struct ChatSessionDocument: Codable {
+        var version: Int
+        var messages: [ChatMessage]
+        var xp: Int
+        var level: Int
+        var durableAnchors: [String]
+        var updatedAt: Date
+    }
 
     /// Awards XP and returns `true` when the award crossed a level boundary,
     /// so the caller can fire the celebration without owning the numbers.
@@ -995,27 +1054,88 @@ final class AppStore: ObservableObject {
         guard amount > 0 else { return false }
         chatXP += amount
         let newLevel = (chatXP / Self.xpPerChatLevel) + 1
-        guard newLevel > chatLevel else { return false }
+        guard newLevel > chatLevel else {
+            persistChatSession()
+            return false
+        }
         chatLevel = newLevel
+        persistChatSession()
         return true
     }
 
-    private func persistChatHistory() {
-        let recent = Array(chatMessages.suffix(Self.maxPersistedMessages))
-        guard let data = try? JSONEncoder().encode(recent) else { return }
-        UserDefaults.standard.set(data, forKey: Self.chatHistoryKey)
+    /// Records a standing fact ARIA should remember across sessions (goal, injury, preference).
+    func rememberDurable(_ anchor: String) {
+        let trimmed = anchor.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        durableMemoryAnchors.removeAll { $0.caseInsensitiveCompare(trimmed) == .orderedSame }
+        durableMemoryAnchors.insert(trimmed, at: 0)
+        if durableMemoryAnchors.count > Self.maxDurableAnchors {
+            durableMemoryAnchors = Array(durableMemoryAnchors.prefix(Self.maxDurableAnchors))
+        }
+        persistChatSession()
     }
 
+    private func persistChatSession() {
+        let recent = Array(chatMessages.suffix(Self.maxPersistedMessages))
+        let doc = ChatSessionDocument(
+            version: 3,
+            messages: recent,
+            xp: chatXP,
+            level: max(1, chatLevel),
+            durableAnchors: durableMemoryAnchors,
+            updatedAt: Date()
+        )
+        guard let data = try? JSONEncoder().encode(doc) else { return }
+        UserDefaults.standard.set(data, forKey: Self.chatSessionKey)
+        // Keep legacy XP keys warm for any older readers.
+        UserDefaults.standard.set(chatXP, forKey: Self.chatXPKey)
+        UserDefaults.standard.set(chatLevel, forKey: Self.chatLevelKey)
+        if let anchors = try? JSONEncoder().encode(durableMemoryAnchors) {
+            UserDefaults.standard.set(anchors, forKey: Self.durableMemoryKey)
+        }
+    }
+
+    /// Back-compat alias used throughout the chat pipeline.
+    private func persistChatHistory() { persistChatSession() }
+
     private func restoreChatHistory() {
-        guard let data = UserDefaults.standard.data(forKey: Self.chatHistoryKey),
-              let saved = try? JSONDecoder().decode([ChatMessage].self, from: data),
-              !saved.isEmpty else {
-            // First launch (or a transcript we can no longer decode): seed the
-            // demo conversation only when the user hasn't onboarded yet.
-            chatMessages = isOnboarded ? [] : mockChatMessages
+        // Preferred: single v3 session document.
+        if let data = UserDefaults.standard.data(forKey: Self.chatSessionKey),
+           let doc = try? JSONDecoder().decode(ChatSessionDocument.self, from: data) {
+            chatMessages = doc.messages
+            chatXP = max(0, doc.xp)
+            // Level is always derived from XP so the two never drift.
+            chatLevel = max(1, doc.level, (chatXP / Self.xpPerChatLevel) + 1)
+            durableMemoryAnchors = doc.durableAnchors
             return
         }
-        chatMessages = saved
+
+        // Migrate v2 transcript array + separate XP keys.
+        if let data = UserDefaults.standard.data(forKey: Self.chatHistoryKeyLegacyV2)
+            ?? UserDefaults.standard.data(forKey: Self.chatHistoryKeyLegacyV1),
+           let saved = try? JSONDecoder().decode([ChatMessage].self, from: data),
+           !saved.isEmpty {
+            chatMessages = saved
+            chatXP = max(0, UserDefaults.standard.integer(forKey: Self.chatXPKey))
+            chatLevel = max(1, UserDefaults.standard.integer(forKey: Self.chatLevelKey), (chatXP / Self.xpPerChatLevel) + 1)
+            if let anchorData = UserDefaults.standard.data(forKey: Self.durableMemoryKey),
+               let anchors = try? JSONDecoder().decode([String].self, from: anchorData) {
+                durableMemoryAnchors = anchors
+            }
+            persistChatSession()
+            UserDefaults.standard.removeObject(forKey: Self.chatHistoryKeyLegacyV2)
+            UserDefaults.standard.removeObject(forKey: Self.chatHistoryKeyLegacyV1)
+            return
+        }
+
+        // First launch (or a transcript we can no longer decode): seed the
+        // demo conversation only when the user hasn't onboarded yet.
+        chatMessages = isOnboarded ? [] : mockChatMessages
+        chatLevel = max(1, (chatXP / Self.xpPerChatLevel) + 1)
+        if let anchorData = UserDefaults.standard.data(forKey: Self.durableMemoryKey),
+           let anchors = try? JSONDecoder().decode([String].self, from: anchorData) {
+            durableMemoryAnchors = anchors
+        }
     }
 
     /// Wipes the transcript and momentum — used by sign-out / reset flows.
@@ -1023,7 +1143,42 @@ final class AppStore: ObservableObject {
         chatMessages = []
         chatXP = 0
         chatLevel = 1
-        UserDefaults.standard.removeObject(forKey: Self.chatHistoryKey)
+        durableMemoryAnchors = []
+        streamingMessageId = nil
+        streamingVisibleCount = 0
+        UserDefaults.standard.removeObject(forKey: Self.chatSessionKey)
+        UserDefaults.standard.removeObject(forKey: Self.chatHistoryKeyLegacyV2)
+        UserDefaults.standard.removeObject(forKey: Self.chatHistoryKeyLegacyV1)
+        UserDefaults.standard.removeObject(forKey: Self.chatXPKey)
+        UserDefaults.standard.removeObject(forKey: Self.chatLevelKey)
+        UserDefaults.standard.removeObject(forKey: Self.durableMemoryKey)
+    }
+
+    /// Progressive reveal of the latest ARIA reply — feels like streaming even
+    /// when the backend returns a full message. Does not mutate stored content.
+    func beginStreamingReveal(for messageId: String, fullLength: Int) {
+        streamingMessageId = messageId
+        streamingVisibleCount = min(24, fullLength)
+        Task { @MainActor in
+            let step = max(3, fullLength / 40)
+            while streamingMessageId == messageId, streamingVisibleCount < fullLength {
+                try? await Task.sleep(nanoseconds: 18_000_000)
+                streamingVisibleCount = min(fullLength, streamingVisibleCount + step)
+            }
+            if streamingMessageId == messageId {
+                streamingMessageId = nil
+                streamingVisibleCount = 0
+            }
+        }
+    }
+
+    func visibleContent(for message: ChatMessage) -> String {
+        guard streamingMessageId == message.id, streamingVisibleCount > 0 else {
+            return message.content
+        }
+        let end = min(streamingVisibleCount, message.content.count)
+        let idx = message.content.index(message.content.startIndex, offsetBy: end)
+        return String(message.content[..<idx])
     }
 
     // MARK: - Onboarding Persistence
@@ -1192,6 +1347,9 @@ final class AppStore: ObservableObject {
                 adoptWorkoutFromRichCard(card)
             }
 
+            // Harvest durable facts from this exchange (goal language, injuries, etc.).
+            harvestDurableMemory(userText: text, ariaText: aria.message)
+
             let trainerMessage = ChatMessage(
                 id: UUID().uuidString,
                 role: .trainer,
@@ -1204,6 +1362,7 @@ final class AppStore: ObservableObject {
                 confidenceReason: aria.confidenceReason
             )
             chatMessages.append(trainerMessage)
+            beginStreamingReveal(for: trainerMessage.id, fullLength: trainerMessage.content.count)
         } catch {
             let errorMessage = ChatMessage(
                 id: UUID().uuidString,
@@ -1217,6 +1376,36 @@ final class AppStore: ObservableObject {
 
         isGeneratingResponse = false
         persistChatHistory()
+    }
+
+    /// Lightweight durable-memory extraction — production-minded, no LLM required.
+    private func harvestDurableMemory(userText: String, ariaText: String) {
+        let lower = userText.lowercased()
+        let patterns: [(String, String)] = [
+            ("i want to", "User goal: "),
+            ("my goal is", "User goal: "),
+            ("i'm training for", "User goal: "),
+            ("im training for", "User goal: "),
+            ("i have a", "User note: "),
+            ("i'm dealing with", "User note: "),
+            ("im dealing with", "User note: "),
+            ("injury", "Injury context: "),
+            ("hurt my", "Injury context: "),
+            ("prefer", "Preference: "),
+            ("don't like", "Preference: "),
+            ("do not like", "Preference: "),
+        ]
+        for (needle, prefix) in patterns {
+            guard lower.contains(needle) else { continue }
+            let snippet = String(userText.prefix(140))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            rememberDurable(prefix + snippet)
+            break
+        }
+        // Confidence tags from ARIA that look like standing truths.
+        if ariaText.lowercased().contains("i'll remember") || ariaText.lowercased().contains("noted:") {
+            rememberDurable("ARIA noted: " + String(ariaText.prefix(120)))
+        }
     }
 
     /// One-shot ARIA insight for non-chat surfaces (e.g. Lifestyle cards).
@@ -1233,15 +1422,20 @@ final class AppStore: ObservableObject {
         )
     }
 
-    /// How many recent turns ride along verbatim in every prompt. Everything
-    /// older is compressed by `conversationMemoryAnchors()`.
-    private static let recentTurnWindow = 12
-
     /// Compresses pre-window history into a few "memory anchors" — what the user
-    /// asked for, plus ARIA's own durable insights — instead of replaying the
-    /// whole transcript on every turn.
+    /// asked for, durable standing facts, live biometrics, and ARIA insights —
+    /// instead of replaying the whole transcript on every turn.
     private func conversationMemoryAnchors() -> String? {
         var anchors: [String] = []
+
+        // Always pin live biometrics so sleep/readiness/training stay tight.
+        anchors.append(CrossZoneConsistency.memoryAnchorLine(for: .snapshot(from: self)))
+
+        if !durableMemoryAnchors.isEmpty {
+            anchors.append(
+                "Durable memory: " + durableMemoryAnchors.prefix(6).joined(separator: " | ")
+            )
+        }
 
         let olderCount = max(0, chatMessages.count - Self.recentTurnWindow)
         if olderCount > 0 {
