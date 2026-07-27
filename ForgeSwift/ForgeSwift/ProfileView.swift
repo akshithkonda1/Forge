@@ -47,33 +47,25 @@ struct ProgressPageView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
-                // Header with action buttons
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Progress")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(.textPrimary)
-                        Text("Track your fitness journey")
-                            .font(.system(size: 13))
-                            .foregroundColor(.textSecondary)
-                    }
-                    Spacer()
-
-                    // Share progress button
+                ForgePageHeader(
+                    title: "Progress",
+                    subtitle: "History, PRs, streaks — your training story",
+                    accent: Color(hex: "3B82F6")
+                ) {
                     Button(action: { showShareSheet = true }) {
                         ZStack {
                             Circle()
-                                .fill(Color.surface)
+                                .fill(Color.surfaceElevated)
                                 .frame(width: 40, height: 40)
                             Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 16))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.ember)
                         }
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Share progress")
                 }
-                .padding(.top, 56)
+                .padding(.top, 48)
 
                 if isInitialLoading {
                     ForgeSkeletonBlock(height: 88, cornerRadius: 16)
@@ -81,53 +73,29 @@ struct ProgressPageView: View {
                     ForgeSkeletonBlock(height: 220, cornerRadius: 16)
                     ForgeSkeletonBlock(height: 160, cornerRadius: 16)
                 } else if store.workoutHistory.isEmpty && store.progressSummary == nil && store.personalRecords.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "chart.line.uptrend.xyaxis")
-                            .font(.system(size: 36, weight: .semibold))
-                            .foregroundStyle(Color.ember)
-                        Text("No sessions yet")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(.textPrimary)
-                        Text("Complete a workout and your history, PRs, and streaks will show up here.")
-                            .font(.system(size: 14))
-                            .foregroundColor(.textSecondary)
-                            .multilineTextAlignment(.center)
-                        Button {
-                            store.activeTab = .workout
-                        } label: {
-                            Text("Start a session")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 22)
-                                .padding(.vertical, 14)
-                                .background(FDS.Gradient.ember)
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(28)
-                    .forgeGlassCard(accent: .ember)
+                    ForgeEmptyStateCard(
+                        icon: "chart.line.uptrend.xyaxis",
+                        title: "No sessions yet",
+                        message: "Complete a workout and your history, PRs, and streaks will show up here.",
+                        accent: .ember,
+                        cta: "Start a session",
+                        action: { store.openDestination(.workout) }
+                    )
                 } else {
-                    // Time range selector
                     TimeRangePicker(selection: $selectedTimeRange)
-
-                    // Quick Stats Overview
                     QuickStatsOverviewView(timeRange: selectedTimeRange)
-
                     MonthlySummaryView()
                     CalendarHeatmapView()
                     PersonalRecordsBoardView()
                     WorkoutHistoryListView()
                     BehavioralInsightView()
-
-                    // Streaks & Milestones
                     StreaksAndMilestonesView()
                 }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 32)
         }
+        .forgeScreenBackground(accent: Color(hex: "3B82F6"))
         .refreshable {
             await store.loadDashboardFromAPI()
         }
@@ -828,6 +796,11 @@ struct SettingsPageView: View {
                 )
                 .padding(.top, 8)
                 .padding(.bottom, FDS.Spacing.sm)
+
+                // Every primary surface in one place — guarantees no orphaned pages.
+                sectionHeader("Explore Forge")
+                ForgeExploreDestinationsGrid()
+                    .padding(.bottom, FDS.Spacing.md)
 
                 // AI Trainer
                 sectionHeader("AI Trainer")

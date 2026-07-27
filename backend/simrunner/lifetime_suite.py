@@ -437,6 +437,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Suite: {len(records)} runs · avg composite {avg}/100 · avg determinism {det} · "
               f"{crit} critical · {mc} mission-critical · {held} held")
         print(f"Combined summary → {os.path.relpath(path, _HERE)}")
+        # Per-model-archetype SHIP/HOLD board (critical for --matrix / --matrix-bedrock).
+        if len(arch_ids) > 1 or args.matrix or args.matrix_bedrock:
+            print("-" * 70)
+            diag = report_builder.matrix_diagnostics(records)
+            report_builder.print_matrix_diagnostics(diag)
+            diag_path = os.path.join(_REPORTS_DIR, "_matrix_diagnostics.json")
+            import json as _json
+            with open(diag_path, "w", encoding="utf-8") as fh:
+                _json.dump(diag, fh, indent=2, default=str)
+            print(f"Matrix diagnostics → {os.path.relpath(diag_path, _HERE)}")
     else:
         print(f"Done. Reports in {os.path.relpath(_REPORTS_DIR, _HERE)}/")
 

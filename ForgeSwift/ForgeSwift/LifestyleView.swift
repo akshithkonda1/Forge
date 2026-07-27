@@ -1260,11 +1260,34 @@ struct LifestyleView: View {
             await vm.load()
             await vm.refreshAIInsights(store: store)
         }
+        .onAppear { consumePendingLifestyleSegment() }
+        .onChange(of: store.pendingLifestyleSegment) { _, _ in
+            consumePendingLifestyleSegment()
+        }
         .onChange(of: vm.metrics.qualityOfLifeScore) { _, _ in vm.syncAriaContext() }
         .onChange(of: vm.recommendations.count) { _, _ in vm.syncAriaContext() }
         .alert("Error", isPresented: .constant(vm.error != nil), presenting: vm.error) { _ in
             Button("OK") {}
         } message: { err in Text(err.localizedDescription) }
+    }
+
+    private func consumePendingLifestyleSegment() {
+        guard let raw = store.pendingLifestyleSegment?.lowercased() else { return }
+        store.pendingLifestyleSegment = nil
+        let mapped: LifestyleSegment? = {
+            switch raw {
+            case "nutrition": return .nutrition
+            case "restaurants", "meals", "food": return .restaurants
+            case "wellbeing", "wellness": return .wellbeing
+            case "ai", "aioptimization", "optimize": return .aiOptimization
+            default: return LifestyleSegment(rawValue: Int(raw) ?? -1)
+            }
+        }()
+        if let mapped {
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) {
+                selectedSegment = mapped
+            }
+        }
     }
 
     @ViewBuilder

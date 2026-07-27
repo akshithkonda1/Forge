@@ -127,6 +127,10 @@ struct MainTabView: View {
     @Namespace private var namespace
     @State private var previousTab: TabItem = .home
     @State private var dragOffset: CGFloat = 0
+    /// Cycle Health is hosted on the shell so Profile/Settings deep links always work
+    /// even when Home is not the active tab content.
+    @State private var showCycleHealth = false
+    @State private var cycleInitialPane: MenstrualHealthView.Pane = .me
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -160,7 +164,7 @@ struct MainTabView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.bottom, 82)
+            .padding(.bottom, 88)
             .offset(y: dragOffset * 0.08)
             .transition(.asymmetric(
                 insertion: .move(edge: tabTransitionEdge(from: previousTab, to: store.activeTab))
@@ -177,6 +181,44 @@ struct MainTabView: View {
         .onChange(of: store.activeTab) { old, new in
             previousTab = old
         }
+        .onChange(of: store.pendingCycleHealthOpen) { _, open in
+            guard open else { return }
+            presentCycleHealth()
+        }
+        .onAppear {
+            if store.pendingCycleHealthOpen {
+                presentCycleHealth()
+            }
+        }
+        .fullScreenCover(isPresented: $showCycleHealth) {
+            NavigationStack {
+                MenstrualHealthView(initialPane: cycleInitialPane)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button {
+                                showCycleHealth = false
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 22))
+                                    .symbolRenderingMode(.hierarchical)
+                                    .foregroundStyle(Color.textSecondary)
+                            }
+                            .accessibilityLabel("Close Cycle Health")
+                        }
+                    }
+            }
+        }
+    }
+
+    private func presentCycleHealth() {
+        if store.pendingCyclePane == "partner" {
+            cycleInitialPane = .partner
+        } else {
+            cycleInitialPane = .me
+        }
+        showCycleHealth = true
+        store.pendingCycleHealthOpen = false
+        store.pendingCyclePane = nil
     }
     
     private func tabTransitionEdge(from: TabItem, to: TabItem) -> Edge {
@@ -351,11 +393,11 @@ struct RegularForgeTab: View {
                 }
                 .frame(height: 32)
 
-                // Label with refined typography
-                Text(tab.label)
-                    .font(.system(size: 9, weight: isActive ? .bold : .medium, design: .rounded))
+                // Compact labels — 7 tabs need tight typography that still reads.
+                Text(tab.shortLabel)
+                    .font(.system(size: 8.5, weight: isActive ? .bold : .medium, design: .rounded))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    .minimumScaleFactor(0.7)
                     .foregroundStyle(
                         isActive ?
                         LinearGradient(
@@ -364,16 +406,18 @@ struct RegularForgeTab: View {
                             endPoint: .trailing
                         ) :
                         LinearGradient(
-                            colors: [Color.white.opacity(0.35), Color.white.opacity(0.25)],
+                            colors: [Color.white.opacity(0.42), Color.white.opacity(0.30)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
                     )
-                    .tracking(isActive ? 0.4 : 0.2)
+                    .tracking(isActive ? 0.25 : 0.1)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 62)
             .contentShape(Rectangle())
+            .accessibilityLabel(tab.label)
+            .accessibilityAddTraits(isActive ? .isSelected : [])
         }
         .buttonStyle(.plain)
         .scaleEffect(pressed ? 0.93 : 1.0)
@@ -668,6 +712,19 @@ struct ARIATabButton: View {
 // Each needs: label: String, systemImage: String, systemImageFilled: String
 
 extension TabItem {
+    /// Short labels for the 7-tab bar so nothing clips on small phones.
+    var shortLabel: String {
+        switch self {
+        case .home: return "Home"
+        case .workout: return "Train"
+        case .chat: return "ARIA"
+        case .lifestyle: return "Life"
+        case .sleep: return "Sleep"
+        case .progress: return "Stats"
+        case .profile: return "You"
+        }
+    }
+
     var systemImageFilled: String {
         switch self {
         case .home:      return "house.fill"

@@ -83,9 +83,13 @@ enum ARIAMood: Equatable {
         }
     }
 
-    static func derive(readiness: Int) -> ARIAMood {
+    static func derive(readiness: Int, sleepScore: Int? = nil) -> ARIAMood {
         let hour = Calendar.current.component(.hour, from: Date())
-        if readiness >= 80 && hour < 15 { return .energized }
+        // Thin sleep damps "energized" even when readiness looks high — keeps
+        // mood aligned with cross-zone biometrics ARIA is about to coach on.
+        let sleepDamp = (sleepScore ?? 100) < 60
+        if readiness >= 80 && hour < 15 && !sleepDamp { return .energized }
+        if readiness < 50 || sleepDamp && readiness < 70 { return hour >= 18 ? .calm : .pushed }
         if readiness >= 60              { return .focused }
         if hour >= 20                   { return .calm }
         return .focused
@@ -752,7 +756,10 @@ struct ChatView: View {
         }
         .onAppear {
             momentum.bind(to: store)
-            ariaMood = ARIAMood.derive(readiness: store.readiness.overall)
+            ariaMood = ARIAMood.derive(
+                readiness: store.readiness.overall,
+                sleepScore: store.sleepData.first?.score
+            )
             speech.conversationalMood = ariaMood
             ariaContext.configure(userId: store.userProfile.name)
             ariaContext.updateProfile(
@@ -772,7 +779,12 @@ struct ChatView: View {
             consumePendingHomeHandoff()
         }
         .onChange(of: store.readiness.overall) { _, val in
-            withAnimation(FDS.Spring.standard) { ariaMood = ARIAMood.derive(readiness: val) }
+            withAnimation(FDS.Spring.standard) {
+                ariaMood = ARIAMood.derive(
+                    readiness: val,
+                    sleepScore: store.sleepData.first?.score
+                )
+            }
         }
         .onChange(of: ariaMood) { _, mood in
             speech.conversationalMood = mood
@@ -1113,9 +1125,11 @@ struct MessageListView: View {
                                 mood:            ariaMood,
                                 onSwipeReply:    { withAnimation(FDS.Spring.standard) { swipeReply = msg } },
                                 onReaction:      onReaction,
-                                onReactionBurst: onReactionBurst
+                                onReactionBurst: onReactionBurst,
+                                displayedContent: store.visibleContent(for: msg)
                             )
                             .id(msg.id)
+                            .animation(.linear(duration: 0.05), value: store.streamingVisibleCount)
                         }
 
                         if isTyping {
@@ -1375,6 +1389,8 @@ struct MessageBubbleView: View {
     let onSwipeReply:     () -> Void
     var onReaction:       ((String, String) -> Void)? = nil
     let onReactionBurst:  (CGPoint) -> Void
+    /// When set (streaming reveal), shows a progressive substring of the message.
+    var displayedContent: String? = nil
 
     @State private var appeared        = false
     @State private var showTimestamp   = false
@@ -1385,6 +1401,7 @@ struct MessageBubbleView: View {
 
     var isTrainer: Bool { message.role == .trainer }
     private var isHighConfidence: Bool { (message.confidence ?? 0) >= 0.85 }
+    private var bodyText: String { displayedContent ?? message.content }
 
     private let reactions: [(emoji: String, label: String)] = [
         ("🔥", "Fire"), ("💪", "Strong"), ("✅", "Got it"),
@@ -1445,7 +1462,7 @@ struct MessageBubbleView: View {
                             withAnimation(FDS.Spring.standard) { showTimestamp.toggle() }
                             UISelectionFeedbackGenerator().selectionChanged()
                         } label: {
-                            Text(message.content)
+                            Text(bodyText)
                                 .font(.system(size: 15.5, weight: .regular))
                                 .foregroundColor(isTrainer ? .textPrimary : .white)
                                 .lineSpacing(4.5)
@@ -1988,12 +2005,13 @@ struct VoiceOrbOverlay: View {
                         state:     speech.voiceState.orbState,
                         amplitude: speech.amplitude,
                         mood:      mood,
-                        size:      156
+                        // Noticeable hero — not a full-screen takeover.
+                        size:      132
                     )
                     .scaleEffect(orbRevealed ? 1.0 : 0.62)
                     .opacity(orbRevealed ? 1 : 0)
                 }
-                .frame(height: 176)
+                .frame(height: 148)
 
                 // State labels
                 VStack(spacing: 6) {
