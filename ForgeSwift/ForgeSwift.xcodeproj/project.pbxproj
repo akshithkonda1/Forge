@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1NAV012F9FF867004091AA /* ForgeNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1NAV022F9FF867004091AA /* ForgeNavigation.swift */; };
 		1WC1012F9FF867004091AA /* CrossZoneConsistency.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */; };
 		1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0022F9FF867004091AA /* SexualHealthCoach.swift */; };
 		1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */; };
@@ -180,6 +181,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1NAV022F9FF867004091AA /* ForgeNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeNavigation.swift; sourceTree = "<group>"; };
 		1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrossZoneConsistency.swift; sourceTree = "<group>"; };
 		1WC0022F9FF867004091AA /* SexualHealthCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCoach.swift; sourceTree = "<group>"; };
 		1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCurriculum.swift; sourceTree = "<group>"; };
@@ -400,6 +402,7 @@
 				AA0002000000000000000003 /* Models.swift */,
 				AA0002000000000000000004 /* AppStore.swift */,
 				AA0002000000000000000005 /* ContentView.swift */,
+				1NAV022F9FF867004091AA /* ForgeNavigation.swift */,
 				1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */,
 				1AUTH0042F9FF867004091AA /* AuthSignInView.swift */,
 				1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */,
@@ -769,6 +772,7 @@
 				AA0001000000000000000004 /* AppStore.swift in Sources */,
 				1E4DF71A2F9FFA70004091AA /* OnboardingDataManager.swift in Sources */,
 				AA0001000000000000000005 /* ContentView.swift in Sources */,
+				1NAV012F9FF867004091AA /* ForgeNavigation.swift in Sources */,
 				1AUTH0012F9FF867004091AA /* AuthWelcomeView.swift in Sources */,
 				1AUTH0032F9FF867004091AA /* AuthSignInView.swift in Sources */,
 				1AUTH0052F9FF867004091AA /* AuthSignUpFlowView.swift in Sources */,

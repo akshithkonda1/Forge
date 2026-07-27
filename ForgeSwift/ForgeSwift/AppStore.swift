@@ -920,10 +920,12 @@ final class AppStore: ObservableObject {
     // Navigation
     @Published var activeTab: TabItem = .home
     @Published var pendingProfileSubTab: String? = nil
-    /// When true, Home presents Cycle Health full-screen (Settings deep-link).
+    /// When true, main shell presents Cycle Health full-screen (Settings / Home deep-link).
     @Published var pendingCycleHealthOpen: Bool = false
     /// Optional Cycle pane: "me" or "partner".
     @Published var pendingCyclePane: String? = nil
+    /// Lifestyle sub-segment deep link: `nutrition` | `restaurants` | `wellbeing` | `aiOptimization`
+    @Published var pendingLifestyleSegment: String? = nil
 
     // Quiet mode — damp proactive noise (persisted)
     @Published var quietMode: Bool = UserDefaults.standard.bool(forKey: "forge.quiet.mode.v1") {
@@ -1712,8 +1714,8 @@ final class AppStore: ObservableObject {
     /// Deep-link into Home Cycle Health full-screen (optional Support pane).
     func openCycleHealth(pane: String? = nil) {
         pendingCyclePane = pane
+        // Shell-level fullScreenCover hosts Cycle Health — no need to switch tabs.
         pendingCycleHealthOpen = true
-        activeTab = .home
     }
 
     func setQuietMode(_ on: Bool) {
