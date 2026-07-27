@@ -95,6 +95,10 @@ _CATALOG: list[tuple] = [
     ("ai21.jamba-instruct-v1:0", "ai21", "jamba", "balanced", "text", 256000),
     # DeepSeek
     ("deepseek.r1-v1:0", "deepseek", "deepseek", "reasoning", "text", 128000),
+    # Moonshot / Kimi (text)
+    ("moonshot.kimi-k2-instruct-v1:0", "moonshot", "kimi", "frontier", "text", 128000),
+    ("moonshot.kimi-k2-thinking-v1:0", "moonshot", "kimi", "reasoning", "text", 128000),
+    ("moonshot.kimi-latest-v1:0", "moonshot", "kimi", "balanced", "text", 128000),
     # Stability (image)
     ("stability.stable-image-ultra-v1:0", "stability", "stable-image", "image", "image", None),
     ("stability.stable-image-core-v1:0", "stability", "stable-image", "image", "image", None),
@@ -134,6 +138,10 @@ def models_by_provider(provider: str) -> list[BedrockModel]:
 
 def models_by_class(model_class: str) -> list[BedrockModel]:
     return [m for m in BEDROCK_CATALOG if m.model_class == model_class]
+
+
+def text_models() -> list[BedrockModel]:
+    return [m for m in BEDROCK_CATALOG if m.modality == "text"]
 
 
 def providers() -> list[str]:
