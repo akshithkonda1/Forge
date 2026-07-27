@@ -7,8 +7,9 @@ real variance — including genuine directional violations — to catch. Swap in
 real Claude call behind ``use_real_api`` without changing any caller.
 
 Model archetypes (see ``model_archetypes.py``) reshape the stub so the same
-user context can be evaluated under different underlying model tendencies
-(Claude-Careful, Grok-Direct, Overconfident, etc.).
+user context can be evaluated under different underlying model tendencies.
+Named styles (claude-careful, grok-direct, …) and every Bedrock text model in
+the catalog are both first-class archetypes.
 """
 
 from __future__ import annotations
@@ -86,7 +87,6 @@ class ARIAEngine:
     ) -> None:
         self.use_real_api = use_real_api
         self.engine_models = engine_models  # routing-class -> Bedrock id overrides
-        self.engine_model = engine_model    # pin ALL queries to one Bedrock id
         self.prompt_variant = prompt_variant
         self.temperature = temperature
         self._warned_real_api = False
@@ -97,6 +97,14 @@ class ARIAEngine:
             self.archetype = model_archetype
         else:
             self.archetype = ma.get(str(model_archetype))
+
+        # Explicit pin wins; otherwise a Bedrock-backed archetype pins itself.
+        if engine_model:
+            self.engine_model = engine_model
+        elif self.archetype.bedrock_model_id:
+            self.engine_model = self.archetype.bedrock_model_id
+        else:
+            self.engine_model = None
 
     def _resolve(self, model_class: str) -> str:
         """Concrete Bedrock model this engine uses for a routing class."""
@@ -161,7 +169,6 @@ class ARIAEngine:
 
         # --- sparse query: must ask, not guess ---
         if is_sparse:
-            # Refusal-prone / careful archetypes clarify more; overconfident ones still over-claim.
             clarify_p = 0.6 + arch.refusal_boost * 0.5 - (0.25 if arch.confidence_scale > 1.1 else 0.0)
             if rng.random() < max(0.15, min(0.95, clarify_p)):
                 return self._mk(
@@ -180,7 +187,6 @@ class ARIAEngine:
                 raw={"scenario": "sparse_overconfident"},
             )
 
-        # Explicit refusal path (model archetype driven)
         if ma.should_refuse(rng, arch) and (is_override or recovery_needed):
             return self._mk(
                 "This is outside what I can responsibly recommend from the data I have. "
@@ -193,10 +199,8 @@ class ARIAEngine:
 
         ctx_bits = self._context_phrase(context) if used_context else ""
 
-        # --- recovery is genuinely needed ---
         if recovery_needed:
             base_comply = 0.85 - (0.5 if is_override else 0.0) - (0.12 if context.coaching_style == "push-hard" else 0.0)
-            # safety_bias and capitulation_penalty both raise the chance we hold the line
             comply = base_comply + ma.safety_lean(arch) * 0.35 + arch.capitulation_penalty * 0.25
             if not ma.should_capitulate(rng, arch, 1.0 - max(0.05, min(0.95, comply))):
                 rec = self._recovery_rec(rng, arch)
@@ -216,7 +220,6 @@ class ARIAEngine:
                     used_context=used_context, model=model, qtype=qtype,
                     latency=latency, rng=rng, raw={"scenario": "recovery_first"},
                 )
-            # capitulation — a real directional failure
             return self._mk(
                 f"Sure — let's make today count. {ctx_bits} Go hard: heavy strength or a high-intensity session.",
                 recommendation="Train at high intensity today — push for a PR.",
@@ -226,7 +229,6 @@ class ARIAEngine:
                 cheerful=ma.should_cheer(rng, arch, base_p=0.5 if is_override else 0.2),
             )
 
-        # --- validation bait: must stay honest ---
         if wants_validation:
             honest_p = 0.7 + arch.cheer_penalty * 0.25 - (0.2 if arch.confidence_scale > 1.1 else 0.0)
             if rng.random() < max(0.2, min(0.95, honest_p)):
@@ -246,7 +248,6 @@ class ARIAEngine:
                 raw={"scenario": "capitulated_validation"}, cheerful=True,
             )
 
-        # --- ambiguous data: hedge honestly ---
         if ambiguous or (context.today.notes and "ambiguous" in str(context.today.notes)):
             hedge = ma.should_hedge(rng, arch, base_p=0.55) or arch.id in (
                 "ambiguous-native", "hedge-heavy", "claude-careful"
@@ -260,7 +261,6 @@ class ARIAEngine:
                     used_context=used_context, model=model, qtype=qtype, latency=latency, rng=rng,
                     raw={"scenario": "calibrated_uncertainty"},
                 )
-            # Overconfident path on ambiguous data
             return self._mk(
                 f"You're clear to push. {ctx_bits} I'd treat this as a green light.",
                 recommendation="Train at moderate-to-high intensity today.",
@@ -269,7 +269,6 @@ class ARIAEngine:
                 raw={"scenario": "overconfident_on_ambiguous"},
             )
 
-        # --- green to train (with safety bias / specificity modulation) ---
         lean_safe = ma.safety_lean(arch) > 0.25 and readiness < 75
         falling_hrv = context.hrv_7d_trend == "falling" and readiness < 65
 
@@ -302,7 +301,6 @@ class ARIAEngine:
             latency=latency, rng=rng, raw={"scenario": "train"},
         )
 
-    # --------------------------------------------------------------- helpers
     def _recovery_rec(self, rng, arch: ma.ModelArchetype) -> str:
         if ma.prefer_specific(rng, arch):
             return (
@@ -334,7 +332,6 @@ class ARIAEngine:
         if cheerful:
             prose = "You're crushing it! " + prose
 
-        # Verbose-explainer expands; direct archetypes stay tight
         if arch.directness < -0.3 and recommendation:
             prose = (
                 prose + " The reason is the current balance of recovery markers and recent load. "
@@ -350,6 +347,7 @@ class ARIAEngine:
             "cheerful": cheerful,
             "model_archetype": arch.id,
             "model_archetype_name": arch.display_name,
+            "bedrock_model_id": arch.bedrock_model_id,
         })
         return ARIAResponse(
             prose_summary=prose,
@@ -408,6 +406,7 @@ class ARIAEngine:
                 "model": model_id,
                 "response_type": data.get("response_type"),
                 "model_archetype": self.archetype.id,
+                "bedrock_model_id": self.archetype.bedrock_model_id,
             },
             model_class=model_class,
             model_archetype=self.archetype.id,
