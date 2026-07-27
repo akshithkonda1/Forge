@@ -7,11 +7,13 @@ Runs the full offline pipeline against one archetype, a tier, or all 20:
     python -m backend.simrunner --tier 3
     python -m backend.simrunner --all
 
-Model behavioral archetypes (Claude-Careful, Grok-Direct, Overconfident, …):
+Model archetypes (named styles + full Bedrock text library):
 
     python -m backend.simrunner --list-model-archetypes
     python -m backend.simrunner --model-archetype grok-direct --tier 1
-    python -m backend.simrunner --matrix --tier 1   # user × model matrix
+    python -m backend.simrunner --model-archetype moonshot.kimi-k2-instruct-v1:0 --tier 1
+    python -m backend.simrunner --matrix --tier 1            # user × named styles
+    python -m backend.simrunner --matrix-bedrock --tier 1    # user × every Bedrock text model
 """
 
 from __future__ import annotations
@@ -128,10 +130,12 @@ def _validate_config(config: dict) -> dict:
     except (TypeError, ValueError):
         out["gate_max_drop"] = 3.0
 
-    ma_id = str(out.get("model_archetype") or "baseline").strip().lower()
-    if ma_id not in model_archetypes.MODEL_ARCHETYPES:
-        ma_id = "baseline"
-    out["model_archetype"] = ma_id
+    ma_id = str(out.get("model_archetype") or "baseline").strip()
+    try:
+        model_archetypes.get(ma_id)
+        out["model_archetype"] = ma_id
+    except KeyError:
+        out["model_archetype"] = "baseline"
     return out
 
 
@@ -157,11 +161,6 @@ def load_config(path: str = _CONFIG_PATH) -> dict:
 # --- pipeline ---------------------------------------------------------------
 
 def _eval_seed(model: dict, config: dict, engine: ARIAEngine, seed: int):
-    """Run the full snapshot × query eval loop for one seed.
-
-    Returns (results, contexts, snapshot_days, queries, stream). Each seed is
-    deterministic; variance across seeds is what multi-seed confidence measures.
-    """
     profile = model["behavioral_profile"]
     tier = model["difficulty_tier"]
 
@@ -187,9 +186,8 @@ def run_model(model: dict, config: dict, engine: ARIAEngine) -> dict:
     seed = int(config["seed"])
     seed_count = int(config["seed_count"])
 
-    # Each seed is deterministic; multi-seed spreads variance for confidence bands.
-    runs = []           # one StabilityReport per seed
-    primary = None      # (results, contexts, snapshot_days, queries, stream) for seed[0]
+    runs = []
+    primary = None
     for i in range(seed_count):
         artifacts = _eval_seed(model, config, engine, seed + i)
         runs.append(analyze(artifacts[0]))
@@ -211,8 +209,6 @@ def run_model(model: dict, config: dict, engine: ARIAEngine) -> dict:
             },
         }
 
-    # Determinism is a stub-engine property; under real-API it's non-deterministic,
-    # so we skip the check and let multi-seed variance (above) carry confidence.
     determinism = None
     if not config["use_real_api"]:
         sample_n = int(config["determinism_sample_size"])
@@ -248,13 +244,13 @@ def run_model(model: dict, config: dict, engine: ARIAEngine) -> dict:
     for path in paths:
         print(f"    → {os.path.relpath(path, _HERE)}")
 
-    # The enriched baseline record doubles as the combined-summary row.
     rec = baseline.record(model, stability, diagnostic, det_rate)
     rec.update({
         "display_name": model["display_name"],
         "engine_model": engine_model,
         "model_archetype": engine.archetype.id,
         "model_archetype_name": engine.archetype.display_name,
+        "bedrock_model_id": engine.archetype.bedrock_model_id,
         "derived": bool(model.get("derived")),
         "consumer_stability_grade": stability.consumer_stability_grade,
         "epistemic_rigor_grade": stability.epistemic_rigor_grade,
@@ -270,7 +266,7 @@ def _select_models(args) -> list[dict]:
         return list(model_registry.BEDROCK_MODEL_REGISTRY)
     if args.tier:
         return model_registry.get_models_by_tier(args.tier)
-    return model_registry.get_models_by_tier(1)  # default: fast tier-1 sanity
+    return model_registry.get_models_by_tier(1)
 
 
 def _print_catalog() -> None:
@@ -283,16 +279,30 @@ def _print_catalog() -> None:
 
 
 def _print_model_archetypes() -> None:
-    print("ARIA SimRunner — model behavioral archetypes (use with --model-archetype):")
-    print("These describe how the *underlying model* tends to behave when powering ARIA.\n")
-    for arch in model_archetypes.list_archetypes():
-        print(f"  {arch.id:<20} {arch.display_name}")
+    styles = model_archetypes.list_archetypes(styles_only=True)
+    bedrock = model_archetypes.list_archetypes(bedrock_only=True)
+    print("ARIA SimRunner — model archetypes (use with --model-archetype)\n")
+    print(f"Named behavioral styles ({len(styles)}):")
+    print("  Stress specific failure modes of the underlying model tendency.\n")
+    for arch in styles:
+        print(f"  {arch.id:<22} {arch.display_name}")
         print(f"    {arch.description}\n")
+    print(f"Bedrock text models ({len(bedrock)}) — full library, each is a first-class archetype:")
+    print("  Selecting one pins that model for real-API runs and applies its provider profile.\n")
+    current_provider = None
+    for arch in bedrock:
+        if arch.provider != current_provider:
+            current_provider = arch.provider
+            print(f"  [{current_provider}]")
+        mid = arch.bedrock_model_id or arch.id
+        print(f"    {mid:<46} {arch.model_class or '':<10} {arch.display_name}")
+    print(f"\nTotal model archetypes: {len(styles) + len(bedrock)}")
 
 
 def _print_bedrock_catalog() -> None:
     catalog = bedrock_catalog.load_catalog()
-    print(f"AWS Bedrock catalog — {len(catalog)} models (any id works with --model):")
+    text_n = sum(1 for m in catalog if m.modality == "text")
+    print(f"AWS Bedrock catalog — {len(catalog)} models ({text_n} text; any text id works as --model-archetype):")
     for provider in bedrock_catalog.providers():
         print(f"\n{provider}:")
         for m in [x for x in catalog if x.provider == provider]:
@@ -325,7 +335,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--list-model-archetypes",
         action="store_true",
-        help="list model behavioral archetypes (Claude-Careful, Grok-Direct, …) and exit",
+        help="list named styles + every Bedrock text model archetype and exit",
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--model", help="user archetype model_id OR any Bedrock catalog id")
@@ -335,12 +345,18 @@ def main(argv: list[str] | None = None) -> int:
         "--model-archetype",
         default=None,
         metavar="ID",
-        help="model behavioral archetype id (default: baseline). See --list-model-archetypes",
+        help="model archetype: named style OR any Bedrock text model_id (default: baseline)",
     )
-    parser.add_argument(
+    matrix = parser.add_mutually_exclusive_group()
+    matrix.add_argument(
         "--matrix",
         action="store_true",
-        help="run selected user archetypes against every model archetype (user × model matrix)",
+        help="run selected user archetypes × every *named* model style (fast)",
+    )
+    matrix.add_argument(
+        "--matrix-bedrock",
+        action="store_true",
+        help="run selected user archetypes × every Bedrock *text* model (~40+)",
     )
     parser.add_argument("--seeds", type=int, default=None,
                         help="number of seeds for multi-seed confidence (overrides config seed_count)")
@@ -367,11 +383,11 @@ def main(argv: list[str] | None = None) -> int:
         config["seed_count"] = max(1, args.seeds)
     if args.model_archetype:
         try:
-            model_archetypes.get(args.model_archetype)  # validate early
+            model_archetypes.get(args.model_archetype)
         except KeyError as exc:
             print(f"error: {exc}")
             return 2
-        config["model_archetype"] = args.model_archetype.strip().lower()
+        config["model_archetype"] = args.model_archetype.strip()
 
     try:
         models = _select_models(args)
@@ -380,9 +396,13 @@ def main(argv: list[str] | None = None) -> int:
         print("Run `python -m backend.simrunner --list` (user archetypes) or `--list-bedrock` (full catalog).")
         return 2
 
-    # Build the list of model archetypes to run.
-    if args.matrix:
-        arch_ids = [a.id for a in model_archetypes.list_archetypes()]
+    if args.matrix_bedrock:
+        arch_ids = [
+            a.bedrock_model_id or a.id
+            for a in model_archetypes.list_archetypes(bedrock_only=True)
+        ]
+    elif args.matrix:
+        arch_ids = [a.id for a in model_archetypes.list_archetypes(styles_only=True)]
     else:
         arch_ids = [config["model_archetype"]]
 
@@ -420,7 +440,6 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(f"Done. Reports in {os.path.relpath(_REPORTS_DIR, _HERE)}/")
 
-    # --- regression baselines + gate ----------------------------------------
     if args.baseline is not None:
         written = baseline.save(records, args.baseline)
         print(f"Baseline written: {len(written)} snapshot(s) → {os.path.relpath(args.baseline, _HERE)}/")
@@ -435,7 +454,7 @@ def main(argv: list[str] | None = None) -> int:
         base = baseline.load(compare_dir)
         if not base:
             print(f"warning: no baseline found in {os.path.relpath(compare_dir, _HERE)}/ — run --baseline first.")
-            return 0  # nothing to regress against
+            return 0
         diffs = baseline.compare(records, base)
         cpath = baseline.write_comparison(diffs, _REPORTS_DIR)
         print("-" * 70)
