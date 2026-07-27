@@ -6,6 +6,12 @@ Runs the full offline pipeline against one archetype, a tier, or all 20:
     python -m backend.simrunner --model <model_id>
     python -m backend.simrunner --tier 3
     python -m backend.simrunner --all
+
+Model behavioral archetypes (Claude-Careful, Grok-Direct, Overconfident, …):
+
+    python -m backend.simrunner --list-model-archetypes
+    python -m backend.simrunner --model-archetype grok-direct --tier 1
+    python -m backend.simrunner --matrix --tier 1   # user × model matrix
 """
 
 from __future__ import annotations
@@ -14,7 +20,7 @@ import argparse
 import os
 import re
 
-from .aria_simrunner import _stats, baseline, diagnostics, report_builder
+from .aria_simrunner import _stats, baseline, diagnostics, model_archetypes, report_builder
 from .aria_simrunner.aria_engine import ARIAEngine
 from .aria_simrunner.aria_evaluator import DimensionScores, evaluate
 from .aria_simrunner.aria_generator import get_queries_for_tier
@@ -40,6 +46,7 @@ _DEFAULTS = {
     "engine_model": None,
     "engine_models": None,
     "gate_max_drop": 3.0,
+    "model_archetype": "baseline",
 }
 
 
@@ -120,6 +127,11 @@ def _validate_config(config: dict) -> dict:
         out["gate_max_drop"] = max(0.0, float(out.get("gate_max_drop", 3.0)))
     except (TypeError, ValueError):
         out["gate_max_drop"] = 3.0
+
+    ma_id = str(out.get("model_archetype") or "baseline").strip().lower()
+    if ma_id not in model_archetypes.MODEL_ARCHETYPES:
+        ma_id = "baseline"
+    out["model_archetype"] = ma_id
     return out
 
 
@@ -136,6 +148,9 @@ def load_config(path: str = _CONFIG_PATH) -> dict:
     env_model = os.getenv("SIMRUNNER_ENGINE_MODEL")
     if env_model:
         config["engine_model"] = env_model
+    env_arch = os.getenv("SIMRUNNER_MODEL_ARCHETYPE")
+    if env_arch:
+        config["model_archetype"] = env_arch
     return _validate_config(config)
 
 
@@ -215,8 +230,9 @@ def run_model(model: dict, config: dict, engine: ARIAEngine) -> dict:
     det_str = f"{det_rate}%" if det_rate is not None else "skipped (real-API)"
 
     label = model["display_name"] + ("  [derived]" if model.get("derived") else "")
+    arch_label = engine.archetype.display_name if engine.archetype.id != "baseline" else None
     mark = "✅" if diagnostic.passed else "⛔"
-    print(f"  {label}")
+    print(f"  {label}" + (f"  ×  {arch_label}" if arch_label else ""))
     print(f"    Grade {stability.overall_grade}  ({stability.overall_composite}/100)  "
           f"· {stability.total_runs} evals · determinism {det_str}")
     print(f"    verdict: {mark} {diagnostic.verdict}  ·  pass rate {diagnostic.pass_rate}%")
@@ -237,6 +253,8 @@ def run_model(model: dict, config: dict, engine: ARIAEngine) -> dict:
     rec.update({
         "display_name": model["display_name"],
         "engine_model": engine_model,
+        "model_archetype": engine.archetype.id,
+        "model_archetype_name": engine.archetype.display_name,
         "derived": bool(model.get("derived")),
         "consumer_stability_grade": stability.consumer_stability_grade,
         "epistemic_rigor_grade": stability.epistemic_rigor_grade,
@@ -256,12 +274,20 @@ def _select_models(args) -> list[dict]:
 
 
 def _print_catalog() -> None:
-    print("ARIA SimRunner — 20 curated archetypes (use a model_id with --model);")
+    print("ARIA SimRunner — 20 curated *user* archetypes (use a model_id with --model);")
     print("any Bedrock model id also works via --model (see --list-bedrock).")
     for tier in range(1, 6):
         print(f"\nTier {tier}:")
         for model in model_registry.get_models_by_tier(tier):
             print(f"  {model['model_id']:<42} {model['display_name']}")
+
+
+def _print_model_archetypes() -> None:
+    print("ARIA SimRunner — model behavioral archetypes (use with --model-archetype):")
+    print("These describe how the *underlying model* tends to behave when powering ARIA.\n")
+    for arch in model_archetypes.list_archetypes():
+        print(f"  {arch.id:<20} {arch.display_name}")
+        print(f"    {arch.description}\n")
 
 
 def _print_bedrock_catalog() -> None:
@@ -290,13 +316,32 @@ def _print_diffs(diffs) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="backend.simrunner", description="ARIA SimRunner — offline evaluation harness")
-    parser.add_argument("--list", action="store_true", help="list the 20 curated archetypes and exit")
+    parser = argparse.ArgumentParser(
+        prog="backend.simrunner",
+        description="ARIA SimRunner — offline evaluation harness",
+    )
+    parser.add_argument("--list", action="store_true", help="list the 20 curated user archetypes and exit")
     parser.add_argument("--list-bedrock", action="store_true", help="list the full Bedrock model catalog and exit")
+    parser.add_argument(
+        "--list-model-archetypes",
+        action="store_true",
+        help="list model behavioral archetypes (Claude-Careful, Grok-Direct, …) and exit",
+    )
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--model", help="archetype model_id OR any Bedrock catalog id")
-    group.add_argument("--tier", type=int, choices=[1, 2, 3, 4, 5], help="test all archetypes in a tier")
-    group.add_argument("--all", action="store_true", help="test all 20 archetypes")
+    group.add_argument("--model", help="user archetype model_id OR any Bedrock catalog id")
+    group.add_argument("--tier", type=int, choices=[1, 2, 3, 4, 5], help="test all user archetypes in a tier")
+    group.add_argument("--all", action="store_true", help="test all 20 user archetypes")
+    parser.add_argument(
+        "--model-archetype",
+        default=None,
+        metavar="ID",
+        help="model behavioral archetype id (default: baseline). See --list-model-archetypes",
+    )
+    parser.add_argument(
+        "--matrix",
+        action="store_true",
+        help="run selected user archetypes against every model archetype (user × model matrix)",
+    )
     parser.add_argument("--seeds", type=int, default=None,
                         help="number of seeds for multi-seed confidence (overrides config seed_count)")
     parser.add_argument("--baseline", nargs="?", const=_BASELINES_DIR, default=None, metavar="DIR",
@@ -313,28 +358,52 @@ def main(argv: list[str] | None = None) -> int:
     if args.list_bedrock:
         _print_bedrock_catalog()
         return 0
+    if args.list_model_archetypes:
+        _print_model_archetypes()
+        return 0
 
     config = load_config()
     if args.seeds is not None:
         config["seed_count"] = max(1, args.seeds)
-    engine = ARIAEngine(
-        use_real_api=bool(config["use_real_api"]),
-        engine_models=config.get("engine_models"),
-        engine_model=config.get("engine_model"),
-    )
+    if args.model_archetype:
+        try:
+            model_archetypes.get(args.model_archetype)  # validate early
+        except KeyError as exc:
+            print(f"error: {exc}")
+            return 2
+        config["model_archetype"] = args.model_archetype.strip().lower()
+
     try:
         models = _select_models(args)
     except KeyError:
         print(f"error: unknown model {args.model!r}.")
-        print("Run `python -m backend.simrunner --list` (archetypes) or `--list-bedrock` (full catalog).")
+        print("Run `python -m backend.simrunner --list` (user archetypes) or `--list-bedrock` (full catalog).")
         return 2
 
+    # Build the list of model archetypes to run.
+    if args.matrix:
+        arch_ids = [a.id for a in model_archetypes.list_archetypes()]
+    else:
+        arch_ids = [config["model_archetype"]]
+
     scope = args.model or (f"tier {args.tier}" if args.tier else ("all 20" if args.all else "tier 1 (default)"))
-    print(f"ARIA SimRunner — scope: {scope}  ·  real_api={config['use_real_api']}  ·  "
-          f"seed={config['seed']}  ·  seeds={config['seed_count']}")
+    arch_scope = ", ".join(arch_ids) if len(arch_ids) <= 3 else f"{len(arch_ids)} model archetypes"
+    print(f"ARIA SimRunner — scope: {scope}  ·  model_archetype={arch_scope}  ·  "
+          f"real_api={config['use_real_api']}  ·  seed={config['seed']}  ·  seeds={config['seed_count']}")
     print("-" * 70)
 
-    records = [run_model(model, config, engine) for model in models]
+    records: list[dict] = []
+    for arch_id in arch_ids:
+        engine = ARIAEngine(
+            use_real_api=bool(config["use_real_api"]),
+            engine_models=config.get("engine_models"),
+            engine_model=config.get("engine_model"),
+            model_archetype=arch_id,
+        )
+        if len(arch_ids) > 1:
+            print(f"\n─ model archetype: {engine.archetype.display_name} ({arch_id}) ─")
+        for model in models:
+            records.append(run_model(model, config, engine))
 
     print("-" * 70)
     if len(records) > 1:
@@ -345,7 +414,7 @@ def main(argv: list[str] | None = None) -> int:
         mc = sum(s["mission_critical_count"] for s in records)
         held = sum(1 for s in records if not s["system_passed"])
         path = report_builder.save_combined_summary(records, _REPORTS_DIR)
-        print(f"Suite: {len(records)} models · avg composite {avg}/100 · avg determinism {det} · "
+        print(f"Suite: {len(records)} runs · avg composite {avg}/100 · avg determinism {det} · "
               f"{crit} critical · {mc} mission-critical · {held} held")
         print(f"Combined summary → {os.path.relpath(path, _HERE)}")
     else:
