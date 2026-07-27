@@ -9,14 +9,21 @@ enum CoachingDomain {
 /// the model interpreting raw cycle tags.
 enum CyclePhaseCoachingDirective {
 
+    @MainActor
     static func directive(for phase: MenstrualPhase, domain: CoachingDomain) -> String {
+        let base: String
         switch domain {
-        case .workout:   return workoutDirective(for: phase)
-        case .nutrition: return nutritionDirective(for: phase)
-        case .sleep:     return sleepDirective(for: phase)
-        case .stress:    return stressDirective(for: phase)
-        case .general:   return generalDirective(for: phase)
+        case .workout:   base = workoutDirective(for: phase)
+        case .nutrition: base = nutritionDirective(for: phase)
+        case .sleep:     base = sleepDirective(for: phase)
+        case .stress:    base = stressDirective(for: phase)
+        case .general:   base = generalDirective(for: phase)
         }
+        let learned = MenstrualHealthStore.shared.coachingPreferences.coachingDirective
+        if phase == .menstruation, !learned.isEmpty {
+            return base.isEmpty ? learned : base + " " + learned
+        }
+        return base
     }
 
     // MARK: - Workout

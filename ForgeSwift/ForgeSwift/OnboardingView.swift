@@ -267,10 +267,17 @@ private struct AriaInterviewLayout: View {
     @StateObject private var dictation = SpeechManager()
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            transcript
-            composer
+        // Header stays fixed in the safe area. Tall composers (e.g. 8 training
+        // themes) scroll inside a capped region so they never crush the
+        // transcript or push content under the status bar / Dynamic Island.
+        GeometryReader { geo in
+            let composerCap = max(240, geo.size.height * 0.55)
+            VStack(spacing: 0) {
+                header
+                transcript
+                    .frame(minHeight: 96, maxHeight: .infinity)
+                composer(maxHeight: composerCap)
+            }
         }
         .onChange(of: dictation.recognizedText) { _, text in
             guard dictation.isListening || dictation.voiceState == .processing else { return }
@@ -427,7 +434,7 @@ private struct AriaInterviewLayout: View {
     }
 
     @ViewBuilder
-    private var composer: some View {
+    private func composer(maxHeight: CGFloat) -> some View {
         VStack(spacing: 12) {
             Divider().overlay(Color.white.opacity(0.06))
 
@@ -439,153 +446,163 @@ private struct AriaInterviewLayout: View {
                     .padding(.horizontal, FDS.Spacing.xl)
             }
 
-            Group {
-                switch coordinator.step {
-                case .intro:
-                    EmptyView()
-                case .age:
-                    AgeComposer(coordinator: coordinator)
-                case .name:
-                    NameComposer(coordinator: coordinator, dictation: dictation)
-                case .health:
-                    HealthComposer(coordinator: coordinator)
-                case .goals:
-                    MultiChipComposer(
-                        title: "Goals",
-                        items: OnboardingFitnessGoal.allCases.map { ($0.id, $0.label) },
-                        isSelected: { id in
-                            coordinator.profile.fitnessGoals.contains { $0.id == id }
-                        },
-                        onToggle: { id in
-                            if let g = OnboardingFitnessGoal.allCases.first(where: { $0.id == id }) {
-                                coordinator.toggleGoal(g)
-                            }
-                        },
-                        canContinue: !coordinator.profile.fitnessGoals.isEmpty,
-                        continueTitle: "Continue",
-                        onContinue: {
-                            dictation.cancel()
-                            coordinator.confirmGoals()
-                        }
-                    )
-                case .biologicalSex:
-                    BiologicalSexStepView(coordinator: coordinator)
-                case .experience:
-                    OptionCardsComposer(
-                        options: ExperienceLevel.allCases.map { ($0.rawValue, $0.label, $0.description) },
-                        onSelect: { raw in
-                            dictation.cancel()
-                            if let level = ExperienceLevel(rawValue: raw) {
-                                coordinator.selectExperience(level)
-                            }
-                        }
-                    )
-                case .workouts:
-                    MultiChipComposer(
-                        title: "Training you enjoy",
-                        items: OnboardingWorkoutType.allCases.map { ($0.id, $0.label) },
-                        isSelected: { id in
-                            coordinator.profile.preferredWorkouts.contains { $0.id == id }
-                        },
-                        onToggle: { id in
-                            if let w = OnboardingWorkoutType.allCases.first(where: { $0.id == id }) {
-                                coordinator.toggleWorkout(w)
-                            }
-                        },
-                        canContinue: !coordinator.profile.preferredWorkouts.isEmpty,
-                        continueTitle: "Continue",
-                        onContinue: {
-                            dictation.cancel()
-                            coordinator.confirmWorkouts()
-                        }
-                    )
-                case .sleep:
-                    OptionCardsComposer(
-                        options: SleepRhythmBand.allCases.map { ($0.rawValue, $0.label, $0.detail) },
-                        onSelect: { raw in
-                            dictation.cancel()
-                            if let band = SleepRhythmBand(rawValue: raw) {
-                                coordinator.selectSleepBand(band)
-                            }
-                        }
-                    )
-                case .freeTime:
-                    MultiChipComposer(
-                        title: "Free time",
-                        items: LifestyleInterest.allCases.map { ($0.id, $0.label) },
-                        isSelected: { id in
-                            coordinator.profile.freeTimeInterests.contains { $0.id == id }
-                        },
-                        onToggle: { id in
-                            if let i = LifestyleInterest.allCases.first(where: { $0.id == id }) {
-                                coordinator.toggleInterest(i)
-                            }
-                        },
-                        canContinue: true,
-                        continueTitle: coordinator.profile.freeTimeInterests.isEmpty ? "Skip" : "Continue",
-                        onContinue: {
-                            dictation.cancel()
-                            coordinator.confirmInterests()
-                        }
-                    )
-                case .trainingTheme:
-                    VStack(spacing: 10) {
-                        OptionCardsComposer(
-                            options: AriaTrainingTheme.allCases.map {
-                                ($0.rawValue, $0.label, $0.tagline)
-                            },
-                            onSelect: { raw in
-                                dictation.cancel()
-                                if let theme = AriaTrainingTheme(rawValue: raw) {
-                                    coordinator.selectTrainingTheme(theme)
-                                }
-                            }
-                        )
-                        Button {
-                            dictation.cancel()
-                            coordinator.skipTrainingTheme()
-                        } label: {
-                            Text("Skip — classic coach")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.textSecondary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                case .lifeContext:
-                    VStack(spacing: 10) {
-                        OptionCardsComposer(
-                            options: LifeContextOption.allCases.map { ($0.rawValue, $0.label, "") },
-                            onSelect: { raw in
-                                dictation.cancel()
-                                if let o = LifeContextOption(rawValue: raw) {
-                                    coordinator.selectLifeContext(o)
-                                }
-                            }
-                        )
-                    }
-                case .conditions:
-                    ConditionsComposer(coordinator: coordinator, dictation: dictation)
-                case .coaching:
-                    CoachingComposer(coordinator: coordinator)
-                case .ready:
-                    ReadyComposer(coordinator: coordinator, onFinish: onFinish)
-                }
+            // Reserve a bounded region for options. Long lists scroll here instead
+            // of overflowing the screen or covering the header / ARIA transcript.
+            ScrollView(showsIndicators: false) {
+                composerBody
             }
-            .padding(.horizontal, FDS.Spacing.xl)
-            .padding(.bottom, 28)
-            .id(coordinator.step)
-            .transition(.asymmetric(
-                insertion: .move(edge: .bottom).combined(with: .opacity),
-                removal: .opacity
-            ))
+            .frame(minHeight: min(180, maxHeight), maxHeight: maxHeight, alignment: .top)
         }
         .background(
             Color.background.opacity(0.96)
                 .shadow(color: .black.opacity(0.35), radius: 20, y: -8)
         )
         .animation(FDS.Spring.page, value: coordinator.step)
+    }
+
+    @ViewBuilder
+    private var composerBody: some View {
+        Group {
+            switch coordinator.step {
+            case .intro:
+                EmptyView()
+            case .age:
+                AgeComposer(coordinator: coordinator)
+            case .name:
+                NameComposer(coordinator: coordinator, dictation: dictation)
+            case .health:
+                HealthComposer(coordinator: coordinator)
+            case .goals:
+                MultiChipComposer(
+                    title: "Goals",
+                    items: OnboardingFitnessGoal.allCases.map { ($0.id, $0.label) },
+                    isSelected: { id in
+                        coordinator.profile.fitnessGoals.contains { $0.id == id }
+                    },
+                    onToggle: { id in
+                        if let g = OnboardingFitnessGoal.allCases.first(where: { $0.id == id }) {
+                            coordinator.toggleGoal(g)
+                        }
+                    },
+                    canContinue: !coordinator.profile.fitnessGoals.isEmpty,
+                    continueTitle: "Continue",
+                    onContinue: {
+                        dictation.cancel()
+                        coordinator.confirmGoals()
+                    }
+                )
+            case .biologicalSex:
+                BiologicalSexStepView(coordinator: coordinator)
+            case .experience:
+                OptionCardsComposer(
+                    options: ExperienceLevel.allCases.map { ($0.rawValue, $0.label, $0.description) },
+                    onSelect: { raw in
+                        dictation.cancel()
+                        if let level = ExperienceLevel(rawValue: raw) {
+                            coordinator.selectExperience(level)
+                        }
+                    }
+                )
+            case .workouts:
+                MultiChipComposer(
+                    title: "Training you enjoy",
+                    items: OnboardingWorkoutType.allCases.map { ($0.id, $0.label) },
+                    isSelected: { id in
+                        coordinator.profile.preferredWorkouts.contains { $0.id == id }
+                    },
+                    onToggle: { id in
+                        if let w = OnboardingWorkoutType.allCases.first(where: { $0.id == id }) {
+                            coordinator.toggleWorkout(w)
+                        }
+                    },
+                    canContinue: !coordinator.profile.preferredWorkouts.isEmpty,
+                    continueTitle: "Continue",
+                    onContinue: {
+                        dictation.cancel()
+                        coordinator.confirmWorkouts()
+                    }
+                )
+            case .sleep:
+                OptionCardsComposer(
+                    options: SleepRhythmBand.allCases.map { ($0.rawValue, $0.label, $0.detail) },
+                    onSelect: { raw in
+                        dictation.cancel()
+                        if let band = SleepRhythmBand(rawValue: raw) {
+                            coordinator.selectSleepBand(band)
+                        }
+                    }
+                )
+            case .freeTime:
+                MultiChipComposer(
+                    title: "Free time",
+                    items: LifestyleInterest.allCases.map { ($0.id, $0.label) },
+                    isSelected: { id in
+                        coordinator.profile.freeTimeInterests.contains { $0.id == id }
+                    },
+                    onToggle: { id in
+                        if let i = LifestyleInterest.allCases.first(where: { $0.id == id }) {
+                            coordinator.toggleInterest(i)
+                        }
+                    },
+                    canContinue: true,
+                    continueTitle: coordinator.profile.freeTimeInterests.isEmpty ? "Skip" : "Continue",
+                    onContinue: {
+                        dictation.cancel()
+                        coordinator.confirmInterests()
+                    }
+                )
+            case .trainingTheme:
+                VStack(spacing: 10) {
+                    OptionCardsComposer(
+                        options: AriaTrainingTheme.allCases.map {
+                            ($0.rawValue, $0.label, $0.tagline)
+                        },
+                        onSelect: { raw in
+                            dictation.cancel()
+                            if let theme = AriaTrainingTheme(rawValue: raw) {
+                                coordinator.selectTrainingTheme(theme)
+                            }
+                        }
+                    )
+                    Button {
+                        dictation.cancel()
+                        coordinator.skipTrainingTheme()
+                    } label: {
+                        Text("Skip — classic coach")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.plain)
+                }
+            case .lifeContext:
+                VStack(spacing: 10) {
+                    OptionCardsComposer(
+                        options: LifeContextOption.allCases.map { ($0.rawValue, $0.label, "") },
+                        onSelect: { raw in
+                            dictation.cancel()
+                            if let o = LifeContextOption(rawValue: raw) {
+                                coordinator.selectLifeContext(o)
+                            }
+                        }
+                    )
+                }
+            case .conditions:
+                ConditionsComposer(coordinator: coordinator, dictation: dictation)
+            case .coaching:
+                CoachingComposer(coordinator: coordinator)
+            case .ready:
+                ReadyComposer(coordinator: coordinator, onFinish: onFinish)
+            }
+        }
+        .padding(.horizontal, FDS.Spacing.xl)
+        .padding(.bottom, 28)
+        .id(coordinator.step)
+        .transition(.asymmetric(
+            insertion: .move(edge: .bottom).combined(with: .opacity),
+            removal: .opacity
+        ))
     }
 }
 

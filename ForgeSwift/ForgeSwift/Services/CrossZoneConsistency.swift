@@ -113,8 +113,11 @@ enum CrossZoneConsistency {
         return "Live biometrics: " + parts.joined(separator: " · ")
     }
 
+    @MainActor
     static func snapshot(from store: AppStore) -> Snapshot {
         let cycle = MenstrualHealthStore.shared
+        let cycleEnabled = cycle.settings.enabled
+        let cycleSnapshot = cycle.snapshot
         let lastWorkout = store.workoutHistory.first
         let hoursSince: Double? = {
             guard let lastWorkout,
@@ -135,8 +138,8 @@ enum CrossZoneConsistency {
                 case .max: return 10
                 }
             },
-            isCurrentlyBleeding: cycle.settings.enabled && cycle.snapshot.isCurrentlyBleeding,
-            cycleRecoveryBias: cycle.settings.enabled && cycle.snapshot.recommendRecoveryBias,
+            isCurrentlyBleeding: cycleEnabled ? cycleSnapshot.isCurrentlyBleeding : false,
+            cycleRecoveryBias: cycleEnabled ? cycleSnapshot.recommendRecoveryBias : false,
             quietMode: store.quietMode
         )
     }

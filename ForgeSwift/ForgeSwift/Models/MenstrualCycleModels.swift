@@ -611,6 +611,576 @@ struct CyclePredictionFeedback: Codable, Equatable, Identifiable {
     var recordedAt: Date
 }
 
+// MARK: - Period end feedback (learns coaching preferences)
+
+/// Overall feel of this period — noninvasive, personalization only.
+enum PeriodSeverity: String, Codable, CaseIterable, Identifiable {
+    case mild, moderate, severe
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .mild: return "Mild"
+        case .moderate: return "Moderate"
+        case .severe: return "Hard"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .mild: return "leaf.fill"
+        case .moderate: return "drop.fill"
+        case .severe: return "bolt.heart.fill"
+        }
+    }
+}
+
+enum PeriodEnergyLevel: String, Codable, CaseIterable, Identifiable {
+    case low, okay, high
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .low: return "Low energy"
+        case .okay: return "Okay"
+        case .high: return "Still solid"
+        }
+    }
+}
+
+/// Length relative to what feels normal for this person (not a medical measure).
+enum PeriodLengthFeel: String, Codable, CaseIterable, Identifiable {
+    case shorter, typical, longer
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .shorter: return "Shorter"
+        case .typical: return "Typical"
+        case .longer: return "Longer"
+        }
+    }
+}
+
+/// Overall flow heaviness feel for the episode.
+enum PeriodFlowFeel: String, Codable, CaseIterable, Identifiable {
+    case lighter, typical, heavier
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .lighter: return "Lighter"
+        case .typical: return "Typical"
+        case .heavier: return "Heavier"
+        }
+    }
+}
+
+enum PeriodSleepQuality: String, Codable, CaseIterable, Identifiable {
+    case poor, okay, good
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .poor: return "Rough sleep"
+        case .okay: return "Okay"
+        case .good: return "Slept well"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .poor: return "moon.zzz"
+        case .okay: return "moon"
+        case .good: return "moon.stars.fill"
+        }
+    }
+}
+
+enum PeriodMoodOverall: String, Codable, CaseIterable, Identifiable {
+    case rough, mixed, steady
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .rough: return "Rough"
+        case .mixed: return "Mixed"
+        case .steady: return "Steady"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .rough: return "cloud.rain.fill"
+        case .mixed: return "cloud.sun.fill"
+        case .steady: return "sun.max.fill"
+        }
+    }
+}
+
+/// How much the period disrupted training / work / daily life.
+enum PeriodLifeImpact: String, Codable, CaseIterable, Identifiable {
+    case low, medium, high
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .low: return "Barely"
+        case .medium: return "Some"
+        case .high: return "Limited me"
+        }
+    }
+}
+
+/// Self-reported stress during this cycle — lifestyle context only.
+enum PeriodStressLevel: String, Codable, CaseIterable, Identifiable {
+    case low, medium, high
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .low: return "Low stress"
+        case .medium: return "Medium"
+        case .high: return "High stress"
+        }
+    }
+}
+
+enum CoachingHelpfulness: String, Codable, CaseIterable, Identifiable {
+    case notHelpful, somewhat, very
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .notHelpful: return "Not helpful"
+        case .somewhat: return "Somewhat"
+        case .very: return "Very helpful"
+        }
+    }
+
+    var score: Double {
+        switch self {
+        case .notHelpful: return 0
+        case .somewhat: return 0.5
+        case .very: return 1
+        }
+    }
+}
+
+enum PeriodCoachingTopic: String, Codable, CaseIterable, Identifiable {
+    case rest, lighterTraining, heat, hydration, sleep, nutrition, empathy, mobility
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .rest: return "Rest / recovery"
+        case .lighterTraining: return "Lighter training"
+        case .heat: return "Heat / comfort"
+        case .hydration: return "Hydration"
+        case .sleep: return "Sleep"
+        case .nutrition: return "Food / iron / mag"
+        case .empathy: return "Softer tone"
+        case .mobility: return "Mobility / yoga"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .rest: return "bed.double.fill"
+        case .lighterTraining: return "figure.walk"
+        case .heat: return "thermometer.sun.fill"
+        case .hydration: return "drop.fill"
+        case .sleep: return "moon.zzz.fill"
+        case .nutrition: return "fork.knife"
+        case .empathy: return "heart.fill"
+        case .mobility: return "figure.flexibility"
+        }
+    }
+}
+
+/// Captured when the user marks period finished — on-device coaching personalization only.
+struct PeriodEndFeedback: Codable, Equatable, Identifiable {
+    var id: String { startDayKey + "|" + endDayKey }
+    var startDayKey: String
+    var endDayKey: String
+    var dayCount: Int
+    /// How was your period overall?
+    var severity: PeriodSeverity
+    /// 0–10 peak pain this episode.
+    var peakPain: Int
+    var energy: PeriodEnergyLevel
+    /// Optional lifestyle context (all skippable / default-safe).
+    var lengthFeel: PeriodLengthFeel?
+    var flowFeel: PeriodFlowFeel?
+    var sleepQuality: PeriodSleepQuality?
+    var moodOverall: PeriodMoodOverall?
+    var lifeImpact: PeriodLifeImpact?
+    var stressLevel: PeriodStressLevel?
+    var coachingHelpfulness: CoachingHelpfulness
+    var whatHelped: [PeriodCoachingTopic]
+    var whatDidntHelp: [PeriodCoachingTopic]
+    var wantMore: [PeriodCoachingTopic]
+    var wantLess: [PeriodCoachingTopic]
+    var notes: String?
+    var recordedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case startDayKey, endDayKey, dayCount, severity, peakPain, energy
+        case lengthFeel, flowFeel, sleepQuality, moodOverall, lifeImpact, stressLevel
+        case coachingHelpfulness, whatHelped, whatDidntHelp, wantMore, wantLess, notes, recordedAt
+    }
+
+    init(
+        startDayKey: String,
+        endDayKey: String,
+        dayCount: Int,
+        severity: PeriodSeverity,
+        peakPain: Int,
+        energy: PeriodEnergyLevel,
+        lengthFeel: PeriodLengthFeel? = nil,
+        flowFeel: PeriodFlowFeel? = nil,
+        sleepQuality: PeriodSleepQuality? = nil,
+        moodOverall: PeriodMoodOverall? = nil,
+        lifeImpact: PeriodLifeImpact? = nil,
+        stressLevel: PeriodStressLevel? = nil,
+        coachingHelpfulness: CoachingHelpfulness,
+        whatHelped: [PeriodCoachingTopic],
+        whatDidntHelp: [PeriodCoachingTopic],
+        wantMore: [PeriodCoachingTopic],
+        wantLess: [PeriodCoachingTopic],
+        notes: String?,
+        recordedAt: Date
+    ) {
+        self.startDayKey = startDayKey
+        self.endDayKey = endDayKey
+        self.dayCount = dayCount
+        self.severity = severity
+        self.peakPain = peakPain
+        self.energy = energy
+        self.lengthFeel = lengthFeel
+        self.flowFeel = flowFeel
+        self.sleepQuality = sleepQuality
+        self.moodOverall = moodOverall
+        self.lifeImpact = lifeImpact
+        self.stressLevel = stressLevel
+        self.coachingHelpfulness = coachingHelpfulness
+        self.whatHelped = whatHelped
+        self.whatDidntHelp = whatDidntHelp
+        self.wantMore = wantMore
+        self.wantLess = wantLess
+        self.notes = notes
+        self.recordedAt = recordedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        startDayKey = try c.decode(String.self, forKey: .startDayKey)
+        endDayKey = try c.decode(String.self, forKey: .endDayKey)
+        dayCount = try c.decode(Int.self, forKey: .dayCount)
+        severity = try c.decode(PeriodSeverity.self, forKey: .severity)
+        peakPain = try c.decode(Int.self, forKey: .peakPain)
+        energy = try c.decode(PeriodEnergyLevel.self, forKey: .energy)
+        lengthFeel = try c.decodeIfPresent(PeriodLengthFeel.self, forKey: .lengthFeel)
+        flowFeel = try c.decodeIfPresent(PeriodFlowFeel.self, forKey: .flowFeel)
+        sleepQuality = try c.decodeIfPresent(PeriodSleepQuality.self, forKey: .sleepQuality)
+        moodOverall = try c.decodeIfPresent(PeriodMoodOverall.self, forKey: .moodOverall)
+        lifeImpact = try c.decodeIfPresent(PeriodLifeImpact.self, forKey: .lifeImpact)
+        stressLevel = try c.decodeIfPresent(PeriodStressLevel.self, forKey: .stressLevel)
+        coachingHelpfulness = try c.decode(CoachingHelpfulness.self, forKey: .coachingHelpfulness)
+        whatHelped = try c.decodeIfPresent([PeriodCoachingTopic].self, forKey: .whatHelped) ?? []
+        whatDidntHelp = try c.decodeIfPresent([PeriodCoachingTopic].self, forKey: .whatDidntHelp) ?? []
+        wantMore = try c.decodeIfPresent([PeriodCoachingTopic].self, forKey: .wantMore) ?? []
+        wantLess = try c.decodeIfPresent([PeriodCoachingTopic].self, forKey: .wantLess) ?? []
+        notes = try c.decodeIfPresent(String.self, forKey: .notes)
+        recordedAt = try c.decodeIfPresent(Date.self, forKey: .recordedAt) ?? Date()
+    }
+}
+
+/// Running personalization from period-end feedbacks (what to do next cycle).
+struct PeriodCoachingPreferences: Codable, Equatable {
+    /// 0…1 extra recovery bias during menstruation.
+    var recoveryBias: Double
+    var preferLighterTraining: Bool
+    var preferHeatComfort: Bool
+    var preferEmpathyTone: Bool
+    var preferHydrationSleep: Bool
+    var preferNutritionTips: Bool
+    var preferMobility: Bool
+    var avoidIntensityPush: Bool
+    /// Prefer sleep-focused tips when periods tend to disrupt sleep.
+    var preferSleepFocus: Bool
+    /// Prefer mood-aware / softer check-ins.
+    var preferMoodSupport: Bool
+    var sampleCount: Int
+    var averageSeverity: Double
+    var averageHelpfulness: Double
+    var averageLifeImpact: Double
+    var averageStress: Double
+    var lastLearnedSummary: String?
+
+    static let neutral = PeriodCoachingPreferences(
+        recoveryBias: 0.35,
+        preferLighterTraining: true,
+        preferHeatComfort: false,
+        preferEmpathyTone: true,
+        preferHydrationSleep: true,
+        preferNutritionTips: true,
+        preferMobility: false,
+        avoidIntensityPush: true,
+        preferSleepFocus: false,
+        preferMoodSupport: false,
+        sampleCount: 0,
+        averageSeverity: 0.5,
+        averageHelpfulness: 0.5,
+        averageLifeImpact: 0.35,
+        averageStress: 0.4,
+        lastLearnedSummary: nil
+    )
+
+    enum CodingKeys: String, CodingKey {
+        case recoveryBias, preferLighterTraining, preferHeatComfort, preferEmpathyTone
+        case preferHydrationSleep, preferNutritionTips, preferMobility, avoidIntensityPush
+        case preferSleepFocus, preferMoodSupport
+        case sampleCount, averageSeverity, averageHelpfulness, averageLifeImpact, averageStress
+        case lastLearnedSummary
+    }
+
+    init(
+        recoveryBias: Double,
+        preferLighterTraining: Bool,
+        preferHeatComfort: Bool,
+        preferEmpathyTone: Bool,
+        preferHydrationSleep: Bool,
+        preferNutritionTips: Bool,
+        preferMobility: Bool,
+        avoidIntensityPush: Bool,
+        preferSleepFocus: Bool = false,
+        preferMoodSupport: Bool = false,
+        sampleCount: Int,
+        averageSeverity: Double,
+        averageHelpfulness: Double,
+        averageLifeImpact: Double = 0.35,
+        averageStress: Double = 0.4,
+        lastLearnedSummary: String?
+    ) {
+        self.recoveryBias = recoveryBias
+        self.preferLighterTraining = preferLighterTraining
+        self.preferHeatComfort = preferHeatComfort
+        self.preferEmpathyTone = preferEmpathyTone
+        self.preferHydrationSleep = preferHydrationSleep
+        self.preferNutritionTips = preferNutritionTips
+        self.preferMobility = preferMobility
+        self.avoidIntensityPush = avoidIntensityPush
+        self.preferSleepFocus = preferSleepFocus
+        self.preferMoodSupport = preferMoodSupport
+        self.sampleCount = sampleCount
+        self.averageSeverity = averageSeverity
+        self.averageHelpfulness = averageHelpfulness
+        self.averageLifeImpact = averageLifeImpact
+        self.averageStress = averageStress
+        self.lastLearnedSummary = lastLearnedSummary
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        recoveryBias = try c.decodeIfPresent(Double.self, forKey: .recoveryBias) ?? 0.35
+        preferLighterTraining = try c.decodeIfPresent(Bool.self, forKey: .preferLighterTraining) ?? true
+        preferHeatComfort = try c.decodeIfPresent(Bool.self, forKey: .preferHeatComfort) ?? false
+        preferEmpathyTone = try c.decodeIfPresent(Bool.self, forKey: .preferEmpathyTone) ?? true
+        preferHydrationSleep = try c.decodeIfPresent(Bool.self, forKey: .preferHydrationSleep) ?? true
+        preferNutritionTips = try c.decodeIfPresent(Bool.self, forKey: .preferNutritionTips) ?? true
+        preferMobility = try c.decodeIfPresent(Bool.self, forKey: .preferMobility) ?? false
+        avoidIntensityPush = try c.decodeIfPresent(Bool.self, forKey: .avoidIntensityPush) ?? true
+        preferSleepFocus = try c.decodeIfPresent(Bool.self, forKey: .preferSleepFocus) ?? false
+        preferMoodSupport = try c.decodeIfPresent(Bool.self, forKey: .preferMoodSupport) ?? false
+        sampleCount = try c.decodeIfPresent(Int.self, forKey: .sampleCount) ?? 0
+        averageSeverity = try c.decodeIfPresent(Double.self, forKey: .averageSeverity) ?? 0.5
+        averageHelpfulness = try c.decodeIfPresent(Double.self, forKey: .averageHelpfulness) ?? 0.5
+        averageLifeImpact = try c.decodeIfPresent(Double.self, forKey: .averageLifeImpact) ?? 0.35
+        averageStress = try c.decodeIfPresent(Double.self, forKey: .averageStress) ?? 0.4
+        lastLearnedSummary = try c.decodeIfPresent(String.self, forKey: .lastLearnedSummary)
+    }
+
+    mutating func learn(from feedback: PeriodEndFeedback) {
+        sampleCount += 1
+        let alpha = min(0.45, 1.0 / Double(max(2, sampleCount)))
+
+        let severityScore: Double = {
+            switch feedback.severity {
+            case .mild: return 0.2
+            case .moderate: return 0.55
+            case .severe: return 0.9
+            }
+        }()
+        averageSeverity = averageSeverity * (1 - alpha) + severityScore * alpha
+        averageHelpfulness = averageHelpfulness * (1 - alpha) + feedback.coachingHelpfulness.score * alpha
+
+        let impactScore: Double = {
+            switch feedback.lifeImpact {
+            case .low?: return 0.15
+            case .medium?: return 0.5
+            case .high?: return 0.9
+            case nil: return averageLifeImpact
+            }
+        }()
+        averageLifeImpact = averageLifeImpact * (1 - alpha) + impactScore * alpha
+
+        let stressScore: Double = {
+            switch feedback.stressLevel {
+            case .low?: return 0.2
+            case .medium?: return 0.5
+            case .high?: return 0.85
+            case nil: return averageStress
+            }
+        }()
+        averageStress = averageStress * (1 - alpha) + stressScore * alpha
+
+        let painBoost = Double(min(10, max(0, feedback.peakPain))) / 10.0
+        let energyLow = feedback.energy == .low ? 0.25 : 0
+        let sleepRough = feedback.sleepQuality == .poor ? 0.15 : 0
+        let moodRough = feedback.moodOverall == .rough ? 0.1 : 0
+        recoveryBias = min(1, max(0.1, recoveryBias * (1 - alpha) + (severityScore * 0.45 + painBoost * 0.25 + energyLow + sleepRough + moodRough + impactScore * 0.15) * alpha))
+
+        if feedback.sleepQuality == .poor {
+            preferSleepFocus = true
+            preferHydrationSleep = true
+        }
+        if feedback.moodOverall == .rough || feedback.stressLevel == .high {
+            preferMoodSupport = true
+            preferEmpathyTone = true
+        }
+        if feedback.lifeImpact == .high {
+            avoidIntensityPush = true
+            preferLighterTraining = true
+        }
+        if feedback.flowFeel == .heavier {
+            preferNutritionTips = true
+            recoveryBias = min(1, recoveryBias + 0.05)
+        }
+
+        func boost(_ topic: PeriodCoachingTopic, helped: Bool, wantMore: Bool, wantLess: Bool) {
+            let positive = (helped ? 1 : 0) + (wantMore ? 1 : 0) - (wantLess ? 1 : 0)
+            guard positive != 0 else { return }
+            switch topic {
+            case .rest:
+                if positive > 0 { recoveryBias = min(1, recoveryBias + 0.08) }
+            case .lighterTraining:
+                preferLighterTraining = positive > 0 || preferLighterTraining
+                if positive < 0 { preferLighterTraining = false }
+            case .heat:
+                preferHeatComfort = positive > 0
+            case .hydration, .sleep:
+                preferHydrationSleep = positive >= 0 ? (positive > 0 || preferHydrationSleep) : false
+                if topic == .sleep, positive > 0 { preferSleepFocus = true }
+            case .nutrition:
+                preferNutritionTips = positive >= 0 ? (positive > 0 || preferNutritionTips) : false
+            case .empathy:
+                preferEmpathyTone = positive >= 0 ? (positive > 0 || preferEmpathyTone) : false
+                if positive > 0 { preferMoodSupport = true }
+            case .mobility:
+                preferMobility = positive > 0
+            }
+        }
+
+        for t in PeriodCoachingTopic.allCases {
+            boost(
+                t,
+                helped: feedback.whatHelped.contains(t),
+                wantMore: feedback.wantMore.contains(t),
+                wantLess: feedback.wantLess.contains(t)
+            )
+        }
+
+        if feedback.severity == .severe || feedback.peakPain >= 7 || feedback.energy == .low {
+            avoidIntensityPush = true
+            preferLighterTraining = true
+            recoveryBias = min(1, recoveryBias + 0.1)
+        }
+        if feedback.coachingHelpfulness == .notHelpful {
+            preferEmpathyTone = true
+            preferLighterTraining = true
+            recoveryBias = min(1, recoveryBias + 0.12)
+        }
+
+        var bits: [String] = []
+        if preferLighterTraining { bits.append("lighter training") }
+        if preferHeatComfort { bits.append("heat/comfort") }
+        if preferSleepFocus || preferHydrationSleep { bits.append("sleep & hydration") }
+        if preferNutritionTips { bits.append("nutrition") }
+        if preferMobility { bits.append("mobility") }
+        if preferEmpathyTone || preferMoodSupport { bits.append("softer tone") }
+        if avoidIntensityPush { bits.append("no intensity push") }
+        if averageLifeImpact >= 0.6 { bits.append("more recovery buffer") }
+        lastLearnedSummary = bits.isEmpty
+            ? "Logged episode · adapting coaching"
+            : "Next period: lean on " + bits.prefix(4).joined(separator: ", ")
+    }
+
+    var ariaTags: [String] {
+        var tags = ["cycle:period_feedback_n:\(sampleCount)"]
+        tags.append("cycle:recovery_pref:\(Int(recoveryBias * 100))")
+        if preferLighterTraining { tags.append("cycle:prefer:lighter_training") }
+        if preferHeatComfort { tags.append("cycle:prefer:heat") }
+        if preferEmpathyTone { tags.append("cycle:prefer:empathy") }
+        if preferHydrationSleep { tags.append("cycle:prefer:hydration_sleep") }
+        if preferNutritionTips { tags.append("cycle:prefer:nutrition") }
+        if preferMobility { tags.append("cycle:prefer:mobility") }
+        if avoidIntensityPush { tags.append("cycle:prefer:avoid_intensity") }
+        if preferSleepFocus { tags.append("cycle:prefer:sleep_focus") }
+        if preferMoodSupport { tags.append("cycle:prefer:mood_support") }
+        if averageLifeImpact >= 0.55 { tags.append("cycle:life_impact:high") }
+        if averageStress >= 0.6 { tags.append("cycle:stress:elevated") }
+        return tags
+    }
+
+    var coachingDirective: String {
+        guard sampleCount > 0 else { return "" }
+        var parts: [String] = [
+            "User has given \(sampleCount) period-end feedback(s). Adapt menstruation coaching to their learned preferences. This data is for personal coaching only — never for ads, sale, or third-party profiling."
+        ]
+        if recoveryBias >= 0.6 || avoidIntensityPush {
+            parts.append("Strongly favor recovery, auto-regulation, and optional sessions — do not push intensity on period days.")
+        }
+        if preferLighterTraining {
+            parts.append("They respond well to lighter training suggestions (walk, technique, mobility).")
+        }
+        if preferHeatComfort {
+            parts.append("Mention heat packs / comfort strategies when relevant.")
+        }
+        if preferHydrationSleep || preferSleepFocus {
+            parts.append("Prioritize sleep quality and hydration tips.")
+        }
+        if preferSleepFocus {
+            parts.append("Periods often disrupt their sleep — offer wind-down and sleep hygiene cues early in menstruation.")
+        }
+        if preferNutritionTips {
+            parts.append("Include iron/magnesium/anti-inflammatory food cues briefly.")
+        }
+        if preferMobility {
+            parts.append("Offer gentle mobility or yoga as a default movement option.")
+        }
+        if preferEmpathyTone || preferMoodSupport {
+            parts.append("Use a warm, validating tone — never minimize symptoms.")
+        }
+        if preferMoodSupport {
+            parts.append("Mood can dip during their period — check in gently; avoid toxic positivity.")
+        }
+        if averageLifeImpact >= 0.55 {
+            parts.append("Their period often limits daily life/training — default to optional sessions and recovery framing.")
+        }
+        if averageStress >= 0.55 {
+            parts.append("Cycles often coincide with higher stress — keep plans simple and stress-aware.")
+        }
+        if averageHelpfulness < 0.4 {
+            parts.append("Prior coaching was not helpful enough — be more concrete and less generic.")
+        }
+        if let summary = lastLearnedSummary {
+            parts.append("Personal summary: \(summary).")
+        }
+        return parts.joined(separator: " ")
+    }
+}
+
 struct CycleAccuracyReport: Codable, Equatable {
     var sampleCount: Int
     var maeDays: Double?

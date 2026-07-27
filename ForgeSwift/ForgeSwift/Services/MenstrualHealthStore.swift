@@ -33,6 +33,11 @@ final class MenstrualHealthStore: ObservableObject {
     @Published private(set) var lastAdvertisedNextPeriodMedian: String?
     /// Short toast after model auto-corrects (cleared by UI).
     @Published var lastModelUpdateMessage: String?
+    /// Period-end feedback history + continuously learned coaching preferences.
+    @Published private(set) var periodEndFeedbacks: [PeriodEndFeedback] = []
+    @Published private(set) var coachingPreferences: PeriodCoachingPreferences = .neutral
+    /// Pending episode metadata after logPeriodEnd — UI presents feedback sheet.
+    @Published var pendingPeriodEndEpisode: PeriodEpisode?
 
     private let defaults = UserDefaults.standard
     private let settingsKey = "forge.menstrual.settings.v1"
@@ -43,6 +48,8 @@ final class MenstrualHealthStore: ObservableObject {
     private let forecastKey = "forge.menstrual.forecast.archive.v1"
     private let advertisedKey = "forge.menstrual.advertised.next.v1"
     private let quietSyncKey = "forge.menstrual.quiet.sync.at"
+    private let periodEndFeedbackKey = "forge.menstrual.period.end.feedback.v1"
+    private let coachingPrefsKey = "forge.menstrual.coaching.prefs.v1"
 
     private init() {
         if let data = defaults.data(forKey: settingsKey),
@@ -76,6 +83,14 @@ final class MenstrualHealthStore: ObservableObject {
         if let data = defaults.data(forKey: forecastKey),
            let f = try? JSONDecoder().decode([CycleForecastRecord].self, from: data) {
             forecastArchive = f
+        }
+        if let data = defaults.data(forKey: periodEndFeedbackKey),
+           let f = try? JSONDecoder().decode([PeriodEndFeedback].self, from: data) {
+            periodEndFeedbacks = f
+        }
+        if let data = defaults.data(forKey: coachingPrefsKey),
+           let p = try? JSONDecoder().decode(PeriodCoachingPreferences.self, from: data) {
+            coachingPreferences = p
         }
         lastAdvertisedNextPeriodMedian = defaults.string(forKey: advertisedKey)
         snapshot = .empty
@@ -174,6 +189,142 @@ final class MenstrualHealthStore: ObservableObject {
         upsertLog(CycleDayLog(dayKey: dayKey, flow: flow, source: "manual"))
     }
 
+    /// Marks `dayKey` as the **last bleeding day** of the current episode.
+    /// Clears any bleeding logged after that day, learns period length, and queues end feedback.
+    @discardableResult
+    func logPeriodEnd(on dayKey: String = CycleDayKey.key()) -> PeriodEpisode? {
+        let episodesBefore = MenstrualCycleEngine.buildPeriodEpisodes(from: logs)
+        let startKey = episodesBefore.last?.startDayKey
+            ?? snapshot.lastPeriodStartDayKey
+            ?? dayKey
+
+        // Ensure the end day counts as bleeding (last flow day).
+        var endLog = logs.first(where: { $0.dayKey == dayKey }) ?? CycleDayLog(dayKey: dayKey)
+        if !endLog.flow.isBleeding {
+            endLog.flow = .light
+        }
+        endLog.source = "manual"
+        endLog.updatedAt = Date()
+        upsertLog(endLog)
+
+        // Clear bleeding after the declared end so the episode closes cleanly.
+        let today = CycleDayKey.key()
+        if let afterStart = CycleDayKey.daysBetween(dayKey, today), afterStart > 0 {
+            for offset in 1...afterStart {
+                guard let key = CycleDayKey.addDays(dayKey, offset) else { continue }
+                if let idx = logs.firstIndex(where: { $0.dayKey == key }), logs[idx].flow.isBleeding {
+                    var cleared = logs[idx]
+                    cleared.flow = .none
+                    cleared.source = "manual"
+                    cleared.updatedAt = Date()
+                    logs[idx] = cleared
+                }
+            }
+            persistLogs()
+            recompute()
+            pushAriaTags()
+        }
+
+        // Fill missing days between start and end with light flow when the gap is short (≤2 empty days).
+        if let gap = CycleDayKey.daysBetween(startKey, dayKey), gap >= 1, gap <= 10 {
+            for offset in 0...gap {
+                guard let key = CycleDayKey.addDays(startKey, offset) else { continue }
+                if logs.first(where: { $0.dayKey == key }) == nil {
+                    upsertLog(CycleDayLog(dayKey: key, flow: .light, source: "manual"))
+                }
+            }
+        }
+
+        let episodes = MenstrualCycleEngine.buildPeriodEpisodes(from: logs)
+        let episode = episodes.last(where: { $0.endDayKey == dayKey || $0.startDayKey == startKey })
+            ?? episodes.last
+            ?? PeriodEpisode(
+                id: startKey,
+                startDayKey: startKey,
+                endDayKey: dayKey,
+                peakFlow: endLog.flow,
+                dayCount: max(1, (CycleDayKey.daysBetween(startKey, dayKey) ?? 0) + 1)
+            )
+
+        learnPeriodLength(from: episode)
+        pendingPeriodEndEpisode = episode
+        let msg = "Period finished · \(episode.dayCount) day\(episode.dayCount == 1 ? "" : "s") · how was it?"
+        lastModelUpdateMessage = msg
+        refreshAnalyst(lastAction: "period_ended")
+        return episode
+    }
+
+    /// Convenience: end period today (last bleeding day = today if bleeding, else yesterday if it bled).
+    @discardableResult
+    func confirmPeriodEndedToday() -> String {
+        let today = CycleDayKey.key()
+        let todayBleeding = logs.first(where: { $0.dayKey == today })?.flow.isBleeding == true
+            || snapshot.isCurrentlyBleeding
+        let endKey: String
+        if todayBleeding {
+            endKey = today
+        } else if let y = CycleDayKey.addDays(today, -1),
+                  logs.first(where: { $0.dayKey == y })?.flow.isBleeding == true {
+            endKey = y
+        } else {
+            endKey = today
+        }
+        _ = logPeriodEnd(on: endKey)
+        return lastModelUpdateMessage ?? "Period finished · model refreshed"
+    }
+
+    /// Submit ending-screen feedback and continuously update coaching preferences.
+    @discardableResult
+    func submitPeriodEndFeedback(_ feedback: PeriodEndFeedback) -> String {
+        if let idx = periodEndFeedbacks.firstIndex(where: { $0.id == feedback.id }) {
+            periodEndFeedbacks[idx] = feedback
+        } else {
+            periodEndFeedbacks.append(feedback)
+        }
+        if periodEndFeedbacks.count > 36 {
+            periodEndFeedbacks = Array(periodEndFeedbacks.suffix(36))
+        }
+        persistPeriodEndFeedback()
+
+        var prefs = coachingPreferences
+        prefs.learn(from: feedback)
+        coachingPreferences = prefs
+        persistCoachingPrefs()
+
+        // Soft-learn average period length toward this episode.
+        if feedback.dayCount >= 2, feedback.dayCount <= 10 {
+            updateSettings {
+                let prior = Double($0.averagePeriodOverride ?? Int(snapshot.periodLengthMedian.rounded()))
+                let blended = prior * 0.55 + Double(feedback.dayCount) * 0.45
+                $0.averagePeriodOverride = max(2, min(10, Int(blended.rounded())))
+            }
+        }
+
+        pendingPeriodEndEpisode = nil
+        pushAriaTags()
+        refreshAnalyst(lastAction: "period_end_feedback")
+
+        let summary = prefs.lastLearnedSummary ?? "Thanks — coaching updated"
+        lastModelUpdateMessage = summary
+        lastTeachingMessage = summary
+        AriaContextStore.shared.addInsight("Period feedback: \(summary)")
+        return summary
+    }
+
+    func dismissPeriodEndFeedback() {
+        pendingPeriodEndEpisode = nil
+    }
+
+    private func learnPeriodLength(from episode: PeriodEpisode) {
+        guard episode.dayCount >= 2, episode.dayCount <= 10 else { return }
+        var s = settings
+        let prior = Double(s.averagePeriodOverride ?? Int(snapshot.periodLengthMedian.rounded()))
+        let blended = prior * 0.6 + Double(episode.dayCount) * 0.4
+        s.averagePeriodOverride = max(2, min(10, Int(blended.rounded())))
+        settings = s
+        persistSettings()
+    }
+
     /// Delete a single day log (day edit wipe).
     func deleteLog(dayKey: String) {
         logs.removeAll { $0.dayKey == dayKey }
@@ -186,9 +337,14 @@ final class MenstrualHealthStore: ObservableObject {
     func wipeSelfCycleData(includingSettings: Bool = false) {
         logs = []
         predictionFeedback = []
+        periodEndFeedbacks = []
+        coachingPreferences = .neutral
+        pendingPeriodEndEpisode = nil
         lastAdvertisedNextPeriodMedian = nil
         defaults.removeObject(forKey: feedbackKey)
         defaults.removeObject(forKey: advertisedKey)
+        defaults.removeObject(forKey: periodEndFeedbackKey)
+        defaults.removeObject(forKey: coachingPrefsKey)
         persistLogs()
         if includingSettings {
             settings = .default
@@ -666,6 +822,7 @@ final class MenstrualHealthStore: ObservableObject {
     func pushAriaTags() {
         if settings.enabled, settings.shareWithAria {
             AriaContextStore.shared.applyCycleSnapshot(snapshot)
+            AriaContextStore.shared.applyPeriodCoachingPreferences(coachingPreferences)
         } else {
             AriaContextStore.shared.clearCycleTags()
         }
@@ -691,6 +848,10 @@ final class MenstrualHealthStore: ObservableObject {
                 lines.append("Self day in cycle: \(d)")
             }
             lines.append(snapshot.trainingNote)
+            if coachingPreferences.sampleCount > 0 {
+                let directive = coachingPreferences.coachingDirective
+                if !directive.isEmpty { lines.append(directive) }
+            }
         }
         if partnerSettings.enabled, partnerSettings.consentAcknowledged, partnerSettings.shareWithAria {
             lines.append("Partner (\(partnerSettings.displayName)) phase: \(partnerSnapshot.phase.label)")
@@ -741,6 +902,18 @@ final class MenstrualHealthStore: ObservableObject {
     private func persistForecasts() {
         if let data = try? JSONEncoder().encode(forecastArchive) {
             defaults.set(data, forKey: forecastKey)
+        }
+    }
+
+    private func persistPeriodEndFeedback() {
+        if let data = try? JSONEncoder().encode(periodEndFeedbacks) {
+            defaults.set(data, forKey: periodEndFeedbackKey)
+        }
+    }
+
+    private func persistCoachingPrefs() {
+        if let data = try? JSONEncoder().encode(coachingPreferences) {
+            defaults.set(data, forKey: coachingPrefsKey)
         }
     }
 

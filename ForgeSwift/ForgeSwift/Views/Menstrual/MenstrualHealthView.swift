@@ -48,6 +48,8 @@ struct MenstrualHealthView: View {
     @State private var showAccuracyExplainer = false
     @State private var feedbackOffset = 1
     @State private var modelToast: String?
+    @State private var showPeriodEndFeedback = false
+    @State private var periodEndEpisode: PeriodEpisode?
 
     private var accent: Color {
         let phase = pane == .me ? cycleStore.snapshot.phase : cycleStore.partnerSnapshot.phase
@@ -161,6 +163,23 @@ struct MenstrualHealthView: View {
         .sheet(isPresented: $showAccuracyExplainer) {
             CycleAccuracyExplainerSheet(report: cycleStore.accuracyReport)
                 .preferredColorScheme(.dark)
+        }
+        .sheet(isPresented: $showPeriodEndFeedback, onDismiss: {
+            cycleStore.dismissPeriodEndFeedback()
+            periodEndEpisode = nil
+        }) {
+            if let episode = periodEndEpisode ?? cycleStore.pendingPeriodEndEpisode {
+                PeriodEndFeedbackView(episode: episode) {
+                    showPeriodEndFeedback = false
+                    periodEndEpisode = nil
+                }
+                .preferredColorScheme(.dark)
+            }
+        }
+        .onChange(of: cycleStore.pendingPeriodEndEpisode) { _, episode in
+            guard let episode else { return }
+            periodEndEpisode = episode
+            showPeriodEndFeedback = true
         }
         .onChange(of: cycleStore.lastModelUpdateMessage) { _, msg in
             guard let msg else { return }
@@ -565,35 +584,74 @@ struct MenstrualHealthView: View {
 
     private var predictionFeedbackCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("CORRECT PREDICTION")
+            Text("LOG START & END")
                 .forgeSectionLabel()
-            Text("Teach the model in two taps. Every confirmed start sharpens your personal forecast.")
+            Text("Confirm start and finish. Starts sharpen forecasts; Period finished opens a short “How was your period?” check-in so ARIA learns what helps you — on-device only, never sold.")
                 .font(FDS.TypeScale.body(12))
                 .foregroundColor(.textSecondary)
 
-            Button {
-                let msg = cycleStore.confirmPeriodStartedToday(
-                    flow: selectedFlow == .none ? .medium : selectedFlow
-                )
-                cycleStore.refresh(from: store)
-                cycleStore.refreshAnalyst(lastAction: "period_started_today")
-                showToast(msg)
-            } label: {
-                Label("Period started today", systemImage: "flag.fill")
-                    .font(FDS.TypeScale.label(15))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        LinearGradient(
-                            colors: [Color(hex: "F87171"), Color(hex: "EF4444")],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
+            HStack(spacing: 10) {
+                Button {
+                    let msg = cycleStore.confirmPeriodStartedToday(
+                        flow: selectedFlow == .none ? .medium : selectedFlow
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    cycleStore.refresh(from: store)
+                    cycleStore.refreshAnalyst(lastAction: "period_started_today")
+                    showToast(msg)
+                } label: {
+                    Label("Period start", systemImage: "flag.fill")
+                        .font(FDS.TypeScale.label(14))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(hex: "F87171"), Color(hex: "EF4444")],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    let msg = cycleStore.confirmPeriodEndedToday()
+                    cycleStore.refresh(from: store)
+                    cycleStore.refreshAnalyst(lastAction: "period_ended_today")
+                    showToast(msg)
+                    if let episode = cycleStore.pendingPeriodEndEpisode {
+                        periodEndEpisode = episode
+                        showPeriodEndFeedback = true
+                    }
+                } label: {
+                    Label("Period finished", systemImage: "checkmark.flag.fill")
+                        .font(FDS.TypeScale.label(14))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(hex: "A78BFA"), Color(hex: "6366F1")],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+
+            if cycleStore.coachingPreferences.sampleCount > 0,
+               let summary = cycleStore.coachingPreferences.lastLearnedSummary {
+                Text(summary)
+                    .font(FDS.TypeScale.body(12))
+                    .foregroundStyle(Color(hex: "A855F7"))
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(hex: "A855F7").opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
 
             HStack {
                 Text("Offset days")
@@ -1023,42 +1081,70 @@ struct MenstrualHealthView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
 
-                HStack(spacing: 10) {
-                    Button { saveToday() } label: {
-                        Text("Save log")
-                            .font(FDS.TypeScale.label(15))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(
-                                LinearGradient(
-                                    colors: [Color(hex: "F87171"), Color(hex: "EF4444")],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
+                Button { saveToday() } label: {
+                    Text("Save log")
+                        .font(FDS.TypeScale.label(15))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(hex: "F87171"), Color(hex: "EF4444")],
+                                startPoint: .leading,
+                                endPoint: .trailing
                             )
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
 
+                HStack(spacing: 10) {
                     Button {
                         cycleStore.logPeriodStart(flow: selectedFlow == .none ? .medium : selectedFlow)
                         cycleStore.refresh(from: store)
                         FDS.notificationHaptic(.success)
+                        showToast("Period start logged")
                     } label: {
-                        VStack(spacing: 2) {
+                        VStack(spacing: 4) {
                             Image(systemName: "flag.fill")
-                                .font(.system(size: 14))
+                                .font(.system(size: 14, weight: .semibold))
                             Text("Period start")
-                                .font(FDS.TypeScale.micro(10))
+                                .font(FDS.TypeScale.micro(11))
+                                .multilineTextAlignment(.center)
                         }
                         .foregroundStyle(Color(hex: "EF4444"))
-                        .frame(width: 88)
+                        .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(Color(hex: "EF4444").opacity(0.12))
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Log period start")
+
+                    Button {
+                        let msg = cycleStore.confirmPeriodEndedToday()
+                        cycleStore.refresh(from: store)
+                        showToast(msg)
+                        if let episode = cycleStore.pendingPeriodEndEpisode {
+                            periodEndEpisode = episode
+                            showPeriodEndFeedback = true
+                        }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: "checkmark.flag.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("Period finished")
+                                .font(FDS.TypeScale.micro(11))
+                                .multilineTextAlignment(.center)
+                        }
+                        .foregroundStyle(Color(hex: "6366F1"))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(hex: "6366F1").opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Log period finished and answer how it went")
                 }
             }
         }

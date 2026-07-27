@@ -21,17 +21,16 @@ struct ForgeSwiftApp: App {
                 .preferredColorScheme(.dark)
                 .onAppear {
                     // Re-sync when UI is up (WCSession may not be activated in init).
-                    WatchAriaConfigBridge.sync(
-                        firstName: store.userProfile.name
-                            .split(separator: " ").first.map(String.init)
-                    )
-                    // Best-effort: if a watch is already reachable, nudge it again
-                    // after a short delay so dual-sim launches still get config.
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        WatchAriaConfigBridge.sync(
-                            firstName: store.userProfile.name
-                                .split(separator: " ").first.map(String.init)
-                        )
+                    let firstName = store.userProfile.name
+                        .split(separator: " ").first.map(String.init)
+                    WatchAriaConfigBridge.sync(firstName: firstName)
+                    // Dual-sim / companion launches: watch often boots a few seconds
+                    // after the phone. Retry so ARIA URL + name land after WCSession
+                    // becomes reachable (App Groups are unreliable in Simulator).
+                    for delay in [1.5, 4.0, 8.0] {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                            WatchAriaConfigBridge.sync(firstName: firstName)
+                        }
                     }
                 }
                 .onChange(of: store.userProfile.name) { _, name in

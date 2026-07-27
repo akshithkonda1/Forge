@@ -1629,6 +1629,13 @@ struct MusicControlBar: View {
 
     private var accent: Color { controller.service.accentColor }
 
+    private func artworkIconOpacity(for phase: AsyncImagePhase) -> Double {
+        if case .empty = phase {
+            return 0
+        }
+        return 1
+    }
+
     var body: some View {
         Group {
             if let track = controller.nowPlaying {
@@ -1658,7 +1665,7 @@ struct MusicControlBar: View {
                             Image(systemName: controller.service.iconName)
                                 .font(.system(size: 17, weight: .bold))
                                 .foregroundColor(.white)
-                                .opacity(phase == .empty ? 0 : 1)
+                                .opacity(artworkIconOpacity(for: phase))
                         )
                     }
                 }

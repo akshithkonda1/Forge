@@ -127,6 +127,10 @@ struct MainTabView: View {
     @Namespace private var namespace
     @State private var previousTab: TabItem = .home
     @State private var dragOffset: CGFloat = 0
+    /// Cycle Health is hosted on the shell so Profile/Settings deep links always work
+    /// even when Home is not the active tab content.
+    @State private var showCycleHealth = false
+    @State private var cycleInitialPane: MenstrualHealthView.Pane = .me
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -160,7 +164,7 @@ struct MainTabView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.bottom, 82)
+            .padding(.bottom, 100)
             .offset(y: dragOffset * 0.08)
             .transition(.asymmetric(
                 insertion: .move(edge: tabTransitionEdge(from: previousTab, to: store.activeTab))
@@ -177,10 +181,49 @@ struct MainTabView: View {
         .onChange(of: store.activeTab) { old, new in
             previousTab = old
         }
+        .onChange(of: store.pendingCycleHealthOpen) { _, open in
+            guard open else { return }
+            presentCycleHealth()
+        }
+        .onAppear {
+            if store.pendingCycleHealthOpen {
+                presentCycleHealth()
+            }
+        }
+        .fullScreenCover(isPresented: $showCycleHealth) {
+            NavigationStack {
+                MenstrualHealthView(initialPane: cycleInitialPane)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button {
+                                showCycleHealth = false
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 22))
+                                    .symbolRenderingMode(.hierarchical)
+                                    .foregroundStyle(Color.textSecondary)
+                            }
+                            .accessibilityLabel("Close Cycle Health")
+                        }
+                    }
+            }
+        }
+    }
+
+    private func presentCycleHealth() {
+        if store.pendingCyclePane == "partner" {
+            cycleInitialPane = .partner
+        } else {
+            cycleInitialPane = .me
+        }
+        showCycleHealth = true
+        store.pendingCycleHealthOpen = false
+        store.pendingCyclePane = nil
     }
     
     private func tabTransitionEdge(from: TabItem, to: TabItem) -> Edge {
-        let tabs: [TabItem] = [.home, .workout, .chat, .lifestyle, .sleep, .progress, .profile]
+        // ARIA is the true center tab (index 3 of 7).
+        let tabs: [TabItem] = [.home, .workout, .lifestyle, .chat, .sleep, .progress, .profile]
         guard let fromIndex = tabs.firstIndex(of: from),
               let toIndex = tabs.firstIndex(of: to) else {
             return .trailing
@@ -196,62 +239,74 @@ struct ForgeBottomNav: View {
     var namespace: Namespace.ID
     @Binding var dragOffset: CGFloat
     
-    /// Home · Workout · Chat(ARIA) · Lifestyle · Sleep · Progress · Profile
-    private let tabs: [TabItem] = [.home, .workout, .chat, .lifestyle, .sleep, .progress, .profile]
+    /// Home · Train · Life · ARIA (center) · Sleep · Stats · You
+    private let tabs: [TabItem] = [.home, .workout, .lifestyle, .chat, .sleep, .progress, .profile]
     
     @State private var isPressed = false
     @State private var pressedTab: TabItem?
 
     var body: some View {
         VStack(spacing: 0) {
-            // Refined top edge with shimmer
-            ZStack {
-                // Base separator
-                Rectangle()
-                    .fill(Color.white.opacity(0.08))
-                    .frame(height: 1)
-                
-                // Shimmer highlight
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0),
-                        Color.white.opacity(0.15),
-                        Color.white.opacity(0)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(height: 1)
-                .blur(radius: 0.5)
-            }
+            // Extra headroom so the raised ARIA FAB isn't clipped.
+            Color.clear.frame(height: 22)
 
-            HStack(spacing: 0) {
-                ForEach(tabs, id: \.self) { tab in
-                    if tab == .chat {
-                        ARIATabButton(namespace: namespace)
-                    } else {
-                        RegularForgeTab(tab: tab, namespace: namespace)
+            ZStack(alignment: .bottom) {
+                VStack(spacing: 0) {
+                    // Refined top edge with shimmer
+                    ZStack {
+                        Rectangle()
+                            .fill(Color.white.opacity(0.08))
+                            .frame(height: 1)
+
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0),
+                                Color.white.opacity(0.15),
+                                Color.white.opacity(0)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(height: 1)
+                        .blur(radius: 0.5)
                     }
-                }
-            }
-            .frame(height: 62)
-            .padding(.horizontal, 6)
-            .padding(.top, 2)
-            .background(
-                ZStack {
-                    Color(hex: "060608").opacity(0.88)
-                    LinearGradient.premiumChrome
-                    Color.white.opacity(0.015)
-                        .blendMode(.overlay)
-                }
-                .background(.ultraThinMaterial.opacity(0.45))
-            )
 
-            ZStack {
-                Color(hex: "060608")
-                Color.white.opacity(0.015)
+                    HStack(spacing: 0) {
+                        ForEach(tabs, id: \.self) { tab in
+                            if tab == .chat {
+                                // Spacer for the elevated ARIA FAB slot
+                                Color.clear
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 62)
+                            } else {
+                                RegularForgeTab(tab: tab, namespace: namespace)
+                            }
+                        }
+                    }
+                    .frame(height: 62)
+                    .padding(.horizontal, 6)
+                    .padding(.top, 2)
+                    .background(
+                        ZStack {
+                            Color(hex: "060608").opacity(0.88)
+                            LinearGradient.premiumChrome
+                            Color.white.opacity(0.015)
+                                .blendMode(.overlay)
+                        }
+                        .background(.ultraThinMaterial.opacity(0.45))
+                    )
+
+                    ZStack {
+                        Color(hex: "060608")
+                        Color.white.opacity(0.015)
+                    }
+                    .frame(height: safeAreaBottom)
+                }
+
+                // Raised center ARIA control (true middle of 7 tabs)
+                ARIATabButton(namespace: namespace)
+                    .offset(y: -18 - safeAreaBottom / 2)
             }
-            .frame(height: safeAreaBottom)
         }
         .overlay(alignment: .top) {
             LinearGradient(
@@ -260,9 +315,10 @@ struct ForgeBottomNav: View {
                 endPoint: .trailing
             )
             .frame(height: 0.6)
+            .padding(.top, 22)
         }
         .shadow(color: .black.opacity(0.55), radius: 28, y: -10)
-        .shadow(color: Color.ember.opacity(store.activeTab == .chat ? 0.14 : 0.04), radius: 24, y: -6)
+        .shadow(color: Color.ember.opacity(store.activeTab == .chat ? 0.18 : 0.05), radius: 24, y: -6)
         .gesture(
             DragGesture()
                 .onChanged { gesture in
@@ -351,11 +407,11 @@ struct RegularForgeTab: View {
                 }
                 .frame(height: 32)
 
-                // Label with refined typography
-                Text(tab.label)
-                    .font(.system(size: 9, weight: isActive ? .bold : .medium, design: .rounded))
+                // Compact labels — 7 tabs need tight typography that still reads.
+                Text(tab.shortLabel)
+                    .font(.system(size: 8.5, weight: isActive ? .bold : .medium, design: .rounded))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    .minimumScaleFactor(0.7)
                     .foregroundStyle(
                         isActive ?
                         LinearGradient(
@@ -364,16 +420,18 @@ struct RegularForgeTab: View {
                             endPoint: .trailing
                         ) :
                         LinearGradient(
-                            colors: [Color.white.opacity(0.35), Color.white.opacity(0.25)],
+                            colors: [Color.white.opacity(0.42), Color.white.opacity(0.30)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
                     )
-                    .tracking(isActive ? 0.4 : 0.2)
+                    .tracking(isActive ? 0.25 : 0.1)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 62)
             .contentShape(Rectangle())
+            .accessibilityLabel(tab.label)
+            .accessibilityAddTraits(isActive ? .isSelected : [])
         }
         .buttonStyle(.plain)
         .scaleEffect(pressed ? 0.93 : 1.0)
@@ -480,14 +538,14 @@ struct ARIATabButton: View {
                             )
                     }
 
-                    // Main orb with depth and dimension
+                    // Main orb with depth and dimension — raised FAB size
                     ZStack {
                         // Shadow layer for depth
                         Circle()
-                            .fill(Color.black.opacity(0.4))
-                            .frame(width: 48, height: 48)
-                            .blur(radius: 8)
-                            .offset(y: 3)
+                            .fill(Color.black.opacity(0.45))
+                            .frame(width: 56, height: 56)
+                            .blur(radius: 10)
+                            .offset(y: 4)
                         
                         // Main gradient orb
                         Circle()
@@ -514,7 +572,7 @@ struct ARIATabButton: View {
                                     endAngle: .degrees(particlePhase + 360)
                                 )
                             )
-                            .frame(width: 48, height: 48)
+                            .frame(width: 56, height: 56)
                             .overlay(
                                 Circle()
                                     .fill(
@@ -553,7 +611,7 @@ struct ARIATabButton: View {
                         
                         // Icon with premium styling
                         Image(systemName: isVoiceMode ? "waveform" : "message.fill")
-                            .font(.system(size: isVoiceMode ? 18 : 16, weight: .bold))
+                            .font(.system(size: isVoiceMode ? 20 : 18, weight: .bold))
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [
@@ -571,11 +629,11 @@ struct ARIATabButton: View {
                     .scaleEffect(pressed ? 0.88 : 1.0)
                     .animation(.spring(response: 0.3, dampingFraction: 0.6), value: pressed)
                 }
-                .frame(height: 32)
+                .frame(height: 40)
 
                 // Label with premium typography
                 Text(isVoiceMode ? "Voice" : "ARIA")
-                    .font(.system(size: 10, weight: isActive ? .bold : .semibold, design: .rounded))
+                    .font(.system(size: 9, weight: isActive ? .bold : .semibold, design: .rounded))
                     .foregroundStyle(
                         isVoiceMode ?
                         LinearGradient(
@@ -607,9 +665,11 @@ struct ARIATabButton: View {
                         y: 1
                     )
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 62)
+            .frame(width: 72)
+            .frame(height: 72)
             .contentShape(Rectangle())
+            .accessibilityLabel(isVoiceMode ? "ARIA Voice" : "ARIA")
+            .accessibilityAddTraits(isActive ? .isSelected : [])
         }
         .buttonStyle(.plain)
         .simultaneousGesture(
@@ -668,6 +728,19 @@ struct ARIATabButton: View {
 // Each needs: label: String, systemImage: String, systemImageFilled: String
 
 extension TabItem {
+    /// Short labels for the 7-tab bar so nothing clips on small phones.
+    var shortLabel: String {
+        switch self {
+        case .home: return "Home"
+        case .workout: return "Train"
+        case .chat: return "ARIA"
+        case .lifestyle: return "Life"
+        case .sleep: return "Sleep"
+        case .progress: return "Stats"
+        case .profile: return "You"
+        }
+    }
+
     var systemImageFilled: String {
         switch self {
         case .home:      return "house.fill"

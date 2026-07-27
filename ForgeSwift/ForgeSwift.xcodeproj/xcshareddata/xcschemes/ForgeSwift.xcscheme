@@ -79,7 +79,14 @@
             ReferencedContainer = "container:ForgeSwift.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <!-- After iPhone launches, also launch the watch app on booted watch sims. -->
+      <!-- Collaborative mode: phone + watch. Post-action opens ForgeWatch on booted watch sims. -->
+      <EnvironmentVariables>
+         <EnvironmentVariable
+            key = "FORGE_LAUNCH_WATCH_COMPANION"
+            value = "1"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
       <PostActions>
          <ExecutionAction
             ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
