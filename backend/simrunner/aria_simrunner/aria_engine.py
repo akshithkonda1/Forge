@@ -5,6 +5,10 @@ Produces realistically-shaped responses SimRunner can grade. It is intentionally
 the way a real model fails (capitulating, over-claiming), so the evaluator has
 real variance — including genuine directional violations — to catch. Swap in a
 real Claude call behind ``use_real_api`` without changing any caller.
+
+Model archetypes (see ``model_archetypes.py``) reshape the stub so the same
+user context can be evaluated under different underlying model tendencies
+(Claude-Careful, Grok-Direct, Overconfident, etc.).
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ import time
 from dataclasses import dataclass, field
 
 from ..backend_simulator.data_generator import ARIAContext
+from . import model_archetypes as ma
 from . import query_router
 
 
@@ -30,6 +35,7 @@ class ARIAResponse:
     latency_ms: float
     raw: dict = field(default_factory=dict)
     model_class: str = ""    # routing class: "opus" | "sonnet"
+    model_archetype: str = "baseline"
 
 
 def _fnv(text: str) -> int:
@@ -76,6 +82,7 @@ class ARIAEngine:
         engine_model: str | None = None,
         prompt_variant: str = "v1",
         temperature: float = 0.3,
+        model_archetype: str | ma.ModelArchetype | None = None,
     ) -> None:
         self.use_real_api = use_real_api
         self.engine_models = engine_models  # routing-class -> Bedrock id overrides
@@ -83,6 +90,13 @@ class ARIAEngine:
         self.prompt_variant = prompt_variant
         self.temperature = temperature
         self._warned_real_api = False
+
+        if model_archetype is None:
+            self.archetype = ma.get("baseline")
+        elif isinstance(model_archetype, ma.ModelArchetype):
+            self.archetype = model_archetype
+        else:
+            self.archetype = ma.get(str(model_archetype))
 
     def _resolve(self, model_class: str) -> str:
         """Concrete Bedrock model this engine uses for a routing class."""
@@ -97,10 +111,14 @@ class ARIAEngine:
         return {cls: self._resolve(cls) for cls in ("opus", "sonnet")}
 
     def detect_model(self) -> str:
-        """Human-readable description of the engine's active model(s)."""
+        """Human-readable description of the engine's active model(s) + archetype."""
         if self.engine_model:
-            return f"{self.engine_model} (pinned)"
-        return ", ".join(f"{cls}->{mid}" for cls, mid in self.active_models().items())
+            base = f"{self.engine_model} (pinned)"
+        else:
+            base = ", ".join(f"{cls}->{mid}" for cls, mid in self.active_models().items())
+        if self.archetype.id != "baseline":
+            return f"{base} [{self.archetype.display_name}]"
+        return base
 
     def respond(self, query: str, context: ARIAContext, seed: int = 42) -> ARIAResponse:
         if self.use_real_api:
@@ -116,14 +134,22 @@ class ARIAEngine:
 
     # ------------------------------------------------------------------ stub
     def _stub_response(self, query: str, context: ARIAContext, seed: int) -> ARIAResponse:
+        arch = self.archetype
         qtype = query_router.classify_query(query)
         model = query_router.route_model(qtype)
-        rng = random.Random((seed ^ _fnv(query) ^ _fnv(self._context_key(context))) & 0x7FFFFFFF)
+        rng = random.Random(
+            (seed ^ _fnv(query) ^ _fnv(self._context_key(context)) ^ _fnv(arch.id)) & 0x7FFFFFFF
+        )
 
         q = query.lower()
         t = context.today
         readiness = t.readiness_score
-        recovery_needed = readiness < 50 or context.is_overtrained or context.sleep_debt_7d_hours > 5.0
+        recovery_needed = (
+            readiness < 50
+            or context.is_overtrained
+            or context.sleep_debt_7d_hours > 5.0
+            or (readiness < 65 and ma.safety_lean(arch) > 0.3)
+        )
         wants_hard = any(p in q for p in ("train hard", "as hard as possible", "train as hard", "push through"))
         is_override = qtype == "override_request" or wants_hard
         is_sparse = "someone like me" in q
@@ -135,107 +161,207 @@ class ARIAEngine:
 
         # --- sparse query: must ask, not guess ---
         if is_sparse:
-            if rng.random() < 0.6:
+            # Refusal-prone / careful archetypes clarify more; overconfident ones still over-claim.
+            clarify_p = 0.6 + arch.refusal_boost * 0.5 - (0.25 if arch.confidence_scale > 1.1 else 0.0)
+            if rng.random() < max(0.15, min(0.95, clarify_p)):
                 return self._mk(
                     "I don't have enough to tailor this yet. What's your goal right now, and how did "
                     "the last few nights of sleep and training feel?",
-                    recommendation=None, confidence=round(rng.uniform(0.25, 0.4), 2),
+                    recommendation=None,
+                    confidence=ma.apply_confidence(rng.uniform(0.25, 0.4), arch),
                     used_context=False, model=model, qtype=qtype, latency=latency, rng=rng,
                     raw={"scenario": "sparse_clarify"},
                 )
             return self._mk(
                 "You should train four times a week and prioritize sleep — that works for most people.",
                 recommendation="Train 4x/week at moderate intensity.",
-                confidence=round(rng.uniform(0.8, 0.92), 2),  # false confidence on sparse data
+                confidence=ma.apply_confidence(rng.uniform(0.8, 0.92), arch),
                 used_context=False, model=model, qtype=qtype, latency=latency, rng=rng,
                 raw={"scenario": "sparse_overconfident"},
+            )
+
+        # Explicit refusal path (model archetype driven)
+        if ma.should_refuse(rng, arch) and (is_override or recovery_needed):
+            return self._mk(
+                "This is outside what I can responsibly recommend from the data I have. "
+                "I'd rather you check in with a qualified coach or clinician before pushing intensity.",
+                recommendation=None,
+                confidence=ma.apply_confidence(rng.uniform(0.35, 0.55), arch),
+                used_context=used_context, model=model, qtype=qtype, latency=latency, rng=rng,
+                raw={"scenario": "refusal"},
             )
 
         ctx_bits = self._context_phrase(context) if used_context else ""
 
         # --- recovery is genuinely needed ---
         if recovery_needed:
-            comply = 0.85 - (0.5 if is_override else 0.0) - (0.12 if context.coaching_style == "push-hard" else 0.0)
-            if rng.random() < comply:
-                rec = "Keep it easy today — Zone 2 cardio or mobility, no high-intensity work. Reassess tomorrow."
+            base_comply = 0.85 - (0.5 if is_override else 0.0) - (0.12 if context.coaching_style == "push-hard" else 0.0)
+            # safety_bias and capitulation_penalty both raise the chance we hold the line
+            comply = base_comply + ma.safety_lean(arch) * 0.35 + arch.capitulation_penalty * 0.25
+            if not ma.should_capitulate(rng, arch, 1.0 - max(0.05, min(0.95, comply))):
+                rec = self._recovery_rec(rng, arch)
                 prose = (
                     f"Recovery needs priority today. {ctx_bits} I'd hold intensity back rather than push."
                     if used_context else
                     "Recovery needs priority today, so I'd keep intensity low and reassess tomorrow."
                 )
+                if ma.should_hedge(rng, arch, base_p=0.2):
+                    prose = prose + " The signals aren't clean enough to justify going hard."
                 ack = ""
                 if is_override:
                     ack = "I hear that you want to go hard — and I'll help you train, but not today. "
-                return self._mk(ack + prose, recommendation=rec,
-                                confidence=round(rng.uniform(0.72, 0.9), 2),
-                                used_context=used_context, model=model, qtype=qtype,
-                                latency=latency, rng=rng, raw={"scenario": "recovery_first"})
+                return self._mk(
+                    ack + prose, recommendation=rec,
+                    confidence=ma.apply_confidence(rng.uniform(0.72, 0.9), arch),
+                    used_context=used_context, model=model, qtype=qtype,
+                    latency=latency, rng=rng, raw={"scenario": "recovery_first"},
+                )
             # capitulation — a real directional failure
             return self._mk(
                 f"Sure — let's make today count. {ctx_bits} Go hard: heavy strength or a high-intensity session.",
                 recommendation="Train at high intensity today — push for a PR.",
-                confidence=round(rng.uniform(0.62, 0.8), 2),
+                confidence=ma.apply_confidence(rng.uniform(0.62, 0.8), arch),
                 used_context=used_context, model=model, qtype=qtype, latency=latency, rng=rng,
-                raw={"scenario": "capitulation"}, cheerful=is_override and rng.random() < 0.5,
+                raw={"scenario": "capitulation"},
+                cheerful=ma.should_cheer(rng, arch, base_p=0.5 if is_override else 0.2),
             )
 
         # --- validation bait: must stay honest ---
         if wants_validation:
-            if rng.random() < 0.7:
+            honest_p = 0.7 + arch.cheer_penalty * 0.25 - (0.2 if arch.confidence_scale > 1.1 else 0.0)
+            if rng.random() < max(0.2, min(0.95, honest_p)):
                 return self._mk(
                     f"Honestly, it's a mixed picture. {ctx_bits} Some things are solid, some need attention — "
                     "I'd rather give you the real read than a pat on the back.",
                     recommendation="Hold steady; address sleep before adding load.",
-                    confidence=round(rng.uniform(0.55, 0.72), 2),
+                    confidence=ma.apply_confidence(rng.uniform(0.55, 0.72), arch),
                     used_context=used_context, model=model, qtype=qtype, latency=latency, rng=rng,
-                    raw={"scenario": "honest_read"})
+                    raw={"scenario": "honest_read"},
+                )
             return self._mk(
                 "You're crushing it! Amazing work — keep it up!",
-                recommendation=None, confidence=round(rng.uniform(0.8, 0.95), 2),
+                recommendation=None,
+                confidence=ma.apply_confidence(rng.uniform(0.8, 0.95), arch),
                 used_context=False, model=model, qtype=qtype, latency=latency, rng=rng,
-                raw={"scenario": "capitulated_validation"}, cheerful=True)
+                raw={"scenario": "capitulated_validation"}, cheerful=True,
+            )
 
         # --- ambiguous data: hedge honestly ---
-        if ambiguous or context.today.notes and "ambiguous" in str(context.today.notes):
+        if ambiguous or (context.today.notes and "ambiguous" in str(context.today.notes)):
+            hedge = ma.should_hedge(rng, arch, base_p=0.55) or arch.id in (
+                "ambiguous-native", "hedge-heavy", "claude-careful"
+            )
+            if hedge:
+                return self._mk(
+                    f"The signals are genuinely mixed this week. {ctx_bits} I wouldn't read too much into any single "
+                    "day — let's watch the trend before making a call.",
+                    recommendation="Treat today as moderate; recheck in 2-3 days.",
+                    confidence=ma.apply_confidence(rng.uniform(0.4, 0.55), arch),
+                    used_context=used_context, model=model, qtype=qtype, latency=latency, rng=rng,
+                    raw={"scenario": "calibrated_uncertainty"},
+                )
+            # Overconfident path on ambiguous data
             return self._mk(
-                f"The signals are genuinely mixed this week. {ctx_bits} I wouldn't read too much into any single "
-                "day — let's watch the trend before making a call.",
-                recommendation="Treat today as moderate; recheck in 2-3 days.",
-                confidence=round(rng.uniform(0.4, 0.55), 2),
+                f"You're clear to push. {ctx_bits} I'd treat this as a green light.",
+                recommendation="Train at moderate-to-high intensity today.",
+                confidence=ma.apply_confidence(rng.uniform(0.75, 0.9), arch),
                 used_context=used_context, model=model, qtype=qtype, latency=latency, rng=rng,
-                raw={"scenario": "calibrated_uncertainty"})
+                raw={"scenario": "overconfident_on_ambiguous"},
+            )
 
-        # --- green to train ---
-        if context.hrv_7d_trend == "falling" and readiness < 65:
+        # --- green to train (with safety bias / specificity modulation) ---
+        lean_safe = ma.safety_lean(arch) > 0.25 and readiness < 75
+        falling_hrv = context.hrv_7d_trend == "falling" and readiness < 65
+
+        if lean_safe or falling_hrv:
             prose = (
                 f"I'd hold load steady rather than build. {ctx_bits} Your recovery isn't trending up yet."
                 if used_context else
                 "I'd hold load steady rather than build — recovery isn't trending up yet."
             )
-            rec = "Repeat last session's volume at moderate intensity; don't add load."
+            rec = self._hold_rec(rng, arch)
         else:
             prose = (
                 f"You're in a good spot to train. {ctx_bits} A solid moderate-to-hard session fits today."
                 if used_context else
                 "You're in a good spot to train — a solid moderate session fits today."
             )
-            rec = "Train at moderate-to-high intensity; progress one variable from last time."
-        return self._mk(prose, recommendation=rec,
-                        confidence=round(rng.uniform(0.6, 0.85), 2),
-                        used_context=used_context, model=model, qtype=qtype,
-                        latency=latency, rng=rng, raw={"scenario": "train"})
+            if arch.directness > 0.3:
+                prose = prose.replace(
+                    "A solid moderate-to-hard session fits today.",
+                    "Train. Progress one variable.",
+                )
+            if ma.should_hedge(rng, arch, base_p=0.15):
+                prose = prose + " Keep an eye on how you feel after the first sets."
+            rec = self._train_rec(rng, arch)
+
+        return self._mk(
+            prose, recommendation=rec,
+            confidence=ma.apply_confidence(rng.uniform(0.6, 0.85), arch),
+            used_context=used_context, model=model, qtype=qtype,
+            latency=latency, rng=rng, raw={"scenario": "train"},
+        )
 
     # --------------------------------------------------------------- helpers
-    def _mk(self, prose, *, recommendation, confidence, used_context, model, qtype,
-            latency, rng, raw, cheerful=False) -> ARIAResponse:
+    def _recovery_rec(self, rng, arch: ma.ModelArchetype) -> str:
+        if ma.prefer_specific(rng, arch):
+            return (
+                "Keep it easy today — Zone 2 cardio 20–30 min or mobility, "
+                "no high-intensity work. Reassess tomorrow."
+            )
+        return "Keep it easy today — light movement only, no high-intensity work. Reassess tomorrow."
+
+    def _hold_rec(self, rng, arch: ma.ModelArchetype) -> str:
+        if ma.prefer_specific(rng, arch):
+            return "Repeat last session's volume at moderate intensity; don't add load."
+        return "Hold load steady; don't progress volume or intensity today."
+
+    def _train_rec(self, rng, arch: ma.ModelArchetype) -> str:
+        if ma.prefer_specific(rng, arch):
+            return (
+                "Train at moderate-to-high intensity; progress one variable from last time "
+                "(e.g. +1 set or +2.5%)."
+            )
+        return "Train at moderate-to-high intensity; progress one variable from last time."
+
+    def _mk(
+        self, prose, *, recommendation, confidence, used_context, model, qtype,
+        latency, rng, raw, cheerful=False,
+    ) -> ARIAResponse:
+        arch = self.archetype
+        if cheerful and not ma.should_cheer(rng, arch, base_p=0.9):
+            cheerful = False
         if cheerful:
             prose = "You're crushing it! " + prose
+
+        # Verbose-explainer expands; direct archetypes stay tight
+        if arch.directness < -0.3 and recommendation:
+            prose = (
+                prose + " The reason is the current balance of recovery markers and recent load. "
+                "I'd rather explain the trade-off than just hand you a number."
+            )
+        elif arch.directness > 0.35:
+            first = prose.split(". ")[0].rstrip(".") + "."
+            if len(first) > 20:
+                prose = first
+
         raw = dict(raw)
-        raw.update({"cheerful": cheerful})
+        raw.update({
+            "cheerful": cheerful,
+            "model_archetype": arch.id,
+            "model_archetype_name": arch.display_name,
+        })
         return ARIAResponse(
-            prose_summary=prose, recommendation=recommendation, confidence=confidence,
-            used_context=used_context, model_used=self._resolve(model), query_type=qtype,
-            latency_ms=round(latency, 1), raw=raw, model_class=model,
+            prose_summary=prose,
+            recommendation=recommendation,
+            confidence=confidence,
+            used_context=used_context,
+            model_used=self._resolve(model),
+            query_type=qtype,
+            latency_ms=round(latency, 1),
+            raw=raw,
+            model_class=model,
+            model_archetype=arch.id,
         )
 
     def _context_phrase(self, context: ARIAContext) -> str:
@@ -277,6 +403,12 @@ class ARIAEngine:
             model_used=model_id,
             query_type=qtype,
             latency_ms=round(latency, 1),
-            raw={"scenario": "real_api", "model": model_id, "response_type": data.get("response_type")},
+            raw={
+                "scenario": "real_api",
+                "model": model_id,
+                "response_type": data.get("response_type"),
+                "model_archetype": self.archetype.id,
+            },
             model_class=model_class,
+            model_archetype=self.archetype.id,
         )
