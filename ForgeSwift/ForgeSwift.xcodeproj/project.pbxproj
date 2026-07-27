@@ -7,8 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1NAV012F9FF867004091AA /* ForgeNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1NAV022F9FF867004091AA /* ForgeNavigation.swift */; };
-		1WC1012F9FF867004091AA /* CrossZoneConsistency.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */; };
 		1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0022F9FF867004091AA /* SexualHealthCoach.swift */; };
 		1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */; };
 		1WC0052F9FF867004091AA /* CyclePhaseCoachingDirective.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */; };
@@ -181,8 +179,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		1NAV022F9FF867004091AA /* ForgeNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeNavigation.swift; sourceTree = "<group>"; };
-		1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrossZoneConsistency.swift; sourceTree = "<group>"; };
 		1WC0022F9FF867004091AA /* SexualHealthCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCoach.swift; sourceTree = "<group>"; };
 		1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCurriculum.swift; sourceTree = "<group>"; };
 		1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseCoachingDirective.swift; sourceTree = "<group>"; };
