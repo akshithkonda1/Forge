@@ -85,6 +85,9 @@ struct ARIAContextPayload: Codable, Equatable {
         var tags: [String]
         var recentPatterns: [String]
         var goals: [String]
+        /// Biology-grounded coaching text for the user's current cycle phase, injected
+        /// into the ARIA system prompt on both the remote and local-fallback paths.
+        var cyclePhaseDirective: String?
     }
 
     struct ConversationDomain: Codable, Equatable {

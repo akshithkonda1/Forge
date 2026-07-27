@@ -1,6 +1,8 @@
 import Foundation
 import Combine
 import HealthKit
+import ActivityKit
+import ForgeCore
 
 /// Persists cycle logs, syncs HealthKit menstrual signals, exposes engine snapshot.
 /// Also holds an optional **partner** cycle (relationship sync) — never written to the user's HealthKit.
@@ -92,6 +94,11 @@ final class MenstrualHealthStore: ObservableObject {
         persistSettings()
         recompute()
         pushAriaTags()
+        Task { await ForgeNotificationScheduler.syncCycleNotifications(settings: settings, snapshot: snapshot) }
+    }
+
+    func updateCondition(_ condition: CycleCondition) {
+        updateSettings { $0.condition = condition }
     }
 
     func updatePartnerSettings(_ mutate: (inout PartnerCycleSettings) -> Void) {
@@ -113,10 +120,24 @@ final class MenstrualHealthStore: ObservableObject {
         }
     }
 
+    /// Auto-enable cycle tracking for female/intersex biological sex captured during onboarding.
+    func enableForBiologicalSexIfNeeded(_ sex: BiologicalSex) {
+        guard sex.cycleAutoEnabled, !settings.enabled else { return }
+        updateSettings {
+            $0.enabled = true
+            $0.privacyAcknowledged = true
+            $0.shareWithAria = true
+        }
+    }
+
     /// Surface partner tracking for users who may support a female partner (any gender).
     func enablePartnerTrackingIfAppropriate(gender: Gender) {
         // Soft suggest only — do not auto-enable without consent flag.
         _ = gender
+    }
+
+    func updateCycleGoal(_ goal: CycleGoal) {
+        updateSettings { $0.cycleGoal = goal }
     }
 
     // MARK: Logging
@@ -304,6 +325,18 @@ final class MenstrualHealthStore: ObservableObject {
                 at: 0
             )
         }
+        // TTC mode: attach goal + two-week wait progress to the snapshot.
+        snap.cycleGoal = settings.cycleGoal
+        if snap.phase == .luteal,
+           let dayInCycle = snap.dayInCycle,
+           let ovulationDay = snap.ovulationDayInCycle,
+           snap.ovulationMethod != nil {
+            let elapsed = dayInCycle - ovulationDay
+            if elapsed > 0 && elapsed <= 14 {
+                snap.twwDaysElapsed = elapsed
+            }
+        }
+
         // Defer @Published mutations to avoid publishing during a view update.
         Task { @MainActor in
             accuracyReport = report
@@ -319,6 +352,61 @@ final class MenstrualHealthStore: ObservableObject {
                 evaluation: lastEvaluation,
                 snapshot: snap
             )
+            // Remember what we currently advertise so the next real start can score us.
+            if let median = snap.nextPeriod?.medianDayKey {
+                lastAdvertisedNextPeriodMedian = median
+                defaults.set(median, forKey: advertisedKey)
+            }
+            await ForgeNotificationScheduler.syncCycleNotifications(settings: settings, snapshot: snapshot)
+
+            // Sync cycle data to WatchSnapshot (drives complications + lockscreen widget).
+            if snap.trackingEnabled {
+                WatchSnapshotStore.update(reloadWidgets: false) { ws in
+                    ws.cyclePhase = snap.phase.rawValue
+                    ws.cycleDayInCycle = snap.dayInCycle
+                    ws.cycleFertileWindowOpen = (snap.phase == .fertileWindow || snap.phase == .ovulation)
+                    ws.cycleFertileScore = snap.fertileScore
+                    if let nextPeriod = snap.nextPeriod,
+                       let nextDate = CycleDayKey.date(from: nextPeriod.medianDayKey) {
+                        ws.cycleNextPeriodDaysAway = Calendar.current.dateComponents([.day], from: Date(), to: nextDate).day
+                    } else {
+                        ws.cycleNextPeriodDaysAway = nil
+                    }
+                }
+            }
+
+            // Manage cycle Live Activity for the fertile window (ActivityContent API —
+            // matches WorkoutActivityCoordinator; avoids deprecated contentState:).
+            if #available(iOS 16.2, *) {
+                let isInFertileWindow = snap.phase == .fertileWindow || snap.phase == .ovulation
+                if isInFertileWindow && snap.trackingEnabled {
+                    let state = CycleLiveActivityAttributes.ContentState(
+                        phase: snap.phase.rawValue,
+                        dayInCycle: snap.dayInCycle,
+                        fertileScore: snap.fertileScore,
+                        daysUntilOvulation: {
+                            guard let day = snap.dayInCycle, let ovu = snap.ovulationDayInCycle else { return nil }
+                            return max(0, ovu - day)
+                        }(),
+                        isActiveFertileWindow: true,
+                        isCurrentlyBleeding: snap.isCurrentlyBleeding
+                    )
+                    let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(6 * 3600))
+                    if let existing = Activity<CycleLiveActivityAttributes>.activities.first {
+                        await existing.update(content)
+                    } else if ActivityAuthorizationInfo().areActivitiesEnabled {
+                        _ = try? Activity.request(
+                            attributes: CycleLiveActivityAttributes(),
+                            content: content
+                        )
+                    }
+                } else {
+                    for activity in Activity<CycleLiveActivityAttributes>.activities {
+                        let final = ActivityContent(state: activity.content.state, staleDate: Date())
+                        await activity.end(final, dismissalPolicy: .immediate)
+                    }
+                }
+            }
         }
     }
 

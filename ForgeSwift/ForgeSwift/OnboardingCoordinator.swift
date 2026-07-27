@@ -28,6 +28,7 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
     case name
     case health
     case goals
+    case biologicalSex
     case experience
     case workouts
     case sleep
@@ -45,6 +46,7 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
         case .name:           return "Identity"
         case .health:         return "Signals"
         case .goals:          return "Goals"
+        case .biologicalSex:  return "Biology"
         case .experience:     return "Level"
         case .workouts:       return "Training"
         case .sleep:          return "Sleep"
@@ -192,6 +194,7 @@ final class OnboardingCoordinator {
     var isTyping = false
     var isCompleting = false
     var showAgeBlocked = false
+    var showingEducationalCyclePrompt = false
     private var hasStarted = false
 
     // MARK: Profile
@@ -312,6 +315,13 @@ final class OnboardingCoordinator {
             } else {
                 await ariaSay(personalizedGoalsPrompt(), mood: .focused)
             }
+            ariaOrbState = .listening
+        case .biologicalSex:
+            showingEducationalCyclePrompt = false
+            await ariaSay(
+                "One more thing before we get into your training — this helps me tailor health features for you. What is your biological sex?",
+                mood: .focused
+            )
             ariaOrbState = .listening
         case .experience:
             await ariaSay(experiencePrompt(), mood: .focused)
@@ -452,6 +462,48 @@ final class OnboardingCoordinator {
         syncPartialContext()
         Task {
             await ariaSay("Locked: \(labels). Primary outcomes set.", mood: .energized)
+            await advanceTo(.biologicalSex)
+        }
+    }
+
+    func selectBiologicalSex(_ sex: BiologicalSex) {
+        guard step == .biologicalSex else { return }
+        profile.biologicalSex = sex
+        appendUser(sex.label)
+        FDS.haptic(.light)
+        if sex.cycleAutoEnabled {
+            Task {
+                await ariaSay(
+                    "Cycle Health features are automatically enabled for you — you can customise this any time.",
+                    mood: .energized
+                )
+                await advanceTo(.experience)
+            }
+        } else {
+            // Male: ask about educational mode before advancing
+            showingEducationalCyclePrompt = true
+            Task {
+                await ariaSay(
+                    "Would you like access to Cycle Health education — it helps many people support partners, daughters, or family?",
+                    mood: .calm
+                )
+            }
+        }
+    }
+
+    func selectEducationalCycleMode(_ enabled: Bool) {
+        guard step == .biologicalSex else { return }
+        profile.educationalCycleMode = enabled
+        showingEducationalCyclePrompt = false
+        appendUser(enabled ? "Yes, enable it" : "No thanks")
+        FDS.haptic(.light)
+        Task {
+            await ariaSay(
+                enabled
+                    ? "Cycle Health education enabled — you'll find it in the app anytime."
+                    : "No problem — you can enable it later in Settings.",
+                mood: .focused
+            )
             await advanceTo(.experience)
         }
     }
@@ -917,6 +969,8 @@ struct OnboardingAriaBot {
                         suggestions: ["2–3 days", "4–5 days", "6+ days"])
     }
 
+    // `step` is a 0-indexed conversation turn counter (0, 1, 2…), NOT OnboardingRoute.rawValue.
+    // Passing the wrong index causes premature synthesis (default branch) after turn 0.
     func reply(step: Int, input: String, answers: [String], profile: OnboardingProfile) -> AriaTurn {
         switch step {
         case 0:
