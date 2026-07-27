@@ -156,7 +156,14 @@ final class AriaContextStore: ObservableObject {
             lifestyle: .init(
                 tags: context.lifestyleTags,
                 recentPatterns: patterns,
-                goals: context.currentGoals
+                goals: context.currentGoals,
+                cyclePhaseDirective: {
+                    guard let phaseTag = context.lifestyleTags.first(where: { $0.hasPrefix("cycle_phase:") }) else { return nil }
+                    let phaseRaw = String(phaseTag.dropFirst("cycle_phase:".count))
+                    guard let phase = MenstrualPhase(rawValue: phaseRaw), phase != .unknown else { return nil }
+                    let text = CyclePhaseCoachingDirective.directive(for: phase, domain: .general)
+                    return text.isEmpty ? nil : text
+                }()
             ),
             conversation: store.conversationContextPayload()
         )
@@ -307,6 +314,23 @@ final class AriaContextStore: ObservableObject {
         }
         if snap.isCurrentlyBleeding {
             tags.append("cycle:bleeding")
+        }
+        tags.append("cycle:goal:\(snap.cycleGoal?.rawValue ?? "general")")
+        if let tww = snap.twwDaysElapsed {
+            tags.append("cycle:tww_day:\(tww)")
+        }
+        if let fertile = snap.fertileScore {
+            tags.append("cycle:fertile_score:\(fertile)")
+        }
+        if let condition = snap.condition, condition != .none {
+            tags.append("cycle:condition:\(condition.rawValue)")
+            let guidance = condition.ariaGuidance
+            if !guidance.isEmpty,
+               !context.constraints.contains(where: { $0.hasPrefix("cycle_condition_context:") }) {
+                context.constraints.append("cycle_condition_context:\(guidance)")
+            }
+        } else {
+            context.constraints.removeAll { $0.hasPrefix("cycle_condition_context:") }
         }
         context.lifestyleTags = Array(Set(tags)).sorted()
 

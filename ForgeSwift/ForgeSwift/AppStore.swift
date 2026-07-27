@@ -240,6 +240,10 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
             if let next = c.nextPeriod {
                 lines.append("Next period window: \(next.earliestDayKey)…\(next.latestDayKey)")
             }
+            let phaseDirective = CyclePhaseCoachingDirective.directive(for: c.phase, domain: .general)
+            if !phaseDirective.isEmpty {
+                lines.append("## Phase Coaching Directive\n\(phaseDirective)")
+            }
             blocks.append(lines.joined(separator: "\n"))
         } else {
             blocks.append("Self cycle: not shared / unavailable")
@@ -1492,6 +1496,9 @@ final class AppStore: ObservableObject {
 
         // Menstrual cycle: auto-enable + quiet weekly HealthKit sync (or immediate if broken).
         MenstrualHealthStore.shared.enableForFemaleProfileIfNeeded(gender: userProfile.gender)
+        if let sex = userProfile.biologicalSex {
+            MenstrualHealthStore.shared.enableForBiologicalSexIfNeeded(sex)
+        }
         if MenstrualHealthStore.shared.settings.enabled {
             await MenstrualHealthStore.shared.quietWeeklyHealthKitSync(force: !authorized)
             MenstrualHealthStore.shared.refresh(from: self)
@@ -1501,8 +1508,8 @@ final class AppStore: ObservableObject {
         objectWillChange.send()
     }
 
-    func openChat(with prompt: String, voice: Bool = false) {
-        if quietMode, !voice { return }
+    func openChat(with prompt: String, voice: Bool = false, isProactive: Bool = false) {
+        if quietMode, !voice, isProactive { return }
         ariaPendingChatPrompt = prompt
         ariaVoiceMode = voice
         activeTab = .chat

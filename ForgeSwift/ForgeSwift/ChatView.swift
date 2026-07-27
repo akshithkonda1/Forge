@@ -370,7 +370,9 @@ final class SpeechManager: ObservableObject {
             // SDK. Both are the same option value; the old spelling is merely
             // deprecated there, and it's the only one that compiles against
             // earlier SDKs — which is what CI builds with.
-            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .AVAudioSession.CategoryOptions.allowBluetoothHFP.CategoryOptions.allowBluetoothHFP])
+            // `.allowBluetooth` is the spelling that compiles on CI's SDK;
+            // iOS 26 renames it to `.allowBluetoothHFP` (same option value).
+            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetooth])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             voiceState = .error("Microphone error")
@@ -914,6 +916,7 @@ struct ChatBackground: View {
 
 struct ChatHeaderView: View {
     @EnvironmentObject var store: AppStore
+    @ObservedObject private var ariaService = AriaService.shared
     let mood:              ARIAMood
     @ObservedObject var momentum: MomentumEngine
     var relationshipLevel: Int = 1
@@ -1023,11 +1026,21 @@ struct ChatHeaderView: View {
                 }
 
                 HStack(spacing: 5) {
-                    Circle().fill(Color(hex: "22C55E")).frame(width: 5, height: 5)
-                    Text("Active · Bond Lv.\(relationshipLevel) · Chat Lv.\(momentum.level)")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.textSecondary)
+                    if ariaService.isLocalFallback {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(Color.ember)
+                        Text("Local · Bond Lv.\(relationshipLevel) · Chat Lv.\(momentum.level)")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Color.ember.opacity(0.8))
+                    } else {
+                        Circle().fill(Color(hex: "22C55E")).frame(width: 5, height: 5)
+                        Text("Active · Bond Lv.\(relationshipLevel) · Chat Lv.\(momentum.level)")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.textSecondary)
+                    }
                 }
+                .animation(FDS.Spring.standard, value: ariaService.isLocalFallback)
             }
 
             Spacer()
@@ -1401,6 +1414,24 @@ struct MessageBubbleView: View {
 
                 // Bubble + swipe
                 VStack(alignment: isTrainer ? .leading : .trailing, spacing: 6) {
+                    // Memory reference pill — shown when ARIA recalled a past insight
+                    if isTrainer, let memory = message.memoryReference {
+                        HStack(spacing: 5) {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(.steel.opacity(0.8))
+                            Text(memory)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.textTertiary)
+                                .lineLimit(2)
+                        }
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(Color.steel.opacity(0.08))
+                        .cornerRadius(FDS.Radius.pill)
+                        .overlay(Capsule().stroke(Color.steel.opacity(0.18), lineWidth: 0.5))
+                        .transition(.scale(scale: 0.9, anchor: .leading).combined(with: .opacity))
+                    }
+
                     // Swipe-to-reply gesture wrapper
                     ZStack(alignment: isTrainer ? .trailing : .leading) {
                         // Reply icon revealed on swipe
