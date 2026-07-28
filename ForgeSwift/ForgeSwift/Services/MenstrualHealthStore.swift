@@ -38,6 +38,12 @@ final class MenstrualHealthStore: ObservableObject {
     @Published private(set) var coachingPreferences: PeriodCoachingPreferences = .neutral
     /// Pending episode metadata after logPeriodEnd — UI presents feedback sheet.
     @Published var pendingPeriodEndEpisode: PeriodEpisode?
+    /// True when the user's biological sex makes the cycle surface relevant, so the UI
+    /// can open straight to it. Set during onboarding.
+    @Published private(set) var cycleSurfaceRelevant = false
+
+    /// ~24 months of daily logs.
+    static let maxRetainedLogs = 800
 
     private let defaults = UserDefaults.standard
     private let settingsKey = "forge.menstrual.settings.v1"
@@ -50,6 +56,7 @@ final class MenstrualHealthStore: ObservableObject {
     private let quietSyncKey = "forge.menstrual.quiet.sync.at"
     private let periodEndFeedbackKey = "forge.menstrual.period.end.feedback.v1"
     private let coachingPrefsKey = "forge.menstrual.coaching.prefs.v1"
+    private let cycleRelevantKey = "forge.menstrual.surface.relevant.v1"
 
     private init() {
         if let data = defaults.data(forKey: settingsKey),
@@ -93,6 +100,7 @@ final class MenstrualHealthStore: ObservableObject {
             coachingPreferences = p
         }
         lastAdvertisedNextPeriodMedian = defaults.string(forKey: advertisedKey)
+        cycleSurfaceRelevant = defaults.bool(forKey: cycleRelevantKey)
         snapshot = .empty
         partnerSnapshot = .empty
         partnerSupportBrief = nil
@@ -125,24 +133,31 @@ final class MenstrualHealthStore: ObservableObject {
         pushAriaTags()
     }
 
+    /// Surfaces the cycle surface for female profiles, but never *behind the user's back*:
+    /// tracking only auto-enables once the privacy contract has been acknowledged.
+    /// Previously this flipped `enabled` on without `privacyAcknowledged`, which skipped
+    /// the consent card entirely and left the acknowledgement flag permanently false.
     func enableForFemaleProfileIfNeeded(gender: Gender) {
-        guard gender == .female else { return }
-        if !settings.enabled {
-            updateSettings {
-                $0.enabled = true
-                $0.shareWithAria = true
-            }
+        guard gender == .female, !settings.enabled, settings.privacyAcknowledged else { return }
+        updateSettings {
+            $0.enabled = true
+            $0.shareWithAria = true
         }
     }
 
-    /// Auto-enable cycle tracking for female/intersex biological sex captured during onboarding.
+    /// Marks cycle health as relevant for female/intersex biological sex captured during
+    /// onboarding.
+    ///
+    /// This deliberately does **not** flip `privacyAcknowledged`. Onboarding never shows
+    /// the cycle privacy contract, so silently acknowledging it on the user's behalf made
+    /// the "I understand cycle data is for my coaching only — never sold" toggle a
+    /// formality that was pre-answered. The user still sees, and answers, that card once.
     func enableForBiologicalSexIfNeeded(_ sex: BiologicalSex) {
-        guard sex.cycleAutoEnabled, !settings.enabled else { return }
-        updateSettings {
-            $0.enabled = true
-            $0.privacyAcknowledged = true
-            $0.shareWithAria = true
-        }
+        guard sex.cycleAutoEnabled else { return }
+        cycleSurfaceRelevant = true
+        defaults.set(true, forKey: cycleRelevantKey)
+        guard !settings.enabled, settings.privacyAcknowledged else { return }
+        updateSettings { $0.enabled = true }
     }
 
     /// Surface partner tracking for users who may support a female partner (any gender).
@@ -157,15 +172,30 @@ final class MenstrualHealthStore: ObservableObject {
 
     // MARK: Logging
 
-    func upsertLog(_ log: CycleDayLog) {
+    /// Upsert a day log.
+    ///
+    /// `fieldsAreAuthoritative` distinguishes a *patch* (only non-nil fields overwrite —
+    /// how HealthKit-adjacent partial updates behave) from a full *replacement* from the
+    /// day editor, where clearing a field must actually clear it. Without this, deleting
+    /// a note or a BBT reading in the editor silently kept the old value forever.
+    func upsertLog(_ log: CycleDayLog, fieldsAreAuthoritative: Bool = false) {
         if let idx = logs.firstIndex(where: { $0.dayKey == log.dayKey }) {
             var merged = logs[idx]
             merged.flow = log.flow
             merged.symptoms = log.symptoms
-            if let bbt = log.bbtCelsius { merged.bbtCelsius = bbt }
-            if let o = log.ovulationTest { merged.ovulationTest = o }
-            if let m = log.mucus { merged.mucus = m }
-            if let n = log.notes { merged.notes = n }
+            if fieldsAreAuthoritative {
+                merged.bbtCelsius = log.bbtCelsius
+                merged.ovulationTest = log.ovulationTest
+                merged.mucus = log.mucus
+                merged.notes = log.notes
+                merged.painScale = log.painScale
+            } else {
+                if let bbt = log.bbtCelsius { merged.bbtCelsius = bbt }
+                if let o = log.ovulationTest { merged.ovulationTest = o }
+                if let m = log.mucus { merged.mucus = m }
+                if let n = log.notes { merged.notes = n }
+                if let p = log.painScale { merged.painScale = p }
+            }
             merged.source = log.source
             merged.updatedAt = Date()
             logs[idx] = merged
@@ -174,18 +204,83 @@ final class MenstrualHealthStore: ObservableObject {
         }
         logs.sort { $0.dayKey < $1.dayKey }
         // Cap retention ~24 months of daily logs
-        if logs.count > 800 {
-            logs = Array(logs.suffix(800))
+        if logs.count > Self.maxRetainedLogs {
+            logs = Array(logs.suffix(Self.maxRetainedLogs))
         }
+        retireConfirmedEndIfBleedingResumed(on: log)
         persistLogs()
         recompute()
         pushAriaTags()
         Task { await writeFlowToHealthKitIfNeeded(log) }
     }
 
+    /// If bleeding is logged on or after a confirmed end day, the bleed evidently is not
+    /// over and the confirmation has to stand down — otherwise the app would insist the
+    /// period had finished while the user was actively logging flow.
+    private func retireConfirmedEndIfBleedingResumed(on log: CycleDayLog) {
+        guard log.flow.isBleeding,
+              let confirmed = settings.confirmedPeriodEndDayKey,
+              let delta = CycleDayKey.daysBetween(confirmed, log.dayKey),
+              delta > 0 else { return }
+        var s = settings
+        s.confirmedPeriodEndDayKey = nil
+        settings = s
+        persistSettings()
+    }
+
+    /// Apply several day edits as one transaction — one persist, one recompute, one
+    /// ARIA push — instead of paying the full pipeline per day.
+    private func applyLogBatch(_ updates: [CycleDayLog], fieldsAreAuthoritative: Bool = false) {
+        guard !updates.isEmpty else { return }
+        for log in updates {
+            if let idx = logs.firstIndex(where: { $0.dayKey == log.dayKey }) {
+                var merged = logs[idx]
+                merged.flow = log.flow
+                merged.symptoms = log.symptoms
+                if fieldsAreAuthoritative {
+                    merged.bbtCelsius = log.bbtCelsius
+                    merged.ovulationTest = log.ovulationTest
+                    merged.mucus = log.mucus
+                    merged.notes = log.notes
+                } else {
+                    if let bbt = log.bbtCelsius { merged.bbtCelsius = bbt }
+                    if let o = log.ovulationTest { merged.ovulationTest = o }
+                    if let m = log.mucus { merged.mucus = m }
+                    if let n = log.notes { merged.notes = n }
+                }
+                merged.source = log.source
+                merged.updatedAt = Date()
+                logs[idx] = merged
+            } else {
+                logs.append(log)
+            }
+        }
+        logs.sort { $0.dayKey < $1.dayKey }
+        if logs.count > Self.maxRetainedLogs {
+            logs = Array(logs.suffix(Self.maxRetainedLogs))
+        }
+        persistLogs()
+        recompute()
+        pushAriaTags()
+        let bleeding = updates.filter(\.flow.isBleeding)
+        Task {
+            for log in bleeding {
+                await writeFlowToHealthKitIfNeeded(log)
+            }
+        }
+    }
+
     func logPeriodStart(on dayKey: String = CycleDayKey.key(), flow: MenstrualFlowLevel = .medium) {
         // Capture feedback vs advertised prediction before logs change the engine state.
         recordPredictionFeedbackIfNeeded(actualStartDayKey: dayKey)
+        // A new bleed reopens the cycle: the previous episode's "finished" confirmation
+        // belongs to that episode and must not suppress this one.
+        if settings.confirmedPeriodEndDayKey != nil {
+            var s = settings
+            s.confirmedPeriodEndDayKey = nil
+            settings = s
+            persistSettings()
+        }
         upsertLog(CycleDayLog(dayKey: dayKey, flow: flow, source: "manual"))
     }
 
@@ -198,6 +293,11 @@ final class MenstrualHealthStore: ObservableObject {
             ?? snapshot.lastPeriodStartDayKey
             ?? dayKey
 
+        // All of the day mutations below land as one transaction — the previous version
+        // ran a full persist + recompute + HealthKit write per day, so ending a 7-day
+        // period fired the whole pipeline a dozen times and republished mid-edit state.
+        var batch: [CycleDayLog] = []
+
         // Ensure the end day counts as bleeding (last flow day).
         var endLog = logs.first(where: { $0.dayKey == dayKey }) ?? CycleDayLog(dayKey: dayKey)
         if !endLog.flow.isBleeding {
@@ -205,38 +305,47 @@ final class MenstrualHealthStore: ObservableObject {
         }
         endLog.source = "manual"
         endLog.updatedAt = Date()
-        upsertLog(endLog)
+        batch.append(endLog)
 
         // Clear bleeding after the declared end so the episode closes cleanly.
         let today = CycleDayKey.key()
-        if let afterStart = CycleDayKey.daysBetween(dayKey, today), afterStart > 0 {
-            for offset in 1...afterStart {
-                guard let key = CycleDayKey.addDays(dayKey, offset) else { continue }
-                if let idx = logs.firstIndex(where: { $0.dayKey == key }), logs[idx].flow.isBleeding {
-                    var cleared = logs[idx]
-                    cleared.flow = .none
-                    cleared.source = "manual"
-                    cleared.updatedAt = Date()
-                    logs[idx] = cleared
-                }
+        if let afterEnd = CycleDayKey.daysBetween(dayKey, today), afterEnd > 0 {
+            for offset in 1...afterEnd {
+                guard let key = CycleDayKey.addDays(dayKey, offset),
+                      let existing = logs.first(where: { $0.dayKey == key }),
+                      existing.flow.isBleeding else { continue }
+                var cleared = existing
+                cleared.flow = .none
+                cleared.source = "manual"
+                cleared.updatedAt = Date()
+                batch.append(cleared)
             }
-            persistLogs()
-            recompute()
-            pushAriaTags()
         }
 
-        // Fill missing days between start and end with light flow when the gap is short (≤2 empty days).
+        // Fill unlogged days inside the episode with light flow so the run is contiguous.
+        // Bounded to a plausible period length — a stale start key must not backfill weeks.
         if let gap = CycleDayKey.daysBetween(startKey, dayKey), gap >= 1, gap <= 10 {
             for offset in 0...gap {
-                guard let key = CycleDayKey.addDays(startKey, offset) else { continue }
-                if logs.first(where: { $0.dayKey == key }) == nil {
-                    upsertLog(CycleDayLog(dayKey: key, flow: .light, source: "manual"))
-                }
+                guard let key = CycleDayKey.addDays(startKey, offset),
+                      !logs.contains(where: { $0.dayKey == key }),
+                      !batch.contains(where: { $0.dayKey == key }) else { continue }
+                batch.append(CycleDayLog(dayKey: key, flow: .light, source: "manual"))
             }
         }
 
+        // Record the confirmation *before* recomputing so the very next snapshot already
+        // reports the period as finished — this is what flips both the user's coaching and
+        // the partner support brief out of period mode on the same tap.
+        var confirmed = settings
+        confirmed.confirmedPeriodEndDayKey = dayKey
+        confirmed.overdueWidenDays = 0
+        settings = confirmed
+        persistSettings()
+
+        applyLogBatch(batch)
+
         let episodes = MenstrualCycleEngine.buildPeriodEpisodes(from: logs)
-        let episode = episodes.last(where: { $0.endDayKey == dayKey || $0.startDayKey == startKey })
+        var episode = episodes.last(where: { $0.endDayKey == dayKey || $0.startDayKey == startKey })
             ?? episodes.last
             ?? PeriodEpisode(
                 id: startKey,
@@ -245,6 +354,7 @@ final class MenstrualHealthStore: ObservableObject {
                 peakFlow: endLog.flow,
                 dayCount: max(1, (CycleDayKey.daysBetween(startKey, dayKey) ?? 0) + 1)
             )
+        episode.isConfirmedComplete = true
 
         learnPeriodLength(from: episode)
         pendingPeriodEndEpisode = episode
@@ -292,11 +402,11 @@ final class MenstrualHealthStore: ObservableObject {
         persistCoachingPrefs()
 
         // Soft-learn average period length toward this episode.
-        if feedback.dayCount >= 2, feedback.dayCount <= 10 {
+        if CycleBiology.periodDayRange.contains(feedback.dayCount) {
             updateSettings {
                 let prior = Double($0.averagePeriodOverride ?? Int(snapshot.periodLengthMedian.rounded()))
                 let blended = prior * 0.55 + Double(feedback.dayCount) * 0.45
-                $0.averagePeriodOverride = max(2, min(10, Int(blended.rounded())))
+                $0.averagePeriodOverride = CycleBiology.clampPeriodDays(Int(blended.rounded()))
             }
         }
 
@@ -316,13 +426,19 @@ final class MenstrualHealthStore: ObservableObject {
     }
 
     private func learnPeriodLength(from episode: PeriodEpisode) {
-        guard episode.dayCount >= 2, episode.dayCount <= 10 else { return }
+        // Outside 3–7 days this is not a normal bleed and should not move the model.
+        guard CycleBiology.periodDayRange.contains(episode.dayCount) else { return }
         var s = settings
         let prior = Double(s.averagePeriodOverride ?? Int(snapshot.periodLengthMedian.rounded()))
         let blended = prior * 0.6 + Double(episode.dayCount) * 0.4
-        s.averagePeriodOverride = max(2, min(10, Int(blended.rounded())))
+        let learned = CycleBiology.clampPeriodDays(Int(blended.rounded()))
+        guard learned != s.averagePeriodOverride else { return }
+        s.averagePeriodOverride = learned
         settings = s
         persistSettings()
+        // The learned length feeds phase resolution — republish rather than leaving the
+        // snapshot describing the pre-learning model until some later action recomputes.
+        recompute()
     }
 
     /// Delete a single day log (day edit wipe).
@@ -338,18 +454,32 @@ final class MenstrualHealthStore: ObservableObject {
         logs = []
         predictionFeedback = []
         periodEndFeedbacks = []
+        // The forecast archive survived a wipe, so the very next logged start was scored
+        // against a prediction made for deleted history — poisoning MAE and the
+        // calibration offset with an error the user had already erased.
+        forecastArchive = []
         coachingPreferences = .neutral
         pendingPeriodEndEpisode = nil
         lastAdvertisedNextPeriodMedian = nil
+        lastAriaBrief = nil
+        lastTeachingMessage = nil
+        lastEvaluation = .empty
+        accuracyReport = .empty
         defaults.removeObject(forKey: feedbackKey)
+        defaults.removeObject(forKey: forecastKey)
         defaults.removeObject(forKey: advertisedKey)
         defaults.removeObject(forKey: periodEndFeedbackKey)
         defaults.removeObject(forKey: coachingPrefsKey)
         persistLogs()
-        if includingSettings {
-            settings = .default
-            persistSettings()
-        }
+        // A wipe must also reset the learned bias — it was derived from the deleted data.
+        var s = settings
+        s.calibrationOffsetDays = 0
+        s.learnedLutealDays = nil
+        s.overdueWidenDays = 0
+        s.averagePeriodOverride = nil
+        s.confirmedPeriodEndDayKey = nil
+        settings = includingSettings ? .default : s
+        persistSettings()
         recompute()
         pushAriaTags()
     }
@@ -407,7 +537,42 @@ final class MenstrualHealthStore: ObservableObject {
            abs(err) <= 21 {
             lastModelUpdateMessage = "Support model updated · error \(err >= 0 ? "+" : "")\(err) days"
         }
+        // New bleed reopens the cycle — retire the previous episode's finished flag.
+        if partnerSettings.confirmedPeriodEndDayKey != nil {
+            var s = partnerSettings
+            s.confirmedPeriodEndDayKey = nil
+            partnerSettings = s
+            persistPartnerSettings()
+        }
         upsertPartnerLog(CycleDayLog(dayKey: dayKey, flow: flow, source: "manual"))
+    }
+
+    /// The supported person's period is over. Closes the episode and returns the support
+    /// brief from period-care coaching to everyday support on the same tap.
+    @discardableResult
+    func logPartnerPeriodEnd(on dayKey: String = CycleDayKey.key()) -> String {
+        let episodes = MenstrualCycleEngine.buildPeriodEpisodes(from: partnerLogs)
+        let startKey = episodes.last?.startDayKey ?? partnerSnapshot.lastPeriodStartDayKey ?? dayKey
+
+        // The declared end must actually be a bleeding day, or the episode never closes.
+        var endLog = partnerLogs.first(where: { $0.dayKey == dayKey }) ?? CycleDayLog(dayKey: dayKey)
+        if !endLog.flow.isBleeding { endLog.flow = .light }
+        endLog.source = "manual"
+        endLog.updatedAt = Date()
+
+        var s = partnerSettings
+        s.confirmedPeriodEndDayKey = dayKey
+        partnerSettings = s
+        persistPartnerSettings()
+
+        upsertPartnerLog(endLog)
+
+        let days = (CycleDayKey.daysBetween(startKey, dayKey) ?? 0) + 1
+        let name = partnerSettings.displayName
+        let msg = "\(name)'s period finished · \(max(1, days)) day\(days == 1 ? "" : "s") · back to everyday support"
+        lastModelUpdateMessage = msg
+        refreshAnalyst(lastAction: "partner_period_ended", isPartner: true)
+        return msg
     }
 
     /// User says period started today (feedback + log).
@@ -493,76 +658,86 @@ final class MenstrualHealthStore: ObservableObject {
             }
         }
 
-        // Defer @Published mutations to avoid publishing during a view update.
-        Task { @MainActor in
-            accuracyReport = report
-            snapshot = snap
-            archiveOpenForecastIfNeeded(from: snap)
-            lastEvaluation = CycleDataEvaluator.evaluate(
-                snapshot: snap,
-                settings: settings,
-                logs: logs,
-                feedback: predictionFeedback
-            )
-            lastAriaBrief = CycleAriaAnalyst.localBrief(
-                evaluation: lastEvaluation,
-                snapshot: snap
-            )
-            // Remember what we currently advertise so the next real start can score us.
-            if let median = snap.nextPeriod?.medianDayKey {
-                lastAdvertisedNextPeriodMedian = median
-                defaults.set(median, forKey: advertisedKey)
-            }
-            await ForgeNotificationScheduler.syncCycleNotifications(settings: settings, snapshot: snapshot)
+        // State lands synchronously. Deferring these into a Task left `snapshot` stale for
+        // the rest of the current turn, so anything that called `recompute()` and then read
+        // `snapshot` (period-end confirmation, period-length learning, the analyst refresh,
+        // the ARIA context push) reasoned about the *previous* cycle state — and concurrent
+        // recomputes could land out of order.
+        accuracyReport = report
+        snapshot = snap
+        archiveOpenForecastIfNeeded(from: snap)
+        lastEvaluation = CycleDataEvaluator.evaluate(
+            snapshot: snap,
+            settings: settings,
+            logs: logs,
+            feedback: predictionFeedback
+        )
+        lastAriaBrief = CycleAriaAnalyst.localBrief(
+            evaluation: lastEvaluation,
+            snapshot: snap
+        )
+        // Remember what we currently advertise so the next real start can score us.
+        if let median = snap.nextPeriod?.medianDayKey {
+            lastAdvertisedNextPeriodMedian = median
+            defaults.set(median, forKey: advertisedKey)
+        }
 
-            // Sync cycle data to WatchSnapshot (drives complications + lockscreen widget).
-            if snap.trackingEnabled {
-                WatchSnapshotStore.update(reloadWidgets: false) { ws in
-                    ws.cyclePhase = snap.phase.rawValue
-                    ws.cycleDayInCycle = snap.dayInCycle
-                    ws.cycleFertileWindowOpen = (snap.phase == .fertileWindow || snap.phase == .ovulation)
-                    ws.cycleFertileScore = snap.fertileScore
-                    if let nextPeriod = snap.nextPeriod,
-                       let nextDate = CycleDayKey.date(from: nextPeriod.medianDayKey) {
-                        ws.cycleNextPeriodDaysAway = Calendar.current.dateComponents([.day], from: Date(), to: nextDate).day
-                    } else {
-                        ws.cycleNextPeriodDaysAway = nil
-                    }
-                }
-            }
+        syncWatchSnapshot(snap)
 
-            // Manage cycle Live Activity for the fertile window (ActivityContent API —
-            // matches WorkoutActivityCoordinator; avoids deprecated contentState:).
-            if #available(iOS 16.2, *) {
-                let isInFertileWindow = snap.phase == .fertileWindow || snap.phase == .ovulation
-                if isInFertileWindow && snap.trackingEnabled {
-                    let state = CycleLiveActivityAttributes.ContentState(
-                        phase: snap.phase.rawValue,
-                        dayInCycle: snap.dayInCycle,
-                        fertileScore: snap.fertileScore,
-                        daysUntilOvulation: {
-                            guard let day = snap.dayInCycle, let ovu = snap.ovulationDayInCycle else { return nil }
-                            return max(0, ovu - day)
-                        }(),
-                        isActiveFertileWindow: true,
-                        isCurrentlyBleeding: snap.isCurrentlyBleeding
-                    )
-                    let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(6 * 3600))
-                    if let existing = Activity<CycleLiveActivityAttributes>.activities.first {
-                        await existing.update(content)
-                    } else if ActivityAuthorizationInfo().areActivitiesEnabled {
-                        _ = try? Activity.request(
-                            attributes: CycleLiveActivityAttributes(),
-                            content: content
-                        )
-                    }
-                } else {
-                    for activity in Activity<CycleLiveActivityAttributes>.activities {
-                        let final = ActivityContent(state: activity.content.state, staleDate: Date())
-                        await activity.end(final, dismissalPolicy: .immediate)
-                    }
-                }
+        // Only genuinely asynchronous side effects stay deferred.
+        Task { @MainActor [settings] in
+            await ForgeNotificationScheduler.syncCycleNotifications(settings: settings, snapshot: snap)
+            await syncCycleLiveActivity(snap)
+        }
+    }
+
+    /// Mirrors cycle state into the shared snapshot that drives watch complications
+    /// and the lock-screen widget.
+    private func syncWatchSnapshot(_ snap: MenstrualCycleSnapshot) {
+        guard snap.trackingEnabled else { return }
+        WatchSnapshotStore.update(reloadWidgets: false) { ws in
+            ws.cyclePhase = snap.phase.rawValue
+            ws.cycleDayInCycle = snap.dayInCycle
+            ws.cycleFertileWindowOpen = (snap.phase == .fertileWindow || snap.phase == .ovulation)
+            ws.cycleFertileScore = snap.fertileScore
+            // Day-key arithmetic, not wall-clock arithmetic: comparing "now" against a
+            // fixed anchor time made a period ~20 hours out read as 0 days away.
+            ws.cycleNextPeriodDaysAway = snap.nextPeriod
+                .flatMap { CycleDayKey.daysBetween(snap.asOfDayKey, $0.medianDayKey) }
+        }
+    }
+
+    /// Manage the fertile-window Live Activity (ActivityContent API — matches
+    /// WorkoutActivityCoordinator; avoids deprecated `contentState:`).
+    private func syncCycleLiveActivity(_ snap: MenstrualCycleSnapshot) async {
+        guard #available(iOS 16.2, *) else { return }
+        let isInFertileWindow = snap.phase == .fertileWindow || snap.phase == .ovulation
+        guard isInFertileWindow, snap.trackingEnabled else {
+            for activity in Activity<CycleLiveActivityAttributes>.activities {
+                let final = ActivityContent(state: activity.content.state, staleDate: Date())
+                await activity.end(final, dismissalPolicy: .immediate)
             }
+            return
+        }
+        let state = CycleLiveActivityAttributes.ContentState(
+            phase: snap.phase.rawValue,
+            dayInCycle: snap.dayInCycle,
+            fertileScore: snap.fertileScore,
+            daysUntilOvulation: {
+                guard let day = snap.dayInCycle, let ovu = snap.ovulationDayInCycle else { return nil }
+                return max(0, ovu - day)
+            }(),
+            isActiveFertileWindow: true,
+            isCurrentlyBleeding: snap.isCurrentlyBleeding
+        )
+        let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(6 * 3600))
+        if let existing = Activity<CycleLiveActivityAttributes>.activities.first {
+            await existing.update(content)
+        } else if ActivityAuthorizationInfo().areActivitiesEnabled {
+            _ = try? Activity.request(
+                attributes: CycleLiveActivityAttributes(),
+                content: content
+            )
         }
     }
 
@@ -713,7 +888,10 @@ final class MenstrualHealthStore: ObservableObject {
             averagePeriodOverride: partnerSettings.averagePeriodOverride,
             typicalLutealDays: partnerSettings.typicalLutealDays,
             usesHormonalContraception: partnerSettings.usesHormonalContraception,
-            notes: partnerSettings.notes
+            notes: partnerSettings.notes,
+            // Without this the supported person's confirmed end never reached the engine,
+            // so the support brief stayed in period mode for the full median bleed length.
+            confirmedPeriodEndDayKey: partnerSettings.confirmedPeriodEndDayKey
         )
         partnerSnapshot = MenstrualCycleEngine.evaluate(
             logs: partnerLogs,
@@ -742,7 +920,9 @@ final class MenstrualHealthStore: ObservableObject {
     // MARK: HealthKit
 
     func syncFromHealthKit(days: Int = 400) async {
-        guard settings.enabled else { return }
+        // Two concurrent syncs (toolbar tap while the onAppear sync is in flight) both
+        // merged into `logs` and both wrote, so the slower one clobbered the newer merge.
+        guard settings.enabled, !isSyncing else { return }
         isSyncing = true
         defer { isSyncing = false }
 
@@ -769,27 +949,39 @@ final class MenstrualHealthStore: ObservableObject {
     }
 
     private func mergeHealthKit(_ bundle: MenstrualHealthKitBundle) {
-        var byDay = Dictionary(uniqueKeysWithValues: logs.map { ($0.dayKey, $0) })
+        // `Dictionary(uniqueKeysWithValues:)` traps at runtime on a duplicate key. A single
+        // duplicated dayKey — from an interrupted migration, a restored backup, or two
+        // writers racing — would crash the app on every HealthKit sync. Keep the newest.
+        var byDay = Dictionary(logs.map { ($0.dayKey, $0) }) { older, newer in
+            newer.updatedAt >= older.updatedAt ? newer : older
+        }
+
+        /// Manual entries are the user's own words about their body — HealthKit never
+        /// silently overwrites them, and merging never downgrades a "manual" log to a
+        /// weaker precedence tier.
+        func mergedSource(_ existing: String) -> String {
+            existing == "manual" || existing == "merged" ? "merged" : "healthkit"
+        }
 
         for sample in bundle.flowSamples {
             let key = CycleDayKey.key(for: sample.date)
-            var log = byDay[key] ?? CycleDayLog(dayKey: key, source: "healthkit")
-            // Manual wins on conflict if newer
-            if log.source == "manual", log.updatedAt > sample.date { /* keep manual flow */ }
-            else {
+            var log = byDay[key] ?? CycleDayLog(dayKey: key, flow: .none, source: "healthkit")
+            let manualIsAuthoritative = (log.source == "manual" || log.source == "merged")
+                && log.updatedAt > sample.date
+            if !manualIsAuthoritative {
                 log.flow = sample.flow
-                if log.source != "manual" { log.source = "healthkit" }
-                else { log.source = "merged" }
+                log.source = mergedSource(log.source)
+                log.updatedAt = max(log.updatedAt, sample.date)
             }
-            log.updatedAt = max(log.updatedAt, sample.date)
             byDay[key] = log
         }
 
         for bbt in bundle.bbtSamples {
             let key = CycleDayKey.key(for: bbt.date)
             var log = byDay[key] ?? CycleDayLog(dayKey: key, source: "healthkit")
-            if log.bbtCelsius == nil || log.source != "manual" {
+            if log.bbtCelsius == nil || log.source == "healthkit" {
                 log.bbtCelsius = bbt.celsius
+                log.source = mergedSource(log.source)
             }
             byDay[key] = log
         }
@@ -797,24 +989,42 @@ final class MenstrualHealthStore: ObservableObject {
         for opk in bundle.ovulationTests {
             let key = CycleDayKey.key(for: opk.date)
             var log = byDay[key] ?? CycleDayLog(dayKey: key, source: "healthkit")
-            log.ovulationTest = opk.result
+            if log.ovulationTest == nil || log.source == "healthkit" {
+                log.ovulationTest = opk.result
+                log.source = mergedSource(log.source)
+            }
             byDay[key] = log
         }
 
         for mucus in bundle.mucusSamples {
             let key = CycleDayKey.key(for: mucus.date)
             var log = byDay[key] ?? CycleDayLog(dayKey: key, source: "healthkit")
-            log.mucus = mucus.quality
+            if log.mucus == nil || log.source == "healthkit" {
+                log.mucus = mucus.quality
+                log.source = mergedSource(log.source)
+            }
             byDay[key] = log
         }
 
-        logs = byDay.values.sorted { $0.dayKey < $1.dayKey }
+        var merged = byDay.values.sorted { $0.dayKey < $1.dayKey }
+        if merged.count > Self.maxRetainedLogs {
+            merged = Array(merged.suffix(Self.maxRetainedLogs))
+        }
+        logs = merged
         persistLogs()
     }
 
     private func writeFlowToHealthKitIfNeeded(_ log: CycleDayLog) async {
         guard log.flow.isBleeding, log.source == "manual" || log.source == "merged" else { return }
-        await HealthKitManager.shared.saveMenstrualFlow(dayKey: log.dayKey, flow: log.flow)
+        // Only the first bleeding day of an episode is a cycle *start*. Tagging every
+        // bleeding day as a start told Apple Health each day began a new cycle.
+        let isEpisodeStart = MenstrualCycleEngine.buildPeriodEpisodes(from: logs)
+            .contains { $0.startDayKey == log.dayKey }
+        await HealthKitManager.shared.saveMenstrualFlow(
+            dayKey: log.dayKey,
+            flow: log.flow,
+            isCycleStart: isEpisodeStart
+        )
     }
 
     // MARK: ARIA bridge
@@ -929,7 +1139,8 @@ final class MenstrualHealthStore: ObservableObject {
                 typicalLutealDays: partnerSettings.typicalLutealDays,
                 usesHormonalContraception: partnerSettings.usesHormonalContraception,
                 notes: partnerSettings.notes,
-                highAccuracyMode: false
+                highAccuracyMode: false,
+                confirmedPeriodEndDayKey: partnerSettings.confirmedPeriodEndDayKey
             )
             : settings
         let logSet = isPartner ? partnerLogs : logs

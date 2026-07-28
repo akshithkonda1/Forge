@@ -141,52 +141,65 @@ enum ForgeNotificationScheduler {
             )
         }
 
-        // 2. OPK window alert — 3 days before predicted ovulation
-        if settings.highAccuracyMode,
+        // Condition-aware: perimenopause fertile/ovulation predictions are unreliable, so
+        // the engine withholds them — never nudge someone toward a window we don't stand behind.
+        let fertileSignalsTrusted = !(snapshot.condition?.suppressesFertileWindow ?? false)
+            && !settings.usesHormonalContraception
+
+        // 2. OPK window alert — 3 days before predicted ovulation, at a civilised hour
+        if settings.highAccuracyMode, fertileSignalsTrusted,
            let ovulationDayKey = snapshot.nextOvulationDayKey,
-           let ovulationDate = CycleDayKey.date(from: ovulationDayKey) {
-            let opkStart = Calendar.current.date(byAdding: .day, value: -3, to: ovulationDate) ?? ovulationDate
-            if opkStart > Date() {
-                await scheduleOnce(
-                    id: ID.cycleOPKWindow,
-                    date: opkStart,
-                    title: "Ovulation test window open",
-                    body: "Your predicted ovulation is in ~3 days. Start LH testing now for best results."
-                )
-            }
+           let opkDayKey = CycleDayKey.addDays(ovulationDayKey, -3),
+           let opkDate = atHour(9, on: opkDayKey) {
+            await scheduleOnce(
+                id: ID.cycleOPKWindow,
+                date: opkDate,
+                title: "Ovulation test window open",
+                body: "Your predicted ovulation is in ~3 days. Start LH testing now for best results."
+            )
         }
 
-        // 3. Fertile window alert — 2 days before window opens
-        if settings.fertileWindowAlertEnabled,
-           let nextPeriodMedian = snapshot.nextPeriod.flatMap({ CycleDayKey.date(from: $0.medianDayKey) }) {
-            let luteal = settings.typicalLutealDays
-            let ovulationDate = Calendar.current.date(byAdding: .day, value: -luteal, to: nextPeriodMedian) ?? nextPeriodMedian
-            let fertileOpen = Calendar.current.date(byAdding: .day, value: -5, to: ovulationDate) ?? ovulationDate
-            let alertDate = Calendar.current.date(byAdding: .day, value: -2, to: fertileOpen) ?? fertileOpen
-            if alertDate > Date() {
+        // 3. Fertile window alert — 2 days before the window opens
+        if settings.fertileWindowAlertEnabled, fertileSignalsTrusted,
+           let nextPeriodMedian = snapshot.nextPeriod?.medianDayKey {
+            // Prefer the engine's own ovulation estimate; fall back to
+            // next-period − effective luteal (which honours the *learned* luteal length,
+            // not just the static default).
+            let ovulationKey = snapshot.nextOvulationDayKey
+                ?? CycleDayKey.addDays(nextPeriodMedian, -settings.effectiveLutealDays)
+            if let ovulationKey,
+               let fertileOpen = CycleDayKey.addDays(ovulationKey, -5),
+               let alertKey = CycleDayKey.addDays(fertileOpen, -2),
+               let alertDate = atHour(9, on: alertKey) {
                 await scheduleOnce(
                     id: ID.cycleFertileWindow,
                     date: alertDate,
                     title: "Fertile window opening soon",
-                    body: "Your fertile window is predicted to open in ~2 days."
+                    body: "Your fertile window is predicted to open around \(CycleDayKey.shortDisplay(fertileOpen))."
                 )
             }
         }
 
-        // 4. Period reminder — 1 day before predicted start
+        // 4. Period reminder — evening before the predicted start
         if settings.periodReminderEnabled,
            let nextPeriod = snapshot.nextPeriod,
-           let nextPeriodDate = CycleDayKey.date(from: nextPeriod.medianDayKey) {
-            let reminderDate = Calendar.current.date(byAdding: .day, value: -1, to: nextPeriodDate) ?? nextPeriodDate
-            if reminderDate > Date() {
-                await scheduleOnce(
-                    id: ID.cyclePeriodReminder,
-                    date: reminderDate,
-                    title: "Period predicted tomorrow",
-                    body: "Your period is expected to start around tomorrow (\(nextPeriod.earliestDayKey) – \(nextPeriod.latestDayKey))."
-                )
-            }
+           let reminderKey = CycleDayKey.addDays(nextPeriod.medianDayKey, -1),
+           let reminderDate = atHour(19, on: reminderKey) {
+            await scheduleOnce(
+                id: ID.cyclePeriodReminder,
+                date: reminderDate,
+                title: "Period predicted tomorrow",
+                // Raw yyyy-MM-dd keys used to leak straight into the notification body.
+                body: "Expected to start around tomorrow — window \(CycleDayKey.shortDisplay(nextPeriod.earliestDayKey))–\(CycleDayKey.shortDisplay(nextPeriod.latestDayKey))."
+            )
         }
+    }
+
+    /// A specific local hour on a cycle day key. Cycle notifications used to inherit
+    /// midnight from the day anchor and fire while the user was asleep.
+    private static func atHour(_ hour: Int, on dayKey: String) -> Date? {
+        guard let start = CycleDayKey.startOfDay(from: dayKey) else { return nil }
+        return Calendar.current.date(byAdding: .hour, value: hour, to: start)
     }
 
     private static func scheduleDaily(id: String, hour: Int, minute: Int, title: String, body: String) async {

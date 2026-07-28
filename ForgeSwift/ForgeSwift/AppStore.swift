@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -1482,7 +1483,9 @@ final class AppStore: ObservableObject {
     func makeTrainerContext() -> TrainerContext {
         let ctx = AriaContextStore.shared.context
         let cycleStore = MenstrualHealthStore.shared
-        cycleStore.refresh(from: self)
+        // Read-only by design: this is called from SwiftUI computed properties, and
+        // mutating published cycle state from inside a view update is not allowed.
+        // The cycle store is refreshed on launch, on Home's task, and after every log.
         let cycle: MenstrualCycleSnapshot? = {
             guard cycleStore.settings.enabled, cycleStore.settings.shareWithAria else { return nil }
             return cycleStore.snapshot
@@ -1835,6 +1838,9 @@ final class AppStore: ObservableObject {
         connectedDevices: [String]? = nil,
         age: Int? = nil,
         weightKg: Double? = nil,
+        heightCm: Double? = nil,
+        gender: Gender? = nil,
+        biologicalSex: BiologicalSex? = nil,
         trainingTheme: AriaTrainingTheme? = nil,
         interestTags: [String]? = nil
     ) {
@@ -1848,11 +1854,36 @@ final class AppStore: ObservableObject {
         if let connectedDevices { userProfile.connectedDevices = connectedDevices }
         if let age { userProfile.age = age }
         if let weightKg { userProfile.weight = weightKg }
+        if let heightCm { userProfile.height = heightCm }
+        if let gender { userProfile.gender = gender }
+        if let biologicalSex {
+            userProfile.biologicalSex = biologicalSex
+            MenstrualHealthStore.shared.enableForBiologicalSexIfNeeded(biologicalSex)
+        }
         if let interestTags { userProfile.interestTags = interestTags }
         if let trainingTheme {
             setTrainingTheme(trainingTheme, source: "profile")
             return
         }
+        objectWillChange.send()
+    }
+
+    /// Stores a new profile photo on disk and records its filename on the profile.
+    /// Returns false when the image could not be written.
+    @discardableResult
+    func setProfilePhoto(_ image: UIImage) -> Bool {
+        guard let fileName = ProfileAvatarStore.shared.save(
+            image,
+            replacing: userProfile.avatarFileName
+        ) else { return false }
+        userProfile.avatarFileName = fileName
+        objectWillChange.send()
+        return true
+    }
+
+    func removeProfilePhoto() {
+        ProfileAvatarStore.shared.delete(userProfile.avatarFileName)
+        userProfile.avatarFileName = nil
         objectWillChange.send()
     }
     

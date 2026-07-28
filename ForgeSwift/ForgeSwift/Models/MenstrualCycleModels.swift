@@ -53,6 +53,17 @@ enum OvulationTestResult: String, Codable, CaseIterable {
     var indicatesNearOvulation: Bool {
         self == .lhSurge || self == .positive || self == .estrogenSurge
     }
+
+    var label: String {
+        switch self {
+        case .negative: return "Negative"
+        case .lhSurge: return "LH surge"
+        case .estrogenSurge: return "Estrogen surge"
+        case .positive: return "Positive"
+        case .indeterminate: return "Indeterminate"
+        case .unknown: return "Unknown"
+        }
+    }
 }
 
 enum CervicalMucusQuality: String, Codable, CaseIterable {
@@ -66,6 +77,17 @@ enum CervicalMucusQuality: String, Codable, CaseIterable {
         case .creamy: return 2
         case .sticky: return 1
         case .dry, .unknown: return 0
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .dry: return "Dry"
+        case .sticky: return "Sticky"
+        case .creamy: return "Creamy"
+        case .watery: return "Watery"
+        case .eggWhite: return "Egg white"
+        case .unknown: return "Unknown"
         }
     }
 }
@@ -225,6 +247,111 @@ struct PeriodEpisode: Identifiable, Codable, Equatable {
     var endDayKey: String
     var peakFlow: MenstrualFlowLevel
     var dayCount: Int
+    /// True when the user explicitly tapped "Period finished" for this episode, rather
+    /// than the engine inferring the end from where bleeding logs stopped.
+    var isConfirmedComplete: Bool = false
+
+    enum CodingKeys: String, CodingKey {
+        case id, startDayKey, endDayKey, peakFlow, dayCount, isConfirmedComplete
+    }
+
+    init(
+        id: String,
+        startDayKey: String,
+        endDayKey: String,
+        peakFlow: MenstrualFlowLevel,
+        dayCount: Int,
+        isConfirmedComplete: Bool = false
+    ) {
+        self.id = id
+        self.startDayKey = startDayKey
+        self.endDayKey = endDayKey
+        self.peakFlow = peakFlow
+        self.dayCount = dayCount
+        self.isConfirmedComplete = isConfirmedComplete
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        startDayKey = try c.decode(String.self, forKey: .startDayKey)
+        endDayKey = try c.decode(String.self, forKey: .endDayKey)
+        peakFlow = try c.decodeIfPresent(MenstrualFlowLevel.self, forKey: .peakFlow) ?? .medium
+        dayCount = try c.decodeIfPresent(Int.self, forKey: .dayCount) ?? 1
+        isConfirmedComplete = try c.decodeIfPresent(Bool.self, forKey: .isConfirmedComplete) ?? false
+    }
+}
+
+/// Physiological bounds the whole engine agrees on.
+///
+/// These were previously scattered as inline magic numbers with inconsistent values —
+/// period length was learned into a 2…10 day range in one place and clamped to 3+ in
+/// another, so the "how long is my period" model and the "am I still bleeding" model
+/// could disagree with each other.
+enum CycleBiology {
+    /// A menstrual bleed lasts 3–7 days. Learned period length is clamped to this.
+    static let periodDayRange: ClosedRange<Int> = 3...7
+    static let defaultPeriodDays = 5
+
+    /// Luteal phase length — ovulation to next period. Stable within a person.
+    static let lutealDayRange: ClosedRange<Int> = 10...16
+    static let defaultLutealDays = 14
+
+    /// Sperm survive ~5 days; the egg ~24 hours. The fertile window is therefore the
+    /// 5 days before ovulation plus ovulation day itself.
+    static let fertileDaysBeforeOvulation = 5
+    static let fertileDaysAfterOvulation = 1
+
+    static let defaultCycleDays = 28
+
+    static func clampPeriodDays(_ days: Int) -> Int {
+        min(periodDayRange.upperBound, max(periodDayRange.lowerBound, days))
+    }
+
+    static func clampLutealDays(_ days: Int) -> Int {
+        min(lutealDayRange.upperBound, max(lutealDayRange.lowerBound, days))
+    }
+}
+
+/// Where the user is in the arc of a single cycle. Distinct from `MenstrualPhase`:
+/// this is the *lifecycle* state the UI and partner coaching key off, and it knows the
+/// difference between "still bleeding" and "bleed confirmed finished".
+enum CycleStage: String, Codable, Equatable {
+    /// Actively bleeding.
+    case period
+    /// Bleed confirmed over, before the fertile window opens.
+    case postPeriod
+    /// Fertile window is open.
+    case fertile
+    /// Ovulation day.
+    case ovulation
+    /// After ovulation, before the next period.
+    case premenstrual
+    /// Not enough data.
+    case unknown
+
+    var label: String {
+        switch self {
+        case .period: return "On your period"
+        case .postPeriod: return "Period finished"
+        case .fertile: return "Fertile window"
+        case .ovulation: return "Ovulation"
+        case .premenstrual: return "Pre-menstrual"
+        case .unknown: return "Learning your cycle"
+        }
+    }
+
+    /// Same arc, phrased for the person supporting them.
+    func partnerLabel(name: String) -> String {
+        switch self {
+        case .period: return "\(name) is on her period"
+        case .postPeriod: return "\(name)'s period has finished"
+        case .fertile: return "\(name) is in her fertile window"
+        case .ovulation: return "\(name) is around ovulation"
+        case .premenstrual: return "\(name) is pre-menstrual"
+        case .unknown: return "Still learning \(name)'s rhythm"
+        }
+    }
 }
 
 enum MenstrualPhase: String, Codable, CaseIterable, Identifiable {
@@ -364,6 +491,43 @@ enum CycleCondition: String, Codable, CaseIterable, Identifiable {
     var suppressesFertileWindow: Bool {
         self == .perimenopause
     }
+
+    /// `nil` when no condition is set — lets call sites use `if let`.
+    var activeCase: CycleCondition? { self == .none ? nil : self }
+
+    /// Plain-language explanation of how this condition changes what Forge shows.
+    /// Surfaced in-app so the user understands why their windows differ.
+    var trackingImplication: String {
+        switch self {
+        case .none:
+            return ""
+        case .pcos:
+            return "Long or skipped cycles are kept as real history instead of being discarded, and the irregularity flag only fires on extreme variance. OPKs can show more than one LH surge without ovulation, so treat mid-cycle labels as soft."
+        case .endometriosis:
+            return "Pain tracking carries more weight in recovery guidance. Your experience is the signal here — pain that disrupts daily life or worsens over time is worth taking to a clinician."
+        case .perimenopause:
+            return "Cycle length is genuinely unpredictable now, so Forge withholds fertile-window and ovulation estimates rather than guessing. Period timing stays a range, never a single date."
+        case .thyroid:
+            return "Thyroid status shifts your BBT baseline, so temperature-based ovulation signals are interpreted with more caution. Take your temperature before any morning medication."
+        case .other:
+            return "Forge keeps prediction windows wider and avoids strong assumptions about regularity."
+        }
+    }
+
+    /// Inter-start intervals accepted as a real cycle for this person.
+    ///
+    /// The default 18–45d window silently discards every cycle of a PCOS or
+    /// perimenopausal user, collapsing their personal median back to the population
+    /// default of 28 days. Widening the window for those conditions is what makes
+    /// their history usable at all.
+    var plausibleCycleLengthRange: ClosedRange<Int> {
+        switch self {
+        case .pcos:           return 18...90
+        case .perimenopause:  return 14...90
+        case .thyroid:        return 18...60
+        case .none, .endometriosis, .other: return 18...45
+        }
+    }
 }
 
 // MARK: - Snapshot (engine output)
@@ -425,6 +589,31 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
     /// Real-time 0…100 fertile-window confidence signal (nil when tracking off,
     /// hormonal contraception, condition suppresses fertile window, or no cycle anchor).
     var fertileScore: Int?
+
+    // MARK: Period lifecycle
+    //
+    // The engine used to expose only "is she bleeding today", which meant nothing
+    // downstream could tell the difference between *mid-period* and *period just ended* —
+    // so partner coaching stayed in period-support mode until the median period length
+    // ran out, regardless of what the user actually confirmed.
+
+    /// Where this cycle currently is, end to end.
+    var stage: CycleStage = .unknown
+    /// Last bleeding day of the current episode, when it is known.
+    var currentPeriodEndDayKey: String?
+    /// True when the user (or supporter) explicitly confirmed the bleed is over.
+    var periodEndConfirmed: Bool = false
+    /// Actual length of the current/most recent bleed in days.
+    var currentPeriodDayCount: Int?
+    /// Whole days since the period ended. 0 = ended today.
+    var daysSincePeriodEnd: Int?
+    /// Whole days until the next predicted period start (negative = overdue).
+    var daysUntilNextPeriod: Int?
+    /// Real calendar dates for the fertile window, not just day-in-cycle numbers.
+    var fertileWindowStartDayKey: String?
+    var fertileWindowEndDayKey: String?
+    /// Plain-language line the UI and ARIA can both use without re-deriving it.
+    var stageNarrative: String = ""
 
     static let empty = MenstrualCycleSnapshot(
         asOfDayKey: "",
@@ -578,6 +767,12 @@ struct CycleDataEvaluation: Codable, Equatable {
 /// Redacted context for ARIA — numbers from engine only.
 struct CycleAIContext: Codable, Equatable {
     var phase: String
+    /// Lifecycle stage — distinguishes "on her period" from "period just finished",
+    /// which phase alone cannot express.
+    var stage: String = CycleStage.unknown.rawValue
+    var periodEndConfirmed: Bool = false
+    var daysSincePeriodEnd: Int?
+    var daysUntilNextPeriod: Int?
     var dayInCycle: Int?
     var cycleLengthMedian: Double
     var cycleLengthMAD: Double
@@ -1276,6 +1471,13 @@ struct MenstrualTrackingSettings: Codable, Equatable {
     var cycleGoal: CycleGoal
     /// Active health condition for personalised engine behaviour and ARIA coaching.
     var condition: CycleCondition
+    /// Last bleeding day the user explicitly confirmed with "Period finished".
+    ///
+    /// This is the authority on when the current bleed ended. Without it the engine fell
+    /// back to the *median* period length, so a 3-day period on someone whose median is 6
+    /// kept reporting Menstruation — and kept partner coaching in period-support mode —
+    /// for three days after the user said it was over.
+    var confirmedPeriodEndDayKey: String?
 
     enum CodingKeys: String, CodingKey {
         case enabled, shareWithAria, averageCycleOverride, averagePeriodOverride
@@ -1283,7 +1485,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         case privacyAcknowledged, calibrationOffsetDays, highAccuracyMode, overdueWidenDays
         case learnedLutealDays
         case bbtReminderEnabled, bbtReminderHour, fertileWindowAlertEnabled, periodReminderEnabled
-        case cycleGoal, condition
+        case cycleGoal, condition, confirmedPeriodEndDayKey
     }
 
     static let `default` = MenstrualTrackingSettings(
@@ -1300,7 +1502,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         overdueWidenDays: 0,
         learnedLutealDays: nil,
         cycleGoal: .general,
-        condition: .none
+        condition: .none,
+        confirmedPeriodEndDayKey: nil
     )
 
     init(
@@ -1321,7 +1524,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         fertileWindowAlertEnabled: Bool = false,
         periodReminderEnabled: Bool = false,
         cycleGoal: CycleGoal = .general,
-        condition: CycleCondition = .none
+        condition: CycleCondition = .none,
+        confirmedPeriodEndDayKey: String? = nil
     ) {
         self.enabled = enabled
         self.shareWithAria = shareWithAria
@@ -1341,6 +1545,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         self.periodReminderEnabled = periodReminderEnabled
         self.cycleGoal = cycleGoal
         self.condition = condition
+        self.confirmedPeriodEndDayKey = confirmedPeriodEndDayKey
     }
 
     init(from decoder: Decoder) throws {
@@ -1363,6 +1568,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         periodReminderEnabled = try c.decodeIfPresent(Bool.self, forKey: .periodReminderEnabled) ?? false
         cycleGoal = try c.decodeIfPresent(CycleGoal.self, forKey: .cycleGoal) ?? .general
         condition = try c.decodeIfPresent(CycleCondition.self, forKey: .condition) ?? .none
+        confirmedPeriodEndDayKey = try c.decodeIfPresent(String.self, forKey: .confirmedPeriodEndDayKey)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -1385,6 +1591,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         try c.encode(periodReminderEnabled, forKey: .periodReminderEnabled)
         try c.encode(cycleGoal, forKey: .cycleGoal)
         try c.encode(condition, forKey: .condition)
+        try c.encodeIfPresent(confirmedPeriodEndDayKey, forKey: .confirmedPeriodEndDayKey)
     }
 
     /// Effective luteal for calendar fallback.
@@ -1492,11 +1699,15 @@ struct PartnerCycleSettings: Codable, Equatable {
     /// User confirmed they have consent (partner) or appropriate caregiver context (child).
     var consentAcknowledged: Bool
     var notes: String
+    /// Last bleeding day confirmed for the supported person. Drives the return from
+    /// period-support coaching back to everyday support.
+    var confirmedPeriodEndDayKey: String?
 
     enum CodingKeys: String, CodingKey {
         case enabled, partnerName, relationshipLabel, supportRole, shareWithAria
         case averageCycleOverride, averagePeriodOverride, typicalLutealDays
         case usesHormonalContraception, consentAcknowledged, notes
+        case confirmedPeriodEndDayKey
     }
 
     static let `default` = PartnerCycleSettings(
@@ -1510,7 +1721,8 @@ struct PartnerCycleSettings: Codable, Equatable {
         typicalLutealDays: 14,
         usesHormonalContraception: false,
         consentAcknowledged: false,
-        notes: ""
+        notes: "",
+        confirmedPeriodEndDayKey: nil
     )
 
     init(
@@ -1524,7 +1736,8 @@ struct PartnerCycleSettings: Codable, Equatable {
         typicalLutealDays: Int,
         usesHormonalContraception: Bool,
         consentAcknowledged: Bool,
-        notes: String
+        notes: String,
+        confirmedPeriodEndDayKey: String? = nil
     ) {
         self.enabled = enabled
         self.partnerName = partnerName
@@ -1537,6 +1750,7 @@ struct PartnerCycleSettings: Codable, Equatable {
         self.usesHormonalContraception = usesHormonalContraception
         self.consentAcknowledged = consentAcknowledged
         self.notes = notes
+        self.confirmedPeriodEndDayKey = confirmedPeriodEndDayKey
     }
 
     init(from decoder: Decoder) throws {
@@ -1551,6 +1765,7 @@ struct PartnerCycleSettings: Codable, Equatable {
         usesHormonalContraception = try c.decodeIfPresent(Bool.self, forKey: .usesHormonalContraception) ?? false
         consentAcknowledged = try c.decodeIfPresent(Bool.self, forKey: .consentAcknowledged) ?? false
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        confirmedPeriodEndDayKey = try c.decodeIfPresent(String.self, forKey: .confirmedPeriodEndDayKey)
         if let role = try c.decodeIfPresent(CycleSupportRole.self, forKey: .supportRole) {
             supportRole = role
         } else {
@@ -1576,6 +1791,9 @@ struct PartnerSupportBrief: Equatable {
     var partnerLabel: String
     var role: CycleSupportRole
     var phase: MenstrualPhase
+    /// Lifecycle position — lets the UI show the period-finished hand-off explicitly
+    /// instead of silently swapping in generic follicular advice.
+    var stage: CycleStage = .unknown
     var dayInCycle: Int?
     var confidence: Double
     var headline: String
@@ -1602,21 +1820,38 @@ struct PartnerSupportBrief: Equatable {
 // MARK: - Day key helpers
 
 enum CycleDayKey {
-    private static let formatter: DateFormatter = {
-        let f = DateFormatter()
-        f.calendar = Calendar.current
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = Calendar.current.timeZone
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
-
+    /// Day keys are pure `yyyy-MM-dd` calendar labels. They are built from calendar
+    /// components rather than a cached `DateFormatter` so a timezone change mid-session
+    /// (travel, DST) can never emit a key for the wrong local day.
     static func key(for date: Date = Date()) -> String {
-        formatter.string(from: Calendar.current.startOfDay(for: date))
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        guard let y = c.year, let m = c.month, let d = c.day else { return "" }
+        return String(format: "%04d-%02d-%02d", y, m, d)
     }
 
+    /// Local **noon** of the given day. Noon (not midnight) keeps day arithmetic exact
+    /// across DST transitions, including zones where 00:00 does not exist on some dates.
     static func date(from key: String) -> Date? {
-        formatter.date(from: key)
+        let parts = key.split(separator: "-")
+        guard parts.count == 3,
+              let y = Int(parts[0]), let m = Int(parts[1]), let d = Int(parts[2]),
+              (1...12).contains(m), (1...31).contains(d) else { return nil }
+        var comps = DateComponents()
+        comps.year = y
+        comps.month = m
+        comps.day = d
+        comps.hour = 12
+        guard let date = Calendar.current.date(from: comps) else { return nil }
+        // Reject non-existent dates that the calendar rolled over (e.g. 2026-02-31).
+        let round = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        guard round.year == y, round.month == m, round.day == d else { return nil }
+        return date
+    }
+
+    /// Midnight of the given day — for anything that needs a day *boundary* rather than
+    /// a stable anchor (HealthKit sample windows, calendar comparisons).
+    static func startOfDay(from key: String) -> Date? {
+        date(from: key).map { Calendar.current.startOfDay(for: $0) }
     }
 
     static func addDays(_ key: String, _ days: Int) -> String? {
@@ -1628,5 +1863,16 @@ enum CycleDayKey {
     static func daysBetween(_ a: String, _ b: String) -> Int? {
         guard let da = date(from: a), let db = date(from: b) else { return nil }
         return Calendar.current.dateComponents([.day], from: da, to: db).day
+    }
+
+    /// Whole days from today to `key` (negative = in the past).
+    static func daysFromToday(to key: String) -> Int? {
+        daysBetween(self.key(), key)
+    }
+
+    /// Short, locale-aware display form ("Aug 3"). Falls back to the raw key.
+    static func shortDisplay(_ key: String) -> String {
+        guard let d = date(from: key) else { return key }
+        return d.formatted(.dateTime.month(.abbreviated).day())
     }
 }

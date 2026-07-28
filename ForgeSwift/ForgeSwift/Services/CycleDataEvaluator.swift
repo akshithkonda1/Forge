@@ -35,15 +35,31 @@ enum CycleDataEvaluator {
             issues.append(.spottingAmbiguous)
         }
 
-        // LH vs BBT conflict: LH positive but temps not rising later
-        let hasLH = logs.contains { $0.ovulationTest?.indicatesNearOvulation == true }
-        let hasBBT = logs.contains { ($0.bbtCelsius ?? 0) > 35 }
-        if hasLH, hasBBT, snapshot.ovulationMethod == "lh_surge" {
-            // Soft conflict if no bbt_shift ever detected in method history
-            if snapshot.ovulationMethod != "bbt_shift",
-               logs.filter({ $0.bbtCelsius != nil }).count >= 6 {
-                // Only flag if BBT series exists but engine didn't prefer it
-                issues.append(.signalConflictLhBbt)
+        // LH vs BBT conflict: an LH surge was used, but the temperature series around it
+        // never actually confirmed a sustained rise.
+        //
+        // The old inner test was `ovulationMethod != "bbt_shift"` *inside* a branch that
+        // already required `ovulationMethod == "lh_surge"` — always true, so this fired for
+        // every user with an OPK and six temperatures regardless of whether the signals
+        // disagreed. Now it compares the real temperatures on both sides of the estimate.
+        if snapshot.ovulationMethod == "lh_surge",
+           let ovulationDay = snapshot.ovulationDayInCycle,
+           let cycleStart = snapshot.lastPeriodStartDayKey {
+            let temps: [(day: Int, celsius: Double)] = logs.compactMap { log in
+                guard let t = log.bbtCelsius, t > 35.0, t < 38.5,
+                      let offset = CycleDayKey.daysBetween(cycleStart, log.dayKey) else { return nil }
+                return (offset + 1, t)
+            }
+            let before = temps.filter { $0.day < ovulationDay }.map(\.celsius)
+            let after = temps.filter { $0.day > ovulationDay }.map(\.celsius)
+            if before.count >= 3, after.count >= 3 {
+                let preMean = before.reduce(0, +) / Double(before.count)
+                let postMean = after.reduce(0, +) / Double(after.count)
+                // A real post-ovulatory shift is ~+0.2 °C. Less than half of that after an
+                // LH surge is a genuine disagreement worth surfacing.
+                if postMean - preMean < 0.10 {
+                    issues.append(.signalConflictLhBbt)
+                }
             }
         }
 

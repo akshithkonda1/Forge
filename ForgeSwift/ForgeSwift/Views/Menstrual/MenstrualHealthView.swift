@@ -43,13 +43,22 @@ struct MenstrualHealthView: View {
     @State private var editFlow: MenstrualFlowLevel = .medium
     @State private var editSymptoms: Set<CycleSymptom> = []
     @State private var editNotes = ""
+    @State private var editBBT = ""
+    @State private var editOvulationTest: OvulationTestResult?
+    @State private var editMucus: CervicalMucusQuality?
+    @State private var editPain = 0
     @State private var showWipeConfirm = false
     @State private var showDayEditor = false
     @State private var showAccuracyExplainer = false
     @State private var feedbackOffset = 1
     @State private var modelToast: String?
+    /// Identifies the toast currently on screen so a newer toast's timer can't be
+    /// cancelled early by an older one still counting down.
+    @State private var toastToken = UUID()
     @State private var showPeriodEndFeedback = false
     @State private var periodEndEpisode: PeriodEpisode?
+    @State private var bbtUnit: BBTUnit = .celsius
+    @State private var saveError: String?
 
     private var accent: Color {
         let phase = pane == .me ? cycleStore.snapshot.phase : cycleStore.partnerSnapshot.phase
@@ -69,6 +78,10 @@ struct MenstrualHealthView: View {
                             enableCard
                         } else {
                             phaseOrbitCard
+                            cycleStageCard
+                            if let condition = cycleStore.settings.condition.activeCase {
+                                conditionCard(condition)
+                            }
                             accuracyCard
                             ariaAnalystCard
                             if cycleStore.settings.highAccuracyMode {
@@ -93,9 +106,7 @@ struct MenstrualHealthView: View {
                             }
                             predictionFeedbackCard
                             quickLogCard
-                            if historyExpanded || !cycleStore.logs.isEmpty {
-                                historyCard
-                            }
+                            historyCard
                             insightsCard
                             ariaCoachCard
                             sexualHealthCard
@@ -118,13 +129,16 @@ struct MenstrualHealthView: View {
                 Text(modelToast)
                     .font(FDS.TypeScale.label(13))
                     .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(Color.ember.opacity(0.92))
                     .clipShape(Capsule())
                     .shadow(color: Color.ember.opacity(0.4), radius: 12, y: 4)
+                    .padding(.horizontal, 24)
                     .padding(.bottom, 28)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .accessibilityAddTraits(.isStaticText)
             }
         }
         .navigationTitle("Cycle Health")
@@ -183,35 +197,263 @@ struct MenstrualHealthView: View {
         }
         .onChange(of: cycleStore.lastModelUpdateMessage) { _, msg in
             guard let msg else { return }
-            withAnimation(FDS.Spring.snap) { modelToast = msg }
-            FDS.notificationHaptic(.success)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.6) {
-                withAnimation { modelToast = nil }
-                cycleStore.lastModelUpdateMessage = nil
+            showToast(msg)
+            cycleStore.lastModelUpdateMessage = nil
+        }
+        // Day editor and the wipe dialog used to hang off `settingsCard`, so they only
+        // worked while that specific card happened to be in the view tree.
+        .sheet(isPresented: $showDayEditor) { dayEditorSheet }
+        .confirmationDialog(
+            "Wipe all self cycle logs?",
+            isPresented: $showWipeConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Wipe logs only", role: .destructive) {
+                cycleStore.wipeSelfCycleData(includingSettings: false)
+                FDS.notificationHaptic(.warning)
+                showToast("Cycle logs wiped")
             }
+            Button("Wipe logs + disable tracking", role: .destructive) {
+                cycleStore.wipeSelfCycleData(includingSettings: true)
+                FDS.notificationHaptic(.warning)
+                showToast("Cycle data wiped · tracking off")
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Logs, learned bias, prediction history, and period feedback are erased. Partner / support logs are kept. This cannot be undone.")
+        }
+        .alert("Check that entry", isPresented: Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )) {
+            Button("OK", role: .cancel) { saveError = nil }
+        } message: {
+            Text(saveError ?? "")
         }
         .onAppear {
-            cycleStore.enableForFemaleProfileIfNeeded(gender: store.userProfile.gender)
             if let sex = store.userProfile.biologicalSex {
                 cycleStore.enableForBiologicalSexIfNeeded(sex)
             }
+            cycleStore.enableForFemaleProfileIfNeeded(gender: store.userProfile.gender)
             if let initialPane {
                 pane = initialPane
             } else if store.userProfile.gender != .female,
                       store.userProfile.biologicalSex?.cycleAutoEnabled != true,
+                      !cycleStore.cycleSurfaceRelevant,
                       !cycleStore.settings.enabled {
                 pane = .partner
             }
             partnerNameDraft = cycleStore.partnerSettings.partnerName
             partnerRelDraft = cycleStore.partnerSettings.relationshipLabel
             supportRole = cycleStore.partnerSettings.resolvedRole
+            privacyAccepted = cycleStore.settings.privacyAcknowledged
             cycleStore.refresh(from: store)
             Task { await cycleStore.syncFromHealthKit() }
             withAnimation(FDS.Spring.hero.delay(0.05)) { appeared = true }
+            guard !UIAccessibility.isReduceMotionEnabled else { return }
             withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
                 ringPulse = true
             }
         }
+    }
+
+    /// The end-to-end arc of the current cycle: bleed → post-period → fertile → pre-menstrual.
+    /// This is the surface that makes "my period finished" visibly mean something.
+    private var cycleStageCard: some View {
+        let snap = cycleStore.snapshot
+        let stage = snap.stage
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("WHERE YOU ARE").forgeSectionLabel()
+                Spacer()
+                Text(stage.label)
+                    .font(FDS.TypeScale.micro(11))
+                    .foregroundStyle(stageColor(stage))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(stageColor(stage).opacity(0.14))
+                    .clipShape(Capsule())
+            }
+
+            stageTrack(current: stage)
+
+            if !snap.stageNarrative.isEmpty {
+                Text(snap.stageNarrative)
+                    .font(FDS.TypeScale.body(13))
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            // Facts, not vibes: real dates for the two things people actually plan around.
+            VStack(spacing: 8) {
+                if let end = snap.currentPeriodEndDayKey, let count = snap.currentPeriodDayCount {
+                    stageFact(
+                        icon: snap.periodEndConfirmed ? "checkmark.circle.fill" : "drop.circle",
+                        label: snap.periodEndConfirmed ? "Period finished" : "Last bleed logged",
+                        value: "\(shortDate(end)) · \(count) day\(count == 1 ? "" : "s")",
+                        color: Color(hex: "EF4444")
+                    )
+                }
+                if let fs = snap.fertileWindowStartDayKey, let fe = snap.fertileWindowEndDayKey {
+                    stageFact(
+                        icon: "waveform.path.ecg",
+                        label: "Fertile window",
+                        value: "\(shortDate(fs)) – \(shortDate(fe))",
+                        color: Color(hex: "F59E0B")
+                    )
+                }
+                if let next = snap.nextPeriod {
+                    stageFact(
+                        icon: "calendar",
+                        label: "Next period",
+                        value: snap.daysUntilNextPeriod.map { d in
+                            d < 0 ? "\(shortDate(next.medianDayKey)) · \(-d)d overdue"
+                                  : "\(shortDate(next.medianDayKey)) · in \(d)d"
+                        } ?? shortDate(next.medianDayKey),
+                        color: Color(hex: "6366F1")
+                    )
+                }
+            }
+
+            // The one action that closes the loop, offered exactly when it applies.
+            if stage == .period, !snap.periodEndConfirmed {
+                Button {
+                    let msg = cycleStore.confirmPeriodEndedToday()
+                    cycleStore.refresh(from: store)
+                    cycleStore.refreshAnalyst(lastAction: "period_ended_today")
+                    showToast(msg)
+                    if let episode = cycleStore.pendingPeriodEndEpisode {
+                        periodEndEpisode = episode
+                        showPeriodEndFeedback = true
+                    }
+                } label: {
+                    Label("My period finished", systemImage: "checkmark.flag.fill")
+                        .font(FDS.TypeScale.label(14))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(hex: "A78BFA"), Color(hex: "6366F1")],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(18)
+        .forgeGlassCard(accent: stageColor(stage))
+        .accessibilityElement(children: .contain)
+    }
+
+    private func stageColor(_ stage: CycleStage) -> Color {
+        switch stage {
+        case .period:        return Color(hex: "EF4444")
+        case .postPeriod:    return Color(hex: "22C55E")
+        case .fertile:       return Color(hex: "F59E0B")
+        case .ovulation:     return Color(hex: "A855F7")
+        case .premenstrual:  return Color(hex: "6366F1")
+        case .unknown:       return .steel
+        }
+    }
+
+    private func stageIcon(_ stage: CycleStage) -> String {
+        switch stage {
+        case .period:        return "drop.fill"
+        case .postPeriod:    return "checkmark.circle.fill"
+        case .fertile:       return "waveform.path.ecg"
+        case .ovulation:     return "sparkles"
+        case .premenstrual:  return "moon.fill"
+        case .unknown:       return "circle.dashed"
+        }
+    }
+
+    private func stageTrack(current: CycleStage) -> some View {
+        let ordered: [CycleStage] = [.period, .postPeriod, .fertile, .ovulation, .premenstrual]
+        let currentIndex = ordered.firstIndex(of: current)
+        return HStack(spacing: 6) {
+            ForEach(Array(ordered.enumerated()), id: \.element) { index, stage in
+                let isCurrent = stage == current
+                let isPast = currentIndex.map { index < $0 } ?? false
+                VStack(spacing: 6) {
+                    Image(systemName: stageIcon(stage))
+                        .font(.system(size: isCurrent ? 14 : 11, weight: .semibold))
+                        .foregroundStyle(
+                            isCurrent ? stageColor(stage)
+                                : (isPast ? Color.textSecondary : Color.textMuted)
+                        )
+                    Capsule()
+                        .fill(
+                            isCurrent ? stageColor(stage)
+                                : (isPast ? Color.textSecondary.opacity(0.4) : Color.white.opacity(0.08))
+                        )
+                        .frame(height: isCurrent ? 4 : 3)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Cycle stage: \(current.label)")
+    }
+
+    private func stageFact(icon: String, label: String, value: String, color: Color) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 13))
+                .foregroundStyle(color)
+                .frame(width: 20)
+            Text(label)
+                .font(FDS.TypeScale.body(12))
+                .foregroundColor(.textTertiary)
+            Spacer()
+            Text(value)
+                .font(FDS.TypeScale.label(13))
+                .foregroundColor(.textPrimary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.surfaceElevated)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
+    }
+
+    /// Condition context, shown right under the phase orbit so the user can see *why*
+    /// their windows behave differently — and take it straight to ARIA.
+    private func conditionCard(_ condition: CycleCondition) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: condition.icon)
+                    .foregroundStyle(Color(hex: "38BDF8"))
+                Text(condition.label.uppercased())
+                    .forgeSectionLabel()
+                    .foregroundStyle(Color(hex: "38BDF8"))
+            }
+            Text(condition.trackingImplication)
+                .font(FDS.TypeScale.body(13))
+                .foregroundColor(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                store.openChat(
+                    with: "I track my cycle with \(condition.label). I'm on \(cycleStore.snapshot.phase.label)"
+                        + (cycleStore.snapshot.dayInCycle.map { ", day \($0)" } ?? "")
+                        + ". What should I expect this week, and what's worth raising with a clinician?",
+                    voice: false
+                )
+            } label: {
+                Label("Ask ARIA about \(condition.label)", systemImage: "sparkles")
+                    .font(FDS.TypeScale.label(13))
+                    .foregroundStyle(Color.ember)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeGlassCard(accent: Color(hex: "38BDF8"))
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: Ambient
@@ -341,6 +583,7 @@ struct MenstrualHealthView: View {
                     $0.privacyAcknowledged = true
                 }
                 FDS.haptic(.medium)
+                showToast("Cycle tracking on")
                 Task { await cycleStore.syncFromHealthKit() }
             } label: {
                 Text("Enable my cycle")
@@ -721,9 +964,15 @@ struct MenstrualHealthView: View {
     }
 
     private func showToast(_ msg: String) {
+        let token = UUID()
+        toastToken = token
         withAnimation(FDS.Spring.snap) { modelToast = msg }
         FDS.notificationHaptic(.success)
+        UIAccessibility.post(notification: .announcement, argument: msg)
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.6) {
+            // Only the toast that scheduled this timer may dismiss it — otherwise a
+            // second action inside the window cleared the *new* message early.
+            guard toastToken == token else { return }
             withAnimation { modelToast = nil }
         }
     }
@@ -955,6 +1204,10 @@ struct MenstrualHealthView: View {
         editFlow = log?.flow ?? .none
         editSymptoms = Set(log?.symptoms ?? [])
         editNotes = log?.notes ?? ""
+        editBBT = log?.bbtCelsius.map { String(format: "%.2f", bbtUnit.fromCelsius($0)) } ?? ""
+        editOvulationTest = log?.ovulationTest
+        editMucus = log?.mucus
+        editPain = log?.painScale ?? 0
         showDayEditor = true
         FDS.haptic(.light)
     }
@@ -1064,21 +1317,32 @@ struct MenstrualHealthView: View {
                     .padding(.top, 4)
                 symptomGrid
 
-                HStack {
-                    Text("BBT °C")
+                HStack(spacing: 10) {
+                    Text("BBT")
                         .font(FDS.TypeScale.label(12))
                         .foregroundColor(.textSecondary)
+                    // The field was hard-coded to °C, so anyone using a Fahrenheit
+                    // thermometer either skipped BBT or typed "97.8" and had it silently
+                    // rejected as an impossible Celsius reading.
+                    Picker("Unit", selection: $bbtUnit) {
+                        ForEach(BBTUnit.allCases) { unit in
+                            Text(unit.symbol).tag(unit)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 108)
                     Spacer()
-                    TextField("36.50", text: $bbtText)
+                    TextField(bbtUnit.placeholder, text: $bbtText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .font(FDS.TypeScale.label(15))
                         .foregroundColor(.textPrimary)
-                        .frame(width: 72)
+                        .frame(width: 78)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 8)
                         .background(Color.surfaceElevated)
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .accessibilityLabel("Basal body temperature in \(bbtUnit.accessibilityName)")
                 }
 
                 Button { saveToday() } label: {
@@ -1205,6 +1469,8 @@ struct MenstrualHealthView: View {
     // MARK: History
 
     private var historyCard: some View {
+        // Card used to be hidden entirely when `logs` was empty, which also hid the only
+        // control that expands it — so a user with no logs could never see the empty state.
         VStack(alignment: .leading, spacing: 12) {
             Button {
                 withAnimation(FDS.Spring.snap) { historyExpanded.toggle() }
@@ -1213,38 +1479,55 @@ struct MenstrualHealthView: View {
                     Text("RECENT LOGS")
                         .forgeSectionLabel()
                     Spacer()
-                    Text("\(cycleStore.logs.suffix(30).count)")
+                    Text("\(cycleStore.logs.count)")
                         .font(FDS.TypeScale.micro(11))
                         .foregroundColor(.textTertiary)
                     Image(systemName: historyExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.textTertiary)
                 }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Recent logs, \(cycleStore.logs.count) entries")
+            .accessibilityHint(historyExpanded ? "Collapses the list" : "Expands the list")
 
             if historyExpanded {
-                ForEach(cycleStore.logs.suffix(12).reversed()) { log in
-                    HStack(spacing: 12) {
-                        Circle()
-                            .fill(flowDotColor(log.flow))
-                            .frame(width: 10, height: 10)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(shortDate(log.dayKey))
-                                .font(FDS.TypeScale.label(13))
-                                .foregroundColor(.textPrimary)
-                            Text(log.flow.label + (log.symptoms.isEmpty ? "" : " · \(log.symptoms.count) symptoms"))
-                                .font(FDS.TypeScale.body(11))
-                                .foregroundColor(.textTertiary)
+                if cycleStore.logs.isEmpty {
+                    Text("Nothing logged yet. Save a day above and it will show up here.")
+                        .font(FDS.TypeScale.body(13))
+                        .foregroundColor(.textTertiary)
+                        .padding(.vertical, 6)
+                } else {
+                    ForEach(cycleStore.logs.suffix(12).reversed()) { log in
+                        Button {
+                            openDayEditor(key: log.dayKey)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Circle()
+                                    .fill(flowDotColor(log.flow))
+                                    .frame(width: 10, height: 10)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(shortDate(log.dayKey))
+                                        .font(FDS.TypeScale.label(13))
+                                        .foregroundColor(.textPrimary)
+                                    Text(log.flow.label + (log.symptoms.isEmpty ? "" : " · \(log.symptoms.count) symptoms"))
+                                        .font(FDS.TypeScale.body(11))
+                                        .foregroundColor(.textTertiary)
+                                }
+                                Spacer()
+                                if let bbt = log.bbtCelsius {
+                                    Text(String(format: "%.2f%@", bbtUnit.fromCelsius(bbt), bbtUnit.symbol))
+                                        .font(FDS.TypeScale.micro(11))
+                                        .foregroundColor(.steel)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
                         }
-                        Spacer()
-                        if let bbt = log.bbtCelsius {
-                            Text(String(format: "%.2f°", bbt))
-                                .font(FDS.TypeScale.micro(11))
-                                .foregroundColor(.steel)
-                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Opens the day editor")
                     }
-                    .padding(.vertical, 4)
                 }
             }
         }
@@ -1397,26 +1680,6 @@ struct MenstrualHealthView: View {
         }
         .padding(18)
         .forgeGlassCard(accent: Color(hex: "22C55E"))
-        .confirmationDialog(
-            "Wipe all self cycle logs?",
-            isPresented: $showWipeConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Wipe logs only", role: .destructive) {
-                cycleStore.wipeSelfCycleData(includingSettings: false)
-                FDS.notificationHaptic(.warning)
-            }
-            Button("Wipe logs + disable tracking", role: .destructive) {
-                cycleStore.wipeSelfCycleData(includingSettings: true)
-                FDS.notificationHaptic(.warning)
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Partner / support logs are kept. This cannot be undone.")
-        }
-        .sheet(isPresented: $showDayEditor) {
-            dayEditorSheet
-        }
     }
 
     private var dayEditorSheet: some View {
@@ -1444,6 +1707,64 @@ struct MenstrualHealthView: View {
                         ))
                     }
                 }
+                Section("Basal temperature") {
+                    HStack {
+                        Picker("Unit", selection: $bbtUnit) {
+                            ForEach(BBTUnit.allCases) { unit in
+                                Text(unit.symbol).tag(unit)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 116)
+                        Spacer()
+                        TextField(bbtUnit.placeholder, text: $editBBT)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 90)
+                    }
+                    if !editBBT.isEmpty {
+                        Button("Clear temperature", role: .destructive) { editBBT = "" }
+                            .font(.footnote)
+                    }
+                }
+                // `painScale` existed on the model with an endometriosis comment but had
+                // no entry point anywhere in the app — the field could never be set.
+                Section("Pain") {
+                    HStack {
+                        Text(editPain == 0 ? "None" : "\(editPain)/10")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(width: 64, alignment: .leading)
+                        Slider(
+                            value: Binding(
+                                get: { Double(editPain) },
+                                set: { editPain = Int($0.rounded()) }
+                            ),
+                            in: 0...10,
+                            step: 1
+                        )
+                        .tint(editPain >= 7 ? .red : .orange)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Pain level")
+                    .accessibilityValue(editPain == 0 ? "None" : "\(editPain) out of 10")
+                }
+                // OPK and mucus were read-only imports from Apple Health with no way to
+                // enter or correct them in Forge, even though the engine ranks them above
+                // the calendar fallback when estimating ovulation.
+                Section("Fertility signals") {
+                    Picker("Ovulation test", selection: $editOvulationTest) {
+                        Text("Not logged").tag(OvulationTestResult?.none)
+                        ForEach(OvulationTestResult.allCases, id: \.self) { result in
+                            Text(result.label).tag(OvulationTestResult?.some(result))
+                        }
+                    }
+                    Picker("Cervical mucus", selection: $editMucus) {
+                        Text("Not logged").tag(CervicalMucusQuality?.none)
+                        ForEach(CervicalMucusQuality.allCases, id: \.self) { quality in
+                            Text(quality.label).tag(CervicalMucusQuality?.some(quality))
+                        }
+                    }
+                }
                 Section("Notes") {
                     TextField("Optional notes", text: $editNotes, axis: .vertical)
                         .lineLimit(2...4)
@@ -1454,6 +1775,7 @@ struct MenstrualHealthView: View {
                             cycleStore.deleteLog(dayKey: key)
                             showDayEditor = false
                             FDS.notificationHaptic(.warning)
+                            showToast("Day deleted")
                         }
                     }
                 }
@@ -1465,27 +1787,49 @@ struct MenstrualHealthView: View {
                     Button("Cancel") { showDayEditor = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        guard let key = editingDayKey else { return }
-                        cycleStore.upsertLog(
-                            CycleDayLog(
-                                dayKey: key,
-                                flow: editFlow,
-                                symptoms: Array(editSymptoms),
-                                notes: editNotes.isEmpty ? nil : editNotes,
-                                source: "manual"
-                            )
-                        )
-                        cycleStore.refresh(from: store)
-                        showDayEditor = false
-                        FDS.notificationHaptic(.success)
-                    }
-                    .fontWeight(.semibold)
+                    Button("Save") { saveDayEdit() }
+                        .fontWeight(.semibold)
                 }
             }
         }
         .presentationDetents([.medium, .large])
         .preferredColorScheme(.dark)
+    }
+
+    private func saveDayEdit() {
+        guard let key = editingDayKey else { return }
+        let raw = editBBT.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
+        var bbtCelsius: Double?
+        if !raw.isEmpty {
+            guard let entered = Double(raw), let celsius = bbtUnit.toCelsius(entered),
+                  BBTUnit.plausibleCelsius.contains(celsius) else {
+                saveError = "Basal temperature should be about \(bbtUnit.plausibleCopy). Check the reading and try again."
+                FDS.notificationHaptic(.error)
+                return
+            }
+            bbtCelsius = celsius
+        }
+        let trimmedNotes = editNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        cycleStore.upsertLog(
+            CycleDayLog(
+                dayKey: key,
+                flow: editFlow,
+                symptoms: Array(editSymptoms),
+                bbtCelsius: bbtCelsius,
+                ovulationTest: editOvulationTest,
+                mucus: editMucus,
+                notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
+                source: "manual",
+                painScale: editPain > 0 ? editPain : nil
+            ),
+            // The editor shows the complete state of the day, so an emptied note or a
+            // cleared temperature has to actually clear — a merge-only upsert kept them.
+            fieldsAreAuthoritative: true
+        )
+        cycleStore.refresh(from: store)
+        showDayEditor = false
+        FDS.notificationHaptic(.success)
+        showToast("Saved \(shortDate(key))")
     }
 
     private var privacyShieldBanner: some View {
@@ -1715,9 +2059,10 @@ struct MenstrualHealthView: View {
                         .font(FDS.TypeScale.micro(10))
                         .tracking(1.3)
                         .foregroundStyle(phaseColor)
-                    Text(snap.phase.label)
-                        .font(FDS.TypeScale.title(22))
+                    Text(snap.stage == .unknown ? snap.phase.label : snap.stage.partnerLabel(name: name))
+                        .font(FDS.TypeScale.title(20))
                         .foregroundColor(.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
                     if let day = snap.dayInCycle {
                         Text("Day \(day) · \(Int(snap.confidence * 100))% confidence")
                             .font(FDS.TypeScale.body(13))
@@ -1725,6 +2070,21 @@ struct MenstrualHealthView: View {
                     }
                 }
                 Spacer()
+            }
+            // The transition itself is the useful signal for a supporter.
+            if snap.stage == .postPeriod, let since = snap.daysSincePeriodEnd, since <= 2 {
+                Label(
+                    since == 0 ? "Finished today — back to everyday support"
+                               : "Finished \(since == 1 ? "yesterday" : "\(since) days ago") — back to everyday support",
+                    systemImage: "arrow.uturn.forward.circle.fill"
+                )
+                .font(FDS.TypeScale.label(13))
+                .foregroundStyle(Color(hex: "22C55E"))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(hex: "22C55E").opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             if let next = snap.nextPeriod {
                 Text("Next period window · \(shortDate(next.earliestDayKey)) – \(shortDate(next.latestDayKey))")
@@ -1817,9 +2177,29 @@ struct MenstrualHealthView: View {
             .buttonStyle(.plain)
 
             HStack(spacing: 10) {
+                // Without this, support coaching had no way to leave period mode — it sat
+                // there until the median bleed length elapsed, regardless of reality.
+                Button {
+                    let msg = cycleStore.logPartnerPeriodEnd()
+                    cycleStore.refresh(from: store)
+                    showToast(msg)
+                } label: {
+                    Label("Their period finished", systemImage: "checkmark.flag.fill")
+                        .font(FDS.TypeScale.label(14))
+                        .foregroundStyle(Color(hex: "22C55E"))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color(hex: "22C55E").opacity(0.14))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(cycleStore.partnerSnapshot.stage != .period)
+                .opacity(cycleStore.partnerSnapshot.stage == .period ? 1 : 0.45)
+
                 Button {
                     cycleStore.logPartnerToday(flow: partnerFlow)
                     FDS.notificationHaptic(.success)
+                    showToast("Saved today for \(cycleStore.partnerSettings.displayName)")
                 } label: {
                     Text("Save today")
                         .font(FDS.TypeScale.label(14))
@@ -1894,21 +2274,66 @@ struct MenstrualHealthView: View {
     // MARK: Actions
 
     private func saveToday() {
-        let bbt = Double(bbtText.replacingOccurrences(of: ",", with: "."))
+        let raw = bbtText.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
+        var bbtCelsius: Double?
+        if !raw.isEmpty {
+            // An unvalidated field accepted anything — "99" was stored as 99 °C, which
+            // poisons the BBT shift detector for every future cycle.
+            guard let entered = Double(raw), let celsius = bbtUnit.toCelsius(entered),
+                  BBTUnit.plausibleCelsius.contains(celsius) else {
+                saveError = "Basal temperature should be about \(bbtUnit.plausibleCopy). Check the reading and try again."
+                FDS.notificationHaptic(.error)
+                return
+            }
+            bbtCelsius = celsius
+        }
+
         cycleStore.logToday(
             flow: selectedFlow,
             symptoms: Array(selectedSymptoms),
-            bbtCelsius: bbt
+            bbtCelsius: bbtCelsius
         )
         cycleStore.refresh(from: store)
-        FDS.notificationHaptic(.success)
+        // Draft state persisted after saving, so re-opening the card showed yesterday's
+        // symptoms as if they were today's unsaved entry.
+        bbtText = ""
+        selectedSymptoms = []
+        showToast(bbtCelsius == nil ? "Saved today's log" : "Saved today's log · BBT recorded")
     }
 
     private func shortDate(_ key: String) -> String {
-        guard let d = CycleDayKey.date(from: key) else { return key }
-        let f = DateFormatter()
-        f.dateFormat = "MMM d"
-        return f.string(from: d)
+        CycleDayKey.shortDisplay(key)
+    }
+}
+
+// MARK: - BBT unit
+
+/// Basal body temperature entry unit. Stored value is always Celsius.
+enum BBTUnit: String, CaseIterable, Identifiable {
+    case celsius, fahrenheit
+
+    var id: String { rawValue }
+
+    var symbol: String { self == .celsius ? "°C" : "°F" }
+
+    var placeholder: String { self == .celsius ? "36.50" : "97.70" }
+
+    var accessibilityName: String { self == .celsius ? "Celsius" : "Fahrenheit" }
+
+    /// Physiologically plausible basal range — anything outside is an entry mistake.
+    static let plausibleCelsius: ClosedRange<Double> = 34.0...40.0
+
+    var plausibleCopy: String {
+        self == .celsius ? "34–40 °C" : "93–104 °F"
+    }
+
+    func toCelsius(_ value: Double) -> Double? {
+        guard value.isFinite else { return nil }
+        return self == .celsius ? value : (value - 32) * 5 / 9
+    }
+
+    func fromCelsius(_ celsius: Double) -> Double {
+        self == .celsius ? celsius : celsius * 9 / 5 + 32
     }
 }
 
@@ -1939,10 +2364,15 @@ struct CycleHealthChip: View {
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     if showingPartner {
+                        let snap = cycleStore.partnerSnapshot
                         Text(cycleStore.partnerSettings.displayName)
                             .font(FDS.TypeScale.label(14))
                             .foregroundColor(.textPrimary)
-                        if let day = cycleStore.partnerSnapshot.dayInCycle {
+                        if snap.stage == .postPeriod, let since = snap.daysSincePeriodEnd, since <= 2 {
+                            Text("Period finished \(since == 0 ? "today" : (since == 1 ? "yesterday" : "\(since)d ago"))")
+                                .font(FDS.TypeScale.body(12))
+                                .foregroundStyle(Color(hex: "22C55E"))
+                        } else if let day = snap.dayInCycle {
                             Text("\(phase.shortLabel) · day \(day)")
                                 .font(FDS.TypeScale.body(12))
                                 .foregroundColor(.textTertiary)
@@ -1952,11 +2382,19 @@ struct CycleHealthChip: View {
                                 .foregroundColor(.textTertiary)
                         }
                     } else {
-                        Text(cycleStore.settings.enabled ? phase.label : "Cycle Health")
+                        let snap = cycleStore.snapshot
+                        Text(cycleStore.settings.enabled
+                             ? (snap.stage == .unknown ? phase.label : snap.stage.label)
+                             : "Cycle Health")
                             .font(FDS.TypeScale.label(14))
                             .foregroundColor(.textPrimary)
-                        if cycleStore.settings.enabled, let day = cycleStore.snapshot.dayInCycle {
-                            Text("Day \(day) · \(Int(cycleStore.snapshot.confidence * 100))% conf")
+                        if cycleStore.settings.enabled, snap.stage == .postPeriod,
+                           let since = snap.daysSincePeriodEnd, since <= 2 {
+                            Text(since == 0 ? "Finished today · back to normal" : "Finished \(since)d ago · back to normal")
+                                .font(FDS.TypeScale.body(12))
+                                .foregroundStyle(Color(hex: "22C55E"))
+                        } else if cycleStore.settings.enabled, let day = snap.dayInCycle {
+                            Text("Day \(day) · \(Int(snap.confidence * 100))% conf")
                                 .font(FDS.TypeScale.body(12))
                                 .foregroundColor(.textTertiary)
                         } else {
