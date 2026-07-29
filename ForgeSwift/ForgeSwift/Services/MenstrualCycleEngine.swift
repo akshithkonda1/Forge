@@ -234,20 +234,8 @@ enum MenstrualCycleEngine {
             insights.append("Resting HR often ticks up in luteal. Pair with how you feel before adding load.")
         }
 
-        // Pain trend across the last three logged episodes — the reason the pain slider exists.
-        let recentPain = sorted.suffix(90).compactMap(\.painScale).filter { $0 > 0 }
-        if recentPain.count >= 3 {
-            let peak = recentPain.max() ?? 0
-            let mean = Double(recentPain.reduce(0, +)) / Double(recentPain.count)
-            insights.append(
-                "Pain logged on \(recentPain.count) recent days · average \(String(format: "%.1f", mean))/10, peak \(peak)/10."
-            )
-            if peak >= 8 || mean >= 6 {
-                insights.append("Pain at this level, cycle after cycle, is worth raising with a clinician — Forge can track it but cannot assess it.")
-            }
-        }
-
         // Perimenopause: fertile window predictions are unreliable — suppress them.
+        let suppressFertile = settings.condition.suppressesFertileWindow
         let fertileStart = suppressFertile ? nil : ovulation.map { max(1, $0.dayInCycle - 5) }
         let fertileEnd = suppressFertile ? nil : ovulation.map { $0.dayInCycle + 1 }
         let fertileScore = suppressFertile ? nil : computeFertileScore(
@@ -265,40 +253,6 @@ enum MenstrualCycleEngine {
             insights.append(
                 "Fertile Score \(fertileScore)/100 — multi-signal confidence that you are in or near the fertile window (lifestyle timing, not contraception)."
             )
-        }
-
-        // Real calendar dates for the fertile window, so the UI and ARIA can say
-        // "Fri 8 – Wed 13" instead of only "days 10–16 of your cycle".
-        let fertileWindowStartKey = lastStart.flatMap { start in
-            fertileStartDay.flatMap { CycleDayKey.addDays(start, $0 - 1) }
-        }
-        let fertileWindowEndKey = lastStart.flatMap { start in
-            fertileEndDay.flatMap { CycleDayKey.addDays(start, $0 - 1) }
-        }
-        let daysUntilNextPeriod = nextPeriod.flatMap { CycleDayKey.daysBetween(dayKey, $0.medianDayKey) }
-
-        let stage = resolveStage(
-            phase: phase,
-            bleedingToday: bleedingToday,
-            dayInCycle: dayInCycle,
-            fertileStart: fertileStartDay,
-            fertileEnd: fertileEndDay,
-            ovulationDay: suppressFertile ? nil : ovulation?.dayInCycle,
-            suppressFertile: suppressFertile,
-            hormonal: settings.usesHormonalContraception
-        )
-        let stageNarrative = narrative(
-            stage: stage,
-            periodDayCount: currentPeriodDayCount,
-            daysSincePeriodEnd: daysSincePeriodEnd,
-            periodEndConfirmed: periodEndConfirmed,
-            daysUntilNextPeriod: daysUntilNextPeriod,
-            fertileStartKey: fertileWindowStartKey,
-            fertileEndKey: fertileWindowEndKey,
-            dayInCycle: dayInCycle
-        )
-        if !stageNarrative.isEmpty {
-            insights.insert(stageNarrative, at: 0)
         }
 
         return MenstrualCycleSnapshot(
@@ -336,16 +290,7 @@ enum MenstrualCycleEngine {
             predictionMethodSummary: ensemble.summary,
             condition: settings.condition == .none ? nil : settings.condition,
             wristTemperatureAvailable: false,
-            fertileScore: fertileScore,
-            stage: stage,
-            currentPeriodEndDayKey: currentPeriodEnd,
-            periodEndConfirmed: periodEndConfirmed,
-            currentPeriodDayCount: currentPeriodDayCount,
-            daysSincePeriodEnd: daysSincePeriodEnd,
-            daysUntilNextPeriod: daysUntilNextPeriod,
-            fertileWindowStartDayKey: suppressFertile ? nil : fertileWindowStartKey,
-            fertileWindowEndDayKey: suppressFertile ? nil : fertileWindowEndKey,
-            stageNarrative: stageNarrative
+            fertileScore: fertileScore
         )
     }
 

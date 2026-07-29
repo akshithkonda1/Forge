@@ -491,43 +491,6 @@ enum CycleCondition: String, Codable, CaseIterable, Identifiable {
     var suppressesFertileWindow: Bool {
         self == .perimenopause
     }
-
-    /// `nil` when no condition is set — lets call sites use `if let`.
-    var activeCase: CycleCondition? { self == .none ? nil : self }
-
-    /// Plain-language explanation of how this condition changes what Forge shows.
-    /// Surfaced in-app so the user understands why their windows differ.
-    var trackingImplication: String {
-        switch self {
-        case .none:
-            return ""
-        case .pcos:
-            return "Long or skipped cycles are kept as real history instead of being discarded, and the irregularity flag only fires on extreme variance. OPKs can show more than one LH surge without ovulation, so treat mid-cycle labels as soft."
-        case .endometriosis:
-            return "Pain tracking carries more weight in recovery guidance. Your experience is the signal here — pain that disrupts daily life or worsens over time is worth taking to a clinician."
-        case .perimenopause:
-            return "Cycle length is genuinely unpredictable now, so Forge withholds fertile-window and ovulation estimates rather than guessing. Period timing stays a range, never a single date."
-        case .thyroid:
-            return "Thyroid status shifts your BBT baseline, so temperature-based ovulation signals are interpreted with more caution. Take your temperature before any morning medication."
-        case .other:
-            return "Forge keeps prediction windows wider and avoids strong assumptions about regularity."
-        }
-    }
-
-    /// Inter-start intervals accepted as a real cycle for this person.
-    ///
-    /// The default 18–45d window silently discards every cycle of a PCOS or
-    /// perimenopausal user, collapsing their personal median back to the population
-    /// default of 28 days. Widening the window for those conditions is what makes
-    /// their history usable at all.
-    var plausibleCycleLengthRange: ClosedRange<Int> {
-        switch self {
-        case .pcos:           return 18...90
-        case .perimenopause:  return 14...90
-        case .thyroid:        return 18...60
-        case .none, .endometriosis, .other: return 18...45
-        }
-    }
 }
 
 // MARK: - Snapshot (engine output)
@@ -589,31 +552,6 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
     /// Real-time 0…100 fertile-window confidence signal (nil when tracking off,
     /// hormonal contraception, condition suppresses fertile window, or no cycle anchor).
     var fertileScore: Int?
-
-    // MARK: Period lifecycle
-    //
-    // The engine used to expose only "is she bleeding today", which meant nothing
-    // downstream could tell the difference between *mid-period* and *period just ended* —
-    // so partner coaching stayed in period-support mode until the median period length
-    // ran out, regardless of what the user actually confirmed.
-
-    /// Where this cycle currently is, end to end.
-    var stage: CycleStage = .unknown
-    /// Last bleeding day of the current episode, when it is known.
-    var currentPeriodEndDayKey: String?
-    /// True when the user (or supporter) explicitly confirmed the bleed is over.
-    var periodEndConfirmed: Bool = false
-    /// Actual length of the current/most recent bleed in days.
-    var currentPeriodDayCount: Int?
-    /// Whole days since the period ended. 0 = ended today.
-    var daysSincePeriodEnd: Int?
-    /// Whole days until the next predicted period start (negative = overdue).
-    var daysUntilNextPeriod: Int?
-    /// Real calendar dates for the fertile window, not just day-in-cycle numbers.
-    var fertileWindowStartDayKey: String?
-    var fertileWindowEndDayKey: String?
-    /// Plain-language line the UI and ARIA can both use without re-deriving it.
-    var stageNarrative: String = ""
 
     static let empty = MenstrualCycleSnapshot(
         asOfDayKey: "",
@@ -1471,13 +1409,6 @@ struct MenstrualTrackingSettings: Codable, Equatable {
     var cycleGoal: CycleGoal
     /// Active health condition for personalised engine behaviour and ARIA coaching.
     var condition: CycleCondition
-    /// Last bleeding day the user explicitly confirmed with "Period finished".
-    ///
-    /// This is the authority on when the current bleed ended. Without it the engine fell
-    /// back to the *median* period length, so a 3-day period on someone whose median is 6
-    /// kept reporting Menstruation — and kept partner coaching in period-support mode —
-    /// for three days after the user said it was over.
-    var confirmedPeriodEndDayKey: String?
 
     enum CodingKeys: String, CodingKey {
         case enabled, shareWithAria, averageCycleOverride, averagePeriodOverride
@@ -1485,7 +1416,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         case privacyAcknowledged, calibrationOffsetDays, highAccuracyMode, overdueWidenDays
         case learnedLutealDays
         case bbtReminderEnabled, bbtReminderHour, fertileWindowAlertEnabled, periodReminderEnabled
-        case cycleGoal, condition, confirmedPeriodEndDayKey
+        case cycleGoal, condition
     }
 
     static let `default` = MenstrualTrackingSettings(
@@ -1502,8 +1433,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         overdueWidenDays: 0,
         learnedLutealDays: nil,
         cycleGoal: .general,
-        condition: .none,
-        confirmedPeriodEndDayKey: nil
+        condition: .none
     )
 
     init(
@@ -1524,8 +1454,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         fertileWindowAlertEnabled: Bool = false,
         periodReminderEnabled: Bool = false,
         cycleGoal: CycleGoal = .general,
-        condition: CycleCondition = .none,
-        confirmedPeriodEndDayKey: String? = nil
+        condition: CycleCondition = .none
     ) {
         self.enabled = enabled
         self.shareWithAria = shareWithAria
@@ -1545,7 +1474,6 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         self.periodReminderEnabled = periodReminderEnabled
         self.cycleGoal = cycleGoal
         self.condition = condition
-        self.confirmedPeriodEndDayKey = confirmedPeriodEndDayKey
     }
 
     init(from decoder: Decoder) throws {
@@ -1568,7 +1496,6 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         periodReminderEnabled = try c.decodeIfPresent(Bool.self, forKey: .periodReminderEnabled) ?? false
         cycleGoal = try c.decodeIfPresent(CycleGoal.self, forKey: .cycleGoal) ?? .general
         condition = try c.decodeIfPresent(CycleCondition.self, forKey: .condition) ?? .none
-        confirmedPeriodEndDayKey = try c.decodeIfPresent(String.self, forKey: .confirmedPeriodEndDayKey)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -1591,7 +1518,6 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         try c.encode(periodReminderEnabled, forKey: .periodReminderEnabled)
         try c.encode(cycleGoal, forKey: .cycleGoal)
         try c.encode(condition, forKey: .condition)
-        try c.encodeIfPresent(confirmedPeriodEndDayKey, forKey: .confirmedPeriodEndDayKey)
     }
 
     /// Effective luteal for calendar fallback.

@@ -235,11 +235,13 @@ struct MenstrualHealthView: View {
                 cycleStore.enableForBiologicalSexIfNeeded(sex)
             }
             cycleStore.enableForFemaleProfileIfNeeded(gender: store.userProfile.gender)
+            if let sex = store.userProfile.biologicalSex {
+                cycleStore.enableForBiologicalSexIfNeeded(sex)
+            }
             if let initialPane {
                 pane = initialPane
             } else if store.userProfile.gender != .female,
                       store.userProfile.biologicalSex?.cycleAutoEnabled != true,
-                      !cycleStore.cycleSurfaceRelevant,
                       !cycleStore.settings.enabled {
                 pane = .partner
             }

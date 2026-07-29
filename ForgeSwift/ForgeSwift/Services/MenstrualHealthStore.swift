@@ -145,19 +145,14 @@ final class MenstrualHealthStore: ObservableObject {
         }
     }
 
-    /// Marks cycle health as relevant for female/intersex biological sex captured during
-    /// onboarding.
-    ///
-    /// This deliberately does **not** flip `privacyAcknowledged`. Onboarding never shows
-    /// the cycle privacy contract, so silently acknowledging it on the user's behalf made
-    /// the "I understand cycle data is for my coaching only — never sold" toggle a
-    /// formality that was pre-answered. The user still sees, and answers, that card once.
+    /// Auto-enable cycle tracking for female/intersex biological sex captured during onboarding.
     func enableForBiologicalSexIfNeeded(_ sex: BiologicalSex) {
-        guard sex.cycleAutoEnabled else { return }
-        cycleSurfaceRelevant = true
-        defaults.set(true, forKey: cycleRelevantKey)
-        guard !settings.enabled, settings.privacyAcknowledged else { return }
-        updateSettings { $0.enabled = true }
+        guard sex.cycleAutoEnabled, !settings.enabled else { return }
+        updateSettings {
+            $0.enabled = true
+            $0.privacyAcknowledged = true
+            $0.shareWithAria = true
+        }
     }
 
     /// Surface partner tracking for users who may support a female partner (any gender).
@@ -658,86 +653,76 @@ final class MenstrualHealthStore: ObservableObject {
             }
         }
 
-        // State lands synchronously. Deferring these into a Task left `snapshot` stale for
-        // the rest of the current turn, so anything that called `recompute()` and then read
-        // `snapshot` (period-end confirmation, period-length learning, the analyst refresh,
-        // the ARIA context push) reasoned about the *previous* cycle state — and concurrent
-        // recomputes could land out of order.
-        accuracyReport = report
-        snapshot = snap
-        archiveOpenForecastIfNeeded(from: snap)
-        lastEvaluation = CycleDataEvaluator.evaluate(
-            snapshot: snap,
-            settings: settings,
-            logs: logs,
-            feedback: predictionFeedback
-        )
-        lastAriaBrief = CycleAriaAnalyst.localBrief(
-            evaluation: lastEvaluation,
-            snapshot: snap
-        )
-        // Remember what we currently advertise so the next real start can score us.
-        if let median = snap.nextPeriod?.medianDayKey {
-            lastAdvertisedNextPeriodMedian = median
-            defaults.set(median, forKey: advertisedKey)
-        }
-
-        syncWatchSnapshot(snap)
-
-        // Only genuinely asynchronous side effects stay deferred.
-        Task { @MainActor [settings] in
-            await ForgeNotificationScheduler.syncCycleNotifications(settings: settings, snapshot: snap)
-            await syncCycleLiveActivity(snap)
-        }
-    }
-
-    /// Mirrors cycle state into the shared snapshot that drives watch complications
-    /// and the lock-screen widget.
-    private func syncWatchSnapshot(_ snap: MenstrualCycleSnapshot) {
-        guard snap.trackingEnabled else { return }
-        WatchSnapshotStore.update(reloadWidgets: false) { ws in
-            ws.cyclePhase = snap.phase.rawValue
-            ws.cycleDayInCycle = snap.dayInCycle
-            ws.cycleFertileWindowOpen = (snap.phase == .fertileWindow || snap.phase == .ovulation)
-            ws.cycleFertileScore = snap.fertileScore
-            // Day-key arithmetic, not wall-clock arithmetic: comparing "now" against a
-            // fixed anchor time made a period ~20 hours out read as 0 days away.
-            ws.cycleNextPeriodDaysAway = snap.nextPeriod
-                .flatMap { CycleDayKey.daysBetween(snap.asOfDayKey, $0.medianDayKey) }
-        }
-    }
-
-    /// Manage the fertile-window Live Activity (ActivityContent API — matches
-    /// WorkoutActivityCoordinator; avoids deprecated `contentState:`).
-    private func syncCycleLiveActivity(_ snap: MenstrualCycleSnapshot) async {
-        guard #available(iOS 16.2, *) else { return }
-        let isInFertileWindow = snap.phase == .fertileWindow || snap.phase == .ovulation
-        guard isInFertileWindow, snap.trackingEnabled else {
-            for activity in Activity<CycleLiveActivityAttributes>.activities {
-                let final = ActivityContent(state: activity.content.state, staleDate: Date())
-                await activity.end(final, dismissalPolicy: .immediate)
-            }
-            return
-        }
-        let state = CycleLiveActivityAttributes.ContentState(
-            phase: snap.phase.rawValue,
-            dayInCycle: snap.dayInCycle,
-            fertileScore: snap.fertileScore,
-            daysUntilOvulation: {
-                guard let day = snap.dayInCycle, let ovu = snap.ovulationDayInCycle else { return nil }
-                return max(0, ovu - day)
-            }(),
-            isActiveFertileWindow: true,
-            isCurrentlyBleeding: snap.isCurrentlyBleeding
-        )
-        let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(6 * 3600))
-        if let existing = Activity<CycleLiveActivityAttributes>.activities.first {
-            await existing.update(content)
-        } else if ActivityAuthorizationInfo().areActivitiesEnabled {
-            _ = try? Activity.request(
-                attributes: CycleLiveActivityAttributes(),
-                content: content
+        // Defer @Published mutations to avoid publishing during a view update.
+        Task { @MainActor in
+            accuracyReport = report
+            snapshot = snap
+            archiveOpenForecastIfNeeded(from: snap)
+            lastEvaluation = CycleDataEvaluator.evaluate(
+                snapshot: snap,
+                settings: settings,
+                logs: logs,
+                feedback: predictionFeedback
             )
+            lastAriaBrief = CycleAriaAnalyst.localBrief(
+                evaluation: lastEvaluation,
+                snapshot: snap
+            )
+            // Remember what we currently advertise so the next real start can score us.
+            if let median = snap.nextPeriod?.medianDayKey {
+                lastAdvertisedNextPeriodMedian = median
+                defaults.set(median, forKey: advertisedKey)
+            }
+            await ForgeNotificationScheduler.syncCycleNotifications(settings: settings, snapshot: snapshot)
+
+            // Sync cycle data to WatchSnapshot (drives complications + lockscreen widget).
+            if snap.trackingEnabled {
+                WatchSnapshotStore.update(reloadWidgets: false) { ws in
+                    ws.cyclePhase = snap.phase.rawValue
+                    ws.cycleDayInCycle = snap.dayInCycle
+                    ws.cycleFertileWindowOpen = (snap.phase == .fertileWindow || snap.phase == .ovulation)
+                    ws.cycleFertileScore = snap.fertileScore
+                    if let nextPeriod = snap.nextPeriod,
+                       let nextDate = CycleDayKey.date(from: nextPeriod.medianDayKey) {
+                        ws.cycleNextPeriodDaysAway = Calendar.current.dateComponents([.day], from: Date(), to: nextDate).day
+                    } else {
+                        ws.cycleNextPeriodDaysAway = nil
+                    }
+                }
+            }
+
+            // Manage cycle Live Activity for the fertile window (ActivityContent API —
+            // matches WorkoutActivityCoordinator; avoids deprecated contentState:).
+            if #available(iOS 16.2, *) {
+                let isInFertileWindow = snap.phase == .fertileWindow || snap.phase == .ovulation
+                if isInFertileWindow && snap.trackingEnabled {
+                    let state = CycleLiveActivityAttributes.ContentState(
+                        phase: snap.phase.rawValue,
+                        dayInCycle: snap.dayInCycle,
+                        fertileScore: snap.fertileScore,
+                        daysUntilOvulation: {
+                            guard let day = snap.dayInCycle, let ovu = snap.ovulationDayInCycle else { return nil }
+                            return max(0, ovu - day)
+                        }(),
+                        isActiveFertileWindow: true,
+                        isCurrentlyBleeding: snap.isCurrentlyBleeding
+                    )
+                    let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(6 * 3600))
+                    if let existing = Activity<CycleLiveActivityAttributes>.activities.first {
+                        await existing.update(content)
+                    } else if ActivityAuthorizationInfo().areActivitiesEnabled {
+                        _ = try? Activity.request(
+                            attributes: CycleLiveActivityAttributes(),
+                            content: content
+                        )
+                    }
+                } else {
+                    for activity in Activity<CycleLiveActivityAttributes>.activities {
+                        let final = ActivityContent(state: activity.content.state, staleDate: Date())
+                        await activity.end(final, dismissalPolicy: .immediate)
+                    }
+                }
+            }
         }
     }
 

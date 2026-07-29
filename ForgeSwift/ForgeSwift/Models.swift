@@ -207,9 +207,6 @@ struct UserProfile: Codable {
     var biologicalSex: BiologicalSex?
     /// Males who opted into cycle health education during onboarding.
     var educationalCycleMode: Bool
-    /// Filename of the profile photo in Application Support. The image itself is never
-    /// stored on the profile — this record is encoded to UserDefaults on every edit.
-    var avatarFileName: String?
 
     var initials: String {
         name.split(separator: " ").compactMap { $0.first.map { String($0).uppercased() } }.joined().prefix(2).description
@@ -219,7 +216,7 @@ struct UserProfile: Codable {
         case name, gender, fitnessGoals, experienceLevel, preferredWorkouts
         case coachingStyle, connectedDevices, weeklySchedule, trainingEquipment
         case age, weight, height, trainingTheme, interestTags
-        case biologicalSex, educationalCycleMode, avatarFileName
+        case biologicalSex, educationalCycleMode
     }
 
     init(
@@ -238,8 +235,7 @@ struct UserProfile: Codable {
         trainingTheme: AriaTrainingTheme = .classic,
         interestTags: [String] = [],
         biologicalSex: BiologicalSex? = nil,
-        educationalCycleMode: Bool = false,
-        avatarFileName: String? = nil
+        educationalCycleMode: Bool = false
     ) {
         self.name = name
         self.gender = gender
@@ -257,7 +253,6 @@ struct UserProfile: Codable {
         self.interestTags = interestTags
         self.biologicalSex = biologicalSex
         self.educationalCycleMode = educationalCycleMode
-        self.avatarFileName = avatarFileName
     }
 
     init(from decoder: Decoder) throws {
@@ -278,7 +273,6 @@ struct UserProfile: Codable {
         interestTags = try c.decodeIfPresent([String].self, forKey: .interestTags) ?? []
         biologicalSex = try c.decodeIfPresent(BiologicalSex.self, forKey: .biologicalSex)
         educationalCycleMode = try c.decodeIfPresent(Bool.self, forKey: .educationalCycleMode) ?? false
-        avatarFileName = try c.decodeIfPresent(String.self, forKey: .avatarFileName)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -299,7 +293,6 @@ struct UserProfile: Codable {
         try c.encode(interestTags, forKey: .interestTags)
         try c.encodeIfPresent(biologicalSex, forKey: .biologicalSex)
         try c.encode(educationalCycleMode, forKey: .educationalCycleMode)
-        try c.encodeIfPresent(avatarFileName, forKey: .avatarFileName)
     }
 }
 

@@ -8,8 +8,8 @@ import SwiftUI
 enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
     case home
     case workout
-    case lifestyle
     case chat
+    case lifestyle
     case sleep
     case progress
     case profile

@@ -370,12 +370,13 @@ final class SpeechManager: ObservableObject {
     private func beginRecognition() {
         do {
             let session = AVAudioSession.sharedInstance()
-            // `.allowBluetoothHFP` is the current spelling (formerly `.allowBluetooth`).
-            try session.setCategory(
-                .record,
-                mode: .measurement,
-                options: [.duckOthers, .allowBluetoothHFP]
-            )
+            // `.allowBluetooth` was renamed `.allowBluetoothHFP` in the iOS 26
+            // SDK. Both are the same option value; the old spelling is merely
+            // deprecated there, and it's the only one that compiles against
+            // earlier SDKs — which is what CI builds with.
+            // `.allowBluetooth` is the spelling that compiles on CI's SDK;
+            // iOS 26 renames it to `.allowBluetoothHFP` (same option value).
+            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetooth])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             voiceState = .error("Microphone error")

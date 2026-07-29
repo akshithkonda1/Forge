@@ -7,6 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0022F9FF867004091AA /* SexualHealthCoach.swift */; };
+		1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */; };
+		1WC0052F9FF867004091AA /* CyclePhaseCoachingDirective.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */; };
+		1WC0072F9FF867004091AA /* BiologicalSexStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */; };
+		1WC0092F9FF867004091AA /* CycleLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */; };
+		1WC00B2F9FF867004091AA /* CycleLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */; };
+		1WC00C2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00D2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift */; };
+		1WC00E2F9FF867004091AA /* CyclePhaseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */; };
+		1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */; };
+		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
+		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
+		1EHKS0022F9FF867004091AA /* HealthKitSleepService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */; };
 		1ARIA0022F9FF867004091AA /* AriaContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0012F9FF867004091AA /* AriaContext.swift */; };
 		1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0032F9FF867004091AA /* AriaResponse.swift */; };
 		1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0052F9FF867004091AA /* AriaService.swift */; };
@@ -185,6 +197,18 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1WC0022F9FF867004091AA /* SexualHealthCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCoach.swift; sourceTree = "<group>"; };
+		1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCurriculum.swift; sourceTree = "<group>"; };
+		1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseCoachingDirective.swift; sourceTree = "<group>"; };
+		1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiologicalSexStepView.swift; sourceTree = "<group>"; };
+		1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleLiveActivityAttributes.swift; sourceTree = "<group>"; };
+		1WC00D2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleFertileWindowLiveActivity.swift; sourceTree = "<group>"; };
+		1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseWidget.swift; sourceTree = "<group>"; };
+		1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbComponents.swift; sourceTree = "<group>"; };
+		1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MusicControllerFactory.swift; sourceTree = SOURCE_ROOT; };
+		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
+		1E4DF7152F9FF867004091AA /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
+		1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepService.swift; sourceTree = "<group>"; };
 		1ARIA0012F9FF867004091AA /* AriaContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContext.swift; sourceTree = "<group>"; };
 		1ARIA0032F9FF867004091AA /* AriaResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaResponse.swift; sourceTree = "<group>"; };
 		1ARIA0052F9FF867004091AA /* AriaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaService.swift; sourceTree = "<group>"; };
@@ -353,10 +377,8 @@
 			isa = PBXGroup;
 			children = (
 				1ARIA0152F9FF867004091AA /* Chat */,
-				1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */,
-				1HCV0012F9FF867004091AA /* HomeCookingView.swift */,
+				1ARIA0432F9FF867004091AA /* MenstrualHealthView.swift */,
 				1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */,
-				1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -481,6 +503,29 @@
 				F0A100000000000000000007 /* ForgeWidgetExtension */,
 				AA0004000000000000000002 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		F0A100000000000000000006 /* LiveActivities */ = {
+			isa = PBXGroup;
+			children = (
+				F0F10000000000000000001E /* ForgeWorkoutActivityAttributes.swift */,
+				F0F10000000000000000001F /* ForgeWorkoutLiveActivity.swift */,
+				1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */,
+				1WC00D2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift */,
+			);
+			path = LiveActivities;
+			sourceTree = "<group>";
+		};
+		F0A100000000000000000007 /* ForgeWidgetExtension */ = {
+			isa = PBXGroup;
+			children = (
+				F0F100000000000000000020 /* ForgeWidgetExtensionBundle.swift */,
+				F0F100000000000000000024 /* LifestyleWidget.swift */,
+				1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */,
+				F0F100000000000000000021 /* Info.plist */,
+				F0F100000000000000000022 /* ForgeWidgetExtension.entitlements */,
+			);
+			path = ForgeWidgetExtension;
 			sourceTree = "<group>";
 		};
 		F0A100000000000000000001 /* ForgeWatch */ = {
@@ -788,7 +833,6 @@
 				1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */,
 				1WC0052F9FF867004091AA /* CyclePhaseCoachingDirective.swift in Sources */,
 				1WC0072F9FF867004091AA /* BiologicalSexStepView.swift in Sources */,
-				1E44AFC830182A1F00D1C14D /* PeriodEndFeedbackView.swift in Sources */,
 				1WC0092F9FF867004091AA /* CycleLiveActivityAttributes.swift in Sources */,
 				1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */,
 				1E4DF71E2F9FFAE1004091AA /* SmartProfileSetupView.swift in Sources */,

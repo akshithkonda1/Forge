@@ -352,18 +352,6 @@ final class AriaContextStore: ObservableObject {
         if snap.isCurrentlyBleeding {
             tags.append("cycle:bleeding")
         }
-        // Stage, not just phase: ARIA previously could not tell "mid-period" from
-        // "period just ended", so period-specific coaching persisted after the fact.
-        tags.append("cycle:stage:\(snap.stage.rawValue)")
-        if snap.periodEndConfirmed {
-            tags.append("cycle:period_confirmed_finished")
-        }
-        if let since = snap.daysSincePeriodEnd, since <= 3 {
-            tags.append("cycle:days_since_period_end:\(since)")
-        }
-        if let days = snap.daysUntilNextPeriod {
-            tags.append("cycle:days_until_next_period:\(days)")
-        }
         tags.append("cycle:goal:\(snap.cycleGoal?.rawValue ?? "general")")
         if let tww = snap.twwDaysElapsed {
             tags.append("cycle:tww_day:\(tww)")
@@ -371,16 +359,15 @@ final class AriaContextStore: ObservableObject {
         if let fertile = snap.fertileScore {
             tags.append("cycle:fertile_score:\(fertile)")
         }
-        // Always rebuild the condition constraint. Guarding on "a condition constraint
-        // already exists" meant switching PCOS → endometriosis kept coaching ARIA with
-        // the previous condition's guidance forever.
-        context.constraints.removeAll { $0.hasPrefix("cycle_condition_context:") }
         if let condition = snap.condition, condition != .none {
             tags.append("cycle:condition:\(condition.rawValue)")
             let guidance = condition.ariaGuidance
-            if !guidance.isEmpty {
+            if !guidance.isEmpty,
+               !context.constraints.contains(where: { $0.hasPrefix("cycle_condition_context:") }) {
                 context.constraints.append("cycle_condition_context:\(guidance)")
             }
+        } else {
+            context.constraints.removeAll { $0.hasPrefix("cycle_condition_context:") }
         }
         context.lifestyleTags = Array(Set(tags)).sorted()
 

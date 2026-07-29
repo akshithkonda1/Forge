@@ -1665,7 +1665,7 @@ struct MusicControlBar: View {
                             Image(systemName: controller.service.iconName)
                                 .font(.system(size: 17, weight: .bold))
                                 .foregroundColor(.white)
-                                .opacity(artworkIconOpacity(for: phase))
+                                .opacity(phase == .empty ? 0 : 1)
                         )
                     }
                 }

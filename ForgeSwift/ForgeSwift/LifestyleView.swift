@@ -1279,7 +1279,6 @@ struct LifestyleView: View {
         let mapped: LifestyleSegment? = {
             switch raw {
             case "nutrition": return .nutrition
-            case "cooking", "homecooking", "home cooking", "recipes", "recipe": return .homeCooking
             case "restaurants", "meals", "food": return .restaurants
             case "wellbeing", "wellness": return .wellbeing
             case "ai", "aioptimization", "optimize": return .aiOptimization

@@ -164,7 +164,7 @@ struct MainTabView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.bottom, 100)
+            .padding(.bottom, 88)
             .offset(y: dragOffset * 0.08)
             .transition(.asymmetric(
                 insertion: .move(edge: tabTransitionEdge(from: previousTab, to: store.activeTab))
