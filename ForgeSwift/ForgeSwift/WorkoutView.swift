@@ -1629,6 +1629,13 @@ struct MusicControlBar: View {
 
     private var accent: Color { controller.service.accentColor }
 
+    private func artworkIconOpacity(for phase: AsyncImagePhase) -> Double {
+        if case .empty = phase {
+            return 0
+        }
+        return 1
+    }
+
     var body: some View {
         Group {
             if let track = controller.nowPlaying {

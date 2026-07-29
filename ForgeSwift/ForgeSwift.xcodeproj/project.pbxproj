@@ -31,29 +31,35 @@
 		1ARIA0242F9FF867004091AA /* BiometricsObserveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0252F9FF867004091AA /* BiometricsObserveService.swift */; };
 		1ARIA0262F9FF867004091AA /* Theme+Readiness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0272F9FF867004091AA /* Theme+Readiness.swift */; };
 		1ARIA0302F9FF867004091AA /* AriaTrainingTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */; };
+		1ARIA0322F9FF867004091AA /* AriaPlanEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */; };
+		1ARIA0342F9FF867004091AA /* AriaVoiceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */; };
+		1HCM0022F9FF867004091AA /* HomeCookedMeals.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */; };
+		1HCV0022F9FF867004091AA /* HomeCookingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HCV0012F9FF867004091AA /* HomeCookingView.swift */; };
+		1PAS0022F9FF867004091AA /* ProfileAvatarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */; };
+		1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */; };
+		1ARIA0382F9FF867004091AA /* MenstrualCycleEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */; };
+		1ARIA0402F9FF867004091AA /* MenstrualHealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */; };
+		1ARIA0422F9FF867004091AA /* Menstrual/MenstrualHealthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */; };
+		1ARIA0442F9FF867004091AA /* PartnerSupportCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0452F9FF867004091AA /* PartnerSupportCoach.swift */; };
+		1ARIA0462F9FF867004091AA /* AriaRelationalCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0472F9FF867004091AA /* AriaRelationalCoach.swift */; };
+		1ARIA0482F9FF867004091AA /* AriaEmotionalSupportCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0492F9FF867004091AA /* AriaEmotionalSupportCoach.swift */; };
+		1ARIA0502F9FF867004091AA /* AriaPersonAdaptation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0512F9FF867004091AA /* AriaPersonAdaptation.swift */; };
+		1ARIA0522F9FF867004091AA /* AriaPersonRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0532F9FF867004091AA /* AriaPersonRegistry.swift */; };
+		1ARIA0542F9FF867004091AA /* AriaArchetypeStudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0552F9FF867004091AA /* AriaArchetypeStudio.swift */; };
 		1ARIA0562F9FF867004091AA /* CyclePrivacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0572F9FF867004091AA /* CyclePrivacy.swift */; };
 		1AUTH0012F9FF867004091AA /* AuthWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */; };
 		1AUTH0032F9FF867004091AA /* AuthSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0042F9FF867004091AA /* AuthSignInView.swift */; };
 		1AUTH0052F9FF867004091AA /* AuthSignUpFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */; };
-		1ARIA0322F9FF867004091AA /* AriaPlanEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */; };
-		1ARIA0342F9FF867004091AA /* AriaVoiceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */; };
-		1ARIA0422F9FF867004091AA /* MenstrualHealthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0432F9FF867004091AA /* MenstrualHealthView.swift */; };
-		1ARIA0402F9FF867004091AA /* MenstrualHealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */; };
 		1CYC0012F9FF867004091AA /* CycleDataEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */; };
 		1CYC0032F9FF867004091AA /* CycleAriaAnalyst.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */; };
-		1ARIA0442F9FF867004091AA /* PartnerSupportCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0452F9FF867004091AA /* PartnerSupportCoach.swift */; };
-		1ARIA0462F9FF867004091AA /* AriaRelationalCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0472F9FF867004091AA /* AriaRelationalCoach.swift */; };
-		1ARIA0482F9FF867004091AA /* AriaEmotionalSupportCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0492F9FF867004091AA /* AriaEmotionalSupportCoach.swift */; };
-		1ARIA0522F9FF867004091AA /* AriaPersonRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0532F9FF867004091AA /* AriaPersonRegistry.swift */; };
-		1ARIA0542F9FF867004091AA /* AriaArchetypeStudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0552F9FF867004091AA /* AriaArchetypeStudio.swift */; };
-		1ARIA0502F9FF867004091AA /* AriaPersonAdaptation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0512F9FF867004091AA /* AriaPersonAdaptation.swift */; };
-		1ARIA0382F9FF867004091AA /* MenstrualCycleEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */; };
-		1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */; };
+		1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */; };
+		1E44AFC830182A1F00D1C14D /* PeriodEndFeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */; };
+		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
+		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
 		1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */; };
 		1E4DF71A2F9FFA70004091AA /* OnboardingDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */; };
 		1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */; };
 		1E4DF71E2F9FFAE1004091AA /* SmartProfileSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF71D2F9FFAE1004091AA /* SmartProfileSetupView.swift */; };
-		F0F1000000000000000000A1 /* LifestyleTargets.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F1000000000000000000A2 /* LifestyleTargets.swift */; };
 		1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */; };
 		1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */; };
 		1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */; };
@@ -61,6 +67,17 @@
 		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
 		1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */; };
 		1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED842E22F90C15300693D3E /* LifestyleView.swift */; };
+		1EHKS0022F9FF867004091AA /* HealthKitSleepService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */; };
+		1NAV012F9FF867004091AA /* ForgeNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1NAV022F9FF867004091AA /* ForgeNavigation.swift */; };
+		1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0022F9FF867004091AA /* SexualHealthCoach.swift */; };
+		1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */; };
+		1WC0052F9FF867004091AA /* CyclePhaseCoachingDirective.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */; };
+		1WC0072F9FF867004091AA /* BiologicalSexStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */; };
+		1WC0092F9FF867004091AA /* CycleLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */; };
+		1WC00B2F9FF867004091AA /* CycleLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */; };
+		1WC00C2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00D2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift */; };
+		1WC00E2F9FF867004091AA /* CyclePhaseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */; };
+		1WC1012F9FF867004091AA /* CrossZoneConsistency.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */; };
 		AA0001000000000000000001 /* ForgeSwiftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000001 /* ForgeSwiftApp.swift */; };
 		AA0001000000000000000002 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000002 /* Theme.swift */; };
 		AA0001000000000000000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000003 /* Models.swift */; };
@@ -97,11 +114,14 @@
 		F0B10000000000000000001C /* WorkoutCoordinatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001C /* WorkoutCoordinatorView.swift */; };
 		F0B10000000000000000001D /* ActiveWorkoutComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001D /* ActiveWorkoutComplication.swift */; };
 		F0B10000000000000000001E /* ForgeWorkoutActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001E /* ForgeWorkoutActivityAttributes.swift */; };
-		F0B10000000000000000002E /* ForgeWorkoutActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001E /* ForgeWorkoutActivityAttributes.swift */; };
 		F0B10000000000000000001F /* ForgeWorkoutLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001F /* ForgeWorkoutLiveActivity.swift */; };
+		F0B100000000000000000020 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000001 /* ForgeCore */; };
+		F0B100000000000000000021 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000002 /* ForgeCore */; };
+		F0B100000000000000000022 /* ForgeWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000019 /* ForgeWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F0B100000000000000000023 /* ForgeWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000018 /* ForgeWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F0B10000000000000000002E /* ForgeWorkoutActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001E /* ForgeWorkoutActivityAttributes.swift */; };
 		F0B10000000000000000002F /* ForgeWidgetExtensionBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000020 /* ForgeWidgetExtensionBundle.swift */; };
 		F0B100000000000000000030 /* WorkoutActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */; };
-		F0B100000000000000000039 /* WatchAriaConfigBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002A /* WatchAriaConfigBridge.swift */; };
 		F0B100000000000000000031 /* LifestyleWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000024 /* LifestyleWidget.swift */; };
 		F0B100000000000000000032 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000003 /* ForgeCore */; };
 		F0B100000000000000000033 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000004 /* ForgeCore */; };
@@ -110,10 +130,8 @@
 		F0B100000000000000000036 /* KnownPlacesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000027 /* KnownPlacesStore.swift */; };
 		F0B100000000000000000037 /* WindDownScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000028 /* WindDownScheduler.swift */; };
 		F0B100000000000000000038 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000029 /* OnboardingView.swift */; };
-		F0B100000000000000000020 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000001 /* ForgeCore */; };
-		F0B100000000000000000021 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000002 /* ForgeCore */; };
-		F0B100000000000000000022 /* ForgeWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000019 /* ForgeWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		F0B100000000000000000023 /* ForgeWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000018 /* ForgeWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F0B100000000000000000039 /* WatchAriaConfigBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002A /* WatchAriaConfigBridge.swift */; };
+		F0F1000000000000000000A1 /* LifestyleTargets.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F1000000000000000000A2 /* LifestyleTargets.swift */; };
 		FWNSCHED02 /* ForgeNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FWNSCHED01 /* ForgeNotificationScheduler.swift */; };
 		FWSETED02 /* SettingsEditorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FWSETED01 /* SettingsEditorViews.swift */; };
 /* End PBXBuildFile section */
@@ -203,41 +221,58 @@
 		1ARIA0252F9FF867004091AA /* BiometricsObserveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricsObserveService.swift; sourceTree = "<group>"; };
 		1ARIA0272F9FF867004091AA /* Theme+Readiness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Theme+Readiness.swift"; sourceTree = "<group>"; };
 		1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaTrainingTheme.swift; sourceTree = "<group>"; };
-		1ARIA0572F9FF867004091AA /* CyclePrivacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePrivacy.swift; sourceTree = "<group>"; };
 		1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPlanEngine.swift; sourceTree = "<group>"; };
 		1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceEngine.swift; sourceTree = "<group>"; };
-		1ARIA0432F9FF867004091AA /* MenstrualHealthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Menstrual/MenstrualHealthView.swift; sourceTree = "<group>"; };
+		1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCookedMeals.swift; sourceTree = "<group>"; };
+		1HCV0012F9FF867004091AA /* HomeCookingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCookingView.swift; sourceTree = "<group>"; };
+		1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileAvatarStore.swift; sourceTree = "<group>"; };
+		1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleModels.swift; sourceTree = "<group>"; };
+		1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngine.swift; sourceTree = "<group>"; };
 		1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualHealthStore.swift; sourceTree = "<group>"; };
-		1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleDataEvaluator.swift; sourceTree = "<group>"; };
-		1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleAriaAnalyst.swift; sourceTree = "<group>"; };
+		1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Menstrual/MenstrualHealthView.swift; sourceTree = "<group>"; };
 		1ARIA0452F9FF867004091AA /* PartnerSupportCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerSupportCoach.swift; sourceTree = "<group>"; };
 		1ARIA0472F9FF867004091AA /* AriaRelationalCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaRelationalCoach.swift; sourceTree = "<group>"; };
 		1ARIA0492F9FF867004091AA /* AriaEmotionalSupportCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaEmotionalSupportCoach.swift; sourceTree = "<group>"; };
+		1ARIA0512F9FF867004091AA /* AriaPersonAdaptation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPersonAdaptation.swift; sourceTree = "<group>"; };
 		1ARIA0532F9FF867004091AA /* AriaPersonRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPersonRegistry.swift; sourceTree = "<group>"; };
 		1ARIA0552F9FF867004091AA /* AriaArchetypeStudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaArchetypeStudio.swift; sourceTree = "<group>"; };
-		1ARIA0512F9FF867004091AA /* AriaPersonAdaptation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPersonAdaptation.swift; sourceTree = "<group>"; };
-		1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngine.swift; sourceTree = "<group>"; };
-		1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleModels.swift; sourceTree = "<group>"; };
+		1ARIA0572F9FF867004091AA /* CyclePrivacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePrivacy.swift; sourceTree = "<group>"; };
+		1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthWelcomeView.swift; sourceTree = "<group>"; };
+		1AUTH0042F9FF867004091AA /* AuthSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSignInView.swift; sourceTree = "<group>"; };
+		1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSignUpFlowView.swift; sourceTree = "<group>"; };
+		1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleDataEvaluator.swift; sourceTree = "<group>"; };
+		1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleAriaAnalyst.swift; sourceTree = "<group>"; };
+		1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbComponents.swift; sourceTree = "<group>"; };
+		1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeriodEndFeedbackView.swift; sourceTree = "<group>"; };
+		1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MusicControllerFactory.swift; sourceTree = SOURCE_ROOT; };
+		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
+		1E4DF7152F9FF867004091AA /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingHealthKitViews.swift; sourceTree = "<group>"; };
 		1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDataManager.swift; sourceTree = "<group>"; };
 		1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedDataConnectionView.swift; sourceTree = "<group>"; };
 		1E4DF71D2F9FFAE1004091AA /* SmartProfileSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartProfileSetupView.swift; sourceTree = "<group>"; };
-		F0F1000000000000000000A2 /* LifestyleTargets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleTargets.swift; sourceTree = "<group>"; };
 		1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeDesignSystem.swift; sourceTree = "<group>"; };
 		1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+ForgeCardShadow.swift"; sourceTree = "<group>"; };
-		1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OnboardingCoordinator.swift"; sourceTree = "<group>"; };
+		1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCoordinator.swift; sourceTree = "<group>"; };
 		1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachManager.swift; sourceTree = "<group>"; };
 		1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachViews.swift; sourceTree = "<group>"; };
 		1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachIntegration.swift; sourceTree = "<group>"; };
 		1ED842E22F90C15300693D3E /* LifestyleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleView.swift; sourceTree = "<group>"; };
+		1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepService.swift; sourceTree = "<group>"; };
+		1NAV022F9FF867004091AA /* ForgeNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeNavigation.swift; sourceTree = "<group>"; };
+		1WC0022F9FF867004091AA /* SexualHealthCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCoach.swift; sourceTree = "<group>"; };
+		1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCurriculum.swift; sourceTree = "<group>"; };
+		1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseCoachingDirective.swift; sourceTree = "<group>"; };
+		1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiologicalSexStepView.swift; sourceTree = "<group>"; };
+		1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleLiveActivityAttributes.swift; sourceTree = "<group>"; };
+		1WC00D2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleFertileWindowLiveActivity.swift; sourceTree = "<group>"; };
+		1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseWidget.swift; sourceTree = "<group>"; };
+		1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrossZoneConsistency.swift; sourceTree = "<group>"; };
 		AA0002000000000000000001 /* ForgeSwiftApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSwiftApp.swift; sourceTree = "<group>"; };
 		AA0002000000000000000002 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		AA0002000000000000000003 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		AA0002000000000000000004 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
 		AA0002000000000000000005 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthWelcomeView.swift; sourceTree = "<group>"; };
-		1AUTH0042F9FF867004091AA /* AuthSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSignInView.swift; sourceTree = "<group>"; };
-		1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSignUpFlowView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000006 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000007 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000008 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
@@ -268,7 +303,7 @@
 		F0F100000000000000000014 /* SleepQualityComplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepQualityComplication.swift; sourceTree = "<group>"; };
 		F0F100000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F0F100000000000000000016 /* ForgeWatchWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeWatchWidgets.entitlements; sourceTree = "<group>"; };
-		F0F100000000000000000017 /* ForgeCore */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = ForgeCore; path = ForgeCore; sourceTree = "<group>"; };
+		F0F100000000000000000017 /* ForgeCore */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = ForgeCore; sourceTree = "<group>"; };
 		F0F100000000000000000018 /* ForgeWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForgeWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0F100000000000000000019 /* ForgeWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ForgeWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0F10000000000000000001A /* WorkoutSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionManager.swift; sourceTree = "<group>"; };
@@ -281,13 +316,14 @@
 		F0F100000000000000000021 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F0F100000000000000000022 /* ForgeWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeWidgetExtension.entitlements; sourceTree = "<group>"; };
 		F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutActivityCoordinator.swift; sourceTree = "<group>"; };
-		F0F10000000000000000002A /* WatchAriaConfigBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAriaConfigBridge.swift; sourceTree = "<group>"; };
-		F0F100000000000000000024 /* LifestyleWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LifestyleWidget.swift; path = "../../ForgeWidget/LifestyleWidget.swift"; sourceTree = "<group>"; };
+		F0F100000000000000000024 /* LifestyleWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LifestyleWidget.swift; path = ../../ForgeWidget/LifestyleWidget.swift; sourceTree = "<group>"; };
 		F0F100000000000000000025 /* ForgeWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ForgeWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0F100000000000000000026 /* SleepSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSummaryView.swift; sourceTree = "<group>"; };
 		F0F100000000000000000027 /* KnownPlacesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownPlacesStore.swift; sourceTree = "<group>"; };
 		F0F100000000000000000028 /* WindDownScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindDownScheduler.swift; sourceTree = "<group>"; };
 		F0F100000000000000000029 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		F0F10000000000000000002A /* WatchAriaConfigBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAriaConfigBridge.swift; sourceTree = "<group>"; };
+		F0F1000000000000000000A2 /* LifestyleTargets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleTargets.swift; sourceTree = "<group>"; };
 		FWNSCHED01 /* ForgeNotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeNotificationScheduler.swift; sourceTree = "<group>"; };
 		FWSETED01 /* SettingsEditorViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsEditorViews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -347,7 +383,15 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		1ARIA0172F9FF867004091AA /* AriaModels */ = {
+		1DATA0102F9FF867004091AA /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		1ARIA0172F9FF867004091AA /* Models */ = {
 			isa = PBXGroup;
 			children = (
 				1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */,
@@ -364,6 +408,7 @@
 		1EHKS0032F9FF867004091AA /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */,
 				1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */,
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
 				1ARIA0072F9FF867004091AA /* AriaContextStore.swift */,
@@ -414,7 +459,8 @@
 				1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */,
 				1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */,
 				1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */,
-				1ARIA0172F9FF867004091AA /* AriaModels */,
+				1DATA0102F9FF867004091AA /* Data */,
+				1ARIA0172F9FF867004091AA /* Models */,
 				1ARIA0162F9FF867004091AA /* Views */,
 				1EHKS0032F9FF867004091AA /* Services */,
 				1E4DF7152F9FF867004091AA /* HealthKitManager.swift */,
@@ -551,6 +597,29 @@
 			path = Complications;
 			sourceTree = "<group>";
 		};
+		F0A100000000000000000006 /* LiveActivities */ = {
+			isa = PBXGroup;
+			children = (
+				F0F10000000000000000001E /* ForgeWorkoutActivityAttributes.swift */,
+				F0F10000000000000000001F /* ForgeWorkoutLiveActivity.swift */,
+				1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */,
+				1WC00D2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift */,
+			);
+			path = LiveActivities;
+			sourceTree = "<group>";
+		};
+		F0A100000000000000000007 /* ForgeWidgetExtension */ = {
+			isa = PBXGroup;
+			children = (
+				F0F100000000000000000020 /* ForgeWidgetExtensionBundle.swift */,
+				F0F100000000000000000024 /* LifestyleWidget.swift */,
+				1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */,
+				F0F100000000000000000021 /* Info.plist */,
+				F0F100000000000000000022 /* ForgeWidgetExtension.entitlements */,
+			);
+			path = ForgeWidgetExtension;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -577,26 +646,6 @@
 			productName = ForgeSwift;
 			productReference = AA000200000000000000000D /* ForgeSwift.app */;
 			productType = "com.apple.product-type.application";
-		};
-		F0C100000000000000000003 /* ForgeWidgetExtension */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = F0E200000000000000000003 /* Build configuration list for PBXNativeTarget "ForgeWidgetExtension" */;
-			buildPhases = (
-				F0D100000000000000000009 /* Sources */,
-				F0D10000000000000000000A /* Frameworks */,
-				F0D10000000000000000000B /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = ForgeWidgetExtension;
-			packageProductDependencies = (
-				F0F200000000000000000004 /* ForgeCore */,
-			);
-			productName = ForgeWidgetExtension;
-			productReference = F0F100000000000000000025 /* ForgeWidgetExtension.appex */;
-			productType = "com.apple.product-type.app-extension";
 		};
 		F0C100000000000000000001 /* ForgeWatch */ = {
 			isa = PBXNativeTarget;
@@ -638,6 +687,26 @@
 			);
 			productName = ForgeWatchWidgets;
 			productReference = F0F100000000000000000019 /* ForgeWatchWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		F0C100000000000000000003 /* ForgeWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F0E200000000000000000003 /* Build configuration list for PBXNativeTarget "ForgeWidgetExtension" */;
+			buildPhases = (
+				F0D100000000000000000009 /* Sources */,
+				F0D10000000000000000000A /* Frameworks */,
+				F0D10000000000000000000B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ForgeWidgetExtension;
+			packageProductDependencies = (
+				F0F200000000000000000004 /* ForgeCore */,
+			);
+			productName = ForgeWidgetExtension;
+			productReference = F0F100000000000000000025 /* ForgeWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -745,7 +814,7 @@
 				1ARIA0562F9FF867004091AA /* CyclePrivacy.swift in Sources */,
 				1ARIA0322F9FF867004091AA /* AriaPlanEngine.swift in Sources */,
 				1ARIA0342F9FF867004091AA /* AriaVoiceEngine.swift in Sources */,
-				1ARIA0422F9FF867004091AA /* MenstrualHealthView.swift in Sources */,
+				1ARIA0422F9FF867004091AA /* Menstrual/MenstrualHealthView.swift in Sources */,
 				1ARIA0402F9FF867004091AA /* MenstrualHealthStore.swift in Sources */,
 				1CYC0012F9FF867004091AA /* CycleDataEvaluator.swift in Sources */,
 				1CYC0032F9FF867004091AA /* CycleAriaAnalyst.swift in Sources */,
@@ -756,6 +825,9 @@
 				1ARIA0542F9FF867004091AA /* AriaArchetypeStudio.swift in Sources */,
 				1ARIA0502F9FF867004091AA /* AriaPersonAdaptation.swift in Sources */,
 				1ARIA0382F9FF867004091AA /* MenstrualCycleEngine.swift in Sources */,
+				1HCM0022F9FF867004091AA /* HomeCookedMeals.swift in Sources */,
+				1HCV0022F9FF867004091AA /* HomeCookingView.swift in Sources */,
+				1PAS0022F9FF867004091AA /* ProfileAvatarStore.swift in Sources */,
 				1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */,
 				1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */,
 				1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */,
@@ -1007,11 +1079,11 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Forge ";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
-				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to detect nearby restaurants and log meals faster.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -1045,11 +1117,11 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Forge ";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
-				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to detect nearby restaurants and log meals faster.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -1080,6 +1152,7 @@
 				DEVELOPMENT_TEAM = L85K85Q7MB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ForgeWatch/Info-Add.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Forge;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads sleep, heart rate, HRV, activity, and workouts on your watch to compute readiness and tailor mindfulness and training to your day.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves Mindful Minutes and workouts from your watch so your Health history stays complete.";
@@ -1100,7 +1173,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+				WATCHOS_DEPLOYMENT_TARGET = 11.6;
 			};
 			name = Debug;
 		};
@@ -1115,6 +1188,7 @@
 				DEVELOPMENT_TEAM = L85K85Q7MB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ForgeWatch/Info-Add.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Forge;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads sleep, heart rate, HRV, activity, and workouts on your watch to compute readiness and tailor mindfulness and training to your day.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves Mindful Minutes and workouts from your watch so your Health history stays complete.";
@@ -1135,7 +1209,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+				WATCHOS_DEPLOYMENT_TARGET = 11.6;
 			};
 			name = Release;
 		};
@@ -1165,6 +1239,33 @@
 				WATCHOS_DEPLOYMENT_TARGET = 11.0;
 			};
 			name = Debug;
+		};
+		F0E100000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ForgeWatch/Complications/ForgeWatchWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = L85K85Q7MB;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ForgeWatch/Complications/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Forge Complications";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift.watchkitapp.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Release;
 		};
 		F0E100000000000000000005 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -1217,33 +1318,6 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
-		F0E100000000000000000004 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = ForgeWatch/Complications/ForgeWatchWidgets.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = L85K85Q7MB;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = ForgeWatch/Complications/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Forge Complications";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift.watchkitapp.widgets;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 11.0;
 			};
 			name = Release;
 		};

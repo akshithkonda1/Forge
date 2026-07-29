@@ -222,7 +222,8 @@ struct MainTabView: View {
     }
     
     private func tabTransitionEdge(from: TabItem, to: TabItem) -> Edge {
-        let tabs: [TabItem] = [.home, .workout, .chat, .lifestyle, .sleep, .progress, .profile]
+        // ARIA is the true center tab (index 3 of 7).
+        let tabs: [TabItem] = [.home, .workout, .lifestyle, .chat, .sleep, .progress, .profile]
         guard let fromIndex = tabs.firstIndex(of: from),
               let toIndex = tabs.firstIndex(of: to) else {
             return .trailing
@@ -238,62 +239,74 @@ struct ForgeBottomNav: View {
     var namespace: Namespace.ID
     @Binding var dragOffset: CGFloat
     
-    /// Home · Workout · Chat(ARIA) · Lifestyle · Sleep · Progress · Profile
-    private let tabs: [TabItem] = [.home, .workout, .chat, .lifestyle, .sleep, .progress, .profile]
+    /// Home · Train · Life · ARIA (center) · Sleep · Stats · You
+    private let tabs: [TabItem] = [.home, .workout, .lifestyle, .chat, .sleep, .progress, .profile]
     
     @State private var isPressed = false
     @State private var pressedTab: TabItem?
 
     var body: some View {
         VStack(spacing: 0) {
-            // Refined top edge with shimmer
-            ZStack {
-                // Base separator
-                Rectangle()
-                    .fill(Color.white.opacity(0.08))
-                    .frame(height: 1)
-                
-                // Shimmer highlight
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0),
-                        Color.white.opacity(0.15),
-                        Color.white.opacity(0)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(height: 1)
-                .blur(radius: 0.5)
-            }
+            // Extra headroom so the raised ARIA FAB isn't clipped.
+            Color.clear.frame(height: 22)
 
-            HStack(spacing: 0) {
-                ForEach(tabs, id: \.self) { tab in
-                    if tab == .chat {
-                        ARIATabButton(namespace: namespace)
-                    } else {
-                        RegularForgeTab(tab: tab, namespace: namespace)
+            ZStack(alignment: .bottom) {
+                VStack(spacing: 0) {
+                    // Refined top edge with shimmer
+                    ZStack {
+                        Rectangle()
+                            .fill(Color.white.opacity(0.08))
+                            .frame(height: 1)
+
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0),
+                                Color.white.opacity(0.15),
+                                Color.white.opacity(0)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(height: 1)
+                        .blur(radius: 0.5)
                     }
-                }
-            }
-            .frame(height: 62)
-            .padding(.horizontal, 6)
-            .padding(.top, 2)
-            .background(
-                ZStack {
-                    Color(hex: "060608").opacity(0.88)
-                    LinearGradient.premiumChrome
-                    Color.white.opacity(0.015)
-                        .blendMode(.overlay)
-                }
-                .background(.ultraThinMaterial.opacity(0.45))
-            )
 
-            ZStack {
-                Color(hex: "060608")
-                Color.white.opacity(0.015)
+                    HStack(spacing: 0) {
+                        ForEach(tabs, id: \.self) { tab in
+                            if tab == .chat {
+                                // Spacer for the elevated ARIA FAB slot
+                                Color.clear
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 62)
+                            } else {
+                                RegularForgeTab(tab: tab, namespace: namespace)
+                            }
+                        }
+                    }
+                    .frame(height: 62)
+                    .padding(.horizontal, 6)
+                    .padding(.top, 2)
+                    .background(
+                        ZStack {
+                            Color(hex: "060608").opacity(0.88)
+                            LinearGradient.premiumChrome
+                            Color.white.opacity(0.015)
+                                .blendMode(.overlay)
+                        }
+                        .background(.ultraThinMaterial.opacity(0.45))
+                    )
+
+                    ZStack {
+                        Color(hex: "060608")
+                        Color.white.opacity(0.015)
+                    }
+                    .frame(height: safeAreaBottom)
+                }
+
+                // Raised center ARIA control (true middle of 7 tabs)
+                ARIATabButton(namespace: namespace)
+                    .offset(y: -18 - safeAreaBottom / 2)
             }
-            .frame(height: safeAreaBottom)
         }
         .overlay(alignment: .top) {
             LinearGradient(
@@ -302,9 +315,10 @@ struct ForgeBottomNav: View {
                 endPoint: .trailing
             )
             .frame(height: 0.6)
+            .padding(.top, 22)
         }
         .shadow(color: .black.opacity(0.55), radius: 28, y: -10)
-        .shadow(color: Color.ember.opacity(store.activeTab == .chat ? 0.14 : 0.04), radius: 24, y: -6)
+        .shadow(color: Color.ember.opacity(store.activeTab == .chat ? 0.18 : 0.05), radius: 24, y: -6)
         .gesture(
             DragGesture()
                 .onChanged { gesture in
@@ -524,14 +538,14 @@ struct ARIATabButton: View {
                             )
                     }
 
-                    // Main orb with depth and dimension
+                    // Main orb with depth and dimension — raised FAB size
                     ZStack {
                         // Shadow layer for depth
                         Circle()
-                            .fill(Color.black.opacity(0.4))
-                            .frame(width: 48, height: 48)
-                            .blur(radius: 8)
-                            .offset(y: 3)
+                            .fill(Color.black.opacity(0.45))
+                            .frame(width: 56, height: 56)
+                            .blur(radius: 10)
+                            .offset(y: 4)
                         
                         // Main gradient orb
                         Circle()
@@ -558,7 +572,7 @@ struct ARIATabButton: View {
                                     endAngle: .degrees(particlePhase + 360)
                                 )
                             )
-                            .frame(width: 48, height: 48)
+                            .frame(width: 56, height: 56)
                             .overlay(
                                 Circle()
                                     .fill(
@@ -597,7 +611,7 @@ struct ARIATabButton: View {
                         
                         // Icon with premium styling
                         Image(systemName: isVoiceMode ? "waveform" : "message.fill")
-                            .font(.system(size: isVoiceMode ? 18 : 16, weight: .bold))
+                            .font(.system(size: isVoiceMode ? 20 : 18, weight: .bold))
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [
@@ -615,11 +629,11 @@ struct ARIATabButton: View {
                     .scaleEffect(pressed ? 0.88 : 1.0)
                     .animation(.spring(response: 0.3, dampingFraction: 0.6), value: pressed)
                 }
-                .frame(height: 32)
+                .frame(height: 40)
 
                 // Label with premium typography
                 Text(isVoiceMode ? "Voice" : "ARIA")
-                    .font(.system(size: 10, weight: isActive ? .bold : .semibold, design: .rounded))
+                    .font(.system(size: 9, weight: isActive ? .bold : .semibold, design: .rounded))
                     .foregroundStyle(
                         isVoiceMode ?
                         LinearGradient(
@@ -651,9 +665,11 @@ struct ARIATabButton: View {
                         y: 1
                     )
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 62)
+            .frame(width: 72)
+            .frame(height: 72)
             .contentShape(Rectangle())
+            .accessibilityLabel(isVoiceMode ? "ARIA Voice" : "ARIA")
+            .accessibilityAddTraits(isActive ? .isSelected : [])
         }
         .buttonStyle(.plain)
         .simultaneousGesture(

@@ -63,8 +63,11 @@ enum WatchAriaConfigBridge {
         // Only the iPhone side should push companion config.
         #if os(iOS)
         let envelope: [String: Any] = [WC.config: payload]
+        // Merge with any in-flight workout context so we don't clobber Live Activity state.
+        var merged = session.applicationContext
+        merged[WC.config] = payload
         do {
-            try session.updateApplicationContext(envelope)
+            try session.updateApplicationContext(merged)
         } catch {
             // Context can fail if not activated yet or rate-limited — best effort.
             session.transferUserInfo(envelope)
@@ -73,6 +76,9 @@ enum WatchAriaConfigBridge {
             session.sendMessage(envelope, replyHandler: nil, errorHandler: { _ in
                 session.transferUserInfo(envelope)
             })
+        } else {
+            // Guaranteed delivery when the watch next wakes.
+            session.transferUserInfo(envelope)
         }
         #endif
     }

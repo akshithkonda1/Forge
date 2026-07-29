@@ -271,9 +271,31 @@ final class AriaContextStore: ObservableObject {
     func clearCycleTags() {
         context.lifestyleTags = context.lifestyleTags.filter {
             !$0.hasPrefix("cycle:") && !$0.hasPrefix("cycle_phase:") && !$0.hasPrefix("cycle_day:")
-                && !$0.hasPrefix("cycle_privacy:")
+                && !$0.hasPrefix("cycle_privacy:") && !$0.hasPrefix("cycle_prefer:")
+                && !$0.hasPrefix("cycle:prefer:") && !$0.hasPrefix("cycle:period_feedback")
+                && !$0.hasPrefix("cycle:recovery_pref:")
         }
+        context.constraints.removeAll { $0.hasPrefix("cycle_period_learn:") }
         context.recentPatterns = context.recentPatterns.filter { !$0.hasPrefix("cycle:") }
+        context.lastUpdated = Date()
+        persist()
+    }
+
+    /// Inject continuously learned period-end coaching preferences for ARIA.
+    func applyPeriodCoachingPreferences(_ prefs: PeriodCoachingPreferences) {
+        var tags = context.lifestyleTags.filter {
+            !$0.hasPrefix("cycle:prefer:")
+                && !$0.hasPrefix("cycle:period_feedback")
+                && !$0.hasPrefix("cycle:recovery_pref:")
+        }
+        tags.append(contentsOf: prefs.ariaTags)
+        context.lifestyleTags = Array(Set(tags)).sorted()
+
+        context.constraints.removeAll { $0.hasPrefix("cycle_period_learn:") }
+        let directive = prefs.coachingDirective
+        if !directive.isEmpty {
+            context.constraints.append("cycle_period_learn:\(directive)")
+        }
         context.lastUpdated = Date()
         persist()
     }
@@ -391,6 +413,14 @@ final class AriaContextStore: ObservableObject {
         tags.append("partner_cycle:rel:\(relationshipLabel.lowercased().replacingOccurrences(of: " ", with: "_"))")
         tags.append("partner_cycle:role:\(role.rawValue)")
         tags.append("partner_cycle:confidence:\(Int(snap.confidence * 100))")
+        // Stage drives the return from period-support coaching to everyday support.
+        tags.append("partner_cycle:stage:\(snap.stage.rawValue)")
+        if snap.periodEndConfirmed {
+            tags.append("partner_cycle:period_confirmed_finished")
+        }
+        if let since = snap.daysSincePeriodEnd, since <= 3 {
+            tags.append("partner_cycle:days_since_period_end:\(since)")
+        }
         context.lifestyleTags = Array(Set(tags)).sorted()
 
         var patterns = context.recentPatterns.filter { !$0.hasPrefix("partner_cycle:") }

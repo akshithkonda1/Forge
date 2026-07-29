@@ -1388,8 +1388,14 @@ class HealthKitManager: ObservableObject {
         )
     }
 
-    func saveMenstrualFlow(dayKey: String, flow: MenstrualFlowLevel) async {
-        guard isAuthorized, let day = CycleDayKey.date(from: dayKey) else { return }
+    /// Writes one day of menstrual flow to Apple Health.
+    ///
+    /// `isCycleStart` must be true only for the *first* bleeding day of an episode.
+    /// Marking every bleeding day as a cycle start told Health that a 5-day period was
+    /// five separate one-day cycles, which wrecked Health's own cycle predictions.
+    func saveMenstrualFlow(dayKey: String, flow: MenstrualFlowLevel, isCycleStart: Bool = false) async {
+        guard isAuthorized,
+              let dayStart = CycleDayKey.startOfDay(from: dayKey) else { return }
         let type = HKCategoryType(.menstrualFlow)
         let value: HKCategoryValueMenstrualFlow
         switch flow {
@@ -1399,14 +1405,16 @@ class HealthKitManager: ObservableObject {
         case .heavy: value = .heavy
         case .unspecified: value = .unspecified
         }
-        let end = Calendar.current.date(byAdding: .hour, value: 1, to: day) ?? day
+        // Samples are day-long so re-reads land on the same calendar day in any timezone.
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: dayStart)
+            .map { $0.addingTimeInterval(-1) } ?? dayStart
         let metadata: [String: Any] = [
-            HKMetadataKeyMenstrualCycleStart: true
+            HKMetadataKeyMenstrualCycleStart: isCycleStart
         ]
         let sample = HKCategorySample(
             type: type,
             value: value.rawValue,
-            start: day,
+            start: dayStart,
             end: end,
             metadata: metadata
         )

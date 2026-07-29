@@ -55,6 +55,19 @@ struct ForgeWatchApp: App {
             .environment(workout)
             .environment(\.forgeMinimalAnimation, contextEngine.minimalAnimation)
             .onOpenURL(perform: route(_:))
+            .onReceive(NotificationCenter.default.publisher(for: PhoneLinkService.companionConfigDidUpdate)) { _ in
+                // iPhone pushed ARIA base URL / first name — refresh greeting immediately.
+                aria.refresh(
+                    health: health,
+                    context: contextEngine,
+                    sessionsToday: session.sessionsCompletedToday
+                )
+            }
+            .task {
+                // Ensure WCSession is live whenever the scene is up (covers cold launch
+                // after phone reinstall without requiring a workout start).
+                PhoneLinkService.shared.activate()
+            }
         }
     }
 

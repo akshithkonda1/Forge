@@ -42,15 +42,27 @@ enum MenstrualCycleEngine {
 
         let sorted = logs.sorted { $0.dayKey < $1.dayKey }
         let episodes = buildPeriodEpisodes(from: sorted)
-        let cycleLengths = interStartLengths(episodes)
+        let plausibleRange = settings.condition.plausibleCycleLengthRange
+        let cycleLengths = interStartLengths(episodes, plausibleRange: plausibleRange)
         let periodLengths = episodes.map(\.dayCount)
 
         let lutealDays = settings.effectiveLutealDays
         let medianCycle = settings.averageCycleOverride.map(Double.init)
-            ?? recencyWeightedMedian(cycleLengths.map(Double.init), fallback: 28)
+            ?? recencyWeightedMedian(
+                cycleLengths.map(Double.init),
+                fallback: 28,
+                plausibleRange: plausibleRange
+            )
         let madCycle = medianAbsoluteDeviation(cycleLengths.map(Double.init), center: medianCycle)
-        let medianPeriod = settings.averagePeriodOverride.map(Double.init)
-            ?? robustMedian(periodLengths.map(Double.init), fallback: 5)
+        // A bleed is 3–7 days. Clamping here keeps the "how long is my period" model and
+        // the "am I still bleeding" model from ever disagreeing.
+        let medianPeriod = Double(
+            CycleBiology.clampPeriodDays(
+                Int((settings.averagePeriodOverride.map(Double.init)
+                    ?? robustMedian(periodLengths.map(Double.init), fallback: Double(CycleBiology.defaultPeriodDays))
+                ).rounded())
+            )
+        )
 
         let lastStart = episodes.last?.startDayKey
         let dayInCycle: Int? = {
@@ -58,6 +70,31 @@ enum MenstrualCycleEngine {
                   let delta = CycleDayKey.daysBetween(lastStart, dayKey) else { return nil }
             return max(1, delta + 1)
         }()
+
+        // MARK: Period lifecycle
+        //
+        // A confirmed end belongs to the *current* episode only. If the user has since
+        // started a new period, the old confirmation is stale and must be ignored — that
+        // is what previously let a finished flag suppress a genuinely active bleed.
+        let confirmedEnd: String? = {
+            guard let confirmed = settings.confirmedPeriodEndDayKey, let lastStart else { return nil }
+            guard let offset = CycleDayKey.daysBetween(lastStart, confirmed), offset >= 0 else { return nil }
+            // Also ignore a confirmation that is somehow in the future.
+            guard let fromToday = CycleDayKey.daysBetween(confirmed, dayKey), fromToday >= 0 else { return nil }
+            return confirmed
+        }()
+        let periodEndConfirmed = confirmedEnd != nil
+        // Effective end of this bleed: the user's confirmation wins; otherwise the last
+        // logged bleeding day of the current episode.
+        let currentPeriodEnd: String? = confirmedEnd ?? episodes.last?.endDayKey
+        let currentPeriodDayCount: Int? = {
+            guard let lastStart, let end = currentPeriodEnd,
+                  let span = CycleDayKey.daysBetween(lastStart, end) else { return nil }
+            return max(1, span + 1)
+        }()
+        let daysSincePeriodEnd: Int? = currentPeriodEnd
+            .flatMap { CycleDayKey.daysBetween($0, dayKey) }
+            .flatMap { $0 >= 0 ? $0 : nil }
 
         let ovulation = estimateOvulation(
             logs: sorted,
@@ -67,20 +104,45 @@ enum MenstrualCycleEngine {
             asOfDayKey: dayKey
         )
 
+        // Today's own log — never a stale earlier day. Falling back to "the most recent
+        // log at or before today" used to report bleeding (and force the menstruation
+        // phase) for the rest of the cycle after the last logged bleed day.
         let todayLog = sorted.last(where: { $0.dayKey == dayKey })
-            ?? sorted.last(where: { $0.dayKey <= dayKey })
-        let bleedingToday = todayLog?.flow.isBleeding == true
-            || (dayInCycle != nil && dayInCycle! <= Int(medianPeriod.rounded())
-                && episodes.last.map { $0.startDayKey <= dayKey && $0.endDayKey >= dayKey } == true)
+        // Recent context is still useful for symptom-driven recovery bias, but it must
+        // not drive the bleeding flag.
+        let recentLog = todayLog ?? sorted.last(where: { $0.dayKey <= dayKey })
+        let insideOpenEpisode = episodes.last.map { $0.startDayKey <= dayKey && $0.endDayKey >= dayKey } == true
+        // A confirmed end is final and takes effect immediately. Tapping "Period finished"
+        // has to change what the app says today — waiting for the median bleed length to
+        // elapse is precisely the behaviour that made the confirmation feel ignored.
+        // Only a *new* period start reopens bleeding (which clears the confirmation).
+        let bleedIsOver = periodEndConfirmed && (daysSincePeriodEnd ?? -1) >= 0
+        let bleedingToday = !bleedIsOver && (todayLog?.flow.isBleeding == true || insideOpenEpisode)
 
+        // Perimenopause: ovulation/fertile labelling is unreliable, so it must not leak
+        // through the phase either — otherwise the Live Activity, watch complication and
+        // ARIA context all announce a fertile window the rest of the UI suppresses.
+        let suppressFertile = settings.condition.suppressesFertileWindow
+        let fertileStartDay = suppressFertile
+            ? nil
+            : ovulation.map { max(1, $0.dayInCycle - CycleBiology.fertileDaysBeforeOvulation) }
+        let fertileEndDay = suppressFertile
+            ? nil
+            : ovulation.map { $0.dayInCycle + CycleBiology.fertileDaysAfterOvulation }
         let phase = resolvePhase(
             dayInCycle: dayInCycle,
             periodLength: medianPeriod,
-            ovulationDay: ovulation?.dayInCycle,
-            fertileStart: ovulation.map { max(1, $0.dayInCycle - 5) },
-            fertileEnd: ovulation.map { $0.dayInCycle + 1 },
+            // The fix for "I said my period finished but the app still says I'm
+            // menstruating": a confirmed end ends the menstruation phase outright, and
+            // an unconfirmed one is bounded by the *actual* logged bleed, not the median.
+            bleedIsOver: bleedIsOver,
+            confirmedPeriodDays: currentPeriodDayCount,
+            ovulationDay: suppressFertile ? nil : ovulation?.dayInCycle,
+            fertileStart: fertileStartDay,
+            fertileEnd: fertileEndDay,
             bleedingToday: bleedingToday,
-            hormonal: settings.usesHormonalContraception
+            hormonal: settings.usesHormonalContraception,
+            suppressFertileLabels: suppressFertile
         )
 
         let ensemble = ensembleCycleLength(
@@ -88,7 +150,8 @@ enum MenstrualCycleEngine {
             recencyMedian: medianCycle,
             ovulation: ovulation,
             lutealDays: lutealDays,
-            dayInCycle: dayInCycle
+            dayInCycle: dayInCycle,
+            plausibleRange: plausibleRange
         )
 
         let nextPeriod = predictNextPeriod(
@@ -140,8 +203,10 @@ enum MenstrualCycleEngine {
 
         let recoveryBias = phase == .menstruation
             || phase == .luteal && (dayInCycle ?? 0) >= Int(medianCycle - 4)
-            || (todayLog?.symptoms.contains(.cramps) == true)
-            || (todayLog?.symptoms.contains(.fatigue) == true)
+            || (recentLog?.symptoms.contains(.cramps) == true)
+            || (recentLog?.symptoms.contains(.fatigue) == true)
+            // Logged pain is a first-class recovery signal, not decoration.
+            || ((todayLog?.painScale ?? 0) >= 5)
 
         var insights = buildInsights(
             phase: phase,
@@ -151,7 +216,8 @@ enum MenstrualCycleEngine {
             ovulation: ovulation,
             irregular: irregular,
             cycles: cycleLengths.count,
-            hormonal: settings.usesHormonalContraception
+            hormonal: settings.usesHormonalContraception,
+            condition: settings.condition
         )
         insights.insert(
             "Timing method: \(ensemble.summary). Windows use robust personal history — not a single false-precision day.",
@@ -342,12 +408,15 @@ enum MenstrualCycleEngine {
         )
     }
 
-    private static func interStartLengths(_ episodes: [PeriodEpisode]) -> [Int] {
+    private static func interStartLengths(
+        _ episodes: [PeriodEpisode],
+        plausibleRange: ClosedRange<Int> = 18...45
+    ) -> [Int] {
         guard episodes.count >= 2 else { return [] }
         var lengths: [Int] = []
         for i in 1..<episodes.count {
             if let d = CycleDayKey.daysBetween(episodes[i - 1].startDayKey, episodes[i].startDayKey),
-               d >= 18, d <= 45 {
+               plausibleRange.contains(d) {
                 lengths.append(d)
             }
         }
@@ -376,16 +445,21 @@ enum MenstrualCycleEngine {
 
         let cycleLogs = logs.filter { $0.dayKey >= start && $0.dayKey <= asOfDayKey }
 
+        // Ovulation on day 60 of a cycle is not a signal, it is a mislogged test. Every
+        // branch below clamps into a physiologically sane band before it is trusted.
+        let maxOvulationDay = max(21, Int(cycleLength.rounded()) + 7)
+        func clampDay(_ day: Int) -> Int { max(6, min(maxOvulationDay, day)) }
+
         // 1) LH / OPK
         if let lh = cycleLogs.last(where: { $0.ovulationTest?.indicatesNearOvulation == true }),
            let day = CycleDayKey.daysBetween(start, lh.dayKey) {
-            return OvulationEstimate(dayInCycle: day + 1 + 1, method: "lh_surge", confidence: 0.9)
-            // LH surge day + ~24h → ovulation day ≈ day+1 from surge day index
+            // LH surge day + ~24h → ovulation day ≈ surge day index + 1
+            return OvulationEstimate(dayInCycle: clampDay(day + 2), method: "lh_surge", confidence: 0.9)
         }
 
         // 2) BBT 3-over-6 shift
         if let bbtDay = detectBBTShift(cycleLogs: cycleLogs, start: start) {
-            return OvulationEstimate(dayInCycle: bbtDay, method: "bbt_shift", confidence: 0.8)
+            return OvulationEstimate(dayInCycle: clampDay(bbtDay), method: "bbt_shift", confidence: 0.8)
         }
 
         // 3) Peak egg-white / watery mucus
@@ -393,7 +467,7 @@ enum MenstrualCycleEngine {
             .filter({ ($0.mucus?.fertilityScore ?? 0) >= 4 })
             .max(by: { ($0.mucus?.fertilityScore ?? 0) < ($1.mucus?.fertilityScore ?? 0) }),
            let day = CycleDayKey.daysBetween(start, mucusDay.dayKey) {
-            return OvulationEstimate(dayInCycle: day + 1, method: "peak_mucus", confidence: 0.65)
+            return OvulationEstimate(dayInCycle: clampDay(day + 1), method: "peak_mucus", confidence: 0.65)
         }
 
         // 4) Personalized calendar: cycle − luteal
@@ -429,21 +503,36 @@ enum MenstrualCycleEngine {
     private static func resolvePhase(
         dayInCycle: Int?,
         periodLength: Double,
+        bleedIsOver: Bool = false,
+        confirmedPeriodDays: Int? = nil,
         ovulationDay: Int?,
         fertileStart: Int?,
         fertileEnd: Int?,
         bleedingToday: Bool,
-        hormonal: Bool
+        hormonal: Bool,
+        suppressFertileLabels: Bool = false
     ) -> MenstrualPhase {
         if bleedingToday { return .menstruation }
         guard let day = dayInCycle else { return .unknown }
 
-        let periodEnd = max(3, Int(periodLength.rounded()))
-        if day <= periodEnd { return .menstruation }
+        // A confirmed finish ends the menstruation phase immediately. While it is still
+        // running, the personal median covers days the user simply hasn't logged yet —
+        // but it can never claim a *shorter* bleed than what has actually been recorded.
+        let bleedDays = max(
+            confirmedPeriodDays ?? 0,
+            CycleBiology.clampPeriodDays(Int(periodLength.rounded()))
+        )
+        if !bleedIsOver, day <= bleedDays { return .menstruation }
 
         if hormonal {
             // Hormonal contraception: phases are less meaningful — keep simple bleed vs non-bleed.
             return .follicular
+        }
+
+        if suppressFertileLabels {
+            // Perimenopause: never claim a fertile window or ovulation day. Report the
+            // broad pre/post half of the cycle instead of an unfounded mid-cycle label.
+            return day <= bleedDays + 9 ? .follicular : .luteal
         }
 
         if let ovu = ovulationDay {
@@ -459,6 +548,91 @@ enum MenstrualCycleEngine {
         if day <= 11 { return .follicular }
         if day <= 16 { return .fertileWindow }
         return .luteal
+    }
+
+    // MARK: Cycle stage
+
+    /// The lifecycle position, which is what the UI and partner coaching actually key
+    /// off. `MenstrualPhase` alone could not express "the bleed is over" — it only had
+    /// `.menstruation` versus everything else.
+    private static func resolveStage(
+        phase: MenstrualPhase,
+        bleedingToday: Bool,
+        dayInCycle: Int?,
+        fertileStart: Int?,
+        fertileEnd: Int?,
+        ovulationDay: Int?,
+        suppressFertile: Bool,
+        hormonal: Bool
+    ) -> CycleStage {
+        if bleedingToday { return .period }
+        guard let day = dayInCycle else { return .unknown }
+        if phase == .menstruation { return .period }
+        if phase == .unknown { return .unknown }
+
+        // With fertile labelling suppressed (perimenopause) or ovulation suppressed
+        // (hormonal contraception) there is no honest fertile stage to report.
+        if suppressFertile || hormonal {
+            return phase == .luteal ? .premenstrual : .postPeriod
+        }
+
+        if let ovulationDay, day == ovulationDay { return .ovulation }
+        if let fertileStart, let fertileEnd, day >= fertileStart, day <= fertileEnd { return .fertile }
+        if let fertileStart, day < fertileStart { return .postPeriod }
+        return .premenstrual
+    }
+
+    /// One honest sentence describing where the cycle is. Shared by the UI, the partner
+    /// brief and ARIA so all three tell the same story.
+    private static func narrative(
+        stage: CycleStage,
+        periodDayCount: Int?,
+        daysSincePeriodEnd: Int?,
+        periodEndConfirmed: Bool,
+        daysUntilNextPeriod: Int?,
+        fertileStartKey: String?,
+        fertileEndKey: String?,
+        dayInCycle: Int?
+    ) -> String {
+        func window() -> String? {
+            guard let s = fertileStartKey, let e = fertileEndKey else { return nil }
+            return "\(CycleDayKey.shortDisplay(s))–\(CycleDayKey.shortDisplay(e))"
+        }
+        func nextPeriodClause() -> String {
+            guard let days = daysUntilNextPeriod else { return "" }
+            if days < 0 { return " Next period is \(-days) day\(days == -1 ? "" : "s") past the mid-estimate." }
+            if days == 0 { return " Next period is estimated for today." }
+            if days == 1 { return " Next period is estimated for tomorrow." }
+            return " Next period is about \(days) days out."
+        }
+
+        switch stage {
+        case .period:
+            if let day = dayInCycle {
+                return "Day \(day) of your period.\(nextPeriodClause())"
+            }
+            return "On your period."
+        case .postPeriod:
+            let lengthClause = periodDayCount.map { " Your period ran \($0) day\($0 == 1 ? "" : "s")." } ?? ""
+            let sinceClause: String = {
+                guard let since = daysSincePeriodEnd else { return "" }
+                if since == 0 { return " It finished today." }
+                if since == 1 { return " It finished yesterday." }
+                return " It finished \(since) days ago."
+            }()
+            let confirmClause = periodEndConfirmed ? "" : " (Tap Period finished to confirm.)"
+            let fertileClause = window().map { " Fertile window opens around \($0)." } ?? ""
+            return "Period over — back to your normal rhythm.\(lengthClause)\(sinceClause)\(fertileClause)\(confirmClause)"
+        case .fertile:
+            let w = window().map { " Window: \($0)." } ?? ""
+            return "Fertile window is open.\(w)\(nextPeriodClause())"
+        case .ovulation:
+            return "Estimated ovulation day.\(nextPeriodClause())"
+        case .premenstrual:
+            return "Post-ovulation stretch before your next period.\(nextPeriodClause())"
+        case .unknown:
+            return ""
+        }
     }
 
     // MARK: Prediction
@@ -493,10 +667,16 @@ enum MenstrualCycleEngine {
     // MARK: Recency + ensemble
 
     /// Exponential recency weights (half-life ~4 cycles).
-    private static func recencyWeightedMedian(_ values: [Double], fallback: Double) -> Double {
+    private static func recencyWeightedMedian(
+        _ values: [Double],
+        fallback: Double,
+        plausibleRange: ClosedRange<Int> = 18...45
+    ) -> Double {
         guard !values.isEmpty else { return fallback }
         if values.count == 1 { return values[0] }
-        let clipped = values.map { min(45, max(18, $0)) }
+        let lo = Double(plausibleRange.lowerBound)
+        let hi = Double(plausibleRange.upperBound)
+        let clipped = values.map { min(hi, max(lo, $0)) }
         // Weighted percentile-50 via duplicate expansion of recent samples
         var expanded: [Double] = []
         for (i, v) in clipped.enumerated() {
@@ -518,7 +698,8 @@ enum MenstrualCycleEngine {
         recencyMedian: Double,
         ovulation: OvulationEstimate?,
         lutealDays: Int,
-        dayInCycle: Int?
+        dayInCycle: Int?,
+        plausibleRange: ClosedRange<Int> = 18...45
     ) -> EnsembleResult {
         var candidates: [Double] = [recencyMedian]
         var parts = ["recency-weighted median"]
@@ -535,7 +716,7 @@ enum MenstrualCycleEngine {
         if let ovu = ovulation, ovu.method == "lh_surge" || ovu.method == "bbt_shift",
            let dic = dayInCycle, dic >= ovu.dayInCycle {
             let projected = Double(ovu.dayInCycle + lutealDays - 1)
-            if projected >= 18, projected <= 45 {
+            if plausibleRange.contains(Int(projected)) {
                 candidates.append(projected)
                 parts.append("ovu+\(lutealDays)d luteal")
             }
@@ -600,28 +781,6 @@ enum MenstrualCycleEngine {
         return devs[m]
     }
 
-    private static func computeConfidence(
-        cyclesObserved: Int,
-        mad: Double,
-        hasLH: Bool,
-        hasBBT: Bool,
-        hasMucus: Bool,
-        hormonal: Bool,
-        logsCount: Int
-    ) -> Double {
-        var c = 0.15
-        c += min(0.35, Double(cyclesObserved) * 0.06)
-        if mad <= 1.5 { c += 0.15 }
-        else if mad <= 3 { c += 0.08 }
-        else if mad >= 6 { c -= 0.1 }
-        if hasLH { c += 0.2 }
-        else if hasBBT { c += 0.15 }
-        else if hasMucus { c += 0.08 }
-        if logsCount >= 40 { c += 0.08 }
-        if hormonal { c = min(c, 0.55) } // suppress overconfidence on suppressed ovulation
-        return max(0, min(0.95, c))
-    }
-
     private static func readinessNote(for phase: MenstrualPhase, recoveryBias: Bool) -> String {
         switch phase {
         case .menstruation:
@@ -645,13 +804,14 @@ enum MenstrualCycleEngine {
         ovulation: OvulationEstimate?,
         irregular: Bool,
         cycles: Int,
-        hormonal: Bool
+        hormonal: Bool,
+        condition: CycleCondition = .none
     ) -> [String] {
         var lines: [String] = []
         if let day = dayInCycle {
             lines.append("Day \(day) of an estimated \(Int(medianCycle.rounded()))-day cycle.")
         }
-        if let ovu = ovulation {
+        if let ovu = ovulation, !condition.suppressesFertileWindow {
             lines.append("Ovulation estimate: day \(ovu.dayInCycle) (\(ovu.method.replacingOccurrences(of: "_", with: " "))).")
         }
         if cycles >= 3 {
@@ -661,6 +821,18 @@ enum MenstrualCycleEngine {
         }
         if irregular {
             lines.append("Variability is elevated — predictions show a wider window on purpose.")
+        }
+        switch condition {
+        case .pcos:
+            lines.append("PCOS mode: long and variable cycles are counted as real history, not thrown out as errors, and the irregularity flag stays quiet unless variance is extreme.")
+        case .perimenopause:
+            lines.append("Perimenopause mode: fertile-window and ovulation labels are withheld because they are not reliable here — period timing stays a range, not a date.")
+        case .endometriosis:
+            lines.append("Endometriosis mode: pain and pelvic symptoms are weighted into recovery guidance. Pain that disrupts daily life is worth raising with a clinician.")
+        case .thyroid:
+            lines.append("Thyroid mode: BBT baselines shift with thyroid status and medication timing — take temperature before any morning dose.")
+        case .other, .none:
+            break
         }
         if hormonal {
             lines.append("Hormonal contraception noted: phase labels are simplified; bleed vs non-bleed drives coaching.")

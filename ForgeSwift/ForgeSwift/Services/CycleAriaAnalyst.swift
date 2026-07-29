@@ -36,6 +36,9 @@ enum CycleAriaAnalyst {
         let points = evaluation.issues.map(\.lifestyleCopy)
         let sexual: String? = {
             // Lifestyle education only — product review allows recommending materials.
+            if snapshot.stage == .postPeriod {
+                return "Bleed is over. Iron and hydration are worth a thought over the next few days, and training capacity usually rebuilds fast from here."
+            }
             if snapshot.phase == .fertileWindow || snapshot.phase == .ovulation {
                 return "If pregnancy timing matters for your lifestyle plans, consider clinician-approved contraception options and sexual-health resources — Forge’s phase labels are coaching aids, not a contraceptive method."
             }
@@ -75,6 +78,10 @@ enum CycleAriaAnalyst {
     ) -> CycleAIContext {
         CycleAIContext(
             phase: snapshot.phase.rawValue,
+            stage: snapshot.stage.rawValue,
+            periodEndConfirmed: snapshot.periodEndConfirmed,
+            daysSincePeriodEnd: snapshot.daysSincePeriodEnd,
+            daysUntilNextPeriod: snapshot.daysUntilNextPeriod,
             dayInCycle: snapshot.dayInCycle,
             cycleLengthMedian: snapshot.cycleLengthMedian,
             cycleLengthMAD: snapshot.cycleLengthMAD,
@@ -126,7 +133,11 @@ enum CycleAriaAnalyst {
         """
         Cycle coaching request. Respond in three short sections: Understood / Evaluation / Teaching.
         Use only these facts (do not invent numbers):
-        phase=\(context.phase), day=\(context.dayInCycle.map(String.init) ?? "nil"),
+        phase=\(context.phase), stage=\(context.stage),
+        periodFinishedConfirmed=\(context.periodEndConfirmed),
+        daysSincePeriodEnd=\(context.daysSincePeriodEnd.map(String.init) ?? "n/a"),
+        daysUntilNextPeriod=\(context.daysUntilNextPeriod.map(String.init) ?? "n/a"),
+        day=\(context.dayInCycle.map(String.init) ?? "nil"),
         medianCycle=\(String(format: "%.1f", context.cycleLengthMedian)),
         MAD=\(String(format: "%.1f", context.cycleLengthMAD)),
         nextWindow=\(context.nextEarliest ?? "—")…\(context.nextMedian ?? "—")…\(context.nextLatest ?? "—"),
@@ -141,6 +152,8 @@ enum CycleAriaAnalyst {
         Local evaluation summary: \(evaluation.userFacingSummary)
         Teaching seed: \(evaluation.teachingSummary)
 
+        If stage is postPeriod, do NOT give period-day advice. The bleed is over: acknowledge it,
+        then coach the rebuild — energy, training progression, and what is coming next.
         If fertile/ovulation phase and user might care about pregnancy timing, you may mention
         lifestyle sexual-health and contraception materials while stating Forge is not birth control.
         End with a one-line lifestyle disclaimer.

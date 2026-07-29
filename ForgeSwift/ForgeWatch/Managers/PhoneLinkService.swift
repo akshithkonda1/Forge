@@ -41,10 +41,10 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
         let payload: [String: Any] = [Self.workoutStateKey: data]
         if WCSession.default.isReachable {
             WCSession.default.sendMessage(payload, replyHandler: nil) { _ in
-                try? WCSession.default.updateApplicationContext(payload)
+                self.pushMergedApplicationContext(payload)
             }
         } else {
-            try? WCSession.default.updateApplicationContext(payload)
+            pushMergedApplicationContext(payload)
         }
     }
 
@@ -54,11 +54,25 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
         let payload: [String: Any] = [Self.workoutEndedKey: true]
         if WCSession.default.isReachable {
             WCSession.default.sendMessage(payload, replyHandler: nil) { _ in
-                try? WCSession.default.updateApplicationContext(payload)
+                self.pushMergedApplicationContext(payload)
             }
         } else {
-            try? WCSession.default.updateApplicationContext(payload)
+            pushMergedApplicationContext(payload)
         }
+    }
+
+    /// Preserve companion config keys when streaming workout state so
+    /// ARIA base URL / name survive a long session.
+    private func pushMergedApplicationContext(_ payload: [String: Any]) {
+        var merged = WCSession.default.applicationContext
+        for (k, v) in payload { merged[k] = v }
+        // Ending clears live state so the phone doesn't re-open a stale activity.
+        if payload[Self.workoutEndedKey] != nil {
+            merged.removeValue(forKey: Self.workoutStateKey)
+        } else if payload[Self.workoutStateKey] != nil {
+            merged.removeValue(forKey: Self.workoutEndedKey)
+        }
+        try? WCSession.default.updateApplicationContext(merged)
     }
 
     // MARK: Inbound companion config (from iPhone)
