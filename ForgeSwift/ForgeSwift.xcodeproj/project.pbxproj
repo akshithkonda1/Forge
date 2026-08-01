@@ -379,6 +379,7 @@
 				1ARIA0152F9FF867004091AA /* Chat */,
 				1ARIA0432F9FF867004091AA /* MenstrualHealthView.swift */,
 				1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */,
+				1HCV0012F9FF867004091AA /* HomeCookingView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
