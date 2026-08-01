@@ -2,14 +2,15 @@
 
 name: Swift
 
+# Runs on every branch and every pull request. Path filters keep it off changes
+# that cannot affect the app; branch filters are deliberately absent so main and
+# feature branches are gated identically.
 on:
   push:
-    branches: [ "claude/forge-fitness-frontend-TwlOQ" ]
     paths:
       - "ForgeSwift/**"
       - ".github/workflows/swift.yml"
   pull_request:
-    branches: [ "claude/forge-fitness-frontend-TwlOQ" ]
     paths:
       - "ForgeSwift/**"
       - ".github/workflows/swift.yml"
