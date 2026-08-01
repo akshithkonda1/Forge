@@ -113,30 +113,39 @@ enum CrossZoneConsistency {
         return "Live biometrics: " + parts.joined(separator: " · ")
     }
 
+    @MainActor
     static func snapshot(from store: AppStore) -> Snapshot {
         let cycle = MenstrualHealthStore.shared
+        // Capture MainActor-isolated cycle state into locals first.
+        // Never read `cycle.snapshot` (or other isolated properties) inside `&&` —
+        // the RHS is a nonisolated autoclosure and will fail isolation checks.
+        let cycleEnabled = cycle.settings.enabled
+        let cycleSnap = cycle.snapshot
+        let isCurrentlyBleeding = cycleEnabled && cycleSnap.isCurrentlyBleeding
+        let cycleRecoveryBias = cycleEnabled && cycleSnap.recommendRecoveryBias
         let lastWorkout = store.workoutHistory.first
         let hoursSince: Double? = {
             guard let lastWorkout,
                   let date = ISO8601DateFormatter().date(from: lastWorkout.date) else { return nil }
             return Date().timeIntervalSince(date) / 3600
         }()
+        let intensity: Double? = lastWorkout.map { w in
+            switch w.intensity {
+            case .low: return 3
+            case .moderate: return 6
+            case .high: return 8
+            case .max: return 10
+            }
+        }
         return Snapshot(
             readiness: store.readiness.overall,
             recoveryScore: store.readiness.recoveryScore,
             sleepScore: store.sleepData.first?.score,
             sleepHours: store.sleepData.first?.totalHours,
             hoursSinceLastWorkout: hoursSince,
-            lastWorkoutIntensity: lastWorkout.map { w in
-                switch w.intensity {
-                case .low: return 3
-                case .moderate: return 6
-                case .high: return 8
-                case .max: return 10
-                }
-            },
-            isCurrentlyBleeding: cycle.settings.enabled && cycle.snapshot.isCurrentlyBleeding,
-            cycleRecoveryBias: cycle.settings.enabled && cycle.snapshot.recommendRecoveryBias,
+            lastWorkoutIntensity: intensity,
+            isCurrentlyBleeding: isCurrentlyBleeding,
+            cycleRecoveryBias: cycleRecoveryBias,
             quietMode: store.quietMode
         )
     }

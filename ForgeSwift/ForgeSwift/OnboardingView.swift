@@ -483,10 +483,71 @@ private struct AriaInterviewLayout: View {
                         if let g = OnboardingFitnessGoal.allCases.first(where: { $0.id == id }) {
                             coordinator.toggleGoal(g)
                         }
-                    )
-                case .biologicalSex:
-                    BiologicalSexStepView(coordinator: coordinator)
-                case .experience:
+                    },
+                    canContinue: !coordinator.profile.fitnessGoals.isEmpty,
+                    continueTitle: "Continue",
+                    onContinue: { coordinator.confirmGoals() }
+                )
+            case .biologicalSex:
+                BiologicalSexStepView(coordinator: coordinator)
+            case .experience:
+                OptionCardsComposer(
+                    options: ExperienceLevel.allCases.map {
+                        ($0.rawValue, $0.label, $0.description)
+                    },
+                    onSelect: { raw in
+                        dictation.cancel()
+                        if let level = ExperienceLevel(rawValue: raw) {
+                            coordinator.selectExperience(level)
+                        }
+                    }
+                )
+            case .workouts:
+                MultiChipComposer(
+                    title: "Workouts",
+                    items: OnboardingWorkoutType.allCases.map { ($0.id, $0.label) },
+                    isSelected: { id in
+                        coordinator.profile.preferredWorkouts.contains { $0.id == id }
+                    },
+                    onToggle: { id in
+                        if let w = OnboardingWorkoutType.allCases.first(where: { $0.id == id }) {
+                            coordinator.toggleWorkout(w)
+                        }
+                    },
+                    canContinue: !coordinator.profile.preferredWorkouts.isEmpty,
+                    continueTitle: "Continue",
+                    onContinue: { coordinator.confirmWorkouts() }
+                )
+            case .sleep:
+                OptionCardsComposer(
+                    options: SleepRhythmBand.allCases.map {
+                        ($0.rawValue, $0.label, $0.detail)
+                    },
+                    onSelect: { raw in
+                        dictation.cancel()
+                        if let band = SleepRhythmBand(rawValue: raw) {
+                            coordinator.selectSleepBand(band)
+                        }
+                    }
+                )
+            case .freeTime:
+                MultiChipComposer(
+                    title: "Free time",
+                    items: LifestyleInterest.allCases.map { ($0.id, $0.label) },
+                    isSelected: { id in
+                        coordinator.profile.freeTimeInterests.contains { $0.id == id }
+                    },
+                    onToggle: { id in
+                        if let interest = LifestyleInterest.allCases.first(where: { $0.id == id }) {
+                            coordinator.toggleInterest(interest)
+                        }
+                    },
+                    canContinue: true,
+                    continueTitle: coordinator.profile.freeTimeInterests.isEmpty ? "Skip" : "Continue",
+                    onContinue: { coordinator.confirmInterests() }
+                )
+            case .trainingTheme:
+                VStack(spacing: 10) {
                     OptionCardsComposer(
                         options: AriaTrainingTheme.allCases.map {
                             ($0.rawValue, $0.label, $0.tagline)

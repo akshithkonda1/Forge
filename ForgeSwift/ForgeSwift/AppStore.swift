@@ -1433,7 +1433,7 @@ final class AppStore: ObservableObject {
         var anchors: [String] = []
 
         // Always pin live biometrics so sleep/readiness/training stay tight.
-        anchors.append(CrossZoneConsistency.memoryAnchorLine(for: .snapshot(from: self)))
+        anchors.append(CrossZoneConsistency.memoryAnchorLine(for: CrossZoneConsistency.snapshot(from: self)))
 
         if !durableMemoryAnchors.isEmpty {
             anchors.append(

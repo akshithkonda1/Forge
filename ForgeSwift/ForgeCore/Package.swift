@@ -24,7 +24,27 @@ let package = Package(
     targets: [
         .target(
             name: "ForgeCore",
-            path: "Sources/ForgeCore"
+            // Explicit sources only — never pick up Finder " 2.swift" duplicates.
+            path: "Sources/ForgeCore",
+            sources: [
+                "DesignSystem/ForgeDS.swift",
+                "DesignSystem/ForgePalette.swift",
+                "HealthKit/HealthKitQueryHelpers.swift",
+                "Intelligence/ContextRules.swift",
+                "Intelligence/MindfulnessSuggestionEngine.swift",
+                "Intelligence/SleepStoryEngine.swift",
+                "Intelligence/WindDownPredictor.swift",
+                "Intelligence/WorkoutSuggestionEngine.swift",
+                "Models/HRZones.swift",
+                "Models/LifestyleContext.swift",
+                "Models/MindfulnessPractice.swift",
+                "Models/Readiness.swift",
+                "Models/SleepModels.swift",
+                "Models/WatchARIAContext.swift",
+                "Models/WorkoutLiveState.swift",
+                "Models/WorkoutModels.swift",
+                "Utils/WatchSnapshotStore.swift",
+            ]
         ),
         .testTarget(
             name: "ForgeCoreTests",

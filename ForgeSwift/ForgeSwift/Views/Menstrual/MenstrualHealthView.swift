@@ -65,197 +65,257 @@ struct MenstrualHealthView: View {
         return Color(hex: phase.accentHex)
     }
 
+    /// Keeps the alert presentation binding out of the giant `body` expression.
+    private var saveErrorPresented: Binding<Bool> {
+        Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )
+    }
+
     var body: some View {
+        presentedRoot
+            .onChange(of: cycleStore.pendingPeriodEndEpisode) { _, episode in
+                guard let episode else { return }
+                periodEndEpisode = episode
+                showPeriodEndFeedback = true
+            }
+            .onChange(of: cycleStore.lastModelUpdateMessage) { _, msg in
+                guard let msg else { return }
+                showToast(msg)
+                cycleStore.lastModelUpdateMessage = nil
+            }
+            .onAppear(perform: handleAppear)
+    }
+
+    /// Navigation chrome + presentation (sheets / dialogs / alert) broken out of `body`
+    /// so the type checker doesn't time out on one enormous expression.
+    private var presentedRoot: some View {
+        navigatedRoot
+            .sheet(isPresented: $showAccuracyExplainer) {
+                CycleAccuracyExplainerSheet(report: cycleStore.accuracyReport)
+                    .preferredColorScheme(.dark)
+            }
+            .sheet(isPresented: $showPeriodEndFeedback, onDismiss: {
+                cycleStore.dismissPeriodEndFeedback()
+                periodEndEpisode = nil
+            }) {
+                if let episode = periodEndEpisode ?? cycleStore.pendingPeriodEndEpisode {
+                    PeriodEndFeedbackView(episode: episode) {
+                        showPeriodEndFeedback = false
+                        periodEndEpisode = nil
+                    }
+                    .preferredColorScheme(.dark)
+                }
+            }
+            // Day editor and the wipe dialog used to hang off `settingsCard`, so they only
+            // worked while that specific card happened to be in the view tree.
+            .sheet(isPresented: $showDayEditor) { dayEditorSheet }
+            .confirmationDialog(
+                "Wipe all self cycle logs?",
+                isPresented: $showWipeConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Wipe logs only", role: .destructive) {
+                    cycleStore.wipeSelfCycleData(includingSettings: false)
+                    FDS.notificationHaptic(.warning)
+                    showToast("Cycle logs wiped")
+                }
+                Button("Wipe logs + disable tracking", role: .destructive) {
+                    cycleStore.wipeSelfCycleData(includingSettings: true)
+                    FDS.notificationHaptic(.warning)
+                    showToast("Cycle data wiped · tracking off")
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Logs, learned bias, prediction history, and period feedback are erased. Partner / support logs are kept. This cannot be undone.")
+            }
+            .alert("Check that entry", isPresented: saveErrorPresented) {
+                Button("OK", role: .cancel) { saveError = nil }
+            } message: {
+                Text(saveError ?? "")
+            }
+    }
+
+    private var navigatedRoot: some View {
+        rootStack
+            .navigationTitle("Cycle Health")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { cycleToolbar }
+    }
+
+    private var rootStack: some View {
         ZStack(alignment: .bottom) {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 20) {
                     heroHeader
                     panePicker
-
-                    switch pane {
-                    case .me:
-                        if !cycleStore.settings.enabled {
-                            enableCard
-                        } else {
-                            phaseOrbitCard
-                            cycleStageCard
-                            if let condition = cycleStore.settings.condition.activeCase {
-                                conditionCard(condition)
-                            }
-                            accuracyCard
-                            ariaAnalystCard
-                            if cycleStore.settings.highAccuracyMode {
-                                highAccuracyCueCard
-                            }
-                            dayStrip
-                            predictionGrid
-                            if let score = cycleStore.snapshot.fertileScore {
-                                FertileScoreCard(score: score, phase: cycleStore.snapshot.phase) {
-                                    store.openChat(with: "My Fertile Score is \(score)/100 right now. What does that mean for training, recovery, and lifestyle timing today?")
-                                }
-                            }
-                            CycleGoalSelectorCard(
-                                goal: cycleStore.settings.cycleGoal,
-                                onUpdate: { cycleStore.updateCycleGoal($0) }
-                            )
-                            if cycleStore.settings.cycleGoal == .ttc,
-                               let tww = cycleStore.snapshot.twwDaysElapsed {
-                                TWWSectionCard(daysElapsed: tww) {
-                                    store.openChat(with: "I'm on day \(tww) of my two-week wait. What should I know?")
-                                }
-                            }
-                            predictionFeedbackCard
-                            quickLogCard
-                            historyCard
-                            insightsCard
-                            ariaCoachCard
-                            sexualHealthCard
-                            settingsCard
-                            disclaimerFooter
-                        }
-                    case .partner:
-                        partnerContent
-                    }
+                    paneBody
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 48)
             }
-            .background {
-                cycleAmbientBackground
-            }
+            .background { cycleAmbientBackground }
 
             if let modelToast {
-                Text(modelToast)
-                    .font(FDS.TypeScale.label(13))
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(Color.ember.opacity(0.92))
-                    .clipShape(Capsule())
-                    .shadow(color: Color.ember.opacity(0.4), radius: 12, y: 4)
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 28)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .accessibilityAddTraits(.isStaticText)
+                toastBanner(modelToast)
             }
         }
-        .navigationTitle("Cycle Health")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 12) {
-                    if pane == .me, cycleStore.settings.enabled {
-                        Button {
-                            showAccuracyExplainer = true
-                        } label: {
-                            Image(systemName: "info.circle.fill")
+    }
+
+    @ViewBuilder
+    private var paneBody: some View {
+        switch pane {
+        case .me:
+            mePaneContent
+        case .partner:
+            partnerContent
+        }
+    }
+
+    @ViewBuilder
+    private var mePaneContent: some View {
+        if !cycleStore.settings.enabled {
+            enableCard
+        } else {
+            meEnabledContent
+        }
+    }
+
+    @ViewBuilder
+    private var meEnabledContent: some View {
+        meEnabledPrimary
+        meEnabledSecondary
+    }
+
+    @ViewBuilder
+    private var meEnabledPrimary: some View {
+        phaseOrbitCard
+        cycleStageCard
+        if let condition = cycleStore.settings.condition.activeCase {
+            conditionCard(condition)
+        }
+        accuracyCard
+        ariaAnalystCard
+        if cycleStore.settings.highAccuracyMode {
+            highAccuracyCueCard
+        }
+        dayStrip
+        predictionGrid
+        fertileScoreSection
+    }
+
+    @ViewBuilder
+    private var meEnabledSecondary: some View {
+        CycleGoalSelectorCard(
+            goal: cycleStore.settings.cycleGoal,
+            onUpdate: { cycleStore.updateCycleGoal($0) }
+        )
+        twwSection
+        predictionFeedbackCard
+        quickLogCard
+        historyCard
+        insightsCard
+        ariaCoachCard
+        sexualHealthCard
+        settingsCard
+        disclaimerFooter
+    }
+
+    @ViewBuilder
+    private var fertileScoreSection: some View {
+        if let score = cycleStore.snapshot.fertileScore {
+            FertileScoreCard(score: score, phase: cycleStore.snapshot.phase) {
+                store.openChat(with: "My Fertile Score is \(score)/100 right now. What does that mean for training, recovery, and lifestyle timing today?")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var twwSection: some View {
+        if cycleStore.settings.cycleGoal == .ttc,
+           let tww = cycleStore.snapshot.twwDaysElapsed {
+            TWWSectionCard(daysElapsed: tww) {
+                store.openChat(with: "I'm on day \(tww) of my two-week wait. What should I know?")
+            }
+        }
+    }
+
+    private func toastBanner(_ message: String) -> some View {
+        Text(message)
+            .font(FDS.TypeScale.label(13))
+            .foregroundColor(.white)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.ember.opacity(0.92))
+            .clipShape(Capsule())
+            .shadow(color: Color.ember.opacity(0.4), radius: 12, y: 4)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 28)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .accessibilityAddTraits(.isStaticText)
+    }
+
+    @ToolbarContentBuilder
+    private var cycleToolbar: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            HStack(spacing: 12) {
+                if pane == .me, cycleStore.settings.enabled {
+                    Button {
+                        showAccuracyExplainer = true
+                    } label: {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundStyle(accent)
+                    }
+                    .accessibilityLabel("Accuracy explainer")
+
+                    Button {
+                        Task {
+                            await cycleStore.syncFromHealthKit()
+                            cycleStore.refresh(from: store)
+                            FDS.notificationHaptic(.success)
+                        }
+                    } label: {
+                        if cycleStore.isSyncing {
+                            ProgressView().tint(accent)
+                        } else {
+                            Image(systemName: "heart.text.square.fill")
                                 .foregroundStyle(accent)
                         }
-                        .accessibilityLabel("Accuracy explainer")
-
-                        Button {
-                            Task {
-                                await cycleStore.syncFromHealthKit()
-                                cycleStore.refresh(from: store)
-                                FDS.notificationHaptic(.success)
-                            }
-                        } label: {
-                            if cycleStore.isSyncing {
-                                ProgressView().tint(accent)
-                            } else {
-                                Image(systemName: "heart.text.square.fill")
-                                    .foregroundStyle(accent)
-                            }
-                        }
-                        .accessibilityLabel("Sync Apple Health")
                     }
+                    .accessibilityLabel("Sync Apple Health")
                 }
             }
         }
-        .sheet(isPresented: $showAccuracyExplainer) {
-            CycleAccuracyExplainerSheet(report: cycleStore.accuracyReport)
-                .preferredColorScheme(.dark)
+    }
+
+    private func handleAppear() {
+        if let sex = store.userProfile.biologicalSex {
+            cycleStore.enableForBiologicalSexIfNeeded(sex)
         }
-        .sheet(isPresented: $showPeriodEndFeedback, onDismiss: {
-            cycleStore.dismissPeriodEndFeedback()
-            periodEndEpisode = nil
-        }) {
-            if let episode = periodEndEpisode ?? cycleStore.pendingPeriodEndEpisode {
-                PeriodEndFeedbackView(episode: episode) {
-                    showPeriodEndFeedback = false
-                    periodEndEpisode = nil
-                }
-                .preferredColorScheme(.dark)
-            }
+        cycleStore.enableForFemaleProfileIfNeeded(gender: store.userProfile.gender)
+        if let sex = store.userProfile.biologicalSex {
+            cycleStore.enableForBiologicalSexIfNeeded(sex)
         }
-        .onChange(of: cycleStore.pendingPeriodEndEpisode) { _, episode in
-            guard let episode else { return }
-            periodEndEpisode = episode
-            showPeriodEndFeedback = true
+        if let initialPane {
+            pane = initialPane
+        } else if store.userProfile.gender != .female,
+                  store.userProfile.biologicalSex?.cycleAutoEnabled != true,
+                  !cycleStore.settings.enabled {
+            pane = .partner
         }
-        .onChange(of: cycleStore.lastModelUpdateMessage) { _, msg in
-            guard let msg else { return }
-            showToast(msg)
-            cycleStore.lastModelUpdateMessage = nil
-        }
-        // Day editor and the wipe dialog used to hang off `settingsCard`, so they only
-        // worked while that specific card happened to be in the view tree.
-        .sheet(isPresented: $showDayEditor) { dayEditorSheet }
-        .confirmationDialog(
-            "Wipe all self cycle logs?",
-            isPresented: $showWipeConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Wipe logs only", role: .destructive) {
-                cycleStore.wipeSelfCycleData(includingSettings: false)
-                FDS.notificationHaptic(.warning)
-                showToast("Cycle logs wiped")
-            }
-            Button("Wipe logs + disable tracking", role: .destructive) {
-                cycleStore.wipeSelfCycleData(includingSettings: true)
-                FDS.notificationHaptic(.warning)
-                showToast("Cycle data wiped · tracking off")
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Logs, learned bias, prediction history, and period feedback are erased. Partner / support logs are kept. This cannot be undone.")
-        }
-        .alert("Check that entry", isPresented: Binding(
-            get: { saveError != nil },
-            set: { if !$0 { saveError = nil } }
-        )) {
-            Button("OK", role: .cancel) { saveError = nil }
-        } message: {
-            Text(saveError ?? "")
-        }
-        .onAppear {
-            if let sex = store.userProfile.biologicalSex {
-                cycleStore.enableForBiologicalSexIfNeeded(sex)
-            }
-            cycleStore.enableForFemaleProfileIfNeeded(gender: store.userProfile.gender)
-            if let sex = store.userProfile.biologicalSex {
-                cycleStore.enableForBiologicalSexIfNeeded(sex)
-            }
-            if let initialPane {
-                pane = initialPane
-            } else if store.userProfile.gender != .female,
-                      store.userProfile.biologicalSex?.cycleAutoEnabled != true,
-                      !cycleStore.settings.enabled {
-                pane = .partner
-            }
-            partnerNameDraft = cycleStore.partnerSettings.partnerName
-            partnerRelDraft = cycleStore.partnerSettings.relationshipLabel
-            supportRole = cycleStore.partnerSettings.resolvedRole
-            privacyAccepted = cycleStore.settings.privacyAcknowledged
-            cycleStore.refresh(from: store)
-            Task { await cycleStore.syncFromHealthKit() }
-            withAnimation(FDS.Spring.hero.delay(0.05)) { appeared = true }
-            guard !UIAccessibility.isReduceMotionEnabled else { return }
-            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
-                ringPulse = true
-            }
+        partnerNameDraft = cycleStore.partnerSettings.partnerName
+        partnerRelDraft = cycleStore.partnerSettings.relationshipLabel
+        supportRole = cycleStore.partnerSettings.resolvedRole
+        privacyAccepted = cycleStore.settings.privacyAcknowledged
+        cycleStore.refresh(from: store)
+        Task { await cycleStore.syncFromHealthKit() }
+        withAnimation(FDS.Spring.hero.delay(0.05)) { appeared = true }
+        guard !UIAccessibility.isReduceMotionEnabled else { return }
+        withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
+            ringPulse = true
         }
     }
 
@@ -287,68 +347,88 @@ struct MenstrualHealthView: View {
             }
 
             // Facts, not vibes: real dates for the two things people actually plan around.
-            VStack(spacing: 8) {
-                if let end = snap.currentPeriodEndDayKey, let count = snap.currentPeriodDayCount {
-                    stageFact(
-                        icon: snap.periodEndConfirmed ? "checkmark.circle.fill" : "drop.circle",
-                        label: snap.periodEndConfirmed ? "Period finished" : "Last bleed logged",
-                        value: "\(shortDate(end)) · \(count) day\(count == 1 ? "" : "s")",
-                        color: Color(hex: "EF4444")
-                    )
-                }
-                if let fs = snap.fertileWindowStartDayKey, let fe = snap.fertileWindowEndDayKey {
-                    stageFact(
-                        icon: "waveform.path.ecg",
-                        label: "Fertile window",
-                        value: "\(shortDate(fs)) – \(shortDate(fe))",
-                        color: Color(hex: "F59E0B")
-                    )
-                }
-                if let next = snap.nextPeriod {
-                    stageFact(
-                        icon: "calendar",
-                        label: "Next period",
-                        value: snap.daysUntilNextPeriod.map { d in
-                            d < 0 ? "\(shortDate(next.medianDayKey)) · \(-d)d overdue"
-                                  : "\(shortDate(next.medianDayKey)) · in \(d)d"
-                        } ?? shortDate(next.medianDayKey),
-                        color: Color(hex: "6366F1")
-                    )
-                }
-            }
+            stageFactsSection(snap: snap)
 
             // The one action that closes the loop, offered exactly when it applies.
             if stage == .period, !snap.periodEndConfirmed {
-                Button {
-                    let msg = cycleStore.confirmPeriodEndedToday()
-                    cycleStore.refresh(from: store)
-                    cycleStore.refreshAnalyst(lastAction: "period_ended_today")
-                    showToast(msg)
-                    if let episode = cycleStore.pendingPeriodEndEpisode {
-                        periodEndEpisode = episode
-                        showPeriodEndFeedback = true
-                    }
-                } label: {
-                    Label("My period finished", systemImage: "checkmark.flag.fill")
-                        .font(FDS.TypeScale.label(14))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            LinearGradient(
-                                colors: [Color(hex: "A78BFA"), Color(hex: "6366F1")],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .buttonStyle(.plain)
+                periodFinishedButton
             }
         }
         .padding(18)
         .forgeGlassCard(accent: stageColor(stage))
         .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private func stageFactsSection(snap: MenstrualCycleSnapshot) -> some View {
+        VStack(spacing: 8) {
+            if let end = snap.currentPeriodEndDayKey, let count = snap.currentPeriodDayCount {
+                let daysLabel = count == 1 ? "1 day" : "\(count) days"
+                stageFact(
+                    icon: snap.periodEndConfirmed ? "checkmark.circle.fill" : "drop.circle",
+                    label: snap.periodEndConfirmed ? "Period finished" : "Last bleed logged",
+                    value: "\(shortDate(end)) · \(daysLabel)",
+                    color: Color(hex: "EF4444")
+                )
+            }
+            if let startDay = snap.fertileStartDayInCycle,
+               let endDay = snap.fertileEndDayInCycle,
+               let lastStart = snap.lastPeriodStartDayKey,
+               let fs = CycleDayKey.addDays(lastStart, startDay - 1),
+               let fe = CycleDayKey.addDays(lastStart, endDay - 1) {
+                stageFact(
+                    icon: "waveform.path.ecg",
+                    label: "Fertile window",
+                    value: "\(shortDate(fs)) – \(shortDate(fe))",
+                    color: Color(hex: "F59E0B")
+                )
+            }
+            if let next = snap.nextPeriod {
+                stageFact(
+                    icon: "calendar",
+                    label: "Next period",
+                    value: nextPeriodValue(next: next, daysUntil: snap.daysUntilNextPeriod),
+                    color: Color(hex: "6366F1")
+                )
+            }
+        }
+    }
+
+    private func nextPeriodValue(next: CyclePredictionRange, daysUntil: Int?) -> String {
+        let date = shortDate(next.medianDayKey)
+        guard let d = daysUntil else { return date }
+        if d < 0 {
+            return "\(date) · \(-d)d overdue"
+        }
+        return "\(date) · in \(d)d"
+    }
+
+    private var periodFinishedButton: some View {
+        Button {
+            let msg = cycleStore.confirmPeriodEndedToday()
+            cycleStore.refresh(from: store)
+            cycleStore.refreshAnalyst(lastAction: "period_ended_today")
+            showToast(msg)
+            if let episode = cycleStore.pendingPeriodEndEpisode {
+                periodEndEpisode = episode
+                showPeriodEndFeedback = true
+            }
+        } label: {
+            Label("My period finished", systemImage: "checkmark.flag.fill")
+                .font(FDS.TypeScale.label(14))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    LinearGradient(
+                        colors: [Color(hex: "A78BFA"), Color(hex: "6366F1")],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private func stageColor(_ stage: CycleStage) -> Color {

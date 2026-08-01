@@ -234,10 +234,9 @@ enum MenstrualCycleEngine {
             insights.append("Resting HR often ticks up in luteal. Pair with how you feel before adding load.")
         }
 
-        // Perimenopause: fertile window predictions are unreliable — suppress them.
-        let suppressFertile = settings.condition.suppressesFertileWindow
-        let fertileStart = suppressFertile ? nil : ovulation.map { max(1, $0.dayInCycle - 5) }
-        let fertileEnd = suppressFertile ? nil : ovulation.map { $0.dayInCycle + 1 }
+        // Reuse suppressFertile from phase resolution above (already computed once).
+        let fertileStart = fertileStartDay
+        let fertileEnd = fertileEndDay
         let fertileScore = suppressFertile ? nil : computeFertileScore(
             dayInCycle: dayInCycle,
             ovulationDay: ovulation?.dayInCycle,
@@ -254,6 +253,36 @@ enum MenstrualCycleEngine {
                 "Fertile Score \(fertileScore)/100 — multi-signal confidence that you are in or near the fertile window (lifestyle timing, not contraception)."
             )
         }
+
+        let stage = resolveStage(
+            phase: phase,
+            bleedingToday: bleedingToday,
+            dayInCycle: dayInCycle,
+            fertileStart: fertileStart,
+            fertileEnd: fertileEnd,
+            ovulationDay: suppressFertile ? nil : ovulation?.dayInCycle,
+            suppressFertile: suppressFertile,
+            hormonal: settings.usesHormonalContraception
+        )
+        let daysUntilNextPeriod: Int? = nextPeriod.flatMap {
+            CycleDayKey.daysBetween(dayKey, $0.medianDayKey)
+        }
+        let fertileStartKey = fertileStart.flatMap { day in
+            lastStart.flatMap { CycleDayKey.addDays($0, day - 1) }
+        }
+        let fertileEndKey = fertileEnd.flatMap { day in
+            lastStart.flatMap { CycleDayKey.addDays($0, day - 1) }
+        }
+        let stageNarrative = narrative(
+            stage: stage,
+            periodDayCount: currentPeriodDayCount,
+            daysSincePeriodEnd: daysSincePeriodEnd,
+            periodEndConfirmed: periodEndConfirmed,
+            daysUntilNextPeriod: daysUntilNextPeriod,
+            fertileStartKey: fertileStartKey,
+            fertileEndKey: fertileEndKey,
+            dayInCycle: dayInCycle
+        )
 
         return MenstrualCycleSnapshot(
             asOfDayKey: dayKey,
@@ -288,9 +317,18 @@ enum MenstrualCycleEngine {
             ovulationConfidence: ovuConf,
             learnedLutealDays: settings.learnedLutealDays,
             predictionMethodSummary: ensemble.summary,
+            cycleGoal: nil,
+            twwDaysElapsed: nil,
             condition: settings.condition == .none ? nil : settings.condition,
             wristTemperatureAvailable: false,
-            fertileScore: fertileScore
+            fertileScore: fertileScore,
+            stage: stage,
+            periodEndConfirmed: periodEndConfirmed,
+            daysSincePeriodEnd: daysSincePeriodEnd,
+            currentPeriodDayCount: currentPeriodDayCount,
+            currentPeriodEndDayKey: currentPeriodEnd,
+            stageNarrative: stageNarrative,
+            daysUntilNextPeriod: daysUntilNextPeriod
         )
     }
 

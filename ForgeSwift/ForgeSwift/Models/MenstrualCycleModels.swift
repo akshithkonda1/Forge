@@ -491,6 +491,45 @@ enum CycleCondition: String, Codable, CaseIterable, Identifiable {
     var suppressesFertileWindow: Bool {
         self == .perimenopause
     }
+
+    /// Non-nil when a named condition is selected (UI hides condition context for `.none`).
+    var activeCase: CycleCondition? {
+        self == .none ? nil : self
+    }
+
+    /// User-facing note on how this condition changes cycle tracking and predictions.
+    /// Shown under the phase orbit so people can see *why* windows behave differently.
+    var trackingImplication: String {
+        switch self {
+        case .none:
+            return ""
+        case .pcos:
+            return "Long and variable cycles count as real history, not errors. The irregularity flag stays quiet unless variance is extreme — patterns emerge over many cycles, not one."
+        case .endometriosis:
+            return "Pain and pelvic symptoms feed recovery guidance. Cycle timing still personalizes from your logs; pain that disrupts daily life is worth raising with a clinician."
+        case .perimenopause:
+            return "Fertile-window and ovulation labels are withheld because they aren’t reliable here. Period timing stays a range, not a fixed date."
+        case .thyroid:
+            return "BBT baselines can shift with thyroid status and medication. Take temperature before any morning dose so readings stay comparable."
+        case .other:
+            return "Predictions stay conservative and avoid strong assumptions about regularity. Keep logging — patterns you notice help personalize coaching."
+        }
+    }
+
+    /// Inter-start lengths accepted as real cycle history (not outliers).
+    /// PCOS and perimenopause keep longer/variable cycles so they are learned, not discarded.
+    var plausibleCycleLengthRange: ClosedRange<Int> {
+        switch self {
+        case .pcos:
+            return 18...90
+        case .perimenopause:
+            return 14...90
+        case .thyroid:
+            return 18...55
+        case .endometriosis, .other, .none:
+            return 18...45
+        }
+    }
 }
 
 // MARK: - Snapshot (engine output)
@@ -552,6 +591,21 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
     /// Real-time 0…100 fertile-window confidence signal (nil when tracking off,
     /// hormonal contraception, condition suppresses fertile window, or no cycle anchor).
     var fertileScore: Int?
+    /// Lifecycle stage — distinguishes still-bleeding from period-confirmed-finished.
+    /// Phase alone cannot express "the bleed is over"; UI and partner coaching key off this.
+    var stage: CycleStage = .unknown
+    /// User confirmed period finished for the current episode.
+    var periodEndConfirmed: Bool = false
+    /// Days since effective period end (confirmed or last bleed day); nil if unknown.
+    var daysSincePeriodEnd: Int? = nil
+    /// Day count of the current/most recent bleed episode; nil if unknown.
+    var currentPeriodDayCount: Int? = nil
+    /// Effective end day key (user confirmation wins over last logged bleed day).
+    var currentPeriodEndDayKey: String? = nil
+    /// Shared one-sentence stage description for UI / partner / ARIA.
+    var stageNarrative: String = ""
+    /// Days until next period median estimate (negative if overdue); nil when unknown.
+    var daysUntilNextPeriod: Int? = nil
 
     static let empty = MenstrualCycleSnapshot(
         asOfDayKey: "",
@@ -590,7 +644,14 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
         twwDaysElapsed: nil,
         condition: nil,
         wristTemperatureAvailable: false,
-        fertileScore: nil
+        fertileScore: nil,
+        stage: .unknown,
+        periodEndConfirmed: false,
+        daysSincePeriodEnd: nil,
+        currentPeriodDayCount: nil,
+        currentPeriodEndDayKey: nil,
+        stageNarrative: "",
+        daysUntilNextPeriod: nil
     )
 }
 
@@ -1409,6 +1470,9 @@ struct MenstrualTrackingSettings: Codable, Equatable {
     var cycleGoal: CycleGoal
     /// Active health condition for personalised engine behaviour and ARIA coaching.
     var condition: CycleCondition
+    /// Last bleeding day the user confirmed ("Period finished"). Belongs to the current
+    /// episode only; a new period start must clear it so it cannot suppress a fresh bleed.
+    var confirmedPeriodEndDayKey: String?
 
     enum CodingKeys: String, CodingKey {
         case enabled, shareWithAria, averageCycleOverride, averagePeriodOverride
@@ -1416,7 +1480,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         case privacyAcknowledged, calibrationOffsetDays, highAccuracyMode, overdueWidenDays
         case learnedLutealDays
         case bbtReminderEnabled, bbtReminderHour, fertileWindowAlertEnabled, periodReminderEnabled
-        case cycleGoal, condition
+        case cycleGoal, condition, confirmedPeriodEndDayKey
     }
 
     static let `default` = MenstrualTrackingSettings(
@@ -1433,7 +1497,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         overdueWidenDays: 0,
         learnedLutealDays: nil,
         cycleGoal: .general,
-        condition: .none
+        condition: .none,
+        confirmedPeriodEndDayKey: nil
     )
 
     init(
@@ -1454,7 +1519,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         fertileWindowAlertEnabled: Bool = false,
         periodReminderEnabled: Bool = false,
         cycleGoal: CycleGoal = .general,
-        condition: CycleCondition = .none
+        condition: CycleCondition = .none,
+        confirmedPeriodEndDayKey: String? = nil
     ) {
         self.enabled = enabled
         self.shareWithAria = shareWithAria
@@ -1474,6 +1540,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         self.periodReminderEnabled = periodReminderEnabled
         self.cycleGoal = cycleGoal
         self.condition = condition
+        self.confirmedPeriodEndDayKey = confirmedPeriodEndDayKey
     }
 
     init(from decoder: Decoder) throws {
@@ -1496,6 +1563,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         periodReminderEnabled = try c.decodeIfPresent(Bool.self, forKey: .periodReminderEnabled) ?? false
         cycleGoal = try c.decodeIfPresent(CycleGoal.self, forKey: .cycleGoal) ?? .general
         condition = try c.decodeIfPresent(CycleCondition.self, forKey: .condition) ?? .none
+        confirmedPeriodEndDayKey = try c.decodeIfPresent(String.self, forKey: .confirmedPeriodEndDayKey)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -1518,6 +1586,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         try c.encode(periodReminderEnabled, forKey: .periodReminderEnabled)
         try c.encode(cycleGoal, forKey: .cycleGoal)
         try c.encode(condition, forKey: .condition)
+        try c.encodeIfPresent(confirmedPeriodEndDayKey, forKey: .confirmedPeriodEndDayKey)
     }
 
     /// Effective luteal for calendar fallback.

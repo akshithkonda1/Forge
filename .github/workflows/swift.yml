@@ -2,14 +2,15 @@
 
 name: Swift
 
+# Runs on every branch and every pull request. Path filters keep it off changes
+# that cannot affect the app; branch filters are deliberately absent so main and
+# feature branches are gated identically.
 on:
   push:
-    branches: [ "claude/forge-fitness-frontend-TwlOQ" ]
     paths:
       - "ForgeSwift/**"
       - ".github/workflows/swift.yml"
   pull_request:
-    branches: [ "claude/forge-fitness-frontend-TwlOQ" ]
     paths:
       - "ForgeSwift/**"
       - ".github/workflows/swift.yml"
@@ -75,7 +76,18 @@ jobs:
             IPHONEOS_DEPLOYMENT_TARGET=17.0 \
             ONLY_ACTIVE_ARCH=NO \
             EXCLUDED_ARCHS=x86_64 \
-            COMPILER_INDEX_STORE_ENABLE=NO
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/ios-build.log
+
+      # xcodebuild logs run to ~2000 lines and bury `error:` lines thousands of
+      # lines above the failure summary, which makes a red build genuinely hard
+      # to diagnose from the web UI. Echo just the diagnostics at the end.
+      - name: Compile errors (iOS)
+        if: failure()
+        run: |
+          echo "::group::Swift errors"
+          test -f /tmp/ios-build.log || { echo "(build did not reach this step)"; exit 0; }
+          grep -E "error: " /tmp/ios-build.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || echo "(no error: lines matched)"
+          echo "::endgroup::"
 
       - name: Build ForgeWatch + Widgets (watchOS Simulator)
         # Scheme builds ForgeWatch and embeds ForgeWatchWidgets with package
@@ -94,4 +106,12 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             WATCHOS_DEPLOYMENT_TARGET=10.0 \
             ONLY_ACTIVE_ARCH=NO \
-            COMPILER_INDEX_STORE_ENABLE=NO
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/watch-build.log
+
+      - name: Compile errors (watchOS)
+        if: failure()
+        run: |
+          echo "::group::Swift errors"
+          test -f /tmp/watch-build.log || { echo "(build did not reach this step)"; exit 0; }
+          grep -E "error: " /tmp/watch-build.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || echo "(no error: lines matched)"
+          echo "::endgroup::"
