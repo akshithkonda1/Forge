@@ -104,14 +104,8 @@ struct HomeView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            CinematicHomeBackground(readinessScore: store.readiness.overall)
+            HomeAuroraBackground(readinessScore: store.readiness.overall)
                 .ignoresSafeArea()
-
-            if !reduceMotion {
-                ReadinessParticleOverlay(readinessScore: store.readiness.overall)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-            }
 
             ScrollView(showsIndicators: false) {
                 ZStack(alignment: .top) {
@@ -2032,113 +2026,8 @@ struct StreakCalendarSection: View {
 }
 
 // ============================================================
-// MARK: - Cinematic background + particles + celebration
+// MARK: - Celebration
 // ============================================================
-
-struct CinematicHomeBackground: View {
-    let readinessScore: Int
-    @State private var phase = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private var primaryColor: Color { readinessColor(readinessScore) }
-
-    var body: some View {
-        ZStack {
-            Color(hex: "080808")
-            if reduceMotion {
-                primaryColor.opacity(0.06)
-            } else {
-                LinearGradient(
-                    colors: [
-                        Color(hex: "080808"),
-                        primaryColor.opacity(phase ? 0.09 : 0.04),
-                        Color(hex: "080808"),
-                        Color.ember.opacity(phase ? 0.03 : 0.01)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                RadialGradient(
-                    colors: [primaryColor.opacity(0.12), .clear],
-                    center: UnitPoint(x: 0.3, y: 0.2),
-                    startRadius: 20,
-                    endRadius: 420
-                )
-                .blur(radius: 40)
-            }
-            LinearGradient(
-                colors: [.clear, Color.black.opacity(0.35)],
-                startPoint: .center,
-                endPoint: .bottom
-            )
-        }
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 14).repeatForever(autoreverses: true)) {
-                phase = true
-            }
-        }
-        .animation(.easeInOut(duration: 1.6), value: readinessScore)
-    }
-}
-
-private struct Particle: Identifiable {
-    let id = UUID()
-    var x: CGFloat
-    var y: CGFloat
-    var size: CGFloat
-    var speed: Double
-    var opacity: Double
-}
-
-struct ReadinessParticleOverlay: View {
-    let readinessScore: Int
-    @State private var particles: [Particle] = []
-    @State private var globalT: Double = 0
-
-    /// Fewer particles when readiness is mid/low — motion serves state.
-    private var particleCount: Int {
-        switch readinessScore {
-        case 85...: return 28
-        case 70..<85: return 18
-        case 55..<70: return 10
-        default: return 6
-        }
-    }
-
-    private var accentColor: Color { readinessColor(readinessScore) }
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { timeline in
-            Canvas { ctx, size in
-                let t = timeline.date.timeIntervalSinceReferenceDate
-                for p in particles {
-                    let y = (p.y + CGFloat(t * p.speed).truncatingRemainder(dividingBy: size.height + 40))
-                        .truncatingRemainder(dividingBy: size.height + 40) - 20
-                    let rect = CGRect(x: p.x, y: y, width: p.size, height: p.size)
-                    ctx.opacity = p.opacity
-                    ctx.fill(Path(ellipseIn: rect), with: .color(accentColor))
-                }
-            }
-        }
-        .onAppear { rebuildParticles() }
-        .onChange(of: readinessScore) { _, _ in rebuildParticles() }
-    }
-
-    private func rebuildParticles() {
-        let w = UIScreen.main.bounds.width
-        let h = UIScreen.main.bounds.height
-        particles = (0..<particleCount).map { _ in
-            Particle(
-                x: .random(in: 0...w),
-                y: .random(in: 0...h),
-                size: .random(in: 1.2...2.8),
-                speed: .random(in: 6...16),
-                opacity: .random(in: 0.08...0.28)
-            )
-        }
-    }
-}
 
 struct CelebrationOverlay: View {
     let key: Int
