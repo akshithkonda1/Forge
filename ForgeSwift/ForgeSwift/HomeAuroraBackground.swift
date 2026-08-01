@@ -23,10 +23,10 @@ enum HomeReadinessBand: Int, Hashable {
 
     var tint: Color {
         switch self {
-        case .peak: return Color(hex: "22C55E")
+        case .peak: return Color.vitality
         case .good: return .ember
         case .fair: return .steel
-        case .low:  return Color(hex: "EF4444")
+        case .low:  return Color.alert
         }
     }
 

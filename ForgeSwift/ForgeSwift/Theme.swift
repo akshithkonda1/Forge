@@ -34,6 +34,21 @@ extension Color {
     // Violet accent (ARIA / intelligence)
     static let aurora = Color(hex: "A78BFA")
 
+    // Vitality green. Distinct from `success` (34D399): this is the de-facto
+    // brand green already used ~15 times across Home for lifestyle, peak
+    // readiness and positive-state chips. Tokenised so those stop being literals.
+    static let vitality = Color(hex: "22C55E")
+
+    // Indigo, for partner / support surfaces.
+    static let indigo = Color(hex: "6366F1")
+
+    // Amber, for nutrition and fuel accents.
+    static let amber = Color(hex: "FFB84D")
+
+    // Alert red used by the readiness ramp. Slightly hotter than `danger`
+    // (F87171), which stays reserved for genuine error states.
+    static let alert = Color(hex: "EF4444")
+
     // Text
     static let textPrimary   = Color(hex: "FAFAFA")
     static let textSecondary = Color(hex: "A1A1AA")
