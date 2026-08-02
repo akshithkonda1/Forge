@@ -308,6 +308,20 @@ enum CycleBiology {
         min(periodDayRange.upperBound, max(periodDayRange.lowerBound, days))
     }
 
+    /// How the end of the *current* bleed was determined. The UI must not present a
+    /// projection the same way it presents a fact: `.projected` is offered for
+    /// confirmation, the other two are simply true.
+    enum PeriodEndSource: String, Codable, Hashable {
+        /// The user tapped "Period finished". Always wins, takes effect immediately.
+        case confirmed
+        /// A logged non-bleeding day after the last bleeding day — real evidence
+        /// the flow stopped, not merely an absence of logs.
+        case observed
+        /// Derived from the learned period length, clamped to `periodDayRange`.
+        /// Used when logging stopped without any signal that the bleeding did.
+        case projected
+    }
+
     static func clampLutealDays(_ days: Int) -> Int {
         min(lutealDayRange.upperBound, max(lutealDayRange.lowerBound, days))
     }
@@ -602,6 +616,10 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
     var currentPeriodDayCount: Int? = nil
     /// Effective end day key (user confirmation wins over last logged bleed day).
     var currentPeriodEndDayKey: String? = nil
+    /// How `currentPeriodEndDayKey` was arrived at. `.projected` means it was derived
+    /// from the learned period length rather than observed, so the UI should offer it
+    /// for confirmation rather than state it as fact.
+    var periodEndSource: CycleBiology.PeriodEndSource? = nil
     /// Shared one-sentence stage description for UI / partner / ARIA.
     var stageNarrative: String = ""
     /// Days until next period median estimate (negative if overdue); nil when unknown.

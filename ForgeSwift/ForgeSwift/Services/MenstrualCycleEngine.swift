@@ -84,9 +84,34 @@ enum MenstrualCycleEngine {
             return confirmed
         }()
         let periodEndConfirmed = confirmedEnd != nil
-        // Effective end of this bleed: the user's confirmation wins; otherwise the last
-        // logged bleeding day of the current episode.
-        let currentPeriodEnd: String? = confirmedEnd ?? episodes.last?.endDayKey
+
+        // The last logged bleeding day only means the bleed *ended* if something was
+        // logged afterwards saying it had stopped. Absence of a log is not evidence:
+        // someone mid-period is bleeding, not doing data entry, and treating a missed
+        // day as an ending is what made a period collapse to however many days the
+        // user remembered to tap.
+        let observedEnd: String? = {
+            guard let episodeEnd = episodes.last?.endDayKey else { return nil }
+            let stoppedAfterwards = sorted.contains { $0.dayKey > episodeEnd && !$0.flow.isBleeding }
+            return stoppedAfterwards ? episodeEnd : nil
+        }()
+
+        // Otherwise project the end from the length this person's periods actually run
+        // — already learned above as `medianPeriod` and clamped to 3–7 days. This is
+        // the wire that was missing: the median existed but only ever fed the *next*
+        // period's prediction and the "~4d" readout, never the bleed happening now.
+        let projectedEnd: String? = lastStart.flatMap {
+            CycleDayKey.addDays($0, CycleBiology.clampPeriodDays(Int(medianPeriod.rounded())) - 1)
+        }
+
+        // Effective end of this bleed, in descending order of how much we know.
+        let currentPeriodEnd: String? = confirmedEnd ?? observedEnd ?? projectedEnd
+        let periodEndSource: CycleBiology.PeriodEndSource? = {
+            if confirmedEnd != nil { return .confirmed }
+            if observedEnd != nil { return .observed }
+            if projectedEnd != nil { return .projected }
+            return nil
+        }()
         let currentPeriodDayCount: Int? = {
             guard let lastStart, let end = currentPeriodEnd,
                   let span = CycleDayKey.daysBetween(lastStart, end) else { return nil }
@@ -111,7 +136,13 @@ enum MenstrualCycleEngine {
         // Recent context is still useful for symptom-driven recovery bias, but it must
         // not drive the bleeding flag.
         let recentLog = todayLog ?? sorted.last(where: { $0.dayKey <= dayKey })
-        let insideOpenEpisode = episodes.last.map { $0.startDayKey <= dayKey && $0.endDayKey >= dayKey } == true
+        // Spans the *resolved* period (which now runs to the projected end when logging
+        // stopped), not just the logged days. Day keys are `yyyy-MM-dd`, so lexical
+        // ordering is chronological — the same assumption the surrounding code makes.
+        let insideOpenEpisode: Bool = {
+            guard let lastStart, let end = currentPeriodEnd else { return false }
+            return lastStart <= dayKey && dayKey <= end
+        }()
         // A confirmed end is final and takes effect immediately. Tapping "Period finished"
         // has to change what the app says today — waiting for the median bleed length to
         // elapse is precisely the behaviour that made the confirmation feel ignored.
@@ -327,6 +358,7 @@ enum MenstrualCycleEngine {
             daysSincePeriodEnd: daysSincePeriodEnd,
             currentPeriodDayCount: currentPeriodDayCount,
             currentPeriodEndDayKey: currentPeriodEnd,
+            periodEndSource: periodEndSource,
             stageNarrative: stageNarrative,
             daysUntilNextPeriod: daysUntilNextPeriod
         )
