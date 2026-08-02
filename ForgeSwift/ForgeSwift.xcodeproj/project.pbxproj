@@ -37,6 +37,7 @@
 		1HCV0022F9FF867004091AA /* HomeCookingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HCV0012F9FF867004091AA /* HomeCookingView.swift */; };
 		1PAS0022F9FF867004091AA /* ProfileAvatarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */; };
 		1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */; };
+		AA00010000000000000000B1 /* PartnerCycleDigest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B1 /* PartnerCycleDigest.swift */; };
 		1ARIA0382F9FF867004091AA /* MenstrualCycleEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */; };
 		1ARIA0402F9FF867004091AA /* MenstrualHealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */; };
 		1ARIA0422F9FF867004091AA /* Menstrual/MenstrualHealthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */; };
@@ -228,6 +229,7 @@
 		1HCV0012F9FF867004091AA /* HomeCookingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCookingView.swift; sourceTree = "<group>"; };
 		1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileAvatarStore.swift; sourceTree = "<group>"; };
 		1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleModels.swift; sourceTree = "<group>"; };
+		AA00020000000000000000B1 /* PartnerCycleDigest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleDigest.swift; sourceTree = "<group>"; };
 		1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngine.swift; sourceTree = "<group>"; };
 		1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualHealthStore.swift; sourceTree = "<group>"; };
 		1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Menstrual/MenstrualHealthView.swift; sourceTree = "<group>"; };
@@ -399,6 +401,7 @@
 			isa = PBXGroup;
 			children = (
 				1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */,
+				AA00020000000000000000B1 /* PartnerCycleDigest.swift */,
 				1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */,
 				1ARIA0572F9FF867004091AA /* CyclePrivacy.swift */,
 				1ARIA0012F9FF867004091AA /* AriaContext.swift */,
@@ -835,6 +838,7 @@
 				1HCV0022F9FF867004091AA /* HomeCookingView.swift in Sources */,
 				1PAS0022F9FF867004091AA /* ProfileAvatarStore.swift in Sources */,
 				1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */,
+				AA00010000000000000000B1 /* PartnerCycleDigest.swift in Sources */,
 				1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */,
 				1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */,
 				1WC0052F9FF867004091AA /* CyclePhaseCoachingDirective.swift in Sources */,
