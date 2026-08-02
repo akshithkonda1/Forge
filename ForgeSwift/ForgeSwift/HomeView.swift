@@ -1012,7 +1012,6 @@ enum HomeARIABriefingBuilder {
         let deepStr = deep >= 60 ? "\(deep / 60)h \(deep % 60)m" : "\(deep)m"
         let context = store.makeTrainerContext()
         let theme = store.userProfile.trainingTheme
-        let score = store.readiness.overall
 
         let facts = AriaSpeechFacts(
             sessionTitle: store.todayWorkout?.name,
@@ -1027,63 +1026,101 @@ enum HomeARIABriefingBuilder {
             themeOverride: theme
         )
 
-        var extras: [String] = []
-        if store.readiness.sleepQuality >= 80 {
-            extras.append("Deep sleep looked solid (\(deepStr)).")
-        } else if store.readiness.sleepQuality < 60 {
-            extras.append("Deep sleep was only \(deepStr) — recovery may lag.")
+        // Candidates are ranked by how much they matter today, then the top two
+        // are taken. Previously they were gated and shuffled by the readiness
+        // score itself (`score % 3 == 0`, RNG seeded on `score &* 17`), which had
+        // two bad consequences: whether ARIA mentioned your partner depended on
+        // an unrelated number, and a genuinely urgent beat ("HRV is low at 38ms")
+        // could lose a coin flip to filler ("Still aligned to strength"). It also
+        // reshuffled the whole briefing whenever readiness moved a single point.
+        var beats: [BriefingBeat] = []
+
+        // --- Recovery signals. A deficit outranks a confirmation: being told
+        //     something is wrong is more actionable than being told it is fine.
+        if store.readiness.sleepQuality < 60 {
+            beats.append(.init(text: "Deep sleep was only \(deepStr) — recovery may lag.", priority: .urgent))
+        } else if store.readiness.sleepQuality >= 80 {
+            beats.append(.init(text: "Deep sleep looked solid (\(deepStr)).", priority: .confirming))
         }
         if store.dailyMetrics.hrv > 0 {
-            if store.dailyMetrics.hrv >= 50 {
-                extras.append("HRV holding at \(store.dailyMetrics.hrv)ms.")
-            } else if store.dailyMetrics.hrv < 40 {
-                extras.append("HRV is low at \(store.dailyMetrics.hrv)ms.")
+            if store.dailyMetrics.hrv < 40 {
+                beats.append(.init(text: "HRV is low at \(store.dailyMetrics.hrv)ms.", priority: .urgent))
+            } else if store.dailyMetrics.hrv >= 50 {
+                beats.append(.init(text: "HRV holding at \(store.dailyMetrics.hrv)ms.", priority: .confirming))
             }
         }
+
+        // --- Blocks today's action, so it ranks above passive observations.
         if store.todayWorkout == nil {
             if theme == .soloLeveling {
-                extras.append("No quest locked — ask for today's daily quest.")
+                beats.append(.init(text: "No quest locked — ask for today's daily quest.", priority: .blocking))
             } else if theme != .classic {
-                extras.append("No plan locked — I can build a \(theme.label) session.")
+                beats.append(.init(text: "No plan locked — I can build a \(theme.label) session.", priority: .blocking))
             }
         }
-        if let goal = store.userProfile.fitnessGoals.first {
-            extras.append("Still aligned to \(goal.label.lowercased()).")
-        }
+
+        // --- Support context. The phase-specific line is time-sensitive and
+        //     genuinely actionable; the generic nudge is not, so it sits low
+        //     rather than being gated on `score % 3`.
         let pSettings = MenstrualHealthStore.shared.partnerSettings
         if pSettings.enabled, pSettings.consentAcknowledged {
             let who = pSettings.displayName
             let phase = MenstrualHealthStore.shared.partnerSnapshot.phase
             if phase == .menstruation || phase == .luteal {
-                extras.append(
-                    pSettings.resolvedRole == .child
+                beats.append(.init(
+                    text: pSettings.resolvedRole == .child
                         ? "\(who) may need the soft parent playbook today."
-                        : "Keep \(who) in mind — \(phase.shortLabel.lowercased()) energy."
-                )
-            } else if score % 3 == 0 {
-                extras.append("You're also looking out for \(who). Ask me anytime.")
+                        : "Keep \(who) in mind — \(phase.shortLabel.lowercased()) energy.",
+                    priority: .timely))
+            } else {
+                beats.append(.init(text: "You're also looking out for \(who). Ask me anytime.", priority: .ambient))
             }
-        } else if store.userProfile.gender == .male, score % 5 == 0 {
-            extras.append("Partner or daughter to support? I can learn that context.")
-        }
-        if let emotion = AriaContextStore.shared.context.lifestyleTags.first(where: { $0.hasPrefix("emotion:") && !$0.contains("about_other") }) {
-            let raw = emotion.replacingOccurrences(of: "emotion:", with: "")
-            if let need = AriaEmotionalNeed(rawValue: raw), need != .crisis, score % 2 == 0 {
-                extras.append("Still holding space for \(need.label.lowercased()) if you need it.")
-            }
-        }
-        // Keep briefing tight: voice core + at most two extras (salted by readiness).
-        let pickCount = min(2, extras.count)
-        let mixed = score &* 17 &+ abs(theme.rawValue.hashValue)
-        var rng = AriaSeededRNG(seed: UInt64(mixed == 0 ? 1 : mixed))
-        var chosen: [String] = []
-        var pool = extras
-        for _ in 0..<pickCount where !pool.isEmpty {
-            let i = rng.int(in: 0..<pool.count)
-            chosen.append(pool.remove(at: i))
+        } else if store.userProfile.gender == .male {
+            beats.append(.init(text: "Partner or daughter to support? I can learn that context.", priority: .ambient))
         }
 
+        if let emotion = AriaContextStore.shared.context.lifestyleTags.first(where: { $0.hasPrefix("emotion:") && !$0.contains("about_other") }) {
+            let raw = emotion.replacingOccurrences(of: "emotion:", with: "")
+            if let need = AriaEmotionalNeed(rawValue: raw), need != .crisis {
+                beats.append(.init(text: "Still holding space for \(need.label.lowercased()) if you need it.", priority: .timely))
+            }
+        }
+
+        // --- Pure reassurance, carrying no new information. Kept so a quiet day
+        //     still reads warm, but it can only appear when nothing outranks it.
+        if let goal = store.userProfile.fitnessGoals.first {
+            beats.append(.init(text: "Still aligned to \(goal.label.lowercased()).", priority: .filler))
+        }
+
+        // Rank, then break ties on a seed that is stable for the whole day, so
+        // repeated glances at Home read consistently instead of reshuffling.
+        let daySeed = UInt64(abs(Calendar.current.startOfDay(for: Date()).timeIntervalSince1970.rounded())) &+ 1
+        var rng = AriaSeededRNG(seed: daySeed)
+        let jittered = beats.map { (beat: $0, tie: rng.int(in: 0..<1000)) }
+        let chosen = jittered
+            .sorted { ($0.beat.priority.rawValue, $0.tie) > ($1.beat.priority.rawValue, $1.tie) }
+            .prefix(2)
+            .map { $0.beat.text }
+
         return ([voiceCore] + chosen).joined(separator: " ")
+    }
+
+    /// One candidate line, ranked by how much it matters today.
+    private struct BriefingBeat {
+        let text: String
+        let priority: Priority
+
+        /// Higher wins. The ordering encodes an editorial stance: a deficit you
+        /// can act on beats a confirmation that things are fine, and anything
+        /// concrete beats reassurance.
+        enum Priority: Int {
+            case filler     = 10   // true but carries no information
+            case ambient    = 20   // a standing offer, not tied to today
+            case confirming = 40   // a metric that looks good
+            case timely     = 60   // relevant specifically today
+            case blocking   = 80   // stops the user acting until resolved
+            case urgent     = 100  // a deficit worth changing the plan over
+        }
     }
 }
 
