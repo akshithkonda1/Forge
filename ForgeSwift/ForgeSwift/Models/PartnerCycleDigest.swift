@@ -222,43 +222,58 @@ struct PartnerSupportLens: Equatable {
 // MARK: - Invite
 // ============================================================
 
-/// A time-boxed invitation to receive someone's digest.
+/// An invitation to receive someone's digest, carried by a CloudKit share.
 ///
-/// Sent over iMessage as a link. The token is meaningless on its own — it is
-/// exchanged for a share, and the digest itself never travels inside the message.
-/// That matters: an iMessage thread is backed up, screenshotted, and read on lock
-/// screens, so nothing in the link should be sensitive if it leaks.
+/// There is no bearer token and no Forge-side pairing service. The invite *is* a
+/// `CKShare` URL: CloudKit owns acceptance, participant identity and revocation, so
+/// reproductive data never reaches Forge infrastructure and there is nothing on our
+/// side to breach, subpoena or retain.
+///
+/// What travels in the message is the share URL and a display name. The digest does
+/// not: an iMessage thread is backed up, screenshotted and read on lock screens, so
+/// nothing in the bubble should be sensitive if it leaks.
 struct PartnerCycleInvite: Codable, Equatable {
-    let token: String
+    /// The `CKShare.url`. Meaningless without an Apple ID CloudKit accepts.
+    let shareURL: URL
     let role: CycleSupportRole
     /// Display name the sender chose for themselves, so the recipient sees who is
     /// asking. Not derived from the account, so it can be a first name only.
     let fromDisplayName: String
     let createdAt: Date
-    let expiresAt: Date
 
-    /// Short by design. A sharing invitation for reproductive data should not sit
-    /// live in a message thread for weeks.
-    static let defaultLifetime: TimeInterval = 60 * 60 * 24 * 3
-
-    var isExpired: Bool { Date() >= expiresAt }
-
-    init(token: String,
+    init(shareURL: URL,
          role: CycleSupportRole,
          fromDisplayName: String,
-         createdAt: Date = Date(),
-         lifetime: TimeInterval = PartnerCycleInvite.defaultLifetime) {
-        self.token = token
+         createdAt: Date = Date()) {
+        self.shareURL = shareURL
         self.role = role
         self.fromDisplayName = fromDisplayName
         self.createdAt = createdAt
-        self.expiresAt = createdAt.addingTimeInterval(lifetime)
     }
 
-    /// The text that goes in the iMessage. Deliberately vague about *what* is being
-    /// shared — the recipient may read this on a lock screen in company, and the
-    /// sender should be the one to decide who knows they track a cycle.
-    func messageBody(link: URL) -> String {
-        "\(fromDisplayName) wants to share their Forge support updates with you. \(link.absoluteString)"
+    /// Fallback text for the plain-SMS path, when the recipient has no iMessage or
+    /// no Forge app. Deliberately vague about *what* is being shared — the sender
+    /// should decide who knows they track a cycle, not a lock-screen preview.
+    var fallbackMessageBody: String {
+        "\(fromDisplayName) wants to share their Forge support updates with you. \(shareURL.absoluteString)"
+    }
+
+    /// Bubble caption for the Messages extension. Same discretion rule.
+    var bubbleCaption: String { "Support updates from \(fromDisplayName)" }
+
+    /// Live state of an invite already sitting in a thread. The Messages extension
+    /// updates the bubble in place through `MSSession`, so a revoked invite stops
+    /// reading as a live offer in the transcript.
+    enum Status: String, Codable {
+        case pending, accepted, revoked, expired
+
+        var caption: String {
+            switch self {
+            case .pending:  return "Waiting to be accepted"
+            case .accepted: return "Sharing support updates"
+            case .revoked:  return "Sharing stopped"
+            case .expired:  return "Invitation expired"
+            }
+        }
     }
 }
