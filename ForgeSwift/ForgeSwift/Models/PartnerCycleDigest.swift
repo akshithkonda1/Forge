@@ -90,31 +90,45 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
     /// Build a digest from a full snapshot. **The only place snapshot data becomes
     /// partner-visible.** Every field is either coarsened or dropped; nothing is
     /// copied across verbatim except the date stamp.
-    init(redacting snapshot: MenstrualCycleSnapshot, headline: String) {
+    ///
+    /// The headline is *not* a parameter. It used to be, and that was a hole: a
+    /// caller holding the full snapshot could write "great week to try" and hand
+    /// it in, moving the disclosure out of the fields and into the prose where
+    /// nothing checks it. It is now derived from the coarse values this
+    /// initialiser has already computed, so the digest cannot say more than the
+    /// digest contains.
+    init(redacting snapshot: MenstrualCycleSnapshot) {
+        // Everything is resolved into locals first and assigned in one block at
+        // the end. The headline is a function of the other fields, and reading a
+        // half-initialised `self` to compute it is the kind of thing that works
+        // until someone reorders the assignments.
+
         // Fertile and ovulatory days are folded into `.rebuilding` so the digest
         // cannot be used to infer conception timing.
+        let resolvedPhase: SupportPhase
         switch snapshot.phase {
         case .menstruation:
-            phase = .bleeding
+            resolvedPhase = .bleeding
         case .follicular, .fertileWindow, .ovulation:
-            phase = .rebuilding
+            resolvedPhase = .rebuilding
         case .luteal:
-            phase = .winding
+            resolvedPhase = .winding
         case .unknown:
-            phase = .unknown
+            resolvedPhase = .unknown
         }
 
-        switch phase {
-        case .bleeding:   energy = snapshot.recommendRecoveryBias ? .low : .steady
-        case .rebuilding: energy = .high
-        case .winding:    energy = snapshot.recommendRecoveryBias ? .low : .steady
-        case .unknown:    energy = .steady
+        let resolvedEnergy: EnergyBand
+        switch resolvedPhase {
+        case .bleeding:   resolvedEnergy = snapshot.recommendRecoveryBias ? .low : .steady
+        case .rebuilding: resolvedEnergy = .high
+        case .winding:    resolvedEnergy = snapshot.recommendRecoveryBias ? .low : .steady
+        case .unknown:    resolvedEnergy = .steady
         }
 
         // Bucketed to a coarse number of days. The exact predicted date is withheld
         // even though it is known, because a date invites counting and a rough
         // distance is all a supporter needs.
-        daysUntilNextPeriodApprox = {
+        let approxDays: Int? = {
             guard let next = snapshot.nextPeriod,
                   let days = CycleDayKey.daysBetween(snapshot.asOfDayKey, next.medianDayKey),
                   days >= 0,
@@ -131,10 +145,18 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
             }
         }()
 
-        extraThoughtfulnessHelps = (phase == .bleeding)
-            || (phase == .winding && snapshot.recommendRecoveryBias)
+        let thoughtful = (resolvedPhase == .bleeding)
+            || (resolvedPhase == .winding && snapshot.recommendRecoveryBias)
 
-        supportHeadline = headline
+        phase = resolvedPhase
+        energy = resolvedEnergy
+        daysUntilNextPeriodApprox = approxDays
+        extraThoughtfulnessHelps = thoughtful
+        supportHeadline = SupporterGuidance.headline(
+            phase: resolvedPhase,
+            energy: resolvedEnergy,
+            thoughtfulnessHelps: thoughtful
+        )
         asOfDayKey = snapshot.asOfDayKey
     }
 }

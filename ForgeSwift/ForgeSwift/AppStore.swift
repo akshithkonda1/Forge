@@ -926,6 +926,10 @@ final class AppStore: ObservableObject {
     @Published var pendingCycleHealthOpen: Bool = false
     /// Optional Cycle pane: "me" or "partner".
     @Published var pendingCyclePane: String? = nil
+    /// When true, Cycle Health opens the sharing sheet on top. Set by the
+    /// `forge://cycle/sharing` deep link the Messages extension uses when it has
+    /// no invite staged and has to hand the user back to the app.
+    @Published var pendingCycleSharingOpen: Bool = false
     /// Lifestyle sub-segment deep link: `nutrition` | `restaurants` | `wellbeing` | `aiOptimization`
     @Published var pendingLifestyleSegment: String? = nil
 
@@ -1716,10 +1720,30 @@ final class AppStore: ObservableObject {
     }
 
     /// Deep-link into Home Cycle Health full-screen (optional Support pane).
-    func openCycleHealth(pane: String? = nil) {
+    func openCycleHealth(pane: String? = nil, sharing: Bool = false) {
         pendingCyclePane = pane
+        pendingCycleSharingOpen = sharing
         // Shell-level fullScreenCover hosts Cycle Health — no need to switch tabs.
         pendingCycleHealthOpen = true
+    }
+
+    /// Route a `forge://` URL. Returns false for anything unrecognised so the
+    /// caller can leave the app where it was rather than guessing.
+    @discardableResult
+    func handleDeepLink(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "forge" else { return false }
+        // forge://cycle/sharing  →  host "cycle", first path component "sharing"
+        let segments = ([url.host] + url.pathComponents.filter { $0 != "/" })
+            .compactMap { $0?.lowercased() }
+        switch segments.first {
+        case "cycle":
+            let leaf = segments.dropFirst().first
+            openCycleHealth(pane: leaf == "support" ? "partner" : "me",
+                            sharing: leaf == "sharing")
+            return true
+        default:
+            return false
+        }
     }
 
     func setQuietMode(_ on: Bool) {

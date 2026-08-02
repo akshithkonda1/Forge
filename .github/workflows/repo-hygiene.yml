@@ -46,3 +46,17 @@ jobs:
       # compiles. This decides both from the text, in about a second.
       - name: Validate project.pbxproj
         run: python3 scripts/check-pbxproj.py
+
+  partner-redaction:
+    name: Partner redaction boundary
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # Supporter-facing code must never name MenstrualCycleSnapshot, and the
+      # Messages extension must never gain a purchase check. Neither is
+      # expressible in the type system, and both are the kind of regression that
+      # looks like an ordinary feature commit in review.
+      - name: Check partner-visible surfaces
+        run: scripts/check-partner-redaction.sh

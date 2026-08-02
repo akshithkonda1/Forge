@@ -24,9 +24,24 @@ import ForgeCore
 @MainActor
 final class PartnerCycleSharing: ObservableObject {
 
+    /// One instance, because two would disagree. The sharing sheet mints an
+    /// invite and the Support pane reads a received digest; separate instances
+    /// would each hold half the truth and neither would see the other revoke.
+    static let shared = PartnerCycleSharing()
+
     /// One shared digest per supporter, keyed by the CloudKit share.
     @Published private(set) var activeShares: [ShareHandle] = []
     @Published private(set) var lastPublishError: String?
+
+    /// The invite this device most recently created, kept so the UI can say
+    /// "you're sharing" without a CloudKit round trip on every appearance — and
+    /// so a user who force-quits mid-flow still sees the truth on relaunch.
+    @Published private(set) var currentInvite: PartnerCycleInvite?
+
+    /// A digest someone shared *with* this user, once fetched.
+    @Published private(set) var receivedDigest: PartnerCycleDigest?
+
+    private static let inviteKey = "forge.cycle.sharing.invite.v1"
 
     struct ShareHandle: Identifiable, Equatable {
         let id: String            // CKRecord.ID.recordName of the share
@@ -46,6 +61,19 @@ final class PartnerCycleSharing: ObservableObject {
 
     init(containerIdentifier: String = "iCloud.com.forge.ForgeSwift") {
         self.container = CKContainer(identifier: containerIdentifier)
+        if let data = UserDefaults.standard.data(forKey: Self.inviteKey),
+           let invite = try? JSONDecoder().decode(PartnerCycleInvite.self, from: data) {
+            currentInvite = invite
+        }
+    }
+
+    private func persistInvite() {
+        guard let currentInvite,
+              let data = try? JSONEncoder().encode(currentInvite) else {
+            UserDefaults.standard.removeObject(forKey: Self.inviteKey)
+            return
+        }
+        UserDefaults.standard.set(data, forKey: Self.inviteKey)
     }
 
     // ------------------------------------------------------------
@@ -92,6 +120,8 @@ final class PartnerCycleSharing: ObservableObject {
         // app group for the Messages extension to hand out after the user has
         // said stop.
         PartnerInviteHandoff.clear()
+        currentInvite = nil
+        persistInvite()
         do {
             _ = try await database.modifyRecordZones(saving: [], deleting: [Self.zoneID])
             activeShares = []
@@ -135,6 +165,8 @@ final class PartnerCycleSharing: ObservableObject {
         // led to this call — the extension has no way to reach this method, which
         // is what stops an invite being created from inside a chat.
         PartnerInviteHandoff.stage(invite.messagePayload)
+        currentInvite = invite
+        persistInvite()
         return invite
     }
 
@@ -145,6 +177,7 @@ final class PartnerCycleSharing: ObservableObject {
     /// Fetch the digest a supporter has been granted. Reads the *shared* database —
     /// a supporter never has the owner's private database, so there is no path from
     /// here back to the owner's raw logs even if this code were wrong.
+    @discardableResult
     func fetchSharedDigest() async -> PartnerCycleDigest? {
         do {
             let zones = try await container.sharedCloudDatabase.allRecordZones()
@@ -152,8 +185,14 @@ final class PartnerCycleSharing: ObservableObject {
                 let id = CKRecord.ID(recordName: Self.digestRecordName, zoneID: zone.zoneID)
                 let record = try await container.sharedCloudDatabase.record(for: id)
                 guard let data = record["payload"] as? Data else { continue }
-                return try JSONDecoder().decode(PartnerCycleDigest.self, from: data)
+                let digest = try JSONDecoder().decode(PartnerCycleDigest.self, from: data)
+                receivedDigest = digest
+                return digest
             }
+            // No zone means the owner revoked. Drop the cached copy rather than
+            // keep showing a digest they have withdrawn — a supporter must not
+            // go on seeing yesterday's state after sharing stopped.
+            receivedDigest = nil
         } catch {
             lastPublishError = error.localizedDescription
         }

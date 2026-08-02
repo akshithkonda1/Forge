@@ -892,6 +892,18 @@ final class MenstrualHealthStore: ObservableObject {
         }
     }
 
+    // MARK: Sharing
+
+    /// The user's own cycle, reduced to what a supporter is allowed to see.
+    ///
+    /// Derived on demand rather than stored, so it cannot drift from `snapshot`
+    /// and there is no second copy of reproductive state to keep in sync or
+    /// forget to clear. `PartnerCycleDigest.init(redacting:)` is the only
+    /// crossing point, and this is the only thing that calls it.
+    var supporterDigest: PartnerCycleDigest {
+        PartnerCycleDigest(redacting: snapshot)
+    }
+
     func refresh(from store: AppStore) {
         recompute(
             readinessHRV: store.dailyMetrics.hrv,

@@ -8,6 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		AA00010000000000000000B4 /* CloudKitShareAcceptance.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */; };
+		AA00010000000000000000D1 /* SupporterGuidance.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000D1 /* SupporterGuidance.swift */; };
+		AA00010000000000000000D2 /* SupporterDigestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000D2 /* SupporterDigestView.swift */; };
+		AA00010000000000000000D3 /* CycleSharingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000D3 /* CycleSharingView.swift */; };
+		AA00010000000000000000CA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C7 /* Assets.xcassets */; };
 		AA00010000000000000000C1 /* MessagesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C1 /* MessagesViewController.swift */; };
 		AA00010000000000000000C2 /* InviteBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C2 /* InviteBubble.swift */; };
 		AA00010000000000000000C3 /* InviteScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C3 /* InviteScreens.swift */; };
@@ -216,6 +220,10 @@
 /* Begin PBXFileReference section */
 		AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitShareAcceptance.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B5 /* Info-Add.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-Add.plist"; sourceTree = "<group>"; };
+		AA00020000000000000000D1 /* SupporterGuidance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupporterGuidance.swift; sourceTree = "<group>"; };
+		AA00020000000000000000D2 /* SupporterDigestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Menstrual/SupporterDigestView.swift"; sourceTree = "<group>"; };
+		AA00020000000000000000D3 /* CycleSharingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Menstrual/CycleSharingView.swift"; sourceTree = "<group>"; };
+		AA00020000000000000000C7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA00020000000000000000C1 /* MessagesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesViewController.swift; sourceTree = "<group>"; };
 		AA00020000000000000000C2 /* InviteBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteBubble.swift; sourceTree = "<group>"; };
 		AA00020000000000000000C3 /* InviteScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteScreens.swift; sourceTree = "<group>"; };
@@ -414,6 +422,8 @@
 			children = (
 				1ARIA0152F9FF867004091AA /* Chat */,
 				1ARIA0432F9FF867004091AA /* MenstrualHealthView.swift */,
+				AA00020000000000000000D2 /* SupporterDigestView.swift */,
+				AA00020000000000000000D3 /* CycleSharingView.swift */,
 				1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */,
 				1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */,
 				1HCV0012F9FF867004091AA /* HomeCookingView.swift */,
@@ -452,6 +462,7 @@
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
 				AA00020000000000000000B2 /* PartnerCycleSharing.swift */,
 				AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */,
+				AA00020000000000000000D1 /* SupporterGuidance.swift */,
 				1ARIA0072F9FF867004091AA /* AriaContextStore.swift */,
 				1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */,
 				1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */,
@@ -556,6 +567,7 @@
 				AA00020000000000000000C1 /* MessagesViewController.swift */,
 				AA00020000000000000000C2 /* InviteBubble.swift */,
 				AA00020000000000000000C3 /* InviteScreens.swift */,
+				AA00020000000000000000C7 /* Assets.xcassets */,
 				AA00020000000000000000C4 /* Info.plist */,
 				AA00020000000000000000C5 /* ForgeMessagesExtension.entitlements */,
 			);
@@ -841,6 +853,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA00010000000000000000CA /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -892,6 +905,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA00010000000000000000B4 /* CloudKitShareAcceptance.swift in Sources */,
+				AA00010000000000000000D1 /* SupporterGuidance.swift in Sources */,
+				AA00010000000000000000D2 /* SupporterDigestView.swift in Sources */,
+				AA00010000000000000000D3 /* CycleSharingView.swift in Sources */,
 				1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */,
 				AA0001000000000000000001 /* ForgeSwiftApp.swift in Sources */,
 				1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */,
@@ -1054,6 +1070,7 @@
 		AA00090000000000000000C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "iMessage App Icon";
 				CODE_SIGN_ENTITLEMENTS = ForgeMessagesExtension/ForgeMessagesExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -1081,6 +1098,7 @@
 		AA00090000000000000000C2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "iMessage App Icon";
 				CODE_SIGN_ENTITLEMENTS = ForgeMessagesExtension/ForgeMessagesExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
