@@ -1,0 +1,33 @@
+# Fails if any cloud-sync conflict copy (iCloud "Foo 3.swift", Drive "Foo (1).ts",
+# Dropbox "Foo (Case Conflict).py", Finder "Foo copy.swift") is committed.
+#
+# 111 of these reached main in a single commit before this check existed: the
+# merge was made from a working tree inside an iCloud-synced folder, and `git add`
+# swept the conflict copies in alongside the real changes. Nothing referenced
+# them, so no build broke and nothing flagged it.
+#
+# No branch filter and no path filter — this is a filename scan with no build
+# step, so it costs seconds and should gate every push and every pull request.
+
+name: Repo Hygiene
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repo-hygiene-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conflict-copies:
+    name: No file-sync conflict copies
+    runs-on: ubuntu-latest
+
+    steps:
+      # Actions must be pinned to a full-length commit SHA (repo policy).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - name: Scan tracked files
+        run: scripts/check-conflict-copies.sh
