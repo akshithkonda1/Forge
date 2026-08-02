@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSExtension</key>
+	<dict>
+		<!-- A full Messages app, not a sticker pack: the extension draws its own
+		     UI and composes MSMessage payloads. -->
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.message-payload-provider</string>
+		<!-- Code-only, so a principal class rather than NSExtensionMainStoryboard. -->
+		<key>NSExtensionPrincipalClass</key>
+		<string>$(PRODUCT_MODULE_NAME).MessagesViewController</string>
+	</dict>
+</dict>
+</plist>

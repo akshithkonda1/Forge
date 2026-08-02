@@ -1,5 +1,6 @@
 import Foundation
 import CloudKit
+import ForgeCore
 
 // ============================================================
 // MARK: - Partner cycle sharing (CloudKit only)
@@ -86,6 +87,11 @@ final class PartnerCycleSharing: ObservableObject {
     /// point at, so a cached copy on a supporter's device has nothing to refresh
     /// from. Revocation should be total and obvious, not partial and quiet.
     func revokeAll() async {
+        // Cleared first, and unconditionally. If the zone delete fails we would
+        // rather have an un-sendable staged invite than leave one sitting in the
+        // app group for the Messages extension to hand out after the user has
+        // said stop.
+        PartnerInviteHandoff.clear()
         do {
             _ = try await database.modifyRecordZones(saving: [], deleting: [Self.zoneID])
             activeShares = []
@@ -122,7 +128,14 @@ final class PartnerCycleSharing: ObservableObject {
                 NSLocalizedDescriptionKey: "CloudKit did not return a share URL."
             ])
         }
-        return PartnerCycleInvite(shareURL: url, role: role, fromDisplayName: fromDisplayName)
+        let invite = PartnerCycleInvite(shareURL: url, role: role, fromDisplayName: fromDisplayName)
+
+        // Hand the invite to the Messages extension. Staging happens only here,
+        // after the share exists and after the owner walked the consent flow that
+        // led to this call — the extension has no way to reach this method, which
+        // is what stops an invite being created from inside a chat.
+        PartnerInviteHandoff.stage(invite.messagePayload)
+        return invite
     }
 
     // ------------------------------------------------------------

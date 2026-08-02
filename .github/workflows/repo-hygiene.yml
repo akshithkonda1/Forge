@@ -31,3 +31,18 @@ jobs:
 
       - name: Scan tracked files
         run: scripts/check-conflict-copies.sh
+
+  xcode-project:
+    name: Xcode project structure
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # project.pbxproj is hand-edited in this repo, and its two nastiest
+      # failures — a source file in no target, a build file pointing at a
+      # deleted reference — are invisible on Linux and produce either a macOS
+      # build failure ten minutes later or, worse, a file that silently never
+      # compiles. This decides both from the text, in about a second.
+      - name: Validate project.pbxproj
+        run: python3 scripts/check-pbxproj.py

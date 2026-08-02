@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 // ============================================================
 // MARK: - Partner cycle digest
@@ -275,5 +276,30 @@ struct PartnerCycleInvite: Codable, Equatable {
             case .expired:  return "Invitation expired"
             }
         }
+    }
+
+    /// How long an unaccepted invite stays live.
+    ///
+    /// It lapses on purpose. An invite that never expires is a standing offer
+    /// sitting in a thread indefinitely, redeemable months later by whoever has
+    /// the device — including someone the sender is no longer close to. Two
+    /// weeks is long enough to survive a slow reply and short enough that a
+    /// forgotten invite closes itself.
+    static let validity: TimeInterval = 60 * 60 * 24 * 14
+
+    var expiresAt: Date { createdAt.addingTimeInterval(Self.validity) }
+
+    /// Flatten to the wire type the Messages extension understands.
+    ///
+    /// The extension has no access to `CycleSupportRole`, so the label is
+    /// rendered here — this is the boundary where app types stop.
+    var messagePayload: PartnerInvitePayload {
+        PartnerInvitePayload(shareURL: shareURL,
+                             fromDisplayName: fromDisplayName,
+                             roleRaw: role.rawValue,
+                             roleLabel: role.shortLabel,
+                             status: .pending,
+                             createdAt: createdAt,
+                             expiresAt: expiresAt)
     }
 }

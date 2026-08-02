@@ -24,3 +24,15 @@ if ! "$checker" --staged; then
     echo "Commit blocked. Unstage them with:  git restore --staged <file>"
     exit 1
 fi
+
+# Xcode project structure, but only when the commit actually touches it — the
+# check walks the repo, so running it on every commit would be a tax on commits
+# that cannot possibly break it.
+pbx_checker="$repo_root/scripts/check-pbxproj.py"
+if [ -f "$pbx_checker" ] && git diff --cached --name-only | grep -q 'project\.pbxproj$'; then
+    if ! (cd "$repo_root" && python3 "$pbx_checker"); then
+        echo
+        echo "Commit blocked: the Xcode project would be structurally broken."
+        exit 1
+    fi
+fi

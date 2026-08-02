@@ -5,6 +5,10 @@ import UIKit
 struct ForgeSwiftApp: App {
     @StateObject private var store = AppStore()
 
+    // Exists so iOS has somewhere to hand a CloudKit share when a supporter
+    // accepts a cycle invite; SwiftUI's App lifecycle exposes no other hook.
+    @UIApplicationDelegateAdaptor(ForgeAppDelegate.self) private var appDelegate
+
     init() {
         // Listens for watch workout state and mirrors it into a Live
         // Activity (lock screen + Dynamic Island). Also owns WCSession
