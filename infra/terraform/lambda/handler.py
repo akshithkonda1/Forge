@@ -20,6 +20,11 @@ from routes import (
     watch,
     workouts,
 )
+from security import (
+    MAX_JSON_BODY_CHARS,
+    is_production_like,
+    redacted_health_payload,
+)
 
 
 def _parse_json_body(event: dict) -> dict:
@@ -32,6 +37,9 @@ def _parse_json_body(event: dict) -> dict:
 
     if isinstance(body, dict):
         return body
+
+    if isinstance(body, str) and len(body) > MAX_JSON_BODY_CHARS:
+        raise RouteError(413, "Request body too large.")
 
     try:
         return json.loads(body)
@@ -56,8 +64,14 @@ def handler(event, _context):
     if path != "/":
         path = path.rstrip("/")
 
-    # --- Health check (no auth required) ---
+    # --- Health check (no auth) — never inventory infra in production ---
     if method == "GET" and path == "/health":
+        if is_production_like() and os.getenv("FORGE_HEALTH_VERBOSE", "").lower() not in {
+            "1",
+            "true",
+            "yes",
+        }:
+            return ok(redacted_health_payload())
         models = default_models()
         return ok({
             "status": "ok",
@@ -84,51 +98,40 @@ def handler(event, _context):
             },
         })
 
-    # --- AI router (no user-scoped data required) ---
+    # --- AI router (authenticated; no cross-user data in request) ---
     if method == "POST" and path == "/ai/router":
         try:
+            # Require auth so the multi-model path cannot be used anonymously for cost abuse.
+            extract_user_id(event, required=True)
             payload = _parse_json_body(event)
             request = RouteRequest.from_payload(payload)
             router = AIRouter()
             return ok(router.route(request))
+        except RouteError as exc:
+            return error_response(exc)
         except RoutingError as exc:
             return error_response(RouteError(exc.status_code, exc.args[0]))
 
-    # --- ARIA contextual intelligence (body carries user_id for local + mobile clients) ---
-    if method == "POST" and path == "/ai/archetype":
-        try:
-            return aria.handle_post_ai_archetype(_parse_json_body(event))
-        except RouteError as exc:
-            return error_response(exc)
-
-    if method == "POST" and path == "/ai/chat":
-        try:
-            return aria.handle_post_ai_chat(_parse_json_body(event))
-        except RouteError as exc:
-            return error_response(exc)
-
-    if method == "POST" and path == "/ai/observe":
-        try:
-            return biometrics.handle_post_observe(_parse_json_body(event))
-        except RouteError as exc:
-            return error_response(exc)
-
-    if method == "POST" and path == "/ai/feedback/reaction":
-        try:
-            return aria.handle_post_feedback_reaction(_parse_json_body(event))
-        except RouteError as exc:
-            return error_response(exc)
-
-    if method == "POST" and path == "/ai/feedback/plan-outcome":
-        try:
-            return aria.handle_post_feedback_plan_outcome(_parse_json_body(event))
-        except RouteError as exc:
-            return error_response(exc)
-
-    # --- All routes below require user identity ---
+    # --- Authenticated surface (identity from JWT / authorizer only) ---
     try:
         user_id = extract_user_id(event)
         body = _parse_json_body(event) if method in ("POST", "PUT", "PATCH") else {}
+
+        # AI routes: always bind to authenticated principal (ignore spoofed body user_id)
+        if method == "POST" and path == "/ai/archetype":
+            return aria.handle_post_ai_archetype(body, user_id=user_id)
+
+        if method == "POST" and path == "/ai/chat":
+            return aria.handle_post_ai_chat(body, user_id=user_id)
+
+        if method == "POST" and path == "/ai/observe":
+            return biometrics.handle_post_observe(body, user_id=user_id)
+
+        if method == "POST" and path == "/ai/feedback/reaction":
+            return aria.handle_post_feedback_reaction(body, user_id=user_id)
+
+        if method == "POST" and path == "/ai/feedback/plan-outcome":
+            return aria.handle_post_feedback_plan_outcome(body, user_id=user_id)
 
         if method == "GET" and path == "/me":
             return profile.handle_get_me(user_id)
@@ -191,5 +194,7 @@ def handler(event, _context):
 
     except RouteError as exc:
         return error_response(exc)
+    except PermissionError as exc:
+        return error_response(RouteError(403, str(exc) or "Forbidden."))
 
     return not_found(method, path)
