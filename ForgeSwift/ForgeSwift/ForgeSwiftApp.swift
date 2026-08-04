@@ -5,6 +5,10 @@ import UIKit
 struct ForgeSwiftApp: App {
     @StateObject private var store = AppStore()
 
+    // Exists so iOS has somewhere to hand a CloudKit share when a supporter
+    // accepts a cycle invite; SwiftUI's App lifecycle exposes no other hook.
+    @UIApplicationDelegateAdaptor(ForgeAppDelegate.self) private var appDelegate
+
     init() {
         // Listens for watch workout state and mirrors it into a Live
         // Activity (lock screen + Dynamic Island). Also owns WCSession
@@ -43,6 +47,16 @@ struct ForgeSwiftApp: App {
                         firstName: store.userProfile.name
                             .split(separator: " ").first.map(String.init)
                     )
+                }
+                .onOpenURL { url in
+                    store.handleDeepLink(url)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: PartnerShareAcceptance.didAcceptNotification)) { _ in
+                    // A supporter just accepted an invite. Land them on the
+                    // Support pane, which is where the digest they were given
+                    // renders — otherwise accepting drops them on Home with no
+                    // sign anything happened.
+                    store.openCycleHealth(pane: "partner")
                 }
         }
     }

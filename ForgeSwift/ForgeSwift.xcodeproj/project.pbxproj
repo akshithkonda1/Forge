@@ -7,6 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AA00010000000000000000B4 /* CloudKitShareAcceptance.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */; };
+		AA00010000000000000000D1 /* SupporterGuidance.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000D1 /* SupporterGuidance.swift */; };
+		AA00010000000000000000D2 /* SupporterDigestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000D2 /* SupporterDigestView.swift */; };
+		AA00010000000000000000D3 /* CycleSharingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000D3 /* CycleSharingView.swift */; };
+		AA00010000000000000000CA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C7 /* Assets.xcassets */; };
+		AA00010000000000000000C1 /* MessagesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C1 /* MessagesViewController.swift */; };
+		AA00010000000000000000C2 /* InviteBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C2 /* InviteBubble.swift */; };
+		AA00010000000000000000C3 /* InviteScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C3 /* InviteScreens.swift */; };
+		AA00010000000000000000C8 /* ForgeMessagesExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C6 /* ForgeMessagesExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0022F9FF867004091AA /* SexualHealthCoach.swift */; };
 		1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */; };
 		1WC0052F9FF867004091AA /* CyclePhaseCoachingDirective.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */; };
@@ -22,6 +31,7 @@
 		1ARIA0022F9FF867004091AA /* AriaContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0012F9FF867004091AA /* AriaContext.swift */; };
 		1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0032F9FF867004091AA /* AriaResponse.swift */; };
 		1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0052F9FF867004091AA /* AriaService.swift */; };
+		AA00010000000000000000B2 /* PartnerCycleSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B2 /* PartnerCycleSharing.swift */; };
 		1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0072F9FF867004091AA /* AriaContextStore.swift */; };
 		1ARIA0102F9FF867004091AA /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0092F9FF867004091AA /* FeedbackService.swift */; };
 		1ARIA0122F9FF867004091AA /* ContextInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0112F9FF867004091AA /* ContextInspectorView.swift */; };
@@ -37,6 +47,7 @@
 		1HCV0022F9FF867004091AA /* HomeCookingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HCV0012F9FF867004091AA /* HomeCookingView.swift */; };
 		1PAS0022F9FF867004091AA /* ProfileAvatarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */; };
 		1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */; };
+		AA00010000000000000000B1 /* PartnerCycleDigest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B1 /* PartnerCycleDigest.swift */; };
 		1ARIA0382F9FF867004091AA /* MenstrualCycleEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */; };
 		1ARIA0402F9FF867004091AA /* MenstrualHealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */; };
 		1ARIA0422F9FF867004091AA /* Menstrual/MenstrualHealthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */; };
@@ -116,6 +127,7 @@
 		F0B10000000000000000001D /* ActiveWorkoutComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001D /* ActiveWorkoutComplication.swift */; };
 		F0B10000000000000000001E /* ForgeWorkoutActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001E /* ForgeWorkoutActivityAttributes.swift */; };
 		F0B10000000000000000001F /* ForgeWorkoutLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001F /* ForgeWorkoutLiveActivity.swift */; };
+		AA00010000000000000000C9 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA000F0000000000000000C1 /* ForgeCore */; };
 		F0B100000000000000000020 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000001 /* ForgeCore */; };
 		F0B100000000000000000021 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000002 /* ForgeCore */; };
 		F0B100000000000000000022 /* ForgeWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000019 /* ForgeWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -138,6 +150,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		AA000C0000000000000000C1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0008000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA00050000000000000000C1;
+			remoteInfo = ForgeMessagesExtension;
+		};
 		F0C200000000000000000001 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = AA0008000000000000000001 /* Project object */;
@@ -191,6 +210,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				F0B100000000000000000034 /* ForgeWidgetExtension.appex in Embed Foundation Extensions */,
+				AA00010000000000000000C8 /* ForgeMessagesExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -198,6 +218,18 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitShareAcceptance.swift; sourceTree = "<group>"; };
+		AA00020000000000000000B5 /* Info-Add.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-Add.plist"; sourceTree = "<group>"; };
+		AA00020000000000000000D1 /* SupporterGuidance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupporterGuidance.swift; sourceTree = "<group>"; };
+		AA00020000000000000000D2 /* SupporterDigestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Menstrual/SupporterDigestView.swift"; sourceTree = "<group>"; };
+		AA00020000000000000000D3 /* CycleSharingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Menstrual/CycleSharingView.swift"; sourceTree = "<group>"; };
+		AA00020000000000000000C7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AA00020000000000000000C1 /* MessagesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesViewController.swift; sourceTree = "<group>"; };
+		AA00020000000000000000C2 /* InviteBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteBubble.swift; sourceTree = "<group>"; };
+		AA00020000000000000000C3 /* InviteScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteScreens.swift; sourceTree = "<group>"; };
+		AA00020000000000000000C4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA00020000000000000000C5 /* ForgeMessagesExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeMessagesExtension.entitlements; sourceTree = "<group>"; };
+		AA00020000000000000000C6 /* ForgeMessagesExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ForgeMessagesExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1WC0022F9FF867004091AA /* SexualHealthCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCoach.swift; sourceTree = "<group>"; };
 		1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCurriculum.swift; sourceTree = "<group>"; };
 		1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseCoachingDirective.swift; sourceTree = "<group>"; };
@@ -213,6 +245,7 @@
 		1ARIA0012F9FF867004091AA /* AriaContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContext.swift; sourceTree = "<group>"; };
 		1ARIA0032F9FF867004091AA /* AriaResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaResponse.swift; sourceTree = "<group>"; };
 		1ARIA0052F9FF867004091AA /* AriaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaService.swift; sourceTree = "<group>"; };
+		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
 		1ARIA0112F9FF867004091AA /* ContextInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextInspectorView.swift; sourceTree = "<group>"; };
@@ -228,6 +261,7 @@
 		1HCV0012F9FF867004091AA /* HomeCookingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCookingView.swift; sourceTree = "<group>"; };
 		1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileAvatarStore.swift; sourceTree = "<group>"; };
 		1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleModels.swift; sourceTree = "<group>"; };
+		AA00020000000000000000B1 /* PartnerCycleDigest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleDigest.swift; sourceTree = "<group>"; };
 		1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngine.swift; sourceTree = "<group>"; };
 		1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualHealthStore.swift; sourceTree = "<group>"; };
 		1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Menstrual/MenstrualHealthView.swift; sourceTree = "<group>"; };
@@ -331,6 +365,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		AA00030000000000000000C1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA00010000000000000000C9 /* ForgeCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA0003000000000000000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -380,6 +422,8 @@
 			children = (
 				1ARIA0152F9FF867004091AA /* Chat */,
 				1ARIA0432F9FF867004091AA /* MenstrualHealthView.swift */,
+				AA00020000000000000000D2 /* SupporterDigestView.swift */,
+				AA00020000000000000000D3 /* CycleSharingView.swift */,
 				1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */,
 				1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */,
 				1HCV0012F9FF867004091AA /* HomeCookingView.swift */,
@@ -399,6 +443,7 @@
 			isa = PBXGroup;
 			children = (
 				1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */,
+				AA00020000000000000000B1 /* PartnerCycleDigest.swift */,
 				1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */,
 				1ARIA0572F9FF867004091AA /* CyclePrivacy.swift */,
 				1ARIA0012F9FF867004091AA /* AriaContext.swift */,
@@ -415,6 +460,9 @@
 				1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */,
 				1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */,
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
+				AA00020000000000000000B2 /* PartnerCycleSharing.swift */,
+				AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */,
+				AA00020000000000000000D1 /* SupporterGuidance.swift */,
 				1ARIA0072F9FF867004091AA /* AriaContextStore.swift */,
 				1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */,
 				1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */,
@@ -442,6 +490,7 @@
 			isa = PBXGroup;
 			children = (
 				1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */,
+				AA00020000000000000000B5 /* Info-Add.plist */,
 				AA0002000000000000000001 /* ForgeSwiftApp.swift */,
 				AA0002000000000000000002 /* Theme.swift */,
 				AA0002000000000000000003 /* Models.swift */,
@@ -494,6 +543,7 @@
 				F0F100000000000000000018 /* ForgeWatch.app */,
 				F0F100000000000000000019 /* ForgeWatchWidgets.appex */,
 				F0F100000000000000000025 /* ForgeWidgetExtension.appex */,
+				AA00020000000000000000C6 /* ForgeMessagesExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -506,8 +556,22 @@
 				F0A100000000000000000001 /* ForgeWatch */,
 				F0A100000000000000000006 /* LiveActivities */,
 				F0A100000000000000000007 /* ForgeWidgetExtension */,
+				AA00040000000000000000C1 /* ForgeMessagesExtension */,
 				AA0004000000000000000002 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		AA00040000000000000000C1 /* ForgeMessagesExtension */ = {
+			isa = PBXGroup;
+			children = (
+				AA00020000000000000000C1 /* MessagesViewController.swift */,
+				AA00020000000000000000C2 /* InviteBubble.swift */,
+				AA00020000000000000000C3 /* InviteScreens.swift */,
+				AA00020000000000000000C7 /* Assets.xcassets */,
+				AA00020000000000000000C4 /* Info.plist */,
+				AA00020000000000000000C5 /* ForgeMessagesExtension.entitlements */,
+			);
+			path = ForgeMessagesExtension;
 			sourceTree = "<group>";
 		};
 		F0A100000000000000000006 /* LiveActivities */ = {
@@ -628,6 +692,26 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		AA00050000000000000000C1 /* ForgeMessagesExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA00060000000000000000C1 /* Build configuration list for PBXNativeTarget "ForgeMessagesExtension" */;
+			buildPhases = (
+				AA00070000000000000000C1 /* Sources */,
+				AA00030000000000000000C1 /* Frameworks */,
+				AA00070000000000000000C2 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ForgeMessagesExtension;
+			packageProductDependencies = (
+				AA000F0000000000000000C1 /* ForgeCore */,
+			);
+			productName = ForgeMessagesExtension;
+			productReference = AA00020000000000000000C6 /* ForgeMessagesExtension.appex */;
+			productType = "com.apple.product-type.app-extension.messages";
+		};
 		AA0005000000000000000001 /* ForgeSwift */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AA0006000000000000000002 /* Build configuration list for PBXNativeTarget "ForgeSwift" */;
@@ -643,6 +727,7 @@
 			dependencies = (
 				F0C300000000000000000002 /* PBXTargetDependency */,
 				F0C300000000000000000003 /* PBXTargetDependency */,
+				AA000B0000000000000000C1 /* PBXTargetDependency */,
 			);
 			name = ForgeSwift;
 			packageProductDependencies = (
@@ -736,6 +821,9 @@
 					F0C100000000000000000003 = {
 						CreatedOnToolsVersion = 15.3;
 					};
+					AA00050000000000000000C1 = {
+						CreatedOnToolsVersion = 15.3;
+					};
 				};
 			};
 			buildConfigurationList = AA0006000000000000000001 /* Build configuration list for PBXProject "ForgeSwift" */;
@@ -755,11 +843,20 @@
 				F0C100000000000000000001 /* ForgeWatch */,
 				F0C100000000000000000002 /* ForgeWatchWidgets */,
 				F0C100000000000000000003 /* ForgeWidgetExtension */,
+				AA00050000000000000000C1 /* ForgeMessagesExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		AA00070000000000000000C2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA00010000000000000000CA /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA0007000000000000000002 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -793,10 +890,24 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		AA00070000000000000000C1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA00010000000000000000C1 /* MessagesViewController.swift in Sources */,
+				AA00010000000000000000C2 /* InviteBubble.swift in Sources */,
+				AA00010000000000000000C3 /* InviteScreens.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA0007000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA00010000000000000000B4 /* CloudKitShareAcceptance.swift in Sources */,
+				AA00010000000000000000D1 /* SupporterGuidance.swift in Sources */,
+				AA00010000000000000000D2 /* SupporterDigestView.swift in Sources */,
+				AA00010000000000000000D3 /* CycleSharingView.swift in Sources */,
 				1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */,
 				AA0001000000000000000001 /* ForgeSwiftApp.swift in Sources */,
 				1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */,
@@ -806,6 +917,7 @@
 				1ARIA0022F9FF867004091AA /* AriaContext.swift in Sources */,
 				1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */,
 				1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */,
+				AA00010000000000000000B2 /* PartnerCycleSharing.swift in Sources */,
 				1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */,
 				1WC1012F9FF867004091AA /* CrossZoneConsistency.swift in Sources */,
 				1ARIA0102F9FF867004091AA /* FeedbackService.swift in Sources */,
@@ -835,6 +947,7 @@
 				1HCV0022F9FF867004091AA /* HomeCookingView.swift in Sources */,
 				1PAS0022F9FF867004091AA /* ProfileAvatarStore.swift in Sources */,
 				1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */,
+				AA00010000000000000000B1 /* PartnerCycleDigest.swift in Sources */,
 				1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */,
 				1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */,
 				1WC0052F9FF867004091AA /* CyclePhaseCoachingDirective.swift in Sources */,
@@ -931,6 +1044,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		AA000B0000000000000000C1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA00050000000000000000C1 /* ForgeMessagesExtension */;
+			targetProxy = AA000C0000000000000000C1 /* PBXContainerItemProxy */;
+		};
 		F0C300000000000000000001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = F0C100000000000000000002 /* ForgeWatchWidgets */;
@@ -949,6 +1067,62 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		AA00090000000000000000C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "iMessage App Icon";
+				CODE_SIGN_ENTITLEMENTS = ForgeMessagesExtension/ForgeMessagesExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = L85K85Q7MB;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ForgeMessagesExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Forge;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift.messages;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AA00090000000000000000C2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "iMessage App Icon";
+				CODE_SIGN_ENTITLEMENTS = ForgeMessagesExtension/ForgeMessagesExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = L85K85Q7MB;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ForgeMessagesExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Forge;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift.messages;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		AA0009000000000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1083,6 +1257,7 @@
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ForgeSwift/Info-Add.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Forge ";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
@@ -1121,6 +1296,7 @@
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ForgeSwift/Info-Add.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Forge ";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
@@ -1376,9 +1552,22 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		AA00060000000000000000C1 /* Build configuration list for PBXNativeTarget "ForgeMessagesExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA00090000000000000000C1 /* Debug */,
+				AA00090000000000000000C2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		AA000F0000000000000000C1 /* ForgeCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ForgeCore;
+		};
 		F0F200000000000000000001 /* ForgeCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ForgeCore;

@@ -48,6 +48,11 @@ struct MenstrualHealthView: View {
     @State private var editMucus: CervicalMucusQuality?
     @State private var editPain = 0
     @State private var showWipeConfirm = false
+    @State private var showSharing = false
+    /// Sharing lives here as well as inside `CycleSharingView` so the Support
+    /// pane can render a digest someone shared with this user without the
+    /// sharing sheet ever being opened.
+    @ObservedObject private var sharing = PartnerCycleSharing.shared
     @State private var showDayEditor = false
     @State private var showAccuracyExplainer = false
     @State private var feedbackOffset = 1
@@ -111,6 +116,11 @@ struct MenstrualHealthView: View {
             // Day editor and the wipe dialog used to hang off `settingsCard`, so they only
             // worked while that specific card happened to be in the view tree.
             .sheet(isPresented: $showDayEditor) { dayEditorSheet }
+            .sheet(isPresented: $showSharing) {
+                CycleSharingView(cycleStore: cycleStore)
+                    .environmentObject(store)
+                    .preferredColorScheme(.dark)
+            }
             .confirmationDialog(
                 "Wipe all self cycle logs?",
                 isPresented: $showWipeConfirm,
@@ -219,8 +229,47 @@ struct MenstrualHealthView: View {
         insightsCard
         ariaCoachCard
         sexualHealthCard
-        settingsCard
-        disclaimerFooter
+        // Grouped rather than listed flat: `ViewBuilder` takes at most ten
+        // children, and adding sharing as an eleventh sibling is a compile
+        // error with a diagnostic that points nowhere near the real cause.
+        Group {
+            shareSupportCard
+            settingsCard
+            disclaimerFooter
+        }
+    }
+
+    /// Entry point to partner sharing. Sits below the coaching cards and above
+    /// settings on purpose: sharing your cycle with someone is a considered
+    /// decision, not a toggle you should meet before you have looked at your
+    /// own data.
+    private var shareSupportCard: some View {
+        Button {
+            showSharing = true
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "person.2.badge.key.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color.ember)
+                    .frame(width: 30)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Let someone support you")
+                        .font(FDS.TypeScale.label(15))
+                        .foregroundColor(.textPrimary)
+                    Text("Share a general picture over iMessage. Never your logs.")
+                        .font(FDS.TypeScale.body(12))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.textTertiary)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .forgeGlassCard(accent: .ember)
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -310,8 +359,17 @@ struct MenstrualHealthView: View {
         partnerRelDraft = cycleStore.partnerSettings.relationshipLabel
         supportRole = cycleStore.partnerSettings.resolvedRole
         privacyAccepted = cycleStore.settings.privacyAcknowledged
+        if store.pendingCycleSharingOpen {
+            showSharing = true
+            store.pendingCycleSharingOpen = false
+        }
         cycleStore.refresh(from: store)
         Task { await cycleStore.syncFromHealthKit() }
+        // Refetched every appearance rather than cached: a revoke on the owner's
+        // side shows up as the zone disappearing, and the supporter should stop
+        // seeing a digest on their next visit, not whenever a push happens to
+        // arrive.
+        Task { await sharing.fetchSharedDigest() }
         withAnimation(FDS.Spring.hero.delay(0.05)) { appeared = true }
         guard !UIAccessibility.isReduceMotionEnabled else { return }
         withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
@@ -1970,6 +2028,12 @@ struct MenstrualHealthView: View {
 
     private var partnerContent: some View {
         VStack(alignment: .leading, spacing: 18) {
+            // A digest someone shared with this user comes first, above anything
+            // logged locally. It is the only part of this pane that is actually
+            // *from them* rather than the user's own notes about them, so it
+            // outranks a guess assembled from manual entries.
+            sharedWithMeSection
+
             if !cycleStore.partnerSettings.enabled {
                 partnerEnableCard
             } else if !cycleStore.partnerSettings.consentAcknowledged {
@@ -1985,6 +2049,26 @@ struct MenstrualHealthView: View {
                     .font(FDS.TypeScale.body(11))
                     .foregroundColor(.textTertiary)
             }
+        }
+    }
+
+    /// Renders a digest received through CloudKit sharing.
+    ///
+    /// Note what is passed in: a `PartnerCycleDigest`, never `partnerSnapshot`.
+    /// The local Support pane below is the user's *own* notes about someone —
+    /// they typed it, so there is nothing to withhold. This section is the other
+    /// direction, and it is the one that has to be redacted.
+    @ViewBuilder
+    private var sharedWithMeSection: some View {
+        if let digest = sharing.receivedDigest {
+            SupporterDigestView(
+                digest: digest,
+                lens: PartnerSupportLens(
+                    role: cycleStore.partnerSettings.resolvedRole,
+                    supporterSex: store.userProfile.biologicalSex
+                ),
+                personName: cycleStore.partnerSettings.displayName
+            )
         }
     }
 

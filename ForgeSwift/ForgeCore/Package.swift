@@ -38,6 +38,7 @@ let package = Package(
                 "Models/HRZones.swift",
                 "Models/LifestyleContext.swift",
                 "Models/MindfulnessPractice.swift",
+                "Models/PartnerInvitePayload.swift",
                 "Models/Readiness.swift",
                 "Models/SleepModels.swift",
                 "Models/WatchARIAContext.swift",
