@@ -46,21 +46,37 @@ final class PartnerCycleSharing: ObservableObject {
 
     private static let inviteKey = "forge.cycle.sharing.invite.v1"
 
+    /// Long enough to swallow a burst — logging several days in one sitting moves
+    /// the digest repeatedly and only the last state matters — short enough that
+    /// a correction the user makes deliberately lands promptly. Doubles as the
+    /// delay before a deferred or failed write is retried.
+    private static let retryInterval: TimeInterval = 90
+
     /// Content-keyed, so a recompute that leaves the redacted digest unchanged
     /// writes nothing. See `PublishGate` for why this is not simply "publish on
     /// every recompute".
     private let publishGate = PublishGate<PartnerCycleDigest>(
         key: "forge.cycle.sharing.digest",
-        // Long enough to swallow a burst — logging several days in one sitting
-        // moves the digest repeatedly and only the last state matters — short
-        // enough that a correction the user makes deliberately lands promptly.
-        minimumInterval: 90
+        minimumInterval: PartnerCycleSharing.retryInterval
     )
 
+    /// The trailing write scheduled by a throttled change. At most one is ever
+    /// outstanding; a newer deferral replaces it.
+    private var pendingPublish: Task<Void, Never>?
+
+    /// Where a deferred publish gets the *current* digest from when it fires.
+    ///
+    /// A closure rather than a direct reference so the dependency runs one way
+    /// at the type level — the store calls sharing, not the reverse — and so a
+    /// test can drive the trailing path without a live store.
+    var digestSource: @MainActor () -> PartnerCycleDigest? = {
+        MenstrualHealthStore.shared.supporterDigest
+    }
+
     struct ShareHandle: Identifiable, Equatable {
-        /// `CKShare.Participant.userIdentity.userRecordID` where known, falling
-        /// back to the participant's own record name. Stable per person, which
-        /// is what the UI needs to offer "stop sharing with *them*".
+        /// Stable per person, which is what the UI needs to offer "stop sharing
+        /// with *them*". Empty when CloudKit gave nothing to identify them by —
+        /// see `identifier(for:)`, and note the UI hides removal for those rows.
         let id: String
         let name: String
         let status: PartnerCycleInvite.Status
@@ -107,8 +123,7 @@ final class PartnerCycleSharing: ObservableObject {
     /// this would be a CloudKit write dozens of times a day for a four-field
     /// value that changes about once — see `PublishGate`.
     ///
-    /// Returns whether anything was written, which the caller ignores and tests
-    /// do not.
+    /// Returns whether anything was written.
     @discardableResult
     func publishIfChanged(_ digest: PartnerCycleDigest) async -> Bool {
         // Nobody has been invited, so there is no zone and nothing to keep
@@ -117,15 +132,58 @@ final class PartnerCycleSharing: ObservableObject {
         guard currentInvite != nil else { return false }
 
         switch publishGate.decide(digest) {
-        case .skipUnchanged, .skipTooSoon:
+        case .skipUnchanged:
             return false
+
+        case .skipTooSoon(let retryAfter):
+            // Deferred, never dropped. A throttle with no trailing edge is not a
+            // throttle, it is data loss: `recompute()` only runs on foreground,
+            // on a log, or on a HealthKit sync, so a change discarded here can
+            // sit unpublished until the next one of those — possibly tomorrow.
+            // That is the staleness this whole path exists to prevent.
+            scheduleTrailingPublish(after: retryAfter)
+            return false
+
         case .publish:
+            // Any pending trailing write is now redundant: this call is about to
+            // publish something at least as fresh.
+            pendingPublish?.cancel()
+            pendingPublish = nil
+
             let ok = await publish(digest)
             // Recorded only on success. A failed write that moved the watermark
             // would drop the change until the digest happened to move again,
             // which for a cycle digest can be a whole day.
-            if ok { publishGate.recordPublished(digest) }
+            if ok {
+                publishGate.recordPublished(digest)
+            } else {
+                // Retry once the throttle allows it rather than waiting for the
+                // next recompute — a transient CloudKit failure should not cost
+                // the user a day of freshness.
+                scheduleTrailingPublish(after: Self.retryInterval)
+            }
             return ok
+        }
+    }
+
+    /// Publish once the throttle window closes, collapsing repeated deferrals
+    /// into a single write.
+    ///
+    /// Re-reads the digest when it fires rather than capturing the one that was
+    /// deferred. Logging four days in one sitting defers three times; the value
+    /// worth writing is the state at the end, not the state at the first defer.
+    /// A backgrounded app may never get to run this, which is fine: the next
+    /// foreground triggers a recompute, and the gate will still see a changed
+    /// digest and publish then. The trailing write is what closes the gap for a
+    /// user who stays in the app, not a durability guarantee.
+    private func scheduleTrailingPublish(after delay: TimeInterval) {
+        pendingPublish?.cancel()
+        pendingPublish = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(max(delay, 0) * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            guard let current = self.digestSource() else { return }
+            self.pendingPublish = nil
+            await self.publishIfChanged(current)
         }
     }
 
@@ -180,6 +238,11 @@ final class PartnerCycleSharing: ObservableObject {
         }
         currentInvite = nil
         persistInvite()
+        // A deferred write must not outlive the share it was for. Without this
+        // cancel, a publish scheduled seconds before the user tapped stop would
+        // fire afterwards and recreate the zone they just deleted.
+        pendingPublish?.cancel()
+        pendingPublish = nil
         // The zone is about to go, taking the record the watermark describes
         // with it. Without this, re-sharing later would compare against a
         // digest that no longer exists anywhere and skip the first publish.
