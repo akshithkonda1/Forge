@@ -431,6 +431,15 @@ struct SleepData: Identifiable {
     var lightMinutes: Int
     var awakeMinutes: Int
     var score: Int
+    /// When sleep actually began and ended, as opposed to how much of it there
+    /// was. Duration alone cannot place a circadian phase — two people sleeping
+    /// seven hours, one from 22:00 and one from 03:00, have opposite days.
+    ///
+    /// Optional because a night can be known by duration alone: HealthKit
+    /// entries written by third-party apps sometimes carry no usable stage
+    /// samples, and every seeded night predates this field.
+    var onset: Date? = nil
+    var wake: Date? = nil
 }
 
 // MARK: - Sleep Intelligence
@@ -720,21 +729,66 @@ let mockChatMessages: [ChatMessage] = {
     ]
 }()
 
+/// A clock time on the night filed under `daysAgo`.
+///
+/// A bedtime reading 22:xx or later belongs to the evening *before* the morning
+/// the night is filed under; one reading 00:xx or 01:xx is already past
+/// midnight and belongs to the morning itself. Getting this backwards moves a
+/// bedtime by a full day, which is invisible in a duration and catastrophic in
+/// a phase estimate.
+private func mockClockTime(daysAgo: Int, _ time: String, previousEvening: Bool) -> Date {
+    let parts = time.split(separator: ":").compactMap { Int($0) }
+    let calendar = Calendar.current
+    let morning = calendar.startOfDay(for: Date().addingTimeInterval(-86400 * Double(daysAgo)))
+    let base = previousEvening ? (calendar.date(byAdding: .day, value: -1, to: morning) ?? morning) : morning
+    let minutes = (parts.first ?? 0) * 60 + (parts.count > 1 ? parts[1] : 0)
+    return calendar.date(byAdding: .minute, value: minutes, to: base) ?? base
+}
+
+private func mockOnset(_ daysAgo: Int, _ time: String) -> Date {
+    let hour = Int(time.split(separator: ":").first ?? "0") ?? 0
+    return mockClockTime(daysAgo: daysAgo, time, previousEvening: hour >= 12)
+}
+
+private func mockWake(_ daysAgo: Int, _ time: String) -> Date {
+    mockClockTime(daysAgo: daysAgo, time, previousEvening: false)
+}
+
+/// Seeded nights, replaced by HealthKit as soon as it is authorized.
+///
+/// Bedtimes drift by up to an hour either side of 23:00 on purpose. A fortnight
+/// of identical bedtimes renders a confidence figure no real person's data ever
+/// earns, and a demo that looks more certain than the product can be is a demo
+/// that sets the wrong expectation.
 let mockSleepData: [SleepData] = [
-    SleepData(date: isoDateString(daysAgo: 0), totalHours:7.2, deepMinutes:102, remMinutes:95,  lightMinutes:215, awakeMinutes:20, score:88),
-    SleepData(date: isoDateString(daysAgo: 1), totalHours:6.8, deepMinutes:78,  remMinutes:88,  lightMinutes:225, awakeMinutes:17, score:74),
-    SleepData(date: isoDateString(daysAgo: 2), totalHours:7.5, deepMinutes:110, remMinutes:100, lightMinutes:220, awakeMinutes:20, score:91),
-    SleepData(date: isoDateString(daysAgo: 3), totalHours:6.2, deepMinutes:65,  remMinutes:72,  lightMinutes:210, awakeMinutes:25, score:62),
-    SleepData(date: isoDateString(daysAgo: 4), totalHours:7.8, deepMinutes:115, remMinutes:105, lightMinutes:228, awakeMinutes:20, score:93),
-    SleepData(date: isoDateString(daysAgo: 5), totalHours:7.0, deepMinutes:88,  remMinutes:92,  lightMinutes:218, awakeMinutes:22, score:80),
-    SleepData(date: isoDateString(daysAgo: 6), totalHours:6.5, deepMinutes:72,  remMinutes:80,  lightMinutes:208, awakeMinutes:30, score:68),
-    SleepData(date: isoDateString(daysAgo: 7), totalHours:7.4, deepMinutes:98,  remMinutes:96,  lightMinutes:222, awakeMinutes:18, score:85),
-    SleepData(date: isoDateString(daysAgo: 8), totalHours:6.9, deepMinutes:82,  remMinutes:84,  lightMinutes:216, awakeMinutes:32, score:70),
-    SleepData(date: isoDateString(daysAgo: 9), totalHours:7.6, deepMinutes:108, remMinutes:102, lightMinutes:224, awakeMinutes:22, score:90),
-    SleepData(date: isoDateString(daysAgo: 10), totalHours:5.8, deepMinutes:55,  remMinutes:65,  lightMinutes:195, awakeMinutes:33, score:55),
-    SleepData(date: isoDateString(daysAgo: 11), totalHours:7.1, deepMinutes:95,  remMinutes:90,  lightMinutes:218, awakeMinutes:23, score:82),
-    SleepData(date: isoDateString(daysAgo: 12), totalHours:7.3, deepMinutes:100, remMinutes:94,  lightMinutes:220, awakeMinutes:24, score:84),
-    SleepData(date: isoDateString(daysAgo: 13), totalHours:6.6, deepMinutes:70,  remMinutes:78,  lightMinutes:212, awakeMinutes:36, score:65),
+    SleepData(date: isoDateString(daysAgo: 0), totalHours:7.2, deepMinutes:102, remMinutes:95,  lightMinutes:215, awakeMinutes:20, score:88,
+              onset: mockOnset(0, "23:10"),  wake: mockWake(0, "07:05")),
+    SleepData(date: isoDateString(daysAgo: 1), totalHours:6.8, deepMinutes:78,  remMinutes:88,  lightMinutes:225, awakeMinutes:17, score:74,
+              onset: mockOnset(1, "23:45"),  wake: mockWake(1, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 2), totalHours:7.5, deepMinutes:110, remMinutes:100, lightMinutes:220, awakeMinutes:20, score:91,
+              onset: mockOnset(2, "22:50"),  wake: mockWake(2, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 3), totalHours:6.2, deepMinutes:65,  remMinutes:72,  lightMinutes:210, awakeMinutes:25, score:62,
+              onset: mockOnset(3, "00:20"),  wake: mockWake(3, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 4), totalHours:7.8, deepMinutes:115, remMinutes:105, lightMinutes:228, awakeMinutes:20, score:93,
+              onset: mockOnset(4, "22:40"),  wake: mockWake(4, "07:10")),
+    SleepData(date: isoDateString(daysAgo: 5), totalHours:7.0, deepMinutes:88,  remMinutes:92,  lightMinutes:218, awakeMinutes:22, score:80,
+              onset: mockOnset(5, "23:15"),  wake: mockWake(5, "06:45")),
+    SleepData(date: isoDateString(daysAgo: 6), totalHours:6.5, deepMinutes:72,  remMinutes:80,  lightMinutes:208, awakeMinutes:30, score:68,
+              onset: mockOnset(6, "23:55"),  wake: mockWake(6, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 7), totalHours:7.4, deepMinutes:98,  remMinutes:96,  lightMinutes:222, awakeMinutes:18, score:85,
+              onset: mockOnset(7, "22:55"),  wake: mockWake(7, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 8), totalHours:6.9, deepMinutes:82,  remMinutes:84,  lightMinutes:216, awakeMinutes:32, score:70,
+              onset: mockOnset(8, "23:30"),  wake: mockWake(8, "07:05")),
+    SleepData(date: isoDateString(daysAgo: 9), totalHours:7.6, deepMinutes:108, remMinutes:102, lightMinutes:224, awakeMinutes:22, score:90,
+              onset: mockOnset(9, "22:45"),  wake: mockWake(9, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 10), totalHours:5.8, deepMinutes:55,  remMinutes:65,  lightMinutes:195, awakeMinutes:33, score:55,
+              onset: mockOnset(10, "01:05"), wake: mockWake(10, "07:15")),
+    SleepData(date: isoDateString(daysAgo: 11), totalHours:7.1, deepMinutes:95,  remMinutes:90,  lightMinutes:218, awakeMinutes:23, score:82,
+              onset: mockOnset(11, "23:20"), wake: mockWake(11, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 12), totalHours:7.3, deepMinutes:100, remMinutes:94,  lightMinutes:220, awakeMinutes:24, score:84,
+              onset: mockOnset(12, "23:05"), wake: mockWake(12, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 13), totalHours:6.6, deepMinutes:70,  remMinutes:78,  lightMinutes:212, awakeMinutes:36, score:65,
+              onset: mockOnset(13, "23:50"), wake: mockWake(13, "07:05")),
 ]
 
 let mockWorkoutHistory: [WorkoutHistory] = [

@@ -11,6 +11,7 @@
 		AA00010000000000000000D1 /* SupporterGuidance.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000D1 /* SupporterGuidance.swift */; };
 		AA00010000000000000000D2 /* SupporterDigestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000D2 /* SupporterDigestView.swift */; };
 		AA00010000000000000000D3 /* CycleSharingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000D3 /* CycleSharingView.swift */; };
+		AA00010000000000000000E1 /* EnergyScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000E1 /* EnergyScheduleView.swift */; };
 		AA00010000000000000000CA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C7 /* Assets.xcassets */; };
 		AA00010000000000000000C1 /* MessagesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C1 /* MessagesViewController.swift */; };
 		AA00010000000000000000C2 /* InviteBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C2 /* InviteBubble.swift */; };
@@ -223,6 +224,7 @@
 		AA00020000000000000000D1 /* SupporterGuidance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupporterGuidance.swift; sourceTree = "<group>"; };
 		AA00020000000000000000D2 /* SupporterDigestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Menstrual/SupporterDigestView.swift"; sourceTree = "<group>"; };
 		AA00020000000000000000D3 /* CycleSharingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Menstrual/CycleSharingView.swift"; sourceTree = "<group>"; };
+		AA00020000000000000000E1 /* EnergyScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sleep/EnergyScheduleView.swift"; sourceTree = "<group>"; };
 		AA00020000000000000000C7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA00020000000000000000C1 /* MessagesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesViewController.swift; sourceTree = "<group>"; };
 		AA00020000000000000000C2 /* InviteBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteBubble.swift; sourceTree = "<group>"; };
@@ -424,6 +426,7 @@
 				1ARIA0432F9FF867004091AA /* MenstrualHealthView.swift */,
 				AA00020000000000000000D2 /* SupporterDigestView.swift */,
 				AA00020000000000000000D3 /* CycleSharingView.swift */,
+				AA00020000000000000000E1 /* EnergyScheduleView.swift */,
 				1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */,
 				1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */,
 				1HCV0012F9FF867004091AA /* HomeCookingView.swift */,
@@ -908,6 +911,7 @@
 				AA00010000000000000000D1 /* SupporterGuidance.swift in Sources */,
 				AA00010000000000000000D2 /* SupporterDigestView.swift in Sources */,
 				AA00010000000000000000D3 /* CycleSharingView.swift in Sources */,
+				AA00010000000000000000E1 /* EnergyScheduleView.swift in Sources */,
 				1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */,
 				AA0001000000000000000001 /* ForgeSwiftApp.swift in Sources */,
 				1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */,

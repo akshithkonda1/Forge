@@ -30,6 +30,7 @@ let package = Package(
                 "DesignSystem/ForgeDS.swift",
                 "DesignSystem/ForgePalette.swift",
                 "HealthKit/HealthKitQueryHelpers.swift",
+                "Intelligence/CircadianRhythm.swift",
                 "Intelligence/ContextRules.swift",
                 "Intelligence/MindfulnessSuggestionEngine.swift",
                 "Intelligence/SleepStoryEngine.swift",

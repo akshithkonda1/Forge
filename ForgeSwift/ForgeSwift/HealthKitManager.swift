@@ -1671,13 +1671,30 @@ class HealthKitManager: ObservableObject {
 
                     let totalHours = (deep + rem + light) / 3600
                     guard totalHours > 0 else { return nil }
+
+                    // Sleep onset and final wake, from asleep samples only.
+                    // Time in bed reading or lying awake is not sleep, and
+                    // letting it into these bounds drags the mid-sleep point
+                    // toward whenever the watch went on rather than whenever the
+                    // person actually went under — which is the whole signal the
+                    // circadian phase estimate rests on.
+                    let asleepValues: Set<Int> = [
+                        HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
+                        HKCategoryValueSleepAnalysis.asleepREM.rawValue,
+                        HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+                        HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
+                    ]
+                    let asleepSamples = daySamples.filter { asleepValues.contains($0.value) }
+
                     return SleepNightSample(
                         date: date,
                         totalHours: totalHours,
                         deepMinutes: Int(deep / 60),
                         remMinutes: Int(rem / 60),
                         lightMinutes: Int(light / 60),
-                        awakeMinutes: Int(awake / 60)
+                        awakeMinutes: Int(awake / 60),
+                        onset: asleepSamples.map(\.startDate).min(),
+                        wake: asleepSamples.map(\.endDate).max()
                     )
                 }
                 continuation.resume(returning: nights.sorted { $0.date > $1.date })
@@ -1694,6 +1711,11 @@ struct SleepNightSample {
     let remMinutes: Int
     let lightMinutes: Int
     let awakeMinutes: Int
+    /// Bounds of the asleep stretch. Nil when a night arrived as a bare
+    /// duration with no stage samples to bound — some third-party writers do
+    /// exactly that.
+    var onset: Date? = nil
+    var wake: Date? = nil
 }
 
 // MARK: - Supporting Types

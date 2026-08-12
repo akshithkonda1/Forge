@@ -318,6 +318,11 @@ struct SleepOverviewTab: View {
             VStack(spacing: 22) {
                 ChronotypeBadge(onTap: { showPersonalization = true })
 
+                // Sleep debt and the shape of the day ahead. Sits above the
+                // score because it is the only card here about the next sixteen
+                // hours rather than the last eight.
+                EnergyScheduleCard()
+
                 // Hero score ring
                 SleepScoreHeroCard()
 
@@ -2324,7 +2329,10 @@ struct SleepDebtTrackerView: View {
     var debt: Double {
         hkService.computeSleepDebt(from: store.sleepData)
     }
-    var debtColor: Color { debt > 3 ? .danger : debt > 1 ? .warning : .success }
+    // Thresholds match EnergyScheduleCard's, deliberately. The two cards render
+    // the same number and disagreeing about whether it is bad would be worse
+    // than either of them being slightly off.
+    var debtColor: Color { debt >= 8 ? .danger : debt >= 2 ? .warning : .success }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -2335,10 +2343,10 @@ struct SleepDebtTrackerView: View {
                         Text(String(format: "%.1f", debt)).font(.system(size: 32, weight: .bold, design: .rounded)).foregroundColor(debtColor)
                         Text("hours").font(.system(size: 14)).foregroundColor(.textSecondary)
                     }
-                    Text("This week").font(.system(size: 12)).foregroundColor(.textTertiary)
+                    Text("Last 14 nights").font(.system(size: 12)).foregroundColor(.textTertiary)
                 }
                 Spacer()
-                Text(debt > 3 ? "Prioritize recovery" : debt > 1 ? "Add 30 min tonight" : "On track! 🎉")
+                Text(debt >= 8 ? "Prioritize recovery" : debt >= 2 ? "Add 30 min tonight" : "On track! 🎉")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(debtColor)
                     .multilineTextAlignment(.trailing)
@@ -2347,7 +2355,7 @@ struct SleepDebtTrackerView: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.borderColor.opacity(0.3)).frame(height: 8)
                     Capsule().fill(debtColor)
-                        .frame(width: appeared ? geo.size.width * CGFloat(min(debt / 7, 1.0)) : 0, height: 8)
+                        .frame(width: appeared ? geo.size.width * CGFloat(min(debt / 14, 1.0)) : 0, height: 8)
                         .animation(.spring(response: 1.0, dampingFraction: 0.7).delay(0.2), value: appeared)
                 }
             }

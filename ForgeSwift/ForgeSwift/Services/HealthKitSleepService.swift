@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import ForgeCore
 
 /// Chronotype-aware sleep intelligence: HealthKit ingestion, scoring, adaptive wake/sunrise, and ARIA context.
 @MainActor
@@ -55,7 +56,9 @@ final class HealthKitSleepService: ObservableObject {
                 remMinutes: session.remMinutes,
                 lightMinutes: session.lightMinutes,
                 awakeMinutes: session.awakeMinutes,
-                score: scored
+                score: scored,
+                onset: session.onset,
+                wake: session.wake
             )
         }
     }
@@ -90,10 +93,24 @@ final class HealthKitSleepService: ObservableObject {
 
     // MARK: - Sleep Debt
 
+    /// Hours of sleep owed over the trailing fortnight.
+    ///
+    /// Two things changed here relative to the obvious version, both because the
+    /// obvious version reads better than it behaves:
+    ///
+    /// Summing a week and subtracting a target lets a surplus cancel a deficit,
+    /// so a ten-hour Saturday erases two ruined weeknights and the figure says
+    /// you are fine. Debt is per-night and one-directional; you cannot sleep
+    /// ahead.
+    ///
+    /// And the target is estimated from the user's own best nights rather than
+    /// read off their chronotype. A chronotype is a phase preference — when you
+    /// sleep — not a quantity. Two bears do not need the same eight hours.
     func computeSleepDebt(from sleepData: [SleepData]) -> Double {
-        let target = userProfile.chronotype.targetSleepHours
-        let actual = sleepData.prefix(7).reduce(0.0) { $0 + $1.totalHours }
-        return max(0, target * 7 - actual)
+        // `sleepData` arrives newest-first; the engine's window is a suffix.
+        let durations = Array(sleepData.map(\.totalHours).reversed())
+        let need = CircadianRhythm.sleepNeedHours(fromAsleepHours: durations)
+        return CircadianRhythm.sleepDebtHours(asleepHours: durations, need: need)
     }
 
     func targetSleepHours() -> Double {
