@@ -38,8 +38,38 @@ final class PartnerCycleSharing: ObservableObject {
     /// so a user who force-quits mid-flow still sees the truth on relaunch.
     @Published private(set) var currentInvite: PartnerCycleInvite?
 
-    /// A digest someone shared *with* this user, once fetched.
-    @Published private(set) var receivedDigest: PartnerCycleDigest?
+    /// Every digest shared *with* this user, one per person.
+    ///
+    /// Plural because the singular was a real limitation: the first version
+    /// returned after the first matching zone, so a user whose partner *and*
+    /// whose daughter both shared with them saw exactly one, chosen by whatever
+    /// order CloudKit happened to return zones in.
+    @Published private(set) var receivedDigests: [ReceivedDigest] = []
+
+    /// Whether the owner has paused outgoing updates. Persisted, because a pause
+    /// that forgets itself on relaunch is worse than no pause at all.
+    @Published private(set) var isPaused: Bool =
+        UserDefaults.standard.bool(forKey: "forge.cycle.sharing.paused.v1")
+
+    struct ReceivedDigest: Identifiable, Equatable {
+        /// The CloudKit zone owner — stable per sharer, and the only identifier
+        /// a supporter has for them that CloudKit guarantees.
+        let id: String
+        /// What the owner chose to be called. Read from the record rather than
+        /// the digest: a display name is not cycle data and does not belong
+        /// inside the redaction boundary.
+        let ownerName: String
+        /// The relationship *the owner* chose when they invited this person.
+        ///
+        /// It has to travel with the share. The supporter's own
+        /// `partnerSettings.resolvedRole` is a single local value, so using it
+        /// would give every sharer the same lens — and a user whose settings say
+        /// `.romantic` would see intimacy material against their daughter's
+        /// digest. That is precisely the failure `PartnerSupportLens` exists to
+        /// prevent, and only the owner can answer it.
+        let role: CycleSupportRole
+        let digest: PartnerCycleDigest
+    }
 
     /// When the digest last actually reached CloudKit, for the "updated …" line.
     var lastPublishedAt: Date? { publishGate.lastPublishedAt }
@@ -130,6 +160,10 @@ final class PartnerCycleSharing: ObservableObject {
         // current. Creating one here would put reproductive state in CloudKit
         // for a user who never asked to share.
         guard currentInvite != nil else { return false }
+        // Paused means paused. Checked here rather than at the call sites so
+        // there is one place that can get it wrong, and recompute does not need
+        // to know sharing state exists.
+        guard !isPaused else { return false }
 
         switch publishGate.decide(digest) {
         case .skipUnchanged:
@@ -204,6 +238,16 @@ final class PartnerCycleSharing: ObservableObject {
             // never accidentally skip the redaction boundary on its way to CloudKit.
             record["payload"] = try JSONEncoder().encode(digest) as CKRecordValue
             record["asOfDayKey"] = digest.asOfDayKey as CKRecordValue
+            // Outside the payload on purpose. A display name is not cycle data,
+            // so it does not belong inside the redaction boundary — and a
+            // supporter with two sharers needs to know which is which.
+            if let invite = currentInvite {
+                record["ownerDisplayName"] = invite.fromDisplayName as CKRecordValue
+                // The lens the supporter must render through. Owner-authored,
+                // because the supporter's device has no other way to know what
+                // relationship this share represents.
+                record["supportRole"] = invite.role.rawValue as CKRecordValue
+            }
 
             _ = try await database.modifyRecords(
                 saving: [record],
@@ -428,26 +472,80 @@ final class PartnerCycleSharing: ObservableObject {
     /// Fetch the digest a supporter has been granted. Reads the *shared* database —
     /// a supporter never has the owner's private database, so there is no path from
     /// here back to the owner's raw logs even if this code were wrong.
+    /// Fetches **every** digest shared with this user, not just the first.
     @discardableResult
-    func fetchSharedDigest() async -> PartnerCycleDigest? {
+    func fetchSharedDigest() async -> [ReceivedDigest] {
         do {
             let zones = try await container.sharedCloudDatabase.allRecordZones()
+            var found: [ReceivedDigest] = []
+
             for zone in zones where zone.zoneID.zoneName == Self.zoneID.zoneName {
                 let id = CKRecord.ID(recordName: Self.digestRecordName, zoneID: zone.zoneID)
-                let record = try await container.sharedCloudDatabase.record(for: id)
-                guard let data = record["payload"] as? Data else { continue }
-                let digest = try JSONDecoder().decode(PartnerCycleDigest.self, from: data)
-                receivedDigest = digest
-                return digest
+                // One person's zone being unreadable — mid-revocation, a
+                // transient error — must not cost the supporter everyone else's
+                // digest, so this continues rather than throwing out of the loop.
+                guard let record = try? await container.sharedCloudDatabase.record(for: id),
+                      let data = record["payload"] as? Data,
+                      let digest = try? JSONDecoder().decode(PartnerCycleDigest.self, from: data)
+                else { continue }
+
+                // Absent or unrecognised role falls back to `.other`, which
+                // gates intimacy material off. A missing field must never open
+                // a section, only close one.
+                let role = (record["supportRole"] as? String)
+                    .flatMap(CycleSupportRole.init(rawValue:)) ?? .other
+
+                found.append(ReceivedDigest(
+                    id: zone.zoneID.ownerName,
+                    ownerName: record["ownerDisplayName"] as? String ?? "Someone you support",
+                    role: role,
+                    digest: digest
+                ))
             }
-            // No zone means the owner revoked. Drop the cached copy rather than
-            // keep showing a digest they have withdrawn — a supporter must not
-            // go on seeing yesterday's state after sharing stopped.
-            receivedDigest = nil
+
+            // Assigned wholesale, so a zone that has gone away drops out. A
+            // supporter must not go on seeing a digest after the owner revoked —
+            // and with several sharers, "no zones at all" is no longer the only
+            // way that happens.
+            receivedDigests = found.sorted { $0.ownerName < $1.ownerName }
+            return receivedDigests
         } catch {
             lastPublishError = error.localizedDescription
+            return receivedDigests
         }
-        return nil
+    }
+
+    // ------------------------------------------------------------
+    // MARK: Pause
+    // ------------------------------------------------------------
+
+    /// Stop or resume outgoing updates without tearing the share down.
+    ///
+    /// Revoking is a social act — the other person can tell, and re-inviting
+    /// means asking again. Pausing is the quiet version: "not this week". Having
+    /// only the loud option means people who want privacy for a few days take
+    /// the loud one, or take neither and share something they did not want to.
+    ///
+    /// Pausing publishes one final empty digest rather than simply going silent,
+    /// so the supporter sees "No recent data" instead of a stale reading that
+    /// still looks current. See `PartnerCycleDigest.paused(asOf:)`.
+    func setPaused(_ paused: Bool) async {
+        guard paused != isPaused else { return }
+        isPaused = paused
+        UserDefaults.standard.set(paused, forKey: "forge.cycle.sharing.paused.v1")
+
+        pendingPublish?.cancel()
+        pendingPublish = nil
+        // Either direction invalidates the watermark: the next write is a
+        // different kind of value than the one it describes.
+        publishGate.reset()
+
+        guard currentInvite != nil else { return }
+        if paused {
+            await publish(.paused())
+        } else if let current = digestSource() {
+            await publishIfChanged(current)
+        }
     }
 
     /// Wake supporters when a new digest lands. The notification carries no payload —

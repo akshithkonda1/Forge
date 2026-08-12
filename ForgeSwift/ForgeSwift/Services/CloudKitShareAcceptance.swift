@@ -92,8 +92,8 @@ final class ForgeAppDelegate: NSObject, UIApplicationDelegate {
               notification.containerIdentifier == PartnerShareAcceptance.containerIdentifier
         else { return .noData }
 
-        let digest = await PartnerCycleSharing.shared.fetchSharedDigest()
-        return digest == nil ? .noData : .newData
+        let digests = await PartnerCycleSharing.shared.fetchSharedDigest()
+        return digests.isEmpty ? .noData : .newData
     }
 
     func application(_ application: UIApplication,

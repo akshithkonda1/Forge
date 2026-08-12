@@ -2060,14 +2060,22 @@ struct MenstrualHealthView: View {
     /// direction, and it is the one that has to be redacted.
     @ViewBuilder
     private var sharedWithMeSection: some View {
-        if let digest = sharing.receivedDigest {
+        // One block per person. A supporter can hold shares from more than one
+        // sharer — a partner and a daughter, say — and each gets its own lens,
+        // because the role decides whether intimate material appears at all.
+        ForEach(sharing.receivedDigests) { received in
             SupporterDigestView(
-                digest: digest,
+                digest: received.digest,
+                // The role comes from the share, not from local settings. Local
+                // settings hold one value for the whole app, so two sharers
+                // would render through the same lens — and someone whose
+                // settings say `.romantic` would get intimacy material against
+                // their daughter's digest.
                 lens: PartnerSupportLens(
-                    role: cycleStore.partnerSettings.resolvedRole,
+                    role: received.role,
                     supporterSex: store.userProfile.biologicalSex
                 ),
-                personName: cycleStore.partnerSettings.displayName
+                personName: received.ownerName
             )
         }
     }

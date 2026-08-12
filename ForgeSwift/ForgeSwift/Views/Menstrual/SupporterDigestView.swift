@@ -30,6 +30,7 @@ struct SupporterDigestView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             if isPreview { previewBanner }
+            if !isPreview && digest.isStale { staleBanner }
 
             ForEach(lens.sections, id: \.self) { section in
                 switch section {
@@ -58,6 +59,29 @@ struct SupporterDigestView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(hex: "22C55E").opacity(0.12))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    /// Shown when the owner's device has not published in a while.
+    ///
+    /// Without it, a digest that stopped updating goes on looking authoritative
+    /// indefinitely — a supporter would read a phase that moved on days ago and
+    /// act on it. Says what to do about it, because "this is old" with no next
+    /// step just makes someone uneasy.
+    private var staleBanner: some View {
+        let days = digest.ageInDays
+        return Label(
+            days.map { "No update in \($0) days. Their app may not have run — this could be out of date." }
+                ?? "This may be out of date.",
+            systemImage: "exclamationmark.arrow.triangle.2.circlepath"
+        )
+        .font(FDS.TypeScale.body(12))
+        .foregroundStyle(Color(hex: "FBBF24"))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(hex: "FBBF24").opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var glance: some View {

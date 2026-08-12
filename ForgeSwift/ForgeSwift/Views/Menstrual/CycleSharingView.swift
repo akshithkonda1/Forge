@@ -219,7 +219,9 @@ struct CycleSharingView: View {
 
             participantList
 
-            if let updated = sharing.lastPublishedAt {
+            pauseControl
+
+            if let updated = sharing.lastPublishedAt, !sharing.isPaused {
                 // Tells the owner their device is actually keeping the shared
                 // copy current, which is otherwise invisible.
                 Label("Their view last updated \(updated.formatted(.relative(presentation: .named)))",
@@ -331,6 +333,42 @@ struct CycleSharingView: View {
                     .fill(Color.surfaceElevated)
             )
         }
+    }
+
+    /// Pause is the quiet alternative to revoking.
+    ///
+    /// Revoking is a social act — the other person notices, and coming back
+    /// means asking again. Offering only the loud option means someone who wants
+    /// a few days of privacy either takes it, or takes nothing and shares a week
+    /// they did not want to.
+    private var pauseControl: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle(isOn: Binding(
+                get: { sharing.isPaused },
+                set: { paused in Task { await sharing.setPaused(paused) } }
+            )) {
+                Label(sharing.isPaused ? "Updates paused" : "Pause updates",
+                      systemImage: sharing.isPaused ? "pause.circle.fill" : "pause.circle")
+                    .font(FDS.TypeScale.label(14))
+                    .foregroundColor(.textPrimary)
+            }
+            .tint(Color.ember)
+
+            Text(sharing.isPaused
+                 // States exactly what the other side sees, so nobody has to
+                 // guess whether pausing looks like an accusation.
+                 ? "They see “No recent data” — not that you paused. Resume any time."
+                 : "Stops sending updates without ending the share. They keep access; there's just nothing new to see.")
+                .font(FDS.TypeScale.body(11))
+                .foregroundColor(.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.surfaceElevated)
+        )
     }
 
     private var acceptedCount: Int {
