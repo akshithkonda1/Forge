@@ -5,6 +5,10 @@ import UIKit
 struct ForgeSwiftApp: App {
     @StateObject private var store = AppStore()
 
+    // Exists so iOS has somewhere to hand a CloudKit share when a supporter
+    // accepts a cycle invite; SwiftUI's App lifecycle exposes no other hook.
+    @UIApplicationDelegateAdaptor(ForgeAppDelegate.self) private var appDelegate
+
     init() {
         // Listens for watch workout state and mirrors it into a Live
         // Activity (lock screen + Dynamic Island). Also owns WCSession
@@ -21,17 +25,16 @@ struct ForgeSwiftApp: App {
                 .preferredColorScheme(.dark)
                 .onAppear {
                     // Re-sync when UI is up (WCSession may not be activated in init).
-                    WatchAriaConfigBridge.sync(
-                        firstName: store.userProfile.name
-                            .split(separator: " ").first.map(String.init)
-                    )
-                    // Best-effort: if a watch is already reachable, nudge it again
-                    // after a short delay so dual-sim launches still get config.
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        WatchAriaConfigBridge.sync(
-                            firstName: store.userProfile.name
-                                .split(separator: " ").first.map(String.init)
-                        )
+                    let firstName = store.userProfile.name
+                        .split(separator: " ").first.map(String.init)
+                    WatchAriaConfigBridge.sync(firstName: firstName)
+                    // Dual-sim / companion launches: watch often boots a few seconds
+                    // after the phone. Retry so ARIA URL + name land after WCSession
+                    // becomes reachable (App Groups are unreliable in Simulator).
+                    for delay in [1.5, 4.0, 8.0] {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                            WatchAriaConfigBridge.sync(firstName: firstName)
+                        }
                     }
                 }
                 .onChange(of: store.userProfile.name) { _, name in
@@ -44,6 +47,16 @@ struct ForgeSwiftApp: App {
                         firstName: store.userProfile.name
                             .split(separator: " ").first.map(String.init)
                     )
+                }
+                .onOpenURL { url in
+                    store.handleDeepLink(url)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: PartnerShareAcceptance.didAcceptNotification)) { _ in
+                    // A supporter just accepted an invite. Land them on the
+                    // Support pane, which is where the digest they were given
+                    // renders — otherwise accepting drops them on Home with no
+                    // sign anything happened.
+                    store.openCycleHealth(pane: "partner")
                 }
         }
     }

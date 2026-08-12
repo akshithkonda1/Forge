@@ -219,7 +219,7 @@ struct AuthSignUpFlowView: View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 22) {
                 heroCopy(
-                    kicker: "WHO ARE YOU?",
+                    kicker: "Who are you?",
                     title: "What should ARIA\ncall you?",
                     body: "First names only. This is the start of a relationship — not a form."
                 )
@@ -296,7 +296,7 @@ struct AuthSignUpFlowView: View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
                 heroCopy(
-                    kicker: "FIRST QUEST",
+                    kicker: "Our First Goal! What is it,\name?",
                     title: "\(trimmedName), what are\nwe forging first?",
                     body: "Pick one north star. You can change it later — this unlocks a sharper day-one plan."
                 )
@@ -376,7 +376,7 @@ struct AuthSignUpFlowView: View {
                 heroCopy(
                     kicker: "FORGE KEY",
                     title: "Save your progress,\n\(trimmedName).",
-                    body: "One tap. Then ARIA interviews you — HealthKit optional — and builds plan one."
+                    body: "One tap. Then ARIA interviews you — Apple Health optional — and builds plan one."
                 )
 
                 // Quest recap
@@ -476,7 +476,7 @@ struct AuthSignUpFlowView: View {
                     }
                 }
 
-                Text("By continuing you get lifestyle coaching only — not medical diagnosis or care.")
+                Text("By continuing you get lifestyle and fitness coaching, not medical diagnosis or care. ARIA is a lifestyle based fitness coach, not a doctor and cannot help in that way. If you are looking for urgent medical help, please call 911 or visit your local hospital or physician.")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.textMuted)
                     .multilineTextAlignment(.center)

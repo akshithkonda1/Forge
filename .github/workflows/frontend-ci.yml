@@ -5,9 +5,10 @@
 
 name: Frontend CI
 
+# Runs on every branch and every pull request — main included. Path filters scope
+# it to the frontend; there is deliberately no branch filter.
 on:
   push:
-    branches: ["claude/forge-fitness-frontend-TwlOQ"]
     paths:
       - "src/**"
       - "public/**"

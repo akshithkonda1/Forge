@@ -36,7 +36,7 @@ struct AuthWelcomeView: View {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(FDS.Gradient.ember)
-                        Text("FORGE")
+                        Text("Forge")
                             .font(.system(size: 13, weight: .black, design: .rounded))
                             .tracking(3)
                             .foregroundColor(.textPrimary)
@@ -218,14 +218,14 @@ private struct AuthHookPage: Identifiable {
             id: "readiness",
             kicker: "TRAIN ON SIGNAL",
             title: "Know when to\npush — or protect.",
-            body: "ARIA takes standardized metrics and creates a standardized plan that's best for you.All your stats are saved daily so you don't erase progress. But everytime you use ARIA it feels intentional.",
+            body: "ARIA takes standardized metrics and creates a standardized plan that's best for you. All your stats are saved daily so you don't erase progress but rather you build on it the next day. Everytime you use ARIA it feels intentional not like its a burden.",
             icon: "waveform.path.ecg",
             accentHex: "38BDF8",
             reward: "+ Unlock readiness dial"
         ),
         AuthHookPage(
             id: "life",
-            kicker: "WHOLE LIFE",
+            kicker: "Workout based on your lifestyle.",
             title: "Workouts, lifestyle,\nand cycle rhythm.",
             body: "ARIA looks into how you eat and sleep, but it also seeks to learn more about how you spend your free time, how you provide support to those you love in their time of need — one control center and its private by design.",
             icon: "leaf.fill",

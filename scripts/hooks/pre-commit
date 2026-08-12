@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+#
+# Blocks a commit that would add a cloud-sync conflict copy (iCloud "Foo 3.swift",
+# Drive "Foo (1).ts", Dropbox "Foo (Case Conflict).py", Finder "Foo copy.swift").
+#
+# Same check the Repo Hygiene workflow runs, but scoped to what you are actually
+# staging, so you find out in milliseconds instead of waiting on CI.
+#
+# Install:  ln -sf ../../scripts/hooks/pre-commit .git/hooks/pre-commit
+#
+# Bypass once, if you genuinely need to:  git commit --no-verify
+
+set -euo pipefail
+
+repo_root=$(git rev-parse --show-toplevel)
+checker="$repo_root/scripts/check-conflict-copies.sh"
+
+# The hook is committed but the checker could be missing on an old branch —
+# never block a commit because the tooling is absent.
+[ -x "$checker" ] || exit 0
+
+if ! "$checker" --staged; then
+    echo
+    echo "Commit blocked. Unstage them with:  git restore --staged <file>"
+    exit 1
+fi
+
+# Xcode project structure, but only when the commit actually touches it — the
+# check walks the repo, so running it on every commit would be a tax on commits
+# that cannot possibly break it.
+pbx_checker="$repo_root/scripts/check-pbxproj.py"
+if [ -f "$pbx_checker" ] && git diff --cached --name-only | grep -q 'project\.pbxproj$'; then
+    if ! (cd "$repo_root" && python3 "$pbx_checker"); then
+        echo
+        echo "Commit blocked: the Xcode project would be structurally broken."
+        exit 1
+    fi
+fi

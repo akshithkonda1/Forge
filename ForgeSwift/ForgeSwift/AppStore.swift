@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -7,7 +8,8 @@ import FoundationModels
 // MARK: - Tab Enum
 
 enum TabItem: String, CaseIterable, Identifiable {
-    case home, workout, chat, lifestyle, sleep, progress, profile
+    /// Order is visual nav order: Home · Train · Life · ARIA · Sleep · Stats · You
+    case home, workout, lifestyle, chat, sleep, progress, profile
     var id: String { rawValue }
     var label: String {
         switch self {
@@ -924,6 +926,10 @@ final class AppStore: ObservableObject {
     @Published var pendingCycleHealthOpen: Bool = false
     /// Optional Cycle pane: "me" or "partner".
     @Published var pendingCyclePane: String? = nil
+    /// When true, Cycle Health opens the sharing sheet on top. Set by the
+    /// `forge://cycle/sharing` deep link the Messages extension uses when it has
+    /// no invite staged and has to hand the user back to the app.
+    @Published var pendingCycleSharingOpen: Bool = false
     /// Lifestyle sub-segment deep link: `nutrition` | `restaurants` | `wellbeing` | `aiOptimization`
     @Published var pendingLifestyleSegment: String? = nil
 
@@ -1431,7 +1437,7 @@ final class AppStore: ObservableObject {
         var anchors: [String] = []
 
         // Always pin live biometrics so sleep/readiness/training stay tight.
-        anchors.append(CrossZoneConsistency.memoryAnchorLine(for: .snapshot(from: self)))
+        anchors.append(CrossZoneConsistency.memoryAnchorLine(for: CrossZoneConsistency.snapshot(from: self)))
 
         if !durableMemoryAnchors.isEmpty {
             anchors.append(
@@ -1481,7 +1487,9 @@ final class AppStore: ObservableObject {
     func makeTrainerContext() -> TrainerContext {
         let ctx = AriaContextStore.shared.context
         let cycleStore = MenstrualHealthStore.shared
-        cycleStore.refresh(from: self)
+        // Read-only by design: this is called from SwiftUI computed properties, and
+        // mutating published cycle state from inside a view update is not allowed.
+        // The cycle store is refreshed on launch, on Home's task, and after every log.
         let cycle: MenstrualCycleSnapshot? = {
             guard cycleStore.settings.enabled, cycleStore.settings.shareWithAria else { return nil }
             return cycleStore.snapshot
@@ -1712,10 +1720,30 @@ final class AppStore: ObservableObject {
     }
 
     /// Deep-link into Home Cycle Health full-screen (optional Support pane).
-    func openCycleHealth(pane: String? = nil) {
+    func openCycleHealth(pane: String? = nil, sharing: Bool = false) {
         pendingCyclePane = pane
+        pendingCycleSharingOpen = sharing
         // Shell-level fullScreenCover hosts Cycle Health — no need to switch tabs.
         pendingCycleHealthOpen = true
+    }
+
+    /// Route a `forge://` URL. Returns false for anything unrecognised so the
+    /// caller can leave the app where it was rather than guessing.
+    @discardableResult
+    func handleDeepLink(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "forge" else { return false }
+        // forge://cycle/sharing  →  host "cycle", first path component "sharing"
+        let segments = ([url.host] + url.pathComponents.filter { $0 != "/" })
+            .compactMap { $0?.lowercased() }
+        switch segments.first {
+        case "cycle":
+            let leaf = segments.dropFirst().first
+            openCycleHealth(pane: leaf == "support" ? "partner" : "me",
+                            sharing: leaf == "sharing")
+            return true
+        default:
+            return false
+        }
     }
 
     func setQuietMode(_ on: Bool) {
@@ -1834,6 +1862,9 @@ final class AppStore: ObservableObject {
         connectedDevices: [String]? = nil,
         age: Int? = nil,
         weightKg: Double? = nil,
+        heightCm: Double? = nil,
+        gender: Gender? = nil,
+        biologicalSex: BiologicalSex? = nil,
         trainingTheme: AriaTrainingTheme? = nil,
         interestTags: [String]? = nil
     ) {
@@ -1847,11 +1878,36 @@ final class AppStore: ObservableObject {
         if let connectedDevices { userProfile.connectedDevices = connectedDevices }
         if let age { userProfile.age = age }
         if let weightKg { userProfile.weight = weightKg }
+        if let heightCm { userProfile.height = heightCm }
+        if let gender { userProfile.gender = gender }
+        if let biologicalSex {
+            userProfile.biologicalSex = biologicalSex
+            MenstrualHealthStore.shared.enableForBiologicalSexIfNeeded(biologicalSex)
+        }
         if let interestTags { userProfile.interestTags = interestTags }
         if let trainingTheme {
             setTrainingTheme(trainingTheme, source: "profile")
             return
         }
+        objectWillChange.send()
+    }
+
+    /// Stores a new profile photo on disk and records its filename on the profile.
+    /// Returns false when the image could not be written.
+    @discardableResult
+    func setProfilePhoto(_ image: UIImage) -> Bool {
+        guard let fileName = ProfileAvatarStore.shared.save(
+            image,
+            replacing: userProfile.avatarFileName
+        ) else { return false }
+        userProfile.avatarFileName = fileName
+        objectWillChange.send()
+        return true
+    }
+
+    func removeProfilePhoto() {
+        ProfileAvatarStore.shared.delete(userProfile.avatarFileName)
+        userProfile.avatarFileName = nil
         objectWillChange.send()
     }
     

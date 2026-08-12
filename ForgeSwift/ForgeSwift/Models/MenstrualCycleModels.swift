@@ -53,6 +53,17 @@ enum OvulationTestResult: String, Codable, CaseIterable {
     var indicatesNearOvulation: Bool {
         self == .lhSurge || self == .positive || self == .estrogenSurge
     }
+
+    var label: String {
+        switch self {
+        case .negative: return "Negative"
+        case .lhSurge: return "LH surge"
+        case .estrogenSurge: return "Estrogen surge"
+        case .positive: return "Positive"
+        case .indeterminate: return "Indeterminate"
+        case .unknown: return "Unknown"
+        }
+    }
 }
 
 enum CervicalMucusQuality: String, Codable, CaseIterable {
@@ -66,6 +77,17 @@ enum CervicalMucusQuality: String, Codable, CaseIterable {
         case .creamy: return 2
         case .sticky: return 1
         case .dry, .unknown: return 0
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .dry: return "Dry"
+        case .sticky: return "Sticky"
+        case .creamy: return "Creamy"
+        case .watery: return "Watery"
+        case .eggWhite: return "Egg white"
+        case .unknown: return "Unknown"
         }
     }
 }
@@ -225,6 +247,125 @@ struct PeriodEpisode: Identifiable, Codable, Equatable {
     var endDayKey: String
     var peakFlow: MenstrualFlowLevel
     var dayCount: Int
+    /// True when the user explicitly tapped "Period finished" for this episode, rather
+    /// than the engine inferring the end from where bleeding logs stopped.
+    var isConfirmedComplete: Bool = false
+
+    enum CodingKeys: String, CodingKey {
+        case id, startDayKey, endDayKey, peakFlow, dayCount, isConfirmedComplete
+    }
+
+    init(
+        id: String,
+        startDayKey: String,
+        endDayKey: String,
+        peakFlow: MenstrualFlowLevel,
+        dayCount: Int,
+        isConfirmedComplete: Bool = false
+    ) {
+        self.id = id
+        self.startDayKey = startDayKey
+        self.endDayKey = endDayKey
+        self.peakFlow = peakFlow
+        self.dayCount = dayCount
+        self.isConfirmedComplete = isConfirmedComplete
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        startDayKey = try c.decode(String.self, forKey: .startDayKey)
+        endDayKey = try c.decode(String.self, forKey: .endDayKey)
+        peakFlow = try c.decodeIfPresent(MenstrualFlowLevel.self, forKey: .peakFlow) ?? .medium
+        dayCount = try c.decodeIfPresent(Int.self, forKey: .dayCount) ?? 1
+        isConfirmedComplete = try c.decodeIfPresent(Bool.self, forKey: .isConfirmedComplete) ?? false
+    }
+}
+
+/// Physiological bounds the whole engine agrees on.
+///
+/// These were previously scattered as inline magic numbers with inconsistent values —
+/// period length was learned into a 2…10 day range in one place and clamped to 3+ in
+/// another, so the "how long is my period" model and the "am I still bleeding" model
+/// could disagree with each other.
+enum CycleBiology {
+    /// A menstrual bleed lasts 3–7 days. Learned period length is clamped to this.
+    static let periodDayRange: ClosedRange<Int> = 3...7
+    static let defaultPeriodDays = 5
+
+    /// Luteal phase length — ovulation to next period. Stable within a person.
+    static let lutealDayRange: ClosedRange<Int> = 10...16
+    static let defaultLutealDays = 14
+
+    /// Sperm survive ~5 days; the egg ~24 hours. The fertile window is therefore the
+    /// 5 days before ovulation plus ovulation day itself.
+    static let fertileDaysBeforeOvulation = 5
+    static let fertileDaysAfterOvulation = 1
+
+    static let defaultCycleDays = 28
+
+    static func clampPeriodDays(_ days: Int) -> Int {
+        min(periodDayRange.upperBound, max(periodDayRange.lowerBound, days))
+    }
+
+    /// How the end of the *current* bleed was determined. The UI must not present a
+    /// projection the same way it presents a fact: `.projected` is offered for
+    /// confirmation, the other two are simply true.
+    enum PeriodEndSource: String, Codable, Hashable {
+        /// The user tapped "Period finished". Always wins, takes effect immediately.
+        case confirmed
+        /// A logged non-bleeding day after the last bleeding day — real evidence
+        /// the flow stopped, not merely an absence of logs.
+        case observed
+        /// Derived from the learned period length, clamped to `periodDayRange`.
+        /// Used when logging stopped without any signal that the bleeding did.
+        case projected
+    }
+
+    static func clampLutealDays(_ days: Int) -> Int {
+        min(lutealDayRange.upperBound, max(lutealDayRange.lowerBound, days))
+    }
+}
+
+/// Where the user is in the arc of a single cycle. Distinct from `MenstrualPhase`:
+/// this is the *lifecycle* state the UI and partner coaching key off, and it knows the
+/// difference between "still bleeding" and "bleed confirmed finished".
+enum CycleStage: String, Codable, Equatable {
+    /// Actively bleeding.
+    case period
+    /// Bleed confirmed over, before the fertile window opens.
+    case postPeriod
+    /// Fertile window is open.
+    case fertile
+    /// Ovulation day.
+    case ovulation
+    /// After ovulation, before the next period.
+    case premenstrual
+    /// Not enough data.
+    case unknown
+
+    var label: String {
+        switch self {
+        case .period: return "On your period"
+        case .postPeriod: return "Period finished"
+        case .fertile: return "Fertile window"
+        case .ovulation: return "Ovulation"
+        case .premenstrual: return "Pre-menstrual"
+        case .unknown: return "Learning your cycle"
+        }
+    }
+
+    /// Same arc, phrased for the person supporting them.
+    func partnerLabel(name: String) -> String {
+        switch self {
+        case .period: return "\(name) is on her period"
+        case .postPeriod: return "\(name)'s period has finished"
+        case .fertile: return "\(name) is in her fertile window"
+        case .ovulation: return "\(name) is around ovulation"
+        case .premenstrual: return "\(name) is pre-menstrual"
+        case .unknown: return "Still learning \(name)'s rhythm"
+        }
+    }
 }
 
 enum MenstrualPhase: String, Codable, CaseIterable, Identifiable {
@@ -364,6 +505,45 @@ enum CycleCondition: String, Codable, CaseIterable, Identifiable {
     var suppressesFertileWindow: Bool {
         self == .perimenopause
     }
+
+    /// Non-nil when a named condition is selected (UI hides condition context for `.none`).
+    var activeCase: CycleCondition? {
+        self == .none ? nil : self
+    }
+
+    /// User-facing note on how this condition changes cycle tracking and predictions.
+    /// Shown under the phase orbit so people can see *why* windows behave differently.
+    var trackingImplication: String {
+        switch self {
+        case .none:
+            return ""
+        case .pcos:
+            return "Long and variable cycles count as real history, not errors. The irregularity flag stays quiet unless variance is extreme — patterns emerge over many cycles, not one."
+        case .endometriosis:
+            return "Pain and pelvic symptoms feed recovery guidance. Cycle timing still personalizes from your logs; pain that disrupts daily life is worth raising with a clinician."
+        case .perimenopause:
+            return "Fertile-window and ovulation labels are withheld because they aren’t reliable here. Period timing stays a range, not a fixed date."
+        case .thyroid:
+            return "BBT baselines can shift with thyroid status and medication. Take temperature before any morning dose so readings stay comparable."
+        case .other:
+            return "Predictions stay conservative and avoid strong assumptions about regularity. Keep logging — patterns you notice help personalize coaching."
+        }
+    }
+
+    /// Inter-start lengths accepted as real cycle history (not outliers).
+    /// PCOS and perimenopause keep longer/variable cycles so they are learned, not discarded.
+    var plausibleCycleLengthRange: ClosedRange<Int> {
+        switch self {
+        case .pcos:
+            return 18...90
+        case .perimenopause:
+            return 14...90
+        case .thyroid:
+            return 18...55
+        case .endometriosis, .other, .none:
+            return 18...45
+        }
+    }
 }
 
 // MARK: - Snapshot (engine output)
@@ -425,6 +605,25 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
     /// Real-time 0…100 fertile-window confidence signal (nil when tracking off,
     /// hormonal contraception, condition suppresses fertile window, or no cycle anchor).
     var fertileScore: Int?
+    /// Lifecycle stage — distinguishes still-bleeding from period-confirmed-finished.
+    /// Phase alone cannot express "the bleed is over"; UI and partner coaching key off this.
+    var stage: CycleStage = .unknown
+    /// User confirmed period finished for the current episode.
+    var periodEndConfirmed: Bool = false
+    /// Days since effective period end (confirmed or last bleed day); nil if unknown.
+    var daysSincePeriodEnd: Int? = nil
+    /// Day count of the current/most recent bleed episode; nil if unknown.
+    var currentPeriodDayCount: Int? = nil
+    /// Effective end day key (user confirmation wins over last logged bleed day).
+    var currentPeriodEndDayKey: String? = nil
+    /// How `currentPeriodEndDayKey` was arrived at. `.projected` means it was derived
+    /// from the learned period length rather than observed, so the UI should offer it
+    /// for confirmation rather than state it as fact.
+    var periodEndSource: CycleBiology.PeriodEndSource? = nil
+    /// Shared one-sentence stage description for UI / partner / ARIA.
+    var stageNarrative: String = ""
+    /// Days until next period median estimate (negative if overdue); nil when unknown.
+    var daysUntilNextPeriod: Int? = nil
 
     static let empty = MenstrualCycleSnapshot(
         asOfDayKey: "",
@@ -463,7 +662,14 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
         twwDaysElapsed: nil,
         condition: nil,
         wristTemperatureAvailable: false,
-        fertileScore: nil
+        fertileScore: nil,
+        stage: .unknown,
+        periodEndConfirmed: false,
+        daysSincePeriodEnd: nil,
+        currentPeriodDayCount: nil,
+        currentPeriodEndDayKey: nil,
+        stageNarrative: "",
+        daysUntilNextPeriod: nil
     )
 }
 
@@ -578,6 +784,12 @@ struct CycleDataEvaluation: Codable, Equatable {
 /// Redacted context for ARIA — numbers from engine only.
 struct CycleAIContext: Codable, Equatable {
     var phase: String
+    /// Lifecycle stage — distinguishes "on her period" from "period just finished",
+    /// which phase alone cannot express.
+    var stage: String = CycleStage.unknown.rawValue
+    var periodEndConfirmed: Bool = false
+    var daysSincePeriodEnd: Int?
+    var daysUntilNextPeriod: Int?
     var dayInCycle: Int?
     var cycleLengthMedian: Double
     var cycleLengthMAD: Double
@@ -609,6 +821,576 @@ struct CyclePredictionFeedback: Codable, Equatable, Identifiable {
     /// Signed error: actual − predicted (days). Negative = period came early.
     var errorDays: Int
     var recordedAt: Date
+}
+
+// MARK: - Period end feedback (learns coaching preferences)
+
+/// Overall feel of this period — noninvasive, personalization only.
+enum PeriodSeverity: String, Codable, CaseIterable, Identifiable {
+    case mild, moderate, severe
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .mild: return "Mild"
+        case .moderate: return "Moderate"
+        case .severe: return "Hard"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .mild: return "leaf.fill"
+        case .moderate: return "drop.fill"
+        case .severe: return "bolt.heart.fill"
+        }
+    }
+}
+
+enum PeriodEnergyLevel: String, Codable, CaseIterable, Identifiable {
+    case low, okay, high
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .low: return "Low energy"
+        case .okay: return "Okay"
+        case .high: return "Still solid"
+        }
+    }
+}
+
+/// Length relative to what feels normal for this person (not a medical measure).
+enum PeriodLengthFeel: String, Codable, CaseIterable, Identifiable {
+    case shorter, typical, longer
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .shorter: return "Shorter"
+        case .typical: return "Typical"
+        case .longer: return "Longer"
+        }
+    }
+}
+
+/// Overall flow heaviness feel for the episode.
+enum PeriodFlowFeel: String, Codable, CaseIterable, Identifiable {
+    case lighter, typical, heavier
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .lighter: return "Lighter"
+        case .typical: return "Typical"
+        case .heavier: return "Heavier"
+        }
+    }
+}
+
+enum PeriodSleepQuality: String, Codable, CaseIterable, Identifiable {
+    case poor, okay, good
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .poor: return "Rough sleep"
+        case .okay: return "Okay"
+        case .good: return "Slept well"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .poor: return "moon.zzz"
+        case .okay: return "moon"
+        case .good: return "moon.stars.fill"
+        }
+    }
+}
+
+enum PeriodMoodOverall: String, Codable, CaseIterable, Identifiable {
+    case rough, mixed, steady
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .rough: return "Rough"
+        case .mixed: return "Mixed"
+        case .steady: return "Steady"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .rough: return "cloud.rain.fill"
+        case .mixed: return "cloud.sun.fill"
+        case .steady: return "sun.max.fill"
+        }
+    }
+}
+
+/// How much the period disrupted training / work / daily life.
+enum PeriodLifeImpact: String, Codable, CaseIterable, Identifiable {
+    case low, medium, high
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .low: return "Barely"
+        case .medium: return "Some"
+        case .high: return "Limited me"
+        }
+    }
+}
+
+/// Self-reported stress during this cycle — lifestyle context only.
+enum PeriodStressLevel: String, Codable, CaseIterable, Identifiable {
+    case low, medium, high
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .low: return "Low stress"
+        case .medium: return "Medium"
+        case .high: return "High stress"
+        }
+    }
+}
+
+enum CoachingHelpfulness: String, Codable, CaseIterable, Identifiable {
+    case notHelpful, somewhat, very
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .notHelpful: return "Not helpful"
+        case .somewhat: return "Somewhat"
+        case .very: return "Very helpful"
+        }
+    }
+
+    var score: Double {
+        switch self {
+        case .notHelpful: return 0
+        case .somewhat: return 0.5
+        case .very: return 1
+        }
+    }
+}
+
+enum PeriodCoachingTopic: String, Codable, CaseIterable, Identifiable {
+    case rest, lighterTraining, heat, hydration, sleep, nutrition, empathy, mobility
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .rest: return "Rest / recovery"
+        case .lighterTraining: return "Lighter training"
+        case .heat: return "Heat / comfort"
+        case .hydration: return "Hydration"
+        case .sleep: return "Sleep"
+        case .nutrition: return "Food / iron / mag"
+        case .empathy: return "Softer tone"
+        case .mobility: return "Mobility / yoga"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .rest: return "bed.double.fill"
+        case .lighterTraining: return "figure.walk"
+        case .heat: return "thermometer.sun.fill"
+        case .hydration: return "drop.fill"
+        case .sleep: return "moon.zzz.fill"
+        case .nutrition: return "fork.knife"
+        case .empathy: return "heart.fill"
+        case .mobility: return "figure.flexibility"
+        }
+    }
+}
+
+/// Captured when the user marks period finished — on-device coaching personalization only.
+struct PeriodEndFeedback: Codable, Equatable, Identifiable {
+    var id: String { startDayKey + "|" + endDayKey }
+    var startDayKey: String
+    var endDayKey: String
+    var dayCount: Int
+    /// How was your period overall?
+    var severity: PeriodSeverity
+    /// 0–10 peak pain this episode.
+    var peakPain: Int
+    var energy: PeriodEnergyLevel
+    /// Optional lifestyle context (all skippable / default-safe).
+    var lengthFeel: PeriodLengthFeel?
+    var flowFeel: PeriodFlowFeel?
+    var sleepQuality: PeriodSleepQuality?
+    var moodOverall: PeriodMoodOverall?
+    var lifeImpact: PeriodLifeImpact?
+    var stressLevel: PeriodStressLevel?
+    var coachingHelpfulness: CoachingHelpfulness
+    var whatHelped: [PeriodCoachingTopic]
+    var whatDidntHelp: [PeriodCoachingTopic]
+    var wantMore: [PeriodCoachingTopic]
+    var wantLess: [PeriodCoachingTopic]
+    var notes: String?
+    var recordedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case startDayKey, endDayKey, dayCount, severity, peakPain, energy
+        case lengthFeel, flowFeel, sleepQuality, moodOverall, lifeImpact, stressLevel
+        case coachingHelpfulness, whatHelped, whatDidntHelp, wantMore, wantLess, notes, recordedAt
+    }
+
+    init(
+        startDayKey: String,
+        endDayKey: String,
+        dayCount: Int,
+        severity: PeriodSeverity,
+        peakPain: Int,
+        energy: PeriodEnergyLevel,
+        lengthFeel: PeriodLengthFeel? = nil,
+        flowFeel: PeriodFlowFeel? = nil,
+        sleepQuality: PeriodSleepQuality? = nil,
+        moodOverall: PeriodMoodOverall? = nil,
+        lifeImpact: PeriodLifeImpact? = nil,
+        stressLevel: PeriodStressLevel? = nil,
+        coachingHelpfulness: CoachingHelpfulness,
+        whatHelped: [PeriodCoachingTopic],
+        whatDidntHelp: [PeriodCoachingTopic],
+        wantMore: [PeriodCoachingTopic],
+        wantLess: [PeriodCoachingTopic],
+        notes: String?,
+        recordedAt: Date
+    ) {
+        self.startDayKey = startDayKey
+        self.endDayKey = endDayKey
+        self.dayCount = dayCount
+        self.severity = severity
+        self.peakPain = peakPain
+        self.energy = energy
+        self.lengthFeel = lengthFeel
+        self.flowFeel = flowFeel
+        self.sleepQuality = sleepQuality
+        self.moodOverall = moodOverall
+        self.lifeImpact = lifeImpact
+        self.stressLevel = stressLevel
+        self.coachingHelpfulness = coachingHelpfulness
+        self.whatHelped = whatHelped
+        self.whatDidntHelp = whatDidntHelp
+        self.wantMore = wantMore
+        self.wantLess = wantLess
+        self.notes = notes
+        self.recordedAt = recordedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        startDayKey = try c.decode(String.self, forKey: .startDayKey)
+        endDayKey = try c.decode(String.self, forKey: .endDayKey)
+        dayCount = try c.decode(Int.self, forKey: .dayCount)
+        severity = try c.decode(PeriodSeverity.self, forKey: .severity)
+        peakPain = try c.decode(Int.self, forKey: .peakPain)
+        energy = try c.decode(PeriodEnergyLevel.self, forKey: .energy)
+        lengthFeel = try c.decodeIfPresent(PeriodLengthFeel.self, forKey: .lengthFeel)
+        flowFeel = try c.decodeIfPresent(PeriodFlowFeel.self, forKey: .flowFeel)
+        sleepQuality = try c.decodeIfPresent(PeriodSleepQuality.self, forKey: .sleepQuality)
+        moodOverall = try c.decodeIfPresent(PeriodMoodOverall.self, forKey: .moodOverall)
+        lifeImpact = try c.decodeIfPresent(PeriodLifeImpact.self, forKey: .lifeImpact)
+        stressLevel = try c.decodeIfPresent(PeriodStressLevel.self, forKey: .stressLevel)
+        coachingHelpfulness = try c.decode(CoachingHelpfulness.self, forKey: .coachingHelpfulness)
+        whatHelped = try c.decodeIfPresent([PeriodCoachingTopic].self, forKey: .whatHelped) ?? []
+        whatDidntHelp = try c.decodeIfPresent([PeriodCoachingTopic].self, forKey: .whatDidntHelp) ?? []
+        wantMore = try c.decodeIfPresent([PeriodCoachingTopic].self, forKey: .wantMore) ?? []
+        wantLess = try c.decodeIfPresent([PeriodCoachingTopic].self, forKey: .wantLess) ?? []
+        notes = try c.decodeIfPresent(String.self, forKey: .notes)
+        recordedAt = try c.decodeIfPresent(Date.self, forKey: .recordedAt) ?? Date()
+    }
+}
+
+/// Running personalization from period-end feedbacks (what to do next cycle).
+struct PeriodCoachingPreferences: Codable, Equatable {
+    /// 0…1 extra recovery bias during menstruation.
+    var recoveryBias: Double
+    var preferLighterTraining: Bool
+    var preferHeatComfort: Bool
+    var preferEmpathyTone: Bool
+    var preferHydrationSleep: Bool
+    var preferNutritionTips: Bool
+    var preferMobility: Bool
+    var avoidIntensityPush: Bool
+    /// Prefer sleep-focused tips when periods tend to disrupt sleep.
+    var preferSleepFocus: Bool
+    /// Prefer mood-aware / softer check-ins.
+    var preferMoodSupport: Bool
+    var sampleCount: Int
+    var averageSeverity: Double
+    var averageHelpfulness: Double
+    var averageLifeImpact: Double
+    var averageStress: Double
+    var lastLearnedSummary: String?
+
+    static let neutral = PeriodCoachingPreferences(
+        recoveryBias: 0.35,
+        preferLighterTraining: true,
+        preferHeatComfort: false,
+        preferEmpathyTone: true,
+        preferHydrationSleep: true,
+        preferNutritionTips: true,
+        preferMobility: false,
+        avoidIntensityPush: true,
+        preferSleepFocus: false,
+        preferMoodSupport: false,
+        sampleCount: 0,
+        averageSeverity: 0.5,
+        averageHelpfulness: 0.5,
+        averageLifeImpact: 0.35,
+        averageStress: 0.4,
+        lastLearnedSummary: nil
+    )
+
+    enum CodingKeys: String, CodingKey {
+        case recoveryBias, preferLighterTraining, preferHeatComfort, preferEmpathyTone
+        case preferHydrationSleep, preferNutritionTips, preferMobility, avoidIntensityPush
+        case preferSleepFocus, preferMoodSupport
+        case sampleCount, averageSeverity, averageHelpfulness, averageLifeImpact, averageStress
+        case lastLearnedSummary
+    }
+
+    init(
+        recoveryBias: Double,
+        preferLighterTraining: Bool,
+        preferHeatComfort: Bool,
+        preferEmpathyTone: Bool,
+        preferHydrationSleep: Bool,
+        preferNutritionTips: Bool,
+        preferMobility: Bool,
+        avoidIntensityPush: Bool,
+        preferSleepFocus: Bool = false,
+        preferMoodSupport: Bool = false,
+        sampleCount: Int,
+        averageSeverity: Double,
+        averageHelpfulness: Double,
+        averageLifeImpact: Double = 0.35,
+        averageStress: Double = 0.4,
+        lastLearnedSummary: String?
+    ) {
+        self.recoveryBias = recoveryBias
+        self.preferLighterTraining = preferLighterTraining
+        self.preferHeatComfort = preferHeatComfort
+        self.preferEmpathyTone = preferEmpathyTone
+        self.preferHydrationSleep = preferHydrationSleep
+        self.preferNutritionTips = preferNutritionTips
+        self.preferMobility = preferMobility
+        self.avoidIntensityPush = avoidIntensityPush
+        self.preferSleepFocus = preferSleepFocus
+        self.preferMoodSupport = preferMoodSupport
+        self.sampleCount = sampleCount
+        self.averageSeverity = averageSeverity
+        self.averageHelpfulness = averageHelpfulness
+        self.averageLifeImpact = averageLifeImpact
+        self.averageStress = averageStress
+        self.lastLearnedSummary = lastLearnedSummary
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        recoveryBias = try c.decodeIfPresent(Double.self, forKey: .recoveryBias) ?? 0.35
+        preferLighterTraining = try c.decodeIfPresent(Bool.self, forKey: .preferLighterTraining) ?? true
+        preferHeatComfort = try c.decodeIfPresent(Bool.self, forKey: .preferHeatComfort) ?? false
+        preferEmpathyTone = try c.decodeIfPresent(Bool.self, forKey: .preferEmpathyTone) ?? true
+        preferHydrationSleep = try c.decodeIfPresent(Bool.self, forKey: .preferHydrationSleep) ?? true
+        preferNutritionTips = try c.decodeIfPresent(Bool.self, forKey: .preferNutritionTips) ?? true
+        preferMobility = try c.decodeIfPresent(Bool.self, forKey: .preferMobility) ?? false
+        avoidIntensityPush = try c.decodeIfPresent(Bool.self, forKey: .avoidIntensityPush) ?? true
+        preferSleepFocus = try c.decodeIfPresent(Bool.self, forKey: .preferSleepFocus) ?? false
+        preferMoodSupport = try c.decodeIfPresent(Bool.self, forKey: .preferMoodSupport) ?? false
+        sampleCount = try c.decodeIfPresent(Int.self, forKey: .sampleCount) ?? 0
+        averageSeverity = try c.decodeIfPresent(Double.self, forKey: .averageSeverity) ?? 0.5
+        averageHelpfulness = try c.decodeIfPresent(Double.self, forKey: .averageHelpfulness) ?? 0.5
+        averageLifeImpact = try c.decodeIfPresent(Double.self, forKey: .averageLifeImpact) ?? 0.35
+        averageStress = try c.decodeIfPresent(Double.self, forKey: .averageStress) ?? 0.4
+        lastLearnedSummary = try c.decodeIfPresent(String.self, forKey: .lastLearnedSummary)
+    }
+
+    mutating func learn(from feedback: PeriodEndFeedback) {
+        sampleCount += 1
+        let alpha = min(0.45, 1.0 / Double(max(2, sampleCount)))
+
+        let severityScore: Double = {
+            switch feedback.severity {
+            case .mild: return 0.2
+            case .moderate: return 0.55
+            case .severe: return 0.9
+            }
+        }()
+        averageSeverity = averageSeverity * (1 - alpha) + severityScore * alpha
+        averageHelpfulness = averageHelpfulness * (1 - alpha) + feedback.coachingHelpfulness.score * alpha
+
+        let impactScore: Double = {
+            switch feedback.lifeImpact {
+            case .low?: return 0.15
+            case .medium?: return 0.5
+            case .high?: return 0.9
+            case nil: return averageLifeImpact
+            }
+        }()
+        averageLifeImpact = averageLifeImpact * (1 - alpha) + impactScore * alpha
+
+        let stressScore: Double = {
+            switch feedback.stressLevel {
+            case .low?: return 0.2
+            case .medium?: return 0.5
+            case .high?: return 0.85
+            case nil: return averageStress
+            }
+        }()
+        averageStress = averageStress * (1 - alpha) + stressScore * alpha
+
+        let painBoost = Double(min(10, max(0, feedback.peakPain))) / 10.0
+        let energyLow = feedback.energy == .low ? 0.25 : 0
+        let sleepRough = feedback.sleepQuality == .poor ? 0.15 : 0
+        let moodRough = feedback.moodOverall == .rough ? 0.1 : 0
+        recoveryBias = min(1, max(0.1, recoveryBias * (1 - alpha) + (severityScore * 0.45 + painBoost * 0.25 + energyLow + sleepRough + moodRough + impactScore * 0.15) * alpha))
+
+        if feedback.sleepQuality == .poor {
+            preferSleepFocus = true
+            preferHydrationSleep = true
+        }
+        if feedback.moodOverall == .rough || feedback.stressLevel == .high {
+            preferMoodSupport = true
+            preferEmpathyTone = true
+        }
+        if feedback.lifeImpact == .high {
+            avoidIntensityPush = true
+            preferLighterTraining = true
+        }
+        if feedback.flowFeel == .heavier {
+            preferNutritionTips = true
+            recoveryBias = min(1, recoveryBias + 0.05)
+        }
+
+        func boost(_ topic: PeriodCoachingTopic, helped: Bool, wantMore: Bool, wantLess: Bool) {
+            let positive = (helped ? 1 : 0) + (wantMore ? 1 : 0) - (wantLess ? 1 : 0)
+            guard positive != 0 else { return }
+            switch topic {
+            case .rest:
+                if positive > 0 { recoveryBias = min(1, recoveryBias + 0.08) }
+            case .lighterTraining:
+                preferLighterTraining = positive > 0 || preferLighterTraining
+                if positive < 0 { preferLighterTraining = false }
+            case .heat:
+                preferHeatComfort = positive > 0
+            case .hydration, .sleep:
+                preferHydrationSleep = positive >= 0 ? (positive > 0 || preferHydrationSleep) : false
+                if topic == .sleep, positive > 0 { preferSleepFocus = true }
+            case .nutrition:
+                preferNutritionTips = positive >= 0 ? (positive > 0 || preferNutritionTips) : false
+            case .empathy:
+                preferEmpathyTone = positive >= 0 ? (positive > 0 || preferEmpathyTone) : false
+                if positive > 0 { preferMoodSupport = true }
+            case .mobility:
+                preferMobility = positive > 0
+            }
+        }
+
+        for t in PeriodCoachingTopic.allCases {
+            boost(
+                t,
+                helped: feedback.whatHelped.contains(t),
+                wantMore: feedback.wantMore.contains(t),
+                wantLess: feedback.wantLess.contains(t)
+            )
+        }
+
+        if feedback.severity == .severe || feedback.peakPain >= 7 || feedback.energy == .low {
+            avoidIntensityPush = true
+            preferLighterTraining = true
+            recoveryBias = min(1, recoveryBias + 0.1)
+        }
+        if feedback.coachingHelpfulness == .notHelpful {
+            preferEmpathyTone = true
+            preferLighterTraining = true
+            recoveryBias = min(1, recoveryBias + 0.12)
+        }
+
+        var bits: [String] = []
+        if preferLighterTraining { bits.append("lighter training") }
+        if preferHeatComfort { bits.append("heat/comfort") }
+        if preferSleepFocus || preferHydrationSleep { bits.append("sleep & hydration") }
+        if preferNutritionTips { bits.append("nutrition") }
+        if preferMobility { bits.append("mobility") }
+        if preferEmpathyTone || preferMoodSupport { bits.append("softer tone") }
+        if avoidIntensityPush { bits.append("no intensity push") }
+        if averageLifeImpact >= 0.6 { bits.append("more recovery buffer") }
+        lastLearnedSummary = bits.isEmpty
+            ? "Logged episode · adapting coaching"
+            : "Next period: lean on " + bits.prefix(4).joined(separator: ", ")
+    }
+
+    var ariaTags: [String] {
+        var tags = ["cycle:period_feedback_n:\(sampleCount)"]
+        tags.append("cycle:recovery_pref:\(Int(recoveryBias * 100))")
+        if preferLighterTraining { tags.append("cycle:prefer:lighter_training") }
+        if preferHeatComfort { tags.append("cycle:prefer:heat") }
+        if preferEmpathyTone { tags.append("cycle:prefer:empathy") }
+        if preferHydrationSleep { tags.append("cycle:prefer:hydration_sleep") }
+        if preferNutritionTips { tags.append("cycle:prefer:nutrition") }
+        if preferMobility { tags.append("cycle:prefer:mobility") }
+        if avoidIntensityPush { tags.append("cycle:prefer:avoid_intensity") }
+        if preferSleepFocus { tags.append("cycle:prefer:sleep_focus") }
+        if preferMoodSupport { tags.append("cycle:prefer:mood_support") }
+        if averageLifeImpact >= 0.55 { tags.append("cycle:life_impact:high") }
+        if averageStress >= 0.6 { tags.append("cycle:stress:elevated") }
+        return tags
+    }
+
+    var coachingDirective: String {
+        guard sampleCount > 0 else { return "" }
+        var parts: [String] = [
+            "User has given \(sampleCount) period-end feedback(s). Adapt menstruation coaching to their learned preferences. This data is for personal coaching only — never for ads, sale, or third-party profiling."
+        ]
+        if recoveryBias >= 0.6 || avoidIntensityPush {
+            parts.append("Strongly favor recovery, auto-regulation, and optional sessions — do not push intensity on period days.")
+        }
+        if preferLighterTraining {
+            parts.append("They respond well to lighter training suggestions (walk, technique, mobility).")
+        }
+        if preferHeatComfort {
+            parts.append("Mention heat packs / comfort strategies when relevant.")
+        }
+        if preferHydrationSleep || preferSleepFocus {
+            parts.append("Prioritize sleep quality and hydration tips.")
+        }
+        if preferSleepFocus {
+            parts.append("Periods often disrupt their sleep — offer wind-down and sleep hygiene cues early in menstruation.")
+        }
+        if preferNutritionTips {
+            parts.append("Include iron/magnesium/anti-inflammatory food cues briefly.")
+        }
+        if preferMobility {
+            parts.append("Offer gentle mobility or yoga as a default movement option.")
+        }
+        if preferEmpathyTone || preferMoodSupport {
+            parts.append("Use a warm, validating tone — never minimize symptoms.")
+        }
+        if preferMoodSupport {
+            parts.append("Mood can dip during their period — check in gently; avoid toxic positivity.")
+        }
+        if averageLifeImpact >= 0.55 {
+            parts.append("Their period often limits daily life/training — default to optional sessions and recovery framing.")
+        }
+        if averageStress >= 0.55 {
+            parts.append("Cycles often coincide with higher stress — keep plans simple and stress-aware.")
+        }
+        if averageHelpfulness < 0.4 {
+            parts.append("Prior coaching was not helpful enough — be more concrete and less generic.")
+        }
+        if let summary = lastLearnedSummary {
+            parts.append("Personal summary: \(summary).")
+        }
+        return parts.joined(separator: " ")
+    }
 }
 
 struct CycleAccuracyReport: Codable, Equatable {
@@ -706,6 +1488,9 @@ struct MenstrualTrackingSettings: Codable, Equatable {
     var cycleGoal: CycleGoal
     /// Active health condition for personalised engine behaviour and ARIA coaching.
     var condition: CycleCondition
+    /// Last bleeding day the user confirmed ("Period finished"). Belongs to the current
+    /// episode only; a new period start must clear it so it cannot suppress a fresh bleed.
+    var confirmedPeriodEndDayKey: String?
 
     enum CodingKeys: String, CodingKey {
         case enabled, shareWithAria, averageCycleOverride, averagePeriodOverride
@@ -713,7 +1498,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         case privacyAcknowledged, calibrationOffsetDays, highAccuracyMode, overdueWidenDays
         case learnedLutealDays
         case bbtReminderEnabled, bbtReminderHour, fertileWindowAlertEnabled, periodReminderEnabled
-        case cycleGoal, condition
+        case cycleGoal, condition, confirmedPeriodEndDayKey
     }
 
     static let `default` = MenstrualTrackingSettings(
@@ -730,7 +1515,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         overdueWidenDays: 0,
         learnedLutealDays: nil,
         cycleGoal: .general,
-        condition: .none
+        condition: .none,
+        confirmedPeriodEndDayKey: nil
     )
 
     init(
@@ -751,7 +1537,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         fertileWindowAlertEnabled: Bool = false,
         periodReminderEnabled: Bool = false,
         cycleGoal: CycleGoal = .general,
-        condition: CycleCondition = .none
+        condition: CycleCondition = .none,
+        confirmedPeriodEndDayKey: String? = nil
     ) {
         self.enabled = enabled
         self.shareWithAria = shareWithAria
@@ -771,6 +1558,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         self.periodReminderEnabled = periodReminderEnabled
         self.cycleGoal = cycleGoal
         self.condition = condition
+        self.confirmedPeriodEndDayKey = confirmedPeriodEndDayKey
     }
 
     init(from decoder: Decoder) throws {
@@ -793,6 +1581,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         periodReminderEnabled = try c.decodeIfPresent(Bool.self, forKey: .periodReminderEnabled) ?? false
         cycleGoal = try c.decodeIfPresent(CycleGoal.self, forKey: .cycleGoal) ?? .general
         condition = try c.decodeIfPresent(CycleCondition.self, forKey: .condition) ?? .none
+        confirmedPeriodEndDayKey = try c.decodeIfPresent(String.self, forKey: .confirmedPeriodEndDayKey)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -815,6 +1604,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         try c.encode(periodReminderEnabled, forKey: .periodReminderEnabled)
         try c.encode(cycleGoal, forKey: .cycleGoal)
         try c.encode(condition, forKey: .condition)
+        try c.encodeIfPresent(confirmedPeriodEndDayKey, forKey: .confirmedPeriodEndDayKey)
     }
 
     /// Effective luteal for calendar fallback.
@@ -922,11 +1712,15 @@ struct PartnerCycleSettings: Codable, Equatable {
     /// User confirmed they have consent (partner) or appropriate caregiver context (child).
     var consentAcknowledged: Bool
     var notes: String
+    /// Last bleeding day confirmed for the supported person. Drives the return from
+    /// period-support coaching back to everyday support.
+    var confirmedPeriodEndDayKey: String?
 
     enum CodingKeys: String, CodingKey {
         case enabled, partnerName, relationshipLabel, supportRole, shareWithAria
         case averageCycleOverride, averagePeriodOverride, typicalLutealDays
         case usesHormonalContraception, consentAcknowledged, notes
+        case confirmedPeriodEndDayKey
     }
 
     static let `default` = PartnerCycleSettings(
@@ -940,7 +1734,8 @@ struct PartnerCycleSettings: Codable, Equatable {
         typicalLutealDays: 14,
         usesHormonalContraception: false,
         consentAcknowledged: false,
-        notes: ""
+        notes: "",
+        confirmedPeriodEndDayKey: nil
     )
 
     init(
@@ -954,7 +1749,8 @@ struct PartnerCycleSettings: Codable, Equatable {
         typicalLutealDays: Int,
         usesHormonalContraception: Bool,
         consentAcknowledged: Bool,
-        notes: String
+        notes: String,
+        confirmedPeriodEndDayKey: String? = nil
     ) {
         self.enabled = enabled
         self.partnerName = partnerName
@@ -967,6 +1763,7 @@ struct PartnerCycleSettings: Codable, Equatable {
         self.usesHormonalContraception = usesHormonalContraception
         self.consentAcknowledged = consentAcknowledged
         self.notes = notes
+        self.confirmedPeriodEndDayKey = confirmedPeriodEndDayKey
     }
 
     init(from decoder: Decoder) throws {
@@ -981,6 +1778,7 @@ struct PartnerCycleSettings: Codable, Equatable {
         usesHormonalContraception = try c.decodeIfPresent(Bool.self, forKey: .usesHormonalContraception) ?? false
         consentAcknowledged = try c.decodeIfPresent(Bool.self, forKey: .consentAcknowledged) ?? false
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        confirmedPeriodEndDayKey = try c.decodeIfPresent(String.self, forKey: .confirmedPeriodEndDayKey)
         if let role = try c.decodeIfPresent(CycleSupportRole.self, forKey: .supportRole) {
             supportRole = role
         } else {
@@ -1006,6 +1804,9 @@ struct PartnerSupportBrief: Equatable {
     var partnerLabel: String
     var role: CycleSupportRole
     var phase: MenstrualPhase
+    /// Lifecycle position — lets the UI show the period-finished hand-off explicitly
+    /// instead of silently swapping in generic follicular advice.
+    var stage: CycleStage = .unknown
     var dayInCycle: Int?
     var confidence: Double
     var headline: String
@@ -1032,21 +1833,38 @@ struct PartnerSupportBrief: Equatable {
 // MARK: - Day key helpers
 
 enum CycleDayKey {
-    private static let formatter: DateFormatter = {
-        let f = DateFormatter()
-        f.calendar = Calendar.current
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = Calendar.current.timeZone
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
-
+    /// Day keys are pure `yyyy-MM-dd` calendar labels. They are built from calendar
+    /// components rather than a cached `DateFormatter` so a timezone change mid-session
+    /// (travel, DST) can never emit a key for the wrong local day.
     static func key(for date: Date = Date()) -> String {
-        formatter.string(from: Calendar.current.startOfDay(for: date))
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        guard let y = c.year, let m = c.month, let d = c.day else { return "" }
+        return String(format: "%04d-%02d-%02d", y, m, d)
     }
 
+    /// Local **noon** of the given day. Noon (not midnight) keeps day arithmetic exact
+    /// across DST transitions, including zones where 00:00 does not exist on some dates.
     static func date(from key: String) -> Date? {
-        formatter.date(from: key)
+        let parts = key.split(separator: "-")
+        guard parts.count == 3,
+              let y = Int(parts[0]), let m = Int(parts[1]), let d = Int(parts[2]),
+              (1...12).contains(m), (1...31).contains(d) else { return nil }
+        var comps = DateComponents()
+        comps.year = y
+        comps.month = m
+        comps.day = d
+        comps.hour = 12
+        guard let date = Calendar.current.date(from: comps) else { return nil }
+        // Reject non-existent dates that the calendar rolled over (e.g. 2026-02-31).
+        let round = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        guard round.year == y, round.month == m, round.day == d else { return nil }
+        return date
+    }
+
+    /// Midnight of the given day — for anything that needs a day *boundary* rather than
+    /// a stable anchor (HealthKit sample windows, calendar comparisons).
+    static func startOfDay(from key: String) -> Date? {
+        date(from: key).map { Calendar.current.startOfDay(for: $0) }
     }
 
     static func addDays(_ key: String, _ days: Int) -> String? {
@@ -1058,5 +1876,16 @@ enum CycleDayKey {
     static func daysBetween(_ a: String, _ b: String) -> Int? {
         guard let da = date(from: a), let db = date(from: b) else { return nil }
         return Calendar.current.dateComponents([.day], from: da, to: db).day
+    }
+
+    /// Whole days from today to `key` (negative = in the past).
+    static func daysFromToday(to key: String) -> Int? {
+        daysBetween(self.key(), key)
+    }
+
+    /// Short, locale-aware display form ("Aug 3"). Falls back to the raw key.
+    static func shortDisplay(_ key: String) -> String {
+        guard let d = date(from: key) else { return key }
+        return d.formatted(.dateTime.month(.abbreviated).day())
     }
 }

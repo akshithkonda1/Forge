@@ -1,0 +1,62 @@
+# Fails if any cloud-sync conflict copy (iCloud "Foo 3.swift", Drive "Foo (1).ts",
+# Dropbox "Foo (Case Conflict).py", Finder "Foo copy.swift") is committed.
+#
+# 111 of these reached main in a single commit before this check existed: the
+# merge was made from a working tree inside an iCloud-synced folder, and `git add`
+# swept the conflict copies in alongside the real changes. Nothing referenced
+# them, so no build broke and nothing flagged it.
+#
+# No branch filter and no path filter — this is a filename scan with no build
+# step, so it costs seconds and should gate every push and every pull request.
+
+name: Repo Hygiene
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repo-hygiene-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conflict-copies:
+    name: No file-sync conflict copies
+    runs-on: ubuntu-latest
+
+    steps:
+      # Actions must be pinned to a full-length commit SHA (repo policy).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - name: Scan tracked files
+        run: scripts/check-conflict-copies.sh
+
+  xcode-project:
+    name: Xcode project structure
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # project.pbxproj is hand-edited in this repo, and its two nastiest
+      # failures — a source file in no target, a build file pointing at a
+      # deleted reference — are invisible on Linux and produce either a macOS
+      # build failure ten minutes later or, worse, a file that silently never
+      # compiles. This decides both from the text, in about a second.
+      - name: Validate project.pbxproj
+        run: python3 scripts/check-pbxproj.py
+
+  partner-redaction:
+    name: Partner redaction boundary
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # Supporter-facing code must never name MenstrualCycleSnapshot, and the
+      # Messages extension must never gain a purchase check. Neither is
+      # expressible in the type system, and both are the kind of regression that
+      # looks like an ordinary feature commit in review.
+      - name: Check partner-visible surfaces
+        run: scripts/check-partner-redaction.sh

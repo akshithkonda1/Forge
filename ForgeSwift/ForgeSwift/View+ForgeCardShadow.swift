@@ -2,8 +2,10 @@ import SwiftUI
 
 // Premium dual-layer depth for cards across Forge.
 extension View {
-    func forgeCardShadow(emberGlow: Bool = false) -> some View {
-        modifier(ForgeCardShadow(emberGlow: emberGlow))
+    /// `glow` tints the outer halo. Pass the card's own accent — passing `nil`
+    /// (the default) means no halo at all.
+    func forgeCardShadow(glow: Color? = nil) -> some View {
+        modifier(ForgeCardShadow(glow: glow))
     }
 
     /// Full premium glass card: fill + hairline + depth.
@@ -22,18 +24,20 @@ extension View {
 }
 
 private struct ForgeCardShadow: ViewModifier {
-    var emberGlow: Bool
+    var glow: Color?
 
     func body(content: Content) -> some View {
         content
-            .shadow(color: .black.opacity(0.45), radius: 8, x: 0, y: 3)
-            .shadow(color: .black.opacity(0.35), radius: 24, x: 0, y: 14)
-            .shadow(
-                color: emberGlow ? Color.ember.opacity(0.18) : .clear,
-                radius: 28,
-                x: 0,
-                y: 10
-            )
+            // One soft ambient shadow rather than three stacked ones. Depth now
+            // comes from the card's fill sitting above the background, not from
+            // piling up dark halos — which is what made every card read heavy.
+            .shadow(color: .black.opacity(0.38), radius: 18, x: 0, y: 8)
+            // Tinted from the accent actually passed in. This used to be
+            // hardcoded to Color.ember regardless of accent, so the green cycle
+            // card, the indigo support-pulse card and the steel/red readiness
+            // card all emitted an orange halo.
+            .shadow(color: (glow ?? .clear).opacity(glow == nil ? 0 : 0.13),
+                    radius: 26, x: 0, y: 10)
     }
 }
 
@@ -47,13 +51,14 @@ private struct ForgeGlassCard: ViewModifier {
                 ZStack {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(Color.surface.opacity(0.92))
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(LinearGradient.premiumSurface)
+                    // The accent is now a whisper rather than a wash. It still
+                    // carries meaning on the data-driven cards (cycle phase,
+                    // readiness band) but no longer paints the whole surface.
                     if let accent {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .fill(
                                 LinearGradient(
-                                    colors: [accent.opacity(0.14), accent.opacity(0.02), .clear],
+                                    colors: [accent.opacity(0.05), .clear],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -63,20 +68,11 @@ private struct ForgeGlassCard: ViewModifier {
             }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay {
+                // Flat hairline. The old gradient stroke read as a bevel and
+                // gave each card a slightly different edge depending on accent.
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.14),
-                                Color.white.opacity(0.05),
-                                (accent ?? Color.white).opacity(0.06)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
+                    .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
             }
-            .forgeCardShadow(emberGlow: accent != nil)
+            .forgeCardShadow(glow: accent)
     }
 }

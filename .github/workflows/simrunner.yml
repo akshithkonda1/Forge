@@ -3,9 +3,10 @@
 
 name: SimRunner
 
+# Runs on every branch and every pull request — main included. Path filters scope
+# it to SimRunner; there is deliberately no branch filter.
 on:
   push:
-    branches: ["claude/forge-fitness-frontend-TwlOQ"]
     paths:
       - "backend/simrunner/**"
       - ".github/workflows/simrunner.yml"

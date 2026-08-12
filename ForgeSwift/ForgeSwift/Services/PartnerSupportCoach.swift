@@ -10,14 +10,65 @@ enum PartnerSupportCoach {
         settings: PartnerCycleSettings
     ) -> PartnerSupportBrief {
         let role = settings.resolvedRole
+        let base: PartnerSupportBrief
         switch role {
         case .child:
-            return childBrief(snapshot: snapshot, settings: settings)
+            base = childBrief(snapshot: snapshot, settings: settings)
         case .family, .friend, .other:
-            return familyFriendBrief(snapshot: snapshot, settings: settings, role: role)
+            base = familyFriendBrief(snapshot: snapshot, settings: settings, role: role)
         case .romantic:
-            return romanticBrief(snapshot: snapshot, settings: settings)
+            base = romanticBrief(snapshot: snapshot, settings: settings)
         }
+        return applyStageTransition(to: base, snapshot: snapshot, settings: settings)
+    }
+
+    /// The moment a period ends is its own coaching moment, and it used to be invisible:
+    /// the brief simply switched to generic follicular advice with no acknowledgement that
+    /// anything had changed. This layers an explicit hand-off on top of the phase brief for
+    /// the first couple of days after the bleed is confirmed over.
+    private static func applyStageTransition(
+        to brief: PartnerSupportBrief,
+        snapshot: MenstrualCycleSnapshot,
+        settings: PartnerCycleSettings
+    ) -> PartnerSupportBrief {
+        var brief = brief
+        brief.stage = snapshot.stage
+
+        guard snapshot.stage == .postPeriod,
+              let since = snapshot.daysSincePeriodEnd, since <= 2 else { return brief }
+
+        let name = settings.displayName
+        let role = settings.resolvedRole
+        let lengthClause = snapshot.currentPeriodDayCount.map { " It ran \($0) day\($0 == 1 ? "" : "s")." } ?? ""
+        let whenClause = since == 0 ? "today" : (since == 1 ? "yesterday" : "\(since) days ago")
+
+        brief.headline = "\(name)'s period finished \(whenClause).\(lengthClause) Energy usually climbs from here — ease back to your normal rhythm."
+
+        let transitionMoves: [String]
+        switch role {
+        case .child:
+            transitionMoves = [
+                "Restock supplies quietly now, while it's not urgent — that's what makes the next one a non-event.",
+                "Normal expectations can resume, but let \(name) set the pace back into full practice.",
+                "Don't make the ending a topic either. Steady and unremarkable is the goal.",
+            ]
+        case .romantic:
+            transitionMoves = [
+                "Comfort mode can wind down — check in once rather than assuming she still needs it.",
+                "Good moment to make the plan you postponed. Energy typically rebuilds over the next several days.",
+                "Don't declare her \"back to normal\" for her. Ask.",
+            ]
+        case .family, .friend, .other:
+            transitionMoves = [
+                "Normal plans are back on the table — still ask before scheduling anything big.",
+                "No commentary about the cycle ending; just resume being reliable.",
+            ]
+        }
+        brief.supportMoves = transitionMoves + brief.supportMoves
+        brief.avoidMoves = ["Don't keep treating her as fragile once the bleed is over — that lands as condescending."]
+            + brief.avoidMoves
+        brief.communicationTip = "Try: \"You seem like you're feeling better — want to do something this week?\""
+        return brief
     }
 
     /// Full ARIA chat monologue.

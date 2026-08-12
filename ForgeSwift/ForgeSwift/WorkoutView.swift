@@ -1629,6 +1629,13 @@ struct MusicControlBar: View {
 
     private var accent: Color { controller.service.accentColor }
 
+    private func artworkIconOpacity(for phase: AsyncImagePhase) -> Double {
+        if case .empty = phase {
+            return 0
+        }
+        return 1
+    }
+
     var body: some View {
         Group {
             if let track = controller.nowPlaying {
@@ -1658,7 +1665,7 @@ struct MusicControlBar: View {
                             Image(systemName: controller.service.iconName)
                                 .font(.system(size: 17, weight: .bold))
                                 .foregroundColor(.white)
-                                .opacity(phase == .empty ? 0 : 1)
+                                .opacity(artworkIconOpacity(for: phase))
                         )
                     }
                 }
@@ -1716,18 +1723,37 @@ struct MusicControlBar: View {
         .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
     }
 
+    @ViewBuilder
     private var emptyView: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "music.note.list").font(.system(size: 18)).foregroundColor(.textMuted)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Nothing playing").font(.system(size: 14)).foregroundColor(.textMuted)
-                Text(controller.service.rawValue).font(.system(size: 11, weight: .semibold)).foregroundColor(accent.opacity(0.7))
+        if compact {
+            // Mid-workout, a full card that says "nothing is playing" is the most
+            // expensive way to convey nothing. One tappable line does the same job.
+            Button(action: controller.togglePlayPause) {
+                HStack(spacing: 8) {
+                    Image(systemName: "play.circle.fill").font(.system(size: 15)).foregroundColor(accent.opacity(0.75))
+                    Text("Play \(controller.service.rawValue)").font(.system(size: 12, weight: .semibold)).foregroundColor(.textTertiary)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .background(Color.surface.opacity(0.6)).cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor.opacity(0.3), lineWidth: 1))
             }
-            Spacer()
+            .buttonStyle(.plain)
+            .accessibilityLabel("Play \(controller.service.rawValue)")
+        } else {
+            HStack(spacing: 10) {
+                Image(systemName: "music.note.list").font(.system(size: 18)).foregroundColor(.textMuted)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Nothing playing").font(.system(size: 14)).foregroundColor(.textMuted)
+                    Text(controller.service.rawValue).font(.system(size: 11, weight: .semibold)).foregroundColor(accent.opacity(0.7))
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .background(Color.surface).cornerRadius(16)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
         }
-        .padding(.horizontal, 14).padding(.vertical, 12)
-        .background(Color.surface).cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
     }
 
     private var unauthorizedView: some View {
@@ -1758,32 +1784,43 @@ struct MusicControlBar: View {
 
 private struct WorkoutBackground: View {
     let accentColor: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ZStack {
             Color.background
-            TimelineView(.animation(minimumInterval: 1/30)) { tl in
-                let t = tl.date.timeIntervalSinceReferenceDate
-                Canvas { ctx, size in
-                    let x1 = size.width  * (0.15 + 0.12 * sin(t * 0.17))
-                    let y1 = size.height * (0.12 + 0.10 * cos(t * 0.13))
-                    let r1 = size.width  * 0.55
-                    var p1 = Path(); p1.addEllipse(in: CGRect(x: x1-r1/2, y: y1-r1/2, width: r1, height: r1))
-                    ctx.fill(p1, with: .color(accentColor.opacity(0.045)))
-                    let x2 = size.width  * (0.82 + 0.10 * cos(t * 0.11))
-                    let y2 = size.height * (0.75 + 0.12 * sin(t * 0.14))
-                    let r2 = size.width  * 0.48
-                    var p2 = Path(); p2.addEllipse(in: CGRect(x: x2-r2/2, y: y2-r2/2, width: r2, height: r2))
-                    ctx.fill(p2, with: .color(Color(hex: "38BDF8").opacity(0.028)))
-                    let x3 = size.width  * (0.5 + 0.18 * sin(t * 0.09 + 1.0))
-                    let y3 = size.height * (0.45 + 0.14 * cos(t * 0.12 + 0.5))
-                    let r3 = size.width  * 0.38
-                    var p3 = Path(); p3.addEllipse(in: CGRect(x: x3-r3/2, y: y3-r3/2, width: r3, height: r3))
-                    ctx.fill(p3, with: .color(accentColor.opacity(0.025)))
+            Group {
+                if reduceMotion {
+                    mesh(at: 0)
+                } else {
+                    TimelineView(.animation(minimumInterval: 1/30)) { tl in
+                        mesh(at: tl.date.timeIntervalSinceReferenceDate)
+                    }
                 }
             }
             .allowsHitTesting(false)
         }
         .animation(.easeInOut(duration: 1.6), value: accentColor)
+    }
+
+    private func mesh(at t: TimeInterval) -> some View {
+        Canvas { ctx, size in
+            let x1 = size.width  * (0.15 + 0.12 * sin(t * 0.17))
+            let y1 = size.height * (0.12 + 0.10 * cos(t * 0.13))
+            let r1 = size.width  * 0.55
+            var p1 = Path(); p1.addEllipse(in: CGRect(x: x1-r1/2, y: y1-r1/2, width: r1, height: r1))
+            ctx.fill(p1, with: .color(accentColor.opacity(0.045)))
+            let x2 = size.width  * (0.82 + 0.10 * cos(t * 0.11))
+            let y2 = size.height * (0.75 + 0.12 * sin(t * 0.14))
+            let r2 = size.width  * 0.48
+            var p2 = Path(); p2.addEllipse(in: CGRect(x: x2-r2/2, y: y2-r2/2, width: r2, height: r2))
+            ctx.fill(p2, with: .color(Color(hex: "38BDF8").opacity(0.028)))
+            let x3 = size.width  * (0.5 + 0.18 * sin(t * 0.09 + 1.0))
+            let y3 = size.height * (0.45 + 0.14 * cos(t * 0.12 + 0.5))
+            let r3 = size.width  * 0.38
+            var p3 = Path(); p3.addEllipse(in: CGRect(x: x3-r3/2, y: y3-r3/2, width: r3, height: r3))
+            ctx.fill(p3, with: .color(accentColor.opacity(0.025)))
+        }
     }
 }
 
@@ -2593,6 +2630,9 @@ struct ARIADashboardView: View {
 @MainActor
 struct ActiveWorkoutView: View {
     @EnvironmentObject var store: AppStore
+    /// The decorative pulses here redraw ~20x a second for the whole session.
+    /// Honouring Reduce Motion turns them off — kinder to watch, kinder to battery.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let onWorkoutEnd: (WorkoutSummaryData) -> Void
 
     // Bio metrics
@@ -2761,47 +2801,58 @@ struct ActiveWorkoutView: View {
                 .animation(.easeInOut(duration: 0.8), value: currentZone.label)
             VStack(alignment: .leading, spacing: 2) {
                 Text(store.todayWorkout?.name ?? "").font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
+                    .lineLimit(1).truncationMode(.tail)
                 HStack(spacing: 5) {
                     Text(store.todayWorkout?.type.label ?? "").font(.system(size: 11)).foregroundColor(.textTertiary)
                     Circle().fill(Color.textTertiary.opacity(0.5)).frame(width: 2.5, height: 2.5)
                     Text(store.todayWorkout?.intensity.label ?? "").font(.system(size: 11, weight: .semibold)).foregroundColor(currentZone.color)
                         .animation(.easeInOut(duration: 0.8), value: currentZone.label)
                 }
+                .lineLimit(1)
             }
-            Spacer()
-            HStack(spacing: 6) {
-                headerBadge(icon: "scalemass.fill", iconColor: .steel, value: "\(totalVolume.formattedVolume)", unit: "vol")
-                TimelineView(.animation(minimumInterval: 0.5)) { tl in
-                    let flash = Int(tl.date.timeIntervalSinceReferenceDate * 2) % 2 == 0
-                    HStack(spacing: 4) {
-                        Image(systemName: "clock.fill").font(.system(size: 10)).foregroundColor(.textMuted)
-                        Text(formatTime(elapsedSecs, flashColon: flash))
-                            .font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
-                    }
-                    .padding(.horizontal, 9).padding(.vertical, 6).background(Color.surface).cornerRadius(100)
-                    .overlay(Capsule().stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
-                }
-                Button(action: handleEnd) {
-                    Text(showEndConfirm ? "Confirm?" : "End")
-                        .font(.system(size: 13, weight: .bold)).foregroundColor(showEndConfirm ? .white : .danger)
-                        .padding(.horizontal, 11).padding(.vertical, 7)
-                        .background(showEndConfirm ? Color.danger : Color.danger.opacity(0.12)).cornerRadius(9)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.72), value: showEndConfirm)
-                }
+            // The title is the only elastic element up here — everything to its right
+            // keeps its intrinsic width, so a long workout name truncates instead of
+            // crushing the clock and End button into wrapped columns of letters.
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            HStack(spacing: 8) {
+                elapsedChip
+                endButton
             }
+            .layoutPriority(1)
         }
         .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 8)
     }
 
-    @ViewBuilder
-    private func headerBadge(icon: String, iconColor: Color, value: String, unit: String?) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 10)).foregroundColor(iconColor)
-            Text(value).font(.system(size: 12, weight: .bold)).foregroundColor(.textPrimary).contentTransition(.numericText())
-            if let u = unit { Text(u).font(.system(size: 10)).foregroundColor(.textTertiary) }
+    private var elapsedChip: some View {
+        TimelineView(.animation(minimumInterval: 0.5)) { tl in
+            let flash = Int(tl.date.timeIntervalSinceReferenceDate * 2) % 2 == 0
+            HStack(spacing: 4) {
+                Image(systemName: "clock.fill").font(.system(size: 10)).foregroundColor(.textMuted)
+                Text(formatTime(elapsedSecs, flashColon: flash))
+                    .font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundColor(.textPrimary)
+                    .lineLimit(1).contentTransition(.numericText())
+            }
+            .padding(.horizontal, 10).padding(.vertical, 6).background(Color.surface).cornerRadius(100)
+            .overlay(Capsule().stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
         }
-        .padding(.horizontal, 9).padding(.vertical, 6).background(Color.surface).cornerRadius(100)
-        .overlay(Capsule().stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+        .fixedSize()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Elapsed time")
+        .accessibilityValue(spokenDuration(elapsedSecs))
+    }
+
+    private var endButton: some View {
+        Button(action: handleEnd) {
+            Text(showEndConfirm ? "Confirm?" : "End")
+                .font(.system(size: 13, weight: .bold)).foregroundColor(showEndConfirm ? .white : .danger)
+                .lineLimit(1).fixedSize()
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .background(showEndConfirm ? Color.danger : Color.danger.opacity(0.12)).cornerRadius(9)
+                .animation(.spring(response: 0.3, dampingFraction: 0.72), value: showEndConfirm)
+        }
+        .accessibilityLabel(showEndConfirm ? "Confirm end workout" : "End workout")
+        .accessibilityHint(showEndConfirm ? "Ends and saves this session" : "Activate twice to end and save this session")
     }
 
     // MARK: Nav Strip
@@ -2821,6 +2872,7 @@ struct ActiveWorkoutView: View {
                 }
                 .padding(.horizontal, 20).padding(.vertical, 8)
             }
+            .scrollEdgeFade()
             .onChange(of: store.currentExerciseIndex) { _, newIdx in
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { proxy.scrollTo(newIdx, anchor: .center) }
             }
@@ -2834,9 +2886,13 @@ struct ActiveWorkoutView: View {
         Group {
             if isCurrent {
                 HStack(spacing: 7) {
-                    TimelineView(.animation(minimumInterval: 0.05)) { tl in
-                        let p = (sin(tl.date.timeIntervalSinceReferenceDate * 2.5) + 1) / 2
-                        Circle().fill(Color.ember).frame(width: 8, height: 8).shadow(color: Color.ember.opacity(0.5 + p * 0.4), radius: 3 + p * 3)
+                    if reduceMotion {
+                        Circle().fill(Color.ember).frame(width: 8, height: 8).shadow(color: Color.ember.opacity(0.7), radius: 4)
+                    } else {
+                        TimelineView(.animation(minimumInterval: 0.05)) { tl in
+                            let p = (sin(tl.date.timeIntervalSinceReferenceDate * 2.5) + 1) / 2
+                            Circle().fill(Color.ember).frame(width: 8, height: 8).shadow(color: Color.ember.opacity(0.5 + p * 0.4), radius: 3 + p * 3)
+                        }
                     }
                     Text(name).font(.system(size: 12, weight: .bold)).foregroundColor(.ember).lineLimit(1)
                 }
@@ -2855,6 +2911,10 @@ struct ActiveWorkoutView: View {
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: store.currentExerciseIndex)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Exercise \(idx + 1) of \(exercises.count), \(name)")
+        .accessibilityValue(isPast ? "Completed" : isCurrent ? "In progress" : "Upcoming")
+        .accessibilityAddTraits(isCurrent ? .isSelected : [])
     }
 
     // MARK: Live Metrics Bar
@@ -2862,28 +2922,58 @@ struct ActiveWorkoutView: View {
     private var liveMetricsBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                primaryMetricChip(icon: "heart.fill", iconColor: currentZone.color, value: "\(simulatedHR)", unit: "bpm", accent: currentZone.color, glowing: simulatedHR > 140)
-                HStack(spacing: 5) {
-                    TimelineView(.animation(minimumInterval: 0.05)) { tl in
-                        let p = (sin(tl.date.timeIntervalSinceReferenceDate * 3) + 1) / 2
-                        Circle().fill(currentZone.color).frame(width: 7, height: 7).scaleEffect(1 + p * 0.3).shadow(color: currentZone.color.opacity(0.6 + p * 0.3), radius: 4)
-                    }
-                    Text(currentZone.label).font(.system(size: 12, weight: .black)).foregroundColor(currentZone.color)
-                }
-                .padding(.horizontal, 12).padding(.vertical, 9).background(currentZone.color.opacity(0.13)).cornerRadius(100)
-                .overlay(Capsule().stroke(currentZone.color.opacity(0.35), lineWidth: 1)).animation(.easeInOut(duration: 0.7), value: currentZone.label)
+                heartRateChip
                 let o2Color: Color = simulatedSpO2 < 94 ? .danger : simulatedSpO2 < 96 ? .warning : Color(hex: "38BDF8")
                 primaryMetricChip(icon: "lungs.fill", iconColor: o2Color, value: "\(simulatedSpO2)%", unit: "O₂", accent: o2Color, glowing: simulatedSpO2 < 95)
+                    .accessibilityLabel("Blood oxygen")
+                    .accessibilityValue("\(simulatedSpO2) percent")
                 liveChip(icon: "flame.fill", iconColor: .ember, value: "\(Int(estimatedCals))", unit: "kcal", accent: .ember)
-                liveChip(icon: "repeat", iconColor: .steel, value: "\(store.currentSet)/\(currentExercise?.sets ?? 0)", unit: "sets", accent: .steel)
+                    .accessibilityLabel("Energy burned")
+                    .accessibilityValue("\(Int(estimatedCals)) calories")
                 liveChip(icon: "scalemass.fill", iconColor: .steel, value: "\(totalVolume.formattedVolume)", unit: "vol", accent: .steel)
+                    .accessibilityLabel("Session volume")
+                    .accessibilityValue("\(totalVolume) pounds")
                 if let bpm = music.nowPlaying?.bpm {
                     liveChip(icon: "music.note", iconColor: Color(hex: "1DB954"), value: "\(bpm)", unit: "BPM", accent: Color(hex: "1DB954"))
+                        .accessibilityLabel("Track tempo")
+                        .accessibilityValue("\(bpm) beats per minute")
                 }
             }
             .padding(.horizontal, 20)
         }
+        .scrollEdgeFade()
         .padding(.vertical, 6)
+    }
+
+    /// Zone is derived from heart rate, so it reads as one fact, not two chips.
+    /// Merging them also buys back the width that pushed the row off-screen.
+    private var heartRateChip: some View {
+        HStack(spacing: 6) {
+            if reduceMotion {
+                Image(systemName: "heart.fill").font(.system(size: 14)).foregroundColor(currentZone.color)
+            } else {
+                TimelineView(.animation(minimumInterval: 0.05)) { tl in
+                    let p = (sin(tl.date.timeIntervalSinceReferenceDate * 3) + 1) / 2
+                    Image(systemName: "heart.fill").font(.system(size: 14)).foregroundColor(currentZone.color)
+                        .scaleEffect(1 + p * 0.16)
+                        .shadow(color: currentZone.color.opacity(0.5 + p * 0.3), radius: 4)
+                }
+                .fixedSize()
+            }
+            Text("\(simulatedHR)").font(.system(size: 16, weight: .black, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
+            Text("bpm").font(.system(size: 11, weight: .semibold)).foregroundColor(currentZone.color.opacity(0.8))
+            Rectangle().fill(currentZone.color.opacity(0.28)).frame(width: 1, height: 13).padding(.horizontal, 2)
+            Text(currentZone.label).font(.system(size: 12, weight: .black)).foregroundColor(currentZone.color)
+        }
+        .lineLimit(1).fixedSize()
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(ZStack { Color.surface; currentZone.color.opacity(0.08) }).cornerRadius(100)
+        .overlay(Capsule().stroke(currentZone.color.opacity(simulatedHR > 140 ? 0.5 : 0.25), lineWidth: simulatedHR > 140 ? 1.5 : 1))
+        .shadow(color: simulatedHR > 140 ? currentZone.color.opacity(0.3) : .clear, radius: 8)
+        .animation(.easeInOut(duration: 0.7), value: currentZone.label)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Heart rate")
+        .accessibilityValue("\(simulatedHR) beats per minute, \(currentZone.label)")
     }
 
     @ViewBuilder
@@ -2893,10 +2983,12 @@ struct ActiveWorkoutView: View {
             Text(value).font(.system(size: 16, weight: .black, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
             Text(unit).font(.system(size: 11, weight: .semibold)).foregroundColor(accent.opacity(0.8))
         }
+        .lineLimit(1).fixedSize()
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(ZStack { Color.surface; accent.opacity(0.06) }).cornerRadius(100)
         .overlay(Capsule().stroke(accent.opacity(glowing ? 0.5 : 0.2), lineWidth: glowing ? 1.5 : 1))
         .shadow(color: glowing ? accent.opacity(0.3) : .clear, radius: 8)
+        .accessibilityElement(children: .ignore)
     }
 
     @ViewBuilder
@@ -2906,8 +2998,10 @@ struct ActiveWorkoutView: View {
             Text(value).font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
             Text(unit).font(.system(size: 11)).foregroundColor(.textTertiary)
         }
+        .lineLimit(1).fixedSize()
         .padding(.horizontal, 11).padding(.vertical, 8).background(Color.surface).cornerRadius(100)
         .overlay(Capsule().stroke(accent.opacity(0.2), lineWidth: 1))
+        .accessibilityElement(children: .ignore)
     }
     // MARK: Main Content
 
@@ -2990,10 +3084,14 @@ struct ActiveWorkoutView: View {
                                             Image(systemName: "minus").font(.system(size: 14, weight: .bold)).foregroundColor(.textMuted)
                                         }
                                     }
+                                    .accessibilityLabel("Decrease weight by 5 pounds")
                                     VStack(spacing: 1) {
                                         Text("\(currentWeight)").font(.system(size: 58, weight: .black, design: .rounded)).foregroundColor(.textPrimary).contentTransition(.numericText())
                                         Text("LBS").font(.system(size: 9, weight: .black)).foregroundColor(currentZone.color.opacity(0.8)).tracking(3).animation(.easeInOut(duration: 0.8), value: currentZone.label)
                                     }
+                                    .accessibilityElement(children: .ignore)
+                                    .accessibilityLabel("Working weight")
+                                    .accessibilityValue("\(currentWeight) pounds")
                                     Button {
                                         currentWeight += 5; UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                     } label: {
@@ -3002,6 +3100,7 @@ struct ActiveWorkoutView: View {
                                             Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundColor(.ember)
                                         }
                                     }
+                                    .accessibilityLabel("Increase weight by 5 pounds")
                                 }
                             }
                             .frame(maxWidth: .infinity)
@@ -3124,6 +3223,7 @@ struct ActiveWorkoutView: View {
                     Image(systemName: "brain.head.profile").font(.system(size: 14)).foregroundColor(.ember).frame(width: 46, height: 46)
                         .background(Color.ember.opacity(0.1)).cornerRadius(14).overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.ember.opacity(0.3), lineWidth: 1))
                 }
+                .accessibilityLabel("Next coaching cue")
             }
         }
     }
@@ -3151,12 +3251,10 @@ struct ActiveWorkoutView: View {
     }
 
     private var coachBar: some View {
-        HStack(spacing: 0) {
-            TimelineView(.animation(minimumInterval: 0.05)) { tl in
-                let p = (sin(tl.date.timeIntervalSinceReferenceDate * 1.8) + 1) / 2
-                RoundedRectangle(cornerRadius: 2).fill(Color.ember.opacity(0.5 + p * 0.5)).frame(width: 3).shadow(color: Color.ember.opacity(0.4 + p * 0.4), radius: 4 + p * 4)
-            }
-            .frame(width: 3)
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(.easeInOut(duration: 0.4)) { coachIndex += 1 }
+        } label: {
             HStack(spacing: 12) {
                 ZStack {
                     Circle().fill(Color.ember.opacity(0.12)).frame(width: 36, height: 36)
@@ -3165,15 +3263,41 @@ struct ActiveWorkoutView: View {
                 ZStack {
                     Text(liveCoachCues[coachIndex % liveCoachCues.count])
                         .font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(3)
+                        .multilineTextAlignment(.leading).lineLimit(3)
                         .frame(maxWidth: .infinity, alignment: .leading).id(coachIndex)
                         .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .move(edge: .top).combined(with: .opacity)))
                 }
                 .animation(.easeInOut(duration: 0.4), value: coachIndex)
             }
-            .padding(.horizontal, 14).padding(.vertical, 14)
+            .padding(.leading, 17).padding(.trailing, 14).padding(.vertical, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // The bar hugs its text. Without this the pulse rail below — a shape with
+            // no intrinsic height — makes the whole bar greedy and the parent VStack
+            // hands it half the screen, squeezing the exercise card.
+            .fixedSize(horizontal: false, vertical: true)
+            .background(ZStack { Color.surfaceElevated; LinearGradient(colors: [Color.ember.opacity(0.04), .clear], startPoint: .leading, endPoint: .trailing) })
+            .overlay(alignment: .leading) {
+                Group {
+                    if reduceMotion {
+                        RoundedRectangle(cornerRadius: 2).fill(Color.ember.opacity(0.85))
+                    } else {
+                        TimelineView(.animation(minimumInterval: 0.05)) { tl in
+                            let p = (sin(tl.date.timeIntervalSinceReferenceDate * 1.8) + 1) / 2
+                            RoundedRectangle(cornerRadius: 2).fill(Color.ember.opacity(0.5 + p * 0.5))
+                                .shadow(color: Color.ember.opacity(0.4 + p * 0.4), radius: 4 + p * 4)
+                        }
+                    }
+                }
+                .frame(width: 3)
+                .allowsHitTesting(false)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.ember.opacity(0.12), lineWidth: 1))
         }
-        .background(ZStack { Color.surfaceElevated; LinearGradient(colors: [Color.ember.opacity(0.04), .clear], startPoint: .leading, endPoint: .trailing) })
-        .cornerRadius(16).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.ember.opacity(0.12), lineWidth: 1))
+        .buttonStyle(.plain)
+        .accessibilityLabel("ARIA coaching cue")
+        .accessibilityValue(liveCoachCues[coachIndex % liveCoachCues.count])
+        .accessibilityHint("Shows the next cue")
         .padding(.horizontal, 16).padding(.bottom, 20).padding(.top, 6)
     }
 
@@ -3372,8 +3496,17 @@ struct ActiveWorkoutView: View {
         elapsedTask = nil; hrTask = nil; calTask = nil; o2Task = nil; restTask = nil; coachTask = nil
     }
     private func formatTime(_ s: Int, flashColon: Bool = true) -> String {
-        let sep = flashColon ? ":" : " "
+        // A plain space would give the clock a line-break opportunity, so a tight
+        // header renders "00 / 14" stacked. U+00A0 blinks identically and can't wrap.
+        let sep = flashColon ? ":" : "\u{00A0}"
         return String(format: "%02d\(sep)%02d", s / 60, s % 60)
+    }
+
+    /// VoiceOver reads "14 minutes 5 seconds" rather than spelling out "00:14:05".
+    private func spokenDuration(_ s: Int) -> String {
+        let minutes = s / 60, seconds = s % 60
+        if minutes == 0 { return "\(seconds) second\(seconds == 1 ? "" : "s")" }
+        return "\(minutes) minute\(minutes == 1 ? "" : "s") \(seconds) second\(seconds == 1 ? "" : "s")"
     }
 }
 
@@ -4343,6 +4476,22 @@ struct FormCheckCameraView: View {
 private extension View {
     func roundedCorners(_ radius: CGFloat, corners: UIRectCorner) -> some View {
         clipShape(WorkoutRoundedCorner(radius: radius, corners: corners))
+    }
+
+    /// Softens both ends of a horizontal scroller so a chip clipped by the screen
+    /// edge reads as "keep scrolling" instead of a broken layout. Drawn as a
+    /// non-interactive overlay so it never swallows a drag from the scroll view.
+    func scrollEdgeFade(width: CGFloat = 22) -> some View {
+        overlay(alignment: .leading) {
+            LinearGradient(colors: [Color.background, Color.background.opacity(0)], startPoint: .leading, endPoint: .trailing)
+                .frame(width: width)
+                .allowsHitTesting(false)
+        }
+        .overlay(alignment: .trailing) {
+            LinearGradient(colors: [Color.background.opacity(0), Color.background], startPoint: .leading, endPoint: .trailing)
+                .frame(width: width)
+                .allowsHitTesting(false)
+        }
     }
 }
 

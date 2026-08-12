@@ -47,8 +47,15 @@ override.tf.json
 infra/terraform/build/*.zip
 
 # xcode
-*.xcuserdata/
+# Per-user IDE state. The previous pattern `*.xcuserdata/` only matched
+# directories *ending in* ".xcuserdata" — the real directory is plain
+# "xcuserdata", so this never matched and the state was committed.
+xcuserdata/
+*.xcuserdatad/
 *.xcuserstate
+*.xcscmblueprint
+DerivedData/
+.swiftpm/xcode/xcuserdata/
 
 # simrunner generated reports
 backend/simrunner/reports/

@@ -6,6 +6,83 @@ import Charts
 // ║  Status · Next action · ARIA briefing · Telemetry · Week rhythm  ║
 // ╚════════════════════════════════════════════════════════════════════╝
 
+// MARK: - Home metrics
+
+/// One rhythm for the whole Home surface. Every section reads its inset, gap,
+/// padding and radius from here instead of hand-picking a number.
+///
+/// Before this existed the page carried four corner radii (22/18/14/12, plus 24
+/// on the celebration banner) in two curve styles, card padding of 16/18/22 with
+/// no rule, and thirteen separate per-child bottom paddings.
+enum HomeMetrics {
+    /// Horizontal inset for every section. The header used `FDS.Spacing.lg`
+    /// while the other eleven used a literal `16` — the same number, two spellings.
+    static let inset: CGFloat = FDS.Spacing.lg
+    /// Vertical gap between sections, applied once by the VStack.
+    static let sectionGap: CGFloat = 16
+    /// Interior padding for every card.
+    static let cardPadding: CGFloat = 18
+    /// Radius for elements *inside* a card. Cards themselves use the
+    /// `forgeGlassCard` default (`FDS.Radius.xl`).
+    static let innerRadius: CGFloat = FDS.Radius.md
+    /// Clearance past the tab bar and floating orb at the end of the scroll.
+    static let scrollBottomClearance: CGFloat = 140
+    /// How far a section rises as it fades in.
+    static let entranceRise: CGFloat = 12
+}
+
+// MARK: - Section entrance
+
+/// `MainTabView` sets `.id(store.activeTab)` (ContentView.swift), so `HomeView`
+/// is destroyed and rebuilt on every tab switch. Without a gate the entire
+/// entrance cascade replayed each time you came back to Home. This survives the
+/// rebuild and resets on process launch, so the choreography plays once per
+/// launch and later visits render immediately.
+private final class HomeEntranceSession: @unchecked Sendable {
+    static let shared = HomeEntranceSession()
+    private(set) var hasPlayed = false
+    private var scheduled = false
+    private init() {}
+
+    /// Called by every section on first appear. Sections all appear within the
+    /// same runloop turn, so the flag must not flip until the longest stagger
+    /// has finished — otherwise later sections would snap in mid-cascade.
+    func markPlayed() {
+        guard !scheduled else { return }
+        scheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { self.hasPlayed = true }
+    }
+}
+
+/// One entrance rule for every Home section, replacing nine hand-rolled variants
+/// whose offsets ran −12/12/14/18/20/none. The header used to be the only
+/// section that slid *down* while everything else rose.
+private struct HomeEntrance: ViewModifier {
+    let delay: Double
+    @State private var appeared = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared ? 0 : HomeMetrics.entranceRise)
+            .onAppear {
+                guard !HomeEntranceSession.shared.hasPlayed else {
+                    appeared = true
+                    return
+                }
+                withAnimation(FDS.Spring.hero.delay(delay)) { appeared = true }
+                HomeEntranceSession.shared.markPlayed()
+            }
+    }
+}
+
+extension View {
+    /// `delay` encodes the section's position down the page.
+    func homeEntrance(delay: Double) -> some View {
+        modifier(HomeEntrance(delay: delay))
+    }
+}
+
 // MARK: - Scroll Offset
 
 private struct ScrollOffsetKey: PreferenceKey {
@@ -104,14 +181,8 @@ struct HomeView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            CinematicHomeBackground(readinessScore: store.readiness.overall)
+            HomeAuroraBackground(readinessScore: store.readiness.overall)
                 .ignoresSafeArea()
-
-            if !reduceMotion {
-                ReadinessParticleOverlay(readinessScore: store.readiness.overall)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-            }
 
             ScrollView(showsIndicators: false) {
                 ZStack(alignment: .top) {
@@ -121,32 +192,24 @@ struct HomeView: View {
                     }
                     .frame(height: 0)
 
-                    VStack(spacing: 0) {
+                    // One gap and one inset for the whole page, applied here rather
+                    // than as thirteen per-child bottom paddings.
+                    VStack(spacing: HomeMetrics.sectionGap) {
                         // 1. Header
                         HomeHeaderView()
                             .padding(.top, 64)
-                            .padding(.horizontal, FDS.Spacing.lg)
-                            .padding(.bottom, 20)
 
                         // 2. Hero readiness control
                         HomeHeroReadinessCard(onCelebrate: triggerCelebration)
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 16)
 
                         // 3. Dual primary controls (train + lifestyle)
                         HomePrimaryCTA(action: primaryAction)
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 16)
 
                         // 4. Today's agenda
                         HomeAgendaCard()
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 16)
 
                         // 5. Win of the day
                         HomeWinCard()
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 12)
 
                         // 6. Support pulse (partner cycle)
                         if MenstrualHealthStore.shared.partnerSettings.enabled,
@@ -156,8 +219,6 @@ struct HomeView: View {
                                 cycleInitialPane = .partner
                                 showCycleHealth = true
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 12)
                         }
 
                         // 7. ARIA briefing (suppressed in quiet mode for proactive card)
@@ -171,20 +232,14 @@ struct HomeView: View {
                                     store.openChat(with: "Tell me more about: \(insight)", voice: false)
                                 }
                             )
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 12)
                         }
 
                         if !store.quietMode {
                             HomeARIABriefingCard()
-                                .padding(.horizontal, 16)
-                                .padding(.bottom, 16)
                         }
 
                         // 8. Lifestyle preview (full surface is its own tab)
                         HomeLifestylePreviewCard()
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 16)
 
                         // 9. Cycle Health — entry only from Home (not bottom tabs)
                         if showsCycleEntry {
@@ -193,25 +248,19 @@ struct HomeView: View {
                                 cycleInitialPane = .me
                                 showCycleHealth = true
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 16)
                         }
 
                         // 10. Day preview telemetry
                         HomeDayPreviewStrip()
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 16)
 
                         // 11. Week rhythm
                         StreakCalendarSection()
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 16)
 
                         // 12. Optional trend
                         HomeTrendSection(isExpanded: $showTrend)
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 140)
+                            .padding(.bottom, HomeMetrics.scrollBottomClearance)
                     }
+                    .padding(.horizontal, HomeMetrics.inset)
                 }
             }
             .onPreferenceChange(ScrollOffsetKey.self) { value in
@@ -297,9 +346,9 @@ struct HomeView: View {
         celebrationKey += 1
         withAnimation(FDS.Spring.hero) { showCelebration = true }
         FDS.notificationHaptic(.success)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
-            withAnimation(FDS.Spring.standard) { showCelebration = false }
-        }
+        // Dismissal is owned by the overlay's own timer, which calls back through
+        // `onDismiss`. This used to schedule a competing 4.5s timer against the
+        // overlay's 3.8s one, so the teardown animation ran twice.
     }
 
     @MainActor
@@ -318,7 +367,6 @@ struct HomeView: View {
 
 struct HomeHeaderView: View {
     @EnvironmentObject var store: AppStore
-    @State private var appeared = false
 
     private var greeting: String {
         let h = Calendar.current.component(.hour, from: Date())
@@ -405,11 +453,7 @@ struct HomeHeaderView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Profile")
         }
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : -12)
-        .onAppear {
-            withAnimation(FDS.Spring.hero.delay(0.05)) { appeared = true }
-        }
+        .homeEntrance(delay: 0.05)
     }
 }
 
@@ -434,13 +478,13 @@ private struct HomeDataStatusPill: View {
                     ProgressView().controlSize(.mini)
                 } else {
                     Circle()
-                        .fill(isLive ? Color(hex: "22C55E") : Color.warning)
+                        .fill(isLive ? Color.vitality : Color.warning)
                         .frame(width: 5, height: 5)
-                        .shadow(color: isLive ? Color(hex: "22C55E").opacity(0.8) : .clear, radius: 3)
+                        .shadow(color: isLive ? Color.vitality.opacity(0.8) : .clear, radius: 3)
                 }
                 Text(statusText)
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(isLive ? Color(hex: "22C55E") : .warning)
+                    .foregroundColor(isLive ? Color.vitality : .warning)
             }
         }
         .buttonStyle(.plain)
@@ -493,7 +537,7 @@ private struct HomeScrollMiniHeader: View {
                     .foregroundColor(.ember)
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, HomeMetrics.inset)
         .padding(.top, 54)
         .padding(.bottom, 12)
         .background {
@@ -521,7 +565,6 @@ private struct HomeScrollMiniHeader: View {
 private struct HomeHeroReadinessCard: View {
     @EnvironmentObject var store: AppStore
     var onCelebrate: () -> Void = {}
-    @State private var appeared = false
     @State private var showDetails = false
 
     var body: some View {
@@ -529,9 +572,7 @@ private struct HomeHeroReadinessCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("READINESS")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.textTertiary)
-                        .tracking(2)
+                        .forgeSectionLabel()
                     Text(homeStatusLine(store: store))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(readinessColor(store.readiness.overall))
@@ -579,9 +620,7 @@ private struct HomeHeroReadinessCard: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("WHY THIS SCORE")
-                        .font(.system(size: 10, weight: .bold))
-                        .tracking(1.4)
-                        .foregroundColor(.textTertiary)
+                        .forgeSectionLabel()
                         .padding(.top, 4)
                     Text(readinessWhyCopy(store: store))
                         .font(.system(size: 13, weight: .medium))
@@ -625,11 +664,9 @@ private struct HomeHeroReadinessCard: View {
                 .padding(.top, 12)
             }
         }
-        .padding(22)
+        .padding(HomeMetrics.cardPadding)
         .forgeGlassCard(accent: readinessColor(store.readiness.overall))
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 20)
-        .onAppear { withAnimation(FDS.Spring.hero.delay(0.12)) { appeared = true } }
+        .homeEntrance(delay: 0.12)
     }
 }
 
@@ -719,9 +756,9 @@ private struct HomePrimaryCTA: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Color.surfaceElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
                             .stroke(Color.borderColor, lineWidth: 1)
                     )
                 }
@@ -737,14 +774,14 @@ private struct HomePrimaryCTA: View {
                         Text("Lifestyle")
                             .font(.system(size: 13, weight: .semibold))
                     }
-                    .foregroundColor(Color(hex: "22C55E"))
+                    .foregroundColor(Color.vitality)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color(hex: "22C55E").opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Color.vitality.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color(hex: "22C55E").opacity(0.25), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
+                            .stroke(Color.vitality.opacity(0.25), lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -777,7 +814,7 @@ private struct HomePrimaryCTA: View {
 
 struct HomeARIABriefingCard: View {
     @EnvironmentObject var store: AppStore
-    @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var displayedText = ""
     @State private var isTyping = false
     @State private var pulseRing = false
@@ -861,9 +898,9 @@ struct HomeARIABriefingCard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(14)
                     .background(Color.surfaceElevated)
-                    .cornerRadius(FDS.Radius.md)
+                    .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: FDS.Radius.md)
+                        RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
                             .stroke(Color.ember.opacity(0.12), lineWidth: 1)
                     )
             }
@@ -885,14 +922,16 @@ struct HomeARIABriefingCard: View {
                 }
             }
         }
-        .padding(18)
+        .padding(HomeMetrics.cardPadding)
         .forgeGlassCard(accent: .ember)
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 18)
+        .homeEntrance(delay: 0.18)
         .onAppear {
-            withAnimation(FDS.Spring.hero.delay(0.18)) { appeared = true }
-            withAnimation(.easeOut(duration: 2.2).repeatForever(autoreverses: false)) {
-                pulseRing = true
+            // The avatar halo was the one continuous loop on Home that ignored
+            // Reduce Motion, while the typewriter beside it already honoured it.
+            if !reduceMotion {
+                withAnimation(.easeOut(duration: 2.2).repeatForever(autoreverses: false)) {
+                    pulseRing = true
+                }
             }
             startTypewriterIfNeeded()
         }
@@ -973,7 +1012,6 @@ enum HomeARIABriefingBuilder {
         let deepStr = deep >= 60 ? "\(deep / 60)h \(deep % 60)m" : "\(deep)m"
         let context = store.makeTrainerContext()
         let theme = store.userProfile.trainingTheme
-        let score = store.readiness.overall
 
         let facts = AriaSpeechFacts(
             sessionTitle: store.todayWorkout?.name,
@@ -988,63 +1026,101 @@ enum HomeARIABriefingBuilder {
             themeOverride: theme
         )
 
-        var extras: [String] = []
-        if store.readiness.sleepQuality >= 80 {
-            extras.append("Deep sleep looked solid (\(deepStr)).")
-        } else if store.readiness.sleepQuality < 60 {
-            extras.append("Deep sleep was only \(deepStr) — recovery may lag.")
+        // Candidates are ranked by how much they matter today, then the top two
+        // are taken. Previously they were gated and shuffled by the readiness
+        // score itself (`score % 3 == 0`, RNG seeded on `score &* 17`), which had
+        // two bad consequences: whether ARIA mentioned your partner depended on
+        // an unrelated number, and a genuinely urgent beat ("HRV is low at 38ms")
+        // could lose a coin flip to filler ("Still aligned to strength"). It also
+        // reshuffled the whole briefing whenever readiness moved a single point.
+        var beats: [BriefingBeat] = []
+
+        // --- Recovery signals. A deficit outranks a confirmation: being told
+        //     something is wrong is more actionable than being told it is fine.
+        if store.readiness.sleepQuality < 60 {
+            beats.append(.init(text: "Deep sleep was only \(deepStr) — recovery may lag.", priority: .urgent))
+        } else if store.readiness.sleepQuality >= 80 {
+            beats.append(.init(text: "Deep sleep looked solid (\(deepStr)).", priority: .confirming))
         }
         if store.dailyMetrics.hrv > 0 {
-            if store.dailyMetrics.hrv >= 50 {
-                extras.append("HRV holding at \(store.dailyMetrics.hrv)ms.")
-            } else if store.dailyMetrics.hrv < 40 {
-                extras.append("HRV is low at \(store.dailyMetrics.hrv)ms.")
+            if store.dailyMetrics.hrv < 40 {
+                beats.append(.init(text: "HRV is low at \(store.dailyMetrics.hrv)ms.", priority: .urgent))
+            } else if store.dailyMetrics.hrv >= 50 {
+                beats.append(.init(text: "HRV holding at \(store.dailyMetrics.hrv)ms.", priority: .confirming))
             }
         }
+
+        // --- Blocks today's action, so it ranks above passive observations.
         if store.todayWorkout == nil {
             if theme == .soloLeveling {
-                extras.append("No quest locked — ask for today's daily quest.")
+                beats.append(.init(text: "No quest locked — ask for today's daily quest.", priority: .blocking))
             } else if theme != .classic {
-                extras.append("No plan locked — I can build a \(theme.label) session.")
+                beats.append(.init(text: "No plan locked — I can build a \(theme.label) session.", priority: .blocking))
             }
         }
-        if let goal = store.userProfile.fitnessGoals.first {
-            extras.append("Still aligned to \(goal.label.lowercased()).")
-        }
+
+        // --- Support context. The phase-specific line is time-sensitive and
+        //     genuinely actionable; the generic nudge is not, so it sits low
+        //     rather than being gated on `score % 3`.
         let pSettings = MenstrualHealthStore.shared.partnerSettings
         if pSettings.enabled, pSettings.consentAcknowledged {
             let who = pSettings.displayName
             let phase = MenstrualHealthStore.shared.partnerSnapshot.phase
             if phase == .menstruation || phase == .luteal {
-                extras.append(
-                    pSettings.resolvedRole == .child
+                beats.append(.init(
+                    text: pSettings.resolvedRole == .child
                         ? "\(who) may need the soft parent playbook today."
-                        : "Keep \(who) in mind — \(phase.shortLabel.lowercased()) energy."
-                )
-            } else if score % 3 == 0 {
-                extras.append("You're also looking out for \(who). Ask me anytime.")
+                        : "Keep \(who) in mind — \(phase.shortLabel.lowercased()) energy.",
+                    priority: .timely))
+            } else {
+                beats.append(.init(text: "You're also looking out for \(who). Ask me anytime.", priority: .ambient))
             }
-        } else if store.userProfile.gender == .male, score % 5 == 0 {
-            extras.append("Partner or daughter to support? I can learn that context.")
-        }
-        if let emotion = AriaContextStore.shared.context.lifestyleTags.first(where: { $0.hasPrefix("emotion:") && !$0.contains("about_other") }) {
-            let raw = emotion.replacingOccurrences(of: "emotion:", with: "")
-            if let need = AriaEmotionalNeed(rawValue: raw), need != .crisis, score % 2 == 0 {
-                extras.append("Still holding space for \(need.label.lowercased()) if you need it.")
-            }
-        }
-        // Keep briefing tight: voice core + at most two extras (salted by readiness).
-        let pickCount = min(2, extras.count)
-        let mixed = score &* 17 &+ abs(theme.rawValue.hashValue)
-        var rng = AriaSeededRNG(seed: UInt64(mixed == 0 ? 1 : mixed))
-        var chosen: [String] = []
-        var pool = extras
-        for _ in 0..<pickCount where !pool.isEmpty {
-            let i = rng.int(in: 0..<pool.count)
-            chosen.append(pool.remove(at: i))
+        } else if store.userProfile.gender == .male {
+            beats.append(.init(text: "Partner or daughter to support? I can learn that context.", priority: .ambient))
         }
 
+        if let emotion = AriaContextStore.shared.context.lifestyleTags.first(where: { $0.hasPrefix("emotion:") && !$0.contains("about_other") }) {
+            let raw = emotion.replacingOccurrences(of: "emotion:", with: "")
+            if let need = AriaEmotionalNeed(rawValue: raw), need != .crisis {
+                beats.append(.init(text: "Still holding space for \(need.label.lowercased()) if you need it.", priority: .timely))
+            }
+        }
+
+        // --- Pure reassurance, carrying no new information. Kept so a quiet day
+        //     still reads warm, but it can only appear when nothing outranks it.
+        if let goal = store.userProfile.fitnessGoals.first {
+            beats.append(.init(text: "Still aligned to \(goal.label.lowercased()).", priority: .filler))
+        }
+
+        // Rank, then break ties on a seed that is stable for the whole day, so
+        // repeated glances at Home read consistently instead of reshuffling.
+        let daySeed = UInt64(abs(Calendar.current.startOfDay(for: Date()).timeIntervalSince1970.rounded())) &+ 1
+        var rng = AriaSeededRNG(seed: daySeed)
+        let jittered = beats.map { (beat: $0, tie: rng.int(in: 0..<1000)) }
+        let chosen = jittered
+            .sorted { ($0.beat.priority.rawValue, $0.tie) > ($1.beat.priority.rawValue, $1.tie) }
+            .prefix(2)
+            .map { $0.beat.text }
+
         return ([voiceCore] + chosen).joined(separator: " ")
+    }
+
+    /// One candidate line, ranked by how much it matters today.
+    private struct BriefingBeat {
+        let text: String
+        let priority: Priority
+
+        /// Higher wins. The ordering encodes an editorial stance: a deficit you
+        /// can act on beats a confirmation that things are fine, and anything
+        /// concrete beats reassurance.
+        enum Priority: Int {
+            case filler     = 10   // true but carries no information
+            case ambient    = 20   // a standing offer, not tied to today
+            case confirming = 40   // a metric that looks good
+            case timely     = 60   // relevant specifically today
+            case blocking   = 80   // stops the user acting until resolved
+            case urgent     = 100  // a deficit worth changing the plan over
+        }
     }
 }
 
@@ -1145,30 +1221,30 @@ struct HomeCycleModule: View {
                     if cycleStore.settings.enabled {
                         miniChip("\(Int(cycleStore.snapshot.confidence * 100))% conf", accent)
                         if let next = cycleStore.snapshot.nextPeriod {
-                            miniChip("Next \(shortDate(next.medianDayKey))", Color(hex: "EF4444"))
+                            miniChip("Next \(shortDate(next.medianDayKey))", Color.alert)
                         }
                     } else if cycleStore.partnerSettings.enabled {
-                        miniChip(cycleStore.partnerSettings.resolvedRole.shortLabel, Color(hex: "6366F1"))
+                        miniChip(cycleStore.partnerSettings.resolvedRole.shortLabel, Color.indigo)
                         miniChip(cycleStore.partnerSnapshot.phase.shortLabel, accent)
                     } else {
-                        miniChip("My cycle", Color(hex: "EF4444"))
-                        miniChip("Support", Color(hex: "6366F1"))
+                        miniChip("My cycle", Color.alert)
+                        miniChip("Support", Color.indigo)
                     }
-                    miniChip("Private", Color(hex: "22C55E"))
+                    miniChip("Private", Color.vitality)
                     Spacer()
                 }
 
                 HStack(spacing: 6) {
                     Image(systemName: "lock.shield.fill")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color(hex: "22C55E"))
+                        .foregroundStyle(Color.vitality)
                     Text(CyclePrivacy.shortPromise)
                         .font(FDS.TypeScale.body(11))
                         .foregroundColor(.textTertiary)
                         .lineLimit(2)
                 }
             }
-            .padding(18)
+            .padding(HomeMetrics.cardPadding)
             .forgeGlassCard(accent: accent)
         }
         .buttonStyle(.plain)
@@ -1269,9 +1345,8 @@ private struct HomeWinCard: View {
             }
             VStack(alignment: .leading, spacing: 3) {
                 Text("WIN")
-                    .font(.system(size: 10, weight: .bold))
-                    .tracking(1.6)
-                    .foregroundColor(.ember)
+                    .forgeSectionLabel()
+                    .foregroundStyle(Color.ember)
                 Text(title)
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.textPrimary)
@@ -1282,7 +1357,7 @@ private struct HomeWinCard: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(16)
+        .padding(HomeMetrics.cardPadding)
         .forgeGlassCard(accent: .ember)
     }
 }
@@ -1295,20 +1370,22 @@ private struct HomeSupportPulseCard: View {
     @ObservedObject private var cycleStore = MenstrualHealthStore.shared
     var onOpen: () -> Void
 
+    /// One accent for the whole card. The icon used to take the live phase colour
+    /// while the card border was hardcoded indigo, so the two fought each other.
+    private var accent: Color { Color(hex: cycleStore.partnerSnapshot.phase.accentHex) }
+
     var body: some View {
         Button(action: onOpen) {
             HStack(spacing: 12) {
                 Image(systemName: cycleStore.partnerSnapshot.phase.icon)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color(hex: cycleStore.partnerSnapshot.phase.accentHex))
+                    .foregroundStyle(accent)
                     .frame(width: 40, height: 40)
-                    .background(Color(hex: cycleStore.partnerSnapshot.phase.accentHex).opacity(0.15))
+                    .background(accent.opacity(0.15))
                     .clipShape(Circle())
                 VStack(alignment: .leading, spacing: 3) {
                     Text("SUPPORTING")
-                        .font(.system(size: 10, weight: .bold))
-                        .tracking(1.4)
-                        .foregroundColor(.textTertiary)
+                        .forgeSectionLabel()
                     Text("\(cycleStore.partnerSettings.displayName) · \(cycleStore.partnerSnapshot.phase.shortLabel)")
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(.textPrimary)
@@ -1322,8 +1399,8 @@ private struct HomeSupportPulseCard: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.textMuted)
             }
-            .padding(16)
-            .forgeGlassCard(accent: Color(hex: "6366F1"))
+            .padding(HomeMetrics.cardPadding)
+            .forgeGlassCard(accent: accent)
         }
         .buttonStyle(.plain)
     }
@@ -1335,7 +1412,6 @@ private struct HomeSupportPulseCard: View {
 
 private struct HomeAgendaCard: View {
     @EnvironmentObject var store: AppStore
-    @State private var appeared = false
 
     private var items: [(icon: String, title: String, sub: String, color: Color, action: () -> Void)] {
         var rows: [(icon: String, title: String, sub: String, color: Color, action: () -> Void)] = []
@@ -1391,7 +1467,7 @@ private struct HomeAgendaCard: View {
             "leaf.fill",
             "Lifestyle check-in",
             "Protein · water · meals",
-            Color(hex: "22C55E"),
+            Color.vitality,
             { store.activeTab = .lifestyle }
         ))
 
@@ -1417,19 +1493,21 @@ private struct HomeAgendaCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        // `items` is a computed property that rebuilds the whole row array; it was
+        // being evaluated twice per render, once for the count and once for the
+        // ForEach. Bind it once.
+        let rows = items
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("TODAY'S AGENDA")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.textTertiary)
-                    .tracking(2)
+                    .forgeSectionLabel()
                 Spacer()
-                Text("\(items.count) items")
+                Text("\(rows.count) items")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.textMuted)
             }
 
-            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, item in
                 Button {
                     FDS.haptic(.light)
                     item.action()
@@ -1463,11 +1541,9 @@ private struct HomeAgendaCard: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(18)
+        .padding(HomeMetrics.cardPadding)
         .forgeGlassCard(accent: .ember.opacity(0.5))
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 12)
-        .onAppear { withAnimation(FDS.Spring.hero.delay(0.16)) { appeared = true } }
+        .homeEntrance(delay: 0.16)
     }
 }
 
@@ -1477,7 +1553,6 @@ private struct HomeAgendaCard: View {
 
 private struct HomeLifestylePreviewCard: View {
     @EnvironmentObject var store: AppStore
-    @State private var appeared = false
 
     var body: some View {
         Button {
@@ -1491,7 +1566,7 @@ private struct HomeLifestylePreviewCard: View {
                     Spacer()
                     Text("Open")
                         .font(FDS.TypeScale.label(12))
-                        .foregroundStyle(Color(hex: "22C55E"))
+                        .foregroundStyle(Color.vitality)
                 }
 
                 HStack(spacing: 10) {
@@ -1499,7 +1574,7 @@ private struct HomeLifestylePreviewCard: View {
                         icon: "figure.walk",
                         value: store.dailyMetrics.steps > 0 ? store.dailyMetrics.steps.formatted() : "—",
                         label: "Steps",
-                        color: Color(hex: "22C55E")
+                        color: Color.vitality
                     )
                     lifestyleChip(
                         icon: "flame.fill",
@@ -1518,7 +1593,7 @@ private struct HomeLifestylePreviewCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: "fork.knife")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color(hex: "FFB84D"))
+                        .foregroundStyle(Color.amber)
                     Text("Nutrition · hydration · wellbeing live on the Lifestyle tab")
                         .font(FDS.TypeScale.body(12))
                         .foregroundColor(.textTertiary)
@@ -1529,13 +1604,11 @@ private struct HomeLifestylePreviewCard: View {
                         .foregroundColor(.textMuted)
                 }
             }
-            .padding(18)
-            .forgeGlassCard(accent: Color(hex: "22C55E"))
+            .padding(HomeMetrics.cardPadding)
+            .forgeGlassCard(accent: Color.vitality)
         }
         .buttonStyle(.plain)
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 12)
-        .onAppear { withAnimation(FDS.Spring.hero.delay(0.22)) { appeared = true } }
+        .homeEntrance(delay: 0.22)
         .accessibilityLabel("Lifestyle preview")
         .accessibilityHint("Opens the Lifestyle tab")
     }
@@ -1557,7 +1630,7 @@ private struct HomeLifestylePreviewCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(Color.surfaceElevated.opacity(0.9))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
     }
 }
 
@@ -1567,21 +1640,22 @@ private struct HomeLifestylePreviewCard: View {
 
 private struct HomeDayPreviewStrip: View {
     @EnvironmentObject var store: AppStore
-    @State private var appeared = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("DAY PREVIEW")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.textTertiary)
-                    .tracking(2)
+                    .forgeSectionLabel()
                 Spacer()
                 Button("Sleep") { store.activeTab = .sleep }
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.ember)
             }
 
+            // The tiles bleed to the screen edge instead of stopping at the page
+            // inset, so the row reads as scrollable rather than clipped. The
+            // negative outer inset is paid back as leading content padding, which
+            // keeps the first tile aligned with the header above it.
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     HomeMetricTile(
@@ -1598,7 +1672,7 @@ private struct HomeDayPreviewStrip: View {
                     )
                     HomeMetricTile(
                         icon: "figure.walk",
-                        iconColor: Color(hex: "22C55E"),
+                        iconColor: Color.vitality,
                         value: store.dailyMetrics.steps > 0 ? store.dailyMetrics.steps.formatted() : "—",
                         label: "Steps"
                     )
@@ -1609,11 +1683,11 @@ private struct HomeDayPreviewStrip: View {
                         label: "Active Cal"
                     )
                 }
+                .padding(.horizontal, HomeMetrics.inset)
             }
+            .padding(.horizontal, -HomeMetrics.inset)
         }
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 14)
-        .onAppear { withAnimation(FDS.Spring.hero.delay(0.28)) { appeared = true } }
+        .homeEntrance(delay: 0.28)
     }
 
     private var sleepValue: String {
@@ -1651,7 +1725,7 @@ private struct HomeMetricTile: View {
         }
         .padding(14)
         .frame(width: 118, alignment: .leading)
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg)
+        .forgeGlassCard(cornerRadius: HomeMetrics.innerRadius)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label): \(value)")
     }
@@ -1664,7 +1738,8 @@ private struct HomeMetricTile: View {
 private struct HomeTrendSection: View {
     @EnvironmentObject var store: AppStore
     @Binding var isExpanded: Bool
-    @State private var appeared = false
+    /// Drives the chart grow-from-zero only; the card enters via `.homeEntrance`.
+    @State private var chartGrown = false
 
     /// Real-ish series from sleep scores when available; otherwise empty.
     private var trendData: [(day: String, score: Int)] {
@@ -1696,9 +1771,7 @@ private struct HomeTrendSection: View {
             } label: {
                 HStack {
                     Text("7-DAY SIGNAL")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.textTertiary)
-                        .tracking(2)
+                        .forgeSectionLabel()
                     Spacer()
                     if trendData.isEmpty {
                         Text("Not enough data")
@@ -1720,7 +1793,7 @@ private struct HomeTrendSection: View {
                     ForEach(Array(trendData.enumerated()), id: \.offset) { i, point in
                         AreaMark(
                             x: .value("Day", point.day),
-                            y: .value("Score", appeared ? point.score : 0)
+                            y: .value("Score", chartGrown ? point.score : 0)
                         )
                         .foregroundStyle(
                             LinearGradient(
@@ -1733,7 +1806,7 @@ private struct HomeTrendSection: View {
 
                         LineMark(
                             x: .value("Day", point.day),
-                            y: .value("Score", appeared ? point.score : 0)
+                            y: .value("Score", chartGrown ? point.score : 0)
                         )
                         .foregroundStyle(readinessColor(point.score))
                         .lineStyle(StrokeStyle(lineWidth: 2.4, lineCap: .round))
@@ -1741,7 +1814,7 @@ private struct HomeTrendSection: View {
 
                         PointMark(
                             x: .value("Day", point.day),
-                            y: .value("Score", appeared ? point.score : 0)
+                            y: .value("Score", chartGrown ? point.score : 0)
                         )
                         .foregroundStyle(readinessColor(point.score))
                         .symbolSize(i == trendData.count - 1 ? 56 : 28)
@@ -1758,12 +1831,13 @@ private struct HomeTrendSection: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(18)
+        .padding(HomeMetrics.cardPadding)
         .forgeGlassCard()
-        .opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(FDS.Spring.hero.delay(0.35)) { appeared = true }
+            guard !chartGrown else { return }
+            withAnimation(FDS.Spring.hero.delay(0.45)) { chartGrown = true }
         }
+        .homeEntrance(delay: 0.35)
     }
 }
 
@@ -1950,7 +2024,9 @@ struct ReadinessRingView: View {
 
 struct StreakCalendarSection: View {
     @EnvironmentObject var store: AppStore
-    @State private var appeared = false
+    /// Drives only the per-cell stagger; the card's own entrance is handled by
+    /// `.homeEntrance`, so the two no longer share a flag.
+    @State private var cellsAppeared = false
 
     private var weekDays: [(label: String, hasWorkout: Bool, isToday: Bool)] {
         let cal = Calendar.current
@@ -2014,131 +2090,33 @@ struct StreakCalendarSection: View {
                                 Circle().fill(Color.white.opacity(0.08)).frame(width: 8, height: 8)
                             }
                         }
-                        .scaleEffect(appeared ? 1 : 0.7)
-                        .opacity(appeared ? 1 : 0)
-                        .animation(FDS.Spring.hero.delay(0.08 + Double(i) * 0.05), value: appeared)
+                        .scaleEffect(cellsAppeared ? 1 : 0.7)
+                        .opacity(cellsAppeared ? 1 : 0)
+                        .animation(FDS.Spring.hero.delay(0.08 + Double(i) * 0.05), value: cellsAppeared)
                     }
                     .frame(maxWidth: .infinity)
                 }
             }
         }
-        .padding(18)
+        .padding(HomeMetrics.cardPadding)
         .forgeGlassCard(accent: .ember)
-        .opacity(appeared ? 1 : 0)
-        .onAppear { withAnimation(FDS.Spring.hero.delay(0.32)) { appeared = true } }
+        // Card fade and per-cell stagger used to run off the same `appeared`
+        // flag, so the 0.08–0.38 cell cascade raced the card's own 0.32 fade.
+        // The card now enters via the shared modifier and `cellsAppeared` drives
+        // only the cells, so the two are independent by construction.
+        .onAppear {
+            guard !cellsAppeared else { return }
+            cellsAppeared = true
+        }
+        .homeEntrance(delay: 0.32)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(store.currentStreak) day streak this week")
     }
 }
 
 // ============================================================
-// MARK: - Cinematic background + particles + celebration
+// MARK: - Celebration
 // ============================================================
-
-struct CinematicHomeBackground: View {
-    let readinessScore: Int
-    @State private var phase = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private var primaryColor: Color { readinessColor(readinessScore) }
-
-    var body: some View {
-        ZStack {
-            Color(hex: "080808")
-            if reduceMotion {
-                primaryColor.opacity(0.06)
-            } else {
-                LinearGradient(
-                    colors: [
-                        Color(hex: "080808"),
-                        primaryColor.opacity(phase ? 0.09 : 0.04),
-                        Color(hex: "080808"),
-                        Color.ember.opacity(phase ? 0.03 : 0.01)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                RadialGradient(
-                    colors: [primaryColor.opacity(0.12), .clear],
-                    center: UnitPoint(x: 0.3, y: 0.2),
-                    startRadius: 20,
-                    endRadius: 420
-                )
-                .blur(radius: 40)
-            }
-            LinearGradient(
-                colors: [.clear, Color.black.opacity(0.35)],
-                startPoint: .center,
-                endPoint: .bottom
-            )
-        }
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 14).repeatForever(autoreverses: true)) {
-                phase = true
-            }
-        }
-        .animation(.easeInOut(duration: 1.6), value: readinessScore)
-    }
-}
-
-private struct Particle: Identifiable {
-    let id = UUID()
-    var x: CGFloat
-    var y: CGFloat
-    var size: CGFloat
-    var speed: Double
-    var opacity: Double
-}
-
-struct ReadinessParticleOverlay: View {
-    let readinessScore: Int
-    @State private var particles: [Particle] = []
-    @State private var globalT: Double = 0
-
-    /// Fewer particles when readiness is mid/low — motion serves state.
-    private var particleCount: Int {
-        switch readinessScore {
-        case 85...: return 28
-        case 70..<85: return 18
-        case 55..<70: return 10
-        default: return 6
-        }
-    }
-
-    private var accentColor: Color { readinessColor(readinessScore) }
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { timeline in
-            Canvas { ctx, size in
-                let t = timeline.date.timeIntervalSinceReferenceDate
-                for p in particles {
-                    let y = (p.y + CGFloat(t * p.speed).truncatingRemainder(dividingBy: size.height + 40))
-                        .truncatingRemainder(dividingBy: size.height + 40) - 20
-                    let rect = CGRect(x: p.x, y: y, width: p.size, height: p.size)
-                    ctx.opacity = p.opacity
-                    ctx.fill(Path(ellipseIn: rect), with: .color(accentColor))
-                }
-            }
-        }
-        .onAppear { rebuildParticles() }
-        .onChange(of: readinessScore) { _, _ in rebuildParticles() }
-    }
-
-    private func rebuildParticles() {
-        let w = UIScreen.main.bounds.width
-        let h = UIScreen.main.bounds.height
-        particles = (0..<particleCount).map { _ in
-            Particle(
-                x: .random(in: 0...w),
-                y: .random(in: 0...h),
-                size: .random(in: 1.2...2.8),
-                speed: .random(in: 6...16),
-                opacity: .random(in: 0.08...0.28)
-            )
-        }
-    }
-}
 
 struct CelebrationOverlay: View {
     let key: Int
@@ -2186,10 +2164,10 @@ struct CelebrationOverlay: View {
             .scaleEffect(bannerScale)
             .padding(28)
             .background(.ultraThinMaterial)
-            .cornerRadius(24)
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
         }
         .onAppear {
-            let colors: [Color] = [.ember, Color(hex: "22C55E"), .steel, Color(hex: "F59E0B")]
+            let colors: [Color] = [.ember, Color.vitality, .steel, Color.warning]
             let w = UIScreen.main.bounds.width
             particles = (0..<40).map { _ in
                 ConfettiParticle(
@@ -2244,7 +2222,7 @@ struct VoiceQuickLaunchOrb: View {
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [Color(hex: "FF4C00"), Color(hex: "FF2200")],
+                            colors: [Color.ember, Color.emberDark],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -2283,10 +2261,10 @@ struct VoiceQuickLaunchOrb: View {
 
 private func readinessColor(_ score: Int) -> Color {
     switch score {
-    case 85...: return Color(hex: "22C55E")
+    case 85...: return Color.vitality
     case 70..<85: return Color.ember
     case 50..<70: return Color.steel
-    default: return Color(hex: "EF4444")
+    default: return Color.alert
     }
 }
 

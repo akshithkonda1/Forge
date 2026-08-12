@@ -9,7 +9,8 @@ enum SexualHealthCoach {
     // MARK: - ARIA Directive Appendix
 
     /// Appended to ARIA's system directive when sexual health context is active.
-    static let ariaDirective = """
+    /// Nonisolated so privacy/prompt builders can compose it off the main actor.
+    nonisolated static let ariaDirective = """
     SEXUAL HEALTH COACHING DOMAIN:
     All sexual health and contraception responses must be rooted in reproductive biology and \
     physiology (e.g., LH surge mechanisms, progesterone's role in BBT rise, cervical mucus \

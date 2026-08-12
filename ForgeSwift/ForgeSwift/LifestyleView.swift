@@ -1131,10 +1131,11 @@ final class LifestyleViewModel: ObservableObject {
 // MARK: - Lifestyle Segments
 
 enum LifestyleSegment: Int, CaseIterable {
-    case aiOptimization, restaurants, nutrition, wellbeing
+    case aiOptimization, homeCooking, restaurants, nutrition, wellbeing
     var title: String {
         switch self {
         case .aiOptimization: return "AI Optimize"
+        case .homeCooking:    return "Home Cooking"
         case .restaurants:    return "Restaurants"
         case .nutrition:      return "Nutrition"
         case .wellbeing:      return "Wellbeing"
@@ -1143,6 +1144,7 @@ enum LifestyleSegment: Int, CaseIterable {
     var icon: String {
         switch self {
         case .aiOptimization: return "sparkles"
+        case .homeCooking:    return "frying.pan.fill"
         case .restaurants:    return "fork.knife"
         case .nutrition:      return "chart.pie.fill"
         case .wellbeing:      return "heart.fill"
@@ -1294,6 +1296,7 @@ struct LifestyleView: View {
     private var segmentContent: some View {
         switch selectedSegment {
         case .aiOptimization: AIOptimizationContent(vm: vm, locationLogger: locationLogger)
+        case .homeCooking:    HomeCookingView(vm: vm)
         case .restaurants:    NutritionDatabaseView(vm: vm)
         case .nutrition:      DailyNutritionView(vm: vm)
         case .wellbeing:      WellbeingView(vm: vm)
@@ -1310,6 +1313,7 @@ struct LifestyleBackground: View {
     private var accentColor: Color {
         switch segment {
         case .aiOptimization: return .ember
+        case .homeCooking:    return Color(hex: "7C5CFF")
         case .restaurants:    return .steel
         case .nutrition:      return Color(hex: "FFB84D")
         case .wellbeing:      return .success
@@ -5011,6 +5015,101 @@ let popularRestaurants: [Restaurant] = [
         MenuItem(name: "Chicken Shack", calories: 550, protein: 33, carbs: 36, fat: 31, serving: "1 sandwich", isHealthy: false),
         MenuItem(name: "ShackBurger (Single)", calories: 530, protein: 28, carbs: 27, fat: 34, serving: "1 burger", isHealthy: false),
     ], category: .burgers),
+
+    Restaurant(name: "Burger King", logo: "👑", items: [
+        MenuItem(name: "Whopper Jr. (no mayo)", calories: 240, protein: 13, carbs: 27, fat: 9,  serving: "1 burger",   isHealthy: true),
+        MenuItem(name: "Grilled Chicken Sandwich", calories: 400, protein: 32, carbs: 43, fat: 11, serving: "1 sandwich", isHealthy: true),
+        MenuItem(name: "Whopper",                calories: 670, protein: 31, carbs: 51, fat: 40, serving: "1 burger",   isHealthy: false),
+        MenuItem(name: "8 Pc Chicken Nuggets",   calories: 350, protein: 17, carbs: 19, fat: 22, serving: "8 pieces",   isHealthy: false),
+    ], category: .burgers),
+
+    Restaurant(name: "Popeyes", logo: "🍗", items: [
+        MenuItem(name: "Blackened Chicken Tenders (3)", calories: 170, protein: 27, carbs: 2,  fat: 5,  serving: "3 tenders", isHealthy: true),
+        MenuItem(name: "Red Beans & Rice (regular)",    calories: 230, protein: 6,  carbs: 31, fat: 9,  serving: "1 side",    isHealthy: true),
+        MenuItem(name: "Chicken Sandwich",              calories: 700, protein: 28, carbs: 50, fat: 42, serving: "1 sandwich", isHealthy: false),
+        MenuItem(name: "Cajun Fries (regular)",         calories: 260, protein: 4,  carbs: 33, fat: 13, serving: "1 order",   isHealthy: false),
+    ], category: .chicken),
+
+    Restaurant(name: "KFC", logo: "🍗", items: [
+        MenuItem(name: "Grilled Chicken Breast", calories: 210, protein: 38, carbs: 0,  fat: 7,  serving: "1 piece",   isHealthy: true),
+        MenuItem(name: "Green Beans",            calories: 25,  protein: 1,  carbs: 5,  fat: 0,  serving: "1 side",    isHealthy: true),
+        MenuItem(name: "Original Recipe Breast", calories: 390, protein: 39, carbs: 11, fat: 21, serving: "1 piece",   isHealthy: false),
+        MenuItem(name: "Mac & Cheese",           calories: 170, protein: 6,  carbs: 19, fat: 8,  serving: "1 side",    isHealthy: false),
+    ], category: .chicken),
+
+    Restaurant(name: "Domino's", logo: "🍕", items: [
+        MenuItem(name: "Thin Crust Chicken & Veg (2 slices)", calories: 340, protein: 20, carbs: 30, fat: 15, serving: "2 slices", isHealthy: true),
+        MenuItem(name: "Chicken Caesar Salad",                calories: 220, protein: 22, carbs: 10, fat: 10, serving: "1 salad",  isHealthy: true),
+        MenuItem(name: "Hand Tossed Pepperoni (2 slices)",    calories: 420, protein: 18, carbs: 46, fat: 18, serving: "2 slices", isHealthy: false),
+        MenuItem(name: "Garlic Bread Twists (2)",             calories: 280, protein: 6,  carbs: 34, fat: 13, serving: "2 pieces", isHealthy: false),
+    ], category: .pizza),
+
+    Restaurant(name: "Papa John's", logo: "🍕", items: [
+        MenuItem(name: "Thin Crust Grilled Chicken (2 slices)", calories: 360, protein: 20, carbs: 32, fat: 16, serving: "2 slices", isHealthy: true),
+        MenuItem(name: "Garden Fresh Original (2 slices)",      calories: 380, protein: 15, carbs: 52, fat: 12, serving: "2 slices", isHealthy: true),
+        MenuItem(name: "The Works (2 slices)",                  calories: 460, protein: 20, carbs: 52, fat: 19, serving: "2 slices", isHealthy: false),
+    ], category: .pizza),
+
+    Restaurant(name: "Panda Express", logo: "🥡", items: [
+        MenuItem(name: "Grilled Teriyaki Chicken", calories: 300, protein: 36, carbs: 8,  fat: 13, serving: "1 entree", isHealthy: true),
+        MenuItem(name: "Super Greens",             calories: 90,  protein: 6,  carbs: 10, fat: 3,  serving: "1 side",   isHealthy: true),
+        MenuItem(name: "String Bean Chicken Breast", calories: 210, protein: 14, carbs: 13, fat: 12, serving: "1 entree", isHealthy: true),
+        MenuItem(name: "Orange Chicken",           calories: 490, protein: 25, carbs: 51, fat: 23, serving: "1 entree", isHealthy: false),
+    ], category: .fastFood),
+
+    Restaurant(name: "Jersey Mike's", logo: "🥪", items: [
+        MenuItem(name: "Turkey Sub in a Tub",       calories: 240, protein: 25, carbs: 10, fat: 11, serving: "1 tub",   isHealthy: true),
+        MenuItem(name: "Roast Beef Mini Sub",       calories: 380, protein: 30, carbs: 44, fat: 8,  serving: "1 mini",  isHealthy: true),
+        MenuItem(name: "Original Italian (Regular)", calories: 800, protein: 39, carbs: 68, fat: 41, serving: "1 sub",  isHealthy: false),
+    ], category: .fastFood),
+
+    Restaurant(name: "Five Guys", logo: "🍔", items: [
+        MenuItem(name: "Little Hamburger (no bun)", calories: 300, protein: 25, carbs: 2,  fat: 22, serving: "1 patty",  isHealthy: true),
+        MenuItem(name: "Veggie Sandwich",           calories: 440, protein: 11, carbs: 60, fat: 17, serving: "1 sandwich", isHealthy: true),
+        MenuItem(name: "Bacon Cheeseburger",        calories: 920, protein: 51, carbs: 40, fat: 62, serving: "1 burger", isHealthy: false),
+    ], category: .burgers),
+
+    Restaurant(name: "Chili's", logo: "🌶️", items: [
+        MenuItem(name: "6 oz Sirloin with Broccoli", calories: 340, protein: 41, carbs: 10, fat: 15, serving: "1 plate",  isHealthy: true),
+        MenuItem(name: "Grilled Chicken Fajitas",    calories: 480, protein: 52, carbs: 22, fat: 20, serving: "1 order",  isHealthy: true),
+        MenuItem(name: "Santa Fe Chicken Salad",     calories: 660, protein: 47, carbs: 26, fat: 42, serving: "1 salad",  isHealthy: false),
+    ], category: .fastFood),
+
+    Restaurant(name: "Olive Garden", logo: "🍝", items: [
+        MenuItem(name: "Herb-Grilled Salmon",       calories: 460, protein: 46, carbs: 6,  fat: 27, serving: "1 plate",  isHealthy: true),
+        MenuItem(name: "Minestrone Soup",           calories: 110, protein: 5,  carbs: 20, fat: 1,  serving: "1 bowl",   isHealthy: true),
+        MenuItem(name: "Chicken Alfredo",           calories: 1550, protein: 74, carbs: 98, fat: 97, serving: "1 plate", isHealthy: false),
+    ], category: .fastFood),
+
+    Restaurant(name: "Dunkin'", logo: "🍩", items: [
+        MenuItem(name: "Wake-Up Wrap (Egg & Cheese)", calories: 180, protein: 10, carbs: 14, fat: 10, serving: "1 wrap",  isHealthy: true),
+        MenuItem(name: "Sourdough Breakfast Sandwich", calories: 700, protein: 30, carbs: 51, fat: 41, serving: "1 item", isHealthy: false),
+        MenuItem(name: "Glazed Donut",                calories: 240, protein: 4,  carbs: 33, fat: 11, serving: "1 donut", isHealthy: false),
+    ], category: .fastFood),
+
+    Restaurant(name: "Jimmy John's", logo: "🥖", items: [
+        MenuItem(name: "Turkey Tom Unwich",     calories: 260, protein: 20, carbs: 7,  fat: 17, serving: "1 unwich", isHealthy: true),
+        MenuItem(name: "Little John Roast Beef", calories: 350, protein: 20, carbs: 45, fat: 9, serving: "1 mini",   isHealthy: true),
+        MenuItem(name: "Italian Night Club",    calories: 900, protein: 41, carbs: 70, fat: 50, serving: "1 sub",    isHealthy: false),
+    ], category: .fastFood),
+
+    Restaurant(name: "Qdoba", logo: "🌯", items: [
+        MenuItem(name: "Grilled Chicken Protein Bowl", calories: 380, protein: 45, carbs: 20, fat: 14, serving: "1 bowl",  isHealthy: true),
+        MenuItem(name: "Fajita Veggie Bowl",           calories: 420, protein: 14, carbs: 62, fat: 13, serving: "1 bowl",  isHealthy: true),
+        MenuItem(name: "Loaded Steak Burrito",         calories: 1100, protein: 55, carbs: 118, fat: 44, serving: "1 burrito", isHealthy: false),
+    ], category: .mexican),
+
+    Restaurant(name: "Noodles & Company", logo: "🍜", items: [
+        MenuItem(name: "Zucchini Pesto with Grilled Chicken", calories: 380, protein: 34, carbs: 16, fat: 22, serving: "1 regular", isHealthy: true),
+        MenuItem(name: "Japanese Pan Noodles",                calories: 630, protein: 17, carbs: 96, fat: 19, serving: "1 regular", isHealthy: false),
+        MenuItem(name: "Wisconsin Mac & Cheese",              calories: 950, protein: 33, carbs: 100, fat: 46, serving: "1 regular", isHealthy: false),
+    ], category: .fastFood),
+
+    Restaurant(name: "Zaxby's", logo: "🍗", items: [
+        MenuItem(name: "Grilled Chicken Sandwich",     calories: 400, protein: 33, carbs: 42, fat: 11, serving: "1 sandwich", isHealthy: true),
+        MenuItem(name: "Grilled House Zalad",          calories: 350, protein: 38, carbs: 16, fat: 15, serving: "1 salad",    isHealthy: true),
+        MenuItem(name: "Chicken Finger Plate (4)",     calories: 1050, protein: 47, carbs: 89, fat: 55, serving: "1 plate",   isHealthy: false),
+    ], category: .chicken),
 ]
 
 // MARK: - Preview
