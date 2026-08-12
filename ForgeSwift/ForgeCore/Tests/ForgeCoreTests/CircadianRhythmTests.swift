@@ -256,18 +256,34 @@ final class CircadianRhythmTests: XCTestCase {
     /// slumps before lunch, and telling them 3pm would be worse than saying
     /// nothing.
     func testDipTracksWakeTimeForEarlyRiserAndNightOwl() {
-        func dipHour(wake: Double, onset: Double) -> Double {
+        // The first local minimum of the waking day: a sample lower than the one
+        // before it and no higher than the one after.
+        //
+        // Deliberately not a global minimum over the morning — that finds
+        // wake-up, which is lower than the dip and is not a dip. A slump is a
+        // fall between two rises, so the test looks for exactly that shape.
+        func dipClockHour(wake: Double, onset: Double) -> Double? {
             let phase = CircadianRhythm.Phase(wakeHour: wake, onsetHour: onset, confidence: 1)
-            let samples = CircadianRhythm.curve(phase: phase, samplesPerHour: 12)
-            let awake = samples.filter {
-                let since = CircadianRhythm.normalizedHour($0.hour - wake)
-                return since > 3 && since < 12
+            let day = CircadianRhythm.curve(phase: phase, samplesPerHour: 12)
+                .map { (offset: CircadianRhythm.normalizedHour($0.hour - wake),
+                        hour: $0.hour,
+                        energy: $0.energy) }
+                .sorted { $0.offset < $1.offset }
+
+            for index in 1..<(day.count - 1) {
+                let sample = day[index]
+                guard sample.offset > 2, sample.offset < 12 else { continue }
+                if sample.energy < day[index - 1].energy, sample.energy <= day[index + 1].energy {
+                    return sample.hour
+                }
             }
-            return awake.min { $0.energy < $1.energy }!.hour
+            return nil
         }
 
-        let lark = dipHour(wake: 5, onset: 21)
-        let owl = dipHour(wake: 10, onset: 2)
+        guard let lark = dipClockHour(wake: 5, onset: 21),
+              let owl = dipClockHour(wake: 10, onset: 2) else {
+            return XCTFail("no slump between the morning and evening crests")
+        }
 
         XCTAssertEqual(CircadianRhythm.normalizedHour(lark - 5),
                        CircadianRhythm.dipHoursAfterWake, accuracy: 0.75)
