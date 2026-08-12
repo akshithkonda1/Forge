@@ -3,6 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from responses import RouteError, ok
+from security import (
+    MAX_ARCHETYPE_DESCRIPTION_CHARS,
+    MAX_CHAT_MESSAGE_CHARS,
+    assert_body_user_matches_auth,
+    sanitize_user_text,
+)
 from services import aria_engine
 from services.aria_context import CoachContextEngine
 from services.feedback import FeedbackEngine
@@ -17,35 +23,49 @@ def _voice_mode(body: dict[str, Any]) -> bool:
     return str(body.get("mode") or "").strip().lower() == "voice"
 
 
-def handle_post_ai_chat(body: dict[str, Any]) -> dict:
+def _bind_user(body: dict[str, Any], user_id: str) -> str:
+    """Authoritative principal wins; reject spoofed body user_id."""
+    try:
+        return assert_body_user_matches_auth(body, user_id)
+    except PermissionError as exc:
+        raise RouteError(403, str(exc)) from exc
+
+
+def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     """Layer 4 — structured ARIA chat response.
 
-    Reasoning lives in ``services.aria_engine`` (a deterministic, fully tested
-    function over the HealthKit context). This route owns only the stateful
-    concerns: relationship level, memory references, and the persisted context.
+    Reasoning lives in ``services.aria_engine`` (deterministic core + optional
+    Bedrock). This route owns auth binding, sanitization, and relationship state.
     """
-    user_id = str(body.get("user_id") or "").strip()
-    message = str(body.get("message") or "").strip()
-    if not user_id or not message:
-        raise RouteError(400, "user_id and message are required.")
+    uid = _bind_user(body, user_id)
+    message = sanitize_user_text(
+        str(body.get("message") or ""),
+        max_chars=MAX_CHAT_MESSAGE_CHARS,
+    )
+    if not message:
+        raise RouteError(400, "message is required.")
 
     voice_mode = _voice_mode(body)
-    context = aria_engine.ARIAContext.from_payload(body)
+    # Never trust body.user_id for context — stamp auth principal into payload.
+    payload = dict(body)
+    payload["user_id"] = uid
+    context = aria_engine.ARIAContext.from_payload(payload)
     permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
-    reason = aria_engine.generate_response_live if aria_engine.bedrock_enabled() else aria_engine.generate_response
+    reason = (
+        aria_engine.generate_response_live
+        if aria_engine.bedrock_enabled()
+        else aria_engine.generate_response
+    )
     response = reason(message, context, permissions=permissions, voice_mode=voice_mode)
 
-    # Stateful layer: persist the relationship and surface any relevant memory.
-    # Memory draws on the lifestyle domain, so it is gated by that permission.
-    memory = _context.memory_reference(user_id, message) if permissions.allows("lifestyle") else None
+    memory = _context.memory_reference(uid, message) if permissions.allows("lifestyle") else None
     legacy_metrics = {
         "readiness": context.readiness.recovery_score or 0,
     }
-    rich = _context.build_rich_context(user_id, legacy_metrics)
+    rich = _context.build_rich_context(uid, legacy_metrics)
     updated_level = min(10, int(rich.get("relationship_level", 1)) + 1)
-    _context.update_context(user_id, {"relationship_level": updated_level})
+    _context.update_context(uid, {"relationship_level": updated_level})
 
-    # Memory is a chat-surface flourish only — it must not bloat the voice prose.
     if memory and not voice_mode:
         response["message"] = f"{memory}\n\n{response['message']}"
 
@@ -55,24 +75,24 @@ def handle_post_ai_chat(body: dict[str, Any]) -> dict:
             "context_updates": {"relationship_level": updated_level},
             "memory_reference": memory,
             "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
+            "user_id": uid,
         }
     )
     return ok(response)
 
 
-def handle_post_ai_archetype(body: dict[str, Any]) -> dict:
-    """POST /ai/archetype — invent a relational coaching archetype.
-
-    Uses a deterministic local forge so mobile clients always get a usable
-    archetype offline; optional Bedrock enrichment can layer on later.
-    """
-    description = str(body.get("description") or "").strip()
+def handle_post_ai_archetype(body: dict[str, Any], *, user_id: str) -> dict:
+    """POST /ai/archetype — invent a relational coaching archetype."""
+    uid = _bind_user(body, user_id)
+    description = sanitize_user_text(
+        str(body.get("description") or ""),
+        max_chars=MAX_ARCHETYPE_DESCRIPTION_CHARS,
+    )
     preferred = body.get("preferred_name")
-    preferred_name = str(preferred).strip() if preferred else None
+    preferred_name = sanitize_user_text(str(preferred), max_chars=80) if preferred else None
     if not description:
         raise RouteError(400, "description is required.")
 
-    # Prefer backend studio if importable (monorepo local), else inline forge.
     try:
         import asyncio
         from backend.app.ai.routes.archetype import create_archetype
@@ -82,7 +102,7 @@ def handle_post_ai_archetype(body: dict[str, Any]) -> dict:
                 {
                     "description": description,
                     "preferred_name": preferred_name,
-                    "user_id": body.get("user_id"),
+                    "user_id": uid,
                 }
             )
         )
@@ -133,24 +153,26 @@ def handle_post_ai_archetype(body: dict[str, Any]) -> dict:
         "inspiredByDescription": description,
         "relatedBuiltin": related,
     }
-    return ok({"archetype": archetype, "model": "local-forge"})
+    return ok({"archetype": archetype, "model": "local-forge", "user_id": uid})
 
 
-def handle_post_feedback_reaction(body: dict[str, Any]) -> dict:
-    user_id = str(body.get("user_id") or "").strip()
-    message_id = str(body.get("message_id") or "").strip()
-    reaction = str(body.get("reaction") or "")
-    if not user_id or not message_id:
-        raise RouteError(400, "user_id and message_id are required.")
-    return ok(_feedback.process_reaction(user_id, message_id, reaction))
+def handle_post_feedback_reaction(body: dict[str, Any], *, user_id: str) -> dict:
+    uid = _bind_user(body, user_id)
+    message_id = sanitize_user_text(str(body.get("message_id") or ""), max_chars=128)
+    reaction = sanitize_user_text(str(body.get("reaction") or ""), max_chars=64)
+    if not message_id:
+        raise RouteError(400, "message_id is required.")
+    return ok(_feedback.process_reaction(uid, message_id, reaction))
 
 
-def handle_post_feedback_plan_outcome(body: dict[str, Any]) -> dict:
-    user_id = str(body.get("user_id") or "").strip()
-    plan_id = str(body.get("plan_id") or "").strip()
-    if not user_id or not plan_id:
-        raise RouteError(400, "user_id and plan_id are required.")
-    completed = bool(body.get("completed"))
+def handle_post_feedback_plan_outcome(body: dict[str, Any], *, user_id: str) -> dict:
+    uid = _bind_user(body, user_id)
+    plan_id = sanitize_user_text(str(body.get("plan_id") or ""), max_chars=128)
+    if not plan_id:
+        raise RouteError(400, "plan_id is required.")
+    completed = bool(body.get("completed", body.get("outcome") == "completed"))
     feedback = body.get("feedback")
-    feedback_text = str(feedback) if feedback is not None else None
-    return ok(_feedback.process_plan_outcome(user_id, plan_id, completed, feedback_text))
+    feedback_s = (
+        sanitize_user_text(str(feedback), max_chars=500) if feedback is not None else None
+    )
+    return ok(_feedback.process_plan_outcome(uid, plan_id, completed, feedback_s))
