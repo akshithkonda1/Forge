@@ -44,6 +44,7 @@ let package = Package(
                 "Models/WatchARIAContext.swift",
                 "Models/WorkoutLiveState.swift",
                 "Models/WorkoutModels.swift",
+                "Utils/PublishGate.swift",
                 "Utils/WatchSnapshotStore.swift",
             ]
         ),

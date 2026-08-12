@@ -15,8 +15,10 @@ enum InviteScene: Equatable {
     case composeStaged(PartnerInvitePayload)
     /// Nothing staged. The only move is to go set it up in the app.
     case composeEmpty
-    /// A bubble we sent, being looked at again.
-    case sent(PartnerInvitePayload)
+    /// A bubble we sent, being looked at again. `revoked` comes from what the
+    /// app actually recorded, never from the payload — a bubble in a transcript
+    /// cannot know that sharing stopped afterwards.
+    case sent(PartnerInvitePayload, revoked: Bool)
     /// A bubble someone sent us. `accepted` comes from what CloudKit actually
     /// confirmed, never from having tapped the button.
     case received(PartnerInvitePayload, accepted: Bool)
@@ -66,8 +68,8 @@ struct InviteRootView: View {
             ComposeStagedView(payload: payload, actions: actions)
         case .composeEmpty:
             ComposeEmptyView(actions: actions)
-        case .sent(let payload):
-            SentView(payload: payload, actions: actions)
+        case .sent(let payload, let revoked):
+            SentView(payload: payload, revoked: revoked, actions: actions)
         case .received(let payload, let accepted):
             ReceivedView(payload: payload, accepted: accepted, actions: actions)
         case .unreadable:
@@ -140,6 +142,8 @@ private struct ComposeEmptyView: View {
 
 private struct SentView: View {
     let payload: PartnerInvitePayload
+    /// The owner has stopped sharing since this bubble was sent.
+    let revoked: Bool
     let actions: InviteActions
 
     var body: some View {
@@ -151,13 +155,25 @@ private struct SentView: View {
         ) {
             EmptyView()
         } primary: {
-            InviteButton(title: "Manage in Forge", icon: "slider.horizontal.3") {
-                actions.openApp()
+            // Offered only once the app has recorded a real revoke, and only
+            // while the bubble still reads as live. Without this the sender's
+            // own transcript goes on saying "waiting on them" indefinitely
+            // after they have stopped sharing.
+            if revoked && payload.effectiveStatus.isActionable {
+                InviteButton(title: "Mark as stopped", icon: "hand.raised.fill") {
+                    actions.sendStatusUpdate(.revoked)
+                }
+            } else {
+                InviteButton(title: "Manage in Forge", icon: "slider.horizontal.3") {
+                    actions.openApp()
+                }
             }
         } secondary: {
             // Revocation is one tap, in the app, and total. Stated here because
             // the moment someone wonders is the moment they're looking at this.
-            Text("You can stop sharing at any time. They just stop seeing updates.")
+            Text(revoked && payload.effectiveStatus.isActionable
+                 ? "You've stopped sharing. This updates the card in your thread to say so."
+                 : "You can stop sharing at any time. They just stop seeing updates.")
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
@@ -165,6 +181,7 @@ private struct SentView: View {
     }
 
     private var icon: String {
+        if revoked && payload.effectiveStatus.isActionable { return "hand.raised.slash.fill" }
         switch payload.effectiveStatus {
         case .pending:  return "clock.badge.questionmark"
         case .accepted: return "checkmark.seal.fill"
@@ -174,6 +191,7 @@ private struct SentView: View {
     }
 
     private var title: String {
+        if revoked && payload.effectiveStatus.isActionable { return "You stopped sharing" }
         switch payload.effectiveStatus {
         case .pending:  return "Waiting on them"
         case .accepted: return "They're following along"
@@ -183,6 +201,9 @@ private struct SentView: View {
     }
 
     private var subtitle: String {
+        if revoked && payload.effectiveStatus.isActionable {
+            return "The card in this thread still looks live to them. This corrects it."
+        }
         switch payload.effectiveStatus {
         case .pending:  return "The invite is sent. Nothing is shared until they accept."
         case .accepted: return "They see a general picture, updated by your device."

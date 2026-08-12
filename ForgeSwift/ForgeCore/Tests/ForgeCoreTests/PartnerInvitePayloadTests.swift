@@ -229,6 +229,43 @@ final class PartnerInvitePayloadTests: XCTestCase {
         XCTAssertFalse(PartnerInviteAcceptance.hasAccepted(shareURL: url))
     }
 
+    // MARK: - Revocation record
+
+    func testRevocationIsRecordedAndReadable() {
+        let url = URL(string: "https://www.icloud.com/share/revoked")!
+        XCTAssertFalse(PartnerInviteRevocation.wasRevoked(shareURL: url))
+        PartnerInviteRevocation.record(shareURL: url)
+        XCTAssertTrue(PartnerInviteRevocation.wasRevoked(shareURL: url))
+    }
+
+    func testRevokingAlsoDropsTheAcceptance() {
+        // Otherwise a supporter's bubble would keep reading "you're following
+        // along" for a share the owner has stopped, which is the exact claim
+        // the transcript must never make.
+        let url = URL(string: "https://www.icloud.com/share/bothSets")!
+        PartnerInviteAcceptance.record(shareURL: url)
+        XCTAssertTrue(PartnerInviteAcceptance.hasAccepted(shareURL: url))
+
+        PartnerInviteRevocation.record(shareURL: url)
+        XCTAssertFalse(PartnerInviteAcceptance.hasAccepted(shareURL: url))
+        XCTAssertTrue(PartnerInviteRevocation.wasRevoked(shareURL: url))
+    }
+
+    func testRevokingOneShareLeavesAnotherAlone() {
+        let mine = URL(string: "https://www.icloud.com/share/revokeMine")!
+        let theirs = URL(string: "https://www.icloud.com/share/revokeTheirs")!
+        PartnerInviteRevocation.record(shareURL: mine)
+        XCTAssertTrue(PartnerInviteRevocation.wasRevoked(shareURL: mine))
+        XCTAssertFalse(PartnerInviteRevocation.wasRevoked(shareURL: theirs))
+    }
+
+    func testClearingRevocationRestoresTheShare() {
+        let url = URL(string: "https://www.icloud.com/share/reshared")!
+        PartnerInviteRevocation.record(shareURL: url)
+        PartnerInviteRevocation.clear(shareURL: url)
+        XCTAssertFalse(PartnerInviteRevocation.wasRevoked(shareURL: url))
+    }
+
     func testAcceptingOneShareDoesNotAcceptAnother() {
         let mine = URL(string: "https://www.icloud.com/share/mine")!
         let theirs = URL(string: "https://www.icloud.com/share/theirs")!
