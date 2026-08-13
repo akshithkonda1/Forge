@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 /// Personalized lifestyle targets derived from profile + optional user overrides.
 struct LifestyleTargets: Equatable {
@@ -55,7 +56,9 @@ struct LifestyleTargets: Equatable {
             calorieTarget: max(calories, 1_800),
             stepTarget: steps,
             sleepHoursTarget: 8.0,
-            waterGlassesTarget: 8,
+            waterGlassesTarget: max(4, Int(HydrationEngine.glasses(
+                fromMilliliters: HydrationEngine.targetMilliliters(weightKilograms: weightKg)
+            ).rounded())),
             activeCalorieTarget: 600
         )
     }

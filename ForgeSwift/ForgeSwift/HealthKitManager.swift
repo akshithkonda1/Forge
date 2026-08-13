@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import ForgeCore
 
 // MARK: - Health Data Snapshot
 
@@ -42,7 +43,7 @@ struct DailyHealthStats: Identifiable, Codable {
     let sugar: Double
     let sodium: Double
     let caffeine: Double
-    let water: Double // glasses
+    let water: Double // glasses (display). Source of truth is milliliters from HealthKit.
     let sleepHours: Double
     let restingHeartRate: Double
     let walkingHeartRateAverage: Double
@@ -173,6 +174,22 @@ struct MealLog: Identifiable, Codable {
     }
 }
 
+// MARK: - Hydration samples (HealthKit is the ledger)
+
+struct WaterLog: Identifiable, Equatable {
+    let id: UUID
+    let date: Date
+    let milliliters: Double
+    let sourceName: String
+    let isForge: Bool
+}
+
+struct DailyWaterTotal: Identifiable, Equatable {
+    var id: Date { date }
+    let date: Date
+    let milliliters: Double
+}
+
 // MARK: - HealthKit Manager
 
 @MainActor
@@ -195,9 +212,18 @@ class HealthKitManager: ObservableObject {
     @Published var clinicalSummary: ClinicalRecordsSummary?
     
     @Published private(set) var loggedMeals: [MealLog] = []
-    private var todayWaterIntake: Double = 0 // in ounces
+    /// Today's dietary-water samples, newest first. HealthKit is the ledger —
+    /// Forge-authored drinks and Watch/other-app drinks live in the same list.
+    @Published private(set) var todayWaterLogs: [WaterLog] = []
+    @Published private(set) var weeklyWaterMilliliters: [DailyWaterTotal] = []
+    @Published private(set) var todayWaterMilliliters: Double = 0
+
+    private var observerQueries: [HKObserverQuery] = []
+    private var liveRefreshTask: Task<Void, Never>?
+    private var isObserving = false
     private let mealsStorageKey = "HealthKitManager.loggedMeals"
     private let mealsStorageDateKey = "HealthKitManager.loggedMealsDate"
+    static let forgeWaterMetadataKey = "com.forge.hydration"
     
     // Types requested by the primary onboarding flow. Keep this prompt focused and reliable.
     private let coreReadTypes: Set<HKObjectType> = [
@@ -364,6 +390,7 @@ class HealthKitManager: ObservableObject {
         // HealthKit intentionally hides read authorization status. Once the request has been
         // presented, read queries safely return empty results for denied types.
         isAuthorized = hasRequestedAuthorization || canWriteAnyRequestedType
+        if isAuthorized { startBidirectionalSync() }
         return isAuthorized
     }
     
@@ -409,6 +436,7 @@ class HealthKitManager: ObservableObject {
             }
             authorizationErrorMessage = nil
             isAuthorized = true
+            startBidirectionalSync()
         } catch {
             authorizationErrorMessage = error.localizedDescription
             isAuthorized = false
@@ -654,32 +682,29 @@ class HealthKitManager: ObservableObject {
             water
         )
         
-        // Calculate total calories from meals
-        let loggedCalories = loggedMeals.reduce(0) { $0 + Int($1.calories) }
-        let protein = loggedMeals.reduce(0.0) { $0 + $1.protein } + (performanceValues.5?.protein ?? 0)
-        let carbs = loggedMeals.reduce(0.0) { $0 + $1.carbs } + (performanceValues.5?.carbs ?? 0)
-        let fat = loggedMeals.reduce(0.0) { $0 + $1.fat } + (performanceValues.5?.fat ?? 0)
+        // HealthKit is the ledger. Forge-logged meals and water are written
+        // there first; adding the local copies on top double-counts every pour.
         
         todayStats = DailyHealthStats(
             date: Date(),
             steps: activityValues.0 ?? 0,
             activeCalories: activityValues.1 ?? 0,
             basalCalories: Int(activityValues.2 ?? 0),
-            totalCalories: loggedCalories + (performanceValues.5?.calories ?? 0),
+            totalCalories: performanceValues.5?.calories ?? 0,
             distanceWalkingRunningMeters: activityValues.3 ?? 0,
             distanceCyclingMeters: activityValues.4 ?? 0,
             distanceSwimmingMeters: activityValues.5 ?? 0,
             flightsClimbed: activityValues.6 ?? 0,
             exerciseMinutes: activityValues.7 ?? 0,
             standMinutes: activityValues.8 ?? 0,
-            protein: protein,
-            carbs: carbs,
-            fat: fat,
+            protein: performanceValues.5?.protein ?? 0,
+            carbs: performanceValues.5?.carbs ?? 0,
+            fat: performanceValues.5?.fat ?? 0,
             fiber: performanceValues.5?.fiber ?? 0,
             sugar: performanceValues.5?.sugar ?? 0,
             sodium: performanceValues.5?.sodium ?? 0,
             caffeine: performanceValues.5?.caffeine ?? 0,
-            water: (performanceValues.6 ?? 0) / 8.0 + todayWaterIntake / 8.0, // Convert ounces to glasses
+            water: HydrationEngine.glasses(fromMilliliters: performanceValues.6 ?? 0),
             sleepHours: recoveryValues.0 ?? 0,
             restingHeartRate: Double(recoveryValues.1 ?? 0),
             walkingHeartRateAverage: recoveryValues.2 ?? 0,
@@ -799,25 +824,151 @@ class HealthKitManager: ObservableObject {
     }
     
     func logWater(ounces: Double) async throws {
-        guard isAuthorized else { return }
-        
-        todayWaterIntake += ounces
-        
-        // Write to HealthKit
-        if let waterType = HKQuantityType.quantityType(forIdentifier: .dietaryWater) {
-            let waterQuantity = HKQuantity(unit: .fluidOunceUS(), doubleValue: ounces)
-            let waterSample = HKQuantitySample(
-                type: waterType,
-                quantity: waterQuantity,
-                start: Date(),
-                end: Date()
-            )
-            
-            try await healthStore.save(waterSample)
+        try await logWater(milliliters: HydrationEngine.milliliters(fromFluidOunces: ounces))
+    }
+
+    func logWater(milliliters: Double) async throws {
+        guard isAuthorized else { throw HealthKitError.authorizationDenied }
+        guard milliliters > 0 else { return }
+        guard let waterType = HKQuantityType.quantityType(forIdentifier: .dietaryWater) else {
+            throw HealthKitError.saveFailed
         }
-        
-        // Refresh today's stats
+
+        let now = Date()
+        let quantity = HKQuantity(unit: .liter(), doubleValue: milliliters / 1_000)
+        let sample = HKQuantitySample(
+            type: waterType,
+            quantity: quantity,
+            start: now,
+            end: now,
+            metadata: [
+                HKMetadataKeyWasUserEntered: true,
+                Self.forgeWaterMetadataKey: "1",
+            ]
+        )
+        try await healthStore.save(sample)
+        await refreshHydration()
+    }
+
+    func deleteWaterLog(_ log: WaterLog) async throws {
+        guard isAuthorized else { throw HealthKitError.authorizationDenied }
+        guard let waterType = HKQuantityType.quantityType(forIdentifier: .dietaryWater) else {
+            throw HealthKitError.saveFailed
+        }
+        let deleted: Int = await withCheckedContinuation { continuation in
+            healthStore.deleteObjects(
+                of: waterType,
+                predicate: HKQuery.predicateForObject(with: log.id)
+            ) { count, success, _ in
+                continuation.resume(returning: success ? count : 0)
+            }
+        }
+        guard deleted > 0 else { throw HealthKitError.saveFailed }
+        await refreshHydration()
+    }
+
+    func refreshHydration() async {
+        await fetchTodayWaterLogs()
+        await fetchWeeklyWater()
         await fetchTodayStats()
+        todayWaterMilliliters = todayWaterLogs.reduce(0) { $0 + $1.milliliters }
+        if todayWaterMilliliters == 0, let fromStats = todayStats {
+            todayWaterMilliliters = HydrationEngine.milliliters(fromGlasses: fromStats.water)
+        }
+    }
+
+    func fetchTodayWaterLogs() async {
+        guard isAuthorized,
+              let waterType = HKQuantityType.quantityType(forIdentifier: .dietaryWater) else {
+            todayWaterLogs = []
+            return
+        }
+        let now = Date()
+        let start = Calendar.current.startOfDay(for: now)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: now, options: .strictStartDate)
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+
+        let samples: [HKQuantitySample] = await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: waterType,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sort]
+            ) { _, samples, _ in
+                continuation.resume(returning: (samples as? [HKQuantitySample]) ?? [])
+            }
+            healthStore.execute(query)
+        }
+
+        todayWaterLogs = samples.map { sample in
+            let ml = sample.quantity.doubleValue(for: .liter()) * 1_000
+            let forge = (sample.metadata?[Self.forgeWaterMetadataKey] as? String) == "1"
+            let source = forge ? "Forge" : (sample.sourceRevision.source.name)
+            return WaterLog(
+                id: sample.uuid,
+                date: sample.startDate,
+                milliliters: ml,
+                sourceName: source,
+                isForge: forge
+            )
+        }
+        todayWaterMilliliters = todayWaterLogs.reduce(0) { $0 + $1.milliliters }
+    }
+
+    func fetchWeeklyWater() async {
+        guard isAuthorized else {
+            weeklyWaterMilliliters = []
+            return
+        }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        var days: [DailyWaterTotal] = []
+        for offset in stride(from: 6, through: 0, by: -1) {
+            guard let start = calendar.date(byAdding: .day, value: -offset, to: today),
+                  let end = calendar.date(byAdding: .day, value: 1, to: start) else { continue }
+            let liters = await fetchDietaryValue(.dietaryWater, unit: .liter(), from: start, to: end) ?? 0
+            days.append(DailyWaterTotal(date: start, milliliters: liters * 1_000))
+        }
+        weeklyWaterMilliliters = days
+    }
+
+    /// Live HealthKit → Forge. Observer queries fire when Apple Health, Watch,
+    /// or another app writes a type we also write, then we re-read the ledger.
+    func startBidirectionalSync() {
+        guard isAuthorized, !isObserving else { return }
+        isObserving = true
+
+        let observed: [HKSampleType] = [
+            HKQuantityType(.dietaryWater),
+            HKQuantityType(.dietaryEnergyConsumed),
+            HKQuantityType(.dietaryProtein),
+            HKQuantityType(.dietaryCarbohydrates),
+            HKQuantityType(.stepCount),
+            HKQuantityType(.activeEnergyBurned),
+            HKCategoryType(.sleepAnalysis),
+            HKWorkoutType.workoutType(),
+        ]
+
+        for type in observed {
+            let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completion, _ in
+                Task { @MainActor in
+                    self?.scheduleLiveRefresh()
+                }
+                completion()
+            }
+            healthStore.execute(query)
+            observerQueries.append(query)
+            healthStore.enableBackgroundDelivery(for: type, frequency: .immediate) { _, _ in }
+        }
+    }
+
+    private func scheduleLiveRefresh() {
+        liveRefreshTask?.cancel()
+        liveRefreshTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard !Task.isCancelled else { return }
+            await refreshHydration()
+        }
     }
 
     func fetchMindfulMinutes(from start: Date, to end: Date) async -> Double {
@@ -961,7 +1112,10 @@ class HealthKitManager: ObservableObject {
     private func fetchTodayWater() async -> Double? {
         let now = Date()
         let startOfDay = Calendar.current.startOfDay(for: now)
-        return await fetchDietaryValue(.dietaryWater, unit: .fluidOunceUS(), from: startOfDay, to: now)
+        guard let liters = await fetchDietaryValue(.dietaryWater, unit: .liter(), from: startOfDay, to: now) else {
+            return nil
+        }
+        return liters * 1_000
     }
     
     private func fetchDietaryValue(_ identifier: HKQuantityTypeIdentifier, unit: HKUnit, from start: Date, to end: Date) async -> Double? {
@@ -1744,4 +1898,5 @@ enum HealthKitError: Error {
     case notAvailable
     case authorizationDenied
     case dataUnavailable
+    case saveFailed
 }

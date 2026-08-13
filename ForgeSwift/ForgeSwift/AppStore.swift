@@ -932,6 +932,8 @@ final class AppStore: ObservableObject {
     @Published var pendingCycleSharingOpen: Bool = false
     /// Lifestyle sub-segment deep link: `nutrition` | `restaurants` | `wellbeing` | `aiOptimization`
     @Published var pendingLifestyleSegment: String? = nil
+    /// When true, main shell presents Hydration full-screen.
+    @Published var pendingHydrationOpen: Bool = false
 
     // Quiet mode — damp proactive noise (persisted)
     @Published var quietMode: Bool = UserDefaults.standard.bool(forKey: "forge.quiet.mode.v1") {
@@ -1681,6 +1683,9 @@ final class AppStore: ObservableObject {
         let authorized = await hk.checkAuthorizationStatus()
         healthKitLive = authorized
 
+        if authorized {
+            await hk.refreshHydration()
+        }
         if authorized, let snapshot = await hk.fetchRecentSnapshot() {
             updateMetrics(
                 steps: snapshot.steps,
@@ -1727,6 +1732,10 @@ final class AppStore: ObservableObject {
         pendingCycleHealthOpen = true
     }
 
+    func openHydration() {
+        pendingHydrationOpen = true
+    }
+
     /// Route a `forge://` URL. Returns false for anything unrecognised so the
     /// caller can leave the app where it was rather than guessing.
     @discardableResult
@@ -1740,6 +1749,9 @@ final class AppStore: ObservableObject {
             let leaf = segments.dropFirst().first
             openCycleHealth(pane: leaf == "support" ? "partner" : "me",
                             sharing: leaf == "sharing")
+            return true
+        case "hydration", "water":
+            openHydration()
             return true
         default:
             return false
