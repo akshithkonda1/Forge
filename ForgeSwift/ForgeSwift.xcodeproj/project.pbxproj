@@ -14,6 +14,8 @@
 		AA00010000000000000000E1 /* EnergyScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000E1 /* EnergyScheduleView.swift */; };
 		AA00010000000000000000F1 /* HydrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F1 /* HydrationView.swift */; };
 		AA00010000000000000000F2 /* HomeWidgetBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F2 /* HomeWidgetBoard.swift */; };
+		AA00010000000000000000F3 /* LifestyleLocationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F3 /* LifestyleLocationStore.swift */; };
+		AA00010000000000000000F4 /* LifestylePlacesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F4 /* LifestylePlacesView.swift */; };
 		F0B100000000000000000040 /* ReadinessWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000040 /* ReadinessWidget.swift */; };
 		F0B100000000000000000041 /* HydrationWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000041 /* HydrationWidget.swift */; };
 		F0B100000000000000000042 /* SleepWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000042 /* SleepWidget.swift */; };
@@ -235,6 +237,8 @@
 		AA00020000000000000000E1 /* EnergyScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sleep/EnergyScheduleView.swift"; sourceTree = "<group>"; };
 		AA00020000000000000000F1 /* HydrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Hydration/HydrationView.swift"; sourceTree = "<group>"; };
 		AA00020000000000000000F2 /* HomeWidgetBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Home/HomeWidgetBoard.swift"; sourceTree = "<group>"; };
+		AA00020000000000000000F3 /* LifestyleLocationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleLocationStore.swift; sourceTree = "<group>"; };
+		AA00020000000000000000F4 /* LifestylePlacesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Lifestyle/LifestylePlacesView.swift"; sourceTree = "<group>"; };
 		F0F100000000000000000040 /* ReadinessWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessWidget.swift; sourceTree = "<group>"; };
 		F0F100000000000000000041 /* HydrationWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HydrationWidget.swift; sourceTree = "<group>"; };
 		F0F100000000000000000042 /* SleepWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWidget.swift; sourceTree = "<group>"; };
@@ -445,6 +449,7 @@
 				AA00020000000000000000E1 /* EnergyScheduleView.swift */,
 				AA00020000000000000000F1 /* HydrationView.swift */,
 				AA00020000000000000000F2 /* HomeWidgetBoard.swift */,
+				AA00020000000000000000F4 /* LifestylePlacesView.swift */,
 				1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */,
 				1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */,
 				1HCV0012F9FF867004091AA /* HomeCookingView.swift */,
@@ -485,6 +490,7 @@
 				AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */,
 				AA00020000000000000000D1 /* SupporterGuidance.swift */,
 				1ARIA0072F9FF867004091AA /* AriaContextStore.swift */,
+				AA00020000000000000000F3 /* LifestyleLocationStore.swift */,
 				1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */,
 				1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */,
 				1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */,
@@ -944,6 +950,8 @@
 				AA00010000000000000000E1 /* EnergyScheduleView.swift in Sources */,
 				AA00010000000000000000F1 /* HydrationView.swift in Sources */,
 				AA00010000000000000000F2 /* HomeWidgetBoard.swift in Sources */,
+				AA00010000000000000000F3 /* LifestyleLocationStore.swift in Sources */,
+				AA00010000000000000000F4 /* LifestylePlacesView.swift in Sources */,
 				1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */,
 				AA0001000000000000000001 /* ForgeSwiftApp.swift in Sources */,
 				1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */,
@@ -1306,7 +1314,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to detect nearby restaurants and log meals faster.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps, track where you are while Lifestyle is open, and log meals faster.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -1345,7 +1353,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to detect nearby restaurants and log meals faster.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps, track where you are while Lifestyle is open, and log meals faster.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

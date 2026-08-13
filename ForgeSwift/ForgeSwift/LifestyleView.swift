@@ -447,60 +447,6 @@ enum LifestyleError: Error, LocalizedError {
     }
 }
 
-// MARK: - Location Services
-
-private final class LocationProvider: NSObject, CLLocationManagerDelegate {
-    private let manager = CLLocationManager()
-    private var locationContinuation: CheckedContinuation<CLLocation, Error>?
-    private var authContinuation: CheckedContinuation<CLAuthorizationStatus, Never>?
-
-    override init() {
-        super.init()
-        manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
-    }
-
-    var authorizationStatus: CLAuthorizationStatus { manager.authorizationStatus }
-
-    func requestWhenInUseAuthorization() {
-        manager.requestWhenInUseAuthorization()
-    }
-
-    func waitForAuthorization() async -> CLAuthorizationStatus {
-        let status = manager.authorizationStatus
-        guard status == .notDetermined else { return status }
-        return await withCheckedContinuation { continuation in
-            authContinuation = continuation
-        }
-    }
-
-    func requestLocation() async throws -> CLLocation {
-        try await withCheckedThrowingContinuation { continuation in
-            locationContinuation = continuation
-            manager.requestLocation()
-        }
-    }
-
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        let status = manager.authorizationStatus
-        if status != .notDetermined {
-            authContinuation?.resume(returning: status)
-            authContinuation = nil
-        }
-    }
-
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last else { return }
-        locationContinuation?.resume(returning: location)
-        locationContinuation = nil
-    }
-
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        locationContinuation?.resume(throwing: error)
-        locationContinuation = nil
-    }
-}
-
 // MARK: - Location Meal Logger
 
 @MainActor
@@ -510,8 +456,6 @@ final class LocationMealLogger: ObservableObject {
     @Published var detectedItems: [MenuItem] = []
     @Published var showConfirmation = false
     @Published var errorMessage: String?
-
-    private let locationProvider = LocationProvider()
 
     private var knownVenues: [String: [MenuItem]] {
         var venues: [String: [MenuItem]] = [:]
@@ -575,31 +519,37 @@ final class LocationMealLogger: ObservableObject {
         errorMessage = nil
         defer { isDetectingLocation = false }
 
-        if locationProvider.authorizationStatus == .notDetermined {
-            locationProvider.requestWhenInUseAuthorization()
+        let locator = LifestyleLocationStore.shared
+        if locator.canAsk || !locator.isAuthorized {
+            let status = await locator.requestAccess()
+            guard status == .authorizedWhenInUse || status == .authorizedAlways else {
+                errorMessage = "Location access is required to detect nearby restaurants."
+                return
+            }
         }
+        locator.startTracking()
 
-        let status = await locationProvider.waitForAuthorization()
-        guard status == .authorizedWhenInUse || status == .authorizedAlways else {
-            errorMessage = "Location access is required to detect nearby restaurants."
+        guard let location = await locator.latestLocation() else {
+            errorMessage = "Couldn't get a GPS fix. Try again in the open, or log from Places."
             return
         }
-
         do {
-            let location = try await locationProvider.requestLocation()
             let venue = try await resolveVenue(near: location)
             detectedVenue = venue
             detectedItems = lookupMenu(for: venue)
             showConfirmation = true
         } catch {
-            errorMessage = "Couldn't detect your location. Try again or log manually."
+            errorMessage = "Couldn't match a restaurant. Open Places and pick one on the map."
         }
     }
 
     private func resolveVenue(near location: CLLocation) async throws -> String {
-        if let mapMatch = try? await searchNearbyRestaurant(at: location.coordinate),
-           let matched = matchVenueName(mapMatch) {
-            return matched
+        if let already = LifestyleLocationStore.shared.nearby.first,
+           already.distanceMeters < 80 {
+            return matchVenueName(already.name) ?? already.name
+        }
+        if let mapMatch = try? await searchNearbyRestaurant(at: location.coordinate) {
+            return matchVenueName(mapMatch) ?? mapMatch
         }
 
         let geocoder = CLGeocoder()
@@ -761,7 +711,7 @@ final class LifestyleViewModel: ObservableObject {
     @Published private(set) var metrics: LifestyleMetrics = .default
     @Published private(set) var recommendations: [AIRecommendation] = []
     @Published private(set) var isLoading = false
-    @Published private(set) var error: LifestyleError?
+    @Published var error: LifestyleError?
     
     // Real-time health data
     @Published var healthStats: DailyHealthStats?
@@ -792,42 +742,40 @@ final class LifestyleViewModel: ObservableObject {
         guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
-        
-        do {
-            try await healthManager.requestAuthorization()
-            try await notificationManager.requestAuthorization()
+        error = nil
 
-            await healthManager.fetchTodayStats()
-            await healthManager.fetchWeeklyTrends()
-            await healthManager.fetchMindfulTrend()
-            healthStats = healthManager.todayStats
-            weeklyTrends = healthManager.weeklyTrends
-            mindfulTrend = healthManager.mindfulTrend
-            loggedMeals = healthManager.loggedMeals
+        // HealthKit and notifications are optional. A denied prompt must not
+        // blank the whole Lifestyle tab — that was the "unusable" bug.
+        _ = try? await healthManager.requestAuthorization()
+        try? await notificationManager.requestAuthorization()
 
-            let now = Date()
-            let startOfDay = Calendar.current.startOfDay(for: now)
-            let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? startOfDay
-            async let mindfulToday = healthManager.fetchMindfulMinutes(from: startOfDay, to: now)
-            async let mindfulWeek = healthManager.fetchMindfulMinutes(from: weekAgo, to: now)
-            async let m = fetchMetrics()
-            async let r = fetchRecommendations()
-            async let ai = generateAIWorkouts(from: healthStats)
+        await healthManager.fetchTodayStats()
+        await healthManager.fetchWeeklyTrends()
+        await healthManager.fetchMindfulTrend()
+        healthStats = healthManager.todayStats
+        weeklyTrends = healthManager.weeklyTrends
+        mindfulTrend = healthManager.mindfulTrend
+        loggedMeals = healthManager.loggedMeals
 
-            metrics = try await m
-            recommendations = try await r
-            aiWorkouts = await ai
-            mindfulMinutesToday = Int(await mindfulToday)
-            mindfulMinutesWeek = Int(await mindfulWeek)
-            qolHistory = LifestyleWellbeingStore.recordQOL(metrics.qualityOfLifeScore)
+        let now = Date()
+        let startOfDay = Calendar.current.startOfDay(for: now)
+        let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? startOfDay
+        async let mindfulToday = healthManager.fetchMindfulMinutes(from: startOfDay, to: now)
+        async let mindfulWeek = healthManager.fetchMindfulMinutes(from: weekAgo, to: now)
+        async let m = fetchMetrics()
+        async let r = fetchRecommendations()
+        async let ai = generateAIWorkouts(from: healthStats)
 
-            await scheduleSmartReminders()
-            await notificationManager.scheduleRecommendationReminders(recommendations)
-            syncAriaContext()
-            error = nil
-        } catch {
-            self.error = error as? LifestyleError ?? .unknownError
-        }
+        metrics = (try? await m) ?? .default
+        recommendations = (try? await r) ?? []
+        aiWorkouts = await ai
+        mindfulMinutesToday = Int(await mindfulToday)
+        mindfulMinutesWeek = Int(await mindfulWeek)
+        qolHistory = LifestyleWellbeingStore.recordQOL(metrics.qualityOfLifeScore)
+
+        await scheduleSmartReminders()
+        await notificationManager.scheduleRecommendationReminders(recommendations)
+        syncAriaContext()
     }
 
     func refresh() async { await load() }
@@ -1159,7 +1107,7 @@ enum LifestyleSegment: Int, CaseIterable {
         switch self {
         case .aiOptimization: return "AI Optimize"
         case .homeCooking:    return "Home Cooking"
-        case .restaurants:    return "Restaurants"
+        case .restaurants:    return "Places"
         case .nutrition:      return "Nutrition"
         case .wellbeing:      return "Wellbeing"
         }
@@ -1168,7 +1116,7 @@ enum LifestyleSegment: Int, CaseIterable {
         switch self {
         case .aiOptimization: return "sparkles"
         case .homeCooking:    return "frying.pan.fill"
-        case .restaurants:    return "fork.knife"
+        case .restaurants:    return "map.fill"
         case .nutrition:      return "chart.pie.fill"
         case .wellbeing:      return "heart.fill"
         }
@@ -1181,7 +1129,7 @@ struct LifestyleView: View {
     @EnvironmentObject var store: AppStore
     @StateObject private var vm = LifestyleViewModel()
     @StateObject private var locationLogger = LocationMealLogger()
-    @State private var selectedSegment: LifestyleSegment = .aiOptimization
+    @State private var selectedSegment: LifestyleSegment = .nutrition
     @State private var showInsights = false
     @State private var reconnectingHK = false
     @Namespace private var segmentNS
@@ -1269,30 +1217,44 @@ struct LifestyleView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
-            if locationLogger.showConfirmation, let venue = locationLogger.detectedVenue {
+        }
+        .animation(.easeInOut(duration: 0.3), value: showInsights)
+        .task {
+            await vm.load()
+            await vm.refreshAIInsights(store: store)
+        }
+        .onAppear {
+            consumePendingLifestyleSegment()
+            Task {
+                let locator = LifestyleLocationStore.shared
+                if locator.canAsk { _ = await locator.requestAccess() }
+                locator.startTracking()
+            }
+        }
+        .onDisappear {
+            LifestyleLocationStore.shared.stopTracking()
+        }
+        .onChange(of: store.pendingLifestyleSegment) { _, _ in
+            consumePendingLifestyleSegment()
+        }
+        .onChange(of: vm.metrics.qualityOfLifeScore) { _, _ in vm.syncAriaContext() }
+        .onChange(of: vm.recommendations.count) { _, _ in vm.syncAriaContext() }
+        .sheet(isPresented: $locationLogger.showConfirmation) {
+            if let venue = locationLogger.detectedVenue {
                 LocationMealConfirmationSheet(
                     venue: venue,
                     items: locationLogger.detectedItems,
                     onLog: { item in locationLogger.logSelectedMeal(item, to: vm) },
                     onDismiss: { locationLogger.showConfirmation = false }
                 )
-                .zIndex(11)
+                .presentationDetents([.medium, .large])
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: showInsights)
-        // Single load point — fixes double-call bug
-        .task {
-            await vm.load()
-            await vm.refreshAIInsights(store: store)
-        }
-        .onAppear { consumePendingLifestyleSegment() }
-        .onChange(of: store.pendingLifestyleSegment) { _, _ in
-            consumePendingLifestyleSegment()
-        }
-        .onChange(of: vm.metrics.qualityOfLifeScore) { _, _ in vm.syncAriaContext() }
-        .onChange(of: vm.recommendations.count) { _, _ in vm.syncAriaContext() }
-        .alert("Error", isPresented: .constant(vm.error != nil), presenting: vm.error) { _ in
-            Button("OK") {}
+        .alert("Lifestyle", isPresented: Binding(
+            get: { vm.error != nil },
+            set: { if !$0 { vm.error = nil } }
+        ), presenting: vm.error) { _ in
+            Button("OK") { vm.error = nil }
         } message: { err in Text(err.localizedDescription) }
     }
 
@@ -1302,7 +1264,7 @@ struct LifestyleView: View {
         let mapped: LifestyleSegment? = {
             switch raw {
             case "nutrition": return .nutrition
-            case "restaurants", "meals", "food": return .restaurants
+            case "restaurants", "meals", "food", "places", "map": return .restaurants
             case "wellbeing", "wellness": return .wellbeing
             case "ai", "aioptimization", "optimize": return .aiOptimization
             default: return LifestyleSegment(rawValue: Int(raw) ?? -1)
@@ -1320,7 +1282,7 @@ struct LifestyleView: View {
         switch selectedSegment {
         case .aiOptimization: AIOptimizationContent(vm: vm, locationLogger: locationLogger)
         case .homeCooking:    HomeCookingView(vm: vm)
-        case .restaurants:    NutritionDatabaseView(vm: vm)
+        case .restaurants:    LifestylePlacesView(vm: vm, locationLogger: locationLogger)
         case .nutrition:      DailyNutritionView(vm: vm)
         case .wellbeing:      WellbeingView(vm: vm)
         }
@@ -1559,72 +1521,46 @@ struct LocationMealConfirmationSheet: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.55).ignoresSafeArea().onTapGesture(perform: onDismiss)
-
-            VStack(spacing: 0) {
-                Spacer()
-                VStack(alignment: .leading, spacing: 18) {
-                    Capsule()
-                        .fill(Color.textTertiary.opacity(0.4))
-                        .frame(width: 36, height: 4)
-                        .frame(maxWidth: .infinity)
-
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Nearby Match")
-                                .font(.system(size: 11, weight: .black))
-                                .foregroundColor(.textTertiary)
-                                .tracking(1.5)
-                            Text(venue)
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(.textPrimary)
-                        }
-                        Spacer()
-                        Button(action: onDismiss) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 26))
-                                .foregroundColor(.textTertiary)
-                        }
-                    }
-
-                    Text("Select what you ate to log macros to HealthKit.")
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Select what you ate. Macros write to Apple Health.")
                         .font(.system(size: 13))
                         .foregroundColor(.textSecondary)
 
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 10) {
-                            ForEach(items) { item in
-                                Button { onLog(item) } label: {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            Text(item.name)
-                                                .font(.system(size: 14, weight: .semibold))
-                                                .foregroundColor(.textPrimary)
-                                            Text("\(item.calories) cal · \(item.protein)g protein")
-                                                .font(.system(size: 12))
-                                                .foregroundColor(.textTertiary)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "plus.circle.fill")
-                                            .foregroundColor(.ember)
-                                    }
-                                    .padding(14)
-                                    .background(Color.surfaceElevated)
-                                    .cornerRadius(12)
+                    ForEach(items) { item in
+                        Button { onLog(item) } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(item.name)
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.textPrimary)
+                                    Text("\(item.calories) cal · \(item.protein)g protein")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.textTertiary)
                                 }
-                                .buttonStyle(.plain)
+                                Spacer()
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundColor(.ember)
                             }
+                            .padding(14)
+                            .background(Color.surfaceElevated)
+                            .cornerRadius(12)
                         }
+                        .buttonStyle(.plain)
                     }
-                    .frame(maxHeight: 280)
                 }
-                .padding(22)
-                .background(Color.surface)
-                .cornerRadius(28, corners: [.topLeft, .topRight])
+                .padding(20)
+            }
+            .background(Color.background)
+            .navigationTitle(venue)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", action: onDismiss)
+                }
             }
         }
-        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }
 

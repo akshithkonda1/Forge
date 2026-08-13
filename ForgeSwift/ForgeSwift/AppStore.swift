@@ -1828,6 +1828,7 @@ final class AppStore: ObservableObject {
             activeTab = .workout
             return true
         case "lifestyle":
+            pendingLifestyleSegment = segments.dropFirst().first
             activeTab = .lifestyle
             return true
         default:
