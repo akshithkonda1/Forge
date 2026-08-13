@@ -1017,6 +1017,8 @@ final class AppStore: ObservableObject {
             self.workoutHistory = mockWorkoutHistory
             self.personalRecords = mockPersonalRecords
             await self.refreshDailyData()
+            // Apply brief-default migration (6 AM / 6 PM) and weekly ARIA.
+            await self.resyncNotifications()
         }
     }
 
@@ -1817,6 +1819,12 @@ final class AppStore: ObservableObject {
                 Task { await logGlassFromWidget() }
             }
             openHydration()
+            return true
+        case "aria", "chat":
+            if segments.dropFirst().first == "weekly" {
+                WeeklyAriaReviewStore.shared.showSheet = true
+            }
+            activeTab = .chat
             return true
         case "home":
             activeTab = .home

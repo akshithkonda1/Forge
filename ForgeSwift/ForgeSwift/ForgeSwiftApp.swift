@@ -48,6 +48,7 @@ struct ForgeSwiftApp: App {
                             .split(separator: " ").first.map(String.init)
                     )
                     Task { await store.flushPendingWidgetWater(); store.publishHomeWidgets() }
+                    WeeklyAriaReviewStore.shared.refreshDue()
                 }
                 .onOpenURL { url in
                     store.handleDeepLink(url)
@@ -58,6 +59,9 @@ struct ForgeSwiftApp: App {
                     // renders — otherwise accepting drops them on Home with no
                     // sign anything happened.
                     store.openCycleHealth(pane: "partner")
+                }
+                .onReceive(NotificationCenter.default.publisher(for: WeeklyAriaReviewStore.openNotification)) { _ in
+                    store.handleDeepLink(URL(string: "forge://aria/weekly")!)
                 }
         }
     }

@@ -612,6 +612,7 @@ struct ChatView: View {
     @State private var showReactionBurst: Bool   = false
     @State private var showContextInspector = false
     @State private var proactiveInsight: String?
+    @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
 
     // Cancellable timers for transient UI so nothing fires after teardown.
     @State private var milestoneResetTask:    Task<Void, Never>? = nil
@@ -636,6 +637,35 @@ struct ChatView: View {
                     relationshipLevel: ariaContext.context.relationshipLevel,
                     onAvatarLongPress: { showContextInspector = true }
                 )
+
+                if weeklyReview.isDue {
+                    Button {
+                        weeklyReview.showSheet = true
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "calendar.badge.clock")
+                                .foregroundColor(.ember)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Weekly evaluation is due")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(.textPrimary)
+                                Text("Five questions. ARIA files the answers as standing context.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.textSecondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.textTertiary)
+                        }
+                        .padding(12)
+                        .background(Color.ember.opacity(0.12))
+                        .cornerRadius(14)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                }
 
                 if let insight = proactiveInsight, ariaContext.shouldBeProactive() {
                     ProactiveCardView(
@@ -773,6 +803,7 @@ struct ChatView: View {
                 proactiveInsight = insight
             }
             consumePendingHomeHandoff()
+            weeklyReview.considerPresenting()
         }
         .onChange(of: store.ariaPendingChatPrompt) { _, prompt in
             guard prompt != nil else { return }

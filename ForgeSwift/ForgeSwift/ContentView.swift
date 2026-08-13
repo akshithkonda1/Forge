@@ -124,6 +124,7 @@ struct ForgeSplashScreen: View {
 
 struct MainTabView: View {
     @EnvironmentObject var store: AppStore
+    @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
     @Namespace private var namespace
     @State private var previousTab: TabItem = .home
     @State private var dragOffset: CGFloat = 0
@@ -233,6 +234,10 @@ struct MainTabView: View {
                         }
                     }
             }
+        }
+        .sheet(isPresented: $weeklyReview.showSheet) {
+            WeeklyAriaReviewSheet()
+                .environmentObject(store)
         }
     }
 

@@ -16,6 +16,7 @@ enum ForgeNotificationScheduler {
         static let lifestyleSleep = "forge.notification.lifestyle.sleep"
         static let briefMorning = "forge.notification.brief.morning"
         static let briefEvening = "forge.notification.brief.evening"
+        static let weeklyAriaReview = "forge.notification.aria.weekly"
         // Cycle health
         static let cycleBBTReminder = "forge.notif.cycle.bbt"
         static let cycleOPKWindow = "forge.notif.cycle.opk"
@@ -101,13 +102,22 @@ enum ForgeNotificationScheduler {
                 body: "Review today's signals and tomorrow's focus."
             )
         }
+
+        // Weekly evaluation is its own loop — not tied to the daily brief toggle.
+        await scheduleWeekly(
+            id: ID.weeklyAriaReview,
+            weekday: 1, hour: 10, minute: 0,
+            title: "ARIA weekly evaluation",
+            body: "Five questions. ARIA files the answers as standing context for the week ahead.",
+            destination: "forge://aria/weekly"
+        )
     }
 
     private static func removeAllForgeNotifications() async {
         let ids = [
             ID.workout, ID.recovery, ID.weeklySummary,
             ID.lifestyleHydration, ID.lifestyleLunch, ID.lifestyleDinner, ID.lifestyleSleep,
-            ID.briefMorning, ID.briefEvening,
+            ID.briefMorning, ID.briefEvening, ID.weeklyAriaReview,
             ID.cycleBBTReminder, ID.cycleOPKWindow, ID.cycleFertileWindow,
             ID.cyclePeriodReminder, ID.cyclePhaseTransition,
         ]
@@ -202,7 +212,15 @@ enum ForgeNotificationScheduler {
         try? await center.add(request)
     }
 
-    private static func scheduleWeekly(id: String, weekday: Int, hour: Int, minute: Int, title: String, body: String) async {
+    private static func scheduleWeekly(
+        id: String,
+        weekday: Int,
+        hour: Int,
+        minute: Int,
+        title: String,
+        body: String,
+        destination: String? = nil
+    ) async {
         var components = DateComponents()
         components.weekday = weekday
         components.hour = hour
@@ -211,6 +229,9 @@ enum ForgeNotificationScheduler {
         content.title = title
         content.body = body
         content.sound = .default
+        if let destination {
+            content.userInfo = ["destination": destination]
+        }
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
         try? await center.add(request)

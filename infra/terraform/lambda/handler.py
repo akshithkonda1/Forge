@@ -124,6 +124,9 @@ def handler(event, _context):
         if method == "POST" and path == "/ai/chat":
             return aria.handle_post_ai_chat(body, user_id=user_id)
 
+        if method == "POST" and path == "/ai/weekly-review":
+            return aria.handle_post_ai_weekly_review(body, user_id=user_id)
+
         if method == "POST" and path == "/ai/observe":
             return biometrics.handle_post_observe(body, user_id=user_id)
 

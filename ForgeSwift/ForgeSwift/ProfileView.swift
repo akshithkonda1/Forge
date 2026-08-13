@@ -781,6 +781,7 @@ struct SettingsPageView: View {
     @State private var confirmSignOut = false
     @State private var backendURLDraft = AriaService.shared.baseURL.absoluteString
     @State private var briefSettings: BriefNotificationSettings
+    @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
 
     let dayLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
 
@@ -1113,10 +1114,35 @@ struct SettingsPageView: View {
                     }
                     if store.briefNotificationsEnabled {
                         Divider().background(Color.borderColor)
-                        briefTimeRow(label: "Morning brief", hour: $briefSettings.morningHour, minute: $briefSettings.morningMinute)
+                        briefTimeRow(
+                            icon: "sunrise.fill",
+                            iconColor: Color(hex: "F59E0B"),
+                            label: "Morning brief",
+                            hour: $briefSettings.morningHour,
+                            minute: $briefSettings.morningMinute
+                        )
                         Divider().background(Color.borderColor)
-                        briefTimeRow(label: "Evening brief", hour: $briefSettings.eveningHour, minute: $briefSettings.eveningMinute)
+                        briefTimeRow(
+                            icon: "sunset.fill",
+                            iconColor: Color(hex: "6366F1"),
+                            label: "Evening brief",
+                            hour: $briefSettings.eveningHour,
+                            minute: $briefSettings.eveningMinute
+                        )
                     }
+                    Divider().background(Color.borderColor)
+                    Button {
+                        weeklyReview.showSheet = true
+                    } label: {
+                        SettingsRow(
+                            icon: "calendar.badge.clock",
+                            iconColor: .ember,
+                            label: "Weekly ARIA evaluation",
+                            trailingText: weeklyReview.isDue ? "Due" : "Done",
+                            showChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
                     Divider().background(Color.borderColor)
                     SettingsRow(icon: "bell.fill", iconColor: .success, label: "Recovery Alerts") {
                         ForgeToggle(isOn: notificationBinding(\.recoveryAlerts))
@@ -1356,6 +1382,7 @@ struct SettingsPageView: View {
                 eveningMinute: updated.eveningMinute
             )
         }
+        .onAppear { weeklyReview.refreshDue() }
     }
 
     /// Opens the user's mail client with a support draft already addressed and stamped
@@ -1392,24 +1419,44 @@ struct SettingsPageView: View {
         )
     }
 
-    private func briefTimeRow(label: String, hour: Binding<Int>, minute: Binding<Int>) -> some View {
-        HStack(spacing: 12) {
-            Text(label)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.textPrimary)
-            Spacer()
-            Stepper(value: hour, in: 0...23) {
-                Text(String(format: "%02d:%02d", hour.wrappedValue, minute.wrappedValue))
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.textSecondary)
-            }
-            Stepper(value: minute, in: 0...59, step: 15) {
-                EmptyView()
-            }
+    private func briefTimeRow(
+        icon: String,
+        iconColor: Color,
+        label: String,
+        hour: Binding<Int>,
+        minute: Binding<Int>
+    ) -> some View {
+        SettingsRow(icon: icon, iconColor: iconColor, label: label) {
+            DatePicker(
+                label,
+                selection: Binding(
+                    get: { Self.clockDate(hour: hour.wrappedValue, minute: minute.wrappedValue) },
+                    set: { date in
+                        let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+                        hour.wrappedValue = min(23, max(0, parts.hour ?? 0))
+                        minute.wrappedValue = min(59, max(0, parts.minute ?? 0))
+                    }
+                ),
+                displayedComponents: .hourAndMinute
+            )
+            .datePickerStyle(.compact)
             .labelsHidden()
+            .tint(.ember)
+            .accessibilityLabel(label)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+    }
+
+    /// Fixed calendar day so DST cannot flip 6:00 into 5:00 when the picker
+    /// is bound to "today".
+    private static func clockDate(hour: Int, minute: Int) -> Date {
+        var parts = DateComponents()
+        parts.calendar = Calendar.current
+        parts.year = 2026
+        parts.month = 1
+        parts.day = 15
+        parts.hour = min(23, max(0, hour))
+        parts.minute = min(59, max(0, minute))
+        return parts.date ?? Date()
     }
 
     func sectionHeader(_ title: String) -> some View {
@@ -1874,9 +1921,9 @@ struct AppNotificationSettings: Codable, Equatable {
 }
 
 struct BriefNotificationSettings: Codable, Equatable {
-    var morningHour: Int = 8
+    var morningHour: Int = 6
     var morningMinute: Int = 0
-    var eveningHour: Int = 20
+    var eveningHour: Int = 18
     var eveningMinute: Int = 0
 }
 
@@ -1973,7 +2020,21 @@ enum ForgePersistence {
     }
 
     static func loadBriefNotificationSettings() -> BriefNotificationSettings {
-        load(BriefNotificationSettings.self, forKey: briefNotificationSettingsKey) ?? BriefNotificationSettings()
+        var settings = load(BriefNotificationSettings.self, forKey: briefNotificationSettingsKey)
+            ?? BriefNotificationSettings()
+        // One-time move off the old 8:00 / 20:00 factory defaults that the
+        // broken stepper UI also displayed as stacked digits.
+        let migratedKey = "forge.brief.defaults.6am6pm"
+        if !UserDefaults.standard.bool(forKey: migratedKey) {
+            if settings.morningHour == 8, settings.morningMinute == 0,
+               settings.eveningHour == 20, settings.eveningMinute == 0 {
+                settings.morningHour = 6
+                settings.eveningHour = 18
+            }
+            UserDefaults.standard.set(true, forKey: migratedKey)
+            saveBriefNotificationSettings(settings)
+        }
+        return settings
     }
 
     static func saveBriefNotificationSettings(_ settings: BriefNotificationSettings) {

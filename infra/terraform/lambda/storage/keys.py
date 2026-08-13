@@ -43,3 +43,7 @@ def user_pk(user_id: str) -> str:
 
 def aria_context_key(user_id: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": "ARIA#CONTEXT"}
+
+
+def weekly_review_key(user_id: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": "ARIA#WEEKLY_REVIEW"}

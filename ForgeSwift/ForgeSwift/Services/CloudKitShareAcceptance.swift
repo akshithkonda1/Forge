@@ -2,6 +2,7 @@ import CloudKit
 import ForgeCore
 import SwiftUI
 import UIKit
+import UserNotifications
 
 // ============================================================
 // MARK: - Accepting a support share
@@ -70,11 +71,29 @@ enum PartnerShareAcceptance {
 /// application one still fires in launch paths where no scene has connected yet,
 /// and a share dropped on the floor at cold launch is precisely the case a
 /// supporter hits when they tap the invite without Forge already running.
-final class ForgeAppDelegate: NSObject, UIApplicationDelegate {
+final class ForgeAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
 
     func application(_ application: UIApplication,
                      userDidAcceptCloudKitShareWith metadata: CKShare.Metadata) {
         PartnerShareAcceptance.accept(metadata)
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        let id = response.notification.request.identifier
+        let destination = response.notification.request.content.userInfo["destination"] as? String
+        if id == ForgeNotificationScheduler.ID.weeklyAriaReview
+            || destination == "forge://aria/weekly" {
+            NotificationCenter.default.post(name: WeeklyAriaReviewStore.openNotification, object: nil)
+        }
     }
 
     /// The silent push a `CKDatabaseSubscription` sends when the owner writes a

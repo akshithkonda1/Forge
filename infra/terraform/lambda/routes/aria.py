@@ -12,6 +12,7 @@ from security import (
 from services import aria_engine
 from services.aria_context import CoachContextEngine
 from services.feedback import FeedbackEngine
+from services import weekly_review
 
 _context = CoachContextEngine()
 _feedback = FeedbackEngine(_context)
@@ -50,6 +51,9 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     payload = dict(body)
     payload["user_id"] = uid
     context = aria_engine.ARIAContext.from_payload(payload)
+    weekly_note = weekly_review.briefing_for_chat(uid)
+    if weekly_note:
+        message = f"{weekly_note}\n\n{message}"
     permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
     reason = (
         aria_engine.generate_response_live
@@ -79,6 +83,18 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         }
     )
     return ok(response)
+
+
+def handle_post_ai_weekly_review(body: dict[str, Any], *, user_id: str) -> dict:
+    """POST /ai/weekly-review — start or submit the weekly evaluation."""
+    uid = _bind_user(body, user_id)
+    phase = str(body.get("phase") or "start").strip().lower()
+    if phase == "submit":
+        answers = body.get("answers")
+        if not isinstance(answers, dict):
+            raise RouteError(400, "answers object is required.")
+        return ok(weekly_review.submit(uid, answers))
+    return ok(weekly_review.start(uid))
 
 
 def handle_post_ai_archetype(body: dict[str, Any], *, user_id: str) -> dict:
