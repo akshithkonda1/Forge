@@ -441,6 +441,57 @@ class AuthAndAISecurityTests(unittest.TestCase):
         self.assertNotIn("resources", payload)
         self.assertNotIn("router", payload)
 
+    def test_devices_catalog_is_public(self):
+        response = handler(event("GET", "/devices/catalog"), None)
+        self.assertEqual(response["statusCode"], 200)
+        payload = body(response)
+        self.assertGreaterEqual(payload["version"], 1)
+        self.assertIn("devices", payload)
+        self.assertIn("retire", payload)
+
+    def test_devices_catalog_merges_seen_sources(self):
+        seen = handler(
+            event(
+                "POST",
+                "/devices/catalog/seen",
+                {
+                    "devices": [
+                        {
+                            "id": "discovered-suunto-race",
+                            "name": "Suunto Race",
+                            "maker": "Suunto",
+                            "category": "wearable",
+                            "summary": "Seen writing to Apple Health on this iPhone.",
+                            "metrics": ["Apple Health"],
+                            "writesToAppleHealth": True,
+                            "hasIOSApp": True,
+                            "worksWithAppleWatch": False,
+                            "appStoreURL": None,
+                            "setupHint": "Already writing to Health.",
+                            "symbolName": "sensor.tag.radiowaves.forward",
+                            "line": "discovered-suunto-race",
+                            "generation": 1,
+                            "releasedYear": 2026,
+                            "stillCompatible": True,
+                        }
+                    ]
+                },
+            ),
+            None,
+        )
+        self.assertEqual(seen["statusCode"], 200)
+        self.assertEqual(body(seen)["accepted"], 1)
+
+        catalog = body(handler(event("GET", "/devices/catalog"), None))
+        ids = [device["id"] for device in catalog["devices"]]
+        self.assertIn("discovered-suunto-race", ids)
+
+    def test_production_devices_seen_requires_auth(self):
+        os.environ["ENVIRONMENT"] = "production"
+        os.environ.pop("FORGE_ALLOW_ANON_TEST_USER", None)
+        response = handler(event("POST", "/devices/catalog/seen", {"devices": []}), None)
+        self.assertEqual(response["statusCode"], 401)
+
     def test_ai_chat_rejects_spoofed_user_id(self):
         response = handler(
             event(

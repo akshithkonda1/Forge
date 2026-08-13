@@ -7,9 +7,9 @@ import UIKit
 
 extension Color {
     // Backgrounds — deeper, more cinematic blacks
-    static let background      = Color(hex: "050505")
-    static let surface         = Color(hex: "0E0E10")
-    static let surfaceElevated = Color(hex: "16161A")
+    static let background      = Color(hex: "08080C")
+    static let surface         = Color(hex: "101014")
+    static let surfaceElevated = Color(hex: "17171C")
     static let surfaceHover    = Color(hex: "1C1C22")
     static let cardBackground  = Color(hex: "0E0E10")
     static let surfaceGlass    = Color.white.opacity(0.04)
@@ -227,15 +227,8 @@ extension View {
             ZStack {
                 Color.background.ignoresSafeArea()
                 RadialGradient(
-                    colors: [accent.opacity(0.08), .clear],
-                    center: UnitPoint(x: 0.15, y: 0.08),
-                    startRadius: 20,
-                    endRadius: 420
-                )
-                .ignoresSafeArea()
-                RadialGradient(
-                    colors: [Color.steel.opacity(0.05), .clear],
-                    center: UnitPoint(x: 0.9, y: 0.75),
+                    colors: [accent.opacity(0.05), .clear],
+                    center: UnitPoint(x: 0.2, y: 0.0),
                     startRadius: 10,
                     endRadius: 360
                 )

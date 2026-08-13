@@ -133,21 +133,21 @@ struct ForgePageHeader: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(.system(size: 28, weight: .semibold))
                     .foregroundColor(.textPrimary)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
                 }
             }
             Spacer(minLength: 8)
             trailing
         }
-        .padding(.top, 12)
+        .padding(.top, 8)
         .accessibilityElement(children: .combine)
     }
 }

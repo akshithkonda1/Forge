@@ -124,6 +124,7 @@ struct ForgeSplashScreen: View {
 
 struct MainTabView: View {
     @EnvironmentObject var store: AppStore
+    @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
     @Namespace private var namespace
     @State private var previousTab: TabItem = .home
     @State private var dragOffset: CGFloat = 0
@@ -278,78 +279,39 @@ struct ForgeBottomNav: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Extra headroom so the raised ARIA FAB isn't clipped.
-            Color.clear.frame(height: 22)
+            Color.clear.frame(height: 10)
 
             ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
-                    // Refined top edge with shimmer
-                    ZStack {
-                        Rectangle()
-                            .fill(Color.white.opacity(0.08))
-                            .frame(height: 1)
-
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0),
-                                Color.white.opacity(0.15),
-                                Color.white.opacity(0)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                        .frame(height: 1)
-                        .blur(radius: 0.5)
-                    }
+                    Rectangle()
+                        .fill(Color.white.opacity(0.06))
+                        .frame(height: 0.5)
 
                     HStack(spacing: 0) {
                         ForEach(tabs, id: \.self) { tab in
                             if tab == .chat {
-                                // Spacer for the elevated ARIA FAB slot
                                 Color.clear
                                     .frame(maxWidth: .infinity)
-                                    .frame(height: 62)
+                                    .frame(height: 56)
                             } else {
                                 RegularForgeTab(tab: tab, namespace: namespace)
                             }
                         }
                     }
-                    .frame(height: 62)
-                    .padding(.horizontal, 6)
-                    .padding(.top, 2)
-                    .background(
-                        ZStack {
-                            Color(hex: "060608").opacity(0.88)
-                            LinearGradient.premiumChrome
-                            Color.white.opacity(0.015)
-                                .blendMode(.overlay)
-                        }
-                        .background(.ultraThinMaterial.opacity(0.45))
-                    )
+                    .frame(height: 56)
+                    .padding(.horizontal, 4)
+                    .background(Color.background.opacity(0.94))
+                    .background(.ultraThinMaterial.opacity(0.35))
 
-                    ZStack {
-                        Color(hex: "060608")
-                        Color.white.opacity(0.015)
-                    }
-                    .frame(height: safeAreaBottom)
+                    Color.background
+                        .frame(height: safeAreaBottom)
                 }
 
-                // Raised center ARIA control (true middle of 7 tabs)
                 ARIATabButton(namespace: namespace)
-                    .offset(y: -18 - safeAreaBottom / 2)
+                    .offset(y: -10 - safeAreaBottom / 2)
             }
         }
-        .overlay(alignment: .top) {
-            LinearGradient(
-                colors: [Color.white.opacity(0.14), Color.white.opacity(0.02), .clear],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .frame(height: 0.6)
-            .padding(.top, 22)
-        }
-        .shadow(color: .black.opacity(0.55), radius: 28, y: -10)
-        .shadow(color: Color.ember.opacity(store.activeTab == .chat ? 0.18 : 0.05), radius: 24, y: -6)
+        .shadow(color: .black.opacity(0.35), radius: 16, y: -4)
         .gesture(
             DragGesture()
                 .onChanged { gesture in
@@ -388,78 +350,21 @@ struct RegularForgeTab: View {
                 store.activeTab = tab
             }
         } label: {
-            VStack(spacing: 6) {
-                ZStack {
-                    // Morphing active indicator
-                    if isActive {
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.ember.opacity(0.18),
-                                        Color.ember.opacity(0.12)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .frame(width: 52, height: 32)
-                            .overlay(
-                                Capsule()
-                                    .stroke(Color.ember.opacity(0.2), lineWidth: 0.5)
-                            )
-                            .shadow(color: Color.ember.opacity(0.3), radius: 8, y: 2)
-                            .matchedGeometryEffect(id: "activeTab", in: namespace)
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                    
-                    // Icon with sophisticated animation
-                    Image(systemName: isActive ? tab.systemImageFilled : tab.systemImage)
-                        .font(.system(size: 17, weight: isActive ? .semibold : .regular))
-                        .foregroundStyle(
-                            isActive ?
-                            LinearGradient(
-                                colors: [Color.ember, Color(hex: "FF5A00")],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ) :
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.45), Color.white.opacity(0.35)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .scaleEffect(pressed ? 0.82 : (hovered ? 1.05 : 1.0))
-                        .shadow(
-                            color: isActive ? Color.ember.opacity(0.4) : .clear,
-                            radius: 6,
-                            y: 2
-                        )
-                }
-                .frame(height: 32)
+            VStack(spacing: 4) {
+                Image(systemName: isActive ? tab.systemImageFilled : tab.systemImage)
+                    .font(.system(size: 17, weight: isActive ? .semibold : .regular))
+                    .foregroundColor(isActive ? .ember : .white.opacity(0.38))
+                    .frame(height: 24)
+                    .scaleEffect(pressed ? 0.9 : 1.0)
 
-                // Compact labels — 7 tabs need tight typography that still reads.
                 Text(tab.shortLabel)
-                    .font(.system(size: 8.5, weight: isActive ? .bold : .medium, design: .rounded))
+                    .font(.system(size: 9, weight: isActive ? .semibold : .medium))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .foregroundStyle(
-                        isActive ?
-                        LinearGradient(
-                            colors: [Color.ember, Color(hex: "FF5A00")],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ) :
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.42), Color.white.opacity(0.30)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .tracking(isActive ? 0.25 : 0.1)
+                    .foregroundColor(isActive ? .ember : .white.opacity(0.38))
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 62)
+            .frame(height: 56)
             .contentShape(Rectangle())
             .accessibilityLabel(tab.label)
             .accessibilityAddTraits(isActive ? .isSelected : [])
@@ -490,267 +395,49 @@ struct ARIATabButton: View {
     @EnvironmentObject var store: AppStore
     @State private var isVoiceMode = false
     @State private var pressed = false
-    @State private var orbPulse = false
-    @State private var particlePhase: CGFloat = 0
-    @State private var breathScale: CGFloat = 1.0
 
     private var isActive: Bool { store.activeTab == .chat }
 
     var body: some View {
         Button {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            withAnimation(.easeInOut(duration: 0.2)) {
                 store.activeTab = .chat
             }
         } label: {
-            VStack(spacing: 6) {
+            VStack(spacing: 4) {
                 ZStack {
-                    // EPIC particle rings when active
-                    if isActive {
-                        ForEach(0..<3) { index in
-                            Circle()
-                                .stroke(
-                                    LinearGradient(
-                                        colors: isVoiceMode ? 
-                                        [
-                                            Color(hex: "38BDF8").opacity(0.4),
-                                            Color(hex: "0EA5E9").opacity(0.2),
-                                            Color.clear
-                                        ] :
-                                        [
-                                            Color.ember.opacity(0.4),
-                                            Color(hex: "FF5A00").opacity(0.2),
-                                            Color.clear
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 2
-                                )
-                                .frame(width: 48 + CGFloat(index * 8), height: 48 + CGFloat(index * 8))
-                                .scaleEffect(orbPulse ? 1.6 : 1.0)
-                                .opacity(orbPulse ? 0.0 : (0.5 - Double(index) * 0.15))
-                                .animation(
-                                    .easeOut(duration: 2.0 + Double(index) * 0.3)
-                                    .repeatForever(autoreverses: false)
-                                    .delay(Double(index) * 0.2),
-                                    value: orbPulse
-                                )
-                        }
-                    }
-                    
-                    // Premium orbital glow
-                    if isActive {
-                        Circle()
-                            .fill(
-                                RadialGradient(
-                                    colors: isVoiceMode ?
-                                    [
-                                        Color(hex: "38BDF8").opacity(0.3),
-                                        Color(hex: "0EA5E9").opacity(0.15),
-                                        Color.clear
-                                    ] :
-                                    [
-                                        Color.ember.opacity(0.3),
-                                        Color(hex: "FF5A00").opacity(0.15),
-                                        Color.clear
-                                    ],
-                                    center: .center,
-                                    startRadius: 20,
-                                    endRadius: 60
-                                )
-                            )
-                            .frame(width: 120, height: 120)
-                            .blur(radius: 20)
-                            .scaleEffect(breathScale)
-                            .animation(
-                                .easeInOut(duration: 2.5).repeatForever(autoreverses: true),
-                                value: breathScale
-                            )
-                    }
-
-                    // Main orb with depth and dimension — raised FAB size
-                    ZStack {
-                        // Shadow layer for depth
-                        Circle()
-                            .fill(Color.black.opacity(0.45))
-                            .frame(width: 56, height: 56)
-                            .blur(radius: 10)
-                            .offset(y: 4)
-                        
-                        // Main gradient orb
-                        Circle()
-                            .fill(
-                                AngularGradient(
-                                    gradient: Gradient(colors: isVoiceMode ?
-                                        [
-                                            Color(hex: "38BDF8"),
-                                            Color(hex: "0EA5E9"),
-                                            Color(hex: "0284C7"),
-                                            Color(hex: "0EA5E9"),
-                                            Color(hex: "38BDF8")
-                                        ] :
-                                        [
-                                            Color.ember,
-                                            Color(hex: "FF5A00"),
-                                            Color(hex: "E84000"),
-                                            Color(hex: "FF5A00"),
-                                            Color.ember
-                                        ]
-                                    ),
-                                    center: .center,
-                                    startAngle: .degrees(particlePhase),
-                                    endAngle: .degrees(particlePhase + 360)
-                                )
-                            )
-                            .frame(width: 56, height: 56)
-                            .overlay(
-                                Circle()
-                                    .fill(
-                                        RadialGradient(
-                                            colors: [
-                                                Color.white.opacity(0.3),
-                                                Color.clear
-                                            ],
-                                            center: .topLeading,
-                                            startRadius: 0,
-                                            endRadius: 25
-                                        )
-                                    )
-                            )
-                            .overlay(
-                                Circle()
-                                    .stroke(
-                                        LinearGradient(
-                                            colors: [
-                                                Color.white.opacity(0.3),
-                                                Color.clear
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 1
-                                    )
-                            )
-                            .shadow(
-                                color: isVoiceMode ?
-                                    Color(hex: "38BDF8").opacity(isActive ? 0.7 : 0.3) :
-                                    Color.ember.opacity(isActive ? 0.7 : 0.3),
-                                radius: isActive ? 16 : 8,
-                                y: 4
-                            )
-                        
-                        // Icon with premium styling
-                        Image(systemName: isVoiceMode ? "waveform" : "message.fill")
-                            .font(.system(size: isVoiceMode ? 20 : 18, weight: .bold))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white,
-                                        Color.white.opacity(0.9)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
-                            .scaleEffect(pressed ? 0.75 : 1.0)
-                            .symbolEffect(.bounce, value: isVoiceMode)
-                    }
-                    .scaleEffect(pressed ? 0.88 : 1.0)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: pressed)
+                    Circle()
+                        .fill(isVoiceMode ? Color(hex: "0EA5E9") : Color.ember)
+                        .frame(width: 48, height: 48)
+                    Image(systemName: isVoiceMode ? "waveform" : "message.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
                 }
-                .frame(height: 40)
+                .scaleEffect(pressed ? 0.94 : 1.0)
 
-                // Label with premium typography
                 Text(isVoiceMode ? "Voice" : "ARIA")
-                    .font(.system(size: 9, weight: isActive ? .bold : .semibold, design: .rounded))
-                    .foregroundStyle(
-                        isVoiceMode ?
-                        LinearGradient(
-                            colors: [
-                                Color(hex: "38BDF8"),
-                                Color(hex: "0EA5E9")
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ) :
-                        (isActive ?
-                        LinearGradient(
-                            colors: [Color.ember, Color(hex: "FF5A00")],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ) :
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.35), Color.white.opacity(0.25)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ))
-                    )
-                    .tracking(0.6)
-                    .shadow(
-                        color: isVoiceMode ? 
-                            Color(hex: "38BDF8").opacity(0.5) :
-                            (isActive ? Color.ember.opacity(0.5) : .clear),
-                        radius: 4,
-                        y: 1
-                    )
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundColor(isActive ? .ember : .white.opacity(0.45))
             }
-            .frame(width: 72)
-            .frame(height: 72)
+            .frame(width: 64, height: 64)
             .contentShape(Rectangle())
             .accessibilityLabel(isVoiceMode ? "ARIA Voice" : "ARIA")
             .accessibilityAddTraits(isActive ? .isSelected : [])
         }
         .buttonStyle(.plain)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    if !pressed {
-                        pressed = true
-                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                    }
-                }
-                .onEnded { _ in
-                    pressed = false
-                }
-        )
-        .onLongPressGesture(minimumDuration: 0.6) {
-            // Epic haptic sequence
-            let generator = UIImpactFeedbackGenerator(style: .rigid)
-            generator.impactOccurred()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                generator.impactOccurred(intensity: 0.7)
-            }
-            
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.65)) {
+        .onLongPressGesture(minimumDuration: 0.55) {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            withAnimation(.easeInOut(duration: 0.2)) {
                 isVoiceMode.toggle()
-            }
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                 store.activeTab = .chat
             }
         }
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                orbPulse = true
-                breathScale = 1.08
-            }
-            // Smooth particle rotation
-            withAnimation(.linear(duration: 8.0).repeatForever(autoreverses: false)) {
-                particlePhase = 360
-            }
-        }
-        .onChange(of: isActive) { _, active in
-            if !active {
-                orbPulse = false
-                breathScale = 1.0
-            } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    orbPulse = true
-                    breathScale = 1.08
-                }
-            }
-        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in pressed = true }
+                .onEnded { _ in pressed = false }
+        )
     }
 }
 
