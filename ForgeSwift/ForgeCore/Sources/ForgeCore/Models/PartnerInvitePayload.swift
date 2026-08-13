@@ -335,3 +335,51 @@ public enum PartnerInviteAcceptance {
         return (defaults.stringArray(forKey: key) ?? []).contains(shareURL.absoluteString)
     }
 }
+
+// ============================================================
+// MARK: - Owner → extension revocation
+// ============================================================
+
+/// Shares this device has stopped, so the Messages extension can offer to say so
+/// in the thread it was offered in.
+///
+/// Without it the sender's own bubble goes on reading "Waiting on them" forever
+/// after they revoke — the extension has no CloudKit access and no other way to
+/// learn that sharing ended. Same discipline as `PartnerInviteAcceptance`: the
+/// app records a thing that *happened*, and the extension reports it. The
+/// extension never infers it.
+///
+/// Only whole-share revocation is recorded. Removing one participant cannot be
+/// mapped back to a specific conversation, so claiming a particular thread's
+/// invite was stopped would sometimes be wrong.
+public enum PartnerInviteRevocation {
+
+    private static let key = "partner.invite.revoked.v1"
+
+    private static var defaults: UserDefaults? { PartnerInviteBox.store }
+
+    public static func record(shareURL: URL) {
+        guard let defaults else { return }
+        var revoked = Set(defaults.stringArray(forKey: key) ?? [])
+        revoked.insert(shareURL.absoluteString)
+        defaults.set(Array(revoked), forKey: key)
+        // A revoked share is no longer accepted by anyone, and leaving it in the
+        // accepted set would let a supporter's bubble claim it is live.
+        PartnerInviteAcceptance.forget(shareURL: shareURL)
+    }
+
+    /// Called when the same URL is shared again, which cannot happen today —
+    /// revoking deletes the zone and a new share gets a new URL — but keeps the
+    /// two sets from disagreeing if that ever changes.
+    public static func clear(shareURL: URL) {
+        guard let defaults else { return }
+        var revoked = Set(defaults.stringArray(forKey: key) ?? [])
+        revoked.remove(shareURL.absoluteString)
+        defaults.set(Array(revoked), forKey: key)
+    }
+
+    public static func wasRevoked(shareURL: URL) -> Bool {
+        guard let defaults else { return false }
+        return (defaults.stringArray(forKey: key) ?? []).contains(shareURL.absoluteString)
+    }
+}

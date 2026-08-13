@@ -267,11 +267,56 @@ class ObserveRouteTests(unittest.TestCase):
         self._handler = handler
         ddb.clear_local_store()
 
-    def _post(self, path, body):
+    def _post(self, path, body, *, as_user=None):
+        """POST to a route, optionally as an authenticated principal.
+
+        `/ai/observe` became an authenticated route, with identity taken from
+        the JWT authorizer rather than the request body. These tests predate
+        that and posted anonymously, which is why they failed two different ways
+        depending on the environment: 401 locally (no principal at all) and 403
+        in CI (FORGE_TEST_USER_ID supplies a principal, and the body's `user_id`
+        then does not match it).
+
+        Same authorizer shape as `tests/test_backend_handler.py`.
+        """
         ev = {"requestContext": {"http": {"method": "POST", "path": path}},
               "body": self._json.dumps(body)}
+        if as_user:
+            ev["requestContext"]["authorizer"] = {"jwt": {"claims": {"sub": as_user}}}
         resp = self._handler(ev, None)
         return resp["statusCode"], self._json.loads(resp["body"])
+
+    @staticmethod
+    def _without_test_identity():
+        """Context manager clearing the non-production auth escape hatches.
+
+        `extract_user_id` falls back to FORGE_TEST_USER_ID outside production, so
+        a test asserting that anonymous access is rejected has to remove that
+        fallback or it silently asserts nothing.
+        """
+        import os
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _ctx():
+            saved = {k: os.environ.pop(k, None)
+                     for k in ("FORGE_TEST_USER_ID",
+                               "FORGE_ALLOW_TEST_USER",
+                               # The one that actually bit: other modules set
+                               # this in setUp without clearing it, so it leaks
+                               # across the suite and hands out an anonymous
+                               # test user. A test asserting that anonymous
+                               # access is refused has to remove all three or it
+                               # passes while proving nothing.
+                               "FORGE_ALLOW_ANON_TEST_USER")}
+            try:
+                yield
+            finally:
+                for k, v in saved.items():
+                    if v is not None:
+                        os.environ[k] = v
+
+        return _ctx()
 
     def test_observe_classifies_models_and_answers(self):
         samples = [{"type": "hrv", "value": 40 - d, "unit": "ms", "source": "oura",
@@ -284,7 +329,7 @@ class ObserveRouteTests(unittest.TestCase):
         status, payload = self._post("/ai/observe", {
             "user_id": "obs-user", "age_years": 34, "samples": samples,
             "message": "how am I recovering?",
-        })
+        }, as_user="obs-user")
         self.assertEqual(status, 200)
         self.assertEqual(payload["classification"]["accepted"], 7)
         self.assertEqual(payload["classification"]["rejected"], 1)
@@ -304,17 +349,42 @@ class ObserveRouteTests(unittest.TestCase):
         fused = self._post("/ai/observe", {
             "user_id": uid, "include_stored": True,
             "samples": [{"type": "hrv", "value": 48, "unit": "ms",
-                         "timestamp": (BASE + timedelta(days=3)).isoformat()}]})[1]
+                         "timestamp": (BASE + timedelta(days=3)).isoformat()}]},
+            as_user=uid)[1]
         self.assertEqual(fused["classification"]["accepted"], 4)  # 3 stored + 1 incoming
 
         incoming_only = self._post("/ai/observe", {
             "user_id": uid, "include_stored": False,
-            "samples": [{"type": "hrv", "value": 48, "unit": "ms", "timestamp": BASE.isoformat()}]})[1]
+            "samples": [{"type": "hrv", "value": 48, "unit": "ms", "timestamp": BASE.isoformat()}]},
+            as_user=uid)[1]
         self.assertEqual(incoming_only["classification"]["accepted"], 1)
 
-    def test_observe_requires_user_id(self):
-        status, _ = self._post("/ai/observe", {"samples": []})
-        self.assertEqual(status, 400)
+    def test_observe_rejects_anonymous_requests(self):
+        # Replaces `test_observe_requires_user_id`, whose premise is gone: the
+        # body no longer has to carry a user_id, because identity comes from the
+        # token. What must hold now is that no identity at all is refused.
+        with self._without_test_identity():
+            status, _ = self._post("/ai/observe", {"samples": []})
+        self.assertIn(status, (401, 403), f"anonymous access returned {status}")
+
+    def test_observe_binds_to_the_token_identity_when_body_omits_it(self):
+        status, payload = self._post(
+            "/ai/observe",
+            {"samples": [{"type": "hrv", "value": 48, "unit": "ms",
+                          "timestamp": BASE.isoformat()}]},
+            as_user="token-user")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["classification"]["accepted"], 1)
+
+    def test_observe_refuses_a_body_claiming_another_user(self):
+        # The privilege-escalation guard `assert_body_user_matches_auth` exists
+        # for, and which had no test on this route. A client that authenticates
+        # as one principal must not be able to read or write as another by
+        # putting a different id in the body.
+        status, _ = self._post("/ai/observe",
+                               {"user_id": "someone-else", "samples": []},
+                               as_user="token-user")
+        self.assertEqual(status, 403)
 
 
 if __name__ == "__main__":

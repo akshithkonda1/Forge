@@ -155,16 +155,6 @@ final class MenstrualHealthStore: ObservableObject {
         }
     }
 
-    /// Auto-enable cycle tracking for female/intersex biological sex captured during onboarding.
-    func enableForBiologicalSexIfNeeded(_ sex: BiologicalSex) {
-        guard sex.cycleAutoEnabled, !settings.enabled else { return }
-        updateSettings {
-            $0.enabled = true
-            $0.privacyAcknowledged = true
-            $0.shareWithAria = true
-        }
-    }
-
     /// Surface partner tracking for users who may support a female partner (any gender).
     func enablePartnerTrackingIfAppropriate(gender: Gender) {
         // Soft suggest only — do not auto-enable without consent flag.
@@ -684,6 +674,18 @@ final class MenstrualHealthStore: ObservableObject {
                 defaults.set(median, forKey: advertisedKey)
             }
             await ForgeNotificationScheduler.syncCycleNotifications(settings: settings, snapshot: snapshot)
+
+            // Keep anyone the user shares with current. This is the only place
+            // the shared digest is refreshed, and it is deliberately here rather
+            // than at invite time: publishing once when the invite is created
+            // leaves a supporter reading a snapshot frozen at the moment they
+            // were invited, for as long as the share lasts.
+            //
+            // `publishIfChanged` no-ops when nobody has been invited and when the
+            // redacted digest has not moved, so the cost on the common path — a
+            // recompute that changes nothing a supporter can see — is one
+            // equality check.
+            await PartnerCycleSharing.shared.publishIfChanged(supporterDigest)
 
             // Sync cycle data to WatchSnapshot (drives complications + lockscreen widget).
             if snap.trackingEnabled {

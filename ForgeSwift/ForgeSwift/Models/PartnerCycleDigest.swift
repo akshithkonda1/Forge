@@ -84,6 +84,64 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
     let asOfDayKey: String
 
     // ------------------------------------------------------------
+    // MARK: Freshness
+    // ------------------------------------------------------------
+
+    /// How many days old this digest is, from the supporter's point of view.
+    ///
+    /// The whole value of a shared digest is that it is current. When the owner's
+    /// device stops publishing — they deleted the app, lost iCloud, turned
+    /// sharing off in a way that left the zone intact — the supporter's copy just
+    /// sits there looking authoritative. This is what lets the UI say so.
+    var ageInDays: Int? {
+        CycleDayKey.daysBetween(asOfDayKey, CycleDayKey.key())
+    }
+
+    /// Past this, the digest is old enough that acting on it is worse than
+    /// asking. Three days is roughly the point where a phase could have changed
+    /// underneath it without the supporter seeing anything move.
+    static let stalenessThresholdDays = 3
+
+    var isStale: Bool { (ageInDays ?? .max) >= Self.stalenessThresholdDays }
+
+    /// A digest that says nothing, for when the owner has paused sharing.
+    ///
+    /// Pausing publishes one of these rather than simply stopping. The
+    /// difference matters: a supporter who stops receiving updates sees a stale
+    /// digest that still *looks* current for days, whereas `.unknown` renders as
+    /// "No recent data" — which is true, and which carries no accusation. It does
+    /// not announce that a choice was made, only that there is nothing to show.
+    static func paused(asOf dayKey: String = CycleDayKey.key()) -> PartnerCycleDigest {
+        PartnerCycleDigest(
+            phase: .unknown,
+            energy: .steady,
+            daysUntilNextPeriodApprox: nil,
+            extraThoughtfulnessHelps: false,
+            supportHeadline: SupporterGuidance.headline(phase: .unknown,
+                                                        energy: .steady,
+                                                        thoughtfulnessHelps: false),
+            asOfDayKey: dayKey
+        )
+    }
+
+    /// Memberwise, kept private so `init(redacting:)` stays the only way a
+    /// *snapshot* becomes a digest. `paused(asOf:)` builds a digest from nothing
+    /// at all, which is a different thing and cannot leak.
+    private init(phase: SupportPhase,
+                 energy: EnergyBand,
+                 daysUntilNextPeriodApprox: Int?,
+                 extraThoughtfulnessHelps: Bool,
+                 supportHeadline: String,
+                 asOfDayKey: String) {
+        self.phase = phase
+        self.energy = energy
+        self.daysUntilNextPeriodApprox = daysUntilNextPeriodApprox
+        self.extraThoughtfulnessHelps = extraThoughtfulnessHelps
+        self.supportHeadline = supportHeadline
+        self.asOfDayKey = asOfDayKey
+    }
+
+    // ------------------------------------------------------------
     // MARK: The one crossing point
     // ------------------------------------------------------------
 

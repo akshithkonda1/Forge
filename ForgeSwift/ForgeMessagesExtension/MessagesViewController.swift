@@ -89,7 +89,8 @@ final class MessagesViewController: MSMessagesAppViewController {
             // URL; the participant identifier is not.
             let isMine = message.senderParticipantIdentifier == conversation.localParticipantIdentifier
             scene = isMine
-                ? .sent(payload)
+                ? .sent(payload,
+                        revoked: PartnerInviteRevocation.wasRevoked(shareURL: payload.shareURL))
                 : .received(payload,
                             accepted: PartnerInviteAcceptance.hasAccepted(shareURL: payload.shareURL))
         } else if let staged = PartnerInviteHandoff.staged() {

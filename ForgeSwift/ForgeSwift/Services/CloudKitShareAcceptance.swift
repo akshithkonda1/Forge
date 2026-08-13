@@ -38,6 +38,13 @@ enum PartnerShareAcceptance {
                 if let url = share.url {
                     PartnerInviteAcceptance.record(shareURL: url)
                 }
+                // Now that this device actually holds a share, it is worth
+                // subscribing and asking APNs for a token. Doing either earlier
+                // would prompt every user for notifications over a feature they
+                // may never use.
+                await PartnerCycleSharing.shared.subscribeToUpdates()
+                await PartnerCycleSharing.shared.fetchSharedDigest()
+                UIApplication.shared.registerForRemoteNotifications()
                 NotificationCenter.default.post(name: didAcceptNotification, object: nil)
             } catch {
                 // Left unrecorded on purpose. A failed accept that still marked
@@ -68,6 +75,35 @@ final class ForgeAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      userDidAcceptCloudKitShareWith metadata: CKShare.Metadata) {
         PartnerShareAcceptance.accept(metadata)
+    }
+
+    /// The silent push a `CKDatabaseSubscription` sends when the owner writes a
+    /// new digest. It carries no payload by design, so the only correct response
+    /// is to go and fetch.
+    ///
+    /// Without this the subscription is inert: it wakes the device and the app
+    /// does nothing with the wake-up. Returning the right `UIBackgroundFetchResult`
+    /// matters too — iOS throttles apps that report `.noData` for pushes it
+    /// delivered, so a wrong answer here degrades future delivery.
+    func application(_ application: UIApplication,
+                     didReceiveRemoteNotification userInfo: [AnyHashable: Any]) async
+    -> UIBackgroundFetchResult {
+        guard let notification = CKNotification(fromRemoteNotificationDictionary: userInfo),
+              notification.containerIdentifier == PartnerShareAcceptance.containerIdentifier
+        else { return .noData }
+
+        let digests = await PartnerCycleSharing.shared.fetchSharedDigest()
+        return digests.isEmpty ? .noData : .newData
+    }
+
+    func application(_ application: UIApplication,
+                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        // Simulator and unprovisioned builds land here. Not surfaced: the
+        // Support pane refetches on appear, so a supporter without push sees
+        // fresh data a moment later rather than never.
+        #if DEBUG
+        print("[PartnerShareAcceptance] APNs registration failed: \(error.localizedDescription)")
+        #endif
     }
 
     func application(_ application: UIApplication,

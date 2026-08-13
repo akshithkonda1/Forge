@@ -60,3 +60,17 @@ jobs:
       # looks like an ordinary feature commit in review.
       - name: Check partner-visible surfaces
         run: scripts/check-partner-redaction.sh
+
+  duplicate-decls:
+    name: No duplicate Swift declarations
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # A function pasted twice into the same type is an 'invalid redeclaration'
+      # error that only appears on macOS, minutes into a build, and blocks every
+      # branch until someone removes it. It reached main once already. This is
+      # the same finding in about a second, on Linux, before merge.
+      - name: Scan for redeclarations
+        run: python3 scripts/check-duplicate-decls.py

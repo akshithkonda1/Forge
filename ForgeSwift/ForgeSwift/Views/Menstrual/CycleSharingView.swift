@@ -26,6 +26,8 @@ struct CycleSharingView: View {
     @State private var isMinting = false
     @State private var showPreview = false
     @State private var confirmRevoke = false
+    /// Non-nil while confirming removal of one specific supporter.
+    @State private var revokeTarget: PartnerCycleSharing.ShareHandle?
 
     private var digest: PartnerCycleDigest { cycleStore.supporterDigest }
     private var lens: PartnerSupportLens {
@@ -63,6 +65,28 @@ struct CycleSharingView: View {
             }
             .sheet(isPresented: $showPreview) {
                 previewSheet
+            }
+            .confirmationDialog(
+                revokeTarget.map { "Stop sharing with \($0.name)?" } ?? "Stop sharing?",
+                isPresented: Binding(get: { revokeTarget != nil },
+                                     set: { if !$0 { revokeTarget = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Stop sharing", role: .destructive) {
+                    guard let target = revokeTarget else { return }
+                    revokeTarget = nil
+                    Task { await sharing.revoke(participantID: target.id) }
+                }
+                Button("Keep sharing", role: .cancel) { revokeTarget = nil }
+            } message: {
+                Text("They stop receiving updates. Anyone else you've invited is unaffected.")
+            }
+            .task {
+                // Participants are fetched, never assumed. The local invite says
+                // only that this device created a share — it cannot know whether
+                // anyone accepted, or whether they have since been removed on
+                // another device.
+                await sharing.refreshParticipants()
             }
         }
     }
@@ -181,18 +205,37 @@ struct CycleSharingView: View {
 
     private func activeCard(_ invite: PartnerCycleInvite) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label("Sharing is on", systemImage: "checkmark.seal.fill")
+            // Headline reflects whether anyone has actually accepted, not merely
+            // that an invite exists locally. "Sharing is on" while nobody has
+            // taken it up is the kind of reassurance that is worse than silence.
+            Label(acceptedCount > 0 ? "Sharing is on" : "Invite sent, not accepted yet",
+                  systemImage: acceptedCount > 0 ? "checkmark.seal.fill" : "clock.badge.questionmark")
                 .font(FDS.TypeScale.label(15))
-                .foregroundStyle(Color(hex: "22C55E"))
+                .foregroundStyle(acceptedCount > 0 ? Color(hex: "22C55E") : Color(hex: "FBBF24"))
+
             Text("Invited as \(invite.role.shortLabel.lowercased()), from “\(invite.fromDisplayName)”.")
                 .font(FDS.TypeScale.body(14))
                 .foregroundColor(.textSecondary)
+
+            participantList
+
+            pauseControl
+
+            if let updated = sharing.lastPublishedAt, !sharing.isPaused {
+                // Tells the owner their device is actually keeping the shared
+                // copy current, which is otherwise invisible.
+                Label("Their view last updated \(updated.formatted(.relative(presentation: .named)))",
+                      systemImage: "arrow.triangle.2.circlepath")
+                    .font(FDS.TypeScale.body(11))
+                    .foregroundColor(.textTertiary)
+            }
 
             // The extension only holds an invite for 30 minutes, so send it now
             // or come back. Said plainly rather than letting the button quietly
             // stop working.
             ShareLink(item: invite.shareURL, message: Text(invite.fallbackMessageBody)) {
-                Label("Send the invite", systemImage: "square.and.arrow.up")
+                Label(acceptedCount > 0 ? "Invite someone else" : "Send the invite",
+                      systemImage: "square.and.arrow.up")
                     .font(FDS.TypeScale.label(15))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -230,7 +273,106 @@ struct CycleSharingView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeGlassCard(accent: Color(hex: "22C55E"))
+        .forgeGlassCard(accent: acceptedCount > 0 ? Color(hex: "22C55E") : Color(hex: "FBBF24"))
+    }
+
+    /// Who actually holds this share, straight from CloudKit's participant list.
+    ///
+    /// The owner's own row is filtered out — CloudKit always includes it, and
+    /// "stop sharing with yourself" is not a thing anyone needs offered.
+    @ViewBuilder
+    private var participantList: some View {
+        let others = sharing.activeShares.filter { !$0.isOwner }
+        if !others.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("WHO CAN SEE IT")
+                    .forgeSectionLabel()
+                ForEach(others) { person in
+                    HStack(spacing: 10) {
+                        Image(systemName: person.status == .accepted
+                              ? "person.fill.checkmark" : "person.fill.questionmark")
+                            .font(.system(size: 13))
+                            .foregroundStyle(person.status == .accepted
+                                             ? Color(hex: "22C55E") : .textTertiary)
+                            .frame(width: 20)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(person.name)
+                                .font(FDS.TypeScale.body(14))
+                                .foregroundColor(.textPrimary)
+                            Text(person.status.caption)
+                                .font(FDS.TypeScale.body(11))
+                                .foregroundColor(.textTertiary)
+                        }
+                        Spacer(minLength: 0)
+                        // Per-person, because removing your partner should not
+                        // also cut off your sister. `revokeAll` deletes the zone
+                        // and is the right tool only for stopping entirely.
+                        //
+                        // Hidden rather than disabled when CloudKit gave us no
+                        // stable identity for them: a button that cannot work is
+                        // worse than no button, and "Stop sharing" is not a
+                        // control to leave looking broken.
+                        if !person.id.isEmpty {
+                            Button {
+                                revokeTarget = person
+                            } label: {
+                                Image(systemName: "minus.circle")
+                                    .foregroundStyle(Color(hex: "F87171"))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Stop sharing with \(person.name)")
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.surfaceElevated)
+            )
+        }
+    }
+
+    /// Pause is the quiet alternative to revoking.
+    ///
+    /// Revoking is a social act — the other person notices, and coming back
+    /// means asking again. Offering only the loud option means someone who wants
+    /// a few days of privacy either takes it, or takes nothing and shares a week
+    /// they did not want to.
+    private var pauseControl: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle(isOn: Binding(
+                get: { sharing.isPaused },
+                set: { paused in Task { await sharing.setPaused(paused) } }
+            )) {
+                Label(sharing.isPaused ? "Updates paused" : "Pause updates",
+                      systemImage: sharing.isPaused ? "pause.circle.fill" : "pause.circle")
+                    .font(FDS.TypeScale.label(14))
+                    .foregroundColor(.textPrimary)
+            }
+            .tint(Color.ember)
+
+            Text(sharing.isPaused
+                 // States exactly what the other side sees, so nobody has to
+                 // guess whether pausing looks like an accusation.
+                 ? "They see “No recent data” — not that you paused. Resume any time."
+                 : "Stops sending updates without ending the share. They keep access; there's just nothing new to see.")
+                .font(FDS.TypeScale.body(11))
+                .foregroundColor(.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.surfaceElevated)
+        )
+    }
+
+    private var acceptedCount: Int {
+        sharing.activeShares.filter { !$0.isOwner && $0.status == .accepted }.count
     }
 
     // ------------------------------------------------------------
