@@ -9,7 +9,7 @@ import WorkoutKit
 import CoreLocation
 import MapKit
 import UserNotifications
-import UIKit
+import ForgeCore
 
 // MARK: - Supporting Data Models (HealthKit types defined in HealthKitManager.swift)
 
@@ -264,6 +264,24 @@ enum LifestyleWidgetBridge {
               let data = try? JSONEncoder().encode(snapshot) else { return }
         defaults.set(data, forKey: snapshotKey)
         WidgetCenter.shared.reloadTimelines(ofKind: kind)
+        HomeWidgetSnapshotStore.update { snap in
+            snap.qol = metrics.qualityOfLifeScore
+            snap.topRecommendation = top?.title
+        }
+    }
+
+    static func currentQOL() -> Int {
+        loadSnapshot()?.qol ?? 0
+    }
+
+    static func currentRecommendation() -> String? {
+        loadSnapshot()?.topTitle
+    }
+
+    private static func loadSnapshot() -> LifestyleWidgetSnapshot? {
+        guard let defaults = UserDefaults(suiteName: appGroup),
+              let data = defaults.data(forKey: snapshotKey) else { return nil }
+        return try? JSONDecoder().decode(LifestyleWidgetSnapshot.self, from: data)
     }
 }
 
@@ -859,7 +877,7 @@ final class LifestyleViewModel: ObservableObject {
         let s = healthStats
         return """
         Coach my nutrition in 2-3 sentences. Today: \(Int(s?.protein ?? 0))g protein (target 180), \
-        \(s?.totalCalories ?? 0) kcal (target 2600), \(Int(s?.water ?? 0)) of 8 glasses water. \
+        \(s?.totalCalories ?? 0) kcal (target 2600), \(Int(s?.water ?? 0)) glasses water today. \
         Give one specific, actionable tip for my next meal.
         """
     }
@@ -898,7 +916,9 @@ final class LifestyleViewModel: ObservableObject {
     }
     
     func logWater(glasses: Int) async {
-        try? await healthManager.logWater(ounces: Double(glasses * 8))
+        try? await healthManager.logWater(
+            milliliters: HydrationEngine.milliliters(fromGlasses: Double(glasses))
+        )
         await refresh()
     }
     
@@ -1011,8 +1031,11 @@ final class LifestyleViewModel: ObservableObject {
         let calorieScore = stats.totalCalories > 0 ? min(Int((Double(stats.totalCalories) / 2600.0) * 100), 100) : 50
         score += calorieScore
         
-        // Hydration (target 8 glasses)
-        let hydrationScore = min(Int((stats.water / 8.0) * 100), 100)
+        // Hydration against a mass-derived need, not a fixed eight glasses.
+        let need = max(1, HydrationEngine.glasses(
+            fromMilliliters: HydrationEngine.targetMilliliters(weightKilograms: nil)
+        ))
+        let hydrationScore = min(Int((stats.water / need) * 100), 100)
         score += hydrationScore
         
         return score / 3
@@ -3184,9 +3207,9 @@ struct AINutritionCoachCard: View {
             generated.append(("bolt.fill", .ember, "Protein gap — act before dinner", "You're \(proteinGap)g short today. Add lean protein to your next meal to hit 180g."))
         }
         if stats.water < 6 {
-            generated.append(("drop.fill", .steel, "Hydration needs attention", "Only \(Int(stats.water)) of 8 glasses logged. Hydration supports recovery and energy."))
+            generated.append(("drop.fill", .steel, "Hydration needs attention", "Only \(Int(stats.water)) glasses logged. Open Hydration to catch up — it syncs with Apple Health."))
         } else {
-            generated.append(("drop.fill", .steel, "Hydration is on track", "\(Int(stats.water)) of 8 glasses today. Keep sipping through the afternoon."))
+            generated.append(("drop.fill", .steel, "Hydration is on track", "\(Int(stats.water)) glasses today, including anything Apple Health already had."))
         }
         if stats.sleepHours < 7 {
             generated.append(("moon.stars.fill", Color(hex: "A855F7"), "Sleep is limiting recovery", "Last night: \(String(format: "%.1f", stats.sleepHours))h. Better sleep improves nutrient partitioning."))
@@ -3792,22 +3815,32 @@ struct MealLogCard: View {
 
 struct WaterIntakeCard: View {
     @ObservedObject var vm: LifestyleViewModel
-    let target = 8
+    @EnvironmentObject var store: AppStore
 
-    private var consumed: Int { Int(vm.healthStats?.water ?? 0) }
+    private var target: Int {
+        max(4, LifestyleTargets.resolve(profile: store.userProfile).waterGlassesTarget)
+    }
+    private var consumed: Int { Int((vm.healthStats?.water ?? 0).rounded()) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                HStack(spacing: 8) {
-                    Image(systemName: "drop.fill")
-                        .font(.system(size: 16)).foregroundColor(Color(hex: "4A9EFF"))
-                    Text("Water Intake").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+            Button { store.openHydration() } label: {
+                HStack {
+                    HStack(spacing: 8) {
+                        Image(systemName: "drop.fill")
+                            .font(.system(size: 16)).foregroundColor(Color(hex: "4A9EFF"))
+                        Text("Hydration").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                    }
+                    Spacer()
+                    Text("\(consumed)/\(target)")
+                        .font(.system(size: 14, weight: .bold)).foregroundColor(Color(hex: "4A9EFF"))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.textTertiary)
                 }
-                Spacer()
-                Text("\(consumed)/\(target)")
-                    .font(.system(size: 14, weight: .bold)).foregroundColor(Color(hex: "4A9EFF"))
             }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens hydration, synced with Apple Health")
 
             HStack(spacing: 8) {
                 ForEach(0..<target, id: \.self) { i in
@@ -3820,7 +3853,6 @@ struct WaterIntakeCard: View {
             }
 
             Button {
-                guard consumed < target else { return }
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 Task { await vm.logWater(glasses: 1) }
             } label: {
@@ -3828,7 +3860,7 @@ struct WaterIntakeCard: View {
                     Image(systemName: "plus.circle.fill").font(.system(size: 15))
                     Text("Log a glass").font(.system(size: 14, weight: .semibold))
                     Spacer()
-                    Text("Syncs with HealthKit")
+                    Text("Writes to Apple Health")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(Color(hex: "4A9EFF").opacity(0.7))
                         .padding(.horizontal, 6).padding(.vertical, 3)

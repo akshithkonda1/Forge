@@ -10,9 +10,13 @@ import ActivityKit
 @main
 struct ForgeWidgetExtensionBundle: WidgetBundle {
     var body: some Widget {
+        TodayWidget()
+        ReadinessWidget()
+        HydrationWidget()
+        SleepWidget()
         LifestyleWidget()
-        ForgeWorkoutLiveActivity()
         CyclePhaseWidget()
+        ForgeWorkoutLiveActivity()
         CycleFertileWindowLiveActivity()
     }
 }

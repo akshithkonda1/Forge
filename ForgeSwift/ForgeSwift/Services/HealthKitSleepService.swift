@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import ForgeCore
 
 /// Chronotype-aware sleep intelligence: HealthKit ingestion, scoring, adaptive wake/sunrise, and ARIA context.
 @MainActor
@@ -40,13 +41,15 @@ final class HealthKitSleepService: ObservableObject {
     func fetchRecentSleepData(days: Int = 14) async -> [SleepData] {
         guard isAuthorized || healthKit.isAuthorized else { return [] }
         let sessions = await healthKit.fetchRecentSleepSessions(days: days)
+        let recentWakes = sessions.compactMap(\.wake)
         return sessions.map { session in
             let scored = scoreNight(
                 totalHours: session.totalHours,
                 deepMinutes: session.deepMinutes,
                 remMinutes: session.remMinutes,
                 awakeMinutes: session.awakeMinutes,
-                profile: userProfile
+                profile: userProfile,
+                recentWakes: recentWakes
             )
             return SleepData(
                 date: session.date,
@@ -55,7 +58,9 @@ final class HealthKitSleepService: ObservableObject {
                 remMinutes: session.remMinutes,
                 lightMinutes: session.lightMinutes,
                 awakeMinutes: session.awakeMinutes,
-                score: scored
+                score: scored,
+                onset: session.onset,
+                wake: session.wake
             )
         }
     }
@@ -65,7 +70,8 @@ final class HealthKitSleepService: ObservableObject {
         deepMinutes: Int,
         remMinutes: Int,
         awakeMinutes: Int,
-        profile: UserSleepProfile
+        profile: UserSleepProfile,
+        recentWakes: [Date] = []
     ) -> Int {
         let chronotype = profile.chronotype
         let targetHours = chronotype.targetSleepHours
@@ -79,21 +85,51 @@ final class HealthKitSleepService: ObservableObject {
             ? max(0, ((totalMinutes - Double(awakeMinutes)) / totalMinutes) * 100)
             : 0
 
+        // Same spread→confidence map as CircadianRhythm.phase: a 3-hour circular
+        // SD is "no schedule". Under five wakes there is not enough signal, so
+        // keep the old neutral 80 rather than punish a new user for missing data.
+        let consistency: Double
+        if recentWakes.count >= 5 {
+            let spread = CircadianRhythm.circularSpread(recentWakes.map { CircadianRhythm.hourOfDay($0) })
+            consistency = max(0, min(100, (1 - spread / 3.0) * 100))
+        } else {
+            consistency = 80
+        }
+
         let weighted = durationScore * 0.35
             + deepScore * 0.25
             + remScore * 0.20
             + efficiency * 0.15
-            + 80 * 0.05 // consistency placeholder until wake-time samples exist
+            + consistency * 0.05
 
         return min(100, max(0, Int(weighted.rounded())))
     }
 
     // MARK: - Sleep Debt
 
+    /// Hours of sleep owed over the trailing fortnight.
+    ///
+    /// Two things changed here relative to the obvious version, both because the
+    /// obvious version reads better than it behaves:
+    ///
+    /// Summing a week and subtracting a target lets a surplus cancel a deficit,
+    /// so a ten-hour Saturday erases two ruined weeknights and the figure says
+    /// you are fine. Debt is per-night and one-directional; you cannot sleep
+    /// ahead.
+    ///
+    /// And the target is estimated from the user's own best nights rather than
+    /// read off their chronotype. A chronotype is a phase preference — when you
+    /// sleep — not a quantity. Two bears do not need the same eight hours.
     func computeSleepDebt(from sleepData: [SleepData]) -> Double {
-        let target = userProfile.chronotype.targetSleepHours
-        let actual = sleepData.prefix(7).reduce(0.0) { $0 + $1.totalHours }
-        return max(0, target * 7 - actual)
+        // `sleepData` arrives newest-first; the engine's window is a suffix.
+        let durations = Array(sleepData.map(\.totalHours).reversed())
+        let need = CircadianRhythm.sleepNeedHours(fromAsleepHours: durations)
+        return CircadianRhythm.sleepDebtHours(asleepHours: durations, need: need)
+    }
+
+    func estimatedSleepNeed(from sleepData: [SleepData]) -> Double {
+        let durations = Array(sleepData.map(\.totalHours).reversed())
+        return CircadianRhythm.sleepNeedHours(fromAsleepHours: durations)
     }
 
     func targetSleepHours() -> Double {
@@ -351,9 +387,10 @@ final class HealthKitSleepService: ObservableObject {
             return "\(Int(((total - Double(latest.awakeMinutes)) / total) * 100))%"
         }()
 
+        let need = estimatedSleepNeed(from: sleepData)
         var lines: [String] = [
             "CHRONOTYPE: \(userProfile.chronotype.displayName)",
-            "TARGET_SLEEP: \(userProfile.chronotype.targetSleepHours)h | DEBT_7D: \(String(format: "%.1f", debt))h",
+            "SLEEP_NEED: \(String(format: "%.1f", need))h | DEBT_14D: \(String(format: "%.1f", debt))h",
         ]
 
         if let latest {

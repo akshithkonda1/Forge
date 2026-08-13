@@ -47,6 +47,7 @@ struct ForgeSwiftApp: App {
                         firstName: store.userProfile.name
                             .split(separator: " ").first.map(String.init)
                     )
+                    Task { await store.flushPendingWidgetWater(); store.publishHomeWidgets() }
                 }
                 .onOpenURL { url in
                     store.handleDeepLink(url)

@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import ForgeCore
 
 /// Local persistent context + live domain assembly for ARIA v1.1.
 @MainActor
@@ -152,7 +153,9 @@ final class AriaContextStore: ObservableObject {
                 return ARIAContextPayload.NutritionDomain(
                     caloriesIn3DayAvg: today.map { Double($0.totalCalories) },
                     proteinG3DayAvg: today.map { $0.protein },
-                    hydrationMl3DayAvg: today.map { $0.water * 240 },
+                    hydrationMl3DayAvg: today.map {
+                        HydrationEngine.milliliters(fromGlasses: $0.water)
+                    },
                     calorieTarget: 2600
                 )
             }(),
@@ -537,7 +540,11 @@ final class AriaContextStore: ObservableObject {
         if let stats {
             tags.append("protein:\(Int(stats.protein))g")
             tags.append("steps:\(stats.steps)")
-            tags.append("hydration:\(Int(stats.water))/8")
+            let glasses = Int(stats.water.rounded())
+            let need = Int(HydrationEngine.glasses(
+                fromMilliliters: HydrationEngine.targetMilliliters(weightKilograms: nil)
+            ).rounded())
+            tags.append("hydration:\(glasses)/\(need)")
             if stats.hrv > 0, stats.hrv < 40 { tags.append("recovery:low") }
             if stats.protein < 120 { tags.append("protein:deficit") }
             if stats.sleepHours < 7 { tags.append("sleep:deficit") }
