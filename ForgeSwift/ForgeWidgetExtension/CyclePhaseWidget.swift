@@ -83,12 +83,27 @@ struct CyclePhaseWidgetView: View {
                     }
                 }
             default:
-                VStack {
-                    Image(systemName: phaseIcon)
-                    if let day = snap.cycleDayInCycle {
-                        Text("Day \(day)").font(.caption)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 5) {
+                        Text("CYCLE")
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(0.6)
+                            .foregroundStyle(Color.orange)
+                        Spacer()
                     }
+                    Image(systemName: phaseIcon)
+                        .font(.title2)
+                        .foregroundStyle(Color.orange)
+                    Text(phaseLabel)
+                        .font(.headline)
+                    if let day = snap.cycleDayInCycle {
+                        Text("Day \(day)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
                 }
+                .padding(16)
             }
         } else {
             Image(systemName: "circle.dashed")
@@ -104,9 +119,11 @@ struct CyclePhaseWidget: Widget {
         StaticConfiguration(kind: kind, provider: CyclePhaseProvider()) { entry in
             CyclePhaseWidgetView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
+                .widgetURL(ForgeWidgetLink.cycle)
         }
         .configurationDisplayName("Cycle Phase")
-        .description("Shows your current cycle phase and day on your Lock Screen.")
-        .supportedFamilies([.accessoryCircular, .accessoryRectangular])
+        .description("Your current cycle phase and day, on the Home Screen or Lock Screen.")
+        .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryRectangular])
+        .contentMarginsDisabled()
     }
 }

@@ -47,6 +47,7 @@ let package = Package(
                 "Models/WorkoutLiveState.swift",
                 "Models/WorkoutModels.swift",
                 "Utils/WatchSnapshotStore.swift",
+                "Utils/HomeWidgetSnapshot.swift",
             ]
         ),
         .testTarget(

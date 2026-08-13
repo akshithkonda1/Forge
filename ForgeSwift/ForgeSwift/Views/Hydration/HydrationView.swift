@@ -405,6 +405,7 @@ struct HydrationView: View {
         defer { writing = false }
         do {
             try await health.logWater(milliliters: milliliters)
+            store.publishHomeWidgets()
             lastError = nil
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         } catch {

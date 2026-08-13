@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import UIKit
+import ForgeCore
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -1714,7 +1715,60 @@ final class AppStore: ObservableObject {
         }
 
         lastMetricsRefresh = Date()
+        await flushPendingWidgetWater()
+        publishHomeWidgets()
         objectWillChange.send()
+    }
+
+    /// Widget taps enqueue milliliters. Write them to HealthKit now that we
+    /// are in the app process that actually holds the entitlement.
+    func flushPendingWidgetWater() async {
+        let pending = PendingWaterLog.drain()
+        guard pending > 0 else { return }
+        try? await HealthKitManager.shared.logWater(milliliters: pending)
+        await HealthKitManager.shared.refreshHydration()
+    }
+
+    func publishHomeWidgets() {
+        let nights = sleepData.compactMap { entry -> CircadianRhythm.Night? in
+            guard let onset = entry.onset, let wake = entry.wake, wake > onset else { return nil }
+            return CircadianRhythm.Night(onset: onset, wake: wake, asleepHours: entry.totalHours)
+        }.sorted { $0.wake < $1.wake }
+        let phase = CircadianRhythm.phase(from: nights)
+        let nowHour = CircadianRhythm.hourOfDay(Date())
+        let windowTitle = phase.map { CircadianRhythm.window(atHour: nowHour, phase: $0).title }
+
+        let cycle = MenstrualHealthStore.shared
+        let waterMl = HealthKitManager.shared.todayWaterMilliliters
+        let waterTarget = HydrationEngine.targetMilliliters(
+            weightKilograms: userProfile.weight,
+            activeCalories: Double(dailyMetrics.activeCalories),
+            cycle: {
+                guard cycle.settings.enabled else { return .none }
+                switch cycle.snapshot.phase {
+                case .menstruation: return .menstruation
+                case .luteal: return .luteal
+                default: return .none
+                }
+            }()
+        )
+
+        HomeWidgetSnapshotStore.save(
+            HomeWidgetSnapshot(
+                readiness: readiness.overall,
+                readinessLabel: ReadinessBand(score: readiness.overall).label,
+                sleepHours: sleepData.first?.totalHours ?? Double(dailyMetrics.totalSleep) / 60,
+                sleepScore: sleepData.first?.score,
+                sleepWindowTitle: windowTitle,
+                hydrationMl: waterMl,
+                hydrationTargetMl: waterTarget,
+                cyclePhase: cycle.settings.enabled ? cycle.snapshot.phase.rawValue : nil,
+                cycleDay: cycle.settings.enabled ? cycle.snapshot.dayInCycle : nil,
+                qol: LifestyleWidgetBridge.currentQOL(),
+                topRecommendation: LifestyleWidgetBridge.currentRecommendation(),
+                workoutName: todayWorkout?.name
+            )
+        )
     }
 
     func openChat(with prompt: String, voice: Bool = false, isProactive: Bool = false) {
@@ -1736,6 +1790,14 @@ final class AppStore: ObservableObject {
         pendingHydrationOpen = true
     }
 
+    func logGlassFromWidget() async {
+        try? await HealthKitManager.shared.logWater(
+            milliliters: HydrationEngine.glassMilliliters
+        )
+        await HealthKitManager.shared.refreshHydration()
+        publishHomeWidgets()
+    }
+
     /// Route a `forge://` URL. Returns false for anything unrecognised so the
     /// caller can leave the app where it was rather than guessing.
     @discardableResult
@@ -1751,7 +1813,22 @@ final class AppStore: ObservableObject {
                             sharing: leaf == "sharing")
             return true
         case "hydration", "water":
+            if segments.dropFirst().first == "log" {
+                Task { await logGlassFromWidget() }
+            }
             openHydration()
+            return true
+        case "home":
+            activeTab = .home
+            return true
+        case "sleep":
+            activeTab = .sleep
+            return true
+        case "workout", "train":
+            activeTab = .workout
+            return true
+        case "lifestyle":
+            activeTab = .lifestyle
             return true
         default:
             return false

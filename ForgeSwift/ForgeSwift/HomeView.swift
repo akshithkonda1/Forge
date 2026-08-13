@@ -205,6 +205,9 @@ struct HomeView: View {
                         // 3. Dual primary controls (train + lifestyle)
                         HomePrimaryCTA(action: primaryAction)
 
+                        // 3b. User-pinned widgets (also addable on the iOS Home Screen)
+                        HomeWidgetBoard()
+
                         // 4. Today's agenda
                         HomeAgendaCard()
 

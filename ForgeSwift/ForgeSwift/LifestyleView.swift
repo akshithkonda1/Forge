@@ -264,6 +264,24 @@ enum LifestyleWidgetBridge {
               let data = try? JSONEncoder().encode(snapshot) else { return }
         defaults.set(data, forKey: snapshotKey)
         WidgetCenter.shared.reloadTimelines(ofKind: kind)
+        HomeWidgetSnapshotStore.update { snap in
+            snap.qol = metrics.qualityOfLifeScore
+            snap.topRecommendation = top?.title
+        }
+    }
+
+    static func currentQOL() -> Int {
+        loadSnapshot()?.qol ?? 0
+    }
+
+    static func currentRecommendation() -> String? {
+        loadSnapshot()?.topTitle
+    }
+
+    private static func loadSnapshot() -> LifestyleWidgetSnapshot? {
+        guard let defaults = UserDefaults(suiteName: appGroup),
+              let data = defaults.data(forKey: snapshotKey) else { return nil }
+        return try? JSONDecoder().decode(LifestyleWidgetSnapshot.self, from: data)
     }
 }
 
