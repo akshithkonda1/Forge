@@ -18,8 +18,8 @@
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "framer-motion": "^12.42.2",
-    "lucide-react": "^1.31.0",
+    "framer-motion": "^13.0.0",
+    "lucide-react": "^1.23.0",
     "next": "^16.2.10",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -35,7 +35,7 @@
     "autoprefixer": "^10.5.2",
     "eslint": "^10.5.0",
     "eslint-config-next": "^16.2.6",
-    "postcss": "^8.5.16",
+    "postcss": "^8.5.26",
     "tailwindcss": "^4.3.1",
     "typescript": "^6.0.3"
   }
