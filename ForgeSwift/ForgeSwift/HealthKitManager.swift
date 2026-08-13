@@ -932,32 +932,6 @@ class HealthKitManager: ObservableObject {
         weeklyWaterMilliliters = days
     }
 
-    /// Vendor names HealthKit has seen writing samples. Used by the device
-    /// library to badge "Seen in Apple Health" instead of trusting a toggle.
-    func knownHealthSources() async -> [String] {
-        guard isAuthorized else { return [] }
-        let types: [HKSampleType] = [
-            HKQuantityType(.heartRate),
-            HKQuantityType(.dietaryWater),
-            HKQuantityType(.stepCount),
-            HKCategoryType(.sleepAnalysis),
-            HKWorkoutType.workoutType(),
-            HKQuantityType(.bodyMass),
-        ]
-        var names = Set<String>()
-        for type in types {
-            let found: [String] = await withCheckedContinuation { continuation in
-                let query = HKSourceQuery(sampleType: type, samplePredicate: nil) { _, sources, _ in
-                    let list = (sources ?? []).map(\.name)
-                    continuation.resume(returning: list)
-                }
-                healthStore.execute(query)
-            }
-            names.formUnion(found)
-        }
-        return names.sorted()
-    }
-
     /// Live HealthKit → Forge. Observer queries fire when Apple Health, Watch,
     /// or another app writes a type we also write, then we re-read the ledger.
     func startBidirectionalSync() {

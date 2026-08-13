@@ -53,11 +53,6 @@ struct ForgeSwiftApp: App {
                             .split(separator: " ").first.map(String.init)
                     )
                     Task { await store.flushPendingWidgetWater(); store.publishHomeWidgets() }
-                    WeeklyAriaReviewStore.shared.refreshDue()
-                    Task {
-                        let sources = await HealthKitManager.shared.knownHealthSources()
-                        await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
-                    }
                 }
                 .onOpenURL { url in
                     store.handleDeepLink(url)

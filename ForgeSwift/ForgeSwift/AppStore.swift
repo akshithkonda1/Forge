@@ -1820,12 +1820,6 @@ final class AppStore: ObservableObject {
             }
             openHydration()
             return true
-        case "aria", "chat":
-            if segments.dropFirst().first == "weekly" {
-                WeeklyAriaReviewStore.shared.showSheet = true
-            }
-            activeTab = .chat
-            return true
         case "home":
             activeTab = .home
             return true
@@ -1836,7 +1830,6 @@ final class AppStore: ObservableObject {
             activeTab = .workout
             return true
         case "lifestyle":
-            pendingLifestyleSegment = segments.dropFirst().first
             activeTab = .lifestyle
             return true
         default:

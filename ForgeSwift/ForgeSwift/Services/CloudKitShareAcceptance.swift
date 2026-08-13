@@ -104,8 +104,12 @@ final class ForgeAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificatio
     /// does nothing with the wake-up. Returning the right `UIBackgroundFetchResult`
     /// matters too — iOS throttles apps that report `.noData` for pushes it
     /// delivered, so a wrong answer here degrades future delivery.
-    func application(_ application: UIApplication,
-                     didReceiveRemoteNotification userInfo: [AnyHashable: Any]) async
+    ///
+    /// `nonisolated(nonsending)` stays on UIKit's caller isolation so the
+    /// non-Sendable dictionary is never transferred. Parse here, then hop for
+    /// the MainActor fetch.
+    nonisolated(nonsending) func application(_ application: UIApplication,
+                                             didReceiveRemoteNotification userInfo: [AnyHashable: Any]) async
     -> UIBackgroundFetchResult {
         guard let notification = CKNotification(fromRemoteNotificationDictionary: userInfo),
               notification.containerIdentifier == PartnerShareAcceptance.containerIdentifier

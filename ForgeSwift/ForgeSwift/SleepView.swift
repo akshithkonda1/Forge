@@ -318,7 +318,13 @@ struct SleepNightTab: View {
     }
 }
 
-// MARK: - Last night (compact)
+                // Sleep debt and the shape of the day ahead. Sits above the
+                // score because it is the only card here about the next sixteen
+                // hours rather than the last eight.
+                EnergyScheduleCard()
+
+                // Hero score ring
+                SleepScoreHeroCard()
 
 struct SleepLastNightStrip: View {
     @EnvironmentObject var store: AppStore
