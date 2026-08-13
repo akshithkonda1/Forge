@@ -28,6 +28,11 @@ struct ForgeSwiftApp: App {
                     let firstName = store.userProfile.name
                         .split(separator: " ").first.map(String.init)
                     WatchAriaConfigBridge.sync(firstName: firstName)
+                    HealthDeviceCatalogSync.shared.loadCached()
+                    Task {
+                        let sources = await HealthKitManager.shared.knownHealthSources()
+                        await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
+                    }
                     // Dual-sim / companion launches: watch often boots a few seconds
                     // after the phone. Retry so ARIA URL + name land after WCSession
                     // becomes reachable (App Groups are unreliable in Simulator).
@@ -49,6 +54,10 @@ struct ForgeSwiftApp: App {
                     )
                     Task { await store.flushPendingWidgetWater(); store.publishHomeWidgets() }
                     WeeklyAriaReviewStore.shared.refreshDue()
+                    Task {
+                        let sources = await HealthKitManager.shared.knownHealthSources()
+                        await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
+                    }
                 }
                 .onOpenURL { url in
                     store.handleDeepLink(url)

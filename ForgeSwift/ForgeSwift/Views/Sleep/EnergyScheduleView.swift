@@ -75,19 +75,44 @@ struct EnergySchedule {
     }
 
     var debtHeadline: String {
-        debtLevel == .clear ? "Square on sleep" : String(format: "%.1f hours of sleep debt", debtHours)
+        debtLevel == .clear ? "Square" : Self.durationLabel(debtHours)
+    }
+
+    var debtCaption: String {
+        debtLevel == .clear ? "No sleep debt" : "Sleep debt"
     }
 
     var debtDetail: String {
-        let need = String(format: "%.1f", needHours)
+        let need = Self.durationLabel(needHours)
         switch debtLevel {
         case .clear:
-            return "Against a \(need)h need, over \(nightsUsed) nights. Nothing to pay back."
+            return "Need \(need) · \(nightsUsed) nights. Nothing to pay back."
         case .mild:
-            return "Against a \(need)h need, over \(nightsUsed) nights. An extra half hour a night clears it inside a week."
+            return "Need \(need) · \(nightsUsed) nights. An extra half hour a night clears it this week."
         case .heavy:
-            return "Against a \(need)h need, over \(nightsUsed) nights. More than one long lie-in will pay this down."
+            return "Need \(need) · \(nightsUsed) nights. More than one long morning will pay this down."
         }
+    }
+
+    /// Training read — Forge, not RISE. Energy is for the session, not a mood ring.
+    var forgeRead: String {
+        switch currentWindow {
+        case .morningPeak, .eveningPeak:
+            return "A good window to train if readiness agrees."
+        case .afternoonDip, .grogginess:
+            return "Keep the session easy, or push it later."
+        case .melatoninWindow, .windingDown, .sleep:
+            return "The work is over. Protect the night."
+        }
+    }
+
+    static func durationLabel(_ hours: Double) -> String {
+        let total = max(0, Int((hours * 60).rounded()))
+        let h = total / 60
+        let m = total % 60
+        if h == 0 { return "\(m)m" }
+        if m == 0 { return "\(h)h" }
+        return "\(h)h \(m)m"
     }
 
     /// Shown instead of a confident schedule when the nights disagree.
@@ -183,14 +208,27 @@ extension CircadianRhythm.Window {
         case .windingDown:     return .steelLight
         }
     }
+
+    /// Ribbon colour — warmer peaks, cooler night. RISE’s map, Forge’s palette.
+    var ribbon: Color {
+        switch self {
+        case .sleep:           return Color(hex: "312E81")
+        case .grogginess:      return Color(hex: "64748B")
+        case .morningPeak:     return Color(hex: "FFB84D")
+        case .afternoonDip:    return Color(hex: "5B8DEF")
+        case .eveningPeak:     return Color(hex: "FF6B2B")
+        case .melatoninWindow: return Color(hex: "A78BFA")
+        case .windingDown:     return Color(hex: "818CF8")
+        }
+    }
 }
 
 // ============================================================
 // MARK: - Card
 // ============================================================
 
-/// Sleep debt and the shape of the day ahead — the two things a night of sleep
-/// data can actually tell you that a duration cannot.
+/// Sleep debt and the shape of the day — RISE’s energy map, drawn in Forge.
+/// Sits on the page, not in a card. The curve is the product.
 struct EnergyScheduleCard: View {
     @EnvironmentObject var store: AppStore
 
@@ -204,8 +242,7 @@ struct EnergyScheduleCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            header
+        VStack(alignment: .leading, spacing: 28) {
             if let schedule = schedule {
                 debtBlock(schedule)
                 chart(schedule)
@@ -218,27 +255,7 @@ struct EnergyScheduleCard: View {
                 learningState
             }
         }
-        .padding(18)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
         .onReceive(tick) { now = $0 }
-    }
-
-    // ------------------------------------------------------------
-    // MARK: Header
-    // ------------------------------------------------------------
-
-    private var header: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "waveform.path.ecg")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.aurora)
-            Text("Energy schedule")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.textPrimary)
-            Spacer()
-        }
     }
 
     // ------------------------------------------------------------
@@ -254,14 +271,19 @@ struct EnergyScheduleCard: View {
     }
 
     private func debtBlock(_ schedule: EnergySchedule) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(schedule.debtCaption.uppercased())
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.textTertiary)
+                .tracking(1.4)
             Text(schedule.debtHeadline)
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .font(.system(size: 56, weight: .semibold))
                 .foregroundColor(debtTint(schedule.debtLevel))
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.6)
                 .lineLimit(1)
+                .padding(.top, 2)
             Text(schedule.debtDetail)
-                .font(.system(size: 12))
+                .font(.system(size: 14))
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -274,35 +296,57 @@ struct EnergyScheduleCard: View {
     // ------------------------------------------------------------
 
     private func chart(_ schedule: EnergySchedule) -> some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 10) {
             GeometryReader { geo in
                 ZStack(alignment: .topLeading) {
                     sleepShade(schedule, size: geo.size)
                     areaPath(schedule, size: geo.size)
                         .fill(
                             LinearGradient(
-                                colors: [Color.aurora.opacity(0.34), Color.aurora.opacity(0.02)],
+                                colors: [
+                                    Color.ember.opacity(0.22),
+                                    Color.aurora.opacity(0.10),
+                                    Color.indigo.opacity(0.04)
+                                ],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
                         )
-                    linePath(schedule, size: geo.size)
-                        .stroke(
-                            LinearGradient(
-                                colors: [.amber, .aurora, .steel],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
-                        )
+                    ribbon(schedule, size: geo.size)
                     nowMarker(schedule, size: geo.size)
                 }
             }
-            .frame(height: 126)
+            .frame(height: 196)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(chartDescription(schedule))
 
             axis(schedule)
+        }
+    }
+
+    /// Phase-coloured stroke — peaks run warm, night runs indigo.
+    private func ribbon(_ schedule: EnergySchedule, size: CGSize) -> some View {
+        Canvas { context, size in
+            guard schedule.samples.count > 1 else { return }
+            for index in 1..<schedule.samples.count {
+                let previous = schedule.samples[index - 1]
+                let sample = schedule.samples[index]
+                var segment = Path()
+                segment.move(to: CGPoint(
+                    x: x(previous.sinceWake, size.width),
+                    y: y(schedule, previous.energy, size.height)
+                ))
+                segment.addLine(to: CGPoint(
+                    x: x(sample.sinceWake, size.width),
+                    y: y(schedule, sample.energy, size.height)
+                ))
+                let window = CircadianRhythm.window(atHour: previous.clockHour, phase: schedule.phase)
+                context.stroke(
+                    segment,
+                    with: .color(window.ribbon),
+                    style: StrokeStyle(lineWidth: 2.75, lineCap: .round, lineJoin: .round)
+                )
+            }
         }
     }
 
@@ -348,14 +392,19 @@ struct EnergyScheduleCard: View {
         let markerY = y(schedule, schedule.currentEnergy, size.height)
         return ZStack(alignment: .topLeading) {
             Rectangle()
-                .fill(Color.textPrimary.opacity(0.35))
+                .fill(Color.textPrimary.opacity(0.55))
                 .frame(width: 1, height: size.height)
                 .offset(x: position)
+            Text("NOW")
+                .font(.system(size: 9, weight: .bold))
+                .tracking(0.8)
+                .foregroundColor(.textPrimary)
+                .offset(x: position > size.width - 36 ? position - 32 : position + 6, y: 0)
             Circle()
                 .fill(Color.textPrimary)
-                .frame(width: 8, height: 8)
-                .overlay(Circle().stroke(Color.surface, lineWidth: 2))
-                .offset(x: position - 4, y: markerY - 4)
+                .frame(width: 9, height: 9)
+                .overlay(Circle().stroke(Color.background, lineWidth: 2.5))
+                .offset(x: position - 4.5, y: markerY - 4.5)
         }
     }
 
@@ -365,9 +414,10 @@ struct EnergyScheduleCard: View {
         HStack(spacing: 0) {
             ForEach(Array(stride(from: 0.0, to: 24.0, by: 6.0)), id: \.self) { offset in
                 Text(clockLabel(schedule.phase.wakeHour + offset))
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.textTertiary)
-                    .frame(maxWidth: .infinity, alignment: offset == 0 ? .leading : .center)
+                    .monospacedDigit()
+                    .frame(maxWidth: .infinity, alignment: offset == 0 ? .leading : (offset == 18 ? .trailing : .center))
             }
         }
     }
@@ -389,43 +439,31 @@ struct EnergyScheduleCard: View {
     // ------------------------------------------------------------
 
     private func nowBlock(_ schedule: EnergySchedule) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 9) {
-                Image(systemName: schedule.currentWindow.symbolName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(schedule.currentWindow.tint)
-                    .frame(width: 22)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(schedule.currentWindow.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.textPrimary)
-                    Text(schedule.currentWindow.guidance)
-                        .font(.system(size: 12))
-                        .foregroundColor(.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Circle()
+                    .fill(schedule.currentWindow.ribbon)
+                    .frame(width: 8, height: 8)
+                    .offset(y: -1)
+                Text(schedule.currentWindow.title)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.textPrimary)
                 Spacer(minLength: 0)
-            }
-
-            if let upcoming = schedule.upcoming {
-                HStack(spacing: 9) {
-                    Image(systemName: "arrow.turn.down.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.textTertiary)
-                        .frame(width: 22)
-                    Text("Next: \(upcoming.window.title)")
+                if let upcoming = schedule.upcoming {
+                    Text("\(upcoming.window.title) \(relativeLabel(upcoming.startsInHours))")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.textSecondary)
-                    Text(relativeLabel(upcoming.startsInHours))
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(upcoming.window.tint)
-                    Spacer(minLength: 0)
+                        .foregroundColor(.textTertiary)
+                        .multilineTextAlignment(.trailing)
                 }
             }
+            Text(schedule.currentWindow.guidance)
+                .font(.system(size: 14))
+                .foregroundColor(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(schedule.forgeRead)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.ember)
         }
-        .padding(13)
-        .background(Color.surfaceElevated)
-        .cornerRadius(14)
         .accessibilityElement(children: .combine)
     }
 
@@ -434,36 +472,25 @@ struct EnergyScheduleCard: View {
     // ------------------------------------------------------------
 
     private func eveningBlock(_ schedule: EnergySchedule) -> some View {
-        HStack(spacing: 0) {
-            eveningStat(icon: "moon.stars.fill",
-                        tint: .aurora,
-                        label: "Dim the lights",
-                        value: clockLabel(schedule.melatoninHour))
-            Rectangle()
-                .fill(Color.borderColor.opacity(0.5))
-                .frame(width: 1, height: 30)
-            eveningStat(icon: "bed.double.fill",
-                        tint: .indigo,
-                        label: "Body expects bed",
-                        value: clockLabel(schedule.phase.onsetHour))
+        HStack(alignment: .top, spacing: 0) {
+            eveningStat(label: "Dim lights", value: clockLabel(schedule.melatoninHour))
+            eveningStat(label: "In bed", value: clockLabel(schedule.phase.onsetHour))
+            eveningStat(label: "Wake", value: clockLabel(schedule.phase.wakeHour))
         }
+        .padding(.top, 4)
     }
 
-    private func eveningStat(icon: String, tint: Color, label: String, value: String) -> some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 5) {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(tint)
-                Text(value)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundColor(.textPrimary)
-            }
+    private func eveningStat(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(value)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundColor(.textPrimary)
+                .monospacedDigit()
             Text(label)
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundColor(.textTertiary)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label), \(value)")
     }
@@ -492,16 +519,17 @@ struct EnergyScheduleCard: View {
     /// Inventing a schedule from three nights would be worse than waiting: the
     /// failure mode is telling someone their slump is at 4am.
     private var learningState: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Still learning your rhythm")
-                .font(.system(size: 15, weight: .semibold))
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Learning your rhythm")
+                .font(.system(size: 28, weight: .semibold))
                 .foregroundColor(.textPrimary)
-            Text("Once there are about five nights with bedtimes recorded, this becomes your sleep debt and an hour-by-hour read on the day ahead.")
-                .font(.system(size: 12))
+            Text("Five nights with real bedtimes and this becomes sleep debt plus an hour-by-hour read on the day ahead. Until then we won’t invent a schedule.")
+                .font(.system(size: 15))
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 24)
         .accessibilityElement(children: .combine)
     }
 

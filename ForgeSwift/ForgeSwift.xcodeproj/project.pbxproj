@@ -17,6 +17,8 @@
 		AA00010000000000000000F3 /* LifestyleLocationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F3 /* LifestyleLocationStore.swift */; };
 		AA00010000000000000000F4 /* LifestylePlacesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F4 /* LifestylePlacesView.swift */; };
 		AA00010000000000000000F5 /* ConnectedDevicesLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F5 /* ConnectedDevicesLibraryView.swift */; };
+		AA00010000000000000000F7 /* DeviceProductImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F7 /* DeviceProductImage.swift */; };
+		AA00010000000000000000F8 /* HealthDeviceCatalogSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */; };
 		AA00010000000000000000F6 /* WeeklyAriaReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F6 /* WeeklyAriaReview.swift */; };
 		F0B100000000000000000040 /* ReadinessWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000040 /* ReadinessWidget.swift */; };
 		F0B100000000000000000041 /* HydrationWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000041 /* HydrationWidget.swift */; };
@@ -242,6 +244,8 @@
 		AA00020000000000000000F3 /* LifestyleLocationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleLocationStore.swift; sourceTree = "<group>"; };
 		AA00020000000000000000F4 /* LifestylePlacesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Lifestyle/LifestylePlacesView.swift"; sourceTree = "<group>"; };
 		AA00020000000000000000F5 /* ConnectedDevicesLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Profile/ConnectedDevicesLibraryView.swift"; sourceTree = "<group>"; };
+		AA00020000000000000000F7 /* DeviceProductImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Profile/DeviceProductImage.swift"; sourceTree = "<group>"; };
+		AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDeviceCatalogSync.swift; sourceTree = "<group>"; };
 		AA00020000000000000000F6 /* WeeklyAriaReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyAriaReview.swift; sourceTree = "<group>"; };
 		F0F100000000000000000040 /* ReadinessWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessWidget.swift; sourceTree = "<group>"; };
 		F0F100000000000000000041 /* HydrationWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HydrationWidget.swift; sourceTree = "<group>"; };
@@ -455,6 +459,7 @@
 				AA00020000000000000000F2 /* HomeWidgetBoard.swift */,
 				AA00020000000000000000F4 /* LifestylePlacesView.swift */,
 				AA00020000000000000000F5 /* ConnectedDevicesLibraryView.swift */,
+				AA00020000000000000000F7 /* DeviceProductImage.swift */,
 				1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */,
 				1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */,
 				1HCV0012F9FF867004091AA /* HomeCookingView.swift */,
@@ -491,6 +496,7 @@
 				1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */,
 				1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */,
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
+				AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */,
 				AA00020000000000000000B2 /* PartnerCycleSharing.swift */,
 				AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */,
 				AA00020000000000000000D1 /* SupporterGuidance.swift */,
@@ -959,6 +965,8 @@
 				AA00010000000000000000F3 /* LifestyleLocationStore.swift in Sources */,
 				AA00010000000000000000F4 /* LifestylePlacesView.swift in Sources */,
 				AA00010000000000000000F5 /* ConnectedDevicesLibraryView.swift in Sources */,
+				AA00010000000000000000F7 /* DeviceProductImage.swift in Sources */,
+				AA00010000000000000000F8 /* HealthDeviceCatalogSync.swift in Sources */,
 				AA00010000000000000000F6 /* WeeklyAriaReview.swift in Sources */,
 				1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */,
 				AA0001000000000000000001 /* ForgeSwiftApp.swift in Sources */,

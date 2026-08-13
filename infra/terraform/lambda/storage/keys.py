@@ -47,3 +47,14 @@ def aria_context_key(user_id: str) -> dict:
 
 def weekly_review_key(user_id: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": "ARIA#WEEKLY_REVIEW"}
+
+
+CATALOG_PK = "CATALOG#DEVICES"
+
+
+def catalog_device_key(device_id: str) -> dict:
+    return {"pk": CATALOG_PK, "sk": f"DEVICE#{device_id}"}
+
+
+def catalog_device_sk_prefix() -> str:
+    return "DEVICE#"

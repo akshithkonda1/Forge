@@ -506,12 +506,18 @@ final class LocationMealLogger: ObservableObject {
     ]
 
     func lookupMenu(for venueName: String) -> [MenuItem] {
-        if let items = knownVenues[venueName] { return items }
-        return [
+        catalogMenu(for: venueName) ?? [
             MenuItem(name: "Grilled Chicken Plate", calories: 420, protein: 38, carbs: 22, fat: 18, serving: "1 plate", isHealthy: true),
             MenuItem(name: "Mixed Greens Salad", calories: 180, protein: 8, carbs: 14, fat: 10, serving: "1 salad", isHealthy: true),
             MenuItem(name: "Brown Rice Bowl", calories: 360, protein: 14, carbs: 58, fat: 8, serving: "1 bowl", isHealthy: true),
         ]
+    }
+
+    /// Real catalog match only — nil when Apple Maps found a kitchen we don't have a menu for.
+    func catalogMenu(for venueName: String) -> [MenuItem]? {
+        if let items = knownVenues[venueName] { return items }
+        if let matched = matchVenueName(venueName), let items = knownVenues[matched] { return items }
+        return nil
     }
 
     func detectCurrentLocationAndLog() async {

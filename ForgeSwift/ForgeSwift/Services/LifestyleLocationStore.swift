@@ -83,7 +83,7 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
         }
     }
 
-    func refreshNearby(query: String = "restaurant") async {
+    func refreshNearby(query: String = "restaurants") async {
         guard let location = await latestLocation() else {
             lastError = isAuthorized
                 ? "Couldn't get a GPS fix. Try again in the open."
@@ -98,10 +98,13 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
         request.resultTypes = .pointOfInterest
+        request.pointOfInterestFilter = MKPointOfInterestFilter(including: [
+            .restaurant, .cafe, .bakery, .brewery, .foodMarket, .winery,
+        ])
         request.region = MKCoordinateRegion(
             center: location.coordinate,
-            latitudinalMeters: 1_600,
-            longitudinalMeters: 1_600
+            latitudinalMeters: 2_400,
+            longitudinalMeters: 2_400
         )
 
         do {
@@ -113,6 +116,7 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
                     return NearbyPlace(
                         name: item.name ?? "Place",
                         category: item.pointOfInterestCategory?.rawValue,
+                        categoryLabel: NearbyPlace.label(for: item.pointOfInterestCategory),
                         coordinate: coord,
                         distanceMeters: meters,
                         mapItem: item,
@@ -120,7 +124,9 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
                             item.placemark.subThoroughfare,
                             item.placemark.thoroughfare,
                             item.placemark.locality,
-                        ].compactMap { $0 }.joined(separator: " ")
+                        ].compactMap { $0 }.joined(separator: " "),
+                        phoneNumber: item.phoneNumber,
+                        url: item.url
                     )
                 }
                 .sorted { $0.distanceMeters < $1.distanceMeters }
@@ -206,10 +212,27 @@ extension LifestyleLocationStore: CLLocationManagerDelegate {
 struct NearbyPlace: Identifiable, Hashable {
     let name: String
     let category: String?
+    let categoryLabel: String?
     let coordinate: CLLocationCoordinate2D
     let distanceMeters: Double
     let mapItem: MKMapItem
     let address: String?
+    let phoneNumber: String?
+    let url: URL?
+
+    static func label(for category: MKPointOfInterestCategory?) -> String? {
+        guard let category else { return nil }
+        switch category {
+        case .restaurant: return "Restaurant"
+        case .cafe: return "Cafe"
+        case .bakery: return "Bakery"
+        case .brewery: return "Brewery"
+        case .foodMarket: return "Market"
+        case .winery: return "Winery"
+        default: return category.rawValue
+            .replacingOccurrences(of: "MKPOICategory", with: "")
+        }
+    }
 
     var id: String {
         "\(name)-\(coordinate.latitude)-\(coordinate.longitude)"

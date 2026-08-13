@@ -763,6 +763,7 @@ struct SettingsPageView: View {
     @Environment(\.openURL) private var openURL
 
     @State private var showDevicesSheet = false
+    @State private var catalogRevision = 0
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
     @State private var showTrainingThemePicker = false
@@ -866,6 +867,7 @@ struct SettingsPageView: View {
                 // Connected Devices
                 sectionHeader("Connected Devices")
                 SectionCard {
+                    Color.clear.frame(width: 0, height: 0).hidden().id(catalogRevision)
                     if store.userProfile.connectedDevices.isEmpty {
                         HStack(spacing: 10) {
                             Image(systemName: "link.badge.plus")
@@ -887,6 +889,9 @@ struct SettingsPageView: View {
                                     label: device?.name ?? raw,
                                     showChevron: true
                                 ) {
+                                    if let device {
+                                        DeviceProductImage(device: device, size: 28, cornerRadius: 6)
+                                    }
                                     HStack(spacing: 5) {
                                         Circle().fill(Color.success).frame(width: 8, height: 8)
                                         Text(device?.writesToAppleHealth == true ? "Health" : "iOS")
@@ -1290,6 +1295,9 @@ struct SettingsPageView: View {
         .sheet(isPresented: $showDevicesSheet) {
             ConnectedDevicesLibraryView()
                 .environmentObject(store)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .healthDeviceCatalogDidChange)) { _ in
+            catalogRevision += 1
         }
         .sheet(isPresented: $showLocalPrivacy) {
             NavigationStack {

@@ -12,6 +12,7 @@ from routes import (
     chat,
     coach,
     dashboard,
+    devices,
     health,
     integrations,
     profile,
@@ -97,6 +98,11 @@ def handler(event, _context):
                 ],
             },
         })
+
+    # Public product shelf — not user data. The phone merges this onto the
+    # bundled catalog so a new SKU can appear without an App Store release.
+    if method == "GET" and path == "/devices/catalog":
+        return devices.handle_get_devices_catalog()
 
     # --- AI router (authenticated; no cross-user data in request) ---
     if method == "POST" and path == "/ai/router":
@@ -189,6 +195,9 @@ def handler(event, _context):
 
         if method == "POST" and path == "/watch/aria/suggest":
             return watch.handle_post_watch_aria_suggest(body, user_id)
+
+        if method == "POST" and path == "/devices/catalog/seen":
+            return devices.handle_post_devices_seen(body)
 
         if method == "POST" and path.startswith("/integrations/") and path.endswith("/sync"):
             provider = path[len("/integrations/"):-len("/sync")]

@@ -2,6 +2,27 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
+private enum FoodSearchKind: String, CaseIterable, Identifiable {
+    case restaurants, cafes, fastFood, grocery
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .restaurants: return "Restaurants"
+        case .cafes: return "Cafes"
+        case .fastFood: return "Fast food"
+        case .grocery: return "Markets"
+        }
+    }
+    var query: String {
+        switch self {
+        case .restaurants: return "restaurants"
+        case .cafes: return "cafes"
+        case .fastFood: return "fast food"
+        case .grocery: return "grocery"
+        }
+    }
+}
+
 /// Restaurants tab: a live Apple Map of nearby places plus the saved menu catalog.
 struct LifestylePlacesView: View {
     @ObservedObject var vm: LifestyleViewModel
@@ -13,9 +34,13 @@ struct LifestylePlacesView: View {
     @State private var selectedPlace: NearbyPlace?
     @State private var showCatalog = false
     @State private var hasCentered = false
+    @State private var searchText = ""
+    @State private var foodKind: FoodSearchKind = .restaurants
 
     var body: some View {
         VStack(spacing: 16) {
+            searchBar
+            foodFilters
             mapCard
             statusRow
             nearbyList
@@ -145,7 +170,7 @@ struct LifestylePlacesView: View {
                     .foregroundColor(.textPrimary)
                 Spacer()
                 Button {
-                    Task { await location.refreshNearby() }
+                    Task { await runSearch() }
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                         .font(.system(size: 12, weight: .semibold))
@@ -173,7 +198,7 @@ struct LifestylePlacesView: View {
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(.textPrimary)
                                     .lineLimit(1)
-                                Text(place.address?.isEmpty == false ? place.address! : "Apple Maps place")
+                                Text(placeLine(place))
                                     .font(.system(size: 11))
                                     .foregroundColor(.textTertiary)
                                     .lineLimit(1)
@@ -227,7 +252,61 @@ struct LifestylePlacesView: View {
                 longitudinalMeters: 1_200
             ))
         }
-        await location.refreshNearby()
+        await runSearch()
+    }
+
+    private var searchBar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass").foregroundColor(.textTertiary)
+            TextField("Search restaurants or menus…", text: $searchText)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .onSubmit { Task { await runSearch() } }
+            if !searchText.isEmpty {
+                Button { searchText = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundColor(.textMuted)
+                }
+            }
+        }
+        .padding(12)
+        .background(Color.surface)
+        .cornerRadius(12)
+    }
+
+    private var foodFilters: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(FoodSearchKind.allCases) { kind in
+                    Button {
+                        foodKind = kind
+                        Task { await runSearch() }
+                    } label: {
+                        Text(kind.title)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(foodKind == kind ? .background : .textSecondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(foodKind == kind ? Color.textPrimary : Color.surface)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func runSearch() async {
+        let typed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        await location.refreshNearby(query: typed.isEmpty ? foodKind.query : typed)
+    }
+
+    private func placeLine(_ place: NearbyPlace) -> String {
+        let hasMenu = locationLogger.catalogMenu(for: place.name) != nil
+        if let category = place.categoryLabel, !category.isEmpty {
+            return hasMenu ? "\(category) · Menu" : category
+        }
+        return hasMenu ? "Menu available" : (place.address?.isEmpty == false ? place.address! : "Apple Maps place")
     }
 
     private func recenter() async {
@@ -250,8 +329,8 @@ private struct NearbyPlaceSheet: View {
     @ObservedObject private var location = LifestyleLocationStore.shared
     @Environment(\.dismiss) private var dismiss
 
-    private var menu: [MenuItem] {
-        locationLogger.lookupMenu(for: place.name)
+    private var catalogMenu: [MenuItem]? {
+        locationLogger.catalogMenu(for: place.name)
     }
 
     var body: some View {
@@ -260,58 +339,91 @@ private struct NearbyPlaceSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(place.name)
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.system(size: 24, weight: .semibold))
                             .foregroundColor(.textPrimary)
+                        if let category = place.categoryLabel {
+                            Text(category)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.ember)
+                        }
                         if let address = place.address, !address.isEmpty {
                             Text(address)
                                 .font(.system(size: 13))
                                 .foregroundColor(.textSecondary)
                         }
                         Text(place.distanceLabel + " away")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.ember)
+                            .font(.system(size: 13))
+                            .foregroundColor(.textTertiary)
                     }
 
                     HStack(spacing: 10) {
                         Button {
                             location.openInMaps(place)
                         } label: {
-                            label("Open in Maps", icon: "map.fill")
+                            label("Maps", icon: "map.fill")
                         }
                         Button {
                             location.directions(to: place)
                         } label: {
-                            label("Directions", icon: "arrow.triangle.turn.up.right.diamond.fill")
+                            label("Walk", icon: "arrow.triangle.turn.up.right.diamond.fill")
                         }
                     }
 
-                    Text("Log a meal")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.textPrimary)
-
-                    ForEach(menu) { item in
-                        Button {
-                            locationLogger.detectedVenue = place.name
-                            locationLogger.logSelectedMeal(item, to: vm)
-                            dismiss()
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(item.name)
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(.textPrimary)
-                                    Text("\(item.calories) cal · \(item.protein)g protein")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.textTertiary)
-                                }
-                                Spacer()
-                                Image(systemName: "plus.circle.fill").foregroundColor(.ember)
-                            }
-                            .padding(14)
-                            .background(Color.surfaceElevated)
-                            .cornerRadius(12)
+                    if let phone = place.phoneNumber, let url = URL(string: "tel:\(phone.filter { $0.isNumber || $0 == "+" })") {
+                        Link(destination: url) {
+                            Text(phone)
+                                .font(.system(size: 14))
+                                .foregroundColor(.textSecondary)
                         }
-                        .buttonStyle(.plain)
+                    }
+
+                    if let site = place.url {
+                        Link(destination: site) {
+                            Text("Website / menu")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.ember)
+                        }
+                    }
+
+                    if let menu = catalogMenu, !menu.isEmpty {
+                        Text("Menu")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.textPrimary)
+                        Text("From Forge’s kitchen file for this chain. Tap a dish to log it.")
+                            .font(.system(size: 12))
+                            .foregroundColor(.textTertiary)
+                        ForEach(menu) { item in
+                            Button {
+                                locationLogger.detectedVenue = place.name
+                                locationLogger.logSelectedMeal(item, to: vm)
+                                dismiss()
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(item.name)
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundColor(.textPrimary)
+                                        Text("\(item.calories) cal · \(item.protein)g protein")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.textTertiary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "plus.circle.fill").foregroundColor(.ember)
+                                }
+                                .padding(14)
+                                .background(Color.surfaceElevated)
+                                .cornerRadius(12)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } else {
+                        Text("Menu")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.textPrimary)
+                        Text("Apple Maps found this kitchen. Open it in Maps for hours and any published menu, or use the website if they have one.")
+                            .font(.system(size: 13))
+                            .foregroundColor(.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .padding(20)
