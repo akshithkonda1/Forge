@@ -92,12 +92,13 @@ let allSleepSounds: [SleepSoundItem] = [
 // MARK: - Sleep Tab Enum
 
 enum SleepTab: Int, CaseIterable {
-    case overview, alarm, sounds, wakeUp
+    case day, night, alarms
     var title: String {
-        switch self { case .overview: return "Sleep"; case .alarm: return "Alarm"; case .sounds: return "Sounds"; case .wakeUp: return "Wake Up" }
-    }
-    var icon: String {
-        switch self { case .overview: return "moon.stars.fill"; case .alarm: return "alarm.fill"; case .sounds: return "waveform"; case .wakeUp: return "sunrise.fill" }
+        switch self {
+        case .day: return "Day"
+        case .night: return "Night"
+        case .alarms: return "Alarms"
+        }
     }
 }
 
@@ -106,64 +107,45 @@ enum SleepTab: Int, CaseIterable {
 struct SleepView: View {
     @EnvironmentObject var store: AppStore
     @StateObject private var hkService = HealthKitSleepService.shared
-    @State private var selectedTab: SleepTab = .overview
+    @State private var selectedTab: SleepTab = .day
     @State private var showAIChat = false
-    @State private var showStreakDetail = false
     @State private var showSleepPersonalization = false
-    @Namespace private var tabNS
-
-    var currentStreak: Int {
-        var s = 0
-        for sleep in store.sleepData { if sleep.score >= 75 { s += 1 } else { break } }
-        return s
-    }
 
     var body: some View {
         ZStack(alignment: .top) {
-            // Background — deep midnight blue for sleep context
-            SleepBackground(tab: selectedTab).ignoresSafeArea()
+            SleepBackground().ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Header
                 SleepHeaderView(
                     selectedTab: selectedTab,
-                    showAIChat: $showAIChat,
-                    namespace: tabNS,
+                    onAskAria: { showAIChat = true },
+                    onPersonalize: { showSleepPersonalization = true },
                     onTabSelect: { selectedTab = $0 }
                 )
 
-                // Content
                 TabView(selection: $selectedTab) {
-                    SleepOverviewTab(
-                        streak: currentStreak,
-                        showStreakDetail: $showStreakDetail,
-                        showAIChat: $showAIChat,
+                    SleepDayTab()
+                        .environmentObject(hkService)
+                        .tag(SleepTab.day)
+
+                    SleepNightTab(
                         showPersonalization: $showSleepPersonalization
                     )
                     .environmentObject(hkService)
-                    .tag(SleepTab.overview)
+                    .tag(SleepTab.night)
 
                     AlarmTab()
-                        .tag(SleepTab.alarm)
-
-                    SleepSoundsTab()
-                        .tag(SleepTab.sounds)
-
-                    WakeUpTab()
                         .environmentObject(hkService)
-                        .tag(SleepTab.wakeUp)
+                        .tag(SleepTab.alarms)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .animation(.spring(response: 0.42, dampingFraction: 0.82), value: selectedTab)
+                .animation(.easeInOut(duration: 0.22), value: selectedTab)
             }
         }
         .sheet(isPresented: $showAIChat) {
             AISleepChatView()
                 .environmentObject(store)
                 .environmentObject(hkService)
-        }
-        .sheet(isPresented: $showStreakDetail) {
-            SleepStreakDetailView(streak: currentStreak)
         }
         .sheet(isPresented: $showSleepPersonalization) {
             SleepPersonalizationSheet()
@@ -189,30 +171,22 @@ struct SleepView: View {
 // MARK: - Sleep Background
 
 struct SleepBackground: View {
-    let tab: SleepTab
-    @State private var phase = false
-
-    private var accent: Color {
-        switch tab {
-        case .overview: return Color(hex: "334155")
-        case .alarm:    return Color.ember
-        case .sounds:   return Color.steel
-        case .wakeUp:   return Color(hex: "F59E0B")
-        }
-    }
-
     var body: some View {
         ZStack {
             Color.background
             RadialGradient(
-                colors: [accent.opacity(phase ? 0.09 : 0.04), .clear],
-                center: .top, startRadius: 0, endRadius: 500
+                colors: [Color(hex: "1E1B4B").opacity(0.35), .clear],
+                center: UnitPoint(x: 0.5, y: 0.0),
+                startRadius: 20,
+                endRadius: 420
+            )
+            RadialGradient(
+                colors: [Color.ember.opacity(0.05), .clear],
+                center: UnitPoint(x: 0.15, y: 0.22),
+                startRadius: 10,
+                endRadius: 280
             )
         }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 5).repeatForever(autoreverses: true)) { phase = true }
-        }
-        .animation(.easeInOut(duration: 1.0), value: tab)
     }
 }
 
@@ -220,103 +194,129 @@ struct SleepBackground: View {
 
 struct SleepHeaderView: View {
     let selectedTab: SleepTab
-    @Binding var showAIChat: Bool
-    let namespace: Namespace.ID
+    let onAskAria: () -> Void
+    let onPersonalize: () -> Void
     let onTabSelect: (SleepTab) -> Void
-    @State private var appeared = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Title row
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("SLEEP")
-                        .font(.system(size: 11, weight: .black))
-                        .foregroundColor(.textTertiary)
-                        .tracking(3)
-                    Text(selectedTab.title)
-                        .font(.system(size: 30, weight: .bold))
-                        .foregroundColor(.textPrimary)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selectedTab)
-                }
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Sleep")
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundColor(.textPrimary)
                 Spacer()
-                Button {
-                    showAIChat = true
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(LinearGradient(colors: [Color.steel, Color.steel.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(width: 46, height: 46)
-                            .shadow(color: Color.steel.opacity(0.4), radius: 10, y: 4)
-                        Image(systemName: "brain.head.profile")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.white)
-                    }
+                Button(action: onPersonalize) {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.textSecondary)
+                        .frame(width: 36, height: 36)
                 }
+                .accessibilityLabel("Sleep preferences")
+                Button(action: onAskAria) {
+                    Text("Ask ARIA")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Color.white.opacity(0.06))
+                        .clipShape(Capsule())
+                }
+                .accessibilityLabel("Ask ARIA about sleep")
+            }
+
+            HStack(spacing: 0) {
+                ForEach(SleepTab.allCases, id: \.self) { tab in
+                    Button {
+                        onTabSelect(tab)
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    } label: {
+                        VStack(spacing: 8) {
+                            Text(tab.title)
+                                .font(.system(size: 14, weight: selectedTab == tab ? .semibold : .medium))
+                                .foregroundColor(selectedTab == tab ? .textPrimary : .textTertiary)
+                            Rectangle()
+                                .fill(selectedTab == tab ? Color.textPrimary : Color.clear)
+                                .frame(height: 1.5)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 56)
+        .padding(.bottom, 8)
+    }
+}
+
+// MARK: - Day
+
+struct SleepDayTab: View {
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 32) {
+                EnergyScheduleCard()
+                SleepLastNightStrip()
+                SleepWeekRhythm()
             }
             .padding(.horizontal, 20)
-            .padding(.top, 60)
-            .padding(.bottom, 16)
-
-            // Tab pills with matchedGeometryEffect
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(SleepTab.allCases, id: \.self) { tab in
-                        Button {
-                            withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) { onTabSelect(tab) }
-                            UISelectionFeedbackGenerator().selectionChanged()
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: tab.icon).font(.system(size: 11, weight: .semibold))
-                                Text(tab.title).font(.system(size: 13, weight: .semibold))
-                            }
-                            .foregroundColor(selectedTab == tab ? .white : .textTertiary)
-                            .padding(.horizontal, 14).padding(.vertical, 9)
-                            .background {
-                                if selectedTab == tab {
-                                    Capsule()
-                                        .fill(tabColor(tab))
-                                        .matchedGeometryEffect(id: "sleepPill", in: namespace)
-                                        .shadow(color: tabColor(tab).opacity(0.5), radius: 10, y: 3)
-                                } else {
-                                    Capsule().fill(Color.surface.opacity(0.6))
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 20).padding(.vertical, 2)
-            }
-            .padding(.bottom, 12)
-        }
-    }
-
-    private func tabColor(_ tab: SleepTab) -> Color {
-        switch tab {
-        case .overview: return Color.steel
-        case .alarm:    return Color.ember
-        case .sounds:   return Color(hex: "6366F1")
-        case .wakeUp:   return Color(hex: "F59E0B")
+            .padding(.top, 12)
+            .padding(.bottom, 120)
         }
     }
 }
 
-// MARK: - Overview Tab
+// MARK: - Night
 
-struct SleepOverviewTab: View {
+struct SleepNightTab: View {
     @EnvironmentObject var store: AppStore
-    @EnvironmentObject var hkService: HealthKitSleepService
-    let streak: Int
-    @Binding var showStreakDetail: Bool
-    @Binding var showAIChat: Bool
     @Binding var showPersonalization: Bool
+    @State private var showSounds = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 22) {
+            VStack(alignment: .leading, spacing: 28) {
+                SleepLastNightDetail()
+                SleepWeekRhythm()
                 ChronotypeBadge(onTap: { showPersonalization = true })
+                Button { showSounds = true } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Sounds")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.textPrimary)
+                            Text("Rain, noise, or a timer for wind-down.")
+                                .font(.system(size: 13))
+                                .foregroundColor(.textTertiary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.textMuted)
+                    }
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 120)
+        }
+        .sheet(isPresented: $showSounds) {
+            NavigationStack {
+                SleepSoundsTab()
+                    .navigationTitle("Sounds")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { showSounds = false }
+                        }
+                    }
+            }
+        }
+    }
+}
 
                 // Sleep debt and the shape of the day ahead. Sits above the
                 // score because it is the only card here about the next sixteen
@@ -326,48 +326,155 @@ struct SleepOverviewTab: View {
                 // Hero score ring
                 SleepScoreHeroCard()
 
-                // Streak
-                SleepStreakCard(streak: streak, showDetail: $showStreakDetail)
+struct SleepLastNightStrip: View {
+    @EnvironmentObject var store: AppStore
 
-                // AI Insight (now integrated — was defined but never shown)
-                AISleepInsightView()
+    private var night: SleepData? { store.sleepData.first }
 
-                // AI Prediction
-                AISleepPredictionCard()
-
-                // Sleep stages timeline
-                SleepTimelineView()
-
-                // Breakdown grid
-                SleepBreakdownView()
-
-                // Recovery trends (now integrated — was defined but never shown)
-                RecoveryTrendsView()
-
-                // Weekly chart
-                SleepWeeklyComparisonChart()
-
-                // Environment (now integrated — was defined but never shown)
-                AISleepEnvironmentView()
-
-                // Personalized goals (now integrated)
-                AIPersonalizedGoalsView()
-
-                // Smart recommendations (now integrated)
-                AISmartRecommendationsView()
-
-                // Achievements
-                SleepAchievementsView()
-
-                // Debt tracker
-                SleepDebtTrackerView()
-
-                // Quick actions
-                SleepQuickActionsBar(onAITap: { showAIChat = true })
+    var body: some View {
+        if let night {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Last night")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.textTertiary)
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(EnergySchedule.durationLabel(night.totalHours))
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                        .monospacedDigit()
+                    Text("asleep")
+                        .font(.system(size: 15))
+                        .foregroundColor(.textSecondary)
+                    Spacer()
+                    Text("Deep \(night.deepMinutes)m  ·  REM \(night.remMinutes)m")
+                        .font(.system(size: 12))
+                        .foregroundColor(.textTertiary)
+                        .monospacedDigit()
+                }
+                SleepStageHairline(night: night)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 120)
         }
+    }
+}
+
+struct SleepLastNightDetail: View {
+    @EnvironmentObject var store: AppStore
+
+    private var night: SleepData? { store.sleepData.first }
+
+    var body: some View {
+        if let night {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Last night")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.textTertiary)
+                Text(EnergySchedule.durationLabel(night.totalHours))
+                    .font(.system(size: 48, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                    .monospacedDigit()
+                SleepStageHairline(night: night)
+                HStack(spacing: 0) {
+                    nightStat("Deep", "\(night.deepMinutes)m")
+                    nightStat("REM", "\(night.remMinutes)m")
+                    nightStat("Light", "\(night.lightMinutes)m")
+                    nightStat("Awake", "\(night.awakeMinutes)m")
+                }
+                .padding(.top, 6)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("No night on file")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                Text("Connect Apple Health and last night will land here.")
+                    .font(.system(size: 14))
+                    .foregroundColor(.textSecondary)
+            }
+        }
+    }
+
+    private func nightStat(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(value)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.textPrimary)
+                .monospacedDigit()
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundColor(.textTertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct SleepStageHairline: View {
+    let night: SleepData
+
+    private var parts: [(Color, Int)] {
+        [
+            (Color.danger.opacity(0.7), night.awakeMinutes),
+            (Color(hex: "475569"), night.lightMinutes),
+            (Color.steel, night.deepMinutes),
+            (Color.aurora, night.remMinutes),
+        ]
+    }
+
+    private var total: Int { max(1, parts.reduce(0) { $0 + $1.1 }) }
+
+    var body: some View {
+        GeometryReader { geo in
+            HStack(spacing: 2) {
+                ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
+                    Capsule()
+                        .fill(part.0)
+                        .frame(width: max(3, geo.size.width * CGFloat(part.1) / CGFloat(total)))
+                }
+            }
+        }
+        .frame(height: 6)
+    }
+}
+
+struct SleepWeekRhythm: View {
+    @EnvironmentObject var store: AppStore
+
+    private var nights: [SleepData] {
+        Array(store.sleepData.prefix(7).reversed())
+    }
+
+    private var need: Double {
+        EnergySchedule.make(from: store.sleepData)?.needHours ?? 8
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("This week")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.textTertiary)
+            HStack(alignment: .bottom, spacing: 8) {
+                ForEach(nights) { night in
+                    VStack(spacing: 6) {
+                        Capsule()
+                            .fill(night.totalHours >= need - 0.4 ? Color.ember.opacity(0.85) : Color.white.opacity(0.16))
+                            .frame(height: max(8, CGFloat(night.totalHours / 10) * 72))
+                        Text(weekday(night.date))
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.textTertiary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(height: 96, alignment: .bottom)
+        }
+    }
+
+    private func weekday(_ value: String) -> String {
+        let parse = DateFormatter()
+        parse.dateFormat = "yyyy-MM-dd"
+        guard let date = parse.date(from: value) else { return "" }
+        let out = DateFormatter()
+        out.setLocalizedDateFormatFromTemplate("EEEEE")
+        return out.string(from: date)
     }
 }
 
@@ -508,32 +615,24 @@ struct AlarmTab: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 20) {
-                // Hero: next alarm display
+            VStack(spacing: 28) {
                 if let next = nextAlarm {
                     NextAlarmHero(alarm: next)
                 }
 
-                // Alarm list
-                VStack(spacing: 14) {
+                VStack(spacing: 12) {
                     HStack {
-                        Text("ALARMS")
-                            .font(.system(size: 10, weight: .black))
+                        Text("Alarms")
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.textTertiary)
-                            .tracking(2.5)
                         Spacer()
                         Button {
                             editingAlarm = ForgeAlarm()
                             showEditor = true
                         } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: "plus").font(.system(size: 12, weight: .bold))
-                                Text("New").font(.system(size: 13, weight: .semibold))
-                            }
-                            .foregroundColor(.ember)
-                            .padding(.horizontal, 12).padding(.vertical, 6)
-                            .background(Color.ember.opacity(0.12))
-                            .cornerRadius(8)
+                            Text("New")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.ember)
                         }
                     }
 
@@ -545,10 +644,11 @@ struct AlarmTab: View {
                     }
                     .onDelete { idx in alarms.remove(atOffsets: idx) }
                 }
-                .padding(.bottom, 20)
+
+                WakeUpTab()
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 100)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 120)
         }
         .sheet(isPresented: $showEditor) {
             if let alarm = editingAlarm {
@@ -568,7 +668,6 @@ struct AlarmTab: View {
 
 struct NextAlarmHero: View {
     let alarm: ForgeAlarm
-    @State private var pulse = false
 
     private var timeString: String {
         let f = DateFormatter(); f.dateFormat = "h:mm"
@@ -585,69 +684,31 @@ struct NextAlarmHero: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Glowing time display
-            ZStack {
-                // Ambient glow
-                Ellipse()
-                    .fill(RadialGradient(colors: [Color.ember.opacity(0.2), .clear], center: .center, startRadius: 0, endRadius: 120))
-                    .frame(width: 280, height: 120)
-                    .blur(radius: 20)
-                    .scaleEffect(pulse ? 1.1 : 1.0)
-
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(timeString)
-                        .font(.system(size: 72, weight: .black, design: .rounded))
-                        .foregroundStyle(LinearGradient(
-                            colors: [.textPrimary, Color.ember.opacity(0.9)],
-                            startPoint: .top, endPoint: .bottom
-                        ))
-                    Text(ampm)
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundColor(.ember)
-                        .offset(y: -8)
-                }
-            }
-            .padding(.bottom, 8)
-
-            // Label + days
-            VStack(spacing: 6) {
-                Text(alarm.label)
-                    .font(.system(size: 18, weight: .semibold))
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Next")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.textTertiary)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(timeString)
+                    .font(.system(size: 56, weight: .semibold))
                     .foregroundColor(.textPrimary)
-                Text(daysString)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.textTertiary)
+                    .monospacedDigit()
+                Text(ampm)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.textSecondary)
             }
-            .padding(.bottom, 20)
-
-            // Smart wake badge
+            Text("\(alarm.label)  ·  \(daysString)")
+                .font(.system(size: 14))
+                .foregroundColor(.textSecondary)
             if alarm.isSmartWake {
-                HStack(spacing: 8) {
-                    Image(systemName: "waveform.path.ecg").font(.system(size: 12))
-                    Text("Smart Wake · \(alarm.smartWakeWindow) min window")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .foregroundColor(.steel)
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .background(Color.steel.opacity(0.12))
-                .cornerRadius(20)
-                .overlay(Capsule().stroke(Color.steel.opacity(0.3), lineWidth: 1))
+                Text("Smart wake · \(alarm.smartWakeWindow) min")
+                    .font(.system(size: 12))
+                    .foregroundColor(.textTertiary)
+                    .padding(.top, 2)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
-        .padding(.horizontal, 24)
-        .background(Color.surface)
-        .cornerRadius(28)
-        .overlay(RoundedRectangle(cornerRadius: 28).stroke(
-            LinearGradient(colors: [Color.ember.opacity(0.3), Color.ember.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing),
-            lineWidth: 1
-        ))
-        .shadow(color: Color.ember.opacity(0.12), radius: 24, y: 8)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) { pulse = true }
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 8)
     }
 }
 
@@ -670,8 +731,9 @@ struct AlarmRow: View {
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(timeStr)
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .font(.system(size: 26, weight: .semibold))
                         .foregroundColor(alarm.isEnabled ? .textPrimary : .textTertiary)
+                        .monospacedDigit()
                     HStack(spacing: 8) {
                         Text(alarm.label)
                             .font(.system(size: 13, weight: .medium))
@@ -692,14 +754,8 @@ struct AlarmRow: View {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     }
             }
-            .padding(.horizontal, 18).padding(.vertical, 16)
-            .background(Color.surface)
-            .cornerRadius(18)
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(
-                alarm.isEnabled ? Color.ember.opacity(0.25) : Color.borderColor.opacity(0.4),
-                lineWidth: 1
-            ))
-            .opacity(alarm.isEnabled ? 1 : 0.55)
+            .padding(.vertical, 12)
+            .opacity(alarm.isEnabled ? 1 : 0.45)
             .animation(.easeInOut(duration: 0.2), value: alarm.isEnabled)
         }
         .buttonStyle(.plain)
@@ -1290,32 +1346,24 @@ struct WakeUpTab: View {
     @State private var morningRoutine: [RoutineItem]  = RoutineItem.defaults
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 20) {
-                // Smart Wake
-                SmartWakeCard(
-                    enabled: $smartWakeEnabled,
-                    windowMinutes: $smartWakeWindow
-                )
+        VStack(spacing: 20) {
+            SmartWakeCard(
+                enabled: $smartWakeEnabled,
+                windowMinutes: $smartWakeWindow
+            )
 
-                AdaptiveSunriseCard(
-                    config: hkService.currentSunriseConfig,
-                    enabled: $sunriseEnabled,
-                    duration: $sunriseDuration,
-                    colorTemp: $colorTemp
-                )
+            AdaptiveSunriseCard(
+                config: hkService.currentSunriseConfig,
+                enabled: $sunriseEnabled,
+                duration: $sunriseDuration,
+                colorTemp: $colorTemp
+            )
 
-                // Volume Ramp
-                VolumeRampCard(curve: $volumeRamp)
+            VolumeRampCard(curve: $volumeRamp)
 
-                // Morning Routine
-                MorningRoutineCard(items: $morningRoutine)
+            MorningRoutineCard(items: $morningRoutine)
 
-                // Wake Word / Greeting
-                WakeGreetingCard()
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 100)
+            WakeGreetingCard()
         }
         .onAppear {
             let config = hkService.currentSunriseConfig
@@ -2637,10 +2685,7 @@ struct ChronotypeBadge: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.textTertiary)
             }
-            .padding(14)
-            .background(Color.surface)
-            .cornerRadius(16)
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.steel.opacity(0.25), lineWidth: 1))
+            .padding(.vertical, 10)
         }
         .buttonStyle(.plain)
     }

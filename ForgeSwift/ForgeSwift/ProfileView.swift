@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import ForgeCore
 
 // MARK: - Profile Tab (mirrors profile-tab.tsx)
 
@@ -762,6 +763,7 @@ struct SettingsPageView: View {
     @Environment(\.openURL) private var openURL
 
     @State private var showDevicesSheet = false
+    @State private var catalogRevision = 0
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
     @State private var showTrainingThemePicker = false
@@ -776,8 +778,11 @@ struct SettingsPageView: View {
     @State private var showBackendURL = false
     @State private var showShareSheet = false
     @State private var showAbout = false
+    @State private var showLocalPrivacy = false
+    @State private var confirmSignOut = false
     @State private var backendURLDraft = AriaService.shared.baseURL.absoluteString
     @State private var briefSettings: BriefNotificationSettings
+    @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
 
     let dayLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
 
@@ -862,25 +867,40 @@ struct SettingsPageView: View {
                 // Connected Devices
                 sectionHeader("Connected Devices")
                 SectionCard {
+                    Color.clear.frame(width: 0, height: 0).hidden().id(catalogRevision)
                     if store.userProfile.connectedDevices.isEmpty {
                         HStack(spacing: 10) {
                             Image(systemName: "link.badge.plus")
                                 .font(.system(size: 16))
                                 .foregroundColor(.textTertiary)
-                            Text("No devices connected yet")
+                            Text("No devices yet. Browse the library — LARQ, Oura, Garmin, Watch and more.")
                                 .font(.system(size: 14))
                                 .foregroundColor(.textSecondary)
                         }
                         .padding(.horizontal, 16).padding(.vertical, 12)
-                        Divider().background(Color.borderColor)
-                    }
-                    ForEach(Array(store.userProfile.connectedDevices.enumerated()), id: \.element) { idx, device in
-                        if idx > 0 { Divider().background(Color.borderColor) }
-                        SettingsRow(icon: "applewatch", iconColor: .steel, label: device) {
-                            HStack(spacing: 5) {
-                                Circle().fill(Color.success).frame(width: 8, height: 8)
-                                Text("Connected").font(.system(size: 12)).foregroundColor(.textSecondary)
+                    } else {
+                        ForEach(Array(HealthDeviceCatalog.migrateStoredIDs(store.userProfile.connectedDevices).enumerated()), id: \.element) { idx, raw in
+                            if idx > 0 { Divider().background(Color.borderColor) }
+                            let device = HealthDeviceCatalog.device(matching: raw)
+                            Button { showDevicesSheet = true } label: {
+                                SettingsRow(
+                                    icon: device?.symbolName ?? "sensor.tag.radiowaves.forward",
+                                    iconColor: .steel,
+                                    label: device?.name ?? raw,
+                                    showChevron: true
+                                ) {
+                                    if let device {
+                                        DeviceProductImage(device: device, size: 28, cornerRadius: 6)
+                                    }
+                                    HStack(spacing: 5) {
+                                        Circle().fill(Color.success).frame(width: 8, height: 8)
+                                        Text(device?.writesToAppleHealth == true ? "Health" : "iOS")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.textSecondary)
+                                    }
+                                }
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                     Divider().background(Color.borderColor)
@@ -890,7 +910,7 @@ struct SettingsPageView: View {
                                 Circle().stroke(Color.borderLight, style: StrokeStyle(lineWidth: 1, dash: [4])).frame(width: 32, height: 32)
                                 Image(systemName: "plus").font(.system(size: 13)).foregroundColor(.textTertiary)
                             }
-                            Text("Add or Manage Devices")
+                            Text("Browse compatible devices")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.ember)
                         }
@@ -1045,14 +1065,20 @@ struct SettingsPageView: View {
                                     .font(.system(size: 12, weight: .semibold))
                                     .foregroundColor(.textMuted)
                             }
-                            FlowLayout(spacing: 8) {
-                                ForEach(store.userProfile.preferredWorkouts) { type in
-                                    Text(type.label)
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(.textSecondary)
-                                        .padding(.horizontal, 12).padding(.vertical, 5)
-                                        .background(Color.surfaceElevated)
-                                        .cornerRadius(100)
+                            if store.userProfile.preferredWorkouts.isEmpty {
+                                Text("Tap to choose the sessions you actually do.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.textTertiary)
+                            } else {
+                                FlowLayout(spacing: 8) {
+                                    ForEach(store.userProfile.preferredWorkouts) { type in
+                                        Text(type.label)
+                                            .font(.system(size: 12, weight: .medium))
+                                            .foregroundColor(.textSecondary)
+                                            .padding(.horizontal, 12).padding(.vertical, 5)
+                                            .background(Color.surfaceElevated)
+                                            .cornerRadius(100)
+                                    }
                                 }
                             }
                         }
@@ -1093,10 +1119,35 @@ struct SettingsPageView: View {
                     }
                     if store.briefNotificationsEnabled {
                         Divider().background(Color.borderColor)
-                        briefTimeRow(label: "Morning brief", hour: $briefSettings.morningHour, minute: $briefSettings.morningMinute)
+                        briefTimeRow(
+                            icon: "sunrise.fill",
+                            iconColor: Color(hex: "F59E0B"),
+                            label: "Morning brief",
+                            hour: $briefSettings.morningHour,
+                            minute: $briefSettings.morningMinute
+                        )
                         Divider().background(Color.borderColor)
-                        briefTimeRow(label: "Evening brief", hour: $briefSettings.eveningHour, minute: $briefSettings.eveningMinute)
+                        briefTimeRow(
+                            icon: "sunset.fill",
+                            iconColor: Color(hex: "6366F1"),
+                            label: "Evening brief",
+                            hour: $briefSettings.eveningHour,
+                            minute: $briefSettings.eveningMinute
+                        )
                     }
+                    Divider().background(Color.borderColor)
+                    Button {
+                        weeklyReview.showSheet = true
+                    } label: {
+                        SettingsRow(
+                            icon: "calendar.badge.clock",
+                            iconColor: .ember,
+                            label: "Weekly ARIA evaluation",
+                            trailingText: weeklyReview.isDue ? "Due" : "Done",
+                            showChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
                     Divider().background(Color.borderColor)
                     SettingsRow(icon: "bell.fill", iconColor: .success, label: "Recovery Alerts") {
                         ForgeToggle(isOn: notificationBinding(\.recoveryAlerts))
@@ -1113,7 +1164,11 @@ struct SettingsPageView: View {
 
                 // Clinical Integrations
                 sectionHeader("Clinical Integrations")
-                Button { showMyChartPlaceholderSheet = true } label: {
+                Button {
+                    Task {
+                        try? await HealthKitManager.shared.requestClinicalRecordsAuthorization()
+                    }
+                } label: {
                     HStack(spacing: 14) {
                         ZStack {
                             Circle()
@@ -1125,19 +1180,15 @@ struct SettingsPageView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("MyChart")
+                            Text("Clinical records")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.textPrimary)
-                            Text("Native API placeholder")
+                            Text("Read labs and meds already in Apple Health. Nothing is uploaded.")
                                 .font(.system(size: 12))
                                 .foregroundColor(.textSecondary)
                         }
 
                         Spacer()
-
-                        Text("Filler")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.textSecondary)
 
                         Image(systemName: "chevron.right")
                             .font(.system(size: 13, weight: .medium))
@@ -1153,14 +1204,17 @@ struct SettingsPageView: View {
                 // More
                 sectionHeader("More")
                 SectionCard {
-                    SettingsRow(icon: "lock.shield.fill", iconColor: .textSecondary, label: "Data & Privacy",
-                                trailingText: "HealthKit + Clinical")
+                    Button { showDataPermissions = true } label: {
+                        SettingsRow(icon: "lock.shield.fill", iconColor: .textSecondary, label: "Data & Privacy",
+                                    trailingText: "HealthKit + ARIA", showChevron: true)
+                    }
+                    .buttonStyle(.plain)
                     Divider().background(Color.borderColor)
                     Button {
                         if let privacyPolicyURL = ForgeLegalConfig.privacyPolicyURL {
                             openURL(privacyPolicyURL)
                         } else {
-                            showPrivacyPolicyURLAlert = true
+                            showLocalPrivacy = true
                         }
                     } label: {
                         SettingsRow(icon: "doc.text.fill", iconColor: .textSecondary, label: "Privacy Policy",
@@ -1208,7 +1262,7 @@ struct SettingsPageView: View {
 
                 // Log Out
                 Button {
-                    store.signOut()
+                    confirmSignOut = true
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "rectangle.portrait.and.arrow.right").font(.system(size: 16))
@@ -1239,8 +1293,28 @@ struct SettingsPageView: View {
             TrainingThemePickerView()
         }
         .sheet(isPresented: $showDevicesSheet) {
-            ConnectedDevicesSheet()
+            ConnectedDevicesLibraryView()
                 .environmentObject(store)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .healthDeviceCatalogDidChange)) { _ in
+            catalogRevision += 1
+        }
+        .sheet(isPresented: $showLocalPrivacy) {
+            NavigationStack {
+                ScrollView {
+                    Text("Forge keeps HealthKit data on this device. ARIA only receives what you allow under Data Permissions. Wearables on the Devices list write to Apple Health through their own iOS apps — Forge reads that ledger, it does not scrape vendor accounts.")
+                        .font(.system(size: 15))
+                        .foregroundColor(.textSecondary)
+                        .padding(20)
+                }
+                .background(Color.background)
+                .navigationTitle("Privacy")
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showLocalPrivacy = false }
+                    }
+                }
+            }
         }
         .sheet(isPresented: $showTermsSheet) {
             ForgeTermsAndConditionsView()
@@ -1301,6 +1375,12 @@ struct SettingsPageView: View {
         } message: {
             Text("Add Forge's production privacy policy URL before enabling clinical health records in release builds.")
         }
+        .confirmationDialog("Log out of Forge?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+            Button("Log Out", role: .destructive) { store.signOut() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("You'll need to sign in again. Health data stays on this iPhone.")
+        }
         .onChange(of: briefSettings) { _, updated in
             ForgePersistence.saveBriefNotificationSettings(updated)
             store.updateBriefNotificationSchedule(
@@ -1310,6 +1390,7 @@ struct SettingsPageView: View {
                 eveningMinute: updated.eveningMinute
             )
         }
+        .onAppear { weeklyReview.refreshDue() }
     }
 
     /// Opens the user's mail client with a support draft already addressed and stamped
@@ -1346,24 +1427,44 @@ struct SettingsPageView: View {
         )
     }
 
-    private func briefTimeRow(label: String, hour: Binding<Int>, minute: Binding<Int>) -> some View {
-        HStack(spacing: 12) {
-            Text(label)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.textPrimary)
-            Spacer()
-            Stepper(value: hour, in: 0...23) {
-                Text(String(format: "%02d:%02d", hour.wrappedValue, minute.wrappedValue))
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.textSecondary)
-            }
-            Stepper(value: minute, in: 0...59, step: 15) {
-                EmptyView()
-            }
+    private func briefTimeRow(
+        icon: String,
+        iconColor: Color,
+        label: String,
+        hour: Binding<Int>,
+        minute: Binding<Int>
+    ) -> some View {
+        SettingsRow(icon: icon, iconColor: iconColor, label: label) {
+            DatePicker(
+                label,
+                selection: Binding(
+                    get: { Self.clockDate(hour: hour.wrappedValue, minute: minute.wrappedValue) },
+                    set: { date in
+                        let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+                        hour.wrappedValue = min(23, max(0, parts.hour ?? 0))
+                        minute.wrappedValue = min(59, max(0, parts.minute ?? 0))
+                    }
+                ),
+                displayedComponents: .hourAndMinute
+            )
+            .datePickerStyle(.compact)
             .labelsHidden()
+            .tint(.ember)
+            .accessibilityLabel(label)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+    }
+
+    /// Fixed calendar day so DST cannot flip 6:00 into 5:00 when the picker
+    /// is bound to "today".
+    private static func clockDate(hour: Int, minute: Int) -> Date {
+        var parts = DateComponents()
+        parts.calendar = Calendar.current
+        parts.year = 2026
+        parts.month = 1
+        parts.day = 15
+        parts.hour = min(23, max(0, hour))
+        parts.minute = min(59, max(0, minute))
+        return parts.date ?? Date()
     }
 
     func sectionHeader(_ title: String) -> some View {
@@ -1828,9 +1929,9 @@ struct AppNotificationSettings: Codable, Equatable {
 }
 
 struct BriefNotificationSettings: Codable, Equatable {
-    var morningHour: Int = 8
+    var morningHour: Int = 6
     var morningMinute: Int = 0
-    var eveningHour: Int = 20
+    var eveningHour: Int = 18
     var eveningMinute: Int = 0
 }
 
@@ -1927,7 +2028,21 @@ enum ForgePersistence {
     }
 
     static func loadBriefNotificationSettings() -> BriefNotificationSettings {
-        load(BriefNotificationSettings.self, forKey: briefNotificationSettingsKey) ?? BriefNotificationSettings()
+        var settings = load(BriefNotificationSettings.self, forKey: briefNotificationSettingsKey)
+            ?? BriefNotificationSettings()
+        // One-time move off the old 8:00 / 20:00 factory defaults that the
+        // broken stepper UI also displayed as stacked digits.
+        let migratedKey = "forge.brief.defaults.6am6pm"
+        if !UserDefaults.standard.bool(forKey: migratedKey) {
+            if settings.morningHour == 8, settings.morningMinute == 0,
+               settings.eveningHour == 20, settings.eveningMinute == 0 {
+                settings.morningHour = 6
+                settings.eveningHour = 18
+            }
+            UserDefaults.standard.set(true, forKey: migratedKey)
+            saveBriefNotificationSettings(settings)
+        }
+        return settings
     }
 
     static func saveBriefNotificationSettings(_ settings: BriefNotificationSettings) {
@@ -2143,35 +2258,8 @@ struct ForgeEmptyState: View {
 }
 
 struct ConnectedDevicesSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var store: AppStore
-
     var body: some View {
-        NavigationStack {
-            List {
-                if store.userProfile.connectedDevices.isEmpty {
-                    Text("No connected devices")
-                        .foregroundColor(.textSecondary)
-                } else {
-                    ForEach(store.userProfile.connectedDevices, id: \.self) { device in
-                        Label(device, systemImage: icon(for: device))
-                    }
-                }
-            }
-            .navigationTitle("Connected Devices")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-    }
-
-    private func icon(for device: String) -> String {
-        let normalized = device.lowercased()
-        if normalized.contains("watch") { return "applewatch" }
-        if normalized.contains("ring") { return "circle" }
-        return "sensor.tag.radiowaves.forward"
+        ConnectedDevicesLibraryView()
     }
 }
 

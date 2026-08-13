@@ -481,10 +481,13 @@
 				1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */,
 				1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */,
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
+				AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */,
 				AA00020000000000000000B2 /* PartnerCycleSharing.swift */,
 				AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */,
 				AA00020000000000000000D1 /* SupporterGuidance.swift */,
 				1ARIA0072F9FF867004091AA /* AriaContextStore.swift */,
+				AA00020000000000000000F3 /* LifestyleLocationStore.swift */,
+				AA00020000000000000000F6 /* WeeklyAriaReview.swift */,
 				1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */,
 				1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */,
 				1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */,
@@ -1306,7 +1309,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to detect nearby restaurants and log meals faster.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps, track where you are while Lifestyle is open, and log meals faster.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -1345,7 +1348,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to detect nearby restaurants and log meals faster.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps, track where you are while Lifestyle is open, and log meals faster.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
