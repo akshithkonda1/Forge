@@ -130,6 +130,7 @@ struct MainTabView: View {
     /// Cycle Health is hosted on the shell so Profile/Settings deep links always work
     /// even when Home is not the active tab content.
     @State private var showCycleHealth = false
+    @State private var showHydration = false
     @State private var cycleInitialPane: MenstrualHealthView.Pane = .me
 
     var body: some View {
@@ -185,9 +186,16 @@ struct MainTabView: View {
             guard open else { return }
             presentCycleHealth()
         }
+        .onChange(of: store.pendingHydrationOpen) { _, open in
+            guard open else { return }
+            presentHydration()
+        }
         .onAppear {
             if store.pendingCycleHealthOpen {
                 presentCycleHealth()
+            }
+            if store.pendingHydrationOpen {
+                presentHydration()
             }
         }
         .fullScreenCover(isPresented: $showCycleHealth) {
@@ -208,6 +216,29 @@ struct MainTabView: View {
                     }
             }
         }
+        .fullScreenCover(isPresented: $showHydration) {
+            NavigationStack {
+                HydrationView()
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button {
+                                showHydration = false
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 22))
+                                    .symbolRenderingMode(.hierarchical)
+                                    .foregroundStyle(Color.textSecondary)
+                            }
+                            .accessibilityLabel("Close Hydration")
+                        }
+                    }
+            }
+        }
+    }
+
+    private func presentHydration() {
+        showHydration = true
+        store.pendingHydrationOpen = false
     }
 
     private func presentCycleHealth() {

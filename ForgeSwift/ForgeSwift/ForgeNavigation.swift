@@ -14,6 +14,7 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
     case progress
     case profile
     case cycleHealth
+    case hydration
 
     var id: String { rawValue }
 
@@ -27,6 +28,7 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
         case .progress: return "Progress"
         case .profile: return "Profile"
         case .cycleHealth: return "Cycle Health"
+        case .hydration: return "Hydration"
         }
     }
 
@@ -40,6 +42,7 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
         case .progress: return "History, PRs, streaks"
         case .profile: return "Account & settings"
         case .cycleHealth: return "Phase, predictions, partner"
+        case .hydration: return "Water, pace, Apple Health"
         }
     }
 
@@ -53,6 +56,7 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
         case .progress: return "chart.line.uptrend.xyaxis"
         case .profile: return "person.crop.circle.fill"
         case .cycleHealth: return "heart.circle.fill"
+        case .hydration: return "drop.fill"
         }
     }
 
@@ -66,6 +70,7 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
         case .progress: return Color(hex: "3B82F6")
         case .profile: return .steel
         case .cycleHealth: return Color(hex: "EC4899")
+        case .hydration: return Color(hex: "4A9EFF")
         }
     }
 
@@ -80,6 +85,7 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
         case .progress: return .progress
         case .profile: return .profile
         case .cycleHealth: return nil
+        case .hydration: return nil
         }
     }
 }
@@ -90,6 +96,8 @@ extension AppStore {
         switch destination {
         case .cycleHealth:
             openCycleHealth(pane: "me")
+        case .hydration:
+            openHydration()
         case .lifestyle:
             if let lifestyleSegment {
                 pendingLifestyleSegment = lifestyleSegment

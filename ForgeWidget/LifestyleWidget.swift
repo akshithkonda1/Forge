@@ -112,13 +112,9 @@ struct LifestyleWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: LifestyleProvider()) { entry in
-            if #available(iOS 17.0, *) {
-                LifestyleWidgetView(entry: entry)
-                    .containerBackground(.fill.tertiary, for: .widget)
-            } else {
-                LifestyleWidgetView(entry: entry)
-                    .padding()
-            }
+            LifestyleWidgetView(entry: entry)
+                .containerBackground(.fill.tertiary, for: .widget)
+                .widgetURL(URL(string: "forge://lifestyle"))
         }
         .configurationDisplayName("Lifestyle")
         .description("Your quality-of-life score and ARIA's top recommendation.")

@@ -30,6 +30,8 @@ let package = Package(
                 "DesignSystem/ForgeDS.swift",
                 "DesignSystem/ForgePalette.swift",
                 "HealthKit/HealthKitQueryHelpers.swift",
+                "Intelligence/CircadianRhythm.swift",
+                "Intelligence/HydrationEngine.swift",
                 "Intelligence/ContextRules.swift",
                 "Intelligence/MindfulnessSuggestionEngine.swift",
                 "Intelligence/SleepStoryEngine.swift",
@@ -46,6 +48,7 @@ let package = Package(
                 "Models/WorkoutModels.swift",
                 "Utils/PublishGate.swift",
                 "Utils/WatchSnapshotStore.swift",
+                "Utils/HomeWidgetSnapshot.swift",
             ]
         ),
         .testTarget(

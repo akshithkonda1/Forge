@@ -205,6 +205,9 @@ struct HomeView: View {
                         // 3. Dual primary controls (train + lifestyle)
                         HomePrimaryCTA(action: primaryAction)
 
+                        // 3b. User-pinned widgets (also addable on the iOS Home Screen)
+                        HomeWidgetBoard()
+
                         // 4. Today's agenda
                         HomeAgendaCard()
 
@@ -1588,13 +1591,22 @@ private struct HomeLifestylePreviewCard: View {
                         label: "HRV",
                         color: .danger
                     )
+                    lifestyleChip(
+                        icon: "drop.fill",
+                        value: {
+                            let glasses = HealthKitManager.shared.todayStats?.water ?? 0
+                            return glasses > 0 ? String(format: "%.1f", glasses) : "—"
+                        }(),
+                        label: "Water",
+                        color: Color(hex: "4A9EFF")
+                    )
                 }
 
                 HStack(spacing: 8) {
                     Image(systemName: "fork.knife")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.amber)
-                    Text("Nutrition · hydration · wellbeing live on the Lifestyle tab")
+                    Text("Nutrition · hydration · wellbeing — tap water for the full page")
                         .font(FDS.TypeScale.body(12))
                         .foregroundColor(.textTertiary)
                         .lineLimit(2)
