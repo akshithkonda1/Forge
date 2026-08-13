@@ -437,7 +437,7 @@ struct SleepData: Identifiable {
     ///
     /// Optional because a night can be known by duration alone: HealthKit
     /// entries written by third-party apps sometimes carry no usable stage
-    /// samples, and every seeded night predates this field.
+    /// samples. Seeded demo nights do include both, with deliberate scatter.
     var onset: Date? = nil
     var wake: Date? = nil
 }

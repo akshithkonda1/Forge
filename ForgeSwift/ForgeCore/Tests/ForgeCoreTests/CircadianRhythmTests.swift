@@ -189,6 +189,14 @@ final class CircadianRhythmTests: XCTestCase {
         XCTAssertEqual(phase.wakeHour, 8.5, accuracy: 0.05)
     }
 
+    func testCircularSpreadDoesNotInvertAcrossMidnight() {
+        // 23:30 and 00:30 are an hour apart. Arithmetic on 23.5 and 0.5
+        // pretends they are half a day apart.
+        let spread = CircadianRhythm.circularSpread([23.5, 0.5])
+        XCTAssertEqual(spread, 0.5, accuracy: 0.05)
+        XCTAssertLessThan(spread, 2)
+    }
+
     /// A rotating-shift worker has no stable phase. Saying so is the correct
     /// output; drawing them a confident curve is not.
     func testErraticScheduleReportsLowConfidence() {

@@ -2332,7 +2332,7 @@ struct SleepDebtTrackerView: View {
     // Thresholds match EnergyScheduleCard's, deliberately. The two cards render
     // the same number and disagreeing about whether it is bad would be worse
     // than either of them being slightly off.
-    var debtColor: Color { debt >= 8 ? .danger : debt >= 2 ? .warning : .success }
+    var debtColor: Color { debt >= 8 ? .alert : debt >= 2 ? .amber : .vitality }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {

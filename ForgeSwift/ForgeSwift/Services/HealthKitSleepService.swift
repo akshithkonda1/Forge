@@ -41,13 +41,15 @@ final class HealthKitSleepService: ObservableObject {
     func fetchRecentSleepData(days: Int = 14) async -> [SleepData] {
         guard isAuthorized || healthKit.isAuthorized else { return [] }
         let sessions = await healthKit.fetchRecentSleepSessions(days: days)
+        let recentWakes = sessions.compactMap(\.wake)
         return sessions.map { session in
             let scored = scoreNight(
                 totalHours: session.totalHours,
                 deepMinutes: session.deepMinutes,
                 remMinutes: session.remMinutes,
                 awakeMinutes: session.awakeMinutes,
-                profile: userProfile
+                profile: userProfile,
+                recentWakes: recentWakes
             )
             return SleepData(
                 date: session.date,
@@ -68,7 +70,8 @@ final class HealthKitSleepService: ObservableObject {
         deepMinutes: Int,
         remMinutes: Int,
         awakeMinutes: Int,
-        profile: UserSleepProfile
+        profile: UserSleepProfile,
+        recentWakes: [Date] = []
     ) -> Int {
         let chronotype = profile.chronotype
         let targetHours = chronotype.targetSleepHours
@@ -82,11 +85,22 @@ final class HealthKitSleepService: ObservableObject {
             ? max(0, ((totalMinutes - Double(awakeMinutes)) / totalMinutes) * 100)
             : 0
 
+        // Same spread→confidence map as CircadianRhythm.phase: a 3-hour circular
+        // SD is "no schedule". Under five wakes there is not enough signal, so
+        // keep the old neutral 80 rather than punish a new user for missing data.
+        let consistency: Double
+        if recentWakes.count >= 5 {
+            let spread = CircadianRhythm.circularSpread(recentWakes.map { CircadianRhythm.hourOfDay($0) })
+            consistency = max(0, min(100, (1 - spread / 3.0) * 100))
+        } else {
+            consistency = 80
+        }
+
         let weighted = durationScore * 0.35
             + deepScore * 0.25
             + remScore * 0.20
             + efficiency * 0.15
-            + 80 * 0.05 // consistency placeholder until wake-time samples exist
+            + consistency * 0.05
 
         return min(100, max(0, Int(weighted.rounded())))
     }
@@ -111,6 +125,11 @@ final class HealthKitSleepService: ObservableObject {
         let durations = Array(sleepData.map(\.totalHours).reversed())
         let need = CircadianRhythm.sleepNeedHours(fromAsleepHours: durations)
         return CircadianRhythm.sleepDebtHours(asleepHours: durations, need: need)
+    }
+
+    func estimatedSleepNeed(from sleepData: [SleepData]) -> Double {
+        let durations = Array(sleepData.map(\.totalHours).reversed())
+        return CircadianRhythm.sleepNeedHours(fromAsleepHours: durations)
     }
 
     func targetSleepHours() -> Double {
@@ -368,9 +387,10 @@ final class HealthKitSleepService: ObservableObject {
             return "\(Int(((total - Double(latest.awakeMinutes)) / total) * 100))%"
         }()
 
+        let need = estimatedSleepNeed(from: sleepData)
         var lines: [String] = [
             "CHRONOTYPE: \(userProfile.chronotype.displayName)",
-            "TARGET_SLEEP: \(userProfile.chronotype.targetSleepHours)h | DEBT_7D: \(String(format: "%.1f", debt))h",
+            "SLEEP_NEED: \(String(format: "%.1f", need))h | DEBT_14D: \(String(format: "%.1f", debt))h",
         ]
 
         if let latest {

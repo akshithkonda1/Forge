@@ -411,7 +411,7 @@ public enum CircadianRhythm {
     }
 
     /// Circular standard deviation, in hours. Zero when every night matches.
-    static func circularSpread(_ hours: [Double]) -> Double {
+    public static func circularSpread(_ hours: [Double]) -> Double {
         guard hours.count > 1 else { return 0 }
         var x = 0.0, y = 0.0
         for hour in hours {
