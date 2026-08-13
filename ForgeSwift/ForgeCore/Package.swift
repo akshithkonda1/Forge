@@ -37,6 +37,7 @@ let package = Package(
                 "Intelligence/SleepStoryEngine.swift",
                 "Intelligence/WindDownPredictor.swift",
                 "Intelligence/WorkoutSuggestionEngine.swift",
+                "Models/HealthDeviceCatalog.swift",
                 "Models/HRZones.swift",
                 "Models/LifestyleContext.swift",
                 "Models/MindfulnessPractice.swift",

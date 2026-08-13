@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import ForgeCore
 
 // MARK: - Profile Tab (mirrors profile-tab.tsx)
 
@@ -776,6 +777,8 @@ struct SettingsPageView: View {
     @State private var showBackendURL = false
     @State private var showShareSheet = false
     @State private var showAbout = false
+    @State private var showLocalPrivacy = false
+    @State private var confirmSignOut = false
     @State private var backendURLDraft = AriaService.shared.baseURL.absoluteString
     @State private var briefSettings: BriefNotificationSettings
 
@@ -867,20 +870,31 @@ struct SettingsPageView: View {
                             Image(systemName: "link.badge.plus")
                                 .font(.system(size: 16))
                                 .foregroundColor(.textTertiary)
-                            Text("No devices connected yet")
+                            Text("No devices yet. Browse the library — LARQ, Oura, Garmin, Watch and more.")
                                 .font(.system(size: 14))
                                 .foregroundColor(.textSecondary)
                         }
                         .padding(.horizontal, 16).padding(.vertical, 12)
-                        Divider().background(Color.borderColor)
-                    }
-                    ForEach(Array(store.userProfile.connectedDevices.enumerated()), id: \.element) { idx, device in
-                        if idx > 0 { Divider().background(Color.borderColor) }
-                        SettingsRow(icon: "applewatch", iconColor: .steel, label: device) {
-                            HStack(spacing: 5) {
-                                Circle().fill(Color.success).frame(width: 8, height: 8)
-                                Text("Connected").font(.system(size: 12)).foregroundColor(.textSecondary)
+                    } else {
+                        ForEach(Array(HealthDeviceCatalog.migrateStoredIDs(store.userProfile.connectedDevices).enumerated()), id: \.element) { idx, raw in
+                            if idx > 0 { Divider().background(Color.borderColor) }
+                            let device = HealthDeviceCatalog.device(matching: raw)
+                            Button { showDevicesSheet = true } label: {
+                                SettingsRow(
+                                    icon: device?.symbolName ?? "sensor.tag.radiowaves.forward",
+                                    iconColor: .steel,
+                                    label: device?.name ?? raw,
+                                    showChevron: true
+                                ) {
+                                    HStack(spacing: 5) {
+                                        Circle().fill(Color.success).frame(width: 8, height: 8)
+                                        Text(device?.writesToAppleHealth == true ? "Health" : "iOS")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.textSecondary)
+                                    }
+                                }
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                     Divider().background(Color.borderColor)
@@ -890,7 +904,7 @@ struct SettingsPageView: View {
                                 Circle().stroke(Color.borderLight, style: StrokeStyle(lineWidth: 1, dash: [4])).frame(width: 32, height: 32)
                                 Image(systemName: "plus").font(.system(size: 13)).foregroundColor(.textTertiary)
                             }
-                            Text("Add or Manage Devices")
+                            Text("Browse compatible devices")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.ember)
                         }
@@ -1045,14 +1059,20 @@ struct SettingsPageView: View {
                                     .font(.system(size: 12, weight: .semibold))
                                     .foregroundColor(.textMuted)
                             }
-                            FlowLayout(spacing: 8) {
-                                ForEach(store.userProfile.preferredWorkouts) { type in
-                                    Text(type.label)
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(.textSecondary)
-                                        .padding(.horizontal, 12).padding(.vertical, 5)
-                                        .background(Color.surfaceElevated)
-                                        .cornerRadius(100)
+                            if store.userProfile.preferredWorkouts.isEmpty {
+                                Text("Tap to choose the sessions you actually do.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.textTertiary)
+                            } else {
+                                FlowLayout(spacing: 8) {
+                                    ForEach(store.userProfile.preferredWorkouts) { type in
+                                        Text(type.label)
+                                            .font(.system(size: 12, weight: .medium))
+                                            .foregroundColor(.textSecondary)
+                                            .padding(.horizontal, 12).padding(.vertical, 5)
+                                            .background(Color.surfaceElevated)
+                                            .cornerRadius(100)
+                                    }
                                 }
                             }
                         }
@@ -1113,7 +1133,11 @@ struct SettingsPageView: View {
 
                 // Clinical Integrations
                 sectionHeader("Clinical Integrations")
-                Button { showMyChartPlaceholderSheet = true } label: {
+                Button {
+                    Task {
+                        try? await HealthKitManager.shared.requestClinicalRecordsAuthorization()
+                    }
+                } label: {
                     HStack(spacing: 14) {
                         ZStack {
                             Circle()
@@ -1125,19 +1149,15 @@ struct SettingsPageView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("MyChart")
+                            Text("Clinical records")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.textPrimary)
-                            Text("Native API placeholder")
+                            Text("Read labs and meds already in Apple Health. Nothing is uploaded.")
                                 .font(.system(size: 12))
                                 .foregroundColor(.textSecondary)
                         }
 
                         Spacer()
-
-                        Text("Filler")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.textSecondary)
 
                         Image(systemName: "chevron.right")
                             .font(.system(size: 13, weight: .medium))
@@ -1153,14 +1173,17 @@ struct SettingsPageView: View {
                 // More
                 sectionHeader("More")
                 SectionCard {
-                    SettingsRow(icon: "lock.shield.fill", iconColor: .textSecondary, label: "Data & Privacy",
-                                trailingText: "HealthKit + Clinical")
+                    Button { showDataPermissions = true } label: {
+                        SettingsRow(icon: "lock.shield.fill", iconColor: .textSecondary, label: "Data & Privacy",
+                                    trailingText: "HealthKit + ARIA", showChevron: true)
+                    }
+                    .buttonStyle(.plain)
                     Divider().background(Color.borderColor)
                     Button {
                         if let privacyPolicyURL = ForgeLegalConfig.privacyPolicyURL {
                             openURL(privacyPolicyURL)
                         } else {
-                            showPrivacyPolicyURLAlert = true
+                            showLocalPrivacy = true
                         }
                     } label: {
                         SettingsRow(icon: "doc.text.fill", iconColor: .textSecondary, label: "Privacy Policy",
@@ -1208,7 +1231,7 @@ struct SettingsPageView: View {
 
                 // Log Out
                 Button {
-                    store.signOut()
+                    confirmSignOut = true
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "rectangle.portrait.and.arrow.right").font(.system(size: 16))
@@ -1239,8 +1262,25 @@ struct SettingsPageView: View {
             TrainingThemePickerView()
         }
         .sheet(isPresented: $showDevicesSheet) {
-            ConnectedDevicesSheet()
+            ConnectedDevicesLibraryView()
                 .environmentObject(store)
+        }
+        .sheet(isPresented: $showLocalPrivacy) {
+            NavigationStack {
+                ScrollView {
+                    Text("Forge keeps HealthKit data on this device. ARIA only receives what you allow under Data Permissions. Wearables on the Devices list write to Apple Health through their own iOS apps — Forge reads that ledger, it does not scrape vendor accounts.")
+                        .font(.system(size: 15))
+                        .foregroundColor(.textSecondary)
+                        .padding(20)
+                }
+                .background(Color.background)
+                .navigationTitle("Privacy")
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showLocalPrivacy = false }
+                    }
+                }
+            }
         }
         .sheet(isPresented: $showTermsSheet) {
             ForgeTermsAndConditionsView()
@@ -1300,6 +1340,12 @@ struct SettingsPageView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text("Add Forge's production privacy policy URL before enabling clinical health records in release builds.")
+        }
+        .confirmationDialog("Log out of Forge?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+            Button("Log Out", role: .destructive) { store.signOut() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("You'll need to sign in again. Health data stays on this iPhone.")
         }
         .onChange(of: briefSettings) { _, updated in
             ForgePersistence.saveBriefNotificationSettings(updated)
@@ -2143,35 +2189,8 @@ struct ForgeEmptyState: View {
 }
 
 struct ConnectedDevicesSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var store: AppStore
-
     var body: some View {
-        NavigationStack {
-            List {
-                if store.userProfile.connectedDevices.isEmpty {
-                    Text("No connected devices")
-                        .foregroundColor(.textSecondary)
-                } else {
-                    ForEach(store.userProfile.connectedDevices, id: \.self) { device in
-                        Label(device, systemImage: icon(for: device))
-                    }
-                }
-            }
-            .navigationTitle("Connected Devices")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-    }
-
-    private func icon(for device: String) -> String {
-        let normalized = device.lowercased()
-        if normalized.contains("watch") { return "applewatch" }
-        if normalized.contains("ring") { return "circle" }
-        return "sensor.tag.radiowaves.forward"
+        ConnectedDevicesLibraryView()
     }
 }
 

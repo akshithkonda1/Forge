@@ -884,7 +884,7 @@ final class AppStore: ObservableObject {
     @Published var authEmail: String = ""
 
     // User Profile
-    @Published var userProfile: UserProfile = mockProfile {
+    @Published var userProfile: UserProfile = emptyProfile {
         didSet { persistUserProfile() }
     }
 
@@ -1980,6 +1980,18 @@ final class AppStore: ObservableObject {
             return
         }
         objectWillChange.send()
+    }
+
+    func connectHealthDevice(_ id: String) {
+        var ids = HealthDeviceCatalog.migrateStoredIDs(userProfile.connectedDevices)
+        if !ids.contains(id) { ids.append(id) }
+        userProfile.connectedDevices = ids
+    }
+
+    func disconnectHealthDevice(_ id: String) {
+        var ids = HealthDeviceCatalog.migrateStoredIDs(userProfile.connectedDevices)
+        ids.removeAll { $0 == id }
+        userProfile.connectedDevices = ids
     }
 
     /// Stores a new profile photo on disk and records its filename on the profile.
