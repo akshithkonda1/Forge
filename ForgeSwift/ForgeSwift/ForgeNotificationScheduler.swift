@@ -89,17 +89,22 @@ enum ForgeNotificationScheduler {
         }
 
         if briefEnabled {
+            let due = await TodayBriefSync.shared.notifications()
+            let morning = due.first { $0.slot == "morning" }
+            let evening = due.first { $0.slot == "evening" }
             await scheduleDaily(
                 id: ID.briefMorning,
                 hour: brief.morningHour, minute: brief.morningMinute,
-                title: "ARIA Morning Brief",
-                body: "Your personalized morning coaching brief is ready."
+                title: morning?.title ?? "ARIA · morning",
+                body: morning?.body ?? "One call for today: train, easy, or recover.",
+                destination: morning?.destination ?? "forge://today/morning"
             )
             await scheduleDaily(
                 id: ID.briefEvening,
                 hour: brief.eveningHour, minute: brief.eveningMinute,
-                title: "ARIA Evening Brief",
-                body: "Review today's signals and tomorrow's focus."
+                title: evening?.title ?? "ARIA · evening",
+                body: evening?.body ?? "What actually happened versus this morning's call.",
+                destination: evening?.destination ?? "forge://today/evening"
             )
         }
 
@@ -199,7 +204,14 @@ enum ForgeNotificationScheduler {
         }
     }
 
-    private static func scheduleDaily(id: String, hour: Int, minute: Int, title: String, body: String) async {
+    private static func scheduleDaily(
+        id: String,
+        hour: Int,
+        minute: Int,
+        title: String,
+        body: String,
+        destination: String? = nil
+    ) async {
         var components = DateComponents()
         components.hour = hour
         components.minute = minute
@@ -207,6 +219,9 @@ enum ForgeNotificationScheduler {
         content.title = title
         content.body = body
         content.sound = .default
+        if let destination {
+            content.userInfo = ["destination": destination]
+        }
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
         try? await center.add(request)

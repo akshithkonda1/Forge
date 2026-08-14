@@ -52,8 +52,14 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     payload["user_id"] = uid
     context = aria_engine.ARIAContext.from_payload(payload)
     weekly_note = weekly_review.briefing_for_chat(uid)
-    if weekly_note:
-        message = f"{weekly_note}\n\n{message}"
+    from services import household, ledger, source_map
+
+    profile = ledger.load_profile(uid)
+    source_note = source_map.briefing_for_chat(uid, ledger.connected_device_ids(profile))
+    house_note = household.briefing_for_chat(uid)
+    preface = "\n\n".join(part for part in (weekly_note, source_note, house_note) if part)
+    if preface:
+        message = f"{preface}\n\n{message}"
     permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
     reason = (
         aria_engine.generate_response_live

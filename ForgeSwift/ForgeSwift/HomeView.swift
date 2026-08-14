@@ -125,19 +125,28 @@ enum HomePrimaryAction: Equatable {
 
     var title: String {
         switch self {
-        case .startWorkout(_, let name): return "Start \(name)"
-        case .continueWorkout:           return "Continue session"
-        case .recoveryDay:               return "Start recovery session"
-        case .buildPlan:                 return "Build today's plan with ARIA"
+        case .startWorkout:    return "Start today's workout"
+        case .continueWorkout: return "Back to your workout"
+        case .recoveryDay:     return "See an easier day"
+        case .buildPlan:       return "Get today's plan"
         }
     }
 
     var subtitle: String? {
         switch self {
-        case .startWorkout:              return "Primary control · ready when you are"
+        case .startWorkout(_, let name): return name
         case .continueWorkout:           return "Pick up where you left off"
         case .recoveryDay(let reason):   return reason
-        case .buildPlan:                 return "ARIA will shape a session from your readiness"
+        case .buildPlan:                 return "ARIA uses last night's sleep and today's readiness"
+        }
+    }
+
+    var callWord: String {
+        switch self {
+        case .continueWorkout: return "In session"
+        case .recoveryDay:     return "Easy"
+        case .buildPlan:       return "Plan"
+        case .startWorkout:    return "Train"
         }
     }
 
@@ -195,15 +204,16 @@ struct HomeView: View {
                     // One gap and one inset for the whole page, applied here rather
                     // than as thirteen per-child bottom paddings.
                     VStack(spacing: HomeMetrics.sectionGap) {
-                        // 1. Header
                         HomeHeaderView()
                             .padding(.top, 64)
 
-                        // 2. Hero readiness control
-                        HomeHeroReadinessCard(onCelebrate: triggerCelebration)
+                        HomeSetupNudge()
 
-                        // 3. Dual primary controls (train + lifestyle)
+                        HomeTodayCallCard(action: primaryAction)
+
                         HomePrimaryCTA(action: primaryAction)
+
+                        HomeHeroReadinessCard(onCelebrate: triggerCelebration)
 
                         // 3b. User-pinned widgets (also addable on the iOS Home Screen)
                         HomeWidgetBoard()
@@ -365,6 +375,100 @@ struct HomeView: View {
 }
 
 // ============================================================
+// MARK: - First-run + today's call
+// ============================================================
+
+private struct HomeSetupNudge: View {
+    @EnvironmentObject var store: AppStore
+
+    private var needsHealth: Bool { !store.healthKitLive }
+    private var needsDevice: Bool { store.userProfile.connectedDevices.isEmpty }
+
+    var body: some View {
+        if needsHealth || needsDevice {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("GET SET")
+                    .forgeSectionLabel()
+                if needsHealth {
+                    Button {
+                        Task { await store.reconnectHealthKit() }
+                    } label: {
+                        nudgeRow(
+                            icon: "heart.fill",
+                            title: "Connect Apple Health",
+                            detail: "Forge reads sleep, heart, and workouts you already have."
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+                if needsDevice {
+                    Button { store.activeTab = .profile } label: {
+                        nudgeRow(
+                            icon: "applewatch",
+                            title: "Add a device you own",
+                            detail: "Watch, ring, or bottle — Forge uses what it writes to Health."
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(HomeMetrics.cardPadding)
+            .forgeGlassCard(accent: .ember)
+            .homeEntrance(delay: 0.05)
+        }
+    }
+
+    private func nudgeRow(icon: String, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.ember)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                Text(detail)
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.textMuted)
+        }
+    }
+}
+
+private struct HomeTodayCallCard: View {
+    @EnvironmentObject var store: AppStore
+    let action: HomePrimaryAction
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("TODAY")
+                .forgeSectionLabel()
+            Text(action.callWord)
+                .font(.system(size: 34, weight: .bold))
+                .foregroundColor(.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+            if let subtitle = action.subtitle {
+                Text(subtitle)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(HomeMetrics.cardPadding)
+        .forgeGlassCard(accent: action.isRecovery ? .steel : .ember)
+        .homeEntrance(delay: 0.08)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Today: \(action.callWord). \(action.subtitle ?? "")")
+    }
+}
+
+// ============================================================
 // MARK: - Header
 // ============================================================
 
@@ -423,6 +527,7 @@ struct HomeHeaderView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(store.quietMode ? "Quiet mode on" : "Quiet mode off")
+            .accessibilityHint("Hides ARIA's extra cards so Home stays simple")
             .padding(.trailing, 8)
 
             Button {
@@ -493,20 +598,20 @@ private struct HomeDataStatusPill: View {
         .buttonStyle(.plain)
         .disabled(isLive || reconnecting)
         .accessibilityLabel(statusText)
-        .accessibilityHint(isLive ? "" : "Double tap to reconnect HealthKit")
+        .accessibilityHint(isLive ? "" : "Double tap to connect Apple Health")
     }
 
     private var statusText: String {
-        if reconnecting { return "Reconnecting…" }
+        if reconnecting { return "Connecting Health…" }
         if isLive {
             if let updatedAt {
                 let mins = max(0, Int(Date().timeIntervalSince(updatedAt) / 60))
-                if mins < 1 { return "HealthKit live · just now" }
-                if mins < 60 { return "HealthKit live · \(mins)m ago" }
+                if mins < 1 { return "Apple Health · just now" }
+                if mins < 60 { return "Apple Health · \(mins)m ago" }
             }
-            return "HealthKit live"
+            return "Apple Health on"
         }
-        return "HealthKit offline · tap to reconnect"
+        return "Tap to connect Apple Health"
     }
 }
 
@@ -574,7 +679,7 @@ private struct HomeHeroReadinessCard: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("READINESS")
+                    Text("HOW YOU'RE DOING")
                         .forgeSectionLabel()
                     Text(homeStatusLine(store: store))
                         .font(.system(size: 13, weight: .semibold))
@@ -774,7 +879,7 @@ private struct HomePrimaryCTA: View {
                     HStack(spacing: 6) {
                         Image(systemName: "leaf.fill")
                             .font(.system(size: 12, weight: .semibold))
-                        Text("Lifestyle")
+                        Text("Meals & water")
                             .font(.system(size: 13, weight: .semibold))
                     }
                     .foregroundColor(Color.vitality)
@@ -862,7 +967,7 @@ struct HomeARIABriefingCard: View {
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(.textMuted)
                     }
-                    Text("Daily command · Forge")
+                    Text("What to do today")
                         .font(.system(size: 11))
                         .foregroundColor(.textMuted)
                 }
@@ -1459,8 +1564,8 @@ private struct HomeAgendaCard: View {
         } else {
             rows.append((
                 "moon.zzz.fill",
-                "Log or sync sleep",
-                "HealthKit sleep improves readiness",
+                "Sleep last night",
+                "Open Sleep to sync from Apple Health",
                 .steel,
                 { store.activeTab = .sleep }
             ))
@@ -1468,8 +1573,8 @@ private struct HomeAgendaCard: View {
 
         rows.append((
             "leaf.fill",
-            "Lifestyle check-in",
-            "Protein · water · meals",
+            "Meals and water",
+            "Log food or a sip",
             Color.vitality,
             { store.activeTab = .lifestyle }
         ))
@@ -1502,10 +1607,10 @@ private struct HomeAgendaCard: View {
         let rows = items
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("TODAY'S AGENDA")
+                Text("UP NEXT")
                     .forgeSectionLabel()
                 Spacer()
-                Text("\(rows.count) items")
+                Text("\(rows.count)")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.textMuted)
             }
@@ -2282,10 +2387,10 @@ private func readinessColor(_ score: Int) -> Color {
 
 private func readinessLabel(_ score: Int) -> String {
     switch score {
-    case 85...: return "Peak"
+    case 85...: return "Ready"
     case 70..<85: return "Good"
-    case 50..<70: return "Fair"
-    default: return "Low"
+    case 50..<70: return "Take it easy"
+    default: return "Rest"
     }
 }
 
@@ -2293,9 +2398,9 @@ private func readinessLabel(_ score: Int) -> String {
 private func homeStatusLine(store: AppStore) -> String {
     let score = store.readiness.overall
     switch score {
-    case 85...: return "Primed to perform"
-    case 70..<85: return "Recovered enough to train"
-    case 55..<70: return "Train smart, not maximal"
-    default: return "Protect recovery today"
+    case 85...: return "You're ready to train"
+    case 70..<85: return "Good enough to train"
+    case 55..<70: return "Keep today lighter"
+    default: return "Rest today — don't push"
     }
 }

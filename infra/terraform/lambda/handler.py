@@ -18,6 +18,7 @@ from routes import (
     profile,
     progress,
     sleep,
+    today,
     watch,
     workouts,
 )
@@ -150,6 +151,46 @@ def handler(event, _context):
 
         if method == "GET" and path == "/dashboard/today":
             return dashboard.handle_get_dashboard_today(user_id)
+
+        if method == "GET" and path == "/today/decision":
+            return today.handle_get_decision(user_id)
+
+        if method == "GET" and path == "/today/brief":
+            slot = str((event.get("queryStringParameters") or {}).get("slot") or "morning")
+            return today.handle_get_brief(user_id, slot)
+
+        if method == "POST" and path == "/today/brief/evening":
+            return today.handle_post_evening_brief(user_id, body)
+
+        if method == "GET" and path == "/notifications/due":
+            return today.handle_get_notifications(user_id)
+
+        if method == "GET" and path == "/sources":
+            return today.handle_get_sources(user_id)
+
+        if method == "GET" and path == "/anomalies":
+            return today.handle_get_anomalies(user_id)
+
+        if method == "GET" and path == "/week/plan":
+            return today.handle_get_week(user_id)
+
+        if method == "POST" and path == "/week/plan/rewrite":
+            return today.handle_post_week_rewrite(user_id)
+
+        if method == "GET" and path == "/household":
+            return today.handle_get_household(user_id)
+
+        if method == "PUT" and path == "/household":
+            return today.handle_put_household(user_id, body)
+
+        if method == "POST" and path == "/partner/mindset":
+            return today.handle_post_partner_mindset(user_id, body)
+
+        if method == "GET" and path == "/watch/companion":
+            return watch.handle_get_watch_companion(user_id)
+
+        if method == "POST" and path == "/watch/log":
+            return watch.handle_post_watch_log(user_id, body)
 
         if method == "GET" and path == "/sleep":
             days = _query_int(event, "days", 14, maximum=90)

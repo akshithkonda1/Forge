@@ -1715,12 +1715,14 @@ struct PartnerCycleSettings: Codable, Equatable {
     /// Last bleeding day confirmed for the supported person. Drives the return from
     /// period-support coaching back to everyday support.
     var confirmedPeriodEndDayKey: String?
+    /// First year / early cycles — a daughter's first periods, not a cute milestone.
+    var earlyCycles: Bool
 
     enum CodingKeys: String, CodingKey {
         case enabled, partnerName, relationshipLabel, supportRole, shareWithAria
         case averageCycleOverride, averagePeriodOverride, typicalLutealDays
         case usesHormonalContraception, consentAcknowledged, notes
-        case confirmedPeriodEndDayKey
+        case confirmedPeriodEndDayKey, earlyCycles
     }
 
     static let `default` = PartnerCycleSettings(
@@ -1735,7 +1737,8 @@ struct PartnerCycleSettings: Codable, Equatable {
         usesHormonalContraception: false,
         consentAcknowledged: false,
         notes: "",
-        confirmedPeriodEndDayKey: nil
+        confirmedPeriodEndDayKey: nil,
+        earlyCycles: false
     )
 
     init(
@@ -1750,7 +1753,8 @@ struct PartnerCycleSettings: Codable, Equatable {
         usesHormonalContraception: Bool,
         consentAcknowledged: Bool,
         notes: String,
-        confirmedPeriodEndDayKey: String? = nil
+        confirmedPeriodEndDayKey: String? = nil,
+        earlyCycles: Bool = false
     ) {
         self.enabled = enabled
         self.partnerName = partnerName
@@ -1764,6 +1768,7 @@ struct PartnerCycleSettings: Codable, Equatable {
         self.consentAcknowledged = consentAcknowledged
         self.notes = notes
         self.confirmedPeriodEndDayKey = confirmedPeriodEndDayKey
+        self.earlyCycles = earlyCycles
     }
 
     init(from decoder: Decoder) throws {
@@ -1779,6 +1784,7 @@ struct PartnerCycleSettings: Codable, Equatable {
         consentAcknowledged = try c.decodeIfPresent(Bool.self, forKey: .consentAcknowledged) ?? false
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
         confirmedPeriodEndDayKey = try c.decodeIfPresent(String.self, forKey: .confirmedPeriodEndDayKey)
+        earlyCycles = try c.decodeIfPresent(Bool.self, forKey: .earlyCycles) ?? false
         if let role = try c.decodeIfPresent(CycleSupportRole.self, forKey: .supportRole) {
             supportRole = role
         } else {
@@ -1818,6 +1824,7 @@ struct PartnerSupportBrief: Equatable {
     var intimacyNote: String
     var trainingTogetherNote: String
     var communicationTip: String
+    var mindset: String = ""
     var disclaimer: String
 
     static let disclaimer = """

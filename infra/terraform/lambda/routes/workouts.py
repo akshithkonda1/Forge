@@ -44,4 +44,14 @@ def handle_post_workout_log(user_id: str, body: dict) -> dict:
 
     item = {**keys.workout_log_key(user_id, started_at), **log}
     dynamodb.put_item(item)
+    from services import ledger, source_map
+
+    source_map.record_seen(
+        user_id,
+        str(log.get("source") or "manual"),
+        metric_type="workout-load",
+        at=str(started_at),
+        value=log.get("duration"),
+    )
+    ledger.refresh_after_ingest(user_id)
     return ok({"workout": log})

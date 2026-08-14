@@ -32,4 +32,14 @@ def handle_post_sleep_sessions(user_id: str, body: dict) -> dict:
 
     item = {**keys.sleep_key(user_id, date, source), **session}
     dynamodb.put_item(item)
+    from services import ledger, source_map
+
+    source_map.record_seen(
+        user_id,
+        str(source),
+        metric_type="sleep-hours",
+        at=str(date),
+        value=session.get("score") or session.get("totalHours"),
+    )
+    ledger.refresh_after_ingest(user_id)
     return ok({"session": session})

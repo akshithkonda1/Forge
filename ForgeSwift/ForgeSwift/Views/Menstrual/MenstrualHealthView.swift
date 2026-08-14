@@ -2184,6 +2184,20 @@ struct MenstrualHealthView: View {
             .background(Color.surfaceElevated)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
+            if supportRole == .child {
+                Toggle(isOn: Binding(
+                    get: { cycleStore.partnerSettings.earlyCycles },
+                    set: { on in cycleStore.updatePartnerSettings { $0.earlyCycles = on } }
+                )) {
+                    Text("Early cycles / first year")
+                        .font(FDS.TypeScale.body(14))
+                        .foregroundColor(.textPrimary)
+                }
+                Text("For a first period and the months after. Practical and private — never a celebration speech.")
+                    .font(FDS.TypeScale.body(12))
+                    .foregroundColor(.textSecondary)
+            }
+
             Button {
                 cycleStore.updatePartnerSettings {
                     $0.consentAcknowledged = true
@@ -2293,6 +2307,11 @@ struct MenstrualHealthView: View {
             Text(brief.headline)
                 .font(FDS.TypeScale.label(15))
                 .foregroundColor(.textPrimary)
+            if !brief.mindset.isEmpty {
+                Text(brief.mindset)
+                    .font(FDS.TypeScale.body(13))
+                    .foregroundColor(.textSecondary)
+            }
             ForEach(brief.supportMoves.prefix(4), id: \.self) { line in
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")

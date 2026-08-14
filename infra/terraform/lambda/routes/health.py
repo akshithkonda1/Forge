@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import re
+
 from responses import RouteError, ok
-from services import normalization
+from services import ledger, normalization, source_map
 from storage import dynamodb, keys
 
 _VALID_METRIC_TYPES = {
@@ -11,18 +13,16 @@ _VALID_METRIC_TYPES = {
     "resting-heart-rate",
     "heart-rate",
     "sleep-stage",
+    "sleep-hours",
     "body-weight",
     "distance",
+    "dietary-water",
+    "blood-glucose",
+    "mindful-minutes",
+    "workout-load",
 }
 
-_VALID_SOURCES = {
-    "apple-health",
-    "oura",
-    "whoop",
-    "garmin",
-    "strava",
-    "manual",
-}
+_SOURCE_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,40}$")
 
 
 def handle_post_health_batch(user_id: str, body: dict) -> dict:
@@ -50,10 +50,11 @@ def handle_post_health_batch(user_id: str, body: dict) -> dict:
             errors.append({"message": f"metrics[{i}].metricType '{metric_type}' is not supported."})
             continue
 
-        if source not in _VALID_SOURCES:
+        if not _SOURCE_RE.match(str(source).lower()):
             rejected += 1
             errors.append({"message": f"metrics[{i}].source '{source}' is not supported."})
             continue
+        source = str(source).lower()
 
         if not started_at:
             rejected += 1
@@ -68,6 +69,14 @@ def handle_post_health_batch(user_id: str, body: dict) -> dict:
         normalized = normalization.normalize_metric(metric)
         item = {**keys.metric_key(user_id, metric_type, started_at), **normalized}
         dynamodb.put_item(item)
+        source_map.record_seen(
+            user_id,
+            source,
+            metric_type=metric_type,
+            at=started_at,
+            value=value,
+        )
         accepted += 1
 
+    ledger.refresh_after_ingest(user_id)
     return ok({"accepted": accepted, "rejected": rejected, "errors": errors})

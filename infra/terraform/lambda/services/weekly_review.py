@@ -145,6 +145,20 @@ def submit(user_id: str, answers: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def append_note(user_id: str, note: str) -> None:
+    """Keep an evening brief answer without closing the weekly interview."""
+    text = sanitize_user_text(note, max_chars=MAX_ANSWER_CHARS)
+    if not text:
+        return
+    record = load(user_id)
+    facts = list(record.get("facts") or [])
+    line = f"Evening note: {text}"
+    if line not in facts:
+        facts.insert(0, line)
+    record["facts"] = facts[:10]
+    dynamodb.put_item({**keys.weekly_review_key(user_id), **record})
+
+
 def briefing_for_chat(user_id: str) -> str | None:
     facts = load(user_id).get("facts") or []
     if not facts:

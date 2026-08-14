@@ -138,6 +138,10 @@ enum PartnerSupportCoach {
             lines.append(brief.communicationTip)
             lines.append(contentsOf: brief.avoidMoves.prefix(3).map { "• Avoid: \($0)" })
         } else {
+            if !brief.mindset.isEmpty {
+                lines.append("**What this feels like for them**")
+                lines.append(brief.mindset)
+            }
             lines.append("**How you can show up**")
             lines.append(contentsOf: brief.supportMoves.prefix(5).map { "• \($0)" })
             lines.append("**Ease off**")
@@ -183,9 +187,11 @@ enum PartnerSupportCoach {
         let intimacy: String
         let training: String
         let talk: String
+        var mindset = ""
 
         switch phase {
         case .menstruation:
+            mindset = "\(name) is bleeding. Pain, fog, and a shorter fuse can all be true at once. That is a body under load, not a personality change aimed at you."
             headline = "\(name) is in menstruation" + (day.map { " (day \($0))" } ?? "") + " — lead with comfort and low pressure."
             support = [
                 "Ask what would feel good today: quiet night, heat pack, snack run, or space.",
@@ -296,6 +302,7 @@ enum PartnerSupportCoach {
             intimacyNote: intimacy,
             trainingTogetherNote: training,
             communicationTip: talk,
+            mindset: mindset,
             disclaimer: PartnerSupportBrief.disclaimer
         )
     }
@@ -319,9 +326,28 @@ enum PartnerSupportCoach {
         let sports: String
         let talk: String
 
+        let mindset: String
         switch phase {
         case .menstruation:
-            headline = "\(name) is on \(her(settings)) period" + (day.map { " (day \($0))" } ?? "") + " — dads and parents: comfort, supplies, and zero embarrassment."
+            if settings.earlyCycles {
+                headline = "\(name) is bleeding. First-year cycles: supplies, privacy, zero spectacle."
+                mindset = "This may be new for \(name). First cycles are often irregular, crampy, and embarrassing in a way that has nothing to do with you. She needs the day to stay ordinary — not a speech, not a celebration."
+                support = [
+                    "Keep pads, liners, period underwear, and a spare pair of underwear where she can take them without asking.",
+                    "A heat pack, water, and a favourite meal. No speech.",
+                    "Believe pain. \"Walk it off\" is not care.",
+                    "If she wants school or practice cancelled, you are the adult who makes that easy with the coach or office.",
+                    "If she wants to talk, she will start. Leave the door open. Do not walk through it.",
+                ]
+                avoid = [
+                    "Don't say \"welcome to womanhood\" or treat this as a milestone to celebrate in front of her.",
+                    "Don't joke, nickname, or mention it to siblings, relatives, or teammates.",
+                    "Don't interrogate flow, products, or \"are you sure?\"",
+                    "Don't make her educate you. You read this so she doesn't have to teach.",
+                ]
+            } else {
+            headline = "\(name) is on \(her(settings)) period" + (day.map { " (day \($0))" } ?? "") + " — comfort, supplies, and zero embarrassment."
+            mindset = "\(name) is on her period. Cramps, fatigue, and wanting to be left alone can sit next to wanting someone quietly nearby. That is not mixed signals. It is a hard day."
             support = [
                 "Keep a quiet stock of pads/tampons/period underwear in the bathroom and car — no speech required.",
                 "Offer a heat pack, water, and a favorite snack without making it a production.",
@@ -336,6 +362,7 @@ enum PartnerSupportCoach {
                 "Don't shame body, products, or accidents — handle laundry/supplies matter-of-factly.",
                 "Don't force \"push through\" for every practice; teach listening to the body.",
             ]
+            }
             plans = [
                 "Low-key night: movie, blankets, easy food \(she) picks.",
                 "Short walk only if \(she) wants — no mandatory bonding adventure.",
@@ -346,6 +373,7 @@ enum PartnerSupportCoach {
             talk = "Try: \"I've got supplies if you need them. Want quiet, a snack, or a ride?\" Short. Normal. No lecture."
 
         case .follicular:
+            mindset = "\(name)'s energy is often coming back. Let her set the pace."
             headline = "\(name) is in the follicular phase" + (day.map { " · day \($0)" } ?? "") + " — energy often rises; good window for skills, sports, and confidence."
             support = [
                 "Encourage activities \(she) already loves — practice, clubs, outdoors — without overloading the calendar.",
@@ -362,6 +390,7 @@ enum PartnerSupportCoach {
             talk = "Try: \"Want to do something active this week, or keep it chill?\""
 
         case .fertileWindow, .ovulation:
+            mindset = "Mid-cycle can feel stronger. This is still not a fertility lecture."
             headline = "\(name) may be mid-cycle" + (day.map { " · day \($0)" } ?? "") + " — energy can peak; keep support practical and private."
             support = [
                 "Normal life support: food, sleep, school logistics.",
@@ -380,6 +409,9 @@ enum PartnerSupportCoach {
 
         case .luteal:
             let late = (day ?? 0) >= 22 || snapshot.recommendRecoveryBias
+            mindset = late
+                ? "\(name) may be pre-period: shorter patience, worse sleep, less buffer. She is not being dramatic."
+                : "Capacity can wobble here. Stay steady."
             headline = late
                 ? "\(name) may be pre-period — patience, snacks, and softer expectations help a lot."
                 : "\(name) is in the luteal phase" + (day.map { " · day \($0)" } ?? "") + " — mood and energy can wobble; stay steady."
@@ -403,6 +435,7 @@ enum PartnerSupportCoach {
             talk = "Try: \"You seem stretched — want help with anything, or just space?\""
 
         case .unknown:
+            mindset = "No recent update. Be available. Don't hunt for a cycle story."
             headline = "Log \(name)'s period starts (with \(her(settings)) knowledge) so you can plan school, sports, and support better."
             support = [
                 "Many dads track starts on a shared calendar \(she) can see — transparency builds trust.",
@@ -433,6 +466,7 @@ enum PartnerSupportCoach {
             intimacyNote: dignity,
             trainingTogetherNote: sports,
             communicationTip: talk,
+            mindset: mindset,
             disclaimer: PartnerSupportBrief.disclaimer
         )
     }

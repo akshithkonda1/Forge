@@ -873,7 +873,7 @@ struct SettingsPageView: View {
                             Image(systemName: "link.badge.plus")
                                 .font(.system(size: 16))
                                 .foregroundColor(.textTertiary)
-                            Text("No devices yet. Browse the library — LARQ, Oura, Garmin, Watch and more.")
+                            Text("Add a Watch, ring, or bottle you already own. Forge reads what it writes to Apple Health.")
                                 .font(.system(size: 14))
                                 .foregroundColor(.textSecondary)
                         }
@@ -910,7 +910,7 @@ struct SettingsPageView: View {
                                 Circle().stroke(Color.borderLight, style: StrokeStyle(lineWidth: 1, dash: [4])).frame(width: 32, height: 32)
                                 Image(systemName: "plus").font(.system(size: 13)).foregroundColor(.textTertiary)
                             }
-                            Text("Browse compatible devices")
+                            Text("Add a device")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.ember)
                         }

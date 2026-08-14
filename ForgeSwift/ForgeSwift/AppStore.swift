@@ -15,12 +15,12 @@ enum TabItem: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .home: return "Home"
-        case .workout: return "Workout"
+        case .workout: return "Train"
         case .chat: return "ARIA"
-        case .lifestyle: return "Lifestyle"
+        case .lifestyle: return "Life"
         case .sleep: return "Sleep"
-        case .progress: return "Progress"
-        case .profile: return "Profile"
+        case .progress: return "Stats"
+        case .profile: return "You"
         }
     }
     var systemImage: String {

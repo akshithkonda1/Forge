@@ -49,6 +49,30 @@ def weekly_review_key(user_id: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": "ARIA#WEEKLY_REVIEW"}
 
 
+def source_seen_key(user_id: str, source: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"SOURCE#{source}"}
+
+
+def daily_decision_key(user_id: str, date: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"DECISION#{date}"}
+
+
+def brief_key(user_id: str, date: str, slot: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"BRIEF#{date}#{slot}"}
+
+
+def week_plan_key(user_id: str, week_start: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"WEEK#{week_start}"}
+
+
+def daily_metrics_key(user_id: str, date: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"DAY#{date}"}
+
+
+def household_key(user_id: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": "HOUSEHOLD"}
+
+
 CATALOG_PK = "CATALOG#DEVICES"
 
 

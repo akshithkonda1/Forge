@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from responses import RouteError, ok
-from services import watch_debrief
+from services import watch_companion, watch_debrief
 
 
 def _optional_float(value: Any) -> float | None:
@@ -30,3 +30,13 @@ def handle_post_watch_aria_suggest(body: dict[str, Any], user_id: str) -> dict:
     heart_rate_settle_bpm = _optional_float(body.get("heartRateSettleBPM"))
 
     return ok(watch_debrief.generate_debrief(context, practice, minutes, heart_rate_settle_bpm))
+
+
+def handle_get_watch_companion(user_id: str) -> dict:
+    return ok(watch_companion.snapshot(user_id))
+
+
+def handle_post_watch_log(user_id: str, body: dict[str, Any]) -> dict:
+    if not isinstance(body, dict):
+        raise RouteError(400, "Request body must be an object.")
+    return ok(watch_companion.log_event(user_id, body))

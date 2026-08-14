@@ -57,6 +57,45 @@ final class ARIAWatchService {
             snapshot.recommendedDuration = suggestion.duration
             snapshot.recommendationReason = suggestion.reason
         }
+        Task { await refreshCompanion() }
+    }
+
+    private struct CompanionPayload: Decodable {
+        var coach: String?
+        var decision: Decision?
+        var tracking: Tracking?
+        struct Decision: Decodable {
+            var call: String?
+            var why: String?
+        }
+        struct Tracking: Decodable {
+            var water: Double?
+            var activeCalories: Double?
+        }
+    }
+
+    /// Companion upgrade: today's ARIA call, rings, tracking.
+    func refreshCompanion() async {
+        guard let base = defaults?.string(forKey: Keys.baseURL),
+              let url = URL(string: base)?.appending(path: "watch/companion") else { return }
+        var request = URLRequest(url: url, timeoutInterval: 8)
+        if let token = defaults?.string(forKey: Keys.authToken), !token.isEmpty {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse,
+              (200...299).contains(http.statusCode),
+              let payload = try? JSONDecoder().decode(CompanionPayload.self, from: data) else { return }
+        if let call = payload.decision?.call {
+            greeting = "ARIA: \(call). \(payload.decision?.why ?? "")"
+        }
+        WatchSnapshotStore.update { snapshot in
+            snapshot.coachName = payload.coach ?? "ARIA"
+            snapshot.decisionCall = payload.decision?.call
+            snapshot.decisionWhy = payload.decision?.why
+            snapshot.waterMilliliters = payload.tracking?.water
+            snapshot.moveCalories = payload.tracking?.activeCalories
+        }
     }
 
     // MARK: Deeper tier

@@ -30,6 +30,18 @@ struct HomeView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel("ARIA says: \(aria.greeting)")
 
+                if let call = WatchSnapshotStore.load()?.decisionCall {
+                    ContextCard(
+                        systemImage: call == "recover" ? "moon.zzz" : "figure.walk",
+                        title: "ARIA · \(call.capitalized)",
+                        body_: WatchSnapshotStore.load()?.decisionWhy ?? "One call for today.",
+                        accent: call == "recover" ? ForgePalette.steel : ForgePalette.ember,
+                        accessibilityHint: "Today's single decision."
+                    ) {
+                        if call != "recover" { path.append(.workout) }
+                    }
+                }
+
                 if let suggestion = contextEngine.suggestedMode {
                     suggestedModeBanner(suggestion)
                 }

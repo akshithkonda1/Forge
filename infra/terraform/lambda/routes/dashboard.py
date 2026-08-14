@@ -61,8 +61,21 @@ def handle_get_dashboard_today(user_id: str) -> dict:
     else:
         readiness = default_readiness()
 
+    from services import adaptive_week, daily_decision, source_map
+    from services.source_map import COACH_NAME
+
+    if has_persisted_sleep and not readiness_item:
+        from services import ledger as ledger_service
+
+        readiness = ledger_service.persist_readiness(user_id, recent_sleep, None)
+
+    decision = daily_decision.ensure_today(user_id)
+    week = adaptive_week.load(user_id)
+    sources = source_map.snapshot(user_id, list(profile.get("connectedDevices") or []))
+
     return ok({
         "profile": profile,
+        "coach": COACH_NAME,
         "readiness": readiness,
         "dailyMetrics": default_daily_metrics(),
         "todayWorkout": today_workout,
@@ -70,4 +83,7 @@ def handle_get_dashboard_today(user_id: str) -> dict:
         "recentWorkouts": recent_workouts,
         "personalRecords": default_personal_records(),
         "connections": connections,
+        "decision": decision,
+        "weekToday": adaptive_week.today_from_plan(week),
+        "sources": sources,
     })

@@ -131,6 +131,24 @@ final class MenstrualHealthStore: ObservableObject {
         persistPartnerSettings()
         recomputePartner()
         pushAriaTags()
+        Task { await syncHouseholdToARIA() }
+    }
+
+    /// Names and roles only. Cycle data stays on-device / CloudKit.
+    private func syncHouseholdToARIA() async {
+        guard partnerSettings.enabled, partnerSettings.consentAcknowledged else { return }
+        let member: [String: Any] = [
+            "id": partnerSettings.displayName.lowercased().replacingOccurrences(of: " ", with: "-"),
+            "name": partnerSettings.displayName,
+            "role": partnerSettings.resolvedRole == .child ? "child" : (partnerSettings.resolvedRole == .romantic ? "partner" : partnerSettings.resolvedRole.rawValue),
+            "earlyCycles": partnerSettings.earlyCycles,
+            "relationship": partnerSettings.relationshipLabel,
+        ]
+        var request = URLRequest(url: AriaService.shared.baseURL.appendingPathComponent("household"))
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: ["members": [member]])
+        _ = try? await URLSession.shared.data(for: request)
     }
 
     /// Surfaces the cycle surface for female profiles, but never *behind the user's back*:
