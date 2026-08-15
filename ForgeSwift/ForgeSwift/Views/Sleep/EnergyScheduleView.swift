@@ -95,6 +95,14 @@ struct EnergySchedule {
         "Your bedtimes have moved around a lot lately, so this schedule is a rough read rather than a firm one."
     }
 
+    /// Sleep duration as "7h 12m". Minutes are rounded so 7.996 never becomes 7h 60m.
+    static func durationLabel(_ hours: Double) -> String {
+        let minutes = Int((hours * 60).rounded())
+        let h = minutes / 60
+        let m = minutes % 60
+        return m == 0 ? "\(h)h" : "\(h)h \(m)m"
+    }
+
     // ------------------------------------------------------------
     // MARK: Build
     // ------------------------------------------------------------
