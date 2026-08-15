@@ -103,6 +103,17 @@ public enum HydrationEngine {
                    max(minimumTargetMilliliters, base + activity + heat + cycleBonus))
     }
 
+    /// A goal the person set themselves, otherwise the estimated need.
+    /// Clamped to the same physiological range as the estimate so a typo
+    /// cannot become "drink 80 litres."
+    public static func resolvedTargetMilliliters(
+        userGoal: Double?,
+        suggested: Double
+    ) -> Double {
+        guard let userGoal else { return suggested }
+        return min(maximumTargetMilliliters, max(minimumTargetMilliliters, userGoal))
+    }
+
     public static func glasses(fromMilliliters ml: Double) -> Double {
         ml / glassMilliliters
     }

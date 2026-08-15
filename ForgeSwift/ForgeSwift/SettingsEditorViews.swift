@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 // MARK: - Fitness Goals Editor
 
@@ -286,6 +287,11 @@ struct NutritionTargetsEditorView: View {
                         TextField("Sleep hours", text: $sleepHours).keyboardType(.decimalPad)
                         TextField("Water glasses", text: $water).keyboardType(.numberPad)
                     }
+                    Section {
+                        Text("Hydration also has its own goal editor. A millilitre goal set there wins over glasses here.")
+                            .font(.footnote)
+                            .foregroundColor(.textSecondary)
+                    }
                 }
             }
             .navigationTitle("Nutrition Targets")
@@ -309,12 +315,18 @@ struct NutritionTargetsEditorView: View {
 
     private func load() {
         let prefs = store.nutritionPreferences
-        useCustom = prefs.proteinGrams != nil || prefs.calorieTarget != nil || prefs.stepTarget != nil
+        useCustom = prefs.proteinGrams != nil || prefs.calorieTarget != nil
+            || prefs.stepTarget != nil || prefs.waterGlassesTarget != nil
+            || prefs.hydrationTargetMl != nil
         protein = prefs.proteinGrams.map(String.init) ?? ""
         calories = prefs.calorieTarget.map(String.init) ?? ""
         steps = prefs.stepTarget.map(String.init) ?? ""
         sleepHours = prefs.sleepHoursTarget.map { String(format: "%.1f", $0) } ?? ""
-        water = prefs.waterGlassesTarget.map(String.init) ?? ""
+        if let ml = prefs.hydrationTargetMl {
+            water = String(max(4, Int(HydrationEngine.glasses(fromMilliliters: ml).rounded())))
+        } else {
+            water = prefs.waterGlassesTarget.map(String.init) ?? ""
+        }
     }
 
     private func save() {
@@ -322,12 +334,14 @@ struct NutritionTargetsEditorView: View {
             store.updateNutritionPreferences(NutritionPreferences())
             return
         }
+        let glasses = Int(water)
         store.updateNutritionPreferences(NutritionPreferences(
             proteinGrams: Int(protein),
             calorieTarget: Int(calories),
             stepTarget: Int(steps),
             sleepHoursTarget: Double(sleepHours),
-            waterGlassesTarget: Int(water),
+            waterGlassesTarget: glasses,
+            hydrationTargetMl: glasses.map { HydrationEngine.milliliters(fromGlasses: Double($0)) },
             activeCalorieTarget: nil
         ))
     }

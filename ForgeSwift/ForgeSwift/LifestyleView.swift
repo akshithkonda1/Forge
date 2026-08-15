@@ -3761,7 +3761,10 @@ struct WaterIntakeCard: View {
     @EnvironmentObject var store: AppStore
 
     private var target: Int {
-        max(4, LifestyleTargets.resolve(profile: store.userProfile).waterGlassesTarget)
+        max(4, LifestyleTargets.resolve(
+            profile: store.userProfile,
+            overrides: store.nutritionPreferences
+        ).waterGlassesTarget)
     }
     private var consumed: Int { Int((vm.healthStats?.water ?? 0).rounded()) }
 

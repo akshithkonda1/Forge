@@ -19,7 +19,10 @@ struct LifestyleTargets: Equatable {
             calorieTarget: overrides?.calorieTarget ?? computed.calorieTarget,
             stepTarget: overrides?.stepTarget ?? computed.stepTarget,
             sleepHoursTarget: overrides?.sleepHoursTarget ?? computed.sleepHoursTarget,
-            waterGlassesTarget: overrides?.waterGlassesTarget ?? computed.waterGlassesTarget,
+            waterGlassesTarget: waterGlasses(
+                overrides: overrides,
+                computed: computed.waterGlassesTarget
+            ),
             activeCalorieTarget: overrides?.activeCalorieTarget ?? computed.activeCalorieTarget
         )
     }
@@ -63,6 +66,33 @@ struct LifestyleTargets: Equatable {
         )
     }
 
+    /// Millilitres the person asked for, else the estimated need.
+    static func hydrationMilliliters(
+        profile: UserProfile,
+        overrides: NutritionPreferences? = nil,
+        activeCalories: Double = 0,
+        cycle: HydrationEngine.CycleAdjustment = .none
+    ) -> Double {
+        let suggested = HydrationEngine.targetMilliliters(
+            weightKilograms: profile.weight,
+            activeCalories: activeCalories,
+            cycle: cycle
+        )
+        let userGoal = overrides?.hydrationTargetMl
+            ?? overrides?.waterGlassesTarget.map { HydrationEngine.milliliters(fromGlasses: Double($0)) }
+        return HydrationEngine.resolvedTargetMilliliters(userGoal: userGoal, suggested: suggested)
+    }
+
+    private static func waterGlasses(
+        overrides: NutritionPreferences?,
+        computed: Int
+    ) -> Int {
+        if let ml = overrides?.hydrationTargetMl {
+            return max(4, Int(HydrationEngine.glasses(fromMilliliters: ml).rounded()))
+        }
+        return overrides?.waterGlassesTarget ?? computed
+    }
+
     private static func mifflinStJeorBMR(weightKg: Double, age: Int, gender: Gender) -> Double {
         let base = 10 * weightKg + 6.25 * 175 - 5 * Double(age)
         switch gender {
@@ -79,5 +109,7 @@ struct NutritionPreferences: Codable, Equatable {
     var stepTarget: Int?
     var sleepHoursTarget: Double?
     var waterGlassesTarget: Int?
+    /// Daily water goal in millilitres. Wins over `waterGlassesTarget` when both are set.
+    var hydrationTargetMl: Double?
     var activeCalorieTarget: Int?
 }

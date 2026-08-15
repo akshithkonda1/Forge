@@ -2163,6 +2163,7 @@ extension AppStore {
 
     func updateNutritionPreferences(_ preferences: NutritionPreferences) {
         nutritionPreferences = preferences   // didSet persists
+        publishHomeWidgets()
     }
 
     func resyncNotifications() async {
