@@ -14,6 +14,12 @@
 		AA00010000000000000000E1 /* EnergyScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000E1 /* EnergyScheduleView.swift */; };
 		AA00010000000000000000F1 /* HydrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F1 /* HydrationView.swift */; };
 		AA00010000000000000000F2 /* HomeWidgetBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F2 /* HomeWidgetBoard.swift */; };
+		AA00010000000000000000F3 /* LifestyleLocationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F3 /* LifestyleLocationStore.swift */; };
+		AA00010000000000000000F4 /* LifestylePlacesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F4 /* LifestylePlacesView.swift */; };
+		AA00010000000000000000F5 /* ConnectedDevicesLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F5 /* ConnectedDevicesLibraryView.swift */; };
+		AA00010000000000000000F6 /* WeeklyAriaReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F6 /* WeeklyAriaReview.swift */; };
+		AA00010000000000000000F7 /* DeviceProductImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F7 /* DeviceProductImage.swift */; };
+		AA00010000000000000000F8 /* HealthDeviceCatalogSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */; };
 		F0B100000000000000000040 /* ReadinessWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000040 /* ReadinessWidget.swift */; };
 		F0B100000000000000000041 /* HydrationWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000041 /* HydrationWidget.swift */; };
 		F0B100000000000000000042 /* SleepWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000042 /* SleepWidget.swift */; };
@@ -235,6 +241,12 @@
 		AA00020000000000000000E1 /* EnergyScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sleep/EnergyScheduleView.swift"; sourceTree = "<group>"; };
 		AA00020000000000000000F1 /* HydrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Hydration/HydrationView.swift"; sourceTree = "<group>"; };
 		AA00020000000000000000F2 /* HomeWidgetBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Home/HomeWidgetBoard.swift"; sourceTree = "<group>"; };
+		AA00020000000000000000F3 /* LifestyleLocationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleLocationStore.swift; sourceTree = "<group>"; };
+		AA00020000000000000000F4 /* LifestylePlacesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Lifestyle/LifestylePlacesView.swift"; sourceTree = "<group>"; };
+		AA00020000000000000000F5 /* ConnectedDevicesLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Profile/ConnectedDevicesLibraryView.swift"; sourceTree = "<group>"; };
+		AA00020000000000000000F6 /* WeeklyAriaReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyAriaReview.swift; sourceTree = "<group>"; };
+		AA00020000000000000000F7 /* DeviceProductImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Profile/DeviceProductImage.swift"; sourceTree = "<group>"; };
+		AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDeviceCatalogSync.swift; sourceTree = "<group>"; };
 		F0F100000000000000000040 /* ReadinessWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessWidget.swift; sourceTree = "<group>"; };
 		F0F100000000000000000041 /* HydrationWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HydrationWidget.swift; sourceTree = "<group>"; };
 		F0F100000000000000000042 /* SleepWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWidget.swift; sourceTree = "<group>"; };
@@ -445,6 +457,9 @@
 				AA00020000000000000000E1 /* EnergyScheduleView.swift */,
 				AA00020000000000000000F1 /* HydrationView.swift */,
 				AA00020000000000000000F2 /* HomeWidgetBoard.swift */,
+				AA00020000000000000000F4 /* LifestylePlacesView.swift */,
+				AA00020000000000000000F5 /* ConnectedDevicesLibraryView.swift */,
+				AA00020000000000000000F7 /* DeviceProductImage.swift */,
 				1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */,
 				1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */,
 				1HCV0012F9FF867004091AA /* HomeCookingView.swift */,
@@ -696,35 +711,6 @@
 			path = Complications;
 			sourceTree = "<group>";
 		};
-		F0A100000000000000000006 /* LiveActivities */ = {
-			isa = PBXGroup;
-			children = (
-				F0F10000000000000000001E /* ForgeWorkoutActivityAttributes.swift */,
-				F0F10000000000000000001F /* ForgeWorkoutLiveActivity.swift */,
-				1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */,
-				1WC00D2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift */,
-			);
-			path = LiveActivities;
-			sourceTree = "<group>";
-		};
-		F0A100000000000000000007 /* ForgeWidgetExtension */ = {
-			isa = PBXGroup;
-			children = (
-				F0F100000000000000000020 /* ForgeWidgetExtensionBundle.swift */,
-				F0F100000000000000000024 /* LifestyleWidget.swift */,
-				1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */,
-				F0F100000000000000000040 /* ReadinessWidget.swift */,
-				F0F100000000000000000041 /* HydrationWidget.swift */,
-				F0F100000000000000000042 /* SleepWidget.swift */,
-				F0F100000000000000000043 /* TodayWidget.swift */,
-				F0F100000000000000000044 /* LogWaterIntent.swift */,
-				F0F100000000000000000045 /* WidgetChrome.swift */,
-				F0F100000000000000000021 /* Info.plist */,
-				F0F100000000000000000022 /* ForgeWidgetExtension.entitlements */,
-			);
-			path = ForgeWidgetExtension;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -947,6 +933,12 @@
 				AA00010000000000000000E1 /* EnergyScheduleView.swift in Sources */,
 				AA00010000000000000000F1 /* HydrationView.swift in Sources */,
 				AA00010000000000000000F2 /* HomeWidgetBoard.swift in Sources */,
+				AA00010000000000000000F3 /* LifestyleLocationStore.swift in Sources */,
+				AA00010000000000000000F4 /* LifestylePlacesView.swift in Sources */,
+				AA00010000000000000000F5 /* ConnectedDevicesLibraryView.swift in Sources */,
+				AA00010000000000000000F6 /* WeeklyAriaReview.swift in Sources */,
+				AA00010000000000000000F7 /* DeviceProductImage.swift in Sources */,
+				AA00010000000000000000F8 /* HealthDeviceCatalogSync.swift in Sources */,
 				1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */,
 				AA0001000000000000000001 /* ForgeSwiftApp.swift in Sources */,
 				1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */,

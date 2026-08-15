@@ -1832,6 +1832,13 @@ final class AppStore: ObservableObject {
         case "lifestyle":
             activeTab = .lifestyle
             return true
+        case "aria":
+            if segments.dropFirst().first == "weekly" {
+                WeeklyAriaReviewStore.shared.showSheet = true
+            } else {
+                activeTab = .chat
+            }
+            return true
         default:
             return false
         }
