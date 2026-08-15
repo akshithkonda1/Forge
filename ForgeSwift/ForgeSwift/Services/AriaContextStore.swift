@@ -94,9 +94,9 @@ final class AriaContextStore: ObservableObject {
             return Date().timeIntervalSince(date) / 3600
         }()
 
-        let steps3 = store.sleepData.isEmpty ? nil : Double(store.dailyMetrics.steps)
-        let hrvValues = store.sleepData.prefix(7).map { _ in Double(store.dailyMetrics.hrv) }
-        let hrvBaseline = hrvValues.isEmpty ? nil : hrvValues.reduce(0, +) / Double(hrvValues.count)
+        let steps3: Double? = store.sleepData.isEmpty ? nil : Double(store.dailyMetrics.steps)
+        let hrvValues: [Double] = store.sleepData.prefix(7).map { _ in Double(store.dailyMetrics.hrv) }
+        let hrvBaseline: Double? = hrvValues.isEmpty ? nil : hrvValues.reduce(0, +) / Double(hrvValues.count)
         let hrvTrend: Double? = hrvBaseline.flatMap { baseline in
             guard baseline > 0 else { return nil }
             return ((Double(store.dailyMetrics.hrv) - baseline) / baseline) * 100
@@ -107,86 +107,101 @@ final class AriaContextStore: ObservableObject {
             return date > Calendar.current.date(byAdding: .day, value: -30, to: Date())!
         }.count
 
-        let payload = ARIAContextPayload(
-            timestamp: iso.string(from: Date()),
-            sleep: .init(
-                durationMinutes: lastSleep.map { $0.totalHours * 60 },
-                efficiency: lastSleep.map { min(1, Double($0.score) / 100) },
-                remMinutes: lastSleep.map { Double($0.remMinutes) },
-                deepMinutes: lastSleep.map { Double($0.deepMinutes) },
-                hrv: store.dailyMetrics.hrv > 0 ? Double(store.dailyMetrics.hrv) : nil,
-                restingHR: store.dailyMetrics.restingHR > 0 ? Double(store.dailyMetrics.restingHR) : nil,
-                nightsAvailable: nights > 0 ? nights : nil
-            ),
-            readiness: .init(
-                hrv7DayTrend: hrvTrend,
-                hrv30DayBaseline: hrvBaseline,
-                recoveryScore: Double(store.readiness.recoveryScore),
-                hrvDaysAvailable: hrvValues.isEmpty ? nil : hrvValues.count
-            ),
-            training: .init(
-                lastWorkoutType: lastWorkout?.type.rawValue,
-                lastWorkoutDurationMinutes: lastWorkout.map { Double($0.duration) },
-                hoursSinceLastWorkout: hoursSinceWorkout,
-                weeklyLoadScore: store.workoutHistory.count >= 3
-                    ? Double(store.workoutHistory.prefix(7).map(\.duration).reduce(0, +))
-                    : nil
-            ),
-            activity: .init(
-                steps3DayAvg: steps3,
-                activeCalories3DayAvg: store.dailyMetrics.activeCalories > 0
-                    ? Double(store.dailyMetrics.activeCalories) : nil
-            ),
-            chronotype: .init(
-                typicalSleepOnset: nil,
-                typicalWakeTime: nil,
-                consistencyScore: nil
-            ),
-            body: .init(
-                weightKg: store.userProfile.weight,
-                weightTrendKg: nil,
-                bodyFatPct: nil,
-                vo2Max: nil
-            ),
-            nutrition: {
-                let today = HealthKitManager.shared.todayStats
-                return ARIAContextPayload.NutritionDomain(
-                    caloriesIn3DayAvg: today.map { Double($0.totalCalories) },
-                    proteinG3DayAvg: today.map { $0.protein },
-                    hydrationMl3DayAvg: today.map {
-                        HydrationEngine.milliliters(fromGlasses: $0.water)
-                    },
-                    calorieTarget: 2600
-                )
-            }(),
-            profile: .init(
-                primaryGoal: store.userProfile.fitnessGoals.first?.rawValue,
-                experienceLevel: store.userProfile.experienceLevel.rawValue,
-                coachingStyle: store.userProfile.coachingStyle.rawValue,
-                constraints: context.constraints + clinicalConstraintLines()
-            ),
-            progress: .init(
-                workoutsCompleted30d: workouts30d > 0 ? workouts30d : nil,
-                newPersonalRecords: store.personalRecords.isEmpty ? nil : store.personalRecords.count,
-                trainingLoadTrend: store.workoutHistory.count >= 3 ? "steady" : nil,
-                recoveryConsistencyDelta: nil
-            ),
-            lifestyle: .init(
-                tags: context.lifestyleTags,
-                recentPatterns: patterns,
-                goals: context.currentGoals,
-                cyclePhaseDirective: {
-                    guard let phaseTag = context.lifestyleTags.first(where: { $0.hasPrefix("cycle_phase:") }) else { return nil }
-                    let phaseRaw = String(phaseTag.dropFirst("cycle_phase:".count))
-                    guard let phase = MenstrualPhase(rawValue: phaseRaw), phase != .unknown else { return nil }
-                    let text = CyclePhaseCoachingDirective.directive(for: phase, domain: .general)
-                    return text.isEmpty ? nil : text
-                }()
-            ),
-            conversation: store.conversationContextPayload(),
-            clinicalData: clinicalDomain()
+        let sleepDomain = ARIAContextPayload.SleepDomain(
+            durationMinutes: lastSleep.map { $0.totalHours * 60 },
+            efficiency: lastSleep.map { min(1.0, Double($0.score) / 100.0) },
+            remMinutes: lastSleep.map { Double($0.remMinutes) },
+            deepMinutes: lastSleep.map { Double($0.deepMinutes) },
+            hrv: store.dailyMetrics.hrv > 0 ? Double(store.dailyMetrics.hrv) : nil,
+            restingHR: store.dailyMetrics.restingHR > 0 ? Double(store.dailyMetrics.restingHR) : nil,
+            nightsAvailable: nights > 0 ? nights : nil
         )
-        return payload
+        let readinessDomain = ARIAContextPayload.ReadinessDomain(
+            hrv7DayTrend: hrvTrend,
+            hrv30DayBaseline: hrvBaseline,
+            recoveryScore: Double(store.readiness.recoveryScore),
+            hrvDaysAvailable: hrvValues.isEmpty ? nil : hrvValues.count
+        )
+        let weeklyLoad: Double?
+        if store.workoutHistory.count >= 3 {
+            let minutes = store.workoutHistory.prefix(7).reduce(0) { $0 + $1.duration }
+            weeklyLoad = Double(minutes)
+        } else {
+            weeklyLoad = nil
+        }
+        let trainingDomain = ARIAContextPayload.TrainingDomain(
+            lastWorkoutType: lastWorkout?.type.rawValue,
+            lastWorkoutDurationMinutes: lastWorkout.map { Double($0.duration) },
+            hoursSinceLastWorkout: hoursSinceWorkout,
+            weeklyLoadScore: weeklyLoad
+        )
+        let activityCalories: Double? = store.dailyMetrics.activeCalories > 0
+            ? Double(store.dailyMetrics.activeCalories)
+            : nil
+        let activityDomain = ARIAContextPayload.ActivityDomain(
+            steps3DayAvg: steps3,
+            activeCalories3DayAvg: activityCalories
+        )
+        let chronotypeDomain = ARIAContextPayload.ChronotypeDomain(
+            typicalSleepOnset: nil,
+            typicalWakeTime: nil,
+            consistencyScore: nil
+        )
+        let bodyDomain = ARIAContextPayload.BodyDomain(
+            weightKg: store.userProfile.weight,
+            weightTrendKg: nil,
+            bodyFatPct: nil,
+            vo2Max: nil
+        )
+        let todayStats = HealthKitManager.shared.todayStats
+        let nutritionDomain = ARIAContextPayload.NutritionDomain(
+            caloriesIn3DayAvg: todayStats.map { Double($0.totalCalories) },
+            proteinG3DayAvg: todayStats.map { $0.protein },
+            hydrationMl3DayAvg: todayStats.map { HydrationEngine.milliliters(fromGlasses: $0.water) },
+            calorieTarget: 2600
+        )
+        let profileDomain = ARIAContextPayload.ProfileDomain(
+            primaryGoal: store.userProfile.fitnessGoals.first?.rawValue,
+            experienceLevel: store.userProfile.experienceLevel.rawValue,
+            coachingStyle: store.userProfile.coachingStyle.rawValue,
+            constraints: context.constraints + clinicalConstraintLines()
+        )
+        let progressDomain = ARIAContextPayload.ProgressDomain(
+            workoutsCompleted30d: workouts30d > 0 ? workouts30d : nil,
+            newPersonalRecords: store.personalRecords.isEmpty ? nil : store.personalRecords.count,
+            trainingLoadTrend: store.workoutHistory.count >= 3 ? "steady" : nil,
+            recoveryConsistencyDelta: nil
+        )
+        let cyclePhaseDirective: String? = {
+            guard let phaseTag = context.lifestyleTags.first(where: { $0.hasPrefix("cycle_phase:") }) else {
+                return nil
+            }
+            let phaseRaw = String(phaseTag.dropFirst("cycle_phase:".count))
+            guard let phase = MenstrualPhase(rawValue: phaseRaw), phase != .unknown else { return nil }
+            let text = CyclePhaseCoachingDirective.directive(for: phase, domain: .general)
+            return text.isEmpty ? nil : text
+        }()
+        let lifestyleDomain = ARIAContextPayload.LifestyleDomain(
+            tags: context.lifestyleTags,
+            recentPatterns: patterns,
+            goals: context.currentGoals,
+            cyclePhaseDirective: cyclePhaseDirective
+        )
+        return ARIAContextPayload(
+            timestamp: iso.string(from: Date()),
+            sleep: sleepDomain,
+            readiness: readinessDomain,
+            training: trainingDomain,
+            activity: activityDomain,
+            chronotype: chronotypeDomain,
+            body: bodyDomain,
+            nutrition: nutritionDomain,
+            profile: profileDomain,
+            progress: progressDomain,
+            lifestyle: lifestyleDomain,
+            clinicalData: clinicalDomain(),
+            conversation: store.conversationContextPayload()
+        )
     }
 
     private func clinicalDomain() -> ARIAContextPayload.ClinicalDataDomain? {
