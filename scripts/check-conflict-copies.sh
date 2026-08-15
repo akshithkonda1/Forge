@@ -32,13 +32,17 @@ case "$mode" in
     *) echo "usage: $0 [--staged]" >&2; exit 2 ;;
 esac
 
-# Matched against the basename only, so a directory that legitimately contains a
-# space or a parenthesis can never trip the check.
+# Matched against path segments, not only the basename. iCloud also duplicates
+# whole folders (`Views/Profile 2/Foo.swift`) and extensionless files
+# (`.gitkeep 3`). Those used to slip through and land on main.
 #   ' [0-9]+'          iCloud
 #   ' \([0-9]+\)'      Google Drive / OneDrive
 #   ' \(.*[Cc]onflict' Dropbox, both spellings
 #   '[ -]+[Cc]opy'     Finder / Explorer, optional trailing index
-pattern='(^|/)[^/]+( [0-9]+| \([0-9]+\)| \(.*[Cc]onflict[^)]*\)|[ -]+[Cc]opy( [0-9]+)?)\.[^./]+$'
+# Trailing `/` catches a numbered folder anywhere in the path
+# (`Views/Profile 2/Foo.swift`). Trailing extension or EOS catches the file
+# itself (`Foo 2.swift`, `.gitkeep 3`).
+pattern='(^|/)[^/]+( [0-9]+| \([0-9]+\)| \(.*[Cc]onflict[^)]*\)|[ -]+[Cc]opy( [0-9]+)?)(/|\.[^./]+|$)'
 
 found=$(printf '%s\n' "$listing" | grep -E "$pattern" || true)
 

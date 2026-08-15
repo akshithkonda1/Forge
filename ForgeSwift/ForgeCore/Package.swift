@@ -55,7 +55,21 @@ let package = Package(
         .testTarget(
             name: "ForgeCoreTests",
             dependencies: ["ForgeCore"],
-            path: "Tests/ForgeCoreTests"
+            path: "Tests/ForgeCoreTests",
+            // Explicit sources only — never pick up Finder " 2.swift" duplicates.
+            sources: [
+                "CircadianRhythmTests.swift",
+                "ContextRulesTests.swift",
+                "HealthDeviceCatalogTests.swift",
+                "HomeWidgetSnapshotTests.swift",
+                "HydrationEngineTests.swift",
+                "MindfulnessSuggestionEngineTests.swift",
+                "PartnerInvitePayloadTests.swift",
+                "PublishGateTests.swift",
+                "ReadinessCalculatorTests.swift",
+                "SleepIntelligenceTests.swift",
+                "WorkoutModelsTests.swift",
+            ]
         ),
     ]
 )

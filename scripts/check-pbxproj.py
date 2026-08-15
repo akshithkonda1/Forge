@@ -214,6 +214,39 @@ def check(path: str) -> list[str]:
 
 _ENTRIES: set[str] | None = None
 
+# Walks that include worktrees, node_modules, or a leftover nested checkout
+# hang the job for minutes and look like a CI timeout. Skip them everywhere.
+SKIP_DIRS = {
+    ".git",
+    "build",
+    "DerivedData",
+    "node_modules",
+    ".next",
+    ".claude",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".swiftpm",
+    "xcuserdata",
+    "dist",
+    "coverage",
+    ".turbo",
+    ".pnpm-store",
+}
+
+
+def _prune(dirpath: str, dirnames: list[str]) -> None:
+    keep: list[str] = []
+    for name in dirnames:
+        if name in SKIP_DIRS or name.endswith(".noindex"):
+            continue
+        child = os.path.join(dirpath, name)
+        # Nested leftover clones (this repo has historically grown a Forge/Forge).
+        if os.path.isdir(os.path.join(child, ".git")):
+            continue
+        keep.append(name)
+    dirnames[:] = keep
+
 
 def _repo_entries() -> set[str]:
     """Every file and directory name in the repo, by basename.
@@ -225,18 +258,23 @@ def _repo_entries() -> set[str]:
     if _ENTRIES is None:
         _ENTRIES = set()
         for dirpath, dirnames, filenames in os.walk("."):
-            dirnames[:] = [d for d in dirnames if d not in {".git", "build", "DerivedData"}]
+            _prune(dirpath, dirnames)
             _ENTRIES.update(filenames)
             _ENTRIES.update(dirnames)
     return _ENTRIES
 
 
+def _discover_projects() -> list[str]:
+    found: list[str] = []
+    for dirpath, dirnames, filenames in os.walk("."):
+        _prune(dirpath, dirnames)
+        if "project.pbxproj" in filenames:
+            found.append(os.path.join(dirpath, "project.pbxproj"))
+    return found
+
+
 def main(argv: list[str]) -> int:
-    paths = argv[1:] or [
-        os.path.join(dirpath, "project.pbxproj")
-        for dirpath, dirnames, filenames in os.walk(".")
-        if "project.pbxproj" in filenames and ".git" not in dirpath
-    ]
+    paths = argv[1:] or _discover_projects()
     if not paths:
         print("check-pbxproj: no project.pbxproj found")
         return 0
