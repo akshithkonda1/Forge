@@ -242,7 +242,7 @@ struct EnergyScheduleCard: View {
             Image(systemName: "waveform.path.ecg")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(.aurora)
-            Text("Energy schedule")
+            Text("Today's energy")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.textPrimary)
             Spacer()

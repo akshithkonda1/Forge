@@ -175,16 +175,22 @@ struct SleepBackground: View {
         ZStack {
             Color.background
             RadialGradient(
-                colors: [Color(hex: "1E1B4B").opacity(0.35), .clear],
+                colors: [Color(hex: "1A1440").opacity(0.55), .clear],
                 center: UnitPoint(x: 0.5, y: 0.0),
-                startRadius: 20,
-                endRadius: 420
+                startRadius: 10,
+                endRadius: 460
             )
             RadialGradient(
-                colors: [Color.ember.opacity(0.05), .clear],
-                center: UnitPoint(x: 0.15, y: 0.22),
-                startRadius: 10,
-                endRadius: 280
+                colors: [Color.aurora.opacity(0.10), .clear],
+                center: UnitPoint(x: 0.82, y: 0.18),
+                startRadius: 8,
+                endRadius: 260
+            )
+            RadialGradient(
+                colors: [Color.ember.opacity(0.06), .clear],
+                center: UnitPoint(x: 0.12, y: 0.28),
+                startRadius: 8,
+                endRadius: 240
             )
         }
     }
@@ -201,9 +207,14 @@ struct SleepHeaderView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Sleep")
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundColor(.textPrimary)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Sleep")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                    Text("Energy first. Night second.")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                }
                 Spacer()
                 Button(action: onPersonalize) {
                     Image(systemName: "slider.horizontal.3")
@@ -255,7 +266,7 @@ struct SleepHeaderView: View {
 struct SleepDayTab: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 32) {
+            VStack(alignment: .leading, spacing: 28) {
                 EnergyScheduleCard()
                 SleepLastNightStrip()
                 SleepWeekRhythm()
@@ -325,26 +336,37 @@ struct SleepLastNightStrip: View {
 
     var body: some View {
         if let night {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Last night")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.textTertiary)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("Last night")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                    Spacer()
+                    Text("\(night.efficiencyPercent)% efficient")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.aurora)
+                }
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text(EnergySchedule.durationLabel(night.totalHours))
-                        .font(.system(size: 28, weight: .semibold))
+                        .font(.system(size: 34, weight: .semibold))
                         .foregroundColor(.textPrimary)
                         .monospacedDigit()
                     Text("asleep")
                         .font(.system(size: 15))
                         .foregroundColor(.textSecondary)
                     Spacer()
-                    Text("Deep \(night.deepMinutes)m  ·  REM \(night.remMinutes)m")
-                        .font(.system(size: 12))
+                    Text("\(night.clock(night.onset)) → \(night.clock(night.wake))")
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.textTertiary)
                         .monospacedDigit()
                 }
-                SleepStageHairline(night: night)
+                SleepHypnogram(night: night, height: 54)
+                SleepStageLegend(night: night)
             }
+        } else {
+            Text("Last night will show duration, stages, and efficiency once Apple Health is connected.")
+                .font(.system(size: 13))
+                .foregroundColor(.textSecondary)
         }
     }
 }
@@ -356,37 +378,52 @@ struct SleepLastNightDetail: View {
 
     var body: some View {
         if let night {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 16) {
                 Text("Last night")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.textTertiary)
-                Text(EnergySchedule.durationLabel(night.totalHours))
-                    .font(.system(size: 48, weight: .semibold))
-                    .foregroundColor(.textPrimary)
-                    .monospacedDigit()
-                SleepStageHairline(night: night)
-                HStack(spacing: 0) {
-                    nightStat("Deep", "\(night.deepMinutes)m")
-                    nightStat("REM", "\(night.remMinutes)m")
-                    nightStat("Light", "\(night.lightMinutes)m")
-                    nightStat("Awake", "\(night.awakeMinutes)m")
+                HStack(alignment: .firstTextBaseline) {
+                    Text(EnergySchedule.durationLabel(night.totalHours))
+                        .font(.system(size: 48, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                        .monospacedDigit()
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(night.score)")
+                            .font(.system(size: 28, weight: .semibold, design: .rounded))
+                            .foregroundColor(.textPrimary)
+                        Text("score")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.textTertiary)
+                    }
                 }
-                .padding(.top, 6)
+                Text("\(night.clock(night.onset))  →  \(night.clock(night.wake))   ·   \(night.efficiencyPercent)% of time in bed was sleep")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+                SleepHypnogram(night: night, height: 92)
+                HStack(spacing: 0) {
+                    nightStat("Deep", "\(night.deepMinutes)m", Color.steel)
+                    nightStat("REM", "\(night.remMinutes)m", Color.aurora)
+                    nightStat("Light", "\(night.lightMinutes)m", Color(hex: "64748B"))
+                    nightStat("Awake", "\(night.awakeMinutes)m", Color.danger.opacity(0.8))
+                }
+                .padding(.top, 4)
             }
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 Text("No night on file")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundColor(.textPrimary)
-                Text("Connect Apple Health and last night will land here.")
+                Text("Connect Apple Health and last night will land here — stages, efficiency, and the energy day it built.")
                     .font(.system(size: 14))
                     .foregroundColor(.textSecondary)
             }
         }
     }
 
-    private func nightStat(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+    private func nightStat(_ label: String, _ value: String, _ tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Circle().fill(tint).frame(width: 6, height: 6)
             Text(value)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(.textPrimary)
@@ -399,31 +436,67 @@ struct SleepLastNightDetail: View {
     }
 }
 
-struct SleepStageHairline: View {
+/// Pillow-style stage map: stacked bands from time-in-bed, not a hairline.
+struct SleepHypnogram: View {
     let night: SleepData
+    var height: CGFloat = 64
 
-    private var parts: [(Color, Int)] {
+    private var bands: [(id: String, color: Color, minutes: Int, y: CGFloat)] {
         [
-            (Color.danger.opacity(0.7), night.awakeMinutes),
-            (Color(hex: "475569"), night.lightMinutes),
-            (Color.steel, night.deepMinutes),
-            (Color.aurora, night.remMinutes),
+            ("awake", Color.danger.opacity(0.75), night.awakeMinutes, 0.08),
+            ("rem", Color.aurora, night.remMinutes, 0.30),
+            ("light", Color(hex: "64748B"), night.lightMinutes, 0.54),
+            ("deep", Color.steel, night.deepMinutes, 0.78),
         ]
     }
 
-    private var total: Int { max(1, parts.reduce(0) { $0 + $1.1 }) }
+    private var total: Int { max(1, night.timeInBedMinutes) }
 
     var body: some View {
         GeometryReader { geo in
-            HStack(spacing: 2) {
-                ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
-                    Capsule()
-                        .fill(part.0)
-                        .frame(width: max(3, geo.size.width * CGFloat(part.1) / CGFloat(total)))
+            let w = geo.size.width
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.white.opacity(0.04))
+                HStack(alignment: .bottom, spacing: 2) {
+                    ForEach(bands, id: \.id) { band in
+                        let share = CGFloat(band.minutes) / CGFloat(total)
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(band.color)
+                            .frame(
+                                width: max(band.minutes > 0 ? 6 : 0, w * share - 2),
+                                height: height * (1 - band.y * 0.35)
+                            )
+                    }
                 }
+                .padding(6)
             }
         }
-        .frame(height: 6)
+        .frame(height: height)
+        .accessibilityLabel("Sleep stages. Deep \(night.deepMinutes) minutes, REM \(night.remMinutes), light \(night.lightMinutes), awake \(night.awakeMinutes).")
+    }
+}
+
+struct SleepStageLegend: View {
+    let night: SleepData
+
+    var body: some View {
+        HStack(spacing: 12) {
+            legend("Deep", night.deepMinutes, Color.steel)
+            legend("REM", night.remMinutes, Color.aurora)
+            legend("Light", night.lightMinutes, Color(hex: "64748B"))
+            legend("Awake", night.awakeMinutes, Color.danger.opacity(0.75))
+        }
+    }
+
+    private func legend(_ name: String, _ minutes: Int, _ color: Color) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text("\(name) \(minutes)m")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.textTertiary)
+                .monospacedDigit()
+        }
     }
 }
 
@@ -447,16 +520,17 @@ struct SleepWeekRhythm: View {
                 ForEach(nights) { night in
                     VStack(spacing: 6) {
                         Capsule()
-                            .fill(night.totalHours >= need - 0.4 ? Color.ember.opacity(0.85) : Color.white.opacity(0.16))
-                            .frame(height: max(8, CGFloat(night.totalHours / 10) * 72))
+                            .fill(night.totalHours >= need - 0.4 ? Color.ember.opacity(0.88) : Color.aurora.opacity(0.28))
+                            .frame(height: max(10, CGFloat(night.totalHours / 10) * 78))
                         Text(weekday(night.date))
                             .font(.system(size: 10, weight: .medium))
                             .foregroundColor(.textTertiary)
                     }
                     .frame(maxWidth: .infinity)
+                    .accessibilityLabel("\(weekday(night.date)), \(EnergySchedule.durationLabel(night.totalHours))")
                 }
             }
-            .frame(height: 96, alignment: .bottom)
+            .frame(height: 102, alignment: .bottom)
         }
     }
 

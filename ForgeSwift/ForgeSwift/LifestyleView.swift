@@ -4313,7 +4313,7 @@ struct MindfulTrendCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: "brain.head.profile")
                         .font(.system(size: 16)).foregroundColor(Color(hex: "A855F7"))
-                    Text("Mindful Minutes").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                    Text("This week").font(.system(size: 18, weight: .semibold)).foregroundColor(.textPrimary)
                 }
                 Spacer()
                 Text("\(total) min this week")
@@ -4515,70 +4515,182 @@ struct HabitRow: View {
     }
 }
 
+private enum MindfulPractice: String, CaseIterable, Identifiable {
+    case breathe, body, focus, rest
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .breathe: return "Breathe"
+        case .body: return "Body"
+        case .focus: return "Focus"
+        case .rest: return "Rest"
+        }
+    }
+
+    var line: String {
+        switch self {
+        case .breathe: return "Box breathing. Four in, hold, four out."
+        case .body: return "A slow scan from the feet up."
+        case .focus: return "One point. Come back when you wander."
+        case .rest: return "Wind-down. Nothing to achieve."
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .breathe: return "wind"
+        case .body: return "figure.mind.and.body"
+        case .focus: return "circle.dotted"
+        case .rest: return "moon.haze.fill"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .breathe: return Color(hex: "67E8F9")
+        case .body: return Color(hex: "A78BFA")
+        case .focus: return Color.ember
+        case .rest: return Color.aurora
+        }
+    }
+}
+
 struct MindfulnessCard: View {
     @ObservedObject var vm: LifestyleViewModel
+    @State private var practice: MindfulPractice = .breathe
+    @State private var minutes = 5
     @State private var isRunning = false
     @State private var remainingSeconds = 300
+    @State private var inhale = false
     @State private var timer: Timer?
 
-    private var todayLabel: String { "\(max(vm.mindfulMinutesToday, 0)) min" }
-    private var weekLabel: String { "\(max(vm.mindfulMinutesWeek, 0)) min" }
+    private let lengths = [3, 5, 10, 15]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Mindfulness").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
-
-            HStack(spacing: 0) {
-                VStack(spacing: 4) {
-                    Text(todayLabel).font(.system(size: 26, weight: .bold)).foregroundColor(.textPrimary)
-                    Text("Today").font(.system(size: 12, weight: .medium)).foregroundColor(.textSecondary)
-                }
-                .frame(maxWidth: .infinity)
-                Divider().frame(height: 40).background(Color.borderColor)
-                VStack(spacing: 4) {
-                    Text(weekLabel).font(.system(size: 26, weight: .bold)).foregroundColor(.ember)
-                    Text("This week").font(.system(size: 12, weight: .medium)).foregroundColor(.textSecondary)
-                }
-                .frame(maxWidth: .infinity)
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Text("Mindfulness")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                Spacer()
+                Text("\(max(vm.mindfulMinutesToday, 0)) min today  ·  \(max(vm.mindfulMinutesWeek, 0)) this week")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.textTertiary)
             }
-            .padding(.vertical, 8)
 
-            if isRunning {
-                Text(timeString(remainingSeconds))
-                    .font(.system(size: 34, weight: .black, design: .rounded))
-                    .foregroundColor(.ember)
-                    .frame(maxWidth: .infinity)
+            HStack(spacing: 8) {
+                ForEach(MindfulPractice.allCases) { item in
+                    Button {
+                        practice = item
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    } label: {
+                        VStack(spacing: 6) {
+                            Image(systemName: item.symbol)
+                                .font(.system(size: 14, weight: .semibold))
+                            Text(item.title)
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundColor(practice == item ? practice.tint : .textTertiary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(practice == item ? practice.tint.opacity(0.12) : Color.white.opacity(0.04))
+                        .cornerRadius(12)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isRunning)
+                }
             }
+
+            Text(practice.line)
+                .font(.system(size: 13))
+                .foregroundColor(.textSecondary)
+
+            if !isRunning {
+                HStack(spacing: 8) {
+                    ForEach(lengths, id: \.self) { n in
+                        Button {
+                            minutes = n
+                        } label: {
+                            Text("\(n)m")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(minutes == n ? .textPrimary : .textTertiary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(minutes == n ? Color.white.opacity(0.10) : Color.clear)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            ZStack {
+                Circle()
+                    .stroke(practice.tint.opacity(0.18), lineWidth: 10)
+                    .frame(width: 148, height: 148)
+                Circle()
+                    .fill(practice.tint.opacity(inhale ? 0.28 : 0.12))
+                    .frame(width: inhale ? 118 : 86, height: inhale ? 118 : 86)
+                    .animation(
+                        isRunning
+                            ? .easeInOut(duration: 4).repeatForever(autoreverses: true)
+                            : .easeOut(duration: 0.4),
+                        value: inhale
+                    )
+                VStack(spacing: 4) {
+                    if isRunning {
+                        Text(timeString(remainingSeconds))
+                            .font(.system(size: 28, weight: .semibold, design: .rounded))
+                            .foregroundColor(.textPrimary)
+                            .monospacedDigit()
+                        Text(inhale ? "In" : "Out")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(practice.tint)
+                    } else {
+                        Text("\(minutes):00")
+                            .font(.system(size: 26, weight: .semibold, design: .rounded))
+                            .foregroundColor(.textPrimary)
+                            .monospacedDigit()
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
 
             Button {
                 if isRunning {
-                    stopSession(logged: remainingSeconds < 300)
+                    stopSession(logged: remainingSeconds < minutes * 60)
                 } else {
                     startSession()
                 }
             } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: isRunning ? "stop.fill" : "play.fill").font(.system(size: 14))
-                    Text(isRunning ? "End Session" : "Start 5-Min Meditation")
-                        .font(.system(size: 15, weight: .semibold))
-                }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity).padding(.vertical, 14)
-                .background(LinearGradient.ember)
-                .cornerRadius(14)
-                .shadow(color: Color.ember.opacity(0.35), radius: 10, y: 4)
+                Text(isRunning ? "End" : "Begin")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(practice.tint.opacity(0.9))
+                    .cornerRadius(14)
             }
+            .buttonStyle(.plain)
         }
         .padding(20)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+        .background(
+            ZStack {
+                Color.surface
+                RadialGradient(colors: [practice.tint.opacity(0.10), .clear], center: .center, startRadius: 20, endRadius: 220)
+            }
+        )
+        .cornerRadius(22)
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.borderColor.opacity(0.35), lineWidth: 1))
         .onDisappear { timer?.invalidate() }
     }
 
     private func startSession() {
-        remainingSeconds = 300
+        remainingSeconds = minutes * 60
         isRunning = true
+        inhale = true
         timer?.invalidate()
         let newTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             if remainingSeconds > 0 {
@@ -4595,9 +4707,11 @@ struct MindfulnessCard: View {
         timer?.invalidate()
         timer = nil
         isRunning = false
+        inhale = false
         guard logged else { return }
-        let minutes = max(1, Int(ceil(Double(300 - remainingSeconds) / 60.0)))
-        Task { await vm.logMindfulSession(minutes: minutes) }
+        let elapsed = minutes * 60 - remainingSeconds
+        let loggedMinutes = max(1, Int(ceil(Double(elapsed) / 60.0)))
+        Task { await vm.logMindfulSession(minutes: loggedMinutes) }
     }
 
     private func timeString(_ seconds: Int) -> String {
