@@ -1328,7 +1328,7 @@ final class AppStore: ObservableObject {
     }
     
     /// Send a message through ARIA (remote when available, local fallback).
-    func sendMessage(_ text: String) async {
+    func sendMessage(_ text: String, ariaPayload: String? = nil) async {
         let userMessage = ChatMessage(
             id: UUID().uuidString,
             role: .user,
@@ -1337,17 +1337,18 @@ final class AppStore: ObservableObject {
         )
         chatMessages.append(userMessage)
         isGeneratingResponse = true
+        let outbound = ariaPayload ?? text
 
         do {
             // Learn theme preference from chat ("train like Solo Leveling", locks, etc.).
-            applyTrainingThemeIfDetected(from: text)
+            applyTrainingThemeIfDetected(from: outbound)
             // Learn voice dials ("be hype", "just the facts", "keep it short", …).
-            applyVoicePreferenceIfDetected(from: text)
+            applyVoicePreferenceIfDetected(from: outbound)
             // Learn partner/daughter/family support context from plain language.
-            applySupportContextIfDetected(from: text)
+            applySupportContextIfDetected(from: outbound)
 
             let aria = try await AriaService.shared.sendMessage(
-                text,
+                outbound,
                 store: self,
                 localGenerator: responseGenerator,
                 voiceMode: ariaVoiceMode

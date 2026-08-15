@@ -612,6 +612,7 @@ struct ChatView: View {
     @State private var showReactionBurst: Bool   = false
     @State private var showContextInspector = false
     @State private var proactiveInsight: String?
+    @State private var composerMode: AriaComposerMode = .chat
     @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
 
     // Cancellable timers for transient UI so nothing fires after teardown.
@@ -713,6 +714,13 @@ struct ChatView: View {
                 }
 
                 // ── Input ────────────────────────────────────────
+                if isTyping, composerMode == .research {
+                    AriaResearchProgress()
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
                 ChatInputAreaView(
                     inputText:        $inputText,
                     isTyping:         $isTyping,
@@ -720,6 +728,7 @@ struct ChatView: View {
                     showQuickActions: $showQuickActions,
                     mood:             ariaMood,
                     replyTarget:      swipeReplyTarget,
+                    mode:             $composerMode,
                     onSend:           sendMessage,
                     onMicTap: {
                         choreographedHaptic(.voiceStart, mood: ariaMood)
@@ -885,7 +894,14 @@ struct ChatView: View {
         momentum.award(xp: xpGain)
 
         Task {
-            await store.sendMessage(trimmed)
+            if composerMode == .research {
+                await store.sendMessage(
+                    "Research: \(trimmed)",
+                    ariaPayload: AriaComposerMode.researchPrompt(for: trimmed)
+                )
+            } else {
+                await store.sendMessage(trimmed)
+            }
             isTyping = false
             choreographedHaptic(.messageReceived, mood: ariaMood)
 
@@ -1814,6 +1830,80 @@ struct TypingIndicatorView: View {
 // MARK: - Chat Input Area (smart + mood-reactive)
 // ============================================================
 
+enum AriaComposerMode: String, CaseIterable {
+    case chat
+    case research
+
+    var title: String {
+        switch self {
+        case .chat: return "Chat"
+        case .research: return "Research"
+        }
+    }
+
+    var placeholder: String {
+        switch self {
+        case .chat: return "Ask ARIA anything…"
+        case .research: return "Ask ARIA to go deep…"
+        }
+    }
+
+    static func researchPrompt(for question: String) -> String {
+        """
+        [DEEP RESEARCH]
+        Write a structured brief, not a chatty reply. Use this person's Forge context (sleep, readiness, training, lifestyle, cycle if present). Be honest about uncertainty.
+
+        Format exactly:
+        What we know
+        What the evidence says
+        What to do this week
+        What we should not claim
+
+        Question: \(question)
+        """
+    }
+}
+
+struct AriaResearchProgress: View {
+    private let steps = [
+        "Reading your context",
+        "Checking the evidence",
+        "Writing the brief",
+    ]
+    @State private var step = 0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Deep research")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.aurora)
+            ForEach(Array(steps.enumerated()), id: \.offset) { i, label in
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(i <= step ? Color.aurora : Color.white.opacity(0.12))
+                        .frame(width: 7, height: 7)
+                    Text(label)
+                        .font(.system(size: 13, weight: i == step ? .semibold : .medium))
+                        .foregroundColor(i <= step ? .textPrimary : .textTertiary)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.surface)
+        .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.aurora.opacity(0.25), lineWidth: 1))
+        .onAppear {
+            Task {
+                for i in 1..<steps.count {
+                    try? await Task.sleep(nanoseconds: 900_000_000)
+                    await MainActor.run { withAnimation { step = i } }
+                }
+            }
+        }
+    }
+}
+
 struct ChatInputAreaView: View {
     @EnvironmentObject var store: AppStore
     @Binding var inputText:        String
@@ -1822,6 +1912,7 @@ struct ChatInputAreaView: View {
     @Binding var showQuickActions:  Bool
     let mood:         ARIAMood
     let replyTarget:  ChatMessage?
+    @Binding var mode: AriaComposerMode
     let onSend:       (String) -> Void
     let onMicTap:     () -> Void
     @State private var charCount: Int = 0
@@ -1835,6 +1926,32 @@ struct ChatInputAreaView: View {
             Rectangle().fill(Color.borderColor.opacity(0.3)).frame(height: 0.5)
 
             // Smart quick chips (mood-aware, scroll horizontal)
+            HStack(spacing: 8) {
+                ForEach(AriaComposerMode.allCases, id: \.self) { item in
+                    Button {
+                        withAnimation(.easeOut(duration: 0.18)) { mode = item }
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    } label: {
+                        Text(item.title)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(mode == item ? .textPrimary : .textTertiary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(mode == item ? Color.white.opacity(0.10) : Color.clear)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+                if mode == .research {
+                    Text("Longer brief. Sources in your data.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.textTertiary)
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 10)
+
             if showQuickActions && !isInputFocused {
                 let chips = smartQuickActions(
                     mood:         mood,
@@ -1893,7 +2010,7 @@ struct ChatInputAreaView: View {
                             radius: isInputFocused ? 12 : 3, y: isInputFocused ? 3 : 1
                         )
 
-                    TextField("Ask ARIA anything…", text: $inputText, axis: .vertical)
+                    TextField(mode.placeholder, text: $inputText, axis: .vertical)
                         .font(.system(size: 15.5))
                         .foregroundColor(.textPrimary)
                         .tint(mood.accentColor)
