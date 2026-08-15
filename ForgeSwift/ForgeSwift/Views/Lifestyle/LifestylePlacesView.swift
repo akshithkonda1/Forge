@@ -1,6 +1,7 @@
 import SwiftUI
 import MapKit
 import CoreLocation
+import UIKit
 
 private enum FoodSearchKind: String, CaseIterable, Identifiable {
     case restaurants, cafes, fastFood, grocery
@@ -30,12 +31,13 @@ struct LifestylePlacesView: View {
     @EnvironmentObject var store: AppStore
     @ObservedObject private var location = LifestyleLocationStore.shared
 
-    @State private var camera: MapCameraPosition = .automatic
+    @State private var camera: MapCameraPosition = .userLocation(followsHeading: false, fallback: .automatic)
     @State private var selectedPlace: NearbyPlace?
     @State private var showCatalog = false
     @State private var hasCentered = false
     @State private var searchText = ""
     @State private var foodKind: FoodSearchKind = .restaurants
+    @State private var showOpenSettings = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -50,14 +52,31 @@ struct LifestylePlacesView: View {
             }
         }
         .task { await bootstrap() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            location.refreshAuthorization()
+            if location.isAuthorized {
+                Task { await followUserAndSearch() }
+            }
+        }
         .onChange(of: location.currentLocation?.timestamp) { _, _ in
-            guard !hasCentered, let loc = location.currentLocation else { return }
-            hasCentered = true
-            camera = .region(MKCoordinateRegion(
-                center: loc.coordinate,
-                latitudinalMeters: 1_200,
-                longitudinalMeters: 1_200
-            ))
+            guard let loc = location.currentLocation else { return }
+            if !hasCentered || location.anchorSource == .gps {
+                hasCentered = true
+                camera = .region(MKCoordinateRegion(
+                    center: loc.coordinate,
+                    latitudinalMeters: 1_200,
+                    longitudinalMeters: 1_200
+                ))
+            }
+            if location.nearby.isEmpty {
+                Task { await runSearch() }
+            }
+        }
+        .alert("Location is off", isPresented: $showOpenSettings) {
+            Button("Open Settings") { openSystemSettings() }
+            Button("Not now", role: .cancel) {}
+        } message: {
+            Text("Turn it on so Places can default to you. It stays on this iPhone — Forge never uploads it. Settings → Privacy & Security → Location Services → Forge.")
         }
         .sheet(item: $selectedPlace) { place in
             NearbyPlaceSheet(
@@ -133,8 +152,8 @@ struct LifestylePlacesView: View {
             if location.isSearching {
                 ProgressView().controlSize(.small)
             } else if !location.isAuthorized {
-                Button("Enable") {
-                    Task { await bootstrap() }
+                Button(location.canAsk ? "Allow" : "Turn on") {
+                    Task { await requestLocationPermission() }
                 }
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(.ember)
@@ -146,20 +165,24 @@ struct LifestylePlacesView: View {
     }
 
     private var statusTitle: String {
+        if location.canAsk { return "Forge needs your location" }
         if !location.isAuthorized { return "Location is off" }
-        if location.isTracking { return "Tracking your location" }
-        return "Location ready"
+        if location.currentLocation != nil { return location.anchorSource.statusLine }
+        return "Finding your location"
     }
 
     private var statusDetail: String {
+        if location.canAsk {
+            return "Allow location so the map opens on you. It never leaves this iPhone."
+        }
         if !location.isAuthorized {
-            return "Forge uses Apple Maps to show restaurants around you. Location stays on-device."
+            return "Turn it on in Settings. Location stays on-device — Forge never uploads it."
         }
         if let loc = location.currentLocation {
             let acc = max(5, Int(loc.horizontalAccuracy.rounded()))
             return "±\(acc) m · \(location.nearby.count) places nearby"
         }
-        return "Getting a GPS fix…"
+        return "Waiting on GPS — the map will jump to you."
     }
 
     private var nearbyList: some View {
@@ -179,9 +202,16 @@ struct LifestylePlacesView: View {
             }
 
             if let error = location.lastError, location.nearby.isEmpty {
-                Text(error)
-                    .font(.system(size: 13))
-                    .foregroundColor(.warning)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(error)
+                        .font(.system(size: 13))
+                        .foregroundColor(.warning)
+                    Button("Try again") {
+                        Task { await runSearch() }
+                    }
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.ember)
+                }
             } else if location.nearby.isEmpty {
                 Text("No restaurants found yet. Move a little or tap Refresh.")
                     .font(.system(size: 13))
@@ -237,22 +267,47 @@ struct LifestylePlacesView: View {
     }
 
     private func bootstrap() async {
-        if location.canAsk || !location.isAuthorized {
-            let status = await location.requestAccess()
-            if status == .denied || status == .restricted {
-                location.lastError = "Location is denied. Enable it in Settings → Privacy → Location Services → Forge."
-                return
-            }
+        if !location.isAuthorized {
+            await requestLocationPermission()
+            return
         }
+        await followUserAndSearch()
+    }
+
+    /// System When In Use sheet if we can still ask. Settings if they already said no.
+    private func requestLocationPermission() async {
+        if location.canAsk {
+            let status = await location.requestAccess()
+            if location.isAuthorized {
+                await followUserAndSearch()
+            } else if status == .denied || status == .restricted {
+                showOpenSettings = true
+            }
+            return
+        }
+        if !location.isAuthorized {
+            showOpenSettings = true
+        }
+    }
+
+    private func followUserAndSearch() async {
         location.startTracking()
-        if let loc = await location.latestLocation() {
+        if let loc = location.currentLocation ?? await location.latestLocation() {
+            hasCentered = true
             camera = .region(MKCoordinateRegion(
                 center: loc.coordinate,
                 latitudinalMeters: 1_200,
                 longitudinalMeters: 1_200
             ))
+        } else {
+            camera = .userLocation(followsHeading: false, fallback: .automatic)
         }
         await runSearch()
+    }
+
+    private func openSystemSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 
     private var searchBar: some View {

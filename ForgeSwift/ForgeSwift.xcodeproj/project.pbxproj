@@ -1309,7 +1309,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps, track where you are while Lifestyle is open, and log meals faster.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -1348,7 +1348,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps, track where you are while Lifestyle is open, and log meals faster.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

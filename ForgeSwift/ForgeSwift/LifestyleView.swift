@@ -1423,6 +1423,7 @@ struct SegmentedPillControl: View {
                     .buttonStyle(.plain)
                 }
             }
+            .padding(.horizontal, 20)
             .padding(.vertical, 2)
         }
     }
@@ -1481,7 +1482,7 @@ struct LocationQuickLogCard: View {
                     .foregroundColor(.textPrimary)
             }
 
-            Text("Detect nearby restaurants and log meals in one tap. Uses your location and Apple Maps POI data.")
+            Text("Detect nearby restaurants and log meals in one tap. Location stays on this iPhone.")
                 .font(.system(size: 14))
                 .foregroundColor(.textSecondary)
                 .lineSpacing(4)
