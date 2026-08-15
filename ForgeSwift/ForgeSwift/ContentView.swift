@@ -235,6 +235,10 @@ struct MainTabView: View {
                     }
             }
         }
+        .sheet(isPresented: $weeklyReview.showSheet) {
+            WeeklyAriaReviewSheet()
+                .environmentObject(store)
+        }
     }
 
     private func presentHydration() {

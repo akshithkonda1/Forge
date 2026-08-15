@@ -443,6 +443,38 @@ class HealthKitManager: ObservableObject {
             throw error
         }
     }
+
+    /// Distinct HealthKit source names this phone has already seen.
+    /// Feeds the device shelf so a wearable that writes to Apple Health can
+    /// appear without a catalog update.
+    func knownHealthSources() async -> [String] {
+        guard isHealthDataAvailable() else { return [] }
+
+        let types: [HKSampleType] = [
+            HKQuantityType(.heartRate),
+            HKQuantityType(.restingHeartRate),
+            HKQuantityType(.stepCount),
+            HKQuantityType(.activeEnergyBurned),
+            HKQuantityType(.dietaryWater),
+            HKCategoryType(.sleepAnalysis),
+            HKObjectType.workoutType(),
+        ]
+
+        var names = Set<String>()
+        for type in types {
+            names.formUnion(await sourceNames(for: type))
+        }
+        return names.sorted()
+    }
+
+    private func sourceNames(for sampleType: HKSampleType) async -> Set<String> {
+        await withCheckedContinuation { continuation in
+            let query = HKSourceQuery(sampleType: sampleType, samplePredicate: nil) { _, sources, _ in
+                continuation.resume(returning: Set((sources ?? []).map(\.name)))
+            }
+            healthStore.execute(query)
+        }
+    }
     
     // MARK: - Fetch Recent Snapshot
     
