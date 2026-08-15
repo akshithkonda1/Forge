@@ -170,7 +170,8 @@ final class HealthDeviceCatalogTests: XCTestCase {
         ])
         XCTAssertTrue(after.contains { $0.id == "s12" })
         XCTAssertTrue(after.contains { $0.id == "s8" })
-        XCTAssertFalse(after.contains { $0.id == "s7" })
+        // s7 is still Health/iOS compatible, so five cycles does not yank it.
+        XCTAssertTrue(after.contains { $0.id == "s7" })
         XCTAssertFalse(after.contains { $0.id == "s6" })
     }
 

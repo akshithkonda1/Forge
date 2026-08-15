@@ -426,14 +426,29 @@ public enum HealthDeviceCatalog {
     public static func device(matching raw: String, in devices: [HealthDevice]? = nil) -> HealthDevice? {
         let pool = devices ?? all
         let key = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if key.isEmpty { return nil }
         if let exact = pool.first(where: { $0.id == key || $0.name == key }) {
             return exact
         }
+        let slug = slugify(key)
+        if !slug.isEmpty, let bySlug = pool.first(where: { $0.id == slug }) {
+            return bySlug
+        }
         let folded = key.lowercased()
-        return pool.first { device in
-            folded.contains(device.name.lowercased()) ||
-            device.name.lowercased().contains(folded) ||
-            folded.contains(device.maker.lowercased())
+        // Name only — never maker. "Apple Watch" contains "Apple", which would
+        // otherwise resolve to the first Apple SKU (AirPods Pro).
+        let nameHits = pool.filter { device in
+            let name = device.name.lowercased()
+            return name.contains(folded) || folded.contains(name)
+        }
+        if nameHits.isEmpty { return nil }
+        let listedIDs = Set(listed(from: pool).map(\.id))
+        return nameHits.max { a, b in
+            let aListed = listedIDs.contains(a.id)
+            let bListed = listedIDs.contains(b.id)
+            if aListed != bListed { return !aListed && bListed }
+            if a.generation != b.generation { return a.generation < b.generation }
+            return a.id > b.id
         }
     }
 
