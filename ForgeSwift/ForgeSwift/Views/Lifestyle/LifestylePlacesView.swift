@@ -182,7 +182,14 @@ struct LifestylePlacesView: View {
             let acc = max(5, Int(loc.horizontalAccuracy.rounded()))
             return "±\(acc) m · \(location.nearby.count) places nearby"
         }
+        if ProcessInfo.processInfo.isiOSAppOnMac {
+            return "This Mac has no GPS. Waiting on a Wi‑Fi location from macOS."
+        }
+        #if targetEnvironment(simulator)
+        return "Simulator has no GPS until you set Features → Location → Apple."
+        #else
         return "Waiting on GPS — the map will jump to you."
+        #endif
     }
 
     private var nearbyList: some View {

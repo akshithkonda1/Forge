@@ -9,7 +9,8 @@ import Combine
 /// saved for them on this iPhone. Coordinates never leave the device —
 /// not ARIA, not the backend, not a snapshot. Apple Maps search runs
 /// on-device / through Apple, not Forge. Cold `kCLErrorLocationUnknown`
-/// is ignored.
+/// is ignored. Simulator and “Designed for iPhone” on macOS have no GPS
+/// radio — they need a simulated pin or a Wi‑Fi location from the Mac.
 @MainActor
 final class LifestyleLocationStore: NSObject, ObservableObject {
     static let shared = LifestyleLocationStore()
@@ -35,14 +36,48 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
     private let manager = CLLocationManager()
     private var authWaiters: [CheckedContinuation<CLAuthorizationStatus, Never>] = []
     private var upgradedAccuracy = false
+    private var unknownRetries = 0
+
+    /// Simulator, Mac Catalyst, and “Designed for iPhone” on Apple silicon
+    /// have no GPS radio. macOS 27 gives a Wi‑Fi / IP fix, or nothing until
+    /// Features → Location / System Settings is turned on.
+    private static var noHardwareGPS: Bool {
+        #if targetEnvironment(simulator)
+        return true
+        #elseif targetEnvironment(macCatalyst)
+        return true
+        #else
+        return ProcessInfo.processInfo.isiOSAppOnMac
+        #endif
+    }
+
+    nonisolated private static var emulatedLocationHint: String {
+        #if targetEnvironment(simulator)
+        return "Simulator has no GPS. Features → Location → Apple (or a city run). In Xcode: Debug → Simulate Location."
+        #else
+        if ProcessInfo.processInfo.isiOSAppOnMac {
+            return "This Mac has no GPS. Turn on Location Services for Forge in System Settings. The first Wi‑Fi fix can take a few seconds — then tap Refresh."
+        }
+        return "Couldn't get a location fix yet. Wait a moment and tap Refresh."
+        #endif
+    }
 
     override init() {
         authorization = manager.authorizationStatus
         super.init()
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
-        manager.distanceFilter = 40
-        manager.pausesLocationUpdatesAutomatically = true
+        // Simulator has no GPS radio. Coarse + pause-on-stationary never
+        // delivers a fix unless Features → Location is already set — and
+        // even then the first reading often has accuracy < 0.
+        if Self.noHardwareGPS {
+            manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+            manager.distanceFilter = kCLDistanceFilterNone
+            manager.pausesLocationUpdatesAutomatically = false
+        } else {
+            manager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
+            manager.distanceFilter = 40
+            manager.pausesLocationUpdatesAutomatically = true
+        }
         manager.activityType = .other
         currentLocation = Self.usable(manager.location) ?? Self.loadSavedLocation()
         if currentLocation != nil {
@@ -70,6 +105,12 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
 
     func startTracking() {
         guard isAuthorized else { return }
+        if !CLLocationManager.locationServicesEnabled() {
+            lastError = Self.noHardwareGPS && ProcessInfo.processInfo.isiOSAppOnMac
+                ? "Location Services are off on this Mac. System Settings → Privacy & Security → Location Services."
+                : "Location Services are off. Enable them in Settings."
+            return
+        }
         if currentLocation == nil {
             if let live = Self.usable(manager.location) {
                 adopt(live, source: .cached)
@@ -78,12 +119,18 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
             }
         }
         if !isTracking {
-            manager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
+            manager.desiredAccuracy = Self.noHardwareGPS
+                ? kCLLocationAccuracyHundredMeters
+                : kCLLocationAccuracyThreeKilometers
             manager.startUpdatingLocation()
             isTracking = true
             upgradedAccuracy = false
+            unknownRetries = 0
         }
-        if currentLocation == nil {
+        // requestLocation() on Simulator races startUpdatingLocation and
+        // usually fails with kCLErrorLocationUnknown. Device still uses it
+        // as a one-shot kick when we have no pin yet.
+        if currentLocation == nil, !Self.noHardwareGPS {
             manager.requestLocation()
         }
         if lastError != nil, currentLocation != nil {
@@ -104,7 +151,8 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
             return currentLocation
         }
         if isAuthorized { startTracking() }
-        let deadline = Date().addingTimeInterval(8)
+        let wait = Self.noHardwareGPS ? 14.0 : 8.0
+        let deadline = Date().addingTimeInterval(wait)
         while Date() < deadline {
             if let currentLocation { return currentLocation }
             if let live = Self.usable(manager.location) {
@@ -120,6 +168,9 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
         if let saved = currentLocation ?? Self.loadSavedLocation() {
             adopt(saved, source: .saved)
             return saved
+        }
+        if Self.noHardwareGPS {
+            lastError = Self.emulatedLocationHint
         }
         return nil
     }
@@ -139,6 +190,8 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
 
         if await search(query: query, around: location, meters: 2_400) { return }
         if await search(query: query, around: location, meters: 12_000) { return }
+        // Simulator Maps often returns nothing when the POI filter is tight.
+        if await search(query: query, around: location, meters: 20_000, relaxFilter: true) { return }
 
         if nearby.isEmpty {
             lastError = "No places around you yet. Try Refresh."
@@ -175,13 +228,20 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
     }
 
     @discardableResult
-    private func search(query: String, around location: CLLocation, meters: CLLocationDistance) async -> Bool {
+    private func search(
+        query: String,
+        around location: CLLocation,
+        meters: CLLocationDistance,
+        relaxFilter: Bool = false
+    ) async -> Bool {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
         request.resultTypes = .pointOfInterest
-        request.pointOfInterestFilter = MKPointOfInterestFilter(including: [
-            .restaurant, .cafe, .bakery, .brewery, .foodMarket, .winery,
-        ])
+        if !relaxFilter {
+            request.pointOfInterestFilter = MKPointOfInterestFilter(including: [
+                .restaurant, .cafe, .bakery, .brewery, .foodMarket, .winery,
+            ])
+        }
         request.region = MKCoordinateRegion(
             center: location.coordinate,
             latitudinalMeters: meters,
@@ -246,11 +306,22 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
 
     nonisolated private static func usable(_ location: CLLocation?) -> CLLocation? {
         guard let location else { return nil }
-        // Reject 0,0 and "accuracy is actually an error code" readings.
-        guard location.horizontalAccuracy >= 0, location.horizontalAccuracy < 20_000 else { return nil }
         let coord = location.coordinate
         guard CLLocationCoordinate2DIsValid(coord) else { return nil }
         guard abs(coord.latitude) > 0.01 || abs(coord.longitude) > 0.01 else { return nil }
+        // Simulator's first simulated pin often arrives with accuracy < 0
+        // ("invalid") even though the coordinate is Apple Park / the GPX.
+        if location.horizontalAccuracy < 0 {
+            guard noHardwareGPS else { return nil }
+            return CLLocation(
+                coordinate: coord,
+                altitude: location.altitude,
+                horizontalAccuracy: 65,
+                verticalAccuracy: location.verticalAccuracy,
+                timestamp: location.timestamp
+            )
+        }
+        guard location.horizontalAccuracy < 20_000 else { return nil }
         return location
     }
 
@@ -270,9 +341,13 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
         let cl = error as? CLError
         switch cl?.code {
         case .locationUnknown, .headingFailure, .none:
-            // Transient — GPS is still warming. Don't scare the user.
+            // Transient on device. Simulator with Features → Location → None
+            // stays here forever — caller decides when to explain that.
             return nil
         case .denied, .restricted:
+            if noHardwareGPS, ProcessInfo.processInfo.isiOSAppOnMac {
+                return "Location is off. System Settings → Privacy & Security → Location Services → Forge."
+            }
             return "Location is off. Enable it in Settings → Privacy → Location Services → Forge."
         case .network:
             return "Can't reach location services. Check Wi‑Fi or cellular."
@@ -315,7 +390,20 @@ extension LifestyleLocationStore: CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         Task { @MainActor in
             // kCLErrorDomain 0 = locationUnknown. Core Location fires this
-            // while the first fix is still coming. Keep waiting.
+            // while the first fix is still coming. Keep waiting — unless
+            // we are in Simulator with no simulated location at all.
+            if Self.locationErrorCopy(error) == nil {
+                unknownRetries += 1
+                if let live = Self.usable(manager.location) {
+                    adopt(live, source: .cached)
+                    lastError = nil
+                    return
+                }
+                if Self.noHardwareGPS, unknownRetries >= 3, currentLocation == nil {
+                    lastError = Self.emulatedLocationHint
+                }
+                return
+            }
             guard let copy = Self.locationErrorCopy(error) else { return }
             lastError = copy
         }
