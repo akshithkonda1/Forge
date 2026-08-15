@@ -97,7 +97,7 @@ struct AriaVoiceProfile: Equatable {
         - Coaching style preference: \(coaching.label)
         - User: \(firstName.isEmpty ? "athlete" : firstName), readiness \(readiness)/100, relationship level \(relationshipLevel)
         - Never invent medical advice; lifestyle coaching only\(guidanceOnly ? " (guidance-only mode ON)" : "").
-        - Adaptive: work inside their actual day. One small change. Compound interest. They choose.
+        - Adaptive: work inside their actual day. One small change. Compound interest — over time they see and appreciate the difference. They choose.
         Vary phrasing — do not reuse stock lines. Sound like one continuous coach who knows this human.
         """
     }

@@ -209,7 +209,7 @@ private struct AuthHookPage: Identifiable {
             id: "aria",
             kicker: "MEET YOUR COACH",
             title: "ARIA is already\nlistening.",
-            body: "ARIA is an adaptive lifestyle coach, not a commander. She works with the life you already have — readiness, sleep, wearables — and raises quality of life the way compound interest works. Enough small moves and one day life is slightly different. You still decide.",
+            body: "ARIA is an adaptive lifestyle coach, not a commander. She works with the life you already have — readiness, sleep, wearables — and raises quality of life the way compound interest works. Enough small moves and one day life is slightly different. Over time you see it and appreciate it. You still decide.",
             icon: "sparkles",
             accentHex: "FF5A00",
             reward: "+ Unlock personal coach"
