@@ -1760,7 +1760,7 @@ struct ForgeAboutView: View {
 
                     aboutRow("lock.shield.fill", "Local-first", "Your profile, cycle logs, and photos live on this device. Cycle data is coaching-only and is never sold.")
                     aboutRow("heart.text.square.fill", "HealthKit", "Read and write is scoped to what you approve in the Health app, and can be revoked there at any time.")
-                    aboutRow("sparkles", "ARIA", "Adaptive lifestyle coach. Small changes inside the life you already have — not a new personality. Not clinical care.")
+                    aboutRow("sparkles", "ARIA", "Adaptive lifestyle coach. Compound interest: enough small changes and life is slightly different. Not a new personality. Not clinical care.")
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("SUPPORT")
