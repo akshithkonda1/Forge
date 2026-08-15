@@ -251,7 +251,7 @@ final class OnboardingCoordinator {
         let nameHint = profile.firstName
         if !nameHint.isEmpty {
             await ariaSay(
-                "Welcome, \(nameHint). I'm Aria — your lifestyle coach. You already claimed a quest; now we forge the system around it.",
+                "Welcome, \(nameHint). I'm ARIA — your adaptive lifestyle coach. I work with the life you already have. Small changes. You keep the autonomy.",
                 mood: .energized
             )
         } else {

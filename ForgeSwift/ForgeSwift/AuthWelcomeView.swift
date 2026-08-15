@@ -209,7 +209,7 @@ private struct AuthHookPage: Identifiable {
             id: "aria",
             kicker: "MEET YOUR COACH",
             title: "ARIA is already\nlistening.",
-            body: "ARIA isn't just another chatbot, ARIA is a lifestyle coach that learns readiness, sleep, and how you actually live — then builds plans you can keep. ARIA takes in the data you have from all of your wearables and health applications and uses it to create a personalized plan for you, based on your lifestyle and what you need and want.",
+            body: "ARIA is an adaptive lifestyle coach, not a commander. She works with the life you already have — readiness, sleep, wearables — and raises quality of life with small moves you can keep. Enough of those become the bigger change. You still decide.",
             icon: "sparkles",
             accentHex: "FF5A00",
             reward: "+ Unlock personal coach"
