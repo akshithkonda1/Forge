@@ -142,7 +142,7 @@ struct CycleHealthSummary: Identifiable, Codable {
     let hasData: Bool
 }
 
-// MARK: - Clinical Records Summary
+// MARK: - Structured Health records (allergies, meds, conditions, shots, labs, procedures)
 
 struct ClinicalRecordsSummary: Identifiable, Codable {
     var id = UUID()
@@ -301,29 +301,29 @@ class HealthKitManager: ObservableObject {
         HKCategoryType(.lactation)
     ]
 
-    // Types to read for coaching, recovery, profile prefill, nutrition, clinical context, and activity trends.
+    // Types to read for coaching, recovery, profile prefill, nutrition, and activity trends.
+    // Structured Health records only — never clinical notes or insurance coverage.
     private var readTypes: Set<HKObjectType> {
         coreReadTypes
             .union(sensitiveLifestyleReadTypes)
-            .union(HealthKitManager.clinicalRecordTypes)
+            .union(HealthKitManager.structuredHealthRecordTypes)
     }
-    
-    private static let clinicalRecordIdentifiers: [HKClinicalTypeIdentifier] = [
+
+    /// Allergies, meds, conditions, immunizations, labs, procedures.
+    /// Not notes. Not coverage. Those are PHI we will not ingest.
+    private static let structuredHealthRecordIdentifiers: [HKClinicalTypeIdentifier] = [
         .allergyRecord,
-        .clinicalNoteRecord,
+        .medicationRecord,
         .conditionRecord,
         .immunizationRecord,
         .labResultRecord,
-        .medicationRecord,
         .procedureRecord,
-        .vitalSignRecord,
-        .coverageRecord
     ]
-    
-    private static let clinicalRecordTypes: Set<HKObjectType> = Set(
-        clinicalRecordIdentifiers.compactMap { HKObjectType.clinicalType(forIdentifier: $0) }
+
+    private static let structuredHealthRecordTypes: Set<HKObjectType> = Set(
+        structuredHealthRecordIdentifiers.compactMap { HKObjectType.clinicalType(forIdentifier: $0) }
     )
-    
+
     // Types to write during the primary onboarding prompt.
     private let coreWriteTypes: Set<HKSampleType> = [
         HKQuantityType(.activeEnergyBurned),
@@ -405,7 +405,7 @@ class HealthKitManager: ObservableObject {
     func requestExpandedLifestyleAuthorization() async throws {
         try await requestHealthKitAuthorization(
             toShare: writeTypes,
-            read: readTypes.subtracting(HealthKitManager.clinicalRecordTypes),
+            read: readTypes.subtracting(HealthKitManager.structuredHealthRecordTypes),
             requestedKey: expandedAuthorizationRequestedKey
         )
     }
@@ -413,7 +413,7 @@ class HealthKitManager: ObservableObject {
     func requestClinicalRecordsAuthorization() async throws {
         try await requestHealthKitAuthorization(
             toShare: [],
-            read: HealthKitManager.clinicalRecordTypes,
+            read: HealthKitManager.structuredHealthRecordTypes,
             requestedKey: clinicalAuthorizationRequestedKey
         )
     }
@@ -1381,11 +1381,11 @@ class HealthKitManager: ObservableObject {
         }
     }
     
-    // MARK: - Clinical Records
-    
+    // MARK: - Structured Health records (no notes)
+
     func fetchClinicalRecordsSummary() async -> ClinicalRecordsSummary {
         let recordBuckets = await withTaskGroup(of: (String, [HKClinicalRecord]).self) { group in
-            for identifier in Self.clinicalRecordIdentifiers {
+            for identifier in Self.structuredHealthRecordIdentifiers {
                 group.addTask { [healthStore] in
                     guard let type = HKObjectType.clinicalType(forIdentifier: identifier) else {
                         return (identifier.rawValue, [])

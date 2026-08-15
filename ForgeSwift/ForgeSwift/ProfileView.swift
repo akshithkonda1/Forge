@@ -767,9 +767,7 @@ struct SettingsPageView: View {
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
     @State private var showTrainingThemePicker = false
-    @State private var showPrivacyPolicyURLAlert = false
     @State private var showTermsSheet = false
-    @State private var showMyChartPlaceholderSheet = false
     @State private var showDataPermissions = false
     @State private var showGoalsEditor = false
     @State private var showScheduleEditor = false
@@ -1162,8 +1160,7 @@ struct SettingsPageView: View {
                     }
                 }
 
-                // Clinical Integrations
-                sectionHeader("Clinical Integrations")
+                sectionHeader("Apple Health records")
                 Button {
                     Task {
                         try? await HealthKitManager.shared.requestClinicalRecordsAuthorization()
@@ -1174,16 +1171,16 @@ struct SettingsPageView: View {
                             Circle()
                                 .fill(Color.ember.opacity(0.14))
                                 .frame(width: 42, height: 42)
-                            Image(systemName: "cross.case.fill")
+                            Image(systemName: "pills.fill")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(.ember)
                         }
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("Clinical records")
+                            Text("Allergies, meds, labs")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.textPrimary)
-                            Text("Read labs and meds already in Apple Health. Nothing is uploaded.")
+                            Text("Conditions, immunizations, and procedures too. Never notes. Nothing uploaded.")
                                 .font(.system(size: 12))
                                 .foregroundColor(.textSecondary)
                         }
@@ -1322,9 +1319,6 @@ struct SettingsPageView: View {
         .sheet(isPresented: $showAbout) {
             ForgeAboutView()
         }
-        .sheet(isPresented: $showMyChartPlaceholderSheet) {
-            MyChartNativeAPIPlaceholderView()
-        }
         .sheet(isPresented: $showDataPermissions) {
             DataPermissionsView()
                 .environmentObject(store)
@@ -1369,11 +1363,6 @@ struct SettingsPageView: View {
                 }
             }
             .preferredColorScheme(.dark)
-        }
-        .alert("Privacy Policy Required", isPresented: $showPrivacyPolicyURLAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("Add Forge's production privacy policy URL before enabling clinical health records in release builds.")
         }
         .confirmationDialog("Log out of Forge?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Log Out", role: .destructive) { store.signOut() }
@@ -1842,10 +1831,10 @@ struct ForgeTermsAndConditionsView: View {
                         .lineSpacing(3)
 
                     VStack(alignment: .leading, spacing: 12) {
-                        legalPoint("Your Apple Health, clinical, cycle, sexual health, workout, sleep, nutrition, and lifestyle data stays under your control.")
+                        legalPoint("Your Apple Health, cycle, sexual health, workout, sleep, nutrition, and lifestyle data stays under your control.")
                         legalPoint("Forge uses HealthKit permissions only for features you enable and only through Apple's permission system.")
-                        legalPoint("Clinical records from providers or apps such as MyChart remain read-only through Apple Health unless a future native connection is explicitly added and authorized by you.")
-                        legalPoint("Forge does not sell personal information, health information, clinical records, or lifestyle data.")
+                        legalPoint("If you allow it, Forge may read allergies, medications, conditions, immunizations, lab results, and procedures from Apple Health. Clinical notes and insurance coverage are never requested.")
+                        legalPoint("Forge does not sell personal information, health information, or lifestyle data.")
                         legalPoint("You can revoke Health permissions at any time in the iOS Settings app or Apple Health.")
                     }
                 }
@@ -1872,49 +1861,6 @@ struct ForgeTermsAndConditionsView: View {
                 .font(.system(size: 14))
                 .foregroundColor(.textSecondary)
                 .lineSpacing(2)
-        }
-    }
-}
-
-struct MyChartNativeAPIPlaceholderView: View {
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 18) {
-                Image(systemName: "cross.case.fill")
-                    .font(.system(size: 28))
-                    .foregroundColor(.ember)
-
-                Text("MyChart Native API")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.textPrimary)
-
-                Text("This is a filler destination for a future native MyChart connection. Until the API credentials, patient authorization flow, and provider scope are added, Forge reads clinical records through Apple Health as read-only data from connected sources.")
-                    .font(.system(size: 15))
-                    .foregroundColor(.textSecondary)
-                    .lineSpacing(3)
-
-                SettingsRow(icon: "heart.text.square.fill", iconColor: .textSecondary, label: "Current clinical path", trailingText: "Apple Health")
-                    .background(Color.surface)
-                    .cornerRadius(14)
-
-                SettingsRow(icon: "key.fill", iconColor: .textSecondary, label: "Native API status", trailingText: "Filler")
-                    .background(Color.surface)
-                    .cornerRadius(14)
-
-                Spacer()
-            }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.background.ignoresSafeArea())
-            .navigationTitle("MyChart")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
-            }
         }
     }
 }
