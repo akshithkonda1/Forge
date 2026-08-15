@@ -17,6 +17,11 @@ struct ContextInspectorView: View {
                         tagSection(title: "Lifestyle", items: richContext.lifestyleTags, icon: "leaf.fill")
                         tagSection(title: "Constraints", items: richContext.constraints, icon: "exclamationmark.shield.fill")
                         tagSection(title: "Patterns", items: richContext.recentPatterns, icon: "waveform.path.ecg")
+                        tagSection(
+                            title: "Clinical Data (Non PHI)",
+                            items: HealthKitManager.shared.clinicalSummary?.ariaConstraintLines() ?? [],
+                            icon: "pills.fill"
+                        )
                         insightsSection
                         metricsSection
                     }

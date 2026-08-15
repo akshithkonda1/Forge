@@ -13,6 +13,8 @@ struct ARIAContextPayload: Codable, Equatable {
     var profile: ProfileDomain
     var progress: ProgressDomain
     var lifestyle: LifestyleDomain
+    /// Structured Health records (Non PHI). Names only. Notes never included.
+    var clinicalData: ClinicalDataDomain? = nil
     /// Token-efficient conversational memory: a handful of verbatim recent
     /// turns plus compressed anchors for everything older. Optional so older
     /// backends that don't know the field simply ignore it.
@@ -88,6 +90,22 @@ struct ARIAContextPayload: Codable, Equatable {
         /// Biology-grounded coaching text for the user's current cycle phase, injected
         /// into the ARIA system prompt on both the remote and local-fallback paths.
         var cyclePhaseDirective: String?
+    }
+
+    /// Allergies, meds, conditions, immunizations, labs, procedures.
+    /// Display names only — never notes, coverage, or FHIR.
+    struct ClinicalDataDomain: Codable, Equatable {
+        var allergies: [String]
+        var medications: [String]
+        var conditions: [String]
+        var immunizations: [String]
+        var labResults: [String]
+        var procedures: [String]
+
+        var isEmpty: Bool {
+            allergies.isEmpty && medications.isEmpty && conditions.isEmpty
+                && immunizations.isEmpty && labResults.isEmpty && procedures.isEmpty
+        }
     }
 
     struct ConversationDomain: Codable, Equatable {

@@ -204,6 +204,28 @@ struct ClinicalRecordsSummary: Identifiable, Codable {
     func items(for kind: StructuredHealthKind) -> [StructuredHealthItem] {
         items.filter { $0.kind == kind }
     }
+
+    /// Names only, capped so the prompt stays small.
+    func ariaDomain(limit: Int = 12) -> ARIAContextPayload.ClinicalDataDomain {
+        func names(_ kind: StructuredHealthKind) -> [String] {
+            Array(items(for: kind).map(\.name).prefix(limit))
+        }
+        return ARIAContextPayload.ClinicalDataDomain(
+            allergies: names(.allergy),
+            medications: names(.medication),
+            conditions: names(.condition),
+            immunizations: names(.immunization),
+            labResults: names(.lab),
+            procedures: names(.procedure)
+        )
+    }
+
+    /// Compact lines for the local trainer path. Not persisted.
+    func ariaConstraintLines(limit: Int = 8) -> [String] {
+        StructuredHealthKind.allCases.flatMap { kind in
+            items(for: kind).prefix(limit).map { "clinical:\(kind.rawValue):\($0.name)" }
+        }
+    }
 }
 
 // MARK: - Meal Log

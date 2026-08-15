@@ -3520,6 +3520,7 @@ struct DataPermissionsView: View {
         "profile": ("Goals & Profile", "person.fill"),
         "progress": ("Progress", "chart.line.uptrend.xyaxis"),
         "lifestyle": ("Lifestyle & Patterns", "sparkles"),
+        "clinical_data": ("Clinical Data (Non PHI)", "pills.fill"),
     ]
 
     var body: some View {

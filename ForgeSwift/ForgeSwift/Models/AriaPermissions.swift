@@ -3,6 +3,7 @@ import Foundation
 /// Data domains ARIA can reason over — mirrors `AriaDataDomain` in api-contracts.
 enum AriaDataDomain: String, CaseIterable, Codable, Identifiable {
     case sleep, readiness, activity, training, chronotype, body, nutrition, profile, progress, lifestyle
+    case clinicalData = "clinical_data"
 
     var id: String { rawValue }
 
@@ -18,6 +19,7 @@ enum AriaDataDomain: String, CaseIterable, Codable, Identifiable {
         case .profile: return "Profile"
         case .progress: return "Progress"
         case .lifestyle: return "Lifestyle"
+        case .clinicalData: return "Clinical Data (Non PHI)"
         }
     }
 }
