@@ -6,8 +6,8 @@ import ForgeCore
 // MARK: - Page
 // ============================================================
 
-/// Today's water, against a need estimated from the body rather than from
-/// "eight glasses", with every pour read from and written to Apple Health.
+/// Today's water against a goal the person can set. The estimate from
+/// weight, work, and cycle is the starting suggestion — never a lock.
 struct HydrationView: View {
     @EnvironmentObject var store: AppStore
     @ObservedObject private var health = HealthKitManager.shared
@@ -16,6 +16,7 @@ struct HydrationView: View {
     @State private var now = Date()
     @State private var customMilliliters = ""
     @State private var showCustom = false
+    @State private var showGoalEditor = false
     @State private var lastError: String?
     @State private var writing = false
 
@@ -44,6 +45,22 @@ struct HydrationView: View {
         .background(Color.background.ignoresSafeArea())
         .navigationTitle("Hydration")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Goal") { showGoalEditor = true }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.ember)
+            }
+        }
+        .sheet(isPresented: $showGoalEditor) {
+            HydrationGoalEditor(
+                suggestedMl: suggestedMl,
+                currentMl: targetMl,
+                isCustom: hasCustomGoal
+            ) { newGoal in
+                applyGoal(newGoal)
+            }
+        }
         .onReceive(tick) { now = $0 }
         .task { await health.refreshHydration() }
     }
@@ -53,9 +70,21 @@ struct HydrationView: View {
     // ------------------------------------------------------------
 
     private var consumedMl: Double { health.todayWaterMilliliters }
-    private var targetMl: Double {
+    private var suggestedMl: Double {
         HydrationEngine.targetMilliliters(
             weightKilograms: store.userProfile.weight,
+            activeCalories: Double(health.todayStats?.activeCalories ?? store.dailyMetrics.activeCalories),
+            cycle: cycleAdjustment
+        )
+    }
+    private var hasCustomGoal: Bool {
+        store.nutritionPreferences.hydrationTargetMl != nil
+            || store.nutritionPreferences.waterGlassesTarget != nil
+    }
+    private var targetMl: Double {
+        LifestyleTargets.hydrationMilliliters(
+            profile: store.userProfile,
+            overrides: store.nutritionPreferences,
             activeCalories: Double(health.todayStats?.activeCalories ?? store.dailyMetrics.activeCalories),
             cycle: cycleAdjustment
         )
@@ -141,9 +170,17 @@ struct HydrationView: View {
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .foregroundColor(.textPrimary)
                         .monospacedDigit()
-                    Text("of \(formatMl(targetMl))")
+                    Button { showGoalEditor = true } label: {
+                        HStack(spacing: 4) {
+                            Text("of \(formatMl(targetMl))")
+                            Image(systemName: "pencil")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Daily goal \(formatMl(targetMl)). Double tap to change.")
                 }
             }
             .frame(width: 196, height: 196)
@@ -295,10 +332,14 @@ struct HydrationView: View {
                 .font(.system(size: 13))
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-                if cycleAdjustment != .none {
+                if !hasCustomGoal, cycleAdjustment != .none {
                     Text(cycleAdjustment == .menstruation
-                         ? "Target is up \(Int(HydrationEngine.menstruationBonusMilliliters)) ml this phase."
-                         : "Luteal phase adds \(Int(HydrationEngine.lutealBonusMilliliters)) ml to today's need.")
+                         ? "Suggested need is up \(Int(HydrationEngine.menstruationBonusMilliliters)) ml this phase."
+                         : "Luteal phase adds \(Int(HydrationEngine.lutealBonusMilliliters)) ml to the suggested need.")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                } else if hasCustomGoal {
+                    Text("Your goal. Change it any time — the estimate is only a suggestion.")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.textTertiary)
                 }
@@ -401,6 +442,23 @@ struct HydrationView: View {
     // MARK: Actions
     // ------------------------------------------------------------
 
+    private func applyGoal(_ milliliters: Double?) {
+        var prefs = store.nutritionPreferences
+        if let milliliters {
+            let clamped = HydrationEngine.resolvedTargetMilliliters(
+                userGoal: milliliters,
+                suggested: suggestedMl
+            )
+            prefs.hydrationTargetMl = clamped
+            prefs.waterGlassesTarget = max(4, Int(HydrationEngine.glasses(fromMilliliters: clamped).rounded()))
+        } else {
+            prefs.hydrationTargetMl = nil
+            prefs.waterGlassesTarget = nil
+        }
+        store.updateNutritionPreferences(prefs)
+        store.publishHomeWidgets()
+    }
+
     private func log(_ milliliters: Double) async {
         writing = true
         defer { writing = false }
@@ -437,5 +495,124 @@ struct HydrationView: View {
         let f = DateFormatter()
         f.dateFormat = "EEE"
         return String(f.string(from: date).prefix(1))
+    }
+}
+
+// ============================================================
+// MARK: - Goal editor
+// ============================================================
+
+private struct HydrationGoalEditor: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let suggestedMl: Double
+    let currentMl: Double
+    let isCustom: Bool
+    let onSave: (Double?) -> Void
+
+    @State private var draft: Double = 2_000
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                VStack(spacing: 6) {
+                    Text(format(draft))
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .foregroundColor(.textPrimary)
+                        .monospacedDigit()
+                    Text("\(Int(HydrationEngine.glasses(fromMilliliters: draft).rounded())) glasses · \(Int(HydrationEngine.fluidOunces(fromMilliliters: draft).rounded())) fl oz")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.textSecondary)
+                }
+                .padding(.top, 12)
+
+                VStack(spacing: 10) {
+                    Slider(
+                        value: $draft,
+                        in: HydrationEngine.minimumTargetMilliliters...HydrationEngine.maximumTargetMilliliters,
+                        step: 50
+                    )
+                    .tint(Color(hex: "4A9EFF"))
+                    HStack {
+                        Text("1.5 L")
+                        Spacer()
+                        Text("5 L")
+                    }
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.textTertiary)
+                }
+
+                HStack(spacing: 10) {
+                    stepButton("− 250") { draft = max(HydrationEngine.minimumTargetMilliliters, draft - 250) }
+                    stepButton("+ 250") { draft = min(HydrationEngine.maximumTargetMilliliters, draft + 250) }
+                }
+
+                Button {
+                    draft = suggestedMl
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Suggested for you")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.textPrimary)
+                        Text("\(format(suggestedMl)) from weight, today’s work, and cycle. You can still change it.")
+                            .font(.system(size: 12))
+                            .foregroundColor(.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .background(Color.surfaceElevated)
+                    .cornerRadius(14)
+                }
+                .buttonStyle(.plain)
+
+                if isCustom {
+                    Button("Use suggested instead") {
+                        onSave(nil)
+                        dismiss()
+                    }
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.textSecondary)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .background(Color.background.ignoresSafeArea())
+            .navigationTitle("Daily goal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        onSave(draft)
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                    .foregroundColor(.ember)
+                }
+            }
+            .onAppear { draft = currentMl }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func stepButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Color(hex: "4A9EFF"))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color(hex: "4A9EFF").opacity(0.12))
+                .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func format(_ ml: Double) -> String {
+        String(format: "%.2f L", ml / 1_000)
     }
 }

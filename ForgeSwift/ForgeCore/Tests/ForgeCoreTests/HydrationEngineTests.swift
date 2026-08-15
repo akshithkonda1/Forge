@@ -127,6 +127,33 @@ final class HydrationEngineTests: XCTestCase {
         XCTAssertTrue(text.lowercased().contains("late") || text.lowercased().contains("small"))
     }
 
+    func testResolvedTargetPrefersAUserGoal() {
+        let suggested = 2_310.0
+        XCTAssertEqual(
+            HydrationEngine.resolvedTargetMilliliters(userGoal: 3_000, suggested: suggested),
+            3_000,
+            accuracy: 0.1
+        )
+        XCTAssertEqual(
+            HydrationEngine.resolvedTargetMilliliters(userGoal: nil, suggested: suggested),
+            suggested,
+            accuracy: 0.1
+        )
+    }
+
+    func testResolvedTargetClampsAWildUserGoal() {
+        XCTAssertEqual(
+            HydrationEngine.resolvedTargetMilliliters(userGoal: 50, suggested: 2_000),
+            HydrationEngine.minimumTargetMilliliters,
+            accuracy: 0.1
+        )
+        XCTAssertEqual(
+            HydrationEngine.resolvedTargetMilliliters(userGoal: 80_000, suggested: 2_000),
+            HydrationEngine.maximumTargetMilliliters,
+            accuracy: 0.1
+        )
+    }
+
     func testPresetsArePositiveAndOrdered() {
         let mls = HydrationEngine.presets.map(\.milliliters)
         XCTAssertEqual(HydrationEngine.presets.count, 4)

@@ -1743,8 +1743,9 @@ final class AppStore: ObservableObject {
 
         let cycle = MenstrualHealthStore.shared
         let waterMl = HealthKitManager.shared.todayWaterMilliliters
-        let waterTarget = HydrationEngine.targetMilliliters(
-            weightKilograms: userProfile.weight,
+        let waterTarget = LifestyleTargets.hydrationMilliliters(
+            profile: userProfile,
+            overrides: nutritionPreferences,
             activeCalories: Double(dailyMetrics.activeCalories),
             cycle: {
                 guard cycle.settings.enabled else { return .none }

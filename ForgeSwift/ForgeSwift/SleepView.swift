@@ -329,21 +329,6 @@ struct SleepNightTab: View {
     }
 }
 
-private extension SleepData {
-    var timeInBedMinutes: Int { max(1, deepMinutes + remMinutes + lightMinutes + awakeMinutes) }
-    var asleepMinutes: Int { max(0, deepMinutes + remMinutes + lightMinutes) }
-    var efficiencyPercent: Int {
-        Int((Double(asleepMinutes) / Double(timeInBedMinutes) * 100).rounded())
-    }
-
-    func clock(_ date: Date?) -> String {
-        guard let date else { return "—" }
-        let f = DateFormatter()
-        f.dateFormat = "h:mm a"
-        return f.string(from: date)
-    }
-}
-
 struct SleepLastNightStrip: View {
     @EnvironmentObject var store: AppStore
 
