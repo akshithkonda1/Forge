@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import ForgeCore
 
 /// Keeps the device shelf current without an App Store release.
