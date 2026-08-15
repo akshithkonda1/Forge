@@ -163,7 +163,7 @@ final class AriaContextStore: ObservableObject {
                 primaryGoal: store.userProfile.fitnessGoals.first?.rawValue,
                 experienceLevel: store.userProfile.experienceLevel.rawValue,
                 coachingStyle: store.userProfile.coachingStyle.rawValue,
-                constraints: context.constraints
+                constraints: context.constraints + clinicalConstraintLines()
             ),
             progress: .init(
                 workoutsCompleted30d: workouts30d > 0 ? workouts30d : nil,
@@ -183,9 +183,24 @@ final class AriaContextStore: ObservableObject {
                     return text.isEmpty ? nil : text
                 }()
             ),
-            conversation: store.conversationContextPayload()
+            conversation: store.conversationContextPayload(),
+            clinicalData: clinicalDomain()
         )
         return payload
+    }
+
+    private func clinicalDomain() -> ARIAContextPayload.ClinicalDataDomain? {
+        guard HealthKitManager.shared.hasStructuredRecordsAccess,
+              let summary = HealthKitManager.shared.clinicalSummary,
+              summary.hasData else { return nil }
+        let domain = summary.ariaDomain()
+        return domain.isEmpty ? nil : domain
+    }
+
+    private func clinicalConstraintLines() -> [String] {
+        guard HealthKitManager.shared.hasStructuredRecordsAccess,
+              let summary = HealthKitManager.shared.clinicalSummary else { return [] }
+        return summary.ariaConstraintLines()
     }
 
     func buildRichContext(from store: AppStore) -> AriaRichContext {

@@ -1522,7 +1522,7 @@ final class AppStore: ObservableObject {
             totalMessageCount: chatMessages.count,
             conversationSummary: conversationMemoryAnchors(),
             lifestyleTags: ctx.lifestyleTags,
-            constraints: ctx.constraints,
+            constraints: ctx.constraints + (HealthKitManager.shared.clinicalSummary?.ariaConstraintLines() ?? []),
             cycleSnapshot: cycle,
             partnerCycleSnapshot: partner,
             partnerCycleSettings: partnerSettings

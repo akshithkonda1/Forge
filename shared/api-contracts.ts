@@ -266,7 +266,8 @@ export type AriaDataDomain =
   | "nutrition"
   | "profile"
   | "progress"
-  | "lifestyle";
+  | "lifestyle"
+  | "clinical_data";
 
 /** Living user model ARIA reasons over, spanning every data domain. Absent
  *  signals are `null`, never omitted, so `missingFields` stays honest. */
@@ -330,6 +331,15 @@ export interface AriaContext {
     tags: string[];
     recentPatterns: string[];
     goals: string[];
+  };
+  /** Structured Health records only (Non PHI). Names, never notes. */
+  clinicalData?: {
+    allergies: string[];
+    medications: string[];
+    conditions: string[];
+    immunizations: string[];
+    labResults: string[];
+    procedures: string[];
   };
   /** Token-efficient conversational memory. Recent turns arrive verbatim;
    *  everything older is compressed into `summary` anchors so long histories

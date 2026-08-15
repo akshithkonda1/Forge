@@ -761,15 +761,15 @@ private enum ForgeLegalConfig {
 struct SettingsPageView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.openURL) private var openURL
+    @ObservedObject private var health = HealthKitManager.shared
 
     @State private var showDevicesSheet = false
     @State private var catalogRevision = 0
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
     @State private var showTrainingThemePicker = false
-    @State private var showPrivacyPolicyURLAlert = false
     @State private var showTermsSheet = false
-    @State private var showMyChartPlaceholderSheet = false
+    @State private var showClinicalData = false
     @State private var showDataPermissions = false
     @State private var showGoalsEditor = false
     @State private var showScheduleEditor = false
@@ -1162,44 +1162,20 @@ struct SettingsPageView: View {
                     }
                 }
 
-                // Clinical Integrations
-                sectionHeader("Clinical Integrations")
-                Button {
-                    Task {
-                        try? await HealthKitManager.shared.requestClinicalRecordsAuthorization()
-                    }
-                } label: {
-                    HStack(spacing: 14) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.ember.opacity(0.14))
-                                .frame(width: 42, height: 42)
-                            Image(systemName: "cross.case.fill")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(.ember)
-                        }
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Clinical records")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.textPrimary)
-                            Text("Read labs and meds already in Apple Health. Nothing is uploaded.")
-                                .font(.system(size: 12))
-                                .foregroundColor(.textSecondary)
-                        }
-
-                        Spacer()
-
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.textMuted)
-                    }
-                    .padding(16)
-                    .background(Color.surface)
-                    .cornerRadius(14)
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
+                sectionHeader("Clinical Data (Non PHI)")
+                Button { showClinicalData = true } label: {
+                    SettingsRow(
+                        icon: "pills.fill",
+                        iconColor: .ember,
+                        label: "Allergies, meds, labs",
+                        trailingText: clinicalTrailingText,
+                        showChevron: true
+                    )
                 }
                 .buttonStyle(.plain)
+                .background(Color.surface)
+                .cornerRadius(14)
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
 
                 // More
                 sectionHeader("More")
@@ -1322,8 +1298,8 @@ struct SettingsPageView: View {
         .sheet(isPresented: $showAbout) {
             ForgeAboutView()
         }
-        .sheet(isPresented: $showMyChartPlaceholderSheet) {
-            MyChartNativeAPIPlaceholderView()
+        .sheet(isPresented: $showClinicalData) {
+            ClinicalDataNonPHIView()
         }
         .sheet(isPresented: $showDataPermissions) {
             DataPermissionsView()
@@ -1370,11 +1346,6 @@ struct SettingsPageView: View {
             }
             .preferredColorScheme(.dark)
         }
-        .alert("Privacy Policy Required", isPresented: $showPrivacyPolicyURLAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("Add Forge's production privacy policy URL before enabling clinical health records in release builds.")
-        }
         .confirmationDialog("Log out of Forge?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Log Out", role: .destructive) { store.signOut() }
             Button("Cancel", role: .cancel) { }
@@ -1414,6 +1385,13 @@ struct SettingsPageView: View {
         if let url = components.url {
             openURL(url)
         }
+    }
+
+    private var clinicalTrailingText: String {
+        if let summary = health.clinicalSummary, summary.hasData {
+            return "\(summary.totalRecordCount)"
+        }
+        return health.hasStructuredRecordsAccess ? "Open" : "Connect"
     }
 
     private func notificationBinding(_ keyPath: WritableKeyPath<AppNotificationSettings, Bool>) -> Binding<Bool> {
@@ -1842,10 +1820,10 @@ struct ForgeTermsAndConditionsView: View {
                         .lineSpacing(3)
 
                     VStack(alignment: .leading, spacing: 12) {
-                        legalPoint("Your Apple Health, clinical, cycle, sexual health, workout, sleep, nutrition, and lifestyle data stays under your control.")
+                        legalPoint("Your Apple Health, cycle, sexual health, workout, sleep, nutrition, and lifestyle data stays under your control.")
                         legalPoint("Forge uses HealthKit permissions only for features you enable and only through Apple's permission system.")
-                        legalPoint("Clinical records from providers or apps such as MyChart remain read-only through Apple Health unless a future native connection is explicitly added and authorized by you.")
-                        legalPoint("Forge does not sell personal information, health information, clinical records, or lifestyle data.")
+                        legalPoint("If you allow it, Forge may read allergies, medications, conditions, immunizations, lab results, and procedures from Apple Health. Clinical notes and insurance coverage are never requested.")
+                        legalPoint("Forge does not sell personal information, health information, or lifestyle data.")
                         legalPoint("You can revoke Health permissions at any time in the iOS Settings app or Apple Health.")
                     }
                 }
@@ -1876,46 +1854,146 @@ struct ForgeTermsAndConditionsView: View {
     }
 }
 
-struct MyChartNativeAPIPlaceholderView: View {
+// MARK: - Clinical Data (Non PHI)
+
+/// Usable lists of the six structured Health record types.
+/// Names, dates, and source only — never notes, coverage, or FHIR blobs.
+struct ClinicalDataNonPHIView: View {
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var health = HealthKitManager.shared
+    @State private var loading = false
+    @State private var error: String?
+
+    private var summary: ClinicalRecordsSummary? { health.clinicalSummary }
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 18) {
-                Image(systemName: "cross.case.fill")
-                    .font(.system(size: 28))
-                    .foregroundColor(.ember)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("Structured lists from Apple Health. Allergies, medications, conditions, immunizations, labs, and procedures. Not notes. Not insurance. Nothing leaves this iPhone.")
+                        .font(.system(size: 14))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                Text("MyChart Native API")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.textPrimary)
-
-                Text("This is a filler destination for a future native MyChart connection. Until the API credentials, patient authorization flow, and provider scope are added, Forge reads clinical records through Apple Health as read-only data from connected sources.")
-                    .font(.system(size: 15))
-                    .foregroundColor(.textSecondary)
-                    .lineSpacing(3)
-
-                SettingsRow(icon: "heart.text.square.fill", iconColor: .textSecondary, label: "Current clinical path", trailingText: "Apple Health")
-                    .background(Color.surface)
-                    .cornerRadius(14)
-
-                SettingsRow(icon: "key.fill", iconColor: .textSecondary, label: "Native API status", trailingText: "Filler")
-                    .background(Color.surface)
-                    .cornerRadius(14)
-
-                Spacer()
+                    if !health.hasStructuredRecordsAccess {
+                        Button {
+                            Task { await connect() }
+                        } label: {
+                            Text(loading ? "Asking Health…" : "Allow from Apple Health")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Color.ember)
+                                .cornerRadius(14)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(loading)
+                    } else if loading && summary == nil {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 24)
+                    } else if let error {
+                        Text(error)
+                            .font(.system(size: 13))
+                            .foregroundColor(.warning)
+                    } else if let summary, summary.hasData {
+                        ForEach(StructuredHealthKind.allCases) { kind in
+                            kindSection(kind, items: summary.items(for: kind))
+                        }
+                    } else {
+                        Text("No allergies, meds, labs, or other structured records in Apple Health yet.")
+                            .font(.system(size: 14))
+                            .foregroundColor(.textSecondary)
+                    }
+                }
+                .padding(20)
             }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.background.ignoresSafeArea())
-            .navigationTitle("MyChart")
+            .navigationTitle("Clinical Data (Non PHI)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                 }
+                if health.hasStructuredRecordsAccess {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Refresh") {
+                            Task { await refresh() }
+                        }
+                        .disabled(loading)
+                    }
+                }
+            }
+            .task {
+                if health.hasStructuredRecordsAccess {
+                    await refresh()
+                }
             }
         }
+    }
+
+    private func kindSection(_ kind: StructuredHealthKind, items: [StructuredHealthItem]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: kind.symbol)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.ember)
+                Text(kind.title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                Spacer()
+                Text("\(items.count)")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.textTertiary)
+            }
+
+            if items.isEmpty {
+                Text("None on file")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textTertiary)
+                    .padding(.vertical, 4)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                        if index > 0 { Divider().background(Color.borderColor) }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(item.name)
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundColor(.textPrimary)
+                            Text("\(item.source)  ·  \(item.date.formatted(date: .abbreviated, time: .omitted))")
+                                .font(.system(size: 12))
+                                .foregroundColor(.textTertiary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 10)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.surface)
+        .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+    }
+
+    private func connect() async {
+        loading = true
+        error = nil
+        defer { loading = false }
+        do {
+            try await health.requestClinicalRecordsAuthorization()
+            await refresh()
+        } catch {
+            self.error = "Couldn't open Apple Health for these records."
+        }
+    }
+
+    private func refresh() async {
+        loading = true
+        error = nil
+        defer { loading = false }
+        _ = await health.fetchClinicalRecordsSummary()
     }
 }
 
@@ -3443,6 +3521,7 @@ struct DataPermissionsView: View {
         "profile": ("Goals & Profile", "person.fill"),
         "progress": ("Progress", "chart.line.uptrend.xyaxis"),
         "lifestyle": ("Lifestyle & Patterns", "sparkles"),
+        "clinical_data": ("Clinical Data (Non PHI)", "pills.fill"),
     ]
 
     var body: some View {

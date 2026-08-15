@@ -31,6 +31,9 @@ final class AriaService: ObservableObject {
         localGenerator: TrainerResponseGenerator,
         voiceMode: Bool = false
     ) async throws -> AriaResponse {
+        if HealthKitManager.shared.hasStructuredRecordsAccess {
+            _ = await HealthKitManager.shared.fetchClinicalRecordsSummary()
+        }
         let domainContext = contextStore.buildARIAContext(from: store)
         let legacyMetrics = contextStore.buildRichContext(from: store).recentMetrics
         let request = AriaChatRequest(
@@ -298,6 +301,7 @@ final class DataPermissionsStore: ObservableObject {
     static let domains: [String] = [
         "sleep", "readiness", "activity", "training", "chronotype",
         "body", "nutrition", "profile", "progress", "lifestyle",
+        "clinical_data",
     ]
 
     @Published private(set) var grants: [String: Bool]

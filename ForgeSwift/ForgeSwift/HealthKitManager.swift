@@ -142,15 +142,90 @@ struct CycleHealthSummary: Identifiable, Codable {
     let hasData: Bool
 }
 
-// MARK: - Clinical Records Summary
+// MARK: - Structured Health records (allergies, meds, conditions, shots, labs, procedures)
+
+enum StructuredHealthKind: String, CaseIterable, Codable, Identifiable {
+    case allergy, medication, condition, immunization, lab, procedure
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .allergy: return "Allergies"
+        case .medication: return "Medications"
+        case .condition: return "Conditions"
+        case .immunization: return "Immunizations"
+        case .lab: return "Lab results"
+        case .procedure: return "Procedures"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .allergy: return "exclamationmark.triangle.fill"
+        case .medication: return "pills.fill"
+        case .condition: return "heart.text.square.fill"
+        case .immunization: return "cross.case.fill"
+        case .lab: return "testtube.2"
+        case .procedure: return "stethoscope"
+        }
+    }
+
+    init?(identifier: HKClinicalTypeIdentifier) {
+        switch identifier {
+        case .allergyRecord: self = .allergy
+        case .medicationRecord: self = .medication
+        case .conditionRecord: self = .condition
+        case .immunizationRecord: self = .immunization
+        case .labResultRecord: self = .lab
+        case .procedureRecord: self = .procedure
+        default: return nil
+        }
+    }
+}
+
+struct StructuredHealthItem: Identifiable, Codable, Hashable {
+    let id: String
+    let kind: StructuredHealthKind
+    let name: String
+    let date: Date
+    let source: String
+}
 
 struct ClinicalRecordsSummary: Identifiable, Codable {
     var id = UUID()
+    let items: [StructuredHealthItem]
     let totalRecordCount: Int
     let recordCountsByType: [String: Int]
     let recentRecordNames: [String]
     let connectedSourceNames: [String]
     let hasData: Bool
+
+    func items(for kind: StructuredHealthKind) -> [StructuredHealthItem] {
+        items.filter { $0.kind == kind }
+    }
+
+    /// Names only, capped so the prompt stays small.
+    func ariaDomain(limit: Int = 12) -> ARIAContextPayload.ClinicalDataDomain {
+        func names(_ kind: StructuredHealthKind) -> [String] {
+            Array(items(for: kind).map(\.name).prefix(limit))
+        }
+        return ARIAContextPayload.ClinicalDataDomain(
+            allergies: names(.allergy),
+            medications: names(.medication),
+            conditions: names(.condition),
+            immunizations: names(.immunization),
+            labResults: names(.lab),
+            procedures: names(.procedure)
+        )
+    }
+
+    /// Compact lines for the local trainer path. Not persisted.
+    func ariaConstraintLines(limit: Int = 8) -> [String] {
+        StructuredHealthKind.allCases.flatMap { kind in
+            items(for: kind).prefix(limit).map { "clinical:\(kind.rawValue):\($0.name)" }
+        }
+    }
 }
 
 // MARK: - Meal Log
@@ -301,29 +376,29 @@ class HealthKitManager: ObservableObject {
         HKCategoryType(.lactation)
     ]
 
-    // Types to read for coaching, recovery, profile prefill, nutrition, clinical context, and activity trends.
+    // Types to read for coaching, recovery, profile prefill, nutrition, and activity trends.
+    // Structured Health records only — never clinical notes or insurance coverage.
     private var readTypes: Set<HKObjectType> {
         coreReadTypes
             .union(sensitiveLifestyleReadTypes)
-            .union(HealthKitManager.clinicalRecordTypes)
+            .union(HealthKitManager.structuredHealthRecordTypes)
     }
-    
-    private static let clinicalRecordIdentifiers: [HKClinicalTypeIdentifier] = [
+
+    /// Allergies, meds, conditions, immunizations, labs, procedures.
+    /// Not notes. Not coverage. Those are PHI we will not ingest.
+    private static let structuredHealthRecordIdentifiers: [HKClinicalTypeIdentifier] = [
         .allergyRecord,
-        .clinicalNoteRecord,
+        .medicationRecord,
         .conditionRecord,
         .immunizationRecord,
         .labResultRecord,
-        .medicationRecord,
         .procedureRecord,
-        .vitalSignRecord,
-        .coverageRecord
     ]
-    
-    private static let clinicalRecordTypes: Set<HKObjectType> = Set(
-        clinicalRecordIdentifiers.compactMap { HKObjectType.clinicalType(forIdentifier: $0) }
+
+    private static let structuredHealthRecordTypes: Set<HKObjectType> = Set(
+        structuredHealthRecordIdentifiers.compactMap { HKObjectType.clinicalType(forIdentifier: $0) }
     )
-    
+
     // Types to write during the primary onboarding prompt.
     private let coreWriteTypes: Set<HKSampleType> = [
         HKQuantityType(.activeEnergyBurned),
@@ -405,15 +480,19 @@ class HealthKitManager: ObservableObject {
     func requestExpandedLifestyleAuthorization() async throws {
         try await requestHealthKitAuthorization(
             toShare: writeTypes,
-            read: readTypes.subtracting(HealthKitManager.clinicalRecordTypes),
+            read: readTypes.subtracting(HealthKitManager.structuredHealthRecordTypes),
             requestedKey: expandedAuthorizationRequestedKey
         )
+    }
+
+    var hasStructuredRecordsAccess: Bool {
+        UserDefaults.standard.bool(forKey: clinicalAuthorizationRequestedKey)
     }
 
     func requestClinicalRecordsAuthorization() async throws {
         try await requestHealthKitAuthorization(
             toShare: [],
-            read: HealthKitManager.clinicalRecordTypes,
+            read: HealthKitManager.structuredHealthRecordTypes,
             requestedKey: clinicalAuthorizationRequestedKey
         )
     }
@@ -1381,41 +1460,46 @@ class HealthKitManager: ObservableObject {
         }
     }
     
-    // MARK: - Clinical Records
-    
+    // MARK: - Structured Health records (no notes)
+
     func fetchClinicalRecordsSummary() async -> ClinicalRecordsSummary {
-        let recordBuckets = await withTaskGroup(of: (String, [HKClinicalRecord]).self) { group in
-            for identifier in Self.clinicalRecordIdentifiers {
+        let recordBuckets = await withTaskGroup(of: (StructuredHealthKind, [StructuredHealthItem]).self) { group in
+            for identifier in Self.structuredHealthRecordIdentifiers {
                 group.addTask { [healthStore] in
-                    guard let type = HKObjectType.clinicalType(forIdentifier: identifier) else {
-                        return (identifier.rawValue, [])
+                    guard let kind = StructuredHealthKind(identifier: identifier),
+                          let type = HKObjectType.clinicalType(forIdentifier: identifier) else {
+                        return (.allergy, [])
                     }
                     let records = await Self.fetchClinicalRecords(type: type, healthStore: healthStore)
-                    return (identifier.rawValue, records)
+                    let items = records.map { record in
+                        StructuredHealthItem(
+                            id: record.uuid.uuidString,
+                            kind: kind,
+                            name: record.displayName,
+                            date: record.endDate,
+                            source: record.sourceRevision.source.name
+                        )
+                    }
+                    return (kind, items)
                 }
             }
-            
-            var buckets: [(String, [HKClinicalRecord])] = []
+
+            var buckets: [(StructuredHealthKind, [StructuredHealthItem])] = []
             for await bucket in group {
                 buckets.append(bucket)
             }
             return buckets
         }
-        
-        let allRecords = recordBuckets.flatMap { $0.1 }
-        let counts = Dictionary(uniqueKeysWithValues: recordBuckets.map { ($0.0, $0.1.count) })
-        let recentNames = allRecords
-            .sorted { $0.endDate > $1.endDate }
-            .prefix(8)
-            .map { $0.displayName }
-        let sourceNames = Set(allRecords.map { $0.sourceRevision.source.name }).sorted()
-        
+
+        let items = recordBuckets.flatMap(\.1).sorted { $0.date > $1.date }
+        let counts = Dictionary(uniqueKeysWithValues: recordBuckets.map { ($0.0.rawValue, $0.1.count) })
         let summary = ClinicalRecordsSummary(
-            totalRecordCount: allRecords.count,
+            items: items,
+            totalRecordCount: items.count,
             recordCountsByType: counts,
-            recentRecordNames: Array(recentNames),
-            connectedSourceNames: sourceNames,
-            hasData: !allRecords.isEmpty
+            recentRecordNames: Array(items.prefix(8).map(\.name)),
+            connectedSourceNames: Array(Set(items.map(\.source))).sorted(),
+            hasData: !items.isEmpty
         )
         clinicalSummary = summary
         return summary
