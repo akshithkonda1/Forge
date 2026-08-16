@@ -188,9 +188,11 @@ enum AriaEmotionalSupportCoach {
                         scores[.periodMoodSupport, default: 0] += 0.2
                     }
                 }
-                if context.partnerCycleSettings?.resolvedRole == .child {
+                let roles = context.supportedPeople.map { $0.settings.resolvedRole }
+                if roles.contains(.child) || context.partnerCycleSettings?.resolvedRole == .child {
                     scores[.parentingStress, default: 0] += 0.25
-                } else if context.partnerCycleSettings?.resolvedRole == .romantic {
+                }
+                if roles.contains(.romantic) || context.partnerCycleSettings?.resolvedRole == .romantic {
                     scores[.relationshipTension, default: 0] += 0.15
                 }
             }

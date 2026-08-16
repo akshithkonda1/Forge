@@ -68,9 +68,11 @@ struct TrainerContext {
     var constraints: [String] = []
     /// Optional menstrual cycle snapshot when tracking is shared with ARIA.
     var cycleSnapshot: MenstrualCycleSnapshot? = nil
-    /// Partner cycle (relationship sync) when user opted in with consent.
+    /// Active supported person (selected / mentioned). Not "everyone as partner."
     var partnerCycleSnapshot: MenstrualCycleSnapshot? = nil
     var partnerCycleSettings: PartnerCycleSettings? = nil
+    /// Every consented person ARIA may coach the user about.
+    var supportedPeople: [(settings: PartnerCycleSettings, snapshot: MenstrualCycleSnapshot)] = []
     
     var hour: Int {
         Calendar.current.component(.hour, from: currentTime)
@@ -251,7 +253,36 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         } else {
             blocks.append("Self cycle: not shared / unavailable")
         }
-        if let p = context.partnerCycleSnapshot,
+        if !context.supportedPeople.isEmpty {
+            var lines: [String] = [
+                "The user supports \(context.supportedPeople.count) people. Each has their own role — never collapse a daughter through a partner lens.",
+            ]
+            for (index, person) in context.supportedPeople.enumerated() {
+                let s = person.settings
+                let p = person.snapshot
+                lines.append(
+                    "[\(index + 1)] \(s.resolvedRole.shortLabel) \(s.displayName): phase \(p.phase.label)"
+                    + (p.dayInCycle.map { ", day \($0)" } ?? "")
+                    + (p.periodEndConfirmed ? ", period finished" : "")
+                )
+            }
+            if let p = context.partnerCycleSnapshot,
+               let s = context.partnerCycleSettings {
+                let adapt = AriaPersonRegistry.shared.adaptationForCurrentPartnerSettings(s)
+                lines.append(adapt.promptDirective)
+                lines.append("Active person this turn: \(s.resolvedRole.shortLabel) \(s.displayName).")
+                lines.append("Their cycle phase: \(p.phase.label)")
+                lines.append("Their day in cycle: \(p.dayInCycle.map(String.init) ?? "unknown")")
+                lines.append("Confidence: \(Int(p.confidence * 100))%")
+            }
+            lines.append("VOICE: warm, human, specific. Coach the USER on how to show up — never medical advice for them.")
+            lines.append("ASK natural follow-ups when context is thin (consent, last period start, how they're doing).")
+            if let brief = MenstrualHealthStore.shared.partnerSupportBrief {
+                lines.append("Support headline: \(brief.headline)")
+                lines.append("Communication tip: \(brief.communicationTip)")
+            }
+            blocks.append(lines.joined(separator: "\n"))
+        } else if let p = context.partnerCycleSnapshot,
            let s = context.partnerCycleSettings {
             let adapt = AriaPersonRegistry.shared.adaptationForCurrentPartnerSettings(s)
             var lines = [
@@ -1500,17 +1531,15 @@ final class AppStore: ObservableObject {
             guard cycleStore.settings.enabled, cycleStore.settings.shareWithAria else { return nil }
             return cycleStore.snapshot
         }()
-        let partner: MenstrualCycleSnapshot? = {
-            guard cycleStore.partnerSettings.enabled,
-                  cycleStore.partnerSettings.consentAcknowledged,
-                  cycleStore.partnerSettings.shareWithAria else { return nil }
-            return cycleStore.partnerSnapshot
-        }()
-        let partnerSettings: PartnerCycleSettings? = {
-            guard cycleStore.partnerSettings.enabled,
-                  cycleStore.partnerSettings.consentAcknowledged else { return nil }
-            return cycleStore.partnerSettings
-        }()
+        let roster: [(settings: PartnerCycleSettings, snapshot: MenstrualCycleSnapshot)] =
+            cycleStore.consentedPeople.compactMap { person in
+                guard person.settings.shareWithAria else { return nil }
+                return (person.settings, cycleStore.personSnapshots[person.id] ?? .empty)
+            }
+        let activePerson = cycleStore.selectedPerson.flatMap { person in
+            roster.first(where: { $0.settings.partnerName == person.settings.partnerName
+                && $0.settings.supportRole == person.settings.supportRole })
+        } ?? roster.first
         return TrainerContext(
             userProfile: userProfile,
             readiness: readiness,
@@ -1524,8 +1553,9 @@ final class AppStore: ObservableObject {
             lifestyleTags: ctx.lifestyleTags,
             constraints: ctx.constraints + (HealthKitManager.shared.clinicalSummary?.ariaConstraintLines() ?? []),
             cycleSnapshot: cycle,
-            partnerCycleSnapshot: partner,
-            partnerCycleSettings: partnerSettings
+            partnerCycleSnapshot: activePerson?.snapshot,
+            partnerCycleSettings: activePerson?.settings,
+            supportedPeople: roster
         )
     }
 

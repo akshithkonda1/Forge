@@ -5,7 +5,9 @@ import ActivityKit
 import ForgeCore
 
 /// Persists cycle logs, syncs HealthKit menstrual signals, exposes engine snapshot.
-/// Also holds an optional **partner** cycle (relationship sync) — never written to the user's HealthKit.
+/// Also holds **people you support** (partner, daughter, family) — never written
+/// to the user's HealthKit. Incoming CloudKit shares bind to these rows by
+/// owner id, not by “whatever is first.”
 @MainActor
 final class MenstrualHealthStore: ObservableObject {
     static let shared = MenstrualHealthStore()
@@ -14,7 +16,14 @@ final class MenstrualHealthStore: ObservableObject {
     @Published private(set) var logs: [CycleDayLog]
     @Published private(set) var snapshot: MenstrualCycleSnapshot
 
-    /// Partner (e.g. girlfriend/wife) cycle logged by the user for relationship coaching.
+    /// Every person this user supports. First-class — partner and daughter
+    /// are separate rows, not a costume on one slot.
+    @Published private(set) var supportedPeople: [SupportedPerson]
+    @Published private(set) var selectedPersonId: String?
+    @Published private(set) var personSnapshots: [String: MenstrualCycleSnapshot]
+    @Published private(set) var personBriefs: [String: PartnerSupportBrief]
+
+    /// Selected person, mirrored so existing UI and ARIA call sites keep working.
     @Published private(set) var partnerSettings: PartnerCycleSettings
     @Published private(set) var partnerLogs: [CycleDayLog]
     @Published private(set) var partnerSnapshot: MenstrualCycleSnapshot
@@ -50,6 +59,8 @@ final class MenstrualHealthStore: ObservableObject {
     private let logsKey = "forge.menstrual.logs.v1"
     private let partnerSettingsKey = "forge.menstrual.partner.settings.v1"
     private let partnerLogsKey = "forge.menstrual.partner.logs.v1"
+    private let peopleKey = "forge.menstrual.people.v2"
+    private let selectedPersonKey = "forge.menstrual.selectedPerson.v2"
     private let feedbackKey = "forge.menstrual.prediction.feedback.v1"
     private let forecastKey = "forge.menstrual.forecast.archive.v1"
     private let advertisedKey = "forge.menstrual.advertised.next.v1"
@@ -71,18 +82,23 @@ final class MenstrualHealthStore: ObservableObject {
         } else {
             logs = []
         }
-        if let data = defaults.data(forKey: partnerSettingsKey),
-           let s = try? JSONDecoder().decode(PartnerCycleSettings.self, from: data) {
-            partnerSettings = s
-        } else {
-            partnerSettings = .default
-        }
-        if let data = defaults.data(forKey: partnerLogsKey),
-           let l = try? JSONDecoder().decode([CycleDayLog].self, from: data) {
-            partnerLogs = l
-        } else {
-            partnerLogs = []
-        }
+        let migrated = Self.loadPeople(
+            defaults: defaults,
+            peopleKey: peopleKey,
+            selectedPersonKey: selectedPersonKey,
+            partnerSettingsKey: partnerSettingsKey,
+            partnerLogsKey: partnerLogsKey
+        )
+        supportedPeople = migrated.people
+        selectedPersonId = migrated.selectedId
+        partnerSettings = migrated.people.first(where: { $0.id == migrated.selectedId })?.settings
+            ?? migrated.people.first?.settings
+            ?? .default
+        partnerLogs = migrated.people.first(where: { $0.id == migrated.selectedId })?.logs
+            ?? migrated.people.first?.logs
+            ?? []
+        personSnapshots = [:]
+        personBriefs = [:]
         if let data = defaults.data(forKey: feedbackKey),
            let f = try? JSONDecoder().decode([CyclePredictionFeedback].self, from: data) {
             predictionFeedback = f
@@ -125,10 +141,25 @@ final class MenstrualHealthStore: ObservableObject {
     }
 
     func updatePartnerSettings(_ mutate: (inout PartnerCycleSettings) -> Void) {
-        var s = partnerSettings
-        mutate(&s)
-        partnerSettings = s
-        persistPartnerSettings()
+        updatePersonSettings(selectedPersonId, mutate)
+    }
+
+    /// Mutate one supported person. `nil` id uses (or creates) the selected row.
+    func updatePersonSettings(_ personId: String?, _ mutate: (inout PartnerCycleSettings) -> Void) {
+        if supportedPeople.isEmpty {
+            var s = PartnerCycleSettings.default
+            mutate(&s)
+            let person = SupportedPerson.make(settings: s)
+            supportedPeople = [person]
+            selectedPersonId = person.id
+        } else {
+            let id = personId ?? selectedPersonId ?? supportedPeople[0].id
+            guard let idx = supportedPeople.firstIndex(where: { $0.id == id }) else { return }
+            mutate(&supportedPeople[idx].settings)
+            supportedPeople[idx].updatedAt = Date()
+        }
+        persistPeople()
+        syncSelectedProjection()
         recomputePartner()
         pushAriaTags()
     }
@@ -504,76 +535,266 @@ final class MenstrualHealthStore: ObservableObject {
         upsertLog(existing)
     }
 
-    // MARK: Partner logging (never HealthKit — partner is not the device owner)
+    // MARK: People you support
 
-    func upsertPartnerLog(_ log: CycleDayLog) {
-        var entry = log
-        entry.source = entry.source == "healthkit" ? "manual" : entry.source
-        if let idx = partnerLogs.firstIndex(where: { $0.dayKey == entry.dayKey }) {
-            var merged = partnerLogs[idx]
+    var selectedPerson: SupportedPerson? {
+        if let selectedPersonId,
+           let person = supportedPeople.first(where: { $0.id == selectedPersonId }) {
+            return person
+        }
+        return supportedPeople.first
+    }
+
+    var consentedPeople: [SupportedPerson] {
+        supportedPeople.filter { $0.settings.enabled && $0.settings.consentAcknowledged }
+    }
+
+    /// Period / luteal first, then the selected consented person.
+    var mostTimelyPerson: SupportedPerson? {
+        let live = consentedPeople
+        if let bleeding = live.first(where: { (personSnapshots[$0.id] ?? .empty).stage == .period }) {
+            return bleeding
+        }
+        if let luteal = live.first(where: { (personSnapshots[$0.id] ?? .empty).phase == .luteal }) {
+            return luteal
+        }
+        if let selected = selectedPerson, live.contains(where: { $0.id == selected.id }) {
+            return selected
+        }
+        return live.first
+    }
+
+    func selectPerson(_ id: String) {
+        guard supportedPeople.contains(where: { $0.id == id }) else { return }
+        selectedPersonId = id
+        persistSelectedPerson()
+        syncSelectedProjection()
+        pushAriaTags()
+    }
+
+    @discardableResult
+    func addSupportedPerson(
+        name: String,
+        role: CycleSupportRole,
+        relationshipLabel: String? = nil,
+        consentAcknowledged: Bool = false,
+        cloudKitOwnerID: String? = nil
+    ) -> SupportedPerson {
+        var settings = PartnerCycleSettings.default
+        settings.enabled = true
+        settings.partnerName = name
+        settings.supportRole = role
+        settings.relationshipLabel = relationshipLabel
+            ?? role.suggestedLabels.first
+            ?? role.shortLabel.lowercased()
+        settings.shareWithAria = true
+        settings.consentAcknowledged = consentAcknowledged
+        let person = SupportedPerson.make(settings: settings, cloudKitOwnerID: cloudKitOwnerID)
+        supportedPeople.append(person)
+        selectedPersonId = person.id
+        persistPeople()
+        persistSelectedPerson()
+        syncSelectedProjection()
+        recomputePartner()
+        pushAriaTags()
+        return person
+    }
+
+    func removeSupportedPerson(_ id: String) {
+        supportedPeople.removeAll { $0.id == id }
+        personSnapshots[id] = nil
+        personBriefs[id] = nil
+        if selectedPersonId == id {
+            selectedPersonId = supportedPeople.first?.id
+        }
+        persistPeople()
+        persistSelectedPerson()
+        syncSelectedProjection()
+        recomputePartner()
+        pushAriaTags()
+    }
+
+    /// Select an existing row, or add one. Never overwrite a partner into a daughter.
+    func activateOrCreatePerson(name: String, label: String, role: CycleSupportRole) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let existing = supportedPeople.first(where: { person in
+            if !trimmed.isEmpty {
+                return person.settings.partnerName.lowercased() == trimmed.lowercased()
+                    || person.displayName.lowercased() == trimmed.lowercased()
+            }
+            return person.settings.resolvedRole == role
+                && person.settings.relationshipLabel.lowercased() == label.lowercased()
+        }) {
+            if !trimmed.isEmpty, existing.settings.partnerName.isEmpty {
+                updatePersonSettings(existing.id) { $0.partnerName = trimmed }
+            }
+            selectPerson(existing.id)
+            return
+        }
+        _ = addSupportedPerson(
+            name: trimmed,
+            role: role,
+            relationshipLabel: label,
+            consentAcknowledged: false
+        )
+    }
+
+    func personBound(to cloudKitOwnerID: String) -> SupportedPerson? {
+        supportedPeople.first { $0.cloudKitOwnerID == cloudKitOwnerID }
+    }
+
+    /// Bind incoming CloudKit shares to local people. Creates a row when the
+    /// share does not match anyone — never dumps a daughter onto the partner.
+    func adoptReceivedDigests(_ incoming: [PartnerCycleSharing.ReceivedDigest]) {
+        var changed = false
+        for received in incoming {
+            let records = supportedPeople.map {
+                SupportedPersonMatch.Record(
+                    name: $0.settings.partnerName.isEmpty ? $0.displayName : $0.settings.partnerName,
+                    role: $0.settings.resolvedRole.rawValue,
+                    cloudID: $0.cloudKitOwnerID
+                )
+            }
+            if let idx = SupportedPersonMatch.bindIndex(
+                people: records,
+                incomingName: received.ownerName,
+                incomingRole: received.role.rawValue,
+                incomingCloudID: received.id
+            ) {
+                if supportedPeople[idx].cloudKitOwnerID != received.id {
+                    supportedPeople[idx].cloudKitOwnerID = received.id
+                    supportedPeople[idx].updatedAt = Date()
+                    changed = true
+                }
+                if supportedPeople[idx].settings.partnerName.isEmpty {
+                    supportedPeople[idx].settings.partnerName = received.ownerName
+                    changed = true
+                }
+                continue
+            }
+            var s = PartnerCycleSettings.default
+            s.enabled = true
+            s.consentAcknowledged = true
+            s.partnerName = received.ownerName
+            s.supportRole = received.role
+            s.relationshipLabel = received.role.suggestedLabels.first
+                ?? received.role.shortLabel.lowercased()
+            s.shareWithAria = true
+            if received.digest.periodFinished {
+                s.confirmedPeriodEndDayKey = received.digest.periodFinishedDayKey
+            }
+            let person = SupportedPerson.make(settings: s, cloudKitOwnerID: received.id)
+            supportedPeople.append(person)
+            if selectedPersonId == nil { selectedPersonId = person.id }
+            changed = true
+        }
+        guard changed else { return }
+        persistPeople()
+        persistSelectedPerson()
+        syncSelectedProjection()
+        recomputePartner()
+        pushAriaTags()
+    }
+
+    // MARK: Partner logging (never HealthKit — the supported person is not the device owner)
+
+    func upsertPartnerLog(_ log: CycleDayLog, personId: String? = nil) {
+        let id = resolvedPersonId(personId)
+        guard let id, let pidx = supportedPeople.firstIndex(where: { $0.id == id }) else {
+            var s = PartnerCycleSettings.default
+            s.enabled = true
+            let person = SupportedPerson.make(settings: s, logs: [sanitizedPartnerLog(log)])
+            supportedPeople = [person]
+            selectedPersonId = person.id
+            persistPeople()
+            persistSelectedPerson()
+            syncSelectedProjection()
+            recomputePartner()
+            pushAriaTags()
+            return
+        }
+        var entry = sanitizedPartnerLog(log)
+        if let idx = supportedPeople[pidx].logs.firstIndex(where: { $0.dayKey == entry.dayKey }) {
+            var merged = supportedPeople[pidx].logs[idx]
             merged.flow = entry.flow
             merged.symptoms = entry.symptoms
             if let n = entry.notes { merged.notes = n }
             merged.source = "manual"
             merged.updatedAt = Date()
-            partnerLogs[idx] = merged
+            supportedPeople[pidx].logs[idx] = merged
         } else {
-            partnerLogs.append(entry)
+            supportedPeople[pidx].logs.append(entry)
         }
-        partnerLogs.sort { $0.dayKey < $1.dayKey }
-        if partnerLogs.count > 800 {
-            partnerLogs = Array(partnerLogs.suffix(800))
+        supportedPeople[pidx].logs.sort { $0.dayKey < $1.dayKey }
+        if supportedPeople[pidx].logs.count > 800 {
+            supportedPeople[pidx].logs = Array(supportedPeople[pidx].logs.suffix(800))
         }
-        persistPartnerLogs()
+        supportedPeople[pidx].updatedAt = Date()
+        persistPeople()
+        syncSelectedProjection()
         recomputePartner()
         pushAriaTags()
     }
 
-    func logPartnerPeriodStart(on dayKey: String = CycleDayKey.key(), flow: MenstrualFlowLevel = .medium) {
-        // Partner predictions retained; score against last partner forecast when available.
-        if let predicted = partnerSnapshot.nextPeriod?.medianDayKey,
+    func logPartnerPeriodStart(
+        on dayKey: String = CycleDayKey.key(),
+        flow: MenstrualFlowLevel = .medium,
+        personId: String? = nil
+    ) {
+        let id = resolvedPersonId(personId)
+        let snap = id.flatMap { personSnapshots[$0] } ?? partnerSnapshot
+        if let predicted = snap.nextPeriod?.medianDayKey,
            let err = CycleDayKey.daysBetween(predicted, dayKey),
            abs(err) <= 21 {
             lastModelUpdateMessage = "Support model updated · error \(err >= 0 ? "+" : "")\(err) days"
         }
-        // New bleed reopens the cycle — retire the previous episode's finished flag.
-        if partnerSettings.confirmedPeriodEndDayKey != nil {
-            var s = partnerSettings
-            s.confirmedPeriodEndDayKey = nil
-            partnerSettings = s
-            persistPartnerSettings()
+        if let id, let idx = supportedPeople.firstIndex(where: { $0.id == id }),
+           supportedPeople[idx].settings.confirmedPeriodEndDayKey != nil {
+            supportedPeople[idx].settings.confirmedPeriodEndDayKey = nil
+            supportedPeople[idx].updatedAt = Date()
+            persistPeople()
         }
-        upsertPartnerLog(CycleDayLog(dayKey: dayKey, flow: flow, source: "manual"))
+        upsertPartnerLog(CycleDayLog(dayKey: dayKey, flow: flow, source: "manual"), personId: id)
     }
 
     /// The supported person's period is over. Closes the episode and returns the support
     /// brief from period-care coaching to everyday support on the same tap.
     @discardableResult
-    func logPartnerPeriodEnd(on dayKey: String = CycleDayKey.key(), propagate: Bool = true) -> String {
-        let episodes = MenstrualCycleEngine.buildPeriodEpisodes(from: partnerLogs)
-        let startKey = episodes.last?.startDayKey ?? partnerSnapshot.lastPeriodStartDayKey ?? dayKey
+    func logPartnerPeriodEnd(
+        on dayKey: String = CycleDayKey.key(),
+        propagate: Bool = true,
+        personId: String? = nil
+    ) -> String {
+        let id = resolvedPersonId(personId)
+        guard let id, let idx = supportedPeople.firstIndex(where: { $0.id == id }) else {
+            return "No one selected"
+        }
+        var person = supportedPeople[idx]
+        let snap = personSnapshots[id] ?? partnerSnapshot
+        let episodes = MenstrualCycleEngine.buildPeriodEpisodes(from: person.logs)
+        let startKey = episodes.last?.startDayKey ?? snap.lastPeriodStartDayKey ?? dayKey
 
-        // The declared end must actually be a bleeding day, or the episode never closes.
-        var endLog = partnerLogs.first(where: { $0.dayKey == dayKey }) ?? CycleDayLog(dayKey: dayKey)
+        var endLog = person.logs.first(where: { $0.dayKey == dayKey }) ?? CycleDayLog(dayKey: dayKey)
         if !endLog.flow.isBleeding { endLog.flow = .light }
         endLog.source = "manual"
         endLog.updatedAt = Date()
 
-        var s = partnerSettings
-        s.confirmedPeriodEndDayKey = dayKey
-        partnerSettings = s
-        persistPartnerSettings()
-
-        upsertPartnerLog(endLog)
+        person.settings.confirmedPeriodEndDayKey = dayKey
+        person.updatedAt = Date()
+        supportedPeople[idx] = person
+        persistPeople()
+        upsertPartnerLog(endLog, personId: id)
 
         let days = (CycleDayKey.daysBetween(startKey, dayKey) ?? 0) + 1
-        let name = partnerSettings.displayName
+        let name = person.displayName
         let msg = "\(name)'s period finished · \(max(1, days)) day\(days == 1 ? "" : "s") · back to everyday support"
         lastModelUpdateMessage = msg
-        refreshAnalyst(lastAction: "partner_period_ended", isPartner: true)
+        if selectedPersonId == id {
+            refreshAnalyst(lastAction: "partner_period_ended", isPartner: true)
+        }
         if propagate {
+            let ownerID = person.cloudKitOwnerID ?? ""
             Task {
-                let ownerID = PartnerCycleSharing.shared.receivedDigests.first?.id ?? ""
                 _ = await PartnerCycleSharing.shared.reportPeriodFinishedFromSupport(
                     ownerID: ownerID,
                     dayKey: dayKey
@@ -584,16 +805,19 @@ final class MenstrualHealthStore: ObservableObject {
         return msg
     }
 
-    /// Pull CloudKit. If they marked finished, both sides show it.
+    /// Pull CloudKit. If they marked finished, both sides show it — per person.
     func syncSharedPeriodFinished() async {
         let incoming = await PartnerCycleSharing.shared.fetchSharedDigest()
+        adoptReceivedDigests(incoming)
         for received in incoming where received.digest.periodFinished {
-            if partnerSettings.enabled,
-               partnerSettings.confirmedPeriodEndDayKey == nil
-                || partnerSnapshot.stage == .period {
+            guard let person = personBound(to: received.id) else { continue }
+            let snap = personSnapshots[person.id] ?? .empty
+            if person.settings.enabled,
+               person.settings.confirmedPeriodEndDayKey == nil || snap.stage == .period {
                 _ = logPartnerPeriodEnd(
                     on: received.digest.periodFinishedDayKey ?? CycleDayKey.key(),
-                    propagate: false
+                    propagate: false,
+                    personId: person.id
                 )
             }
         }
@@ -602,6 +826,19 @@ final class MenstrualHealthStore: ObservableObject {
                 _ = logPeriodEnd(on: dayKey)
             }
         }
+    }
+
+    private func resolvedPersonId(_ personId: String?) -> String? {
+        if let personId, supportedPeople.contains(where: { $0.id == personId }) {
+            return personId
+        }
+        return selectedPerson?.id
+    }
+
+    private func sanitizedPartnerLog(_ log: CycleDayLog) -> CycleDayLog {
+        var entry = log
+        entry.source = entry.source == "healthkit" ? "manual" : entry.source
+        return entry
     }
 
     /// User says period started today (feedback + log).
@@ -640,15 +877,22 @@ final class MenstrualHealthStore: ObservableObject {
         return msg
     }
 
-    func logPartnerToday(flow: MenstrualFlowLevel? = nil, symptoms: [CycleSymptom]? = nil, notes: String? = nil) {
+    func logPartnerToday(
+        flow: MenstrualFlowLevel? = nil,
+        symptoms: [CycleSymptom]? = nil,
+        notes: String? = nil,
+        personId: String? = nil
+    ) {
+        let id = resolvedPersonId(personId)
         let key = CycleDayKey.key()
-        var existing = partnerLogs.first(where: { $0.dayKey == key }) ?? CycleDayLog(dayKey: key)
+        let existingLogs = id.flatMap { pid in supportedPeople.first(where: { $0.id == pid })?.logs } ?? partnerLogs
+        var existing = existingLogs.first(where: { $0.dayKey == key }) ?? CycleDayLog(dayKey: key)
         if let flow { existing.flow = flow }
         if let symptoms { existing.symptoms = symptoms }
         if let notes { existing.notes = notes }
         existing.source = "manual"
         existing.updatedAt = Date()
-        upsertPartnerLog(existing)
+        upsertPartnerLog(existing, personId: id)
     }
 
     // MARK: Engine
@@ -912,30 +1156,34 @@ final class MenstrualHealthStore: ObservableObject {
     }
 
     func recomputePartner() {
-        let engineSettings = MenstrualTrackingSettings(
-            enabled: partnerSettings.enabled && partnerSettings.consentAcknowledged,
-            shareWithAria: partnerSettings.shareWithAria,
-            averageCycleOverride: partnerSettings.averageCycleOverride,
-            averagePeriodOverride: partnerSettings.averagePeriodOverride,
-            typicalLutealDays: partnerSettings.typicalLutealDays,
-            usesHormonalContraception: partnerSettings.usesHormonalContraception,
-            notes: partnerSettings.notes,
-            // Without this the supported person's confirmed end never reached the engine,
-            // so the support brief stayed in period mode for the full median bleed length.
-            confirmedPeriodEndDayKey: partnerSettings.confirmedPeriodEndDayKey
-        )
-        partnerSnapshot = MenstrualCycleEngine.evaluate(
-            logs: partnerLogs,
-            settings: engineSettings
-        )
-        if partnerSettings.enabled, partnerSettings.consentAcknowledged {
-            partnerSupportBrief = PartnerSupportCoach.brief(
-                snapshot: partnerSnapshot,
-                settings: partnerSettings
+        var snaps: [String: MenstrualCycleSnapshot] = [:]
+        var briefs: [String: PartnerSupportBrief] = [:]
+        for person in supportedPeople {
+            let engineSettings = MenstrualTrackingSettings(
+                enabled: person.settings.enabled && person.settings.consentAcknowledged,
+                shareWithAria: person.settings.shareWithAria,
+                averageCycleOverride: person.settings.averageCycleOverride,
+                averagePeriodOverride: person.settings.averagePeriodOverride,
+                typicalLutealDays: person.settings.typicalLutealDays,
+                usesHormonalContraception: person.settings.usesHormonalContraception,
+                notes: person.settings.notes,
+                confirmedPeriodEndDayKey: person.settings.confirmedPeriodEndDayKey
             )
-        } else {
-            partnerSupportBrief = nil
+            let snap = MenstrualCycleEngine.evaluate(
+                logs: person.logs,
+                settings: engineSettings
+            )
+            snaps[person.id] = snap
+            if person.settings.enabled, person.settings.consentAcknowledged {
+                briefs[person.id] = PartnerSupportCoach.brief(
+                    snapshot: snap,
+                    settings: person.settings
+                )
+            }
         }
+        personSnapshots = snaps
+        personBriefs = briefs
+        syncSelectedProjection()
     }
 
     // MARK: Sharing
@@ -1079,18 +1327,11 @@ final class MenstrualHealthStore: ObservableObject {
         } else {
             AriaContextStore.shared.clearCycleTags()
         }
-        if partnerSettings.enabled,
-           partnerSettings.consentAcknowledged,
-           partnerSettings.shareWithAria {
-            AriaContextStore.shared.applyPartnerCycleSnapshot(
-                partnerSnapshot,
-                partnerName: partnerSettings.displayName,
-                relationshipLabel: partnerSettings.relationshipLabel,
-                role: partnerSettings.resolvedRole
-            )
-        } else {
-            AriaContextStore.shared.clearPartnerCycleTags()
+        let ariaPeople: [(SupportedPerson, MenstrualCycleSnapshot)] = consentedPeople.compactMap { person in
+            guard person.settings.shareWithAria else { return nil }
+            return (person, personSnapshots[person.id] ?? .empty)
         }
+        AriaContextStore.shared.applySupportedPeople(ariaPeople)
     }
 
     func ariaContextLines() -> [String] {
@@ -1106,15 +1347,19 @@ final class MenstrualHealthStore: ObservableObject {
                 if !directive.isEmpty { lines.append(directive) }
             }
         }
-        if partnerSettings.enabled, partnerSettings.consentAcknowledged, partnerSettings.shareWithAria {
-            lines.append("Partner (\(partnerSettings.displayName)) phase: \(partnerSnapshot.phase.label)")
-            if let d = partnerSnapshot.dayInCycle {
-                lines.append("Partner day in cycle: \(d)")
+        for person in consentedPeople where person.settings.shareWithAria {
+            let snap = personSnapshots[person.id] ?? .empty
+            let who = person.role.shortLabel
+            lines.append("\(who) (\(person.displayName)) phase: \(snap.phase.label)")
+            if let d = snap.dayInCycle {
+                lines.append("\(who) (\(person.displayName)) day in cycle: \(d)")
             }
-            if let brief = partnerSupportBrief {
-                lines.append(brief.headline)
+            if let brief = personBriefs[person.id] {
+                lines.append("\(person.displayName): \(brief.headline)")
                 lines.append(brief.communicationTip)
             }
+        }
+        if consentedPeople.contains(where: { $0.settings.shareWithAria }) {
             lines.append(PartnerSupportBrief.disclaimer)
         }
         return lines
@@ -1134,16 +1379,80 @@ final class MenstrualHealthStore: ObservableObject {
         }
     }
 
-    private func persistPartnerSettings() {
-        if let data = try? JSONEncoder().encode(partnerSettings) {
+    private func persistPeople() {
+        if let data = try? JSONEncoder().encode(supportedPeople) {
+            defaults.set(data, forKey: peopleKey)
+        }
+        persistSelectedPerson()
+        // v1 projection of the selected person so a rollback still has one slot.
+        let projection = selectedPerson
+        if let data = try? JSONEncoder().encode(projection?.settings ?? PartnerCycleSettings.default) {
             defaults.set(data, forKey: partnerSettingsKey)
+        }
+        if let data = try? JSONEncoder().encode(projection?.logs ?? []) {
+            defaults.set(data, forKey: partnerLogsKey)
         }
     }
 
-    private func persistPartnerLogs() {
-        if let data = try? JSONEncoder().encode(partnerLogs) {
-            defaults.set(data, forKey: partnerLogsKey)
+    private func persistSelectedPerson() {
+        if let selectedPersonId {
+            defaults.set(selectedPersonId, forKey: selectedPersonKey)
+        } else {
+            defaults.removeObject(forKey: selectedPersonKey)
         }
+    }
+
+    private func syncSelectedProjection() {
+        if let person = selectedPerson {
+            partnerSettings = person.settings
+            partnerLogs = person.logs
+            partnerSnapshot = personSnapshots[person.id] ?? .empty
+            partnerSupportBrief = personBriefs[person.id]
+        } else {
+            partnerSettings = .default
+            partnerLogs = []
+            partnerSnapshot = .empty
+            partnerSupportBrief = nil
+        }
+    }
+
+    private static func loadPeople(
+        defaults: UserDefaults,
+        peopleKey: String,
+        selectedPersonKey: String,
+        partnerSettingsKey: String,
+        partnerLogsKey: String
+    ) -> (people: [SupportedPerson], selectedId: String?) {
+        if let data = defaults.data(forKey: peopleKey),
+           let decoded = try? JSONDecoder().decode([SupportedPerson].self, from: data),
+           !decoded.isEmpty {
+            let selected = defaults.string(forKey: selectedPersonKey)
+            let valid = selected.flatMap { id in decoded.contains(where: { $0.id == id }) ? id : nil }
+            return (decoded, valid ?? decoded[0].id)
+        }
+
+        var v1Settings = PartnerCycleSettings.default
+        var v1Logs: [CycleDayLog] = []
+        if let data = defaults.data(forKey: partnerSettingsKey),
+           let s = try? JSONDecoder().decode(PartnerCycleSettings.self, from: data) {
+            v1Settings = s
+        }
+        if let data = defaults.data(forKey: partnerLogsKey),
+           let l = try? JSONDecoder().decode([CycleDayLog].self, from: data) {
+            v1Logs = l
+        }
+        let hasLegacy = v1Settings.enabled
+            || v1Settings.consentAcknowledged
+            || !v1Settings.partnerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !v1Logs.isEmpty
+            || v1Settings.relationshipLabel != "partner"
+        guard hasLegacy else { return ([], nil) }
+        let person = SupportedPerson.make(settings: v1Settings, logs: v1Logs)
+        if let data = try? JSONEncoder().encode([person]) {
+            defaults.set(data, forKey: peopleKey)
+            defaults.set(person.id, forKey: selectedPersonKey)
+        }
+        return ([person], person.id)
     }
 
     private func persistFeedback() {

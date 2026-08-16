@@ -215,8 +215,7 @@ struct HomeView: View {
                         HomeWinCard()
 
                         // 6. Support pulse (partner cycle)
-                        if MenstrualHealthStore.shared.partnerSettings.enabled,
-                           MenstrualHealthStore.shared.partnerSettings.consentAcknowledged {
+                        if !MenstrualHealthStore.shared.consentedPeople.isEmpty {
                             HomeSupportPulseCard {
                                 FDS.haptic(.light)
                                 cycleInitialPane = .partner
@@ -1065,18 +1064,21 @@ enum HomeARIABriefingBuilder {
         // --- Support context. The phase-specific line is time-sensitive and
         //     genuinely actionable; the generic nudge is not, so it sits low
         //     rather than being gated on `score % 3`.
-        let pSettings = MenstrualHealthStore.shared.partnerSettings
-        if pSettings.enabled, pSettings.consentAcknowledged {
-            let who = pSettings.displayName
-            let phase = MenstrualHealthStore.shared.partnerSnapshot.phase
+        let cycleStore = MenstrualHealthStore.shared
+        if let person = cycleStore.mostTimelyPerson {
+            let who = person.displayName
+            let phase = cycleStore.personSnapshots[person.id]?.phase ?? cycleStore.partnerSnapshot.phase
+            let extra = cycleStore.consentedPeople.count > 1
+                ? " · \(cycleStore.consentedPeople.count) people"
+                : ""
             if phase == .menstruation || phase == .luteal {
                 beats.append(.init(
-                    text: pSettings.resolvedRole == .child
+                    text: person.role == .child
                         ? "\(who) may need the soft parent playbook today."
                         : "Keep \(who) in mind — \(phase.shortLabel.lowercased()) energy.",
                     priority: .timely))
             } else {
-                beats.append(.init(text: "You're also looking out for \(who). Ask me anytime.", priority: .ambient))
+                beats.append(.init(text: "You're also looking out for \(who)\(extra). Ask me anytime.", priority: .ambient))
             }
         } else if store.userProfile.gender == .male {
             beats.append(.init(text: "Partner or daughter to support? I can learn that context.", priority: .ambient))
@@ -1142,7 +1144,11 @@ struct HomeCycleModule: View {
     }
 
     private var phase: MenstrualPhase {
-        if preferPartner || (cycleStore.partnerSettings.enabled && !cycleStore.settings.enabled) {
+        if preferPartner || (!cycleStore.consentedPeople.isEmpty && !cycleStore.settings.enabled) {
+            if let person = cycleStore.mostTimelyPerson,
+               let snap = cycleStore.personSnapshots[person.id] {
+                return snap.phase
+            }
             return cycleStore.partnerSnapshot.phase
         }
         return cycleStore.snapshot.phase
@@ -1154,9 +1160,13 @@ struct HomeCycleModule: View {
         if cycleStore.settings.enabled, let day = cycleStore.snapshot.dayInCycle {
             return "\(cycleStore.snapshot.phase.label) · Day \(day)"
         }
-        if cycleStore.partnerSettings.enabled, cycleStore.partnerSettings.consentAcknowledged {
-            let name = cycleStore.partnerSettings.displayName
-            if let day = cycleStore.partnerSnapshot.dayInCycle {
+        if cycleStore.consentedPeople.count > 1 {
+            return "Supporting \(cycleStore.consentedPeople.count) people"
+        }
+        if let person = cycleStore.selectedPerson ?? cycleStore.consentedPeople.first,
+           person.settings.enabled, person.settings.consentAcknowledged {
+            let name = person.displayName
+            if let day = (cycleStore.personSnapshots[person.id] ?? cycleStore.partnerSnapshot).dayInCycle {
                 return "\(name) · Day \(day)"
             }
             return "Supporting \(name)"
@@ -1168,7 +1178,10 @@ struct HomeCycleModule: View {
         if cycleStore.settings.enabled {
             return cycleStore.snapshot.trainingNote
         }
-        if cycleStore.partnerSettings.enabled {
+        if !cycleStore.consentedPeople.isEmpty {
+            if cycleStore.consentedPeople.count > 1 {
+                return cycleStore.consentedPeople.map { $0.role.shortLabel }.joined(separator: " · ")
+            }
             return "Family support · open to log or ask ARIA"
         }
         return "Track your cycle or support someone you love"
@@ -1226,9 +1239,13 @@ struct HomeCycleModule: View {
                         if let next = cycleStore.snapshot.nextPeriod {
                             miniChip("Next \(shortDate(next.medianDayKey))", Color.alert)
                         }
-                    } else if cycleStore.partnerSettings.enabled {
-                        miniChip(cycleStore.partnerSettings.resolvedRole.shortLabel, Color.indigo)
-                        miniChip(cycleStore.partnerSnapshot.phase.shortLabel, accent)
+                    } else if !cycleStore.consentedPeople.isEmpty {
+                        ForEach(cycleStore.consentedPeople.prefix(3)) { person in
+                            miniChip(person.role.shortLabel, Color.indigo)
+                        }
+                        if let snap = cycleStore.mostTimelyPerson.flatMap({ cycleStore.personSnapshots[$0.id] }) {
+                            miniChip(snap.phase.shortLabel, accent)
+                        }
                     } else {
                         miniChip("My cycle", Color.alert)
                         miniChip("Support", Color.indigo)
@@ -1256,9 +1273,16 @@ struct HomeCycleModule: View {
     }
 
     private var progress: CGFloat {
-        let snap = (preferPartner || !cycleStore.settings.enabled)
-            ? cycleStore.partnerSnapshot
-            : cycleStore.snapshot
+        let snap: MenstrualCycleSnapshot = {
+            if preferPartner || !cycleStore.settings.enabled {
+                if let person = cycleStore.mostTimelyPerson,
+                   let s = cycleStore.personSnapshots[person.id] {
+                    return s
+                }
+                return cycleStore.partnerSnapshot
+            }
+            return cycleStore.snapshot
+        }()
         guard let day = snap.dayInCycle else { return 0.12 }
         let len = max(21, min(45, snap.cycleLengthMedian))
         return min(0.95, CGFloat(day) / CGFloat(len))
@@ -1375,24 +1399,44 @@ private struct HomeSupportPulseCard: View {
 
     /// One accent for the whole card. The icon used to take the live phase colour
     /// while the card border was hardcoded indigo, so the two fought each other.
-    private var accent: Color { Color(hex: cycleStore.partnerSnapshot.phase.accentHex) }
+    private var pulsePerson: SupportedPerson? { cycleStore.mostTimelyPerson }
+    private var pulseSnapshot: MenstrualCycleSnapshot {
+        if let id = pulsePerson?.id { return cycleStore.personSnapshots[id] ?? cycleStore.partnerSnapshot }
+        return cycleStore.partnerSnapshot
+    }
+    private var accent: Color { Color(hex: pulseSnapshot.phase.accentHex) }
+    private var pulseBriefLine: String {
+        if let id = pulsePerson?.id, let brief = cycleStore.personBriefs[id] {
+            return brief.headline
+        }
+        if cycleStore.consentedPeople.count > 1 {
+            let others = cycleStore.consentedPeople
+                .filter { $0.id != pulsePerson?.id }
+                .prefix(2)
+                .map(\.displayName)
+            if !others.isEmpty {
+                return "Also \(others.joined(separator: ", "))"
+            }
+        }
+        return cycleStore.partnerSupportBrief?.headline ?? "Open cycle support"
+    }
 
     var body: some View {
         Button(action: onOpen) {
             HStack(spacing: 12) {
-                Image(systemName: cycleStore.partnerSnapshot.phase.icon)
+                Image(systemName: pulseSnapshot.phase.icon)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(accent)
                     .frame(width: 40, height: 40)
                     .background(accent.opacity(0.15))
                     .clipShape(Circle())
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("SUPPORTING")
+                    Text(cycleStore.consentedPeople.count > 1 ? "SUPPORTING \(cycleStore.consentedPeople.count)" : "SUPPORTING")
                         .forgeSectionLabel()
-                    Text("\(cycleStore.partnerSettings.displayName) · \(cycleStore.partnerSnapshot.phase.shortLabel)")
+                    Text("\(pulsePerson?.displayName ?? cycleStore.partnerSettings.displayName) · \(pulseSnapshot.phase.shortLabel)")
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(.textPrimary)
-                    Text(cycleStore.partnerSupportBrief?.headline ?? "Open cycle support")
+                    Text(pulseBriefLine)
                         .font(.system(size: 12))
                         .foregroundColor(.textTertiary)
                         .lineLimit(1)
