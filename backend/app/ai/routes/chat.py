@@ -14,6 +14,23 @@ async def chat_with_aria(payload: dict[str, Any]) -> dict[str, Any]:
     if not request.user_id or not request.message:
         return {"error": "user_id and message are required", "status": 400}
 
+    insight_mode = str(payload.get("mode") or "").strip().lower() == "insight"
+    if insight_mode:
+        readiness = request.recent_metrics.get("readiness")
+        if readiness is not None and readiness < 55:
+            message = "Recovery looks low. Keep today light — water, a walk, earlier sleep."
+        elif readiness is not None and readiness >= 85:
+            message = "You're primed. One focused session is enough — don't stack extras."
+        else:
+            message = "Solid day. Pick one small change and let it compound."
+        return {
+            "message": message,
+            "suggested_actions": [],
+            "context_updates": {},
+            "confidence": 0.8,
+            "reasoning_source": "deterministic",
+        }
+
     rich = await _context.build_rich_context(request.user_id, request.recent_metrics)
     memory = await _context.memory_reference(request.user_id, request.message)
 

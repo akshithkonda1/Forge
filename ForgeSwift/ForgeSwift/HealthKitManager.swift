@@ -296,6 +296,13 @@ class HealthKitManager: ObservableObject {
     private var observerQueries: [HKObserverQuery] = []
     private var liveRefreshTask: Task<Void, Never>?
     private var isObserving = false
+    private var lastTodayStatsAt: Date?
+    private var lastWeeklyTrendsAt: Date?
+    private var lastMindfulTrendAt: Date?
+    private var lastClinicalAt: Date?
+    private static let statsTTL: TimeInterval = 60
+    private static let trendTTL: TimeInterval = 180
+    private static let clinicalTTL: TimeInterval = 600
     private let mealsStorageKey = "HealthKitManager.loggedMeals"
     private let mealsStorageDateKey = "HealthKitManager.loggedMealsDate"
     static let forgeWaterMetadataKey = "com.forge.hydration"
@@ -721,7 +728,11 @@ class HealthKitManager: ObservableObject {
     
     // MARK: - Lifestyle-Specific Data Fetchers
     
-    func fetchTodayStats() async {
+    func fetchTodayStats(force: Bool = false) async {
+        if !force, let lastTodayStatsAt, todayStats != nil,
+           Date().timeIntervalSince(lastTodayStatsAt) < Self.statsTTL {
+            return
+        }
         guard isAuthorized else {
             todayStats = .default
             return
@@ -833,59 +844,85 @@ class HealthKitManager: ObservableObject {
             runningPower: performanceValues.3 ?? 0,
             cyclingPower: performanceValues.4 ?? 0
         )
+        lastTodayStatsAt = Date()
     }
     
     func fetchWeeklyTrends() async {
+        if let lastWeeklyTrendsAt, !weeklyTrends.isEmpty,
+           Date().timeIntervalSince(lastWeeklyTrendsAt) < Self.trendTTL {
+            return
+        }
         guard isAuthorized else {
             weeklyTrends = []
             return
         }
         
-        var trends: [WeeklyHealthTrend] = []
         let calendar = Calendar.current
-        
-        // Fetch data for last 7 days
-        for dayOffset in 0..<7 {
-            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) else { continue }
+        let days: [(Date, Date)] = (0..<7).compactMap { dayOffset in
+            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) else { return nil }
             let startOfDay = calendar.startOfDay(for: date)
             let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
-            
-            async let steps = fetchSteps(from: startOfDay, to: endOfDay)
-            async let calories = fetchActiveCalories(from: startOfDay, to: endOfDay)
-            async let sleep = fetchSleep(from: startOfDay, to: endOfDay)
-            async let hrv = fetchAverageHRV(from: startOfDay, to: endOfDay)
-            
-            let (stepsValue, caloriesValue, sleepValue, hrvValue) = await (steps, calories, sleep, hrv)
-            
-            trends.append(WeeklyHealthTrend(
-                date: startOfDay,
-                steps: stepsValue ?? 0,
-                activeCalories: caloriesValue ?? 0,
-                sleepHours: sleepValue ?? 0,
-                avgHRV: hrvValue ?? 0
-            ))
+            return (startOfDay, endOfDay)
+        }
+        var trends: [WeeklyHealthTrend] = []
+        await withTaskGroup(of: WeeklyHealthTrend.self) { group in
+            for (startOfDay, endOfDay) in days {
+                group.addTask { @MainActor in
+                    async let steps = self.fetchSteps(from: startOfDay, to: endOfDay)
+                    async let calories = self.fetchActiveCalories(from: startOfDay, to: endOfDay)
+                    async let sleep = self.fetchSleep(from: startOfDay, to: endOfDay)
+                    async let hrv = self.fetchAverageHRV(from: startOfDay, to: endOfDay)
+                    let (stepsValue, caloriesValue, sleepValue, hrvValue) = await (steps, calories, sleep, hrv)
+                    return WeeklyHealthTrend(
+                        date: startOfDay,
+                        steps: stepsValue ?? 0,
+                        activeCalories: caloriesValue ?? 0,
+                        sleepHours: sleepValue ?? 0,
+                        avgHRV: hrvValue ?? 0
+                    )
+                }
+            }
+            for await trend in group {
+                trends.append(trend)
+            }
         }
         
-        weeklyTrends = trends.reversed() // Oldest first
+        weeklyTrends = trends.sorted { $0.date < $1.date }
+        lastWeeklyTrendsAt = Date()
     }
 
     /// Per-day mindful minutes for the last 7 days (oldest first).
     func fetchMindfulTrend() async {
+        if let lastMindfulTrendAt, !mindfulTrend.isEmpty,
+           Date().timeIntervalSince(lastMindfulTrendAt) < Self.trendTTL {
+            return
+        }
         guard isAuthorized else {
             mindfulTrend = []
             return
         }
 
         let calendar = Calendar.current
-        var days: [MindfulDay] = []
-        for dayOffset in 0..<7 {
-            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) else { continue }
+        let days: [(Date, Date)] = (0..<7).compactMap { dayOffset in
+            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) else { return nil }
             let startOfDay = calendar.startOfDay(for: date)
             let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
-            let minutes = await fetchMindfulMinutes(from: startOfDay, to: endOfDay)
-            days.append(MindfulDay(date: startOfDay, minutes: minutes))
+            return (startOfDay, endOfDay)
         }
-        mindfulTrend = days.reversed()
+        var collected: [MindfulDay] = []
+        await withTaskGroup(of: MindfulDay.self) { group in
+            for (startOfDay, endOfDay) in days {
+                group.addTask { @MainActor in
+                    let minutes = await self.fetchMindfulMinutes(from: startOfDay, to: endOfDay)
+                    return MindfulDay(date: startOfDay, minutes: minutes)
+                }
+            }
+            for await day in group {
+                collected.append(day)
+            }
+        }
+        mindfulTrend = collected.sorted { $0.date < $1.date }
+        lastMindfulTrendAt = Date()
     }
 
     // MARK: - Nutrition Logging
@@ -1463,6 +1500,10 @@ class HealthKitManager: ObservableObject {
     // MARK: - Structured Health records (no notes)
 
     func fetchClinicalRecordsSummary() async -> ClinicalRecordsSummary {
+        if let lastClinicalAt, let clinicalSummary,
+           Date().timeIntervalSince(lastClinicalAt) < Self.clinicalTTL {
+            return clinicalSummary
+        }
         let recordBuckets = await withTaskGroup(of: (StructuredHealthKind, [StructuredHealthItem]).self) { group in
             for identifier in Self.structuredHealthRecordIdentifiers {
                 group.addTask { [healthStore] in
@@ -1502,6 +1543,7 @@ class HealthKitManager: ObservableObject {
             hasData: !items.isEmpty
         )
         clinicalSummary = summary
+        lastClinicalAt = Date()
         return summary
     }
     

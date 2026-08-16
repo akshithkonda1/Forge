@@ -757,7 +757,7 @@ private struct HealthComposer: View {
     var body: some View {
         VStack(spacing: 10) {
             PrimaryCTA(
-                title: coordinator.healthKitState == .requesting ? "Connecting…" : "Connect HealthKit",
+                title: coordinator.healthKitState == .requesting ? "Connecting…" : "Connect Apple Health",
                 icon: "heart.text.square.fill",
                 enabled: coordinator.healthKitState != .requesting && coordinator.healthKitState != .unavailable,
                 action: coordinator.connectHealthKit

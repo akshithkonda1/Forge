@@ -28,7 +28,7 @@ struct HealthKitConnectionCard: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("HealthKit")
+                Text("Apple Health")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.textPrimary)
                 

@@ -47,14 +47,34 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         raise RouteError(400, "message is required.")
 
     voice_mode = _voice_mode(body)
+    insight_mode = str(body.get("mode") or "").strip().lower() == "insight"
     # Never trust body.user_id for context — stamp auth principal into payload.
     payload = dict(body)
     payload["user_id"] = uid
     context = aria_engine.ARIAContext.from_payload(payload)
+    permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
+
+    # Lifestyle cards: deterministic only. No Bedrock, no Dynamo relationship
+    # bump, no weekly briefing. Opening a tab must not cost a chat turn.
+    if insight_mode:
+        response = aria_engine.generate_response(
+            message, context, permissions=permissions, voice_mode=voice_mode
+        )
+        response.update(
+            {
+                "rich_card": None,
+                "context_updates": {},
+                "memory_reference": None,
+                "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
+                "user_id": uid,
+                "reasoning_source": "deterministic",
+            }
+        )
+        return ok(response)
+
     weekly_note = weekly_review.briefing_for_chat(uid)
     if weekly_note:
         message = f"{weekly_note}\n\n{message}"
-    permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
     reason = (
         aria_engine.generate_response_live
         if aria_engine.bedrock_enabled()

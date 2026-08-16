@@ -1436,7 +1436,8 @@ final class AppStore: ObservableObject {
             prompt,
             store: self,
             localGenerator: responseGenerator,
-            voiceMode: voiceMode
+            voiceMode: voiceMode,
+            mode: "insight"
         )
     }
 

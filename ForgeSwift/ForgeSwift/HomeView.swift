@@ -493,7 +493,7 @@ private struct HomeDataStatusPill: View {
         .buttonStyle(.plain)
         .disabled(isLive || reconnecting)
         .accessibilityLabel(statusText)
-        .accessibilityHint(isLive ? "" : "Double tap to reconnect HealthKit")
+        .accessibilityHint(isLive ? "" : "Double tap to reconnect Apple Health")
     }
 
     private var statusText: String {
@@ -501,12 +501,12 @@ private struct HomeDataStatusPill: View {
         if isLive {
             if let updatedAt {
                 let mins = max(0, Int(Date().timeIntervalSince(updatedAt) / 60))
-                if mins < 1 { return "HealthKit live · just now" }
-                if mins < 60 { return "HealthKit live · \(mins)m ago" }
+                if mins < 1 { return "Apple Health live · just now" }
+                if mins < 60 { return "Apple Health live · \(mins)m ago" }
             }
-            return "HealthKit live"
+            return "Apple Health live"
         }
-        return "HealthKit offline · tap to reconnect"
+        return "Apple Health offline · tap to reconnect"
     }
 }
 
@@ -1460,7 +1460,7 @@ private struct HomeAgendaCard: View {
             rows.append((
                 "moon.zzz.fill",
                 "Log or sync sleep",
-                "HealthKit sleep improves readiness",
+                "Apple Health sleep improves readiness",
                 .steel,
                 { store.activeTab = .sleep }
             ))
