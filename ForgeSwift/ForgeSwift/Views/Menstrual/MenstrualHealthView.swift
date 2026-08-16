@@ -369,7 +369,7 @@ struct MenstrualHealthView: View {
         // side shows up as the zone disappearing, and the supporter should stop
         // seeing a digest on their next visit, not whenever a push happens to
         // arrive.
-        Task { await sharing.fetchSharedDigest() }
+        Task { await cycleStore.syncSharedPeriodFinished() }
         withAnimation(FDS.Spring.hero.delay(0.05)) { appeared = true }
         guard !UIAccessibility.isReduceMotionEnabled else { return }
         withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {

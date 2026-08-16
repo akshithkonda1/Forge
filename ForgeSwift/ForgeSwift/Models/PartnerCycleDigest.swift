@@ -83,6 +83,12 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
     /// yesterday" rather than implying live access.
     let asOfDayKey: String
 
+    /// Either person marked the bleed over. Visible on both sides, no dates
+    /// of ovulation, no notes. `false` on older digests that omit the field.
+    let periodFinished: Bool
+    /// Coarse day the finish was recorded. Never a predicted next-period date.
+    let periodFinishedDayKey: String?
+
     // ------------------------------------------------------------
     // MARK: Freshness
     // ------------------------------------------------------------
@@ -120,7 +126,9 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
             supportHeadline: SupporterGuidance.headline(phase: .unknown,
                                                         energy: .steady,
                                                         thoughtfulnessHelps: false),
-            asOfDayKey: dayKey
+            asOfDayKey: dayKey,
+            periodFinished: false,
+            periodFinishedDayKey: nil
         )
     }
 
@@ -132,13 +140,32 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
                  daysUntilNextPeriodApprox: Int?,
                  extraThoughtfulnessHelps: Bool,
                  supportHeadline: String,
-                 asOfDayKey: String) {
+                 asOfDayKey: String,
+                 periodFinished: Bool = false,
+                 periodFinishedDayKey: String? = nil) {
         self.phase = phase
         self.energy = energy
         self.daysUntilNextPeriodApprox = daysUntilNextPeriodApprox
         self.extraThoughtfulnessHelps = extraThoughtfulnessHelps
         self.supportHeadline = supportHeadline
         self.asOfDayKey = asOfDayKey
+        self.periodFinished = periodFinished
+        self.periodFinishedDayKey = periodFinishedDayKey
+    }
+
+    /// Support-side write: mark the bleed over without inventing fertility data.
+    func markingPeriodFinished(on dayKey: String) -> PartnerCycleDigest {
+        let nextPhase: SupportPhase = phase == .bleeding ? .rebuilding : phase
+        return PartnerCycleDigest(
+            phase: nextPhase,
+            energy: nextPhase == .rebuilding ? .high : energy,
+            daysUntilNextPeriodApprox: daysUntilNextPeriodApprox,
+            extraThoughtfulnessHelps: false,
+            supportHeadline: "Period finished. Everyday support is enough.",
+            asOfDayKey: dayKey,
+            periodFinished: true,
+            periodFinishedDayKey: dayKey
+        )
     }
 
     // ------------------------------------------------------------
@@ -210,12 +237,46 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
         energy = resolvedEnergy
         daysUntilNextPeriodApprox = approxDays
         extraThoughtfulnessHelps = thoughtful
-        supportHeadline = SupporterGuidance.headline(
-            phase: resolvedPhase,
-            energy: resolvedEnergy,
-            thoughtfulnessHelps: thoughtful
-        )
+        let finished = snapshot.periodEndConfirmed && !snapshot.isCurrentlyBleeding
+        supportHeadline = finished
+            ? "Period finished. Everyday support is enough."
+            : SupporterGuidance.headline(
+                phase: resolvedPhase,
+                energy: resolvedEnergy,
+                thoughtfulnessHelps: thoughtful
+            )
         asOfDayKey = snapshot.asOfDayKey
+        periodFinished = finished
+        periodFinishedDayKey = finished ? snapshot.asOfDayKey : nil
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case phase, energy, daysUntilNextPeriodApprox, extraThoughtfulnessHelps
+        case supportHeadline, asOfDayKey, periodFinished, periodFinishedDayKey
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        phase = try c.decode(SupportPhase.self, forKey: .phase)
+        energy = try c.decode(EnergyBand.self, forKey: .energy)
+        daysUntilNextPeriodApprox = try c.decodeIfPresent(Int.self, forKey: .daysUntilNextPeriodApprox)
+        extraThoughtfulnessHelps = try c.decode(Bool.self, forKey: .extraThoughtfulnessHelps)
+        supportHeadline = try c.decode(String.self, forKey: .supportHeadline)
+        asOfDayKey = try c.decode(String.self, forKey: .asOfDayKey)
+        periodFinished = try c.decodeIfPresent(Bool.self, forKey: .periodFinished) ?? false
+        periodFinishedDayKey = try c.decodeIfPresent(String.self, forKey: .periodFinishedDayKey)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(phase, forKey: .phase)
+        try c.encode(energy, forKey: .energy)
+        try c.encodeIfPresent(daysUntilNextPeriodApprox, forKey: .daysUntilNextPeriodApprox)
+        try c.encode(extraThoughtfulnessHelps, forKey: .extraThoughtfulnessHelps)
+        try c.encode(supportHeadline, forKey: .supportHeadline)
+        try c.encode(asOfDayKey, forKey: .asOfDayKey)
+        try c.encode(periodFinished, forKey: .periodFinished)
+        try c.encodeIfPresent(periodFinishedDayKey, forKey: .periodFinishedDayKey)
     }
 }
 

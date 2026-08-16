@@ -43,7 +43,7 @@ public struct PartnerInvitePayload: Codable, Equatable, Sendable {
     /// `PartnerCycleInvite.Status`; deliberately re-declared rather than shared,
     /// so the extension needs no app types.
     public enum Status: String, Codable, Sendable {
-        case pending, accepted, revoked, expired
+        case pending, accepted, revoked, expired, updated
 
         public var caption: String {
             switch self {
@@ -51,6 +51,7 @@ public struct PartnerInvitePayload: Codable, Equatable, Sendable {
             case .accepted: return "Sharing support updates"
             case .revoked:  return "Sharing stopped"
             case .expired:  return "Invitation expired"
+            case .updated:  return "Support update in Forge"
             }
         }
 

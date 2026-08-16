@@ -146,7 +146,16 @@ final class MessagesViewController: MSMessagesAppViewController {
     }
 
     private func openApp() {
-        open(URL(string: "\(PartnerInvitePayload.scheme)://cycle/sharing")!)
+        let isUpdate: Bool = {
+            switch scene {
+            case .sent(let payload, _), .received(let payload, _), .composeStaged(let payload):
+                return payload.status == .updated
+            default:
+                return false
+            }
+        }()
+        let path = isUpdate ? "cycle/period-finished" : "cycle/sharing"
+        open(URL(string: "\(PartnerInvitePayload.scheme)://\(path)")!)
     }
 
     /// Hands off to the system. For an accept this is the CloudKit share URL, so

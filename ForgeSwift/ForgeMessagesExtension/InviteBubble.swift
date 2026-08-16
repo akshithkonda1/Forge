@@ -108,7 +108,7 @@ enum InviteBubble {
         case .pending:
             return [UIColor(red: 1.00, green: 0.30, blue: 0.00, alpha: 1),
                     UIColor(red: 0.77, green: 0.23, blue: 0.00, alpha: 1)]
-        case .accepted:
+        case .accepted, .updated:
             return [UIColor(red: 0.16, green: 0.55, blue: 0.42, alpha: 1),
                     UIColor(red: 0.08, green: 0.32, blue: 0.28, alpha: 1)]
         case .revoked, .expired:

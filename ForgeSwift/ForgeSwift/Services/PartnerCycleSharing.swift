@@ -350,6 +350,16 @@ final class PartnerCycleSharing: ObservableObject {
                 activeShares = []
                 return
             }
+            var needsSave = false
+            for participant in share.participants where participant.role != .owner {
+                if participant.permission != .readWrite {
+                    participant.permission = .readWrite
+                    needsSave = true
+                }
+            }
+            if needsSave {
+                _ = try? await database.modifyRecords(saving: [share], deleting: [])
+            }
             activeShares = share.participants.map { participant in
                 ShareHandle(
                     id: Self.identifier(for: participant),
@@ -513,6 +523,68 @@ final class PartnerCycleSharing: ObservableObject {
             lastPublishError = error.localizedDescription
             return receivedDigests
         }
+    }
+
+    /// Owner: pull our own digest. If support marked the bleed over, apply it.
+    func applyRemotePeriodFinishedIfNeeded() async -> String? {
+        guard currentInvite != nil else { return nil }
+        let id = CKRecord.ID(recordName: Self.digestRecordName, zoneID: Self.zoneID)
+        guard let record = try? await database.record(for: id),
+              let data = record["payload"] as? Data,
+              let digest = try? JSONDecoder().decode(PartnerCycleDigest.self, from: data),
+              digest.periodFinished
+        else { return nil }
+        return digest.periodFinishedDayKey ?? digest.asOfDayKey
+    }
+
+    /// Support: write the finish onto the shared digest so the owner's app
+    /// sees it. iMessage is only the link — this is the state.
+    @discardableResult
+    func reportPeriodFinishedFromSupport(ownerID: String, dayKey: String) async -> Bool {
+        let zoneOwner = ownerID.isEmpty ? receivedDigests.first?.id : ownerID
+        guard let zoneOwner else { return false }
+        let zoneID = CKRecordZone.ID(zoneName: Self.zoneID.zoneName, ownerName: zoneOwner)
+        let recordID = CKRecord.ID(recordName: Self.digestRecordName, zoneID: zoneID)
+        do {
+            let record = try await container.sharedCloudDatabase.record(for: recordID)
+            guard let data = record["payload"] as? Data,
+                  let digest = try? JSONDecoder().decode(PartnerCycleDigest.self, from: data)
+            else { return false }
+            let updated = digest.markingPeriodFinished(on: dayKey)
+            record["payload"] = try JSONEncoder().encode(updated) as CKRecordValue
+            record["asOfDayKey"] = updated.asOfDayKey as CKRecordValue
+            _ = try await container.sharedCloudDatabase.save(record)
+            if let idx = receivedDigests.firstIndex(where: { $0.id == zoneOwner }) {
+                receivedDigests[idx] = ReceivedDigest(
+                    id: receivedDigests[idx].id,
+                    ownerName: receivedDigests[idx].ownerName,
+                    role: receivedDigests[idx].role,
+                    digest: updated
+                )
+            }
+            lastPublishError = nil
+            return true
+        } catch {
+            lastPublishError = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Bypass the throttle when either person confirms the bleed is over.
+    @discardableResult
+    func publishNow(_ digest: PartnerCycleDigest) async -> Bool {
+        pendingPublish?.cancel()
+        pendingPublish = nil
+        let ok = await publish(digest)
+        if ok { publishGate.recordPublished(digest) }
+        return ok
+    }
+
+    /// Stage a generic iMessage card so both sides see an update in the thread
+    /// without putting cycle words on a lock screen.
+    func stageSupportUpdateForMessages() {
+        guard let invite = currentInvite else { return }
+        PartnerInviteHandoff.stage(invite.messagePayload.updating(status: .updated))
     }
 
     // ------------------------------------------------------------

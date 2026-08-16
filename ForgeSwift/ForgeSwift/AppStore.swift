@@ -1813,6 +1813,12 @@ final class AppStore: ObservableObject {
         switch segments.first {
         case "cycle":
             let leaf = segments.dropFirst().first
+            if leaf == "period-finished" || leaf == "finished" {
+                Task { await MenstrualHealthStore.shared.syncSharedPeriodFinished() }
+                openCycleHealth(pane: MenstrualHealthStore.shared.settings.enabled ? "me" : "partner",
+                                sharing: false)
+                return true
+            }
             openCycleHealth(pane: leaf == "support" ? "partner" : "me",
                             sharing: leaf == "sharing")
             return true

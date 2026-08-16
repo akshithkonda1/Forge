@@ -30,6 +30,7 @@ struct SupporterDigestView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             if isPreview { previewBanner }
+            if digest.periodFinished { finishedBanner }
             if !isPreview && digest.isStale { staleBanner }
 
             ForEach(lens.sections, id: \.self) { section in
@@ -82,6 +83,17 @@ struct SupporterDigestView: View {
         .background(Color(hex: "FBBF24").opacity(0.12))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var finishedBanner: some View {
+        Label("Period finished — both of you can see this.", systemImage: "checkmark.flag.fill")
+            .font(FDS.TypeScale.label(13))
+            .foregroundStyle(Color(hex: "22C55E"))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(hex: "22C55E").opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private var glance: some View {
