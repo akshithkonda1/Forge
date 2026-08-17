@@ -1,5 +1,8 @@
+import binascii
 import json
+import logging
 import os
+import uuid
 from base64 import b64decode
 from datetime import datetime, timezone
 
@@ -28,24 +31,58 @@ from security import (
 )
 
 
+LOGGER = logging.getLogger("forge.handler")
+
+# Base64 inflates by 4/3, so this is the encoded ceiling for a body that could
+# still be under MAX_JSON_BODY_CHARS once decoded. Checked *before* decoding, so
+# a 50 MB payload is rejected on its length rather than after being expanded
+# into the function's memory.
+MAX_ENCODED_BODY_CHARS = (MAX_JSON_BODY_CHARS * 4) // 3 + 4
+
+
 def _parse_json_body(event: dict) -> dict:
     body = event.get("body")
     if not body:
         return {}
 
-    if event.get("isBase64Encoded"):
-        body = b64decode(body).decode("utf-8")
-
+    # A dict body only happens when something upstream already parsed it (test
+    # harnesses, direct invokes). Checked before the base64 branch because
+    # b64decode raises TypeError on a dict.
     if isinstance(body, dict):
         return body
+
+    if isinstance(body, str) and len(body) > MAX_ENCODED_BODY_CHARS:
+        raise RouteError(413, "Request body too large.")
+
+    if event.get("isBase64Encoded"):
+        try:
+            decoded = b64decode(body, validate=True)
+        except (binascii.Error, ValueError, TypeError) as exc:
+            raise RouteError(400, "Request body is not valid base64.") from exc
+        try:
+            # Split from the decode above deliberately: UnicodeDecodeError is a
+            # subclass of ValueError, so a single combined `except` would
+            # swallow it into the base64 message and mislead the client.
+            body = decoded.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise RouteError(400, "Request body must be UTF-8 text.") from exc
 
     if isinstance(body, str) and len(body) > MAX_JSON_BODY_CHARS:
         raise RouteError(413, "Request body too large.")
 
     try:
-        return json.loads(body)
-    except json.JSONDecodeError as exc:
+        parsed = json.loads(body)
+    except (json.JSONDecodeError, TypeError, ValueError) as exc:
         raise RouteError(400, "Request body must be valid JSON.") from exc
+
+    # json.loads happily returns a list, a string, a number, or None. Every
+    # route downstream calls body.get(...), so anything but an object used to
+    # escape the handler as an AttributeError and surface as a bare 502 — a
+    # client only had to send `[]` to reach it.
+    if not isinstance(parsed, dict):
+        raise RouteError(400, "Request body must be a JSON object.")
+
+    return parsed
 
 
 def _query_int(event: dict, name: str, default: int, *, minimum: int = 1, maximum: int = 365) -> int:
@@ -57,7 +94,7 @@ def _query_int(event: dict, name: str, default: int, *, minimum: int = 1, maximu
     return max(minimum, min(maximum, value))
 
 
-def handler(event, _context):
+def _route(event, _context):
     request_context = event.get("requestContext", {})
     http_context = request_context.get("http", {})
     method = http_context.get("method", "GET")
@@ -210,3 +247,51 @@ def handler(event, _context):
         return error_response(RouteError(403, str(exc) or "Forbidden."))
 
     return not_found(method, path)
+
+
+def _describe(event: dict) -> tuple[str, str]:
+    """Method and path for a log line, from an event that may be anything.
+
+    Deliberately total. This runs on the error path, and an exception raised
+    while describing an error would replace a useful 500 with an opaque one.
+    """
+    try:
+        http = (event or {}).get("requestContext", {}).get("http", {})
+        return str(http.get("method", "?"))[:16], str(http.get("path", "?"))[:256]
+    except Exception:  # noqa: BLE001 - the log line is not worth a second failure
+        return "?", "?"
+
+
+def handler(event, context=None):
+    """Public entry point. Nothing escapes this function.
+
+    An unhandled exception here is not merely a stack trace in a log: API
+    Gateway turns it into a bare 502 with no body a client can act on, and the
+    traceback — which quotes request content — lands in CloudWatch. Before this
+    boundary existed, a request body of ``[]`` was enough to reach that path,
+    because every route calls ``body.get(...)`` and ``json.loads`` will happily
+    return a list.
+
+    Unexpected failures get a stable JSON shape and a correlation id. The
+    exception text itself is logged, never returned; it can carry user data or
+    infrastructure detail and neither belongs in a client response.
+    """
+    request_id = getattr(context, "aws_request_id", None) or uuid.uuid4().hex
+    try:
+        return _route(event, context)
+    except RouteError as exc:
+        return error_response(exc)
+    except PermissionError as exc:
+        return error_response(RouteError(403, str(exc) or "Forbidden."))
+    except Exception:  # noqa: BLE001 - this is the boundary; it catches everything
+        method, path = _describe(event)
+        LOGGER.exception(
+            "Unhandled error serving %s %s (request %s)", method, path, request_id
+        )
+        return error_response(
+            RouteError(
+                500,
+                "Something went wrong on our side.",
+                code="internal_error",
+            )
+        )
