@@ -52,7 +52,11 @@ struct ForgeSwiftApp: App {
                         firstName: store.userProfile.name
                             .split(separator: " ").first.map(String.init)
                     )
-                    Task { await store.flushPendingWidgetWater(); store.publishHomeWidgets() }
+                    Task {
+                        await store.flushPendingWidgetWater()
+                        store.publishHomeWidgets()
+                        await MenstrualHealthStore.shared.syncSharedPeriodFinished()
+                    }
                 }
                 .onOpenURL { url in
                     store.handleDeepLink(url)

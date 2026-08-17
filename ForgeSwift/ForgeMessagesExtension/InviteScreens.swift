@@ -185,6 +185,7 @@ private struct SentView: View {
         switch payload.effectiveStatus {
         case .pending:  return "clock.badge.questionmark"
         case .accepted: return "checkmark.seal.fill"
+        case .updated:  return "arrow.triangle.2.circlepath"
         case .revoked:  return "hand.raised.slash.fill"
         case .expired:  return "hourglass"
         }
@@ -195,6 +196,7 @@ private struct SentView: View {
         switch payload.effectiveStatus {
         case .pending:  return "Waiting on them"
         case .accepted: return "They're following along"
+        case .updated:  return "Support update in Forge"
         case .revoked:  return "Sharing stopped"
         case .expired:  return "That invite lapsed"
         }
@@ -207,6 +209,7 @@ private struct SentView: View {
         switch payload.effectiveStatus {
         case .pending:  return "The invite is sent. Nothing is shared until they accept."
         case .accepted: return "They see a general picture, updated by your device."
+        case .updated:  return "Open Forge to see the latest support picture. This card names no details."
         case .revoked:  return "They no longer receive anything."
         case .expired:  return "Send a new one from Forge whenever you like."
         }

@@ -356,6 +356,10 @@ final class MenstrualHealthStore: ObservableObject {
         let msg = "Period finished · \(episode.dayCount) day\(episode.dayCount == 1 ? "" : "s") · how was it?"
         lastModelUpdateMessage = msg
         refreshAnalyst(lastAction: "period_ended")
+        Task {
+            await PartnerCycleSharing.shared.publishNow(supporterDigest)
+            PartnerCycleSharing.shared.stageSupportUpdateForMessages()
+        }
         return episode
     }
 
@@ -545,7 +549,7 @@ final class MenstrualHealthStore: ObservableObject {
     /// The supported person's period is over. Closes the episode and returns the support
     /// brief from period-care coaching to everyday support on the same tap.
     @discardableResult
-    func logPartnerPeriodEnd(on dayKey: String = CycleDayKey.key()) -> String {
+    func logPartnerPeriodEnd(on dayKey: String = CycleDayKey.key(), propagate: Bool = true) -> String {
         let episodes = MenstrualCycleEngine.buildPeriodEpisodes(from: partnerLogs)
         let startKey = episodes.last?.startDayKey ?? partnerSnapshot.lastPeriodStartDayKey ?? dayKey
 
@@ -567,7 +571,37 @@ final class MenstrualHealthStore: ObservableObject {
         let msg = "\(name)'s period finished · \(max(1, days)) day\(days == 1 ? "" : "s") · back to everyday support"
         lastModelUpdateMessage = msg
         refreshAnalyst(lastAction: "partner_period_ended", isPartner: true)
+        if propagate {
+            Task {
+                let ownerID = PartnerCycleSharing.shared.receivedDigests.first?.id ?? ""
+                _ = await PartnerCycleSharing.shared.reportPeriodFinishedFromSupport(
+                    ownerID: ownerID,
+                    dayKey: dayKey
+                )
+                PartnerCycleSharing.shared.stageSupportUpdateForMessages()
+            }
+        }
         return msg
+    }
+
+    /// Pull CloudKit. If they marked finished, both sides show it.
+    func syncSharedPeriodFinished() async {
+        let incoming = await PartnerCycleSharing.shared.fetchSharedDigest()
+        for received in incoming where received.digest.periodFinished {
+            if partnerSettings.enabled,
+               partnerSettings.confirmedPeriodEndDayKey == nil
+                || partnerSnapshot.stage == .period {
+                _ = logPartnerPeriodEnd(
+                    on: received.digest.periodFinishedDayKey ?? CycleDayKey.key(),
+                    propagate: false
+                )
+            }
+        }
+        if settings.enabled, !snapshot.periodEndConfirmed || snapshot.isCurrentlyBleeding {
+            if let dayKey = await PartnerCycleSharing.shared.applyRemotePeriodFinishedIfNeeded() {
+                _ = logPeriodEnd(on: dayKey)
+            }
+        }
     }
 
     /// User says period started today (feedback + log).

@@ -117,7 +117,7 @@ final class PartnerInvitePayloadTests: XCTestCase {
 
     func testOnlyPendingInvitesAreActionable() {
         XCTAssertTrue(PartnerInvitePayload.Status.pending.isActionable)
-        for status in [PartnerInvitePayload.Status.accepted, .revoked, .expired] {
+        for status in [PartnerInvitePayload.Status.accepted, .revoked, .expired, .updated] {
             XCTAssertFalse(status.isActionable, "\(status) must not read as a live offer")
         }
     }
