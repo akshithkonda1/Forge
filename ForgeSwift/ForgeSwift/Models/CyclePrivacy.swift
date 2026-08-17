@@ -48,6 +48,7 @@ enum CyclePrivacy {
 
     static let partnerExtra = """
     Support-person cycle logs are entered by the user with consent (or caregiver care). \
-    Same privacy rules: coaching the user only — never sold or reused.
+    You can support more than one person — a partner and a daughter are separate, \
+    with their own role and notes. Same privacy rules: coaching the user only — never sold or reused.
     """
 }

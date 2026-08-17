@@ -64,6 +64,8 @@ struct MenstrualHealthView: View {
     @State private var periodEndEpisode: PeriodEpisode?
     @State private var bbtUnit: BBTUnit = .celsius
     @State private var saveError: String?
+    @State private var showAddPerson = false
+    @State private var confirmRemovePerson = false
 
     private var accent: Color {
         let phase = pane == .me ? cycleStore.snapshot.phase : cycleStore.partnerSnapshot.phase
@@ -120,6 +122,34 @@ struct MenstrualHealthView: View {
                 CycleSharingView(cycleStore: cycleStore)
                     .environmentObject(store)
                     .preferredColorScheme(.dark)
+            }
+            .sheet(isPresented: $showAddPerson) {
+                AddSupportedPersonSheet(cycleStore: cycleStore) { person in
+                    partnerNameDraft = person.settings.partnerName
+                    partnerRelDraft = person.settings.relationshipLabel
+                    supportRole = person.role
+                    showAddPerson = false
+                }
+                .preferredColorScheme(.dark)
+            }
+            .onChange(of: cycleStore.selectedPersonId) { _, _ in
+                partnerNameDraft = cycleStore.partnerSettings.partnerName
+                partnerRelDraft = cycleStore.partnerSettings.relationshipLabel
+                supportRole = cycleStore.partnerSettings.resolvedRole
+            }
+            .confirmationDialog(
+                "Remove \(cycleStore.partnerSettings.displayName)?",
+                isPresented: $confirmRemovePerson,
+                titleVisibility: .visible
+            ) {
+                Button("Remove", role: .destructive) {
+                    if let id = cycleStore.selectedPersonId {
+                        cycleStore.removeSupportedPerson(id)
+                    }
+                }
+                Button("Keep", role: .cancel) {}
+            } message: {
+                Text("Local notes for them leave this device. A share they sent you stays until they revoke it.")
             }
             .confirmationDialog(
                 "Wipe all self cycle logs?",
@@ -2034,7 +2064,11 @@ struct MenstrualHealthView: View {
             // outranks a guess assembled from manual entries.
             sharedWithMeSection
 
-            if !cycleStore.partnerSettings.enabled {
+            peopleStrip
+
+            if cycleStore.supportedPeople.isEmpty {
+                partnerEnableCard
+            } else if !cycleStore.partnerSettings.enabled {
                 partnerEnableCard
             } else if !cycleStore.partnerSettings.consentAcknowledged {
                 partnerConsentCard
@@ -2052,6 +2086,59 @@ struct MenstrualHealthView: View {
         }
     }
 
+    /// Partner, daughter, sister — each is a chip, not a rewrite of the last one.
+    @ViewBuilder
+    private var peopleStrip: some View {
+        if !cycleStore.supportedPeople.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("PEOPLE YOU SUPPORT")
+                    .forgeSectionLabel()
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(cycleStore.supportedPeople) { person in
+                            Button {
+                                cycleStore.selectPerson(person.id)
+                                FDS.selectionHaptic()
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: person.role.icon)
+                                    Text(person.displayName)
+                                        .font(FDS.TypeScale.label(13))
+                                }
+                                .foregroundColor(cycleStore.selectedPersonId == person.id ? .white : .textSecondary)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .background(
+                                    cycleStore.selectedPersonId == person.id
+                                        ? Color(hex: "6366F1")
+                                        : Color.surfaceElevated
+                                )
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        Button {
+                            showAddPerson = true
+                            FDS.haptic(.light)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "plus")
+                                Text("Add")
+                                    .font(FDS.TypeScale.label(13))
+                            }
+                            .foregroundColor(.textSecondary)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(Color.surfaceElevated)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
     /// Renders a digest received through CloudKit sharing.
     ///
     /// Note what is passed in: a `PartnerCycleDigest`, never `partnerSnapshot`.
@@ -2064,19 +2151,33 @@ struct MenstrualHealthView: View {
         // sharer — a partner and a daughter, say — and each gets its own lens,
         // because the role decides whether intimate material appears at all.
         ForEach(sharing.receivedDigests) { received in
-            SupporterDigestView(
-                digest: received.digest,
-                // The role comes from the share, not from local settings. Local
-                // settings hold one value for the whole app, so two sharers
-                // would render through the same lens — and someone whose
-                // settings say `.romantic` would get intimacy material against
-                // their daughter's digest.
-                lens: PartnerSupportLens(
-                    role: received.role,
-                    supporterSex: store.userProfile.biologicalSex
-                ),
-                personName: received.ownerName
-            )
+            VStack(alignment: .leading, spacing: 10) {
+                SupporterDigestView(
+                    digest: received.digest,
+                    // The role comes from the share, not from local settings.
+                    lens: PartnerSupportLens(
+                        role: received.role,
+                        supporterSex: store.userProfile.biologicalSex
+                    ),
+                    personName: received.ownerName
+                )
+                if !received.digest.periodFinished {
+                    Button {
+                        cycleStore.adoptReceivedDigests([received])
+                        if let person = cycleStore.personBound(to: received.id) {
+                            cycleStore.selectPerson(person.id)
+                            let msg = cycleStore.logPartnerPeriodEnd(personId: person.id)
+                            cycleStore.refresh(from: store)
+                            showToast(msg)
+                        }
+                    } label: {
+                        Label("Mark \(received.ownerName)'s period finished", systemImage: "checkmark.flag.fill")
+                            .font(FDS.TypeScale.label(13))
+                            .foregroundStyle(Color(hex: "22C55E"))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
 
@@ -2087,10 +2188,12 @@ struct MenstrualHealthView: View {
                 .foregroundStyle(
                     LinearGradient(colors: [Color(hex: "818CF8"), Color(hex: "6366F1")], startPoint: .topLeading, endPoint: .bottomTrailing)
                 )
-            Text("Support someone you love")
+            Text(cycleStore.supportedPeople.isEmpty
+                 ? "Support someone you love"
+                 : "Turn support back on")
                 .font(FDS.TypeScale.title(20))
                 .foregroundColor(.textPrimary)
-            Text("Partners, spouses — and many fathers with daughters. Log period starts they share; ARIA coaches you on comfort, plans, and what not to say.")
+            Text("Partners, daughters, family, friends — each person is their own. Log what they share; ARIA coaches you in that role, not through one romantic lens.")
                 .font(FDS.TypeScale.body(14))
                 .foregroundColor(.textSecondary)
             Text(CyclePrivacy.shortPromise)
@@ -2098,11 +2201,20 @@ struct MenstrualHealthView: View {
                 .foregroundStyle(Color(hex: "22C55E"))
             rolePicker
             Button {
-                cycleStore.updatePartnerSettings {
-                    $0.enabled = true
-                    $0.shareWithAria = true
-                    $0.supportRole = supportRole
-                    $0.relationshipLabel = supportRole.suggestedLabels.first ?? "partner"
+                if cycleStore.supportedPeople.isEmpty || cycleStore.selectedPerson == nil {
+                    _ = cycleStore.addSupportedPerson(
+                        name: partnerNameDraft,
+                        role: supportRole,
+                        relationshipLabel: supportRole.suggestedLabels.first ?? "partner",
+                        consentAcknowledged: false
+                    )
+                } else {
+                    cycleStore.updatePartnerSettings {
+                        $0.enabled = true
+                        $0.shareWithAria = true
+                        $0.supportRole = supportRole
+                        $0.relationshipLabel = supportRole.suggestedLabels.first ?? "partner"
+                    }
                 }
                 partnerRelDraft = supportRole.suggestedLabels.first ?? "partner"
                 FDS.haptic(.medium)
@@ -2440,6 +2552,15 @@ struct MenstrualHealthView: View {
                 Text("Support tracking on").foregroundColor(.textPrimary)
             }
             .tint(.ember)
+            Button(role: .destructive) {
+                confirmRemovePerson = true
+            } label: {
+                Label("Remove \(cycleStore.partnerSettings.displayName)", systemImage: "person.crop.circle.badge.minus")
+                    .font(FDS.TypeScale.label(13))
+                    .foregroundStyle(Color(hex: "F87171"))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
         }
         .padding(18)
         .forgeGlassCard(accent: .steel)
@@ -2520,8 +2641,7 @@ struct CycleHealthChip: View {
 
     private var showingPartner: Bool {
         preferPartner
-            || (cycleStore.partnerSettings.enabled && cycleStore.partnerSettings.consentAcknowledged
-                && !cycleStore.settings.enabled)
+            || (!cycleStore.consentedPeople.isEmpty && !cycleStore.settings.enabled)
     }
 
     var body: some View {
@@ -2538,8 +2658,15 @@ struct CycleHealthChip: View {
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     if showingPartner {
-                        let snap = cycleStore.partnerSnapshot
-                        Text(cycleStore.partnerSettings.displayName)
+                        let person = cycleStore.mostTimelyPerson ?? cycleStore.selectedPerson
+                        let snap = person.flatMap { cycleStore.personSnapshots[$0.id] } ?? cycleStore.partnerSnapshot
+                        let title: String = {
+                            if cycleStore.consentedPeople.count > 1 {
+                                return "\(cycleStore.consentedPeople.count) people"
+                            }
+                            return person?.displayName ?? cycleStore.partnerSettings.displayName
+                        }()
+                        Text(title)
                             .font(FDS.TypeScale.label(14))
                             .foregroundColor(.textPrimary)
                         if snap.stage == .postPeriod, let since = snap.daysSincePeriodEnd, since <= 2 {
@@ -2551,7 +2678,7 @@ struct CycleHealthChip: View {
                                 .font(FDS.TypeScale.body(12))
                                 .foregroundColor(.textTertiary)
                         } else {
-                            Text(cycleStore.partnerSettings.enabled ? "Partner cycle" : "Set up support")
+                            Text(cycleStore.consentedPeople.isEmpty ? "Set up support" : "Support")
                                 .font(FDS.TypeScale.body(12))
                                 .foregroundColor(.textTertiary)
                         }
@@ -2587,6 +2714,118 @@ struct CycleHealthChip: View {
             .forgeGlassCard(accent: Color(hex: (showingPartner ? cycleStore.partnerSnapshot.phase : cycleStore.snapshot.phase).accentHex))
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Add another person
+
+private struct AddSupportedPersonSheet: View {
+    @ObservedObject var cycleStore: MenstrualHealthStore
+    var onAdded: (SupportedPerson) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var role: CycleSupportRole = .romantic
+    @State private var name = ""
+    @State private var label = CycleSupportRole.romantic.suggestedLabels.first ?? "partner"
+    @State private var consent = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("Partner, daughter, sister, friend — each person is their own. ARIA will not treat a child as a partner.")
+                        .font(FDS.TypeScale.body(14))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("WHO")
+                            .forgeSectionLabel()
+                        ForEach(CycleSupportRole.allCases) { option in
+                            Button {
+                                role = option
+                                label = option.suggestedLabels.first ?? label
+                                FDS.selectionHaptic()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: option.icon)
+                                        .frame(width: 22)
+                                    Text(option.label)
+                                        .font(FDS.TypeScale.body(15))
+                                    Spacer()
+                                    if role == option {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(Color(hex: "6366F1"))
+                                    }
+                                }
+                                .foregroundColor(role == option ? .textPrimary : .textSecondary)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(role == option ? Color(hex: "6366F1").opacity(0.12) : Color.surfaceElevated)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    TextField(role == .child ? "Name (optional)" : "Name (optional)", text: $name)
+                        .textFieldStyle(.plain)
+                        .padding(12)
+                        .background(Color.surfaceElevated)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                    TextField(role == .child ? "Label (daughter / child…)" : "Label (partner / wife…)", text: $label)
+                        .textFieldStyle(.plain)
+                        .padding(12)
+                        .background(Color.surfaceElevated)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                    Toggle(isOn: $consent) {
+                        Text(role == .child
+                             ? "I'm supporting as a parent / caregiver"
+                             : "I have their okay to keep notes")
+                            .foregroundColor(.textPrimary)
+                    }
+                    .tint(Color(hex: "6366F1"))
+
+                    Text(CyclePrivacy.partnerExtra)
+                        .font(FDS.TypeScale.body(11))
+                        .foregroundColor(.textTertiary)
+
+                    Button {
+                        let person = cycleStore.addSupportedPerson(
+                            name: name,
+                            role: role,
+                            relationshipLabel: label.isEmpty ? role.suggestedLabels.first : label,
+                            consentAcknowledged: consent
+                        )
+                        FDS.notificationHaptic(.success)
+                        onAdded(person)
+                        dismiss()
+                    } label: {
+                        Text("Add \(role.shortLabel.lowercased())")
+                            .font(FDS.TypeScale.label(15))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(Color(hex: "6366F1"))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(20)
+            }
+            .background(Color.background.ignoresSafeArea())
+            .navigationTitle("Add someone")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
     }
 }
 

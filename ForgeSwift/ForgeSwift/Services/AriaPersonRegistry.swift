@@ -26,7 +26,6 @@ final class AriaPersonRegistry: ObservableObject {
 
     /// Call once when app/store is ready (avoids init-time circular deps).
     func bootstrapFromPartnerSettingsIfNeeded() {
-        guard people.isEmpty else { return }
         syncFromPartnerSettingsIfNeeded()
     }
 
@@ -143,14 +142,11 @@ final class AriaPersonRegistry: ObservableObject {
             }
             persist()
             if mirrorToPartnerCycle {
-                // Mirror into partner cycle settings for cycle/support features
-                var s = MenstrualHealthStore.shared.partnerSettings
-                s.enabled = true
-                s.partnerName = p.name
-                s.relationshipLabel = p.primaryLabel
-                s.supportRole = p.role
-                if !s.shareWithAria { s.shareWithAria = true }
-                MenstrualHealthStore.shared.updatePartnerSettings { $0 = s }
+                MenstrualHealthStore.shared.activateOrCreatePerson(
+                    name: p.name,
+                    label: p.primaryLabel,
+                    role: p.role
+                )
             }
             AriaContextStore.shared.applyActivePerson(p)
         }
@@ -324,11 +320,31 @@ final class AriaPersonRegistry: ObservableObject {
     }
 
     private func syncFromPartnerSettingsIfNeeded() {
-        let p = MenstrualHealthStore.shared.partnerSettings
-        guard p.enabled || !p.partnerName.isEmpty || p.relationshipLabel != "partner" else { return }
-        if people.isEmpty {
-            let person = upsert(name: p.partnerName, label: p.relationshipLabel, role: p.supportRole)
-            setActive(person.id)
+        let store = MenstrualHealthStore.shared
+        if store.supportedPeople.isEmpty {
+            let p = store.partnerSettings
+            guard p.enabled || !p.partnerName.isEmpty || p.relationshipLabel != "partner" else { return }
+            if people.isEmpty {
+                let person = upsert(name: p.partnerName, label: p.relationshipLabel, role: p.supportRole)
+                setActive(person.id, mirrorToPartnerCycle: false)
+            }
+            return
+        }
+        for supported in store.supportedPeople {
+            _ = upsert(
+                name: supported.settings.partnerName,
+                label: supported.settings.relationshipLabel,
+                role: supported.role
+            )
+        }
+        if people.isEmpty == false, activePersonId == nil,
+           let first = store.selectedPerson {
+            if let match = people.first(where: {
+                (!$0.name.isEmpty && $0.name.lowercased() == first.settings.partnerName.lowercased())
+                    || $0.primaryLabel.lowercased() == first.settings.relationshipLabel.lowercased()
+            }) {
+                setActive(match.id, mirrorToPartnerCycle: false)
+            }
         }
     }
 
