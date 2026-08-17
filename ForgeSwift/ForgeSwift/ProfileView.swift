@@ -943,7 +943,7 @@ struct SettingsPageView: View {
                     SettingsRow(
                         icon: "heart.text.square.fill",
                         iconColor: store.healthKitLive ? .success : .warning,
-                        label: "HealthKit",
+                        label: "Apple Health",
                         trailingText: store.healthKitLive ? "Connected" : "Offline"
                     )
                     Divider().background(Color.borderColor)
@@ -956,7 +956,7 @@ struct SettingsPageView: View {
                         SettingsRow(
                             icon: "arrow.triangle.2.circlepath",
                             iconColor: .ember,
-                            label: store.healthKitLive ? "Resync HealthKit" : "Reconnect HealthKit",
+                            label: store.healthKitLive ? "Resync Apple Health" : "Reconnect Apple Health",
                             trailingText: "Now",
                             showChevron: true
                         )
@@ -1182,7 +1182,7 @@ struct SettingsPageView: View {
                 SectionCard {
                     Button { showDataPermissions = true } label: {
                         SettingsRow(icon: "lock.shield.fill", iconColor: .textSecondary, label: "Data & Privacy",
-                                    trailingText: "HealthKit + ARIA", showChevron: true)
+                                    trailingText: "Apple Health + ARIA", showChevron: true)
                     }
                     .buttonStyle(.plain)
                     Divider().background(Color.borderColor)
@@ -1278,7 +1278,7 @@ struct SettingsPageView: View {
         .sheet(isPresented: $showLocalPrivacy) {
             NavigationStack {
                 ScrollView {
-                    Text("Forge keeps HealthKit data on this device. ARIA only receives what you allow under Data Permissions. Wearables on the Devices list write to Apple Health through their own iOS apps — Forge reads that ledger, it does not scrape vendor accounts.")
+                    Text("Forge keeps Apple Health data on this device. ARIA only receives what you allow under Data Permissions. Wearables on the Devices list write to Apple Health through their own iOS apps — Forge reads that ledger, it does not scrape vendor accounts.")
                         .font(.system(size: 15))
                         .foregroundColor(.textSecondary)
                         .padding(20)
@@ -1759,7 +1759,7 @@ struct ForgeAboutView: View {
                         .foregroundColor(.textSecondary)
 
                     aboutRow("lock.shield.fill", "Local-first", "Your profile, cycle logs, and photos live on this device. Cycle data is coaching-only and is never sold.")
-                    aboutRow("heart.text.square.fill", "HealthKit", "Read and write is scoped to what you approve in the Health app, and can be revoked there at any time.")
+                    aboutRow("heart.text.square.fill", "Apple Health", "Read and write is scoped to what you approve in the Health app, and can be revoked there at any time.")
                     aboutRow("sparkles", "ARIA", "Adaptive lifestyle coach. Compound interest: enough small changes and life is slightly different. Over time you see it and appreciate it. Not a new personality. Not clinical care.")
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -1821,7 +1821,7 @@ struct ForgeTermsAndConditionsView: View {
 
                     VStack(alignment: .leading, spacing: 12) {
                         legalPoint("Your Apple Health, cycle, sexual health, workout, sleep, nutrition, and lifestyle data stays under your control.")
-                        legalPoint("Forge uses HealthKit permissions only for features you enable and only through Apple's permission system.")
+                        legalPoint("Forge uses Apple Health permissions only for features you enable and only through Apple's permission system.")
                         legalPoint("If you allow it, Forge may read allergies, medications, conditions, immunizations, lab results, and procedures from Apple Health. Clinical notes and insurance coverage are never requested.")
                         legalPoint("Forge does not sell personal information, health information, or lifestyle data.")
                         legalPoint("You can revoke Health permissions at any time in the iOS Settings app or Apple Health.")

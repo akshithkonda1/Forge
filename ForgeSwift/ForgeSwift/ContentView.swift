@@ -175,7 +175,6 @@ struct MainTabView: View {
                     .combined(with: .opacity)
             ))
             .animation(FDS.Spring.page, value: store.activeTab)
-            .id(store.activeTab)
 
             ForgeBottomNav(namespace: namespace, dragOffset: $dragOffset)
         }

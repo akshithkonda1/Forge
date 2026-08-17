@@ -11,7 +11,7 @@ enum HealthKitState: Equatable {
         switch self {
         case .unknown:     return "Not connected"
         case .requesting:  return "Connecting…"
-        case .authorized:  return "HealthKit live"
+        case .authorized:  return "Apple Health live"
         case .denied:      return "Skipped"
         case .unavailable: return "Unavailable"
         }
@@ -262,12 +262,12 @@ final class OnboardingCoordinator {
         }
         if let first = profile.fitnessGoals.first {
             await ariaSay(
-                "Quest locked: \(first.label). I'm not a doctor — I coach structure, recovery, and habits. About a minute from here. HealthKit can load while we talk so day one already has signal.",
+                "Quest locked: \(first.label). I'm not a doctor — I coach structure, recovery, and habits. About a minute from here. Apple Health can load while we talk so day one already has signal.",
                 mood: .calm
             )
         } else {
             await ariaSay(
-                "I'm not a doctor. I don't diagnose or treat. I coach — structure, recovery, habits, and accountability. This takes about a minute. While we talk, I can load HealthKit in the background so day one already has signal.",
+                "I'm not a doctor. I don't diagnose or treat. I coach — structure, recovery, habits, and accountability. This takes about a minute. While we talk, I can load Apple Health in the background so day one already has signal.",
                 mood: .calm
             )
         }
@@ -419,7 +419,7 @@ final class OnboardingCoordinator {
 
     func connectHealthKit() {
         guard step == .health else { return }
-        appendUser("Connect HealthKit")
+        appendUser("Connect Apple Health")
         FDS.haptic(.medium)
         Task {
             await requestHealthKit()
@@ -436,7 +436,7 @@ final class OnboardingCoordinator {
         FDS.haptic(.light)
         Task {
             await ariaSay(
-                "No problem — we can still build a strong plan. Connect HealthKit anytime and I'll fold recovery in.",
+                "No problem — we can still build a strong plan. Connect Apple Health anytime and I'll fold recovery in.",
                 mood: .calm
             )
             await advanceTo(.goals)
@@ -739,14 +739,14 @@ final class OnboardingCoordinator {
             try await HealthKitManager.shared.requestAuthorization()
             healthKitState = .authorized
             await ariaSay(
-                "HealthKit connected. Pulling sleep, heart rate, and activity in the background while we finish.",
+                "Apple Health connected. Pulling sleep, heart rate, and activity in the background while we finish.",
                 mood: .energized
             )
             Task { await refreshHealthDataQuietly() }
         } catch {
             healthKitState = .denied
             await ariaSay(
-                "Couldn't connect HealthKit just now. You can enable it later — continuing.",
+                "Couldn't connect Apple Health just now. You can enable it later — continuing.",
                 mood: .calm
             )
         }
@@ -780,13 +780,13 @@ final class OnboardingCoordinator {
 
         guard !prefill.isEmpty else { return }
         healthPrefillNote = prefill.joined(separator: " · ")
-        AriaContextStore.shared.addInsight("HealthKit prefill: \(healthPrefillNote!)")
+        AriaContextStore.shared.addInsight("Apple Health prefill: \(healthPrefillNote!)")
         syncPartialContext()
 
-        if !messages.contains(where: { $0.role == .system && $0.text.contains("HealthKit") }) {
+        if !messages.contains(where: { $0.role == .system && ($0.text.contains("HealthKit") || $0.text.contains("Apple Health")) }) {
             messages.append(AriaOnboardingMessage(
                 role: .system,
-                text: "HealthKit loaded: \(healthPrefillNote!)"
+                text: "Apple Health loaded: \(healthPrefillNote!)"
             ))
         }
     }
@@ -919,7 +919,7 @@ final class OnboardingCoordinator {
 
     private func experiencePrompt() -> String {
         if let vo2 = healthProfile?.vo2Max, vo2 >= 45 {
-            return "Your HealthKit VO₂max looks solid. How would you rate your training experience?"
+            return "Your Apple Health VO₂max looks solid. How would you rate your training experience?"
         }
         return "How long have you been training seriously?"
     }

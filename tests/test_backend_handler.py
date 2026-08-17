@@ -345,6 +345,44 @@ class CoachRouteTests(unittest.TestCase):
         # Default/offline path is the deterministic engine — no reasoning_source key.
         self.assertNotIn("reasoning_source", body(response))
 
+    def test_aria_insight_mode_skips_relationship_bump(self):
+        uid = "aria-insight-user"
+        first = handler(
+            event(
+                "POST",
+                "/ai/chat",
+                {
+                    "user_id": uid,
+                    "message": "Analyze my lifestyle today in 2-3 sentences.",
+                    "mode": "insight",
+                    "recent_metrics": {"readiness": 72},
+                },
+                user_id=uid,
+            ),
+            None,
+        )
+        self.assertEqual(first["statusCode"], 200)
+        first_body = body(first)
+        self.assertEqual(first_body.get("reasoning_source"), "deterministic")
+        self.assertEqual(first_body.get("context_updates"), {})
+
+        second = handler(
+            event(
+                "POST",
+                "/ai/chat",
+                {
+                    "user_id": uid,
+                    "message": "Coach my nutrition.",
+                    "mode": "insight",
+                    "recent_metrics": {"readiness": 72},
+                },
+                user_id=uid,
+            ),
+            None,
+        )
+        self.assertEqual(second["statusCode"], 200)
+        self.assertEqual(body(second).get("context_updates"), {})
+
     def test_aria_feedback_reaction_bumps_relationship(self):
         uid = "aria-feedback-user"
         handler(

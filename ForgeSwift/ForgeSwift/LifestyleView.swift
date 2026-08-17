@@ -145,6 +145,8 @@ final class SmartNotificationManager: ObservableObject {
     
     func requestAuthorization() async throws {
         let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        guard settings.authorizationStatus == .notDetermined else { return }
         try await center.requestAuthorization(options: [.alert, .sound, .badge])
     }
     
@@ -155,7 +157,7 @@ final class SmartNotificationManager: ObservableObject {
         content.sound = .default
         
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(hours * 3600), repeats: true)
-        let request = UNNotificationRequest(identifier: "hydration-\(UUID())", content: content, trigger: trigger)
+        let request = UNNotificationRequest(identifier: "hydration-repeating", content: content, trigger: trigger)
         
         try? await UNUserNotificationCenter.current().add(request)
     }
@@ -167,7 +169,7 @@ final class SmartNotificationManager: ObservableObject {
         content.sound = .default
         
         let trigger = UNCalendarNotificationTrigger(dateMatching: time, repeats: true)
-        let request = UNNotificationRequest(identifier: "meal-\(mealType)-\(UUID())", content: content, trigger: trigger)
+        let request = UNNotificationRequest(identifier: "meal-\(mealType)", content: content, trigger: trigger)
         
         try? await UNUserNotificationCenter.current().add(request)
     }
@@ -182,7 +184,7 @@ final class SmartNotificationManager: ObservableObject {
         earlyTime.hour = (earlyTime.hour ?? 22) - 1
         
         let trigger = UNCalendarNotificationTrigger(dateMatching: earlyTime, repeats: true)
-        let request = UNNotificationRequest(identifier: "sleep-\(UUID())", content: content, trigger: trigger)
+        let request = UNNotificationRequest(identifier: "sleep-wind-down", content: content, trigger: trigger)
 
         try? await UNUserNotificationCenter.current().add(request)
     }
@@ -741,50 +743,88 @@ final class LifestyleViewModel: ObservableObject {
     private let healthManager = HealthKitManager.shared
     private let workoutManager = WorkoutPlanManager()
     private let notificationManager = SmartNotificationManager.shared
-    
+    static let shared = LifestyleViewModel()
+
+    private var lastLoadAt: Date?
+    private var remindersArmed = false
+    private var lastInsightAt: Date?
+    private var lastInsightKey: String?
+    private static let loadTTL: TimeInterval = 90
+    private static let insightTTL: TimeInterval = 15 * 60
+
     init() {}
 
-    func load() async {
+    func load(force: Bool = false) async {
         guard !isLoading else { return }
+        if !force,
+           let last = lastLoadAt,
+           Date().timeIntervalSince(last) < Self.loadTTL,
+           healthStats != nil {
+            applyCachedHealth()
+            return
+        }
         isLoading = true
         defer { isLoading = false }
         error = nil
 
-        // HealthKit and notifications are optional. A denied prompt must not
+        // Apple Health and notifications are optional. A denied prompt must not
         // blank the whole Lifestyle tab — that was the "unusable" bug.
-        _ = try? await healthManager.requestAuthorization()
-        try? await notificationManager.requestAuthorization()
+        // Don't re-prompt on every tab tap.
+        if !healthManager.isAuthorized {
+            _ = try? await healthManager.requestAuthorization()
+        }
 
-        await healthManager.fetchTodayStats()
-        await healthManager.fetchWeeklyTrends()
-        await healthManager.fetchMindfulTrend()
+        await healthManager.fetchTodayStats(force: force)
         healthStats = healthManager.todayStats
-        weeklyTrends = healthManager.weeklyTrends
-        mindfulTrend = healthManager.mindfulTrend
         loggedMeals = healthManager.loggedMeals
 
-        let now = Date()
-        let startOfDay = Calendar.current.startOfDay(for: now)
-        let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? startOfDay
-        async let mindfulToday = healthManager.fetchMindfulMinutes(from: startOfDay, to: now)
-        async let mindfulWeek = healthManager.fetchMindfulMinutes(from: weekAgo, to: now)
-        async let m = fetchMetrics()
-        async let r = fetchRecommendations()
-        async let ai = generateAIWorkouts(from: healthStats)
-
-        metrics = (try? await m) ?? .default
-        recommendations = (try? await r) ?? []
-        aiWorkouts = await ai
-        mindfulMinutesToday = Int(await mindfulToday)
-        mindfulMinutesWeek = Int(await mindfulWeek)
+        metrics = (try? await fetchMetrics()) ?? .default
+        recommendations = (try? await fetchRecommendations()) ?? []
         qolHistory = LifestyleWellbeingStore.recordQOL(metrics.qualityOfLifeScore)
+        lastLoadAt = Date()
 
-        await scheduleSmartReminders()
-        await notificationManager.scheduleRecommendationReminders(recommendations)
+        if !remindersArmed {
+            remindersArmed = true
+            await scheduleSmartReminders()
+        }
         syncAriaContext()
     }
 
-    func refresh() async { await load() }
+    func refresh() async { await load(force: true) }
+
+    /// Trends and mindful minutes — only when Wellbeing is on screen.
+    func loadWellbeingExtrasIfNeeded() async {
+        if weeklyTrends.isEmpty {
+            await healthManager.fetchWeeklyTrends()
+            weeklyTrends = healthManager.weeklyTrends
+        }
+        if mindfulTrend.isEmpty {
+            await healthManager.fetchMindfulTrend()
+            mindfulTrend = healthManager.mindfulTrend
+        }
+        if mindfulMinutesToday == 0 && mindfulMinutesWeek == 0 {
+            let now = Date()
+            let startOfDay = Calendar.current.startOfDay(for: now)
+            let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? startOfDay
+            async let today = healthManager.fetchMindfulMinutes(from: startOfDay, to: now)
+            async let week = healthManager.fetchMindfulMinutes(from: weekAgo, to: now)
+            mindfulMinutesToday = Int(await today)
+            mindfulMinutesWeek = Int(await week)
+        }
+    }
+
+    /// Workout cards — only when AI Optimize is on screen.
+    func loadWorkoutsIfNeeded() async {
+        guard aiWorkouts.isEmpty else { return }
+        aiWorkouts = await generateAIWorkouts(from: healthStats)
+    }
+
+    private func applyCachedHealth() {
+        if healthStats == nil { healthStats = healthManager.todayStats }
+        if loggedMeals.isEmpty { loggedMeals = healthManager.loggedMeals }
+        if weeklyTrends.isEmpty { weeklyTrends = healthManager.weeklyTrends }
+        if mindfulTrend.isEmpty { mindfulTrend = healthManager.mindfulTrend }
+    }
 
     func syncAriaContext() {
         AriaContextStore.shared.syncLifestyleSignals(
@@ -796,25 +836,53 @@ final class LifestyleViewModel: ObservableObject {
         LifestyleWidgetBridge.update(metrics: metrics, recommendations: recommendations)
     }
 
-    /// Overlays live Claude/Bedrock reasoning onto the heuristic cards. Best-effort:
-    /// on any failure the published fields stay nil and the cards keep rendering their
-    /// existing local content. Safe to call after `load()` / `refresh()`.
-    func refreshAIInsights(store: AppStore) async {
+    /// Overlay ARIA onto the cards. Default is local + cache. Network is
+    /// opt-in (insights sheet or pull-to-refresh) so opening Lifestyle
+    /// does not fire two Bedrock rounds.
+    func refreshAIInsights(store: AppStore, allowNetwork: Bool = false) async {
         guard !aiInsightsLoading else { return }
+        if aiLifeAnalysis == nil {
+            aiLifeAnalysis = localLifestyleSummary()
+        }
+        guard allowNetwork else { return }
+
+        let key = insightCacheKey
+        if let lastInsightAt,
+           lastInsightKey == key,
+           Date().timeIntervalSince(lastInsightAt) < Self.insightTTL {
+            return
+        }
+
         aiInsightsLoading = true
         defer { aiInsightsLoading = false }
 
-        // Make sure ARIA reasons over the latest lifestyle signals.
         syncAriaContext()
-
+        // One short insight, not two sequential chat rounds.
         let analysisResp = await store.ariaInsight(prompt: lifestyleAnalysisPrompt())
-        let nutritionResp = await store.ariaInsight(prompt: nutritionCoachPrompt())
+        if let prose = analysisResp.map({ $0.proseSummary ?? $0.message }) {
+            aiLifeAnalysis = prose
+        }
+        aiInsightsLive = !AriaService.shared.isLocalFallback && analysisResp != nil
+        lastInsightAt = Date()
+        lastInsightKey = key
+    }
 
-        aiLifeAnalysis = analysisResp.map { $0.proseSummary ?? $0.message }
-        aiNutritionInsight = nutritionResp.map { $0.proseSummary ?? $0.message }
-        // Remote engine answered (not the on-device fallback path).
-        aiInsightsLive = !AriaService.shared.isLocalFallback
-            && (analysisResp != nil || nutritionResp != nil)
+    private var insightCacheKey: String {
+        "\(metrics.qualityOfLifeScore)|\(metrics.dailySteps)|\(Int(healthStats?.protein ?? 0))|\(metrics.stressLevel.rawValue)"
+    }
+
+    private func localLifestyleSummary() -> String {
+        let qol = metrics.qualityOfLifeScore
+        if qol >= 80 {
+            return "Today looks solid — keep the same small habits. Sleep, water, and a walk will compound."
+        }
+        if metrics.stressLevel == .high || (healthStats?.hrv ?? 100) < 40 {
+            return "Recovery is asking for less today. One easy win: water, a short walk, or an earlier night."
+        }
+        if metrics.sleepAverage < 7 {
+            return "Sleep is the highest-leverage change right now. Protect bedtime — everything else gets easier."
+        }
+        return "One small change today beats a perfect plan. Pick water, a walk, or protein at the next meal."
     }
 
     private func lifestyleAnalysisPrompt() -> String {
@@ -1133,7 +1201,7 @@ enum LifestyleSegment: Int, CaseIterable {
 
 struct LifestyleView: View {
     @EnvironmentObject var store: AppStore
-    @StateObject private var vm = LifestyleViewModel()
+    @ObservedObject private var vm = LifestyleViewModel.shared
     @StateObject private var locationLogger = LocationMealLogger()
     @State private var selectedSegment: LifestyleSegment = .nutrition
     @State private var showInsights = false
@@ -1165,7 +1233,7 @@ struct LifestyleView: View {
                             Image(systemName: "heart.text.square.fill")
                                 .foregroundStyle(Color.warning)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("HealthKit offline")
+                                Text("Apple Health offline")
                                     .font(.system(size: 13, weight: .bold))
                                     .foregroundColor(.textPrimary)
                                 Text(reconnectingHK ? "Reconnecting…" : "Tap to reconnect for live nutrition & recovery")
@@ -1206,7 +1274,7 @@ struct LifestyleView: View {
                 }
                 .refreshable {
                     await vm.refresh()
-                    await vm.refreshAIInsights(store: store)
+                    await vm.refreshAIInsights(store: store, allowNetwork: true)
                 }
             }
 
@@ -1227,24 +1295,22 @@ struct LifestyleView: View {
         .animation(.easeInOut(duration: 0.3), value: showInsights)
         .task {
             await vm.load()
-            await vm.refreshAIInsights(store: store)
+            await vm.refreshAIInsights(store: store, allowNetwork: false)
         }
         .onAppear {
             consumePendingLifestyleSegment()
-            Task {
-                let locator = LifestyleLocationStore.shared
-                if locator.canAsk { _ = await locator.requestAccess() }
-                locator.startTracking()
-            }
-        }
-        .onDisappear {
-            LifestyleLocationStore.shared.stopTracking()
         }
         .onChange(of: store.pendingLifestyleSegment) { _, _ in
             consumePendingLifestyleSegment()
         }
-        .onChange(of: vm.metrics.qualityOfLifeScore) { _, _ in vm.syncAriaContext() }
-        .onChange(of: vm.recommendations.count) { _, _ in vm.syncAriaContext() }
+        .onChange(of: selectedSegment) { _, segment in
+            Task { await handleSegmentWork(segment) }
+        }
+        .onChange(of: showInsights) { _, open in
+            if open {
+                Task { await vm.refreshAIInsights(store: store, allowNetwork: true) }
+            }
+        }
         .sheet(isPresented: $locationLogger.showConfirmation) {
             if let venue = locationLogger.detectedVenue {
                 LocationMealConfirmationSheet(
@@ -1280,6 +1346,25 @@ struct LifestyleView: View {
             withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) {
                 selectedSegment = mapped
             }
+            Task { await handleSegmentWork(mapped) }
+        }
+    }
+
+    @MainActor
+    private func handleSegmentWork(_ segment: LifestyleSegment) async {
+        switch segment {
+        case .wellbeing:
+            LifestyleLocationStore.shared.stopTracking()
+            await vm.loadWellbeingExtrasIfNeeded()
+        case .aiOptimization:
+            LifestyleLocationStore.shared.stopTracking()
+            await vm.loadWorkoutsIfNeeded()
+        case .restaurants:
+            let locator = LifestyleLocationStore.shared
+            if locator.canAsk { _ = await locator.requestAccess() }
+            locator.startTracking()
+        default:
+            LifestyleLocationStore.shared.stopTracking()
         }
     }
 
@@ -1299,7 +1384,6 @@ struct LifestyleView: View {
 
 struct LifestyleBackground: View {
     let segment: LifestyleSegment
-    @State private var phase = false
 
     private var accentColor: Color {
         switch segment {
@@ -1315,15 +1399,12 @@ struct LifestyleBackground: View {
         ZStack {
             Color.background
             LinearGradient(
-                colors: [accentColor.opacity(phase ? 0.06 : 0.03), .clear],
+                colors: [accentColor.opacity(0.05), .clear],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) { phase = true }
-        }
-        .animation(.easeInOut(duration: 0.8), value: segment)
+        .animation(.easeInOut(duration: 0.35), value: segment)
     }
 }
 
@@ -1776,7 +1857,7 @@ struct LiveHealthDashboard: View {
                                 .tracking(1)
                         }
                     }
-                    Text("Powered by HealthKit")
+                    Text("Powered by Apple Health")
                         .font(.system(size: 12))
                         .foregroundColor(.textTertiary)
                 }
@@ -3011,7 +3092,6 @@ struct DailyNutritionView: View {
             WaterIntakeCard(vm: vm)
             MicronutrientsCard(vm: vm)
         }
-        .task { await vm.refreshMealNote(store: store) }
     }
 }
 
@@ -3142,7 +3222,7 @@ struct AINutritionCoachCard: View {
 
     private var tips: [(icon: String, color: Color, headline: String, body: String)] {
         guard let stats = vm.healthStats else {
-            return [("sparkles", .ember, "Syncing nutrition data", "Connect HealthKit to unlock personalized macro coaching.")]
+            return [("sparkles", .ember, "Syncing nutrition data", "Connect Apple Health to unlock personalized macro coaching.")]
         }
         var generated: [(icon: String, color: Color, headline: String, body: String)] = []
         let proteinGap = max(0, Int(180 - stats.protein))
@@ -3960,7 +4040,6 @@ struct NutritionDatabaseView: View {
             RestaurantMenuSheet(restaurant: r, vm: vm)
         }
         .onAppear { appeared = true }
-        .task { await vm.refreshBestPicksNote(store: store) }
     }
 }
 
@@ -4146,7 +4225,7 @@ struct MenuItemCard: View {
                 Button(action: onLog) {
                     HStack(spacing: 6) {
                         Image(systemName: isLogged ? "checkmark.circle.fill" : "plus.circle.fill")
-                        Text(isLogged ? "Logged to HealthKit" : "Log Meal")
+                        Text(isLogged ? "Logged to Apple Health" : "Log Meal")
                             .font(.system(size: 13, weight: .semibold))
                     }
                     .foregroundColor(isLogged ? .success : .ember)

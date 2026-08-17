@@ -29,9 +29,12 @@ final class AriaService: ObservableObject {
         _ text: String,
         store: AppStore,
         localGenerator: TrainerResponseGenerator,
-        voiceMode: Bool = false
+        voiceMode: Bool = false,
+        mode: String? = nil
     ) async throws -> AriaResponse {
-        if HealthKitManager.shared.hasStructuredRecordsAccess {
+        let isInsight = mode == "insight"
+        // Full chat may read structured records. Lifestyle cards must not.
+        if !isInsight, HealthKitManager.shared.hasStructuredRecordsAccess {
             _ = await HealthKitManager.shared.fetchClinicalRecordsSummary()
         }
         let domainContext = contextStore.buildARIAContext(from: store)
@@ -42,7 +45,8 @@ final class AriaService: ObservableObject {
             context: domainContext,
             recentMetrics: legacyMetrics,
             permissions: DataPermissionsStore.shared.payloadIfRestricted(),
-            voiceMode: voiceMode || store.ariaVoiceMode
+            voiceMode: voiceMode || store.ariaVoiceMode,
+            mode: mode
         )
 
         if let remote = try? await postChat(request) {
@@ -218,7 +222,7 @@ enum AriaOnboardingGuide {
         }()
         let healthLine = healthConnected
             ? " Recovery signals are already in the loop."
-            : " Connect HealthKit anytime and I'll fold recovery into every call."
+            : " Connect Apple Health anytime and I'll fold recovery into every call."
         let guidanceLine = profile.guidanceOnlyMode
             ? " Guidance mode is on for the conditions you shared — structure and pacing only, never medical advice."
             : " I'm your lifestyle coach, not a doctor."
