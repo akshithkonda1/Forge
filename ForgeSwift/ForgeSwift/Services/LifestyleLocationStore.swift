@@ -41,7 +41,7 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
     /// Simulator, Mac Catalyst, and “Designed for iPhone” on Apple silicon
     /// have no GPS radio. macOS 27 gives a Wi‑Fi / IP fix, or nothing until
     /// Features → Location / System Settings is turned on.
-    private static var noHardwareGPS: Bool {
+    nonisolated private static var noHardwareGPS: Bool {
         #if targetEnvironment(simulator)
         return true
         #elseif targetEnvironment(macCatalyst)
@@ -312,7 +312,8 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
         // Simulator's first simulated pin often arrives with accuracy < 0
         // ("invalid") even though the coordinate is Apple Park / the GPX.
         if location.horizontalAccuracy < 0 {
-            guard noHardwareGPS else { return nil }
+            // File-level: @MainActor metatype still isolates static members.
+            guard lifestyleLocationHasNoHardwareGPS() else { return nil }
             return CLLocation(
                 coordinate: coord,
                 altitude: location.altitude,
@@ -344,7 +345,7 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
             // Transient on device. Simulator with Features → Location → None
             // stays here forever — caller decides when to explain that.
             return nil
-        case .denied, .restricted:
+        case .denied:
             if noHardwareGPS, ProcessInfo.processInfo.isiOSAppOnMac {
                 return "Location is off. System Settings → Privacy & Security → Location Services → Forge."
             }
@@ -364,6 +365,17 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
         waiters.forEach { $0.resume(returning: status) }
     }
 
+}
+
+/// Compile-time / ProcessInfo only. File-level so nonisolated helpers can call it.
+nonisolated private func lifestyleLocationHasNoHardwareGPS() -> Bool {
+    #if targetEnvironment(simulator)
+    return true
+    #elseif targetEnvironment(macCatalyst)
+    return true
+    #else
+    return ProcessInfo.processInfo.isiOSAppOnMac
+    #endif
 }
 
 extension LifestyleLocationStore: CLLocationManagerDelegate {

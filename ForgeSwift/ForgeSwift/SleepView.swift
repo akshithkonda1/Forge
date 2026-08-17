@@ -450,7 +450,9 @@ struct SleepHypnogram: View {
         ]
     }
 
-    private var total: Int { max(1, night.timeInBedMinutes) }
+    private var total: Int {
+        max(1, night.deepMinutes + night.remMinutes + night.lightMinutes + night.awakeMinutes)
+    }
 
     var body: some View {
         GeometryReader { geo in

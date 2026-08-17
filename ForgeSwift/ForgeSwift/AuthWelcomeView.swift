@@ -208,8 +208,8 @@ private struct AuthHookPage: Identifiable {
         AuthHookPage(
             id: "aria",
             kicker: "MEET YOUR COACH",
-            title: "ARIA is already\nlistening.",
-            body: "ARIA isn't just another chatbot, ARIA is a lifestyle coach that learns readiness, sleep, and how you actually live — then builds plans you can keep. ARIA takes in the data you have from all of your wearables and health applications and uses it to create a personalized plan for you, based on your lifestyle and what you need and want.",
+            title: "ARIA is already listening.",
+            body: "ARIA is an adaptive lifestyle coach, not a commander. She works with the life you already have — readiness, sleep, wearables — and raises quality of life the way compound interest works. Enough small moves and one day life is slightly different. Over time you see it and appreciate it. You still decide.",
             icon: "sparkles",
             accentHex: "FF5A00",
             reward: "+ Unlock personal coach"
@@ -217,7 +217,7 @@ private struct AuthHookPage: Identifiable {
         AuthHookPage(
             id: "readiness",
             kicker: "TRAIN ON SIGNAL",
-            title: "Know when to\npush — or protect.",
+            title: "Know when to push or protect.",
             body: "ARIA takes standardized metrics and creates a standardized plan that's best for you. All your stats are saved daily so you don't erase progress but rather you build on it the next day. Everytime you use ARIA it feels intentional not like its a burden.",
             icon: "waveform.path.ecg",
             accentHex: "38BDF8",
@@ -226,7 +226,7 @@ private struct AuthHookPage: Identifiable {
         AuthHookPage(
             id: "life",
             kicker: "Workout based on your lifestyle.",
-            title: "Workouts, lifestyle,\nand cycle rhythm.",
+            title: "Workouts, lifestyle, and cycle rhythm.",
             body: "ARIA looks into how you eat and sleep, but it also seeks to learn more about how you spend your free time, how you provide support to those you love in their time of need — one control center and its private by design.",
             icon: "leaf.fill",
             accentHex: "22C55E",
@@ -235,7 +235,7 @@ private struct AuthHookPage: Identifiable {
         AuthHookPage(
             id: "forge",
             kicker: " Start Today",
-            title: "Forge starts\nwith one choice.",
+            title: "Forge starts with one choice.",
             body: "It doesn't take long. Name your goal and how you want to train. Connect Health if you want and walk out with a first plan and a coach that already knows you.",
             icon: "flame.fill",
             accentHex: "F59E0B",

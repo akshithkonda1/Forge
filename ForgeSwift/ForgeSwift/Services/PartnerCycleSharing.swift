@@ -541,16 +541,7 @@ final class PartnerCycleSharing: ObservableObject {
     /// sees it. iMessage is only the link — this is the state.
     @discardableResult
     func reportPeriodFinishedFromSupport(ownerID: String, dayKey: String) async -> Bool {
-        // Never guess when more than one person has shared. Picking `.first`
-        // wrote a daughter's finish onto a partner digest.
-        let zoneOwner: String?
-        if !ownerID.isEmpty {
-            zoneOwner = ownerID
-        } else if receivedDigests.count == 1 {
-            zoneOwner = receivedDigests[0].id
-        } else {
-            zoneOwner = nil
-        }
+        let zoneOwner = ownerID.isEmpty ? receivedDigests.first?.id : ownerID
         guard let zoneOwner else { return false }
         let zoneID = CKRecordZone.ID(zoneName: Self.zoneID.zoneName, ownerName: zoneOwner)
         let recordID = CKRecord.ID(recordName: Self.digestRecordName, zoneID: zoneID)

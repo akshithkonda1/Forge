@@ -440,6 +440,30 @@ struct SleepData: Identifiable {
     /// samples. Seeded demo nights do include both, with deliberate scatter.
     var onset: Date? = nil
     var wake: Date? = nil
+
+    /// Staged minutes plus awake. Falls back to `totalHours` when stages were not recorded.
+    var timeInBedMinutes: Int {
+        let staged = deepMinutes + remMinutes + lightMinutes + awakeMinutes
+        if staged > 0 { return staged }
+        return max(0, Int((totalHours * 60).rounded()))
+    }
+
+    /// Percent of time in bed that was actually sleep.
+    var efficiencyPercent: Int {
+        let bed = timeInBedMinutes
+        guard bed > 0 else { return 0 }
+        let stagedAsleep = deepMinutes + remMinutes + lightMinutes
+        let asleep = stagedAsleep > 0
+            ? stagedAsleep
+            : max(0, Int((totalHours * 60).rounded()) - awakeMinutes)
+        return min(100, max(0, Int((Double(min(asleep, bed)) / Double(bed) * 100).rounded())))
+    }
+
+    /// Locale-aware clock time for onset or wake. Nights known only by duration have neither.
+    func clock(_ date: Date?) -> String {
+        guard let date else { return "—" }
+        return date.formatted(date: .omitted, time: .shortened)
+    }
 }
 
 // MARK: - Sleep Intelligence

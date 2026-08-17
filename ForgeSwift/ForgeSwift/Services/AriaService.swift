@@ -111,7 +111,7 @@ final class AriaService: ObservableObject {
 
         if text.hasPrefix("[DEEP RESEARCH]") {
             return AriaResponse(
-                message: AriaResearchBrief.write(question: text, store: store),
+                message: AriaResearchBrief.write(question: text, sleepHistory: store.sleepData, readiness: store.readiness.overall),
                 richCard: nil,
                 suggestedActions: ["What should I do tonight?", "Build today's plan", "How does this change training?"],
                 contextUpdates: ["relationship_level": min(10, rich.relationshipLevel + 1)],
@@ -260,13 +260,12 @@ enum AriaOnboardingGuide {
 /// Local structured brief when the chat backend is offline. Remote ARIA
 /// still gets the same prompt and writes a fuller answer.
 enum AriaResearchBrief {
-    static func write(question: String, store: AppStore) -> String {
-        let sleep = store.sleepData.first
+    static func write(question: String, sleepHistory: [SleepData], readiness: Int) -> String {
+        let sleep = sleepHistory.first
         let sleepLine = sleep.map {
             "Last night was \(EnergySchedule.durationLabel($0.totalHours)), score \($0.score)."
         } ?? "No last-night sleep is on file."
-        let debt = EnergySchedule.make(from: store.sleepData)?.debtHeadline ?? "Sleep need is still learning."
-        let readiness = store.readiness.overall
+        let debt = EnergySchedule.make(from: sleepHistory)?.debtHeadline ?? "Sleep need is still learning."
         let asked = question
             .replacingOccurrences(of: "[DEEP RESEARCH]", with: "")
             .replacingOccurrences(of: "Question:", with: "")

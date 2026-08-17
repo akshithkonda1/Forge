@@ -760,19 +760,9 @@ final class MenstrualHealthStore: ObservableObject {
     /// The supported person's period is over. Closes the episode and returns the support
     /// brief from period-care coaching to everyday support on the same tap.
     @discardableResult
-    func logPartnerPeriodEnd(
-        on dayKey: String = CycleDayKey.key(),
-        propagate: Bool = true,
-        personId: String? = nil
-    ) -> String {
-        let id = resolvedPersonId(personId)
-        guard let id, let idx = supportedPeople.firstIndex(where: { $0.id == id }) else {
-            return "No one selected"
-        }
-        var person = supportedPeople[idx]
-        let snap = personSnapshots[id] ?? partnerSnapshot
-        let episodes = MenstrualCycleEngine.buildPeriodEpisodes(from: person.logs)
-        let startKey = episodes.last?.startDayKey ?? snap.lastPeriodStartDayKey ?? dayKey
+    func logPartnerPeriodEnd(on dayKey: String = CycleDayKey.key(), propagate: Bool = true) -> String {
+        let episodes = MenstrualCycleEngine.buildPeriodEpisodes(from: partnerLogs)
+        let startKey = episodes.last?.startDayKey ?? partnerSnapshot.lastPeriodStartDayKey ?? dayKey
 
         var endLog = person.logs.first(where: { $0.dayKey == dayKey }) ?? CycleDayLog(dayKey: dayKey)
         if !endLog.flow.isBleeding { endLog.flow = .light }
@@ -789,12 +779,10 @@ final class MenstrualHealthStore: ObservableObject {
         let name = person.displayName
         let msg = "\(name)'s period finished · \(max(1, days)) day\(days == 1 ? "" : "s") · back to everyday support"
         lastModelUpdateMessage = msg
-        if selectedPersonId == id {
-            refreshAnalyst(lastAction: "partner_period_ended", isPartner: true)
-        }
+        refreshAnalyst(lastAction: "partner_period_ended", isPartner: true)
         if propagate {
-            let ownerID = person.cloudKitOwnerID ?? ""
             Task {
+                let ownerID = PartnerCycleSharing.shared.receivedDigests.first?.id ?? ""
                 _ = await PartnerCycleSharing.shared.reportPeriodFinishedFromSupport(
                     ownerID: ownerID,
                     dayKey: dayKey
@@ -805,19 +793,16 @@ final class MenstrualHealthStore: ObservableObject {
         return msg
     }
 
-    /// Pull CloudKit. If they marked finished, both sides show it — per person.
+    /// Pull CloudKit. If they marked finished, both sides show it.
     func syncSharedPeriodFinished() async {
         let incoming = await PartnerCycleSharing.shared.fetchSharedDigest()
-        adoptReceivedDigests(incoming)
         for received in incoming where received.digest.periodFinished {
-            guard let person = personBound(to: received.id) else { continue }
-            let snap = personSnapshots[person.id] ?? .empty
-            if person.settings.enabled,
-               person.settings.confirmedPeriodEndDayKey == nil || snap.stage == .period {
+            if partnerSettings.enabled,
+               partnerSettings.confirmedPeriodEndDayKey == nil
+                || partnerSnapshot.stage == .period {
                 _ = logPartnerPeriodEnd(
                     on: received.digest.periodFinishedDayKey ?? CycleDayKey.key(),
-                    propagate: false,
-                    personId: person.id
+                    propagate: false
                 )
             }
         }
@@ -826,19 +811,6 @@ final class MenstrualHealthStore: ObservableObject {
                 _ = logPeriodEnd(on: dayKey)
             }
         }
-    }
-
-    private func resolvedPersonId(_ personId: String?) -> String? {
-        if let personId, supportedPeople.contains(where: { $0.id == personId }) {
-            return personId
-        }
-        return selectedPerson?.id
-    }
-
-    private func sanitizedPartnerLog(_ log: CycleDayLog) -> CycleDayLog {
-        var entry = log
-        entry.source = entry.source == "healthkit" ? "manual" : entry.source
-        return entry
     }
 
     /// User says period started today (feedback + log).

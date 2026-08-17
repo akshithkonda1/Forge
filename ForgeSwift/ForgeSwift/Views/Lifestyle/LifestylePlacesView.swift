@@ -299,7 +299,13 @@ struct LifestylePlacesView: View {
 
     private func followUserAndSearch() async {
         location.startTracking()
-        if let loc = location.currentLocation ?? await location.latestLocation() {
+        let loc: CLLocation?
+        if let current = location.currentLocation {
+            loc = current
+        } else {
+            loc = await location.latestLocation()
+        }
+        if let loc {
             hasCentered = true
             camera = .region(MKCoordinateRegion(
                 center: loc.coordinate,
