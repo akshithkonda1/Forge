@@ -1,1 +1,1 @@
-"""ARIA SimRunner — offline deterministic evaluation harness for ARIA."""
+"""Compat: SimRunner moved to ``backend.ai.simrunner``."""

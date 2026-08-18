@@ -1,6 +1,4 @@
-"""Enables `python -m backend.simrunner`."""
+"""``python -m backend.simrunner`` → ``backend.ai.simrunner``."""
+import runpy
 
-from .lifetime_suite import main
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+runpy.run_module("backend.ai.simrunner", run_name="__main__")

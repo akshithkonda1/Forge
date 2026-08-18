@@ -2731,6 +2731,15 @@ struct ActiveWorkoutView: View {
                     mainContent(exercise: exercise)
                     coachBar
                 }
+            } else {
+                ForgeEmptyStateCard(
+                    icon: "figure.strengthtraining.traditional",
+                    title: "Today’s session",
+                    message: "ARIA writes this from how you live — sleep, cycle, gear, readiness. Not a catalog.",
+                    cta: "Write session",
+                    action: { store.startLifeShapedSession() }
+                )
+                .padding(24)
             }
 
             // Overlays — highest zIndex first
@@ -2772,7 +2781,13 @@ struct ActiveWorkoutView: View {
                 FormCheckCameraView(exercise: exercise, definition: currentDef, liveContext: liveContext(for: exercise))
             }
         }
-        .onAppear  { startTasks(); setupCurrentWeight() }
+        .onAppear  {
+            if store.todayWorkout == nil {
+                store.rebuildTodayPlanFromLife()
+            }
+            startTasks()
+            setupCurrentWeight()
+        }
         .onDisappear { cancelTasks() }
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: showPRBanner)
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: showO2Warning)

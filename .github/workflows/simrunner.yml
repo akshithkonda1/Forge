@@ -8,10 +8,12 @@ name: SimRunner
 on:
   push:
     paths:
+      - "backend/ai/**"
       - "backend/simrunner/**"
       - ".github/workflows/simrunner.yml"
   pull_request:
     paths:
+      - "backend/ai/**"
       - "backend/simrunner/**"
       - ".github/workflows/simrunner.yml"
 
@@ -33,10 +35,10 @@ jobs:
       # No setup-python: the harness is stdlib-only and Python 3.10+, so the
       # runner's system python3 (3.12 on ubuntu-24.04) is sufficient.
       - name: Unit + property + determinism tests
-        run: python3 -m unittest discover -s backend/simrunner/tests -p "test_*.py" -v
+        run: python3 -m unittest discover -s backend/ai/simrunner/tests -p "test_*.py" -v
 
       - name: Tier-1 smoke (offline, no network, no tokens)
-        run: python3 -m backend.simrunner
+        run: python3 -m backend.ai.simrunner
 
       # Regression gate: the full suite is re-graded against the committed golden
       # baselines and the run fails if any model's composite drops past
@@ -46,4 +48,4 @@ jobs:
       - name: Regression gate (all 20 archetypes vs committed baseline)
         env:
           SIMRUNNER_TODAY: "2026-01-15"
-        run: python3 -m backend.simrunner --all --gate
+        run: python3 -m backend.ai.simrunner --all --gate

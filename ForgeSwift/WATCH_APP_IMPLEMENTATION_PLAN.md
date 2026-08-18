@@ -122,7 +122,7 @@ low-confidence score as fact (unit-tested).
 
 ## Backend (Phase 6 — done)
 
-- `POST /watch/aria/suggest` (`infra/terraform/lambda/routes/watch.py` +
+- `POST /watch/aria/suggest` (`backend/infra/lambda/routes/watch.py` +
   `services/watch_debrief.py`) — accepts `{practice, minutes,
   heartRateSettleBPM, context: WatchARIAContext}` exactly as the watch's
   `Codable` emits it (camelCase, no `keyEncodingStrategy` set), returns
@@ -139,7 +139,7 @@ low-confidence score as fact (unit-tested).
   `AriaService.baseURL` + `AriaContextStore`'s stable user id into the
   shared App Group on launch and on `setBaseURL`, so the watch's deeper
   call reaches the same backend as the phone.
-- Tests: `tests/test_watch_debrief.py` (17 cases — priority branches,
+- Tests: `backend/tests/test_watch_debrief.py` (17 cases — priority branches,
   tone/guilt-word sweep across every branch × biofeedback state, 400s on
   malformed input) plus a manual `dev_server.py` pass (desk-block+HRV-dip,
   low-confidence-never-claims-recovery, malformed-body 400).

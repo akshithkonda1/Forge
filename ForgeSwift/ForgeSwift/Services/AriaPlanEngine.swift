@@ -537,25 +537,46 @@ enum AriaPlanEngine {
 
     // MARK: - Classic
 
+    private static func placeWord(_ equipment: TrainingEquipment) -> String {
+        switch equipment {
+        case .commercialGym: return "gym"
+        case .homeGym: return "home"
+        case .bodyweight: return "no-gear"
+        case .hotelGym: return "travel"
+        case .crossfitBox: return "box"
+        }
+    }
+
     private static func classicSession(
         band: ReadinessBand,
         goals: [UserFitnessGoal],
         equipment: TrainingEquipment
     ) -> SessionBlueprint {
         let upperBias = goals.contains(.buildMuscle)
+        let floor = equipment == .bodyweight || equipment == .hotelGym
+        let place = placeWord(equipment)
         switch band {
         case .peak:
             return SessionBlueprint(
-                title: upperBias ? "Upper Body Power" : "Full Body Strength",
-                duration: 55,
+                title: upperBias ? "Heavy \(place) press day" : "Full-body \(place)",
+                duration: floor ? 45 : 55,
                 intensity: .high,
                 workoutType: .strength,
-                moves: upperBias
+                moves: floor
                     ? [
-                        Move(name: "Barbell Bench Press", sets: 4, reps: "6-8", restSeconds: 120, note: nil),
-                        Move(name: "Weighted Pull-Ups", sets: 4, reps: "6-8", restSeconds: 120, note: nil),
+                        Move(name: "Tempo Push-Ups", sets: 4, reps: "8-12", restSeconds: 75, note: "3-1-1 — whatever floor you have"),
+                        Move(name: "Pike Push-Ups", sets: 4, reps: "6-10", restSeconds: 75, note: nil),
+                        Move(name: "Bulgarian Split Squats", sets: 4, reps: "8/leg", restSeconds: 75, note: "Chair or bed edge"),
+                        Move(name: "Table / Towel Rows", sets: 4, reps: "8-12", restSeconds: 60, note: nil),
+                        Move(name: "Hip Bridges", sets: 3, reps: "12", restSeconds: 45, note: nil),
+                        Move(name: "Dead Bug", sets: 3, reps: "8/side", restSeconds: 30, note: nil),
+                    ]
+                    : upperBias
+                    ? [
+                        Move(name: "Barbell or DB Bench Press", sets: 4, reps: "6-8", restSeconds: 120, note: nil),
+                        Move(name: "Weighted Pull-Ups or Lat Pulldown", sets: 4, reps: "6-8", restSeconds: 120, note: nil),
                         Move(name: "Overhead Press", sets: 3, reps: "8-10", restSeconds: 90, note: nil),
-                        Move(name: "Barbell Rows", sets: 3, reps: "8-10", restSeconds: 90, note: nil),
+                        Move(name: "Barbell or DB Rows", sets: 3, reps: "8-10", restSeconds: 90, note: nil),
                         Move(name: "Incline DB Press", sets: 3, reps: "10-12", restSeconds: 75, note: nil),
                         Move(name: "Face Pulls", sets: 3, reps: "15-20", restSeconds: 45, note: nil),
                     ]
@@ -566,34 +587,41 @@ enum AriaPlanEngine {
                         Move(name: "Pull-Ups or Lat Pulldown", sets: 3, reps: "8-10", restSeconds: 90, note: nil),
                         Move(name: "Walking Lunges", sets: 2, reps: "10/leg", restSeconds: 60, note: nil),
                     ],
-                flavorLine: "Body is ready for hard work. Compounds, controlled intensity, clean execution."
+                flavorLine: "Body is ready. Use the gear you actually have today."
             )
         case .solid:
             return SessionBlueprint(
-                title: "Upper Body Volume",
+                title: "Steady \(place) volume",
                 duration: 50,
                 intensity: .moderate,
                 workoutType: .strength,
-                moves: [
-                    Move(name: "Barbell Bench Press", sets: 3, reps: "8-10", restSeconds: 90, note: nil),
-                    Move(name: "Lat Pulldown", sets: 3, reps: "10-12", restSeconds: 75, note: nil),
-                    Move(name: "Dumbbell Press", sets: 3, reps: "10-12", restSeconds: 75, note: nil),
-                    Move(name: "Cable Row", sets: 3, reps: "10-12", restSeconds: 75, note: nil),
-                    Move(name: "Lateral Raises", sets: 3, reps: "12-15", restSeconds: 45, note: nil),
-                    Move(name: "Tricep Pushdowns", sets: 3, reps: "12-15", restSeconds: 45, note: nil),
-                ],
-                flavorLine: "Good enough to train — not a PR hunt. Quality volume."
+                moves: floor
+                    ? [
+                        Move(name: "Push-Up Ladder", sets: 3, reps: "8-12", restSeconds: 45, note: nil),
+                        Move(name: "Split Squats", sets: 3, reps: "10/leg", restSeconds: 50, note: nil),
+                        Move(name: "Backpack Rows", sets: 3, reps: "12", restSeconds: 45, note: "Suitcase or backpack"),
+                        Move(name: "Hip Hinges", sets: 3, reps: "12", restSeconds: 45, note: nil),
+                        Move(name: "Side Plank", sets: 2, reps: "30 sec/side", restSeconds: 30, note: nil),
+                    ]
+                    : [
+                        Move(name: "DB or Machine Press", sets: 3, reps: "8-10", restSeconds: 90, note: nil),
+                        Move(name: "Lat Pulldown or Row", sets: 3, reps: "10-12", restSeconds: 75, note: nil),
+                        Move(name: "Goblet Squat", sets: 3, reps: "10-12", restSeconds: 75, note: nil),
+                        Move(name: "Face Pulls or Band Pulls", sets: 3, reps: "15", restSeconds: 45, note: nil),
+                        Move(name: "Lateral Raises", sets: 3, reps: "12-15", restSeconds: 45, note: nil),
+                    ],
+                flavorLine: "Good enough to train — not a PR hunt. Quality volume where you are."
             )
         case .moderate:
             return SessionBlueprint(
-                title: "Controlled Full Body",
+                title: "Controlled \(place)",
                 duration: 40,
                 intensity: .moderate,
                 workoutType: .strength,
                 moves: [
-                    Move(name: "Goblet Squats", sets: 3, reps: "12", restSeconds: 60, note: nil),
-                    Move(name: "Push-Ups", sets: 3, reps: "12", restSeconds: 45, note: nil),
-                    Move(name: "DB Rows", sets: 3, reps: "12", restSeconds: 45, note: nil),
+                    Move(name: floor ? "Sit-to-Stand Squats" : "Goblet Squats", sets: 3, reps: "12", restSeconds: 60, note: nil),
+                    Move(name: "Push-Ups (elevate if needed)", sets: 3, reps: "10-12", restSeconds: 45, note: nil),
+                    Move(name: floor ? "Table Rows" : "DB Rows", sets: 3, reps: "12", restSeconds: 45, note: nil),
                     Move(name: "Hip Hinges (light)", sets: 3, reps: "12", restSeconds: 60, note: nil),
                     Move(name: "Plank", sets: 2, reps: "40 sec", restSeconds: 30, note: nil),
                 ],
@@ -601,17 +629,16 @@ enum AriaPlanEngine {
             )
         case .recover:
             return SessionBlueprint(
-                title: "Active Recovery",
+                title: "Recovery where you are",
                 duration: 30,
                 intensity: .low,
                 workoutType: .mobility,
                 moves: [
-                    Move(name: "Foam Rolling", sets: 1, reps: "5 min", restSeconds: 0, note: nil),
+                    Move(name: "Breathing + Cat-Cow", sets: 2, reps: "8", restSeconds: 20, note: nil),
                     Move(name: "World's Greatest Stretch", sets: 2, reps: "8 each side", restSeconds: 20, note: nil),
-                    Move(name: "Band Pull-Aparts", sets: 3, reps: "15", restSeconds: 30, note: nil),
-                    Move(name: "Goblet Squats (light)", sets: 2, reps: "10", restSeconds: 40, note: nil),
-                    Move(name: "Dead Hangs", sets: 3, reps: "30 sec", restSeconds: 30, note: nil),
-                    Move(name: "Walk or Bike (easy)", sets: 1, reps: "10 min", restSeconds: 0, note: nil),
+                    Move(name: floor ? "Towel Pull-Aparts" : "Band Pull-Aparts", sets: 3, reps: "15", restSeconds: 30, note: nil),
+                    Move(name: "Hip Bridges", sets: 2, reps: "10", restSeconds: 40, note: nil),
+                    Move(name: "Easy Walk", sets: 1, reps: "12 min", restSeconds: 0, note: "Outside if you can"),
                 ],
                 flavorLine: "Recovery is training. Light movement, blood flow, no ego."
             )

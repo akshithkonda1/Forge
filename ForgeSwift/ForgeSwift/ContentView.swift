@@ -127,7 +127,6 @@ struct MainTabView: View {
     @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
     @Namespace private var namespace
     @State private var previousTab: TabItem = .home
-    @State private var dragOffset: CGFloat = 0
     /// Cycle Health is hosted on the shell so Profile/Settings deep links always work
     /// even when Home is not the active tab content.
     @State private var showCycleHealth = false
@@ -166,8 +165,6 @@ struct MainTabView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.bottom, 88)
-            .offset(y: dragOffset * 0.08)
             .transition(.asymmetric(
                 insertion: .move(edge: tabTransitionEdge(from: previousTab, to: store.activeTab))
                     .combined(with: .opacity),
@@ -175,10 +172,10 @@ struct MainTabView: View {
                     .combined(with: .opacity)
             ))
             .animation(FDS.Spring.page, value: store.activeTab)
-
-            ForgeBottomNav(namespace: namespace, dragOffset: $dragOffset)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                ForgeBottomNav(namespace: namespace)
+            }
         }
-        .ignoresSafeArea(edges: .bottom)
         .onChange(of: store.activeTab) { old, new in
             previousTab = old
         }
@@ -272,66 +269,36 @@ struct MainTabView: View {
 struct ForgeBottomNav: View {
     @EnvironmentObject var store: AppStore
     var namespace: Namespace.ID
-    @Binding var dragOffset: CGFloat
-    
+
     /// Home · Train · Life · ARIA (center) · Sleep · Stats · You
     private let tabs: [TabItem] = [.home, .workout, .lifestyle, .chat, .sleep, .progress, .profile]
-    
-    @State private var isPressed = false
-    @State private var pressedTab: TabItem?
 
     var body: some View {
-        VStack(spacing: 0) {
-            Color.clear.frame(height: 10)
-
-            ZStack(alignment: .bottom) {
-                VStack(spacing: 0) {
-                    Rectangle()
-                        .fill(Color.white.opacity(0.06))
-                        .frame(height: 0.5)
-
-                    HStack(spacing: 0) {
-                        ForEach(tabs, id: \.self) { tab in
-                            if tab == .chat {
-                                Color.clear
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 56)
-                            } else {
-                                RegularForgeTab(tab: tab, namespace: namespace)
-                            }
-                        }
-                    }
-                    .frame(height: 56)
-                    .padding(.horizontal, 4)
-                    .background(Color.background.opacity(0.94))
-                    .background(.ultraThinMaterial.opacity(0.35))
-
-                    Color.background
-                        .frame(height: safeAreaBottom)
+        HStack(spacing: 0) {
+            ForEach(tabs, id: \.self) { tab in
+                if tab == .chat {
+                    ARIATabButton(namespace: namespace)
+                        .frame(maxWidth: .infinity)
+                } else {
+                    RegularForgeTab(tab: tab, namespace: namespace)
                 }
-
-                ARIATabButton(namespace: namespace)
-                    .offset(y: -10 - safeAreaBottom / 2)
             }
         }
-        .shadow(color: .black.opacity(0.35), radius: 16, y: -4)
-        .gesture(
-            DragGesture()
-                .onChanged { gesture in
-                    dragOffset = gesture.translation.height
-                }
-                .onEnded { _ in
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
-                        dragOffset = 0
-                    }
-                }
-        )
-    }
-
-    private var safeAreaBottom: CGFloat {
-        (UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first?.windows.first?.safeAreaInsets.bottom) ?? 0
+        .padding(.top, 6)
+        .padding(.bottom, 4)
+        .padding(.horizontal, 2)
+        .background {
+            ZStack(alignment: .top) {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                Color.background.opacity(0.55)
+                Rectangle()
+                    .fill(Color.white.opacity(0.08))
+                    .frame(height: 0.5)
+                    .frame(maxHeight: .infinity, alignment: .top)
+            }
+            .ignoresSafeArea(edges: .bottom)
+        }
     }
 }
 
@@ -341,53 +308,46 @@ struct RegularForgeTab: View {
     let tab: TabItem
     var namespace: Namespace.ID
     @EnvironmentObject var store: AppStore
-    @State private var pressed = false
-    @State private var hovered = false
 
     private var isActive: Bool { store.activeTab == tab }
 
     var body: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            FDS.selectionHaptic()
+            withAnimation(FDS.Spring.snap) {
                 store.activeTab = tab
             }
         } label: {
-            VStack(spacing: 4) {
-                Image(systemName: isActive ? tab.systemImageFilled : tab.systemImage)
-                    .font(.system(size: 17, weight: isActive ? .semibold : .regular))
-                    .foregroundColor(isActive ? .ember : .white.opacity(0.38))
-                    .frame(height: 24)
-                    .scaleEffect(pressed ? 0.9 : 1.0)
+            VStack(spacing: 3) {
+                ZStack(alignment: .bottom) {
+                    Image(systemName: isActive ? tab.systemImageFilled : tab.systemImage)
+                        .font(.system(size: 18, weight: isActive ? .semibold : .regular))
+                        .foregroundStyle(isActive ? Color.ember : Color.white.opacity(0.42))
+                        .frame(height: 22)
+                        .symbolRenderingMode(.hierarchical)
+                    if isActive {
+                        Capsule()
+                            .fill(Color.ember)
+                            .frame(width: 12, height: 2)
+                            .offset(y: 4)
+                            .matchedGeometryEffect(id: "tab-dot", in: namespace)
+                    }
+                }
 
                 Text(tab.shortLabel)
-                    .font(.system(size: 9, weight: isActive ? .semibold : .medium))
+                    .font(.system(size: 10, weight: isActive ? .semibold : .medium, design: .rounded))
+                    .tracking(0.2)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .foregroundColor(isActive ? .ember : .white.opacity(0.38))
+                    .minimumScaleFactor(0.8)
+                    .foregroundStyle(isActive ? Color.ember : Color.white.opacity(0.42))
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 56)
+            .frame(height: 48)
             .contentShape(Rectangle())
             .accessibilityLabel(tab.label)
             .accessibilityAddTraits(isActive ? .isSelected : [])
         }
         .buttonStyle(.plain)
-        .scaleEffect(pressed ? 0.93 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: pressed)
-        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isActive)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    if !pressed {
-                        pressed = true
-                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                    }
-                }
-                .onEnded { _ in
-                    pressed = false
-                }
-        )
     }
 }
 
@@ -397,50 +357,46 @@ struct ARIATabButton: View {
     var namespace: Namespace.ID
     @EnvironmentObject var store: AppStore
     @State private var isVoiceMode = false
-    @State private var pressed = false
 
     private var isActive: Bool { store.activeTab == .chat }
 
     var body: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            withAnimation(.easeInOut(duration: 0.2)) {
+            FDS.haptic(.medium)
+            withAnimation(FDS.Spring.snap) {
                 store.activeTab = .chat
             }
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 2) {
                 ZStack {
                     Circle()
-                        .fill(isVoiceMode ? Color(hex: "0EA5E9") : Color.ember)
-                        .frame(width: 48, height: 48)
-                    Image(systemName: isVoiceMode ? "waveform" : "message.fill")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white)
+                        .fill(isVoiceMode ? Color.steel : Color.ember)
+                        .frame(width: 44, height: 44)
+                        .shadow(color: (isVoiceMode ? Color.steel : Color.ember).opacity(0.45), radius: 10, y: 3)
+                    Image(systemName: isVoiceMode ? "waveform" : "sparkles")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
                 }
-                .scaleEffect(pressed ? 0.94 : 1.0)
 
                 Text(isVoiceMode ? "Voice" : "ARIA")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(isActive ? .ember : .white.opacity(0.45))
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .tracking(0.3)
+                    .foregroundStyle(isActive ? Color.ember : Color.white.opacity(0.5))
             }
-            .frame(width: 64, height: 64)
+            .frame(height: 48)
             .contentShape(Rectangle())
             .accessibilityLabel(isVoiceMode ? "ARIA Voice" : "ARIA")
             .accessibilityAddTraits(isActive ? .isSelected : [])
         }
         .buttonStyle(.plain)
         .onLongPressGesture(minimumDuration: 0.55) {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            withAnimation(.easeInOut(duration: 0.2)) {
+            FDS.haptic(.medium)
+            withAnimation(FDS.Spring.snap) {
                 isVoiceMode.toggle()
+                store.ariaVoiceMode = isVoiceMode
                 store.activeTab = .chat
             }
         }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in pressed = true }
-                .onEnded { _ in pressed = false }
-        )
     }
 }
 

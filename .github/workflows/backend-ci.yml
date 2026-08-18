@@ -9,13 +9,11 @@ name: Backend CI
 on:
   push:
     paths:
-      - "tests/**"
-      - "infra/terraform/lambda/**"
+      - "backend/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
     paths:
-      - "tests/**"
-      - "infra/terraform/lambda/**"
+      - "backend/**"
       - ".github/workflows/backend-ci.yml"
 
 permissions:
@@ -32,4 +30,4 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       - name: Backend unit tests (lambda + ARIA + biometrics)
-        run: python3 -m unittest discover -s tests -p "test_*.py" -v
+        run: python3 -m unittest discover -s backend/tests -p "test_*.py" -v

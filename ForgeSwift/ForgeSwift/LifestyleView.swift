@@ -1179,8 +1179,8 @@ enum LifestyleSegment: Int, CaseIterable {
     case aiOptimization, homeCooking, restaurants, nutrition, wellbeing
     var title: String {
         switch self {
-        case .aiOptimization: return "AI Optimize"
-        case .homeCooking:    return "Home Cooking"
+        case .aiOptimization: return "Optimize"
+        case .homeCooking:    return "Cook"
         case .restaurants:    return "Places"
         case .nutrition:      return "Nutrition"
         case .wellbeing:      return "Wellbeing"
@@ -1327,7 +1327,13 @@ struct LifestyleView: View {
             set: { if !$0 { vm.error = nil } }
         ), presenting: vm.error) { _ in
             Button("OK") { vm.error = nil }
-        } message: { err in Text(err.localizedDescription) }
+        } message: { err in
+            let raw = err.localizedDescription
+            let copy = raw.lowercased().contains("kclerror")
+                ? "Still finding your location. Try Places again in a moment."
+                : raw
+            Text(copy)
+        }
     }
 
     private func consumePendingLifestyleSegment() {
@@ -1418,13 +1424,12 @@ struct LifestyleHeaderView: View {
     var body: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 5) {
-                Text("LIFESTYLE")
-                    .font(.system(size: 11, weight: .black))
-                    .foregroundColor(.textTertiary)
-                    .tracking(3)
-                Text("Optimization")
-                    .font(.system(size: 34, weight: .bold))
+                Text("Lifestyle")
+                    .font(.system(size: 28, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)
+                Text("How you eat, move, and live")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.textSecondary)
             }
 
             Spacer()
@@ -1440,25 +1445,24 @@ struct LifestyleHeaderView: View {
                         .foregroundColor(.textTertiary)
                         .tracking(1.5)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Color.surface)
-                .cornerRadius(14)
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.ember.opacity(0.3), lineWidth: 1))
-                .shadow(color: .black.opacity(0.05), radius: 6, y: 3)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Color.white.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 Button {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) { showInsights = true }
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    FDS.haptic(.light)
                 } label: {
-                    ZStack {
-                        Circle().fill(Color.ember.opacity(0.15)).frame(width: 46, height: 46)
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.ember)
-                    }
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.ember)
+                        .frame(width: 40, height: 40)
+                        .background(Color.ember.opacity(0.14))
+                        .clipShape(Circle())
                 }
-                .shadow(color: Color.ember.opacity(0.2), radius: 8, y: 4)
+                .buttonStyle(.plain)
+                .accessibilityLabel("ARIA insights")
             }
         }
         .opacity(appeared ? 1 : 0)

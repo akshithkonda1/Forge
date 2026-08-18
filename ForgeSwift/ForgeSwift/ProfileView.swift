@@ -805,11 +805,6 @@ struct SettingsPageView: View {
                 .padding(.top, 8)
                 .padding(.bottom, FDS.Spacing.sm)
 
-                // Every primary surface in one place — guarantees no orphaned pages.
-                sectionHeader("Explore Forge")
-                ForgeExploreDestinationsGrid()
-                    .padding(.bottom, FDS.Spacing.md)
-
                 // AI Trainer
                 sectionHeader("AI Trainer")
                 SectionCard {
@@ -1235,6 +1230,14 @@ struct SettingsPageView: View {
                     }
                     .buttonStyle(.plain)
                 }
+
+                sectionHeader("All pages")
+                Text("The rooms. Open one when you need to log or override — ARIA already reads them.")
+                    .font(.system(size: 12))
+                    .foregroundColor(.textTertiary)
+                    .padding(.bottom, 10)
+                ForgeExploreDestinationsGrid()
+                    .padding(.bottom, FDS.Spacing.md)
 
                 // Log Out
                 Button {

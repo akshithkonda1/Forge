@@ -201,14 +201,37 @@ extension CircadianRhythm.Window {
 /// data can actually tell you that a duration cannot.
 struct EnergyScheduleCard: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// "Right now" has to keep being now while the screen is open, and a stale
     /// marker on a live chart is worse than no marker.
     @State private var now = Date()
+
+    /// Held rather than recomputed per render.
+    ///
+    /// `body` re-runs whenever `AppStore` publishes anything at all — it is one
+    /// large observable shared by every tab — and rebuilding a 144-sample curve
+    /// on each of those is work nobody asked for. Refreshed on the three things
+    /// that can actually change it: appearing, the minute turning over, and new
+    /// night data arriving.
+    @State private var schedule: EnergySchedule?
+
+    /// Drives the curve drawing itself in rather than appearing all at once.
+    @State private var drawProgress: CGFloat = 0
+
+    /// Hours since wake currently under the finger, or nil when not scrubbing.
+    @State private var scrubOffset: Double?
+    /// Only used to fire one haptic per window crossed, rather than per pixel.
+    @State private var scrubWindow: CircadianRhythm.Window?
+
     private let tick = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
-    private var schedule: EnergySchedule? {
-        EnergySchedule.make(from: store.sleepData, now: now)
+    /// Cheap identity for the night history — enough to notice a new night, a
+    /// re-score, or a HealthKit refresh, without hashing fourteen structs on
+    /// every render pass.
+    private var historyFingerprint: String {
+        let latest = store.sleepData.first
+        return "\(store.sleepData.count)|\(latest?.date ?? "")|\(latest?.totalHours ?? 0)"
     }
 
     var body: some View {
@@ -220,7 +243,7 @@ struct EnergyScheduleCard: View {
                 if !schedule.isReliable {
                     hedge(schedule)
                 }
-                nowBlock(schedule)
+                focusBlock(schedule)
                 eveningBlock(schedule)
             } else {
                 learningState
@@ -230,7 +253,29 @@ struct EnergyScheduleCard: View {
         .background(Color.surface)
         .cornerRadius(20)
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
-        .onReceive(tick) { now = $0 }
+        .animation(.snappy(duration: 0.32), value: schedule?.debtHours)
+        .sensoryFeedback(.selection, trigger: scrubWindow)
+        .onAppear {
+            refresh(at: now)
+            guard drawProgress == 0 else { return }
+            if reduceMotion {
+                drawProgress = 1
+            } else {
+                withAnimation(.easeOut(duration: 0.9).delay(0.15)) { drawProgress = 1 }
+            }
+        }
+        .onReceive(tick) { instant in
+            now = instant
+            refresh(at: instant)
+        }
+        .onChange(of: historyFingerprint) { _, _ in refresh(at: now) }
+    }
+
+    /// Takes the instant explicitly rather than reading `now`, so the minute
+    /// tick cannot depend on when a `@State` write becomes visible to a read in
+    /// the same closure.
+    private func refresh(at instant: Date) {
+        schedule = EnergySchedule.make(from: store.sleepData, now: instant)
     }
 
     // ------------------------------------------------------------
@@ -266,6 +311,9 @@ struct EnergyScheduleCard: View {
             Text(schedule.debtHeadline)
                 .font(.system(size: 24, weight: .bold, design: .rounded))
                 .foregroundColor(debtTint(schedule.debtLevel))
+                // The figure moves by tenths as nights land; rolling the digits
+                // reads as the same number updating rather than a new one.
+                .contentTransition(.numericText())
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
             Text(schedule.debtDetail)
@@ -294,7 +342,9 @@ struct EnergyScheduleCard: View {
                                 endPoint: .bottom
                             )
                         )
+                        .opacity(drawProgress)
                     linePath(schedule, size: geo.size)
+                        .trim(from: 0, to: drawProgress)
                         .stroke(
                             LinearGradient(
                                 colors: [.amber, .aurora, .steel],
@@ -303,8 +353,11 @@ struct EnergyScheduleCard: View {
                             ),
                             style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
                         )
-                    nowMarker(schedule, size: geo.size)
+                    marker(schedule, size: geo.size)
+                        .opacity(drawProgress)
                 }
+                .contentShape(Rectangle())
+                .gesture(scrubGesture(schedule, width: geo.size.width))
             }
             .frame(height: 126)
             .accessibilityElement(children: .ignore)
@@ -312,6 +365,56 @@ struct EnergyScheduleCard: View {
 
             axis(schedule)
         }
+    }
+
+    // ------------------------------------------------------------
+    // MARK: Scrubbing
+    // ------------------------------------------------------------
+
+    /// What the detail block is describing: wherever the finger is, or now.
+    private func focus(_ schedule: EnergySchedule) -> (offset: Double,
+                                                       hour: Double,
+                                                       energy: Double,
+                                                       window: CircadianRhythm.Window) {
+        guard let offset = scrubOffset else {
+            return (schedule.nowSinceWake, schedule.nowHour,
+                    schedule.currentEnergy, schedule.currentWindow)
+        }
+        let hour = CircadianRhythm.normalizedHour(schedule.phase.wakeHour + offset)
+        let energy = CircadianRhythm.energy(
+            atHour: hour,
+            phase: schedule.phase,
+            hoursAwake: CircadianRhythm.hoursAwake(atHour: hour, phase: schedule.phase),
+            sleepDebtHours: schedule.debtHours,
+            sleepNeedHours: schedule.needHours
+        )
+        return (offset, hour, energy, CircadianRhythm.window(atHour: hour, phase: schedule.phase))
+    }
+
+    /// Drag anywhere on the curve to read the day at that hour.
+    ///
+    /// `minimumDistance: 0` so a tap works as well as a drag — the common
+    /// gesture is a thumb landing on "about lunchtime", not a careful sweep.
+    private func scrubGesture(_ schedule: EnergySchedule, width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                let fraction = Double(value.location.x / max(1, width))
+                let offset = min(24, max(0, fraction * 24))
+                scrubOffset = offset
+                // One haptic per window boundary crossed. Firing per pixel
+                // would buzz continuously across a swipe.
+                let window = CircadianRhythm.window(
+                    atHour: CircadianRhythm.normalizedHour(schedule.phase.wakeHour + offset),
+                    phase: schedule.phase
+                )
+                if window != scrubWindow { scrubWindow = window }
+            }
+            .onEnded { _ in
+                scrubWindow = nil
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                    scrubOffset = nil
+                }
+            }
     }
 
     private func x(_ sinceWake: Double, _ width: CGFloat) -> CGFloat {
@@ -351,20 +454,26 @@ struct EnergyScheduleCard: View {
             .offset(x: start)
     }
 
-    private func nowMarker(_ schedule: EnergySchedule, size: CGSize) -> some View {
-        let position = x(schedule.nowSinceWake, size.width)
-        let markerY = y(schedule, schedule.currentEnergy, size.height)
+    /// The readout line: on "now" at rest, following the finger while scrubbing.
+    private func marker(_ schedule: EnergySchedule, size: CGSize) -> some View {
+        let point = focus(schedule)
+        let scrubbing = scrubOffset != nil
+        let position = x(point.offset, size.width)
+        let markerY = y(schedule, point.energy, size.height)
+        let tint: Color = scrubbing ? point.window.tint : .textPrimary
         return ZStack(alignment: .topLeading) {
             Rectangle()
-                .fill(Color.textPrimary.opacity(0.35))
+                .fill(tint.opacity(scrubbing ? 0.55 : 0.35))
                 .frame(width: 1, height: size.height)
                 .offset(x: position)
             Circle()
-                .fill(Color.textPrimary)
-                .frame(width: 8, height: 8)
+                .fill(tint)
+                .frame(width: scrubbing ? 11 : 8, height: scrubbing ? 11 : 8)
                 .overlay(Circle().stroke(Color.surface, lineWidth: 2))
-                .offset(x: position - 4, y: markerY - 4)
+                .offset(x: position - (scrubbing ? 5.5 : 4),
+                        y: markerY - (scrubbing ? 5.5 : 4))
         }
+        .animation(.spring(response: 0.25, dampingFraction: 0.9), value: scrubbing)
     }
 
     /// Four ticks across the waking day, labelled in clock time. The axis starts
@@ -396,18 +505,35 @@ struct EnergyScheduleCard: View {
     // MARK: Right now / next
     // ------------------------------------------------------------
 
-    private func nowBlock(_ schedule: EnergySchedule) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private func focusBlock(_ schedule: EnergySchedule) -> some View {
+        let point = focus(schedule)
+        let scrubbing = scrubOffset != nil
+        return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 9) {
-                Image(systemName: schedule.currentWindow.symbolName)
+                Image(systemName: point.window.symbolName)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(schedule.currentWindow.tint)
+                    .foregroundColor(point.window.tint)
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(schedule.currentWindow.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.textPrimary)
-                    Text(schedule.currentWindow.guidance)
+                    HStack(spacing: 6) {
+                        Text(point.window.title)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.textPrimary)
+                        // Only stamped while scrubbing. At rest the block is
+                        // about now, and labelling that with a clock time would
+                        // invite reading it as a scheduled event.
+                        if scrubbing {
+                            Text(clockLabel(point.hour))
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .foregroundColor(point.window.tint)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(point.window.tint.opacity(0.14))
+                                .clipShape(Capsule())
+                                .transition(.scale.combined(with: .opacity))
+                        }
+                    }
+                    Text(point.window.guidance)
                         .font(.system(size: 12))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -415,7 +541,7 @@ struct EnergyScheduleCard: View {
                 Spacer(minLength: 0)
             }
 
-            if let upcoming = schedule.upcoming {
+            if !scrubbing, let upcoming = schedule.upcoming {
                 HStack(spacing: 9) {
                     Image(systemName: "arrow.turn.down.right")
                         .font(.system(size: 12, weight: .semibold))
@@ -429,11 +555,15 @@ struct EnergyScheduleCard: View {
                         .foregroundColor(upcoming.window.tint)
                     Spacer(minLength: 0)
                 }
+                .transition(.opacity)
             }
         }
         .padding(13)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.surfaceElevated)
         .cornerRadius(14)
+        .animation(.snappy(duration: 0.22), value: point.window)
+        .animation(.snappy(duration: 0.22), value: scrubbing)
         .accessibilityElement(children: .combine)
     }
 
