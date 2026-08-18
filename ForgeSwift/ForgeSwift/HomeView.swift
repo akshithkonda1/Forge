@@ -105,6 +105,16 @@ enum HomePrimaryAction: Equatable {
         let score = store.readiness.overall
         let guidanceOnly = AriaContextStore.shared.context.constraints
             .contains { $0.contains("guidance_only") }
+        let life = store.hasMeaningfulLifeSignal
+
+        // No Health signal yet: still start the session written from profile/equipment,
+        // rather than pretending readiness is low.
+        if !life {
+            if let plan = store.todayWorkout {
+                return .startWorkout(id: plan.id, name: plan.name)
+            }
+            return .buildPlan
+        }
 
         if score < 55 {
             let reason = guidanceOnly
@@ -115,7 +125,7 @@ enum HomePrimaryAction: Equatable {
 
         if let plan = store.todayWorkout {
             if score < 70 {
-                return .recoveryDay(reason: "You're at \(score)%. Consider mobility or a lighter take on \(plan.name).")
+                return .recoveryDay(reason: "You're at \(score)%. This session is already pulled back.")
             }
             return .startWorkout(id: plan.id, name: plan.name)
         }
@@ -128,7 +138,7 @@ enum HomePrimaryAction: Equatable {
         case .startWorkout(_, let name): return "Start \(name)"
         case .continueWorkout:           return "Continue session"
         case .recoveryDay:               return "Start recovery session"
-        case .buildPlan:                 return "Build today's plan with ARIA"
+        case .buildPlan:                 return "Write today's session"
         }
     }
 
@@ -137,7 +147,7 @@ enum HomePrimaryAction: Equatable {
         case .startWorkout:              return "Primary control · ready when you are"
         case .continueWorkout:           return "Pick up where you left off"
         case .recoveryDay(let reason):   return reason
-        case .buildPlan:                 return "ARIA will shape a session from your readiness"
+        case .buildPlan:                 return "From how you actually live today — not a catalog"
         }
     }
 
@@ -195,35 +205,15 @@ struct HomeView: View {
                     // One gap and one inset for the whole page, applied here rather
                     // than as thirteen per-child bottom paddings.
                     VStack(spacing: HomeMetrics.sectionGap) {
-                        // 1. Header
                         HomeHeaderView()
                             .padding(.top, 64)
 
-                        // 2. Hero readiness control
-                        HomeHeroReadinessCard(onCelebrate: triggerCelebration)
-
-                        // 3. Dual primary controls (train + lifestyle)
+                        // The day in their words, then the one thing to do.
+                        HomeLifeSentenceCard()
                         HomePrimaryCTA(action: primaryAction)
 
-                        // 3b. User-pinned widgets (also addable on the iOS Home Screen)
-                        HomeWidgetBoard()
+                        HomeHeroReadinessCard(onCelebrate: triggerCelebration)
 
-                        // 4. Today's agenda
-                        HomeAgendaCard()
-
-                        // 5. Win of the day
-                        HomeWinCard()
-
-                        // 6. Support pulse (partner cycle)
-                        if !MenstrualHealthStore.shared.consentedPeople.isEmpty {
-                            HomeSupportPulseCard {
-                                FDS.haptic(.light)
-                                cycleInitialPane = .partner
-                                showCycleHealth = true
-                            }
-                        }
-
-                        // 7. ARIA briefing (suppressed in quiet mode for proactive card)
                         if !store.quietMode,
                            let insight = proactiveInsight,
                            AriaContextStore.shared.shouldBeProactive() {
@@ -240,10 +230,15 @@ struct HomeView: View {
                             HomeARIABriefingCard()
                         }
 
-                        // 8. Lifestyle preview (full surface is its own tab)
-                        HomeLifestylePreviewCard()
+                        // Rooms stay — they feed ARIA. They are not the first decision.
+                        if !MenstrualHealthStore.shared.consentedPeople.isEmpty {
+                            HomeSupportPulseCard {
+                                FDS.haptic(.light)
+                                cycleInitialPane = .partner
+                                showCycleHealth = true
+                            }
+                        }
 
-                        // 9. Cycle Health — entry only from Home (not bottom tabs)
                         if showsCycleEntry {
                             HomeCycleModule {
                                 FDS.haptic(.light)
@@ -252,13 +247,12 @@ struct HomeView: View {
                             }
                         }
 
-                        // 10. Day preview telemetry
+                        HomeLifestylePreviewCard()
+                        HomeWidgetBoard()
+                        HomeAgendaCard()
+                        HomeWinCard()
                         HomeDayPreviewStrip()
-
-                        // 11. Week rhythm
                         StreakCalendarSection()
-
-                        // 12. Optional trend
                         HomeTrendSection(isExpanded: $showTrend)
                             .padding(.bottom, HomeMetrics.scrollBottomClearance)
                     }
@@ -673,6 +667,82 @@ private struct HomeHeroReadinessCard: View {
 }
 
 // ============================================================
+// MARK: - Life sentence
+// ============================================================
+
+enum HomeLifeSentence {
+    struct Line {
+        let text: String
+        let detail: String?
+    }
+
+    static func build(store: AppStore) -> Line {
+        var parts: [String] = []
+
+        let hours = store.sleepData.first?.totalHours
+            ?? (store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60.0 : nil)
+        if let hours {
+            parts.append(String(format: "%.1fh sleep", hours))
+        } else if !store.healthKitLive {
+            parts.append("Connect Apple Health for last night")
+        } else {
+            parts.append("Last night isn’t in Apple Health yet")
+        }
+
+        let cycle = MenstrualHealthStore.shared
+        if cycle.settings.enabled, cycle.snapshot.phase != .unknown {
+            if let day = cycle.snapshot.dayInCycle {
+                parts.append("\(cycle.snapshot.phase.shortLabel) · day \(day)")
+            } else {
+                parts.append(cycle.snapshot.phase.shortLabel)
+            }
+        }
+
+        parts.append(store.userProfile.trainingEquipment.rawValue)
+
+        if store.readiness.overall > 0, store.hasMeaningfulLifeSignal {
+            parts.append("readiness \(store.readiness.overall)")
+        }
+
+        let detail: String?
+        if let session = store.todayWorkout {
+            detail = "\(session.name) · \(session.duration) min · \(session.intensity.label)"
+        } else {
+            detail = "Today’s session will be written from this — not a catalog."
+        }
+
+        return Line(text: parts.joined(separator: " · "), detail: detail)
+    }
+}
+
+private struct HomeLifeSentenceCard: View {
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        let line = HomeLifeSentence.build(store: store)
+        VStack(alignment: .leading, spacing: 8) {
+            Text("HOW YOU LIVE TODAY")
+                .forgeSectionLabel()
+            Text(line.text)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            if let detail = line.detail {
+                Text(detail)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(HomeMetrics.cardPadding)
+        .forgeGlassCard(accent: .ember)
+        .homeEntrance(delay: 0.06)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// ============================================================
 // MARK: - Primary CTA
 // ============================================================
 
@@ -742,16 +812,19 @@ private struct HomePrimaryCTA: View {
             .accessibilityLabel(action.title)
             .accessibilityHint(action.subtitle ?? "Double tap to activate")
 
-            // Dual secondary row: ARIA + Lifestyle
             HStack(spacing: 10) {
                 Button {
                     FDS.haptic(.light)
-                    store.openChat(with: "What should I focus on today?", voice: false)
+                    let sentence = HomeLifeSentence.build(store: store)
+                    store.openChat(
+                        with: "Why this session today? \(sentence.text). \(sentence.detail ?? "") Adjust it if my life doesn't match.",
+                        voice: false
+                    )
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "sparkles")
                             .font(.system(size: 12, weight: .semibold))
-                        Text("Ask ARIA")
+                        Text("Why this session")
                             .font(.system(size: 13, weight: .semibold))
                     }
                     .foregroundColor(.textSecondary)
@@ -793,19 +866,8 @@ private struct HomePrimaryCTA: View {
 
     private func perform() {
         switch action {
-        case .startWorkout, .continueWorkout:
-            if !store.isWorkoutActive { store.startWorkout() }
-            store.activeTab = .workout
-        case .recoveryDay:
-            store.openChat(
-                with: "I'm at \(store.readiness.overall)% readiness. Build me a recovery-focused session — guidance only if needed.",
-                voice: false
-            )
-        case .buildPlan:
-            store.openChat(
-                with: "Build today's training plan from my readiness, goals, and recovery.",
-                voice: false
-            )
+        case .startWorkout, .continueWorkout, .recoveryDay, .buildPlan:
+            store.startLifeShapedSession()
         }
     }
 }
@@ -1525,14 +1587,7 @@ private struct HomeAgendaCard: View {
                 "Cycle · \(snap.phase.shortLabel)",
                 snap.dayInCycle.map { "Day \($0)" } ?? snap.phase.label,
                 Color(hex: snap.phase.accentHex),
-                {
-                    store.openChat(
-                        with: "I'm in \(snap.phase.label)"
-                            + (snap.dayInCycle.map { " (day \($0))" } ?? "")
-                            + ". How should I train and recover?",
-                        voice: false
-                    )
-                }
+                { store.openCycleHealth(pane: "me") }
             ))
         }
 

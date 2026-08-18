@@ -31,7 +31,7 @@ struct LifestylePlacesView: View {
     @EnvironmentObject var store: AppStore
     @ObservedObject private var location = LifestyleLocationStore.shared
 
-    @State private var camera: MapCameraPosition = .userLocation(followsHeading: false, fallback: .automatic)
+    @State private var camera: MapCameraPosition = .automatic
     @State private var selectedPlace: NearbyPlace?
     @State private var showCatalog = false
     @State private var hasCentered = false
@@ -90,36 +90,61 @@ struct LifestylePlacesView: View {
 
     private var mapCard: some View {
         ZStack(alignment: .topTrailing) {
-            Map(position: $camera, selection: $selectedPlace) {
-                UserAnnotation()
-                ForEach(location.nearby) { place in
-                    Marker(place.name, systemImage: "fork.knife", coordinate: place.coordinate)
-                        .tint(Color(hex: "FF4D00"))
-                        .tag(place)
+            if location.currentLocation != nil {
+                Map(position: $camera, selection: $selectedPlace) {
+                    UserAnnotation()
+                    ForEach(location.nearby) { place in
+                        Marker(place.name, systemImage: "fork.knife", coordinate: place.coordinate)
+                            .tint(Color(hex: "FF4D00"))
+                            .tag(place)
+                    }
                 }
+                .mapStyle(.standard(elevation: .realistic))
+                .mapControls {
+                    MapUserLocationButton()
+                    MapCompass()
+                    MapPitchToggle()
+                }
+            } else {
+                mapPlaceholder
             }
-            .mapStyle(.standard(elevation: .realistic))
-            .mapControls {
-                MapUserLocationButton()
-                MapCompass()
-                MapPitchToggle()
-            }
-            .frame(height: 280)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.borderColor.opacity(0.4), lineWidth: 1)
-            )
 
-            VStack(spacing: 8) {
-                mapButton(icon: "location.fill") {
-                    Task { await recenter() }
+            if location.currentLocation != nil {
+                VStack(spacing: 8) {
+                    mapButton(icon: "location.fill") {
+                        Task { await recenter() }
+                    }
+                    mapButton(icon: "arrow.triangle.turn.up.right.diamond.fill") {
+                        location.openCurrentLocationInMaps()
+                    }
                 }
-                mapButton(icon: "arrow.triangle.turn.up.right.diamond.fill") {
-                    location.openCurrentLocationInMaps()
-                }
+                .padding(10)
             }
-            .padding(10)
+        }
+        .frame(height: 280)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.borderColor.opacity(0.4), lineWidth: 1)
+        )
+    }
+
+    private var mapPlaceholder: some View {
+        ZStack {
+            Color.surfaceElevated
+            VStack(spacing: 10) {
+                Image(systemName: location.isAuthorized ? "location.viewfinder" : "location.slash")
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundColor(location.isAuthorized ? .ember : .warning)
+                Text(location.isAuthorized ? "Finding you…" : "Turn on Location")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                Text(statusDetail)
+                    .font(.system(size: 12))
+                    .foregroundColor(.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
         }
     }
 
@@ -192,6 +217,16 @@ struct LifestylePlacesView: View {
         #endif
     }
 
+    /// Locating is a wait. Raw Core Location strings never reach the person.
+    private var displayableNearbyError: String? {
+        guard location.nearby.isEmpty, let error = location.lastError else { return nil }
+        let lowered = error.lowercased()
+        if lowered.contains("kclerror") || lowered.contains("finding your location") {
+            return nil
+        }
+        return error
+    }
+
     private var nearbyList: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -208,7 +243,7 @@ struct LifestylePlacesView: View {
                 .foregroundColor(.ember)
             }
 
-            if let error = location.lastError, location.nearby.isEmpty {
+            if let error = displayableNearbyError {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(error)
                         .font(.system(size: 13))
@@ -313,7 +348,7 @@ struct LifestylePlacesView: View {
                 longitudinalMeters: 1_200
             ))
         } else {
-            camera = .userLocation(followsHeading: false, fallback: .automatic)
+            camera = .automatic
         }
         await runSearch()
     }

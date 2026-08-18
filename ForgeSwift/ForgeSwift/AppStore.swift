@@ -923,12 +923,12 @@ final class AppStore: ObservableObject {
         didSet { persistUserProfile() }
     }
 
-    // Readiness & Metrics
-    @Published var readiness: ReadinessData = mockReadiness
-    @Published var dailyMetrics: DailyMetrics = mockMetrics
+    // Readiness & Metrics — empty until Apple Health (or a log) writes something real.
+    @Published var readiness: ReadinessData = emptyReadiness
+    @Published var dailyMetrics: DailyMetrics = emptyMetrics
 
-    // Today's Workout
-    @Published var todayWorkout: WorkoutPlan? = mockWorkout
+    // Today's Workout — written by AriaPlanEngine from this person's life, never a catalog default.
+    @Published var todayWorkout: WorkoutPlan? = nil
 
     // Active Workout State
     @Published var isWorkoutActive: Bool = false
@@ -1006,8 +1006,8 @@ final class AppStore: ObservableObject {
     /// Last successful metrics refresh (Home status pill).
     @Published var lastMetricsRefresh: Date? = nil
     
-    // Streak tracking
-    @Published var currentStreak: Int = 7
+    // Streak tracking — consecutive calendar days with a completed session.
+    @Published var currentStreak: Int = 0
     
     // AI Configuration
     @Published var aiModelAvailable: Bool = false
@@ -1046,13 +1046,10 @@ final class AppStore: ObservableObject {
         // ChatView already has real history — no mock flash on cold launch.
         restoreChatHistory()
 
-        // Load seed data, then hydrate from HealthKit when authorized
+        // Real nights, history, and today's session come from Apple Health + this
+        // person's profile — never demo sleep or "Upper Body Power".
         Task { @MainActor in
-            self.sleepData = mockSleepData
-            self.workoutHistory = mockWorkoutHistory
-            self.personalRecords = mockPersonalRecords
             await self.refreshDailyData()
-            // Apply brief-default migration (6 AM / 6 PM) and weekly ARIA.
             await self.resyncNotifications()
         }
     }
@@ -1329,9 +1326,6 @@ final class AppStore: ObservableObject {
         currentExerciseIndex = 0
         currentSet = 1
         
-        // Update streak and history
-        if completed { currentStreak += 1 }
-        
         let planId = todayWorkout?.id ?? "today-workout"
         if let workout = todayWorkout, completed {
             let history = WorkoutHistory(
@@ -1345,6 +1339,7 @@ final class AppStore: ObservableObject {
             )
             workoutHistory.insert(history, at: 0)
         }
+        recomputeStreak()
 
         Task {
             await FeedbackService.shared.processPlanOutcome(
@@ -1673,14 +1668,7 @@ final class AppStore: ObservableObject {
         AriaContextStore.shared.addInsight(
             "Training theme set to \(theme.label) via \(source)."
         )
-        // Rebuild today's plan under the new lens when readiness is known.
-        if readiness.overall > 0 {
-            let plan = AriaPlanEngine.evaluate(
-                input: "Build today's \(theme.label) training plan",
-                context: makeTrainerContext()
-            )
-            todayWorkout = plan.workoutPlan
-        }
+        rebuildTodayPlanFromLife()
         objectWillChange.send()
     }
 
@@ -1752,10 +1740,97 @@ final class AppStore: ObservableObject {
             MenstrualHealthStore.shared.refresh(from: self)
         }
 
+        if authorized {
+            let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 14)
+            mergeSleepDataLocally(nights)
+        }
+
         lastMetricsRefresh = Date()
+        rebuildTodayPlanFromLife()
+        recomputeStreak()
         await flushPendingWidgetWater()
         publishHomeWidgets()
         objectWillChange.send()
+    }
+
+    /// Sleep, HRV, or any Health write that means today's number is theirs — not a blank launch.
+    var hasMeaningfulLifeSignal: Bool {
+        dailyMetrics.totalSleep > 0
+            || dailyMetrics.hrv > 0
+            || sleepData.contains(where: { $0.totalHours > 0 })
+            || (healthKitLive && (dailyMetrics.steps > 0 || dailyMetrics.activeCalories > 0))
+    }
+
+    /// Rebuild today's session from readiness, cycle, equipment, constraints, theme.
+    /// Skipped while a session is in progress so we don't yank the floor out.
+    func rebuildTodayPlanFromLife() {
+        guard !isWorkoutActive else { return }
+        let plan = AriaPlanEngine.evaluate(
+            input: "Build today's session from my sleep, readiness, cycle, equipment, and the time I actually have.",
+            context: makeTrainerContext()
+        )
+        var workout = plan.workoutPlan
+        let dayKey: String = {
+            let f = DateFormatter()
+            f.calendar = Calendar.current
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "yyyy-MM-dd"
+            return f.string(from: Date())
+        }()
+        workout.id = "life-\(dayKey)-\(workout.name)"
+        todayWorkout = workout
+    }
+
+    /// Write the session from *this* moment's life, then open Train.
+    /// Recovery and "build" both land here — not in chat.
+    func startLifeShapedSession() {
+        if !isWorkoutActive {
+            rebuildTodayPlanFromLife()
+            startWorkout()
+        }
+        activeTab = .workout
+    }
+
+    func recomputeStreak() {
+        currentStreak = Self.consecutiveWorkoutStreak(workoutHistory)
+    }
+
+    private static func consecutiveWorkoutStreak(_ history: [WorkoutHistory], now: Date = Date()) -> Int {
+        let cal = Calendar.current
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withFullDate, .withInternetDateTime, .withFractionalSeconds]
+        let dayFormatter = ISO8601DateFormatter()
+        dayFormatter.formatOptions = [.withFullDate]
+
+        func dayStart(_ raw: String) -> Date? {
+            if let date = formatter.date(from: raw) ?? dayFormatter.date(from: String(raw.prefix(10))) {
+                return cal.startOfDay(for: date)
+            }
+            if raw.count >= 10 {
+                let slice = String(raw.prefix(10))
+                let f = DateFormatter()
+                f.calendar = cal
+                f.locale = Locale(identifier: "en_US_POSIX")
+                f.dateFormat = "yyyy-MM-dd"
+                return f.date(from: slice).map { cal.startOfDay(for: $0) }
+            }
+            return nil
+        }
+
+        let days = Set(history.compactMap { dayStart($0.date) })
+        guard !days.isEmpty else { return 0 }
+        var cursor = cal.startOfDay(for: now)
+        if !days.contains(cursor) {
+            guard let yesterday = cal.date(byAdding: .day, value: -1, to: cursor) else { return 0 }
+            cursor = yesterday
+        }
+        var streak = 0
+        while days.contains(cursor) {
+            streak += 1
+            guard let previous = cal.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = previous
+        }
+        return streak
     }
 
     /// Widget taps enqueue milliliters. Write them to HealthKit now that we

@@ -1327,7 +1327,13 @@ struct LifestyleView: View {
             set: { if !$0 { vm.error = nil } }
         ), presenting: vm.error) { _ in
             Button("OK") { vm.error = nil }
-        } message: { err in Text(err.localizedDescription) }
+        } message: { err in
+            let raw = err.localizedDescription
+            let copy = raw.lowercased().contains("kclerror")
+                ? "Still finding your location. Try Places again in a moment."
+                : raw
+            Text(copy)
+        }
     }
 
     private func consumePendingLifestyleSegment() {

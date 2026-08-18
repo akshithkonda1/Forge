@@ -2731,6 +2731,29 @@ struct ActiveWorkoutView: View {
                     mainContent(exercise: exercise)
                     coachBar
                 }
+            } else {
+                VStack(spacing: 16) {
+                    Text("TODAY’S SESSION")
+                        .forgeSectionLabel()
+                    Text("ARIA writes this from how you live — sleep, cycle, gear, readiness. Not a catalog.")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 28)
+                    Button {
+                        store.startLifeShapedSession()
+                    } label: {
+                        Text("Write today’s session")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 14)
+                            .background(FDS.Gradient.ember)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(24)
             }
 
             // Overlays — highest zIndex first
@@ -2772,7 +2795,13 @@ struct ActiveWorkoutView: View {
                 FormCheckCameraView(exercise: exercise, definition: currentDef, liveContext: liveContext(for: exercise))
             }
         }
-        .onAppear  { startTasks(); setupCurrentWeight() }
+        .onAppear  {
+            if store.todayWorkout == nil {
+                store.rebuildTodayPlanFromLife()
+            }
+            startTasks()
+            setupCurrentWeight()
+        }
         .onDisappear { cancelTasks() }
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: showPRBanner)
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: showO2Warning)

@@ -332,6 +332,9 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
 
     nonisolated private static func searchErrorCopy(_ error: Error) -> String {
         let ns = error as NSError
+        if ns.domain == CLError.errorDomain || ns.domain == "kCLErrorDomain" {
+            return "Still finding you. Stay on this screen a moment, then tap Refresh."
+        }
         if ns.domain == NSURLErrorDomain || ns.domain == "MKErrorDomain" {
             return "Apple Maps couldn't search nearby. Check the network and try again."
         }
