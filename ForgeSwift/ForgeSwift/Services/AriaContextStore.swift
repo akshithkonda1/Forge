@@ -336,9 +336,11 @@ final class AriaContextStore: ObservableObject {
     func clearPartnerCycleTags() {
         context.lifestyleTags = context.lifestyleTags.filter {
             !$0.hasPrefix("partner_cycle:") && !$0.hasPrefix("partner_phase:") && !$0.hasPrefix("partner_day:")
-                && !$0.hasPrefix("partner_name:")
+                && !$0.hasPrefix("partner_name:") && !$0.hasPrefix("support_cycle:")
         }
-        context.recentPatterns = context.recentPatterns.filter { !$0.hasPrefix("partner_cycle:") }
+        context.recentPatterns = context.recentPatterns.filter {
+            !$0.hasPrefix("partner_cycle:") && !$0.hasPrefix("support_cycle:")
+        }
         context.lastUpdated = Date()
         persist()
     }
@@ -423,14 +425,57 @@ final class AriaContextStore: ObservableObject {
         relationshipLabel: String,
         role: CycleSupportRole = .other
     ) {
-        guard snap.trackingEnabled || !partnerName.isEmpty else {
+        var settings = PartnerCycleSettings.default
+        settings.enabled = true
+        settings.consentAcknowledged = true
+        settings.shareWithAria = true
+        settings.partnerName = partnerName
+        settings.relationshipLabel = relationshipLabel
+        settings.supportRole = role
+        applySupportedPeople([(SupportedPerson.make(settings: settings), snap)])
+    }
+
+    /// Each consented person ARIA may mention, with their own role.
+    /// Never flattens a daughter through a partner lens.
+    func applySupportedPeople(_ people: [(SupportedPerson, MenstrualCycleSnapshot)]) {
+        var tags = context.lifestyleTags.filter {
+            !$0.hasPrefix("partner_cycle:") && !$0.hasPrefix("partner_phase:") && !$0.hasPrefix("partner_day:")
+                && !$0.hasPrefix("partner_name:") && !$0.hasPrefix("support_cycle:")
+        }
+        guard !people.isEmpty else {
             clearPartnerCycleTags()
             return
         }
-        var tags = context.lifestyleTags.filter {
-            !$0.hasPrefix("partner_cycle:") && !$0.hasPrefix("partner_phase:") && !$0.hasPrefix("partner_day:")
-                && !$0.hasPrefix("partner_name:")
+
+        tags.append("support_cycle:count:\(people.count)")
+        for (index, pair) in people.enumerated() {
+            let person = pair.0
+            let snap = pair.1
+            let role = person.role
+            let name = person.displayName
+            let safeName = name
+                .lowercased()
+                .replacingOccurrences(of: " ", with: "_")
+                .prefix(24)
+            tags.append("support_cycle:\(index):role:\(role.rawValue)")
+            tags.append("support_cycle:\(index):phase:\(snap.phase.rawValue)")
+            tags.append("support_cycle:\(index):stage:\(snap.stage.rawValue)")
+            if !safeName.isEmpty {
+                tags.append("support_cycle:\(index):name:\(safeName)")
+            }
+            tags.append("support_cycle:\(index):rel:\(person.settings.relationshipLabel.lowercased().replacingOccurrences(of: " ", with: "_"))")
+            if snap.periodEndConfirmed {
+                tags.append("support_cycle:\(index):period_confirmed_finished")
+            }
         }
+
+        // Active / most relevant person keeps the legacy partner_cycle:* tags
+        // so older prompt paths still see one current human without inventing
+        // a romantic frame for everyone.
+        let active = people.first(where: { $0.0.id == MenstrualHealthStore.shared.selectedPersonId }) ?? people[0]
+        let snap = active.1
+        let role = active.0.role
+        let partnerName = active.0.displayName
         tags.append("partner_cycle:enabled")
         tags.append("partner_phase:\(snap.phase.rawValue)")
         if let day = snap.dayInCycle {
@@ -443,10 +488,9 @@ final class AriaContextStore: ObservableObject {
         if !safeName.isEmpty {
             tags.append("partner_name:\(safeName)")
         }
-        tags.append("partner_cycle:rel:\(relationshipLabel.lowercased().replacingOccurrences(of: " ", with: "_"))")
+        tags.append("partner_cycle:rel:\(active.0.settings.relationshipLabel.lowercased().replacingOccurrences(of: " ", with: "_"))")
         tags.append("partner_cycle:role:\(role.rawValue)")
         tags.append("partner_cycle:confidence:\(Int(snap.confidence * 100))")
-        // Stage drives the return from period-support coaching to everyday support.
         tags.append("partner_cycle:stage:\(snap.stage.rawValue)")
         if snap.periodEndConfirmed {
             tags.append("partner_cycle:period_confirmed_finished")
@@ -456,22 +500,29 @@ final class AriaContextStore: ObservableObject {
         }
         context.lifestyleTags = Array(Set(tags)).sorted()
 
-        var patterns = context.recentPatterns.filter { !$0.hasPrefix("partner_cycle:") }
+        var patterns = context.recentPatterns.filter {
+            !$0.hasPrefix("partner_cycle:") && !$0.hasPrefix("support_cycle:")
+        }
         patterns.append("partner_cycle:\(snap.phase.rawValue)")
+        if people.count > 1 {
+            patterns.append("support_cycle:multi:\(people.count)")
+        }
         context.recentPatterns = Array(patterns.suffix(12))
-        let who: String = {
-            switch role {
-            case .child: return "Daughter/child"
-            case .romantic: return "Partner"
-            case .family: return "Family member"
-            case .friend: return "Friend"
-            case .other: return "Supported person"
-            }
-        }()
-        context.lastInsights.insert(
-            "\(who) (\(partnerName)) cycle phase: \(snap.phase.label)" + (snap.dayInCycle.map { " day \($0)" } ?? "") + ".",
-            at: 0
-        )
+
+        let roster = people.map { pair in
+            let who: String = {
+                switch pair.0.role {
+                case .child: return "Daughter/child"
+                case .romantic: return "Partner"
+                case .family: return "Family member"
+                case .friend: return "Friend"
+                case .other: return "Supported person"
+                }
+            }()
+            return "\(who) (\(pair.0.displayName)) cycle phase: \(pair.1.phase.label)"
+                + (pair.1.dayInCycle.map { " day \($0)" } ?? "")
+        }.joined(separator: ". ")
+        context.lastInsights.insert(roster + ".", at: 0)
         if context.lastInsights.count > 15 {
             context.lastInsights = Array(context.lastInsights.prefix(15))
         }
@@ -624,13 +675,13 @@ final class AriaContextStore: ObservableObject {
         // Human relational check-ins (partner / daughter) interleave with training prompts.
         if let relational = AriaRelationalCoach.proactiveQuestion(
             userGender: store.userProfile.gender,
-            partnerSettings: cycleStore.partnerSettings,
-            partnerSnapshot: cycleStore.partnerSettings.enabled ? cycleStore.partnerSnapshot : nil,
+            people: cycleStore.consentedPeople.map {
+                ($0.settings, cycleStore.personSnapshots[$0.id])
+            },
             readiness: readiness,
             salt: salt
         ), salt % 3 != 0 || readiness >= 60 {
-            // Prefer relational message often when support context is live or for invites.
-            if cycleStore.partnerSettings.enabled || salt % 2 == 0 {
+            if !cycleStore.consentedPeople.isEmpty || salt % 2 == 0 {
                 lastProactiveInsight = relational
                 return
             }

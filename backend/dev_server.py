@@ -10,8 +10,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-LAMBDA_DIR = Path(__file__).resolve().parents[1] / "infra" / "terraform" / "lambda"
-sys.path.insert(0, str(LAMBDA_DIR))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from backend._paths import ensure_lambda_on_path
+
+ensure_lambda_on_path()
 
 from handler import handler  # noqa: E402
 

@@ -115,37 +115,19 @@ enum AriaRelationalCoach {
     /// If user names a wife/daughter/etc., seed support tracking (consent still required for full engine).
     @MainActor
     static func applyMentionIfNeeded(_ mention: AriaSupportMention, store: MenstrualHealthStore) {
-        // Instant person adaptation from label/name
+        // Instant person adaptation from label/name. Adding a daughter must
+        // not rewrite the partner row — each mention activates or creates.
         let person = AriaPersonRegistry.shared.upsert(
             name: mention.name ?? "",
             label: mention.relationshipLabel,
             role: mention.role
         )
-        AriaPersonRegistry.shared.setActive(person.id)
-
-        if !store.partnerSettings.enabled {
-            store.updatePartnerSettings {
-                $0.enabled = true
-                $0.supportRole = mention.role
-                $0.relationshipLabel = mention.relationshipLabel
-                if let n = mention.name { $0.partnerName = n }
-                $0.shareWithAria = true
-            }
-        } else {
-            store.updatePartnerSettings {
-                if $0.supportRole == .other || ($0.supportRole == .romantic && mention.role == .child) {
-                    $0.supportRole = mention.role
-                }
-                // Switch label when user clearly names a different relationship
-                if mention.relationshipLabel != $0.relationshipLabel {
-                    $0.relationshipLabel = mention.relationshipLabel
-                    $0.supportRole = mention.role
-                }
-                if let n = mention.name, !n.isEmpty {
-                    $0.partnerName = n
-                }
-            }
-        }
+        AriaPersonRegistry.shared.setActive(person.id, mirrorToPartnerCycle: false)
+        store.activateOrCreatePerson(
+            name: mention.name ?? "",
+            label: mention.relationshipLabel,
+            role: mention.role
+        )
         AriaContextStore.shared.addInsight(
             humanMemoryLine(mention: mention, consented: store.partnerSettings.consentAcknowledged)
         )
@@ -167,6 +149,35 @@ enum AriaRelationalCoach {
     }
 
     // MARK: Humanized proactive questions
+
+    /// Soft question ARIA can ask when support context is missing or stale.
+    static func proactiveQuestion(
+        userGender: Gender,
+        people: [(settings: PartnerCycleSettings, snapshot: MenstrualCycleSnapshot?)],
+        readiness: Int,
+        salt: UInt64
+    ) -> String? {
+        let live = people.filter { $0.settings.enabled && $0.settings.consentAcknowledged }
+        let urgent = live.first {
+            $0.snapshot?.phase == .menstruation || $0.snapshot?.phase == .luteal
+        }
+        if let pick = urgent ?? live.first {
+            return proactiveQuestion(
+                userGender: userGender,
+                partnerSettings: pick.settings,
+                partnerSnapshot: pick.snapshot,
+                readiness: readiness,
+                salt: salt
+            )
+        }
+        return proactiveQuestion(
+            userGender: userGender,
+            partnerSettings: .default,
+            partnerSnapshot: nil,
+            readiness: readiness,
+            salt: salt
+        )
+    }
 
     /// Soft question ARIA can ask when support context is missing or stale.
     static func proactiveQuestion(

@@ -1,0 +1,14 @@
+"""Put the repo and the Lambda package on sys.path for every backend test."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+_REPO = Path(__file__).resolve().parents[2]
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
+
+from backend._paths import ensure_lambda_on_path  # noqa: E402
+
+ensure_lambda_on_path()

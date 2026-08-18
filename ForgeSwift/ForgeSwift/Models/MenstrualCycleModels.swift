@@ -1799,6 +1799,72 @@ struct PartnerCycleSettings: Codable, Equatable {
     }
 }
 
+/// One person you support — partner, daughter, sister, friend.
+///
+/// First-class, not a costume on a single “partner” slot. Each row has its
+/// own settings, logs, and optional CloudKit owner id so a period-finished
+/// write cannot land on the wrong share.
+struct SupportedPerson: Identifiable, Codable, Equatable {
+    var id: String
+    var settings: PartnerCycleSettings
+    var logs: [CycleDayLog]
+    /// CloudKit zone owner when they shared a digest with us. Links local
+    /// notes to the incoming share so finish writes the right zone.
+    var cloudKitOwnerID: String?
+    var createdAt: Date
+    var updatedAt: Date
+
+    var displayName: String { settings.displayName }
+    var role: CycleSupportRole { settings.resolvedRole }
+
+    static func make(
+        settings: PartnerCycleSettings = .default,
+        logs: [CycleDayLog] = [],
+        cloudKitOwnerID: String? = nil,
+        id: String = UUID().uuidString
+    ) -> SupportedPerson {
+        let now = Date()
+        return SupportedPerson(
+            id: id,
+            settings: settings,
+            logs: logs,
+            cloudKitOwnerID: cloudKitOwnerID,
+            createdAt: now,
+            updatedAt: now
+        )
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, settings, logs, cloudKitOwnerID, createdAt, updatedAt
+    }
+
+    init(
+        id: String,
+        settings: PartnerCycleSettings,
+        logs: [CycleDayLog],
+        cloudKitOwnerID: String?,
+        createdAt: Date,
+        updatedAt: Date
+    ) {
+        self.id = id
+        self.settings = settings
+        self.logs = logs
+        self.cloudKitOwnerID = cloudKitOwnerID
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        settings = try c.decode(PartnerCycleSettings.self, forKey: .settings)
+        logs = try c.decodeIfPresent([CycleDayLog].self, forKey: .logs) ?? []
+        cloudKitOwnerID = try c.decodeIfPresent(String.self, forKey: .cloudKitOwnerID)
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
+    }
+}
+
 /// Support playbook derived from phase (for the user — partner, parent, or family member).
 struct PartnerSupportBrief: Equatable {
     var partnerLabel: String
