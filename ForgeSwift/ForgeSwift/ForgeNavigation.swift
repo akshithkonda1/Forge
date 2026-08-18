@@ -136,11 +136,11 @@ struct ForgePageHeader: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 28, weight: .semibold))
+                    .font(.system(size: 28, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.system(size: 14))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.textSecondary)
                 }
             }

@@ -2732,27 +2732,13 @@ struct ActiveWorkoutView: View {
                     coachBar
                 }
             } else {
-                VStack(spacing: 16) {
-                    Text("TODAY’S SESSION")
-                        .forgeSectionLabel()
-                    Text("ARIA writes this from how you live — sleep, cycle, gear, readiness. Not a catalog.")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 28)
-                    Button {
-                        store.startLifeShapedSession()
-                    } label: {
-                        Text("Write today’s session")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 14)
-                            .background(FDS.Gradient.ember)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
+                ForgeEmptyStateCard(
+                    icon: "figure.strengthtraining.traditional",
+                    title: "Today’s session",
+                    message: "ARIA writes this from how you live — sleep, cycle, gear, readiness. Not a catalog.",
+                    cta: "Write session",
+                    action: { store.startLifeShapedSession() }
+                )
                 .padding(24)
             }
 

@@ -19,14 +19,14 @@ enum HomeMetrics {
     /// while the other eleven used a literal `16` — the same number, two spellings.
     static let inset: CGFloat = FDS.Spacing.lg
     /// Vertical gap between sections, applied once by the VStack.
-    static let sectionGap: CGFloat = 16
+    static let sectionGap: CGFloat = 14
     /// Interior padding for every card.
     static let cardPadding: CGFloat = 18
     /// Radius for elements *inside* a card. Cards themselves use the
     /// `forgeGlassCard` default (`FDS.Radius.xl`).
     static let innerRadius: CGFloat = FDS.Radius.md
     /// Clearance past the tab bar and floating orb at the end of the scroll.
-    static let scrollBottomClearance: CGFloat = 140
+    static let scrollBottomClearance: CGFloat = 28
     /// How far a section rises as it fades in.
     static let entranceRise: CGFloat = 12
 }
@@ -135,19 +135,19 @@ enum HomePrimaryAction: Equatable {
 
     var title: String {
         switch self {
-        case .startWorkout(_, let name): return "Start \(name)"
-        case .continueWorkout:           return "Continue session"
-        case .recoveryDay:               return "Start recovery session"
-        case .buildPlan:                 return "Write today's session"
+        case .startWorkout:              return "Start session"
+        case .continueWorkout:           return "Continue"
+        case .recoveryDay:               return "Start recovery"
+        case .buildPlan:                 return "Write session"
         }
     }
 
     var subtitle: String? {
         switch self {
-        case .startWorkout:              return "Primary control · ready when you are"
+        case .startWorkout(_, let name): return name
         case .continueWorkout:           return "Pick up where you left off"
         case .recoveryDay(let reason):   return reason
-        case .buildPlan:                 return "From how you actually live today — not a catalog"
+        case .buildPlan:                 return "From how you live today — not a catalog"
         }
     }
 
@@ -206,11 +206,9 @@ struct HomeView: View {
                     // than as thirteen per-child bottom paddings.
                     VStack(spacing: HomeMetrics.sectionGap) {
                         HomeHeaderView()
-                            .padding(.top, 64)
+                            .padding(.top, 56)
 
-                        // The day in their words, then the one thing to do.
-                        HomeLifeSentenceCard()
-                        HomePrimaryCTA(action: primaryAction)
+                        HomeTodayHero(action: primaryAction)
 
                         HomeHeroReadinessCard(onCelebrate: triggerCelebration)
 
@@ -279,16 +277,17 @@ struct HomeView: View {
                 .zIndex(100)
             }
 
-            VStack {
-                Spacer()
-                HStack {
+            if !store.quietMode {
+                VStack {
                     Spacer()
-                    VoiceQuickLaunchOrb()
-                        .padding(.trailing, 24)
-                        .padding(.bottom, 108)
+                    HStack {
+                        Spacer()
+                        VoiceQuickLaunchOrb()
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 12)
+                    }
                 }
             }
-            .ignoresSafeArea()
         }
         .animation(.easeInOut(duration: 0.22), value: showHeaderBlur)
         .onChange(of: store.readiness.overall) { old, new in
@@ -383,14 +382,12 @@ struct HomeHeaderView: View {
 
     var body: some View {
         HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(dateString.uppercased())
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.textTertiary)
-                    .tracking(1.8)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(dateString)
+                    .forgeSectionLabel()
 
                 Text(greeting + (firstName.isEmpty ? "" : ", \(firstName)"))
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)
                     .accessibilityAddTraits(.isHeader)
 
@@ -400,7 +397,7 @@ struct HomeHeaderView: View {
                 )
             }
 
-            Spacer()
+            Spacer(minLength: 12)
 
             Button {
                 FDS.haptic(.light)
@@ -408,41 +405,34 @@ struct HomeHeaderView: View {
             } label: {
                 Image(systemName: store.quietMode ? "moon.fill" : "moon")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(store.quietMode ? .steel : .textTertiary)
-                    .frame(width: 40, height: 40)
-                    .background(Color.surface)
+                    .foregroundStyle(store.quietMode ? Color.steel : Color.textTertiary)
+                    .frame(width: 36, height: 36)
+                    .background(Color.white.opacity(0.05))
                     .clipShape(Circle())
-                    .overlay(Circle().stroke(Color.borderColor, lineWidth: 0.5))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(store.quietMode ? "Quiet mode on" : "Quiet mode off")
-            .padding(.trailing, 8)
 
             Button {
                 store.activeTab = .profile
             } label: {
                 ZStack(alignment: .topTrailing) {
-                    Circle()
-                        .fill(Color.surface)
-                        .frame(width: 48, height: 48)
-                        .overlay(Circle().stroke(Color.borderColor, lineWidth: 0.5))
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 19))
-                                .foregroundColor(.ember)
-                        )
-                        .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
+                    ProfileAvatarView(
+                        fileName: store.userProfile.avatarFileName,
+                        initials: String(firstName.prefix(1)).uppercased(),
+                        size: 40,
+                        showsRing: false
+                    )
 
                     if store.currentStreak > 0 {
-                        ZStack {
-                            Circle().fill(Color.ember).frame(width: 22, height: 22)
-                                .shadow(color: Color.ember.opacity(0.5), radius: 6)
-                            Image(systemName: "flame.fill")
-                                .font(.system(size: 11))
-                                .foregroundColor(.white)
-                        }
-                        .offset(x: 6, y: -6)
-                        .accessibilityLabel("\(store.currentStreak) day streak")
+                        Text("\(store.currentStreak)")
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                            .frame(width: 18, height: 18)
+                            .background(Color.ember)
+                            .clipShape(Circle())
+                            .offset(x: 5, y: -5)
+                            .accessibilityLabel("\(store.currentStreak) day streak")
                     }
                 }
             }
@@ -590,9 +580,9 @@ private struct HomeHeroReadinessCard: View {
             }
             .padding(.bottom, 20)
 
-            ReadinessRingView(score: store.readiness.overall, size: 176, strokeWidth: 14)
+            ReadinessRingView(score: store.readiness.overall, size: 112, strokeWidth: 10)
                 .frame(maxWidth: .infinity)
-                .padding(.bottom, 16)
+                .padding(.bottom, 12)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Readiness \(store.readiness.overall) out of 100, \(readinessLabel(store.readiness.overall))")
                 .onTapGesture {
@@ -676,69 +666,135 @@ enum HomeLifeSentence {
         let detail: String?
     }
 
-    static func build(store: AppStore) -> Line {
-        var parts: [String] = []
+    struct Chip: Identifiable {
+        let id: String
+        let icon: String
+        let label: String
+    }
+
+    static func chips(store: AppStore) -> [Chip] {
+        var chips: [Chip] = []
 
         let hours = store.sleepData.first?.totalHours
             ?? (store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60.0 : nil)
         if let hours {
-            parts.append(String(format: "%.1fh sleep", hours))
+            chips.append(.init(id: "sleep", icon: "moon.fill", label: String(format: "%.1fh", hours)))
         } else if !store.healthKitLive {
-            parts.append("Connect Apple Health for last night")
+            chips.append(.init(id: "sleep", icon: "moon", label: "Health off"))
         } else {
-            parts.append("Last night isn’t in Apple Health yet")
+            chips.append(.init(id: "sleep", icon: "moon", label: "No night yet"))
         }
 
         let cycle = MenstrualHealthStore.shared
         if cycle.settings.enabled, cycle.snapshot.phase != .unknown {
-            if let day = cycle.snapshot.dayInCycle {
-                parts.append("\(cycle.snapshot.phase.shortLabel) · day \(day)")
-            } else {
-                parts.append(cycle.snapshot.phase.shortLabel)
+            let label = cycle.snapshot.dayInCycle.map { "\(cycle.snapshot.phase.shortLabel) · \($0)" }
+                ?? cycle.snapshot.phase.shortLabel
+            chips.append(.init(id: "cycle", icon: cycle.snapshot.phase.icon, label: label))
+        }
+
+        let gear: String = {
+            switch store.userProfile.trainingEquipment {
+            case .commercialGym: return "Gym"
+            case .homeGym: return "Home"
+            case .bodyweight: return "No gear"
+            case .hotelGym: return "Travel"
+            case .crossfitBox: return "Box"
             }
-        }
+        }()
+        chips.append(.init(id: "gear", icon: store.userProfile.trainingEquipment.icon, label: gear))
+        return chips
+    }
 
-        parts.append(store.userProfile.trainingEquipment.rawValue)
-
-        if store.readiness.overall > 0, store.hasMeaningfulLifeSignal {
-            parts.append("readiness \(store.readiness.overall)")
-        }
-
+    static func build(store: AppStore) -> Line {
+        let text = chips(store: store).map(\.label).joined(separator: " · ")
         let detail: String?
         if let session = store.todayWorkout {
             detail = "\(session.name) · \(session.duration) min · \(session.intensity.label)"
         } else {
             detail = "Today’s session will be written from this — not a catalog."
         }
-
-        return Line(text: parts.joined(separator: " · "), detail: detail)
+        return Line(text: text, detail: detail)
     }
 }
 
-private struct HomeLifeSentenceCard: View {
+/// One card: how they live, the session it wrote, the one thing to do.
+private struct HomeTodayHero: View {
     @EnvironmentObject var store: AppStore
+    let action: HomePrimaryAction
 
     var body: some View {
         let line = HomeLifeSentence.build(store: store)
-        VStack(alignment: .leading, spacing: 8) {
-            Text("HOW YOU LIVE TODAY")
-                .forgeSectionLabel()
-            Text(line.text)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
-                .foregroundColor(.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-            if let detail = line.detail {
-                Text(detail)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Today")
+                        .forgeSectionLabel()
+
+                    HomeLifeChipRow(chips: HomeLifeSentence.chips(store: store))
+
+                    if let session = store.todayWorkout {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(session.name)
+                                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                                .foregroundColor(.textPrimary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text("\(session.duration) min · \(session.intensity.label)")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.textSecondary)
+                        }
+                    } else if let detail = line.detail {
+                        Text(detail)
+                            .font(.system(size: 15, weight: .medium, design: .rounded))
+                            .foregroundColor(.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 8)
+                if store.hasMeaningfulLifeSignal || store.readiness.overall > 0 {
+                    ReadinessRingView(
+                        score: store.readiness.overall,
+                        size: 76,
+                        strokeWidth: 7,
+                        showLabel: false
+                    )
+                    .overlay {
+                        Text("\(store.readiness.overall)")
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .foregroundColor(.textPrimary)
+                    }
+                    .accessibilityLabel("Readiness \(store.readiness.overall) out of 100")
+                }
+            }
+
+            HomePrimaryCTA(action: action)
+        }
+        .padding(HomeMetrics.cardPadding)
+        .forgeGlassCard(accent: action.isRecovery ? .steel : .ember)
+        .homeEntrance(delay: 0.06)
+    }
+}
+
+private struct HomeLifeChipRow: View {
+    let chips: [HomeLifeSentence.Chip]
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(chips) { chip in
+                    HStack(spacing: 5) {
+                        Image(systemName: chip.icon)
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(chip.label)
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundColor(.textPrimary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.white.opacity(0.06))
+                    .clipShape(Capsule())
+                }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(HomeMetrics.cardPadding)
-        .forgeGlassCard(accent: .ember)
-        .homeEntrance(delay: 0.06)
-        .accessibilityElement(children: .combine)
     }
 }
 
@@ -777,8 +833,8 @@ private struct HomePrimaryCTA: View {
                         .font(.system(size: 14, weight: .bold))
                 }
                 .foregroundColor(.white)
-                .padding(.vertical, 18)
-                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .padding(.horizontal, 18)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background {
                     ZStack {
@@ -790,15 +846,10 @@ private struct HomePrimaryCTA: View {
                         LinearGradient.premiumChrome
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
-                )
-                .shadow(
-                    color: (action.isRecovery ? Color.steel : Color.ember).opacity(pressed ? 0.22 : 0.5),
-                    radius: pressed ? 8 : 22,
-                    y: pressed ? 3 : 10
+                    RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                        .stroke(Color.white.opacity(0.16), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
@@ -2319,15 +2370,15 @@ struct VoiceQuickLaunchOrb: View {
             ZStack {
                 if !reduceMotion {
                     Circle()
-                        .fill(Color.ember.opacity(0.15))
-                        .frame(width: 80, height: 80)
-                        .scaleEffect(outerPulse ? 1.35 : 1.0)
-                        .opacity(outerPulse ? 0 : 0.8)
+                        .fill(Color.ember.opacity(0.16))
+                        .frame(width: 56, height: 56)
+                        .scaleEffect(outerPulse ? 1.22 : 1.0)
+                        .opacity(outerPulse ? 0 : 0.7)
                     Circle()
-                        .fill(Color.ember.opacity(0.25))
-                        .frame(width: 62, height: 62)
-                        .blur(radius: 12)
-                        .scaleEffect(pulse ? 1.1 : 0.95)
+                        .fill(Color.ember.opacity(0.22))
+                        .frame(width: 44, height: 44)
+                        .blur(radius: 8)
+                        .scaleEffect(pulse ? 1.08 : 0.96)
                 }
 
                 Circle()
@@ -2338,12 +2389,12 @@ struct VoiceQuickLaunchOrb: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 56, height: 56)
-                    .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
-                    .shadow(color: Color.ember.opacity(0.55), radius: 16, y: 8)
+                    .frame(width: 44, height: 44)
+                    .overlay(Circle().stroke(Color.white.opacity(0.16), lineWidth: 1))
+                    .shadow(color: Color.ember.opacity(0.4), radius: 10, y: 5)
 
                 Image(systemName: "mic.fill")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.white)
             }
             .scaleEffect(pressed ? 0.92 : (appeared ? 1.0 : 0.6))

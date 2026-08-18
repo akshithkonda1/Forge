@@ -131,19 +131,24 @@ struct LifestylePlacesView: View {
 
     private var mapPlaceholder: some View {
         ZStack {
-            Color.surfaceElevated
+            LinearGradient(
+                colors: [Color.ember.opacity(0.10), Color.surfaceElevated, Color.steel.opacity(0.08)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
             VStack(spacing: 10) {
                 Image(systemName: location.isAuthorized ? "location.viewfinder" : "location.slash")
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundColor(location.isAuthorized ? .ember : .warning)
-                Text(location.isAuthorized ? "Finding you…" : "Turn on Location")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(location.isAuthorized ? Color.ember : Color.warning)
+                    .symbolRenderingMode(.hierarchical)
+                Text(location.isAuthorized ? "Finding you" : "Turn on Location")
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)
                 Text(statusDetail)
-                    .font(.system(size: 12))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, 28)
             }
         }
     }

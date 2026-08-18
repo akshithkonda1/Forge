@@ -31,19 +31,19 @@ enum FDS {
 
     enum TypeScale {
         static func display(_ size: CGFloat = 32) -> Font {
-            .system(size: size, weight: .semibold, design: .default)
+            .system(size: size, weight: .semibold, design: .rounded)
         }
         static func title(_ size: CGFloat = 22) -> Font {
-            .system(size: size, weight: .semibold, design: .default)
+            .system(size: size, weight: .semibold, design: .rounded)
         }
         static func body(_ size: CGFloat = 15) -> Font {
             .system(size: size, weight: .regular, design: .default)
         }
         static func label(_ size: CGFloat = 12) -> Font {
-            .system(size: size, weight: .semibold, design: .default)
+            .system(size: size, weight: .semibold, design: .rounded)
         }
         static func micro(_ size: CGFloat = 10) -> Font {
-            .system(size: size, weight: .semibold, design: .default)
+            .system(size: size, weight: .semibold, design: .rounded)
         }
     }
     
