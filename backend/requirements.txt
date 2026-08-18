@@ -1,0 +1,3 @@
+# Production Lambda is stdlib + lazy boto3 (AWS runtime already has boto3).
+# Install this only for local Bedrock / Dynamo work.
+boto3>=1.34.0

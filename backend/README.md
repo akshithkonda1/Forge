@@ -1,12 +1,23 @@
 # FORGE Backend
 
-Shared AWS-backed backend for both Forge clients.
+One AWS backend for every Forge client — iPhone, Android, web. Same Cognito, same API, same ARIA, same Dynamo. The clients differ; the resources do not.
+
+```
+backend/
+  infra/          Terraform + the deployable Lambda (ARIA, routes, Bedrock)
+  ai/             Local ARIA: CLI, SimRunner, evaluation harness
+  app/            Thin app package
+  tests/          Unit tests (stdlib unittest)
+  dev_server.py   http://127.0.0.1:3001 wrapping the Lambda handler
+  requirements.txt
+  pyproject.toml
+```
+
+Production code is `backend/infra/lambda`. Terraform zips that folder. Do not grow a second handler tree.
 
 ## Implementation Plan
 
-See `IMPLEMENTATION_PLAN.md` for the backend build plan derived from the current frontend surfaces and AWS infrastructure.
-
-The important current decision: the working backend is the Python Lambda under `infra/terraform/lambda`, even though the root README still describes a future TypeScript backend folder. New backend implementation should extend the Lambda route/service modules first, then revisit runtime migration once the API is stable.
+See `IMPLEMENTATION_PLAN.md`. New routes go in `backend/infra/lambda/handler.py` and `backend/infra/lambda/routes/`.
 
 ## Implemented Routes
 

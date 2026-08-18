@@ -1,6 +1,10 @@
 # Forge Proprietary License
 ## Source-Available, All Rights Reserved
 Copyright (c) 2025-2026 Akshith Konda. All Rights Reserved.
+
+This is **not** an MIT license. This is **not** an enterprise license.
+**Fuck no, you can't copy our shit.**
+
 ---
 ## What You CAN Do:
 ✓ View the source code for educational purposes  
