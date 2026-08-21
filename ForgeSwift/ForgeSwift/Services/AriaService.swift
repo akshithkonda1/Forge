@@ -9,10 +9,10 @@ final class AriaService: ObservableObject {
 
     var baseURL: URL {
         if let saved = UserDefaults.standard.string(forKey: Self.baseURLKey),
-           let url = URL(string: saved) {
+           let url = URL(string: saved), !saved.isEmpty {
             return url
         }
-        return URL(string: "http://127.0.0.1:3001")!
+        return ForgeAuthClient.shared.config.apiBaseURL
     }
 
     private static let baseURLKey = "forge.api.baseURL"
@@ -96,6 +96,9 @@ final class AriaService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let auth = ForgeAuthClient.shared.authorizationHeader() {
+            request.setValue(auth, forHTTPHeaderField: "Authorization")
+        }
         request.httpBody = try JSONEncoder().encode(payload)
 
         let (data, response) = try await URLSession.shared.data(for: request)

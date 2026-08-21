@@ -76,6 +76,7 @@
 		1AUTH0012F9FF867004091AA /* AuthWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */; };
 		1AUTH0032F9FF867004091AA /* AuthSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0042F9FF867004091AA /* AuthSignInView.swift */; };
 		1AUTH0052F9FF867004091AA /* AuthSignUpFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */; };
+		1AUTH0072F9FF867004091AA /* ForgeAuthClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */; };
 		1CYC0012F9FF867004091AA /* CycleDataEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */; };
 		1CYC0032F9FF867004091AA /* CycleAriaAnalyst.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */; };
 		1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */; };
@@ -309,6 +310,7 @@
 		1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthWelcomeView.swift; sourceTree = "<group>"; };
 		1AUTH0042F9FF867004091AA /* AuthSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSignInView.swift; sourceTree = "<group>"; };
 		1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSignUpFlowView.swift; sourceTree = "<group>"; };
+		1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAuthClient.swift; sourceTree = "<group>"; };
 		1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleDataEvaluator.swift; sourceTree = "<group>"; };
 		1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleAriaAnalyst.swift; sourceTree = "<group>"; };
 		1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbComponents.swift; sourceTree = "<group>"; };
@@ -504,6 +506,7 @@
 				1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */,
 				1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */,
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
+				1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */,
 				AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */,
 				AA00020000000000000000B2 /* PartnerCycleSharing.swift */,
 				AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */,
@@ -1010,6 +1013,7 @@
 				1AUTH0012F9FF867004091AA /* AuthWelcomeView.swift in Sources */,
 				1AUTH0032F9FF867004091AA /* AuthSignInView.swift in Sources */,
 				1AUTH0052F9FF867004091AA /* AuthSignUpFlowView.swift in Sources */,
+				1AUTH0072F9FF867004091AA /* ForgeAuthClient.swift in Sources */,
 				AA0001000000000000000006 /* OnboardingView.swift in Sources */,
 				1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */,
 				1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */,

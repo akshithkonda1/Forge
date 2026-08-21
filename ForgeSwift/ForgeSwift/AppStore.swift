@@ -1236,11 +1236,21 @@ final class AppStore: ObservableObject {
 
     /// Rehydrates auth + completed onboarding on cold launch.
     private func restoreOnboardingState() {
-        isAuthenticated = UserDefaults.standard.bool(forKey: Self.authDefaultsKey)
-        authProvider = UserDefaults.standard.string(forKey: Self.authProviderKey) ?? ""
-        authEmail = UserDefaults.standard.string(forKey: Self.authEmailKey) ?? ""
-        // Legacy: onboarded users from before auth gate count as signed in.
-        if !isAuthenticated, UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) {
+        if let session = ForgeAuthClient.shared.session {
+            isAuthenticated = true
+            authProvider = session.provider
+            authEmail = session.email
+            AriaContextStore.shared.configure(userId: session.userId)
+        } else {
+            isAuthenticated = UserDefaults.standard.bool(forKey: Self.authDefaultsKey)
+            authProvider = UserDefaults.standard.string(forKey: Self.authProviderKey) ?? ""
+            authEmail = UserDefaults.standard.string(forKey: Self.authEmailKey) ?? ""
+        }
+        // Legacy: onboarded users from before auth gate count as signed in —
+        // but only in a debug tester build, never as a silent production login.
+        if !isAuthenticated,
+           UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey),
+           ForgeAuthClient.shared.canUseDevOverride {
             isAuthenticated = true
             authProvider = authProvider.isEmpty ? "legacy" : authProvider
         }
@@ -1259,6 +1269,17 @@ final class AppStore: ObservableObject {
         UserDefaults.standard.set("signup", forKey: Self.authProviderKey)
         isOnboarded = false
         onboardingStep = 0
+    }
+
+    func applyAuthSession(_ session: ForgeAuthSession, isNewAccount: Bool) {
+        authenticate(
+            provider: session.provider,
+            email: session.email,
+            displayName: session.displayName,
+            isNewAccount: isNewAccount
+        )
+        AriaContextStore.shared.configure(userId: session.userId)
+        WatchAriaConfigBridge.sync(firstName: session.displayName.split(separator: " ").first.map(String.init))
     }
 
     /// Completes auth for returning or new social/email users.

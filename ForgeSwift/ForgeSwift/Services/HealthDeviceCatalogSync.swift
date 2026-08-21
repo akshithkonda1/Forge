@@ -63,8 +63,8 @@ final class HealthDeviceCatalogSync: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 8
-        if let token = UserDefaults.standard.string(forKey: "forge.aria.authToken"), !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let auth = ForgeAuthClient.shared.authorizationHeader() {
+            request.setValue(auth, forHTTPHeaderField: "Authorization")
         }
         let payload = HealthDeviceCatalogPayload(devices: fresh)
         request.httpBody = try? HealthDeviceCatalog.encodePayload(payload)

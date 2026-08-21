@@ -2261,6 +2261,7 @@ extension AppStore {
     }
 
     func signOut() {
+        ForgeAuthClient.shared.signOut()
         isAuthenticated = false
         isOnboarded = false
         authProvider = ""
