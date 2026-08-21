@@ -698,6 +698,46 @@ final class MenstrualHealthStore: ObservableObject {
 
     // MARK: Partner logging (never HealthKit — the supported person is not the device owner)
 
+    // ------------------------------------------------------------
+    // MARK: Supported-person resolution
+
+    /// Which supported person a partner-side write belongs to.
+    ///
+    /// Three fallbacks, narrowest first: an explicit id when it names someone we
+    /// actually hold, then the selected person, then the only person there is.
+    /// Returning nil rather than inventing an id matters — callers create a
+    /// person on nil, and guessing here would silently attach a daughter's period
+    /// log to a partner's record.
+    private func resolvedPersonId(_ explicit: String?) -> String? {
+        if let explicit, supportedPeople.contains(where: { $0.id == explicit }) {
+            return explicit
+        }
+        if let selected = selectedPersonId, supportedPeople.contains(where: { $0.id == selected }) {
+            return selected
+        }
+        return supportedPeople.first?.id
+    }
+
+    /// Strip the fields a supporter has no business recording about someone else.
+    ///
+    /// Basal temperature, ovulation tests and cervical mucus are the fertility
+    /// tracking triad: together they predict conception windows, and they are
+    /// measurements only the person themselves can take. A supporter logging
+    /// "she started today, she's in pain" is support; a supporter accumulating a
+    /// fertility profile of another adult is surveillance, which is the line this
+    /// feature is explicitly built not to cross.
+    ///
+    /// Flow, symptoms and pain stay: they are what being useful to someone on
+    /// day two actually requires.
+    private func sanitizedPartnerLog(_ log: CycleDayLog) -> CycleDayLog {
+        var clean = log
+        clean.bbtCelsius = nil
+        clean.ovulationTest = nil
+        clean.mucus = nil
+        clean.updatedAt = Date()
+        return clean
+    }
+
     func upsertPartnerLog(_ log: CycleDayLog, personId: String? = nil) {
         let id = resolvedPersonId(personId)
         guard let id, let pidx = supportedPeople.firstIndex(where: { $0.id == id }) else {
@@ -760,8 +800,19 @@ final class MenstrualHealthStore: ObservableObject {
     /// The supported person's period is over. Closes the episode and returns the support
     /// brief from period-care coaching to everyday support on the same tap.
     @discardableResult
-    func logPartnerPeriodEnd(on dayKey: String = CycleDayKey.key(), propagate: Bool = true) -> String {
-        let episodes = MenstrualCycleEngine.buildPeriodEpisodes(from: partnerLogs)
+    func logPartnerPeriodEnd(on dayKey: String = CycleDayKey.key(),
+                             personId: String? = nil,
+                             propagate: Bool = true) -> String {
+        // Resolve who this is about before touching anything. Without this the
+        // body referenced `id`, `idx` and `person` that were never bound — the
+        // function did not compile, and neither did the app.
+        guard let id = resolvedPersonId(personId),
+              let idx = supportedPeople.firstIndex(where: { $0.id == id }) else {
+            return "No one to update yet."
+        }
+        var person = supportedPeople[idx]
+
+        let episodes = MenstrualCycleEngine.buildPeriodEpisodes(from: person.logs)
         let startKey = episodes.last?.startDayKey ?? partnerSnapshot.lastPeriodStartDayKey ?? dayKey
 
         var endLog = person.logs.first(where: { $0.dayKey == dayKey }) ?? CycleDayLog(dayKey: dayKey)
