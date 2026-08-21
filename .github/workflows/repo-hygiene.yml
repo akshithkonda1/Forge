@@ -74,3 +74,19 @@ jobs:
       # the same finding in about a second, on Linux, before merge.
       - name: Scan for redeclarations
         run: python3 scripts/check-duplicate-decls.py
+
+  usage-strings:
+    name: Permission usage strings
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # A permission-gated API without its Info.plist usage string is not a
+      # warning and not a denied permission — iOS sends SIGABRT the moment the
+      # API is touched, so the app dies on the user's first tap. Nothing in a
+      # build or a simulator run surfaces it. Three of these reached main:
+      # microphone and speech recognition behind the voice coach, and contacts
+      # behind "Find Workout Buddies".
+      - name: Check usage strings
+        run: python3 scripts/check-usage-strings.py

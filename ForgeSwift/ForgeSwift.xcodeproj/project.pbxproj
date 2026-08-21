@@ -162,6 +162,10 @@
 		F0F1000000000000000000A1 /* LifestyleTargets.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F1000000000000000000A2 /* LifestyleTargets.swift */; };
 		FWNSCHED02 /* ForgeNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FWNSCHED01 /* ForgeNotificationScheduler.swift */; };
 		FWSETED02 /* SettingsEditorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FWSETED01 /* SettingsEditorViews.swift */; };
+		AA000100000000000000F1A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F1A0 /* PrivacyInfo.xcprivacy */; };
+		AA000100000000000000F2A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F2A0 /* PrivacyInfo.xcprivacy */; };
+		AA000100000000000000F3A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */; };
+		AA000100000000000000F4A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -392,6 +396,10 @@
 		F0F1000000000000000000A2 /* LifestyleTargets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleTargets.swift; sourceTree = "<group>"; };
 		FWNSCHED01 /* ForgeNotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeNotificationScheduler.swift; sourceTree = "<group>"; };
 		FWSETED01 /* SettingsEditorViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsEditorViews.swift; sourceTree = "<group>"; };
+		AA000200000000000000F1A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		AA000200000000000000F2A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -528,6 +536,7 @@
 		AA0004000000000000000001 /* ForgeSwift */ = {
 			isa = PBXGroup;
 			children = (
+				AA000200000000000000F1A0 /* PrivacyInfo.xcprivacy */,
 				1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */,
 				AA00020000000000000000B5 /* Info-Add.plist */,
 				AA0002000000000000000001 /* ForgeSwiftApp.swift */,
@@ -603,6 +612,7 @@
 		AA00040000000000000000C1 /* ForgeMessagesExtension */ = {
 			isa = PBXGroup;
 			children = (
+				AA000200000000000000F2A0 /* PrivacyInfo.xcprivacy */,
 				AA00020000000000000000C1 /* MessagesViewController.swift */,
 				AA00020000000000000000C2 /* InviteBubble.swift */,
 				AA00020000000000000000C3 /* InviteScreens.swift */,
@@ -627,6 +637,7 @@
 		F0A100000000000000000007 /* ForgeWidgetExtension */ = {
 			isa = PBXGroup;
 			children = (
+				AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */,
 				F0F100000000000000000020 /* ForgeWidgetExtensionBundle.swift */,
 				F0F100000000000000000024 /* LifestyleWidget.swift */,
 				1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */,
@@ -645,6 +656,7 @@
 		F0A100000000000000000001 /* ForgeWatch */ = {
 			isa = PBXGroup;
 			children = (
+				AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */,
 				F0F100000000000000000001 /* ForgeWatchApp.swift */,
 				F0A100000000000000000002 /* Views */,
 				F0A100000000000000000003 /* Components */,
@@ -875,6 +887,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA000100000000000000F2A0 /* PrivacyInfo.xcprivacy in Resources */,
 				AA00010000000000000000CA /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -883,6 +896,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA000100000000000000F1A0 /* PrivacyInfo.xcprivacy in Resources */,
 				AA000100000000000000000C /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -891,6 +905,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA000100000000000000F3A0 /* PrivacyInfo.xcprivacy in Resources */,
 				F0B10000000000000000000F /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -906,6 +921,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA000100000000000000F4A0 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1299,9 +1315,12 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "Forge looks for contacts who already use Forge so you can train together. Contacts stay on this iPhone — Forge never uploads your address book.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses the microphone so you can talk to your coach and log workouts hands-free. Audio is transcribed on this iPhone and is never stored or uploaded.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Forge turns what you say into text so you can ask your coach questions and log meals and sets by voice.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -1338,9 +1357,12 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "Forge looks for contacts who already use Forge so you can train together. Contacts stay on this iPhone — Forge never uploads your address book.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses the microphone so you can talk to your coach and log workouts hands-free. Audio is transcribed on this iPhone and is never stored or uploaded.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Forge turns what you say into text so you can ask your coach questions and log meals and sets by voice.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
