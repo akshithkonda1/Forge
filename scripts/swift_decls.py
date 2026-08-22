@@ -15,7 +15,10 @@ import sys
 
 DECL = re.compile(
     r'^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*'
-    r'(?:public|internal|fileprivate|private|open|final|indirect|@objc\s+)*\s*'
+    # Each modifier consumes its own trailing space. Without that, `private final
+    # class X` matched `private` and then met `final` where it wanted `class`,
+    # so the declaration was invisible to the parser entirely.
+    r'(?:(?:public|internal|fileprivate|private|open|final|indirect|static|nonisolated|@objc)\s+)*'
     r'(?:\b(struct|class|enum|extension|protocol|func|actor|typealias|var|let)\b'
     r'|(#Preview)\b)'
 )

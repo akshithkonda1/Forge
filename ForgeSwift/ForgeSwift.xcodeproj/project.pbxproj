@@ -120,6 +120,14 @@
 		AA0001000000000000000005 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000005 /* ContentView.swift */; };
 		AA0001000000000000000006 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000006 /* OnboardingView.swift */; };
 		AA0001000000000000000007 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000007 /* HomeView.swift */; };
+		CBEEDC3EE856524D0A77DB39 /* HomeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */; };
+		DA2E7330C7F2CD27BE372197 /* HomeHeroCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */; };
+		477615BBC4667F2CD2D411F3 /* HomeARIABriefingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */; };
+		BABC54B4506AFAABCC62995B /* HomeCycleModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */; };
+		AB10DEFDAF19A3B38E122F17 /* HomeCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0381C148DB04CDCCA8B766 /* HomeCards.swift */; };
+		79F46F73D48458B779562937 /* HomeReadinessViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */; };
+		C5AAE2E6F4609C4595542DE9 /* HomeOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = 666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */; };
+		3CA296A1780DDB7EE484486E /* HomeCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9A27D1156644101FD07B5D6 /* HomeCopy.swift */; };
 		AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000A1 /* HomeAuroraBackground.swift */; };
 		AA0001000000000000000008 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000008 /* ChatView.swift */; };
 		60A29EB8CFF073B8FE95D0A3 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0EECC86FCDA945D9F0AAD58 /* ChatModels.swift */; };
@@ -412,6 +420,14 @@
 		AA0002000000000000000005 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000006 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000007 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeModels.swift; sourceTree = "<group>"; };
+		A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHeroCards.swift; sourceTree = "<group>"; };
+		220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeARIABriefingCard.swift; sourceTree = "<group>"; };
+		5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCycleModule.swift; sourceTree = "<group>"; };
+		7A0381C148DB04CDCCA8B766 /* HomeCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCards.swift; sourceTree = "<group>"; };
+		B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReadinessViews.swift; sourceTree = "<group>"; };
+		666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeOverlays.swift; sourceTree = "<group>"; };
+		A9A27D1156644101FD07B5D6 /* HomeCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCopy.swift; sourceTree = "<group>"; };
 		AA00020000000000000000A1 /* HomeAuroraBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeAuroraBackground.swift; sourceTree = "<group>"; };
 		AA0002000000000000000008 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		C0EECC86FCDA945D9F0AAD58 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
@@ -671,6 +687,14 @@
 				1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */,
 				AA0002000000000000000006 /* OnboardingView.swift */,
 				AA0002000000000000000007 /* HomeView.swift */,
+				E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */,
+				A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */,
+				220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */,
+				5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */,
+				7A0381C148DB04CDCCA8B766 /* HomeCards.swift */,
+				B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */,
+				666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */,
+				A9A27D1156644101FD07B5D6 /* HomeCopy.swift */,
 				AA00020000000000000000A1 /* HomeAuroraBackground.swift */,
 				AA0002000000000000000008 /* ChatView.swift */,
 				C0EECC86FCDA945D9F0AAD58 /* ChatModels.swift */,
@@ -1224,6 +1248,14 @@
 				4D8E544D568595AB65EBB3A4 /* RestaurantCatalog.swift in Sources */,
 				1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */,
 				AA0001000000000000000007 /* HomeView.swift in Sources */,
+				CBEEDC3EE856524D0A77DB39 /* HomeModels.swift in Sources */,
+				DA2E7330C7F2CD27BE372197 /* HomeHeroCards.swift in Sources */,
+				477615BBC4667F2CD2D411F3 /* HomeARIABriefingCard.swift in Sources */,
+				BABC54B4506AFAABCC62995B /* HomeCycleModule.swift in Sources */,
+				AB10DEFDAF19A3B38E122F17 /* HomeCards.swift in Sources */,
+				79F46F73D48458B779562937 /* HomeReadinessViews.swift in Sources */,
+				C5AAE2E6F4609C4595542DE9 /* HomeOverlays.swift in Sources */,
+				3CA296A1780DDB7EE484486E /* HomeCopy.swift in Sources */,
 				AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */,
 				AA0001000000000000000008 /* ChatView.swift in Sources */,
 				60A29EB8CFF073B8FE95D0A3 /* ChatModels.swift in Sources */,

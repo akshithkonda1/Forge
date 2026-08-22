@@ -15,6 +15,11 @@ and a file that is not in exactly one target is rejected rather than guessed at.
 Usage:
   pbxproj_files.py add <project.pbxproj> <Anchor.swift> <New.swift> [New2.swift ...]
   pbxproj_files.py remove <project.pbxproj> <Gone.swift>
+
+The anchor may be written `HomeView.swift:AA0002000000000000000007` to name one
+particular file reference. Two targets here each have a file called
+HomeView.swift — the phone app's and the watch app's — and the basename alone
+cannot say which one a new file should sit beside.
 """
 import hashlib
 import re
@@ -27,14 +32,25 @@ def lines_of(path):
 
 def find_anchor(lines, anchor):
     """The four lines that describe `anchor`, or a loud failure."""
+    name, _, wanted_ref = anchor.partition(':')
     build_def = build_use = file_def = group_use = None
+    build_ref = None
+    if wanted_ref:
+        for line in lines:
+            if wanted_ref in line and 'isa = PBXBuildFile' in line:
+                build_ref = line.split()[0].strip()
     for i, line in enumerate(lines):
-        if anchor not in line:
+        if name not in line:
+            continue
+        if wanted_ref and wanted_ref not in line and (
+                build_ref is None or build_ref not in line):
             continue
         if 'isa = PBXBuildFile' in line:
             if build_def is not None:
-                raise SystemExit(f"{anchor} has more than one PBXBuildFile — "
-                                 f"it is in several targets, so 'next to it' is ambiguous")
+                raise SystemExit(
+                    f"{name} has more than one PBXBuildFile — it exists in several "
+                    f"targets, so 'next to it' is ambiguous. Re-run with "
+                    f"{name}:<fileRefID> to say which one.")
             build_def = i
         elif 'isa = PBXFileReference' in line:
             if file_def is not None:
