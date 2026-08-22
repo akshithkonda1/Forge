@@ -111,9 +111,12 @@ def add(project, anchor, new_files):
         inserts[build_def].append(
             f'\t\t{bid} /* {base} in Sources */ = {{isa = PBXBuildFile; '
             f'fileRef = {fid} /* {base} */; }};')
+        # The path is group-relative and may carry a subdirectory — this
+        # project registers `Menstrual/MenstrualHealthView.swift` that way — so
+        # it is the name as given, not the basename, which is only for comments.
         inserts[file_def].append(
             f'\t\t{fid} /* {base} */ = {{isa = PBXFileReference; '
-            f'lastKnownFileType = sourcecode.swift; path = {plist_value(base)}; '
+            f'lastKnownFileType = sourcecode.swift; path = {plist_value(name)}; '
             f'sourceTree = "<group>"; }};')
         inserts[group_use].append(f'{anchor_indent}{fid} /* {base} */,')
         inserts[build_use].append(f'{phase_indent}{bid} /* {base} in Sources */,')
