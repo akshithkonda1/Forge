@@ -58,14 +58,6 @@ enum ForgeAPI {
         }
     }
 
-    /// Attach the current bearer token, if there is one.
-    @MainActor
-    static func authorize(_ request: inout URLRequest) {
-        if let header = ForgeAuthClient.shared.authorizationHeader() {
-            request.setValue(header, forHTTPHeaderField: "Authorization")
-        }
-    }
-
     /// Send an already-built request with authentication and one 401 recovery.
     ///
     /// On 401 the access token is refreshed once and the request retried once.
@@ -83,8 +75,15 @@ enum ForgeAPI {
     private static func send(_ original: URLRequest,
                              session: URLSession,
                              isRetry: Bool) async throws -> (Data, HTTPURLResponse) {
+        // Fetch the header across the actor boundary and apply it here, rather
+        // than mutating the request inside the closure: a captured `var` cannot
+        // be mutated from concurrently-executing code, and the inout version of
+        // this does not compile.
+        let header = await MainActor.run { ForgeAuthClient.shared.authorizationHeader() }
         var request = original
-        await MainActor.run { authorize(&request) }
+        if let header {
+            request.setValue(header, forHTTPHeaderField: "Authorization")
+        }
 
         let data: Data
         let response: URLResponse

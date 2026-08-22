@@ -133,7 +133,10 @@ final class ForgeAuthClient: ObservableObject {
             // A refresh token Cognito refuses is not a transient failure — it is
             // revoked or expired, and the only honest response is to sign out
             // rather than retry forever.
-            if case ForgeAuthError.cognitoRejected = error { signOut() }
+            if let authError = error as? ForgeAuthError,
+               case .cognitoRejected = authError {
+                signOut()
+            }
             throw error
         }
     }
