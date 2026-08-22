@@ -60,6 +60,8 @@
 		1ARIA0342F9FF867004091AA /* AriaVoiceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */; };
 		720BDCB7970B26F219A0E3A6 /* AriaVoiceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58F793F880B626970035DF6E /* AriaVoiceModels.swift */; };
 		1HCM0022F9FF867004091AA /* HomeCookedMeals.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */; };
+		591B27D73B4A288393E5A331 /* Pantry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A99FDA05F6363949CB75E8AE /* Pantry.swift */; };
+		4B4F89B0711EF41F88F47F5A /* HomeMealModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14DE5A5C804FC14866CB0A03 /* HomeMealModels.swift */; };
 		1HCV0022F9FF867004091AA /* HomeCookingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HCV0012F9FF867004091AA /* HomeCookingView.swift */; };
 		1PAS0022F9FF867004091AA /* ProfileAvatarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */; };
 		1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */; };
@@ -108,7 +110,11 @@
 		373EC9928467751C3ADEA77F /* LifestyleServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = B69CD378C6DBF59D2A7DA2C7 /* LifestyleServices.swift */; };
 		CA40F48072326848E8B6B51B /* LifestyleViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 888D3FAA001A21DC8081E395 /* LifestyleViewModel.swift */; };
 		9326D4114CB68F9AEE78E49F /* LifestyleOptimizationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B819FFADE3830A0B43832E0 /* LifestyleOptimizationView.swift */; };
+		9795D3B4BF471FCE82779AE4 /* LifestyleHealthCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40D5B929BF1BF782AA72310C /* LifestyleHealthCards.swift */; };
+		4059ED039EF1C0AA5A2FA786 /* LifestyleWorkoutCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCE3F3B3DD465EC4DC4D01CC /* LifestyleWorkoutCards.swift */; };
+		9948CA95E34A5032AA207ADD /* LifestyleAnalysisCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E4A31E82F73910B8F36B6 /* LifestyleAnalysisCards.swift */; };
 		A9D45FB931EDF266E13A5DC7 /* LifestyleNutritionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B80677C558CBB8DCE00EF823 /* LifestyleNutritionView.swift */; };
+		188620D11F4C0866F2FD6FA0 /* LifestyleRestaurantViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357B9527B62703C0646A867F /* LifestyleRestaurantViews.swift */; };
 		00101E9CDD38D96A91A97E15 /* LifestyleWellbeingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41991C47BEF8D13160298B11 /* LifestyleWellbeingView.swift */; };
 		4D8E544D568595AB65EBB3A4 /* RestaurantCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD24B87686B6EA1C5B7C9474 /* RestaurantCatalog.swift */; };
 		1EHKS0022F9FF867004091AA /* HealthKitSleepService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */; };
@@ -163,6 +169,7 @@
 		565E0329AD3B2C4B35A0B5FD /* ExerciseLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0BD14A1AF47C441759E8C6B /* ExerciseLibraryView.swift */; };
 		437A70F45A8E9682FEAB094F /* ARIADashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334AC7CA1A8022C141949A51 /* ARIADashboardView.swift */; };
 		2F6E67C778B35E7BF89A8DF8 /* ActiveWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 535E2571D03F347B1BA79733 /* ActiveWorkoutView.swift */; };
+		74312ADDADCC2DC50E97BD18 /* ActiveWorkoutPanels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D086AF80FD16F6087103C20D /* ActiveWorkoutPanels.swift */; };
 		5918512ADD7061ECA32C322F /* WorkoutSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62BA508E03891820E6B25432 /* WorkoutSummaryView.swift */; };
 		B3CDF62A58BA0D809EAF271E /* ExerciseDemonstrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0DDF55AA3A4FF0B1F67304A /* ExerciseDemonstrationView.swift */; };
 		6F942A1093A4321ED41D862F /* WorkoutViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */; };
@@ -373,6 +380,8 @@
 		1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceEngine.swift; sourceTree = "<group>"; };
 		58F793F880B626970035DF6E /* AriaVoiceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceModels.swift; sourceTree = "<group>"; };
 		1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCookedMeals.swift; sourceTree = "<group>"; };
+		A99FDA05F6363949CB75E8AE /* Pantry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pantry.swift; sourceTree = "<group>"; };
+		14DE5A5C804FC14866CB0A03 /* HomeMealModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeMealModels.swift; sourceTree = "<group>"; };
 		1HCV0012F9FF867004091AA /* HomeCookingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCookingView.swift; sourceTree = "<group>"; };
 		1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileAvatarStore.swift; sourceTree = "<group>"; };
 		1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleModels.swift; sourceTree = "<group>"; };
@@ -422,7 +431,11 @@
 		B69CD378C6DBF59D2A7DA2C7 /* LifestyleServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleServices.swift; sourceTree = "<group>"; };
 		888D3FAA001A21DC8081E395 /* LifestyleViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleViewModel.swift; sourceTree = "<group>"; };
 		6B819FFADE3830A0B43832E0 /* LifestyleOptimizationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleOptimizationView.swift; sourceTree = "<group>"; };
+		40D5B929BF1BF782AA72310C /* LifestyleHealthCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleHealthCards.swift; sourceTree = "<group>"; };
+		FCE3F3B3DD465EC4DC4D01CC /* LifestyleWorkoutCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleWorkoutCards.swift; sourceTree = "<group>"; };
+		A11E4A31E82F73910B8F36B6 /* LifestyleAnalysisCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleAnalysisCards.swift; sourceTree = "<group>"; };
 		B80677C558CBB8DCE00EF823 /* LifestyleNutritionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleNutritionView.swift; sourceTree = "<group>"; };
+		357B9527B62703C0646A867F /* LifestyleRestaurantViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleRestaurantViews.swift; sourceTree = "<group>"; };
 		41991C47BEF8D13160298B11 /* LifestyleWellbeingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleWellbeingView.swift; sourceTree = "<group>"; };
 		CD24B87686B6EA1C5B7C9474 /* RestaurantCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestaurantCatalog.swift; sourceTree = "<group>"; };
 		1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepService.swift; sourceTree = "<group>"; };
@@ -476,6 +489,7 @@
 		E0BD14A1AF47C441759E8C6B /* ExerciseLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseLibraryView.swift; sourceTree = "<group>"; };
 		334AC7CA1A8022C141949A51 /* ARIADashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARIADashboardView.swift; sourceTree = "<group>"; };
 		535E2571D03F347B1BA79733 /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
+		D086AF80FD16F6087103C20D /* ActiveWorkoutPanels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutPanels.swift; sourceTree = "<group>"; };
 		62BA508E03891820E6B25432 /* WorkoutSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSummaryView.swift; sourceTree = "<group>"; };
 		D0DDF55AA3A4FF0B1F67304A /* ExerciseDemonstrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDemonstrationView.swift; sourceTree = "<group>"; };
 		BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutViewHelpers.swift; sourceTree = "<group>"; };
@@ -640,6 +654,8 @@
 			isa = PBXGroup;
 			children = (
 				1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */,
+				A99FDA05F6363949CB75E8AE /* Pantry.swift */,
+				14DE5A5C804FC14866CB0A03 /* HomeMealModels.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -754,6 +770,7 @@
 				E0BD14A1AF47C441759E8C6B /* ExerciseLibraryView.swift */,
 				334AC7CA1A8022C141949A51 /* ARIADashboardView.swift */,
 				535E2571D03F347B1BA79733 /* ActiveWorkoutView.swift */,
+				D086AF80FD16F6087103C20D /* ActiveWorkoutPanels.swift */,
 				62BA508E03891820E6B25432 /* WorkoutSummaryView.swift */,
 				D0DDF55AA3A4FF0B1F67304A /* ExerciseDemonstrationView.swift */,
 				BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */,
@@ -785,7 +802,11 @@
 				B69CD378C6DBF59D2A7DA2C7 /* LifestyleServices.swift */,
 				888D3FAA001A21DC8081E395 /* LifestyleViewModel.swift */,
 				6B819FFADE3830A0B43832E0 /* LifestyleOptimizationView.swift */,
+				40D5B929BF1BF782AA72310C /* LifestyleHealthCards.swift */,
+				FCE3F3B3DD465EC4DC4D01CC /* LifestyleWorkoutCards.swift */,
+				A11E4A31E82F73910B8F36B6 /* LifestyleAnalysisCards.swift */,
 				B80677C558CBB8DCE00EF823 /* LifestyleNutritionView.swift */,
+				357B9527B62703C0646A867F /* LifestyleRestaurantViews.swift */,
 				41991C47BEF8D13160298B11 /* LifestyleWellbeingView.swift */,
 				CD24B87686B6EA1C5B7C9474 /* RestaurantCatalog.swift */,
 				1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */,
@@ -1253,6 +1274,8 @@
 				1ARIA0502F9FF867004091AA /* AriaPersonAdaptation.swift in Sources */,
 				1ARIA0382F9FF867004091AA /* MenstrualCycleEngine.swift in Sources */,
 				1HCM0022F9FF867004091AA /* HomeCookedMeals.swift in Sources */,
+				591B27D73B4A288393E5A331 /* Pantry.swift in Sources */,
+				4B4F89B0711EF41F88F47F5A /* HomeMealModels.swift in Sources */,
 				1HCV0022F9FF867004091AA /* HomeCookingView.swift in Sources */,
 				1PAS0022F9FF867004091AA /* ProfileAvatarStore.swift in Sources */,
 				1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */,
@@ -1293,7 +1316,11 @@
 				373EC9928467751C3ADEA77F /* LifestyleServices.swift in Sources */,
 				CA40F48072326848E8B6B51B /* LifestyleViewModel.swift in Sources */,
 				9326D4114CB68F9AEE78E49F /* LifestyleOptimizationView.swift in Sources */,
+				9795D3B4BF471FCE82779AE4 /* LifestyleHealthCards.swift in Sources */,
+				4059ED039EF1C0AA5A2FA786 /* LifestyleWorkoutCards.swift in Sources */,
+				9948CA95E34A5032AA207ADD /* LifestyleAnalysisCards.swift in Sources */,
 				A9D45FB931EDF266E13A5DC7 /* LifestyleNutritionView.swift in Sources */,
+				188620D11F4C0866F2FD6FA0 /* LifestyleRestaurantViews.swift in Sources */,
 				00101E9CDD38D96A91A97E15 /* LifestyleWellbeingView.swift in Sources */,
 				4D8E544D568595AB65EBB3A4 /* RestaurantCatalog.swift in Sources */,
 				1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */,
@@ -1333,6 +1360,7 @@
 				565E0329AD3B2C4B35A0B5FD /* ExerciseLibraryView.swift in Sources */,
 				437A70F45A8E9682FEAB094F /* ARIADashboardView.swift in Sources */,
 				2F6E67C778B35E7BF89A8DF8 /* ActiveWorkoutView.swift in Sources */,
+				74312ADDADCC2DC50E97BD18 /* ActiveWorkoutPanels.swift in Sources */,
 				5918512ADD7061ECA32C322F /* WorkoutSummaryView.swift in Sources */,
 				B3CDF62A58BA0D809EAF271E /* ExerciseDemonstrationView.swift in Sources */,
 				6F942A1093A4321ED41D862F /* WorkoutViewHelpers.swift in Sources */,
