@@ -73,6 +73,7 @@ let package = Package(
                 "PublishGateTests.swift",
                 "SecureStoreTests.swift",
                 "ForgeAuthTests.swift",
+                "CognitoRefreshTests.swift",
                 "ReadinessCalculatorTests.swift",
                 "SleepIntelligenceTests.swift",
                 "WorkoutModelsTests.swift",

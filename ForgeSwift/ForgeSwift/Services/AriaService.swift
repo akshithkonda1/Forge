@@ -6,6 +6,10 @@ final class AriaService: ObservableObject {
     static let shared = AriaService()
 
     @Published private(set) var isLocalFallback = false
+    /// Set when the backend answered with a failure the user should know about —
+    /// signed out, server error, rate limited. Nil when Forge is simply
+    /// unreachable, because that is what offline mode is already saying.
+    @Published private(set) var lastRemoteError: String?
 
     var baseURL: URL {
         if let saved = UserDefaults.standard.string(forKey: Self.baseURLKey),
@@ -49,8 +53,23 @@ final class AriaService: ObservableObject {
             mode: mode
         )
 
-        if let remote = try? await postChat(request) {
+        // Deliberately not `try?`. A transport failure means the user is
+        // offline and local generation is the best available answer; a 401 or a
+        // 500 is Forge's problem, and dressing it as a coaching reply is how it
+        // stays invisible. The two get different treatment below.
+        var remoteFailure: ForgeAPI.Failure?
+        var remoteResponse: AriaResponse?
+        do {
+            remoteResponse = try await postChat(request)
+        } catch let failure as ForgeAPI.Failure {
+            remoteFailure = failure
+        } catch {
+            remoteFailure = .transport(error)
+        }
+
+        if let remote = remoteResponse {
             isLocalFallback = false
+            lastRemoteError = nil
             if let updates = remote.contextUpdates {
                 contextStore.applyUpdates(updates)
             }
@@ -77,6 +96,13 @@ final class AriaService: ObservableObject {
             return response
         }
 
+        // Surface anything that is not "you are offline". The banner is the
+        // only thing standing between a broken deployment and a product that
+        // looks like it works.
+        lastRemoteError = (remoteFailure?.deservesOfflineFallback == false)
+            ? remoteFailure?.userMessage
+            : nil
+
         isLocalFallback = true
         return try await generateLocally(
             text: text,
@@ -96,15 +122,11 @@ final class AriaService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if let auth = ForgeAuthClient.shared.authorizationHeader() {
-            request.setValue(auth, forHTTPHeaderField: "Authorization")
-        }
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            throw AriaServiceError.badResponse
-        }
+        // ForgeAPI attaches the token, refreshes a single 401, and throws a
+        // typed failure on anything non-2xx instead of returning it.
+        let (data, _) = try await ForgeAPI.send(request)
         return try JSONDecoder().decode(AriaResponse.self, from: data)
     }
 
@@ -377,10 +399,7 @@ extension AriaService {
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try JSONEncoder().encode(request)
 
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
-        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            throw AriaServiceError.badResponse
-        }
+        let (data, _) = try await ForgeAPI.send(urlRequest)
         return try JSONDecoder().decode(ObserveResponse.self, from: data)
     }
 }

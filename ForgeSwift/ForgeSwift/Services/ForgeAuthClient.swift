@@ -79,6 +79,65 @@ final class ForgeAuthClient: ObservableObject {
         return session
     }
 
+    /// Renew the access token, once, without racing.
+    ///
+    /// Six services can hit a 401 at the same moment. Without a shared in-flight
+    /// task each would start its own refresh, and Cognito would rotate the token
+    /// out from under the others — so the first caller does the work and the rest
+    /// await the same result.
+    private var refreshTask: Task<ForgeAuthSession, Error>?
+
+    @discardableResult
+    func refreshSession() async throws -> ForgeAuthSession {
+        if let existing = refreshTask { return try await existing.value }
+
+        guard let current = session else { throw ForgeAuthError.signedOut }
+        // A tester session has no Cognito behind it; renewing is a no-op rather
+        // than an error, so DEBUG device work keeps running.
+        guard current.mode == .cognito else { return current }
+        guard let refreshToken = current.refreshToken, !refreshToken.isEmpty else {
+            signOut()
+            throw ForgeAuthError.signedOut
+        }
+
+        let task = Task<ForgeAuthSession, Error> { [config] in
+            let request = try CognitoPasswordAuth.refreshRequest(
+                region: config.cognitoRegion,
+                clientId: config.cognitoClientId,
+                refreshToken: refreshToken
+            )
+            let data: Data
+            do {
+                let (body, _) = try await URLSession.shared.data(for: request)
+                data = body
+            } catch {
+                throw ForgeAuthError.network
+            }
+            let result = try CognitoPasswordAuth.parseRefreshResponse(
+                data, email: current.email, existingRefreshToken: refreshToken
+            )
+            var renewed = current
+            renewed.accessToken = result.accessToken
+            renewed.idToken = result.idToken
+            renewed.refreshToken = result.refreshToken
+            return renewed
+        }
+        refreshTask = task
+        defer { refreshTask = nil }
+
+        do {
+            let renewed = try await task.value
+            try persist(renewed)
+            return renewed
+        } catch {
+            // A refresh token Cognito refuses is not a transient failure — it is
+            // revoked or expired, and the only honest response is to sign out
+            // rather than retry forever.
+            if case ForgeAuthError.cognitoRejected = error { signOut() }
+            throw error
+        }
+    }
+
     func signOut() {
         session = nil
         try? store.remove(Self.sessionKey)

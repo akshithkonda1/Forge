@@ -194,6 +194,68 @@ public enum CognitoPasswordAuth {
         return request
     }
 
+    /// Exchange a refresh token for a fresh access token.
+    ///
+    /// Cognito access tokens live an hour by default. Without this the app works
+    /// beautifully for sixty minutes and then 401s on every request until the
+    /// user signs in again — and because the chat path swallows failures, it
+    /// would degrade to rule-based answers rather than say anything.
+    ///
+    /// REFRESH_TOKEN_AUTH is already in `explicit_auth_flows` on the iOS client.
+    public static func refreshRequest(
+        region: String,
+        clientId: String,
+        refreshToken: String
+    ) throws -> URLRequest {
+        guard !region.isEmpty, !clientId.isEmpty else {
+            throw ForgeAuthError.cognitoNotConfigured
+        }
+        guard !refreshToken.isEmpty else {
+            throw ForgeAuthError.cognitoRejected("No refresh token stored.")
+        }
+        let url = URL(string: "https://cognito-idp.\(region).amazonaws.com/")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-amz-json-1.1", forHTTPHeaderField: "Content-Type")
+        request.setValue("AWSCognitoIdentityProviderService.InitiateAuth", forHTTPHeaderField: "X-Amz-Target")
+        let body: [String: Any] = [
+            "AuthFlow": "REFRESH_TOKEN_AUTH",
+            "ClientId": clientId,
+            "AuthParameters": ["REFRESH_TOKEN": refreshToken],
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
+    /// Parse a refresh response.
+    ///
+    /// Cognito does **not** return a refresh token here — the caller must keep
+    /// the one it already has. Treating the absent field as "signed out" is the
+    /// classic way to make refresh log everyone out on the first renewal.
+    public static func parseRefreshResponse(_ data: Data,
+                                            email: String,
+                                            existingRefreshToken: String) throws -> Result {
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+        if let type = object["__type"] as? String, type.lowercased().contains("exception") {
+            throw ForgeAuthError.cognitoRejected((object["message"] as? String) ?? "Refresh failed.")
+        }
+        guard
+            let result = object["AuthenticationResult"] as? [String: Any],
+            let access = result["AccessToken"] as? String,
+            !access.isEmpty
+        else {
+            throw ForgeAuthError.cognitoRejected("Cognito did not return a refreshed token.")
+        }
+        let idToken = result["IdToken"] as? String
+        return Result(
+            accessToken: access,
+            idToken: idToken,
+            refreshToken: result["RefreshToken"] as? String ?? existingRefreshToken,
+            userId: jwtSubject(idToken) ?? jwtSubject(access) ?? email,
+            email: email
+        )
+    }
+
     public static func parseAuthResponse(_ data: Data, email: String) throws -> Result {
         let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
         if let type = object["__type"] as? String, type.lowercased().contains("exception") {
@@ -240,4 +302,22 @@ public enum ForgeAuthError: Error, Equatable {
     case cognitoRejected(String)
     case overrideDisabled
     case network
+    /// No session, or a refresh token Cognito has revoked. Distinct from
+    /// `.network` on purpose: one means try again later, the other means the
+    /// person has to sign in, and showing the wrong one wastes their time.
+    case signedOut
+
+    public var isRecoverableByRetry: Bool {
+        self == .network
+    }
+
+    public var userMessage: String {
+        switch self {
+        case .cognitoNotConfigured: return "Sign-in isn't configured for this build."
+        case .cognitoRejected(let message): return message
+        case .overrideDisabled: return "Tester sign-in is off in this build."
+        case .network: return "Couldn't reach Forge. Check your connection and try again."
+        case .signedOut: return "Your session expired. Sign in to continue."
+        }
+    }
 }

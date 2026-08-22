@@ -111,7 +111,7 @@ final class WeeklyAriaReviewStore: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let payload: [String: Any] = ["phase": "submit", "answers": answers]
         request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
+        guard let (data, response) = try? await ForgeAPI.send(request),
               let http = response as? HTTPURLResponse,
               (200...299).contains(http.statusCode),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
