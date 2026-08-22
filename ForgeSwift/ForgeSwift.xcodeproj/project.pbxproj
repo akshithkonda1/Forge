@@ -168,6 +168,7 @@
 		AA000100000000000000F2A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F2A0 /* PrivacyInfo.xcprivacy */; };
 		AA000100000000000000F3A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */; };
 		AA000100000000000000F4A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */; };
+		1TEST01200000000000000A /* MenstrualCycleEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -198,6 +199,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = F0C100000000000000000003;
 			remoteInfo = ForgeWidgetExtension;
+		};
+		1TEST01000000000000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0008000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA0005000000000000000001;
+			remoteInfo = ForgeSwift;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -404,6 +412,8 @@
 		AA000200000000000000F2A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngineTests.swift; sourceTree = "<group>"; };
+		1TEST00700000000000000A /* ForgeSwiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForgeSwiftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -444,6 +454,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				F0B100000000000000000033 /* ForgeCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1TEST00600000000000000A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -598,6 +615,7 @@
 				F0F100000000000000000019 /* ForgeWatchWidgets.appex */,
 				F0F100000000000000000025 /* ForgeWidgetExtension.appex */,
 				AA00020000000000000000C6 /* ForgeMessagesExtension.appex */,
+				1TEST00700000000000000A /* ForgeSwiftTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -606,6 +624,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0004000000000000000001 /* ForgeSwift */,
+				1TEST00800000000000000A /* ForgeSwiftTests */,
 				F0F100000000000000000017 /* ForgeCore */,
 				F0A100000000000000000001 /* ForgeWatch */,
 				F0A100000000000000000006 /* LiveActivities */,
@@ -729,6 +748,14 @@
 			path = Complications;
 			sourceTree = "<group>";
 		};
+		1TEST00800000000000000A /* ForgeSwiftTests */ = {
+			isa = PBXGroup;
+			children = (
+				1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */,
+			);
+			path = ForgeSwiftTests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -839,6 +866,23 @@
 			productReference = F0F100000000000000000025 /* ForgeWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		1TEST00100000000000000A /* ForgeSwiftTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1TEST00200000000000000A /* Build configuration list for PBXNativeTarget "ForgeSwiftTests" */;
+			buildPhases = (
+				1TEST00500000000000000A /* Sources */,
+				1TEST00600000000000000A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1TEST00900000000000000A /* PBXTargetDependency */,
+			);
+			name = ForgeSwiftTests;
+			productName = ForgeSwiftTests;
+			productReference = 1TEST00700000000000000A /* ForgeSwiftTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -884,6 +928,7 @@
 				F0C100000000000000000002 /* ForgeWatchWidgets */,
 				F0C100000000000000000003 /* ForgeWidgetExtension */,
 				AA00050000000000000000C1 /* ForgeMessagesExtension */,
+				1TEST00100000000000000A /* ForgeSwiftTests */,
 			);
 		};
 /* End PBXProject section */
@@ -1102,6 +1147,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1TEST00500000000000000A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1TEST01200000000000000A /* MenstrualCycleEngineTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1124,6 +1177,11 @@
 			isa = PBXTargetDependency;
 			target = F0C100000000000000000003 /* ForgeWidgetExtension */;
 			targetProxy = F0C200000000000000000003 /* PBXContainerItemProxy */;
+		};
+		1TEST00900000000000000A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA0005000000000000000001 /* ForgeSwift */;
+			targetProxy = 1TEST01000000000000000A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1571,6 +1629,42 @@
 			};
 			name = Release;
 		};
+		1TEST00300000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwiftTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ForgeSwift.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ForgeSwift";
+			};
+			name = Debug;
+		};
+		1TEST00400000000000000A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwiftTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ForgeSwift.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ForgeSwift";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1627,6 +1721,15 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
+		};
+		1TEST00200000000000000A /* Build configuration list for PBXNativeTarget "ForgeSwiftTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1TEST00300000000000000A /* Debug */,
+				1TEST00400000000000000A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 
