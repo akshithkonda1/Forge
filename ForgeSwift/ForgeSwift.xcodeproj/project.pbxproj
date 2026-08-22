@@ -74,6 +74,12 @@
 		AA00010000000000000000B1 /* PartnerCycleDigest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B1 /* PartnerCycleDigest.swift */; };
 		1ARIA0382F9FF867004091AA /* MenstrualCycleEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */; };
 		1ARIA0402F9FF867004091AA /* MenstrualHealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */; };
+		D934D774E172A472C0F0C5A7 /* MenstrualHealthStore+Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A2FA6248D60CFB4E51D86A5 /* MenstrualHealthStore+Settings.swift */; };
+		A3BB7D321D20160411219B2F /* MenstrualHealthStore+Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EFA08123DB0AE20DDDE4F39 /* MenstrualHealthStore+Logging.swift */; };
+		9FC77F8DED25E37614408497 /* MenstrualHealthStore+People.swift in Sources */ = {isa = PBXBuildFile; fileRef = 024834B6BA4A2216068B15E3 /* MenstrualHealthStore+People.swift */; };
+		C67DE6F26D785828F5BC1D6D /* MenstrualHealthStore+Recompute.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E36C3CF6A30436812D6CA6 /* MenstrualHealthStore+Recompute.swift */; };
+		DFAD02CD6941A035C6C01983 /* MenstrualHealthStore+HealthKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30B047292ADD42FD4B118B6 /* MenstrualHealthStore+HealthKit.swift */; };
+		A2C5EDADB407191EC019770C /* MenstrualHealthStore+Aria.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41A17320AF2DF34E1036CFD6 /* MenstrualHealthStore+Aria.swift */; };
 		1ARIA0422F9FF867004091AA /* Menstrual/MenstrualHealthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */; };
 		1ARIA0442F9FF867004091AA /* PartnerSupportCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0452F9FF867004091AA /* PartnerSupportCoach.swift */; };
 		1ARIA0462F9FF867004091AA /* AriaRelationalCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0472F9FF867004091AA /* AriaRelationalCoach.swift */; };
@@ -403,6 +409,12 @@
 		AA00020000000000000000B1 /* PartnerCycleDigest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleDigest.swift; sourceTree = "<group>"; };
 		1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngine.swift; sourceTree = "<group>"; };
 		1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualHealthStore.swift; sourceTree = "<group>"; };
+		6A2FA6248D60CFB4E51D86A5 /* MenstrualHealthStore+Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenstrualHealthStore+Settings.swift"; sourceTree = "<group>"; };
+		7EFA08123DB0AE20DDDE4F39 /* MenstrualHealthStore+Logging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenstrualHealthStore+Logging.swift"; sourceTree = "<group>"; };
+		024834B6BA4A2216068B15E3 /* MenstrualHealthStore+People.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenstrualHealthStore+People.swift"; sourceTree = "<group>"; };
+		F1E36C3CF6A30436812D6CA6 /* MenstrualHealthStore+Recompute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenstrualHealthStore+Recompute.swift"; sourceTree = "<group>"; };
+		F30B047292ADD42FD4B118B6 /* MenstrualHealthStore+HealthKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenstrualHealthStore+HealthKit.swift"; sourceTree = "<group>"; };
+		41A17320AF2DF34E1036CFD6 /* MenstrualHealthStore+Aria.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenstrualHealthStore+Aria.swift"; sourceTree = "<group>"; };
 		1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Menstrual/MenstrualHealthView.swift; sourceTree = "<group>"; };
 		1ARIA0452F9FF867004091AA /* PartnerSupportCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerSupportCoach.swift; sourceTree = "<group>"; };
 		1ARIA0472F9FF867004091AA /* AriaRelationalCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaRelationalCoach.swift; sourceTree = "<group>"; };
@@ -719,6 +731,12 @@
 				1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */,
 				58F793F880B626970035DF6E /* AriaVoiceModels.swift */,
 				1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */,
+				6A2FA6248D60CFB4E51D86A5 /* MenstrualHealthStore+Settings.swift */,
+				7EFA08123DB0AE20DDDE4F39 /* MenstrualHealthStore+Logging.swift */,
+				024834B6BA4A2216068B15E3 /* MenstrualHealthStore+People.swift */,
+				F1E36C3CF6A30436812D6CA6 /* MenstrualHealthStore+Recompute.swift */,
+				F30B047292ADD42FD4B118B6 /* MenstrualHealthStore+HealthKit.swift */,
+				41A17320AF2DF34E1036CFD6 /* MenstrualHealthStore+Aria.swift */,
 				1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */,
 				1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */,
 				1ARIA0452F9FF867004091AA /* PartnerSupportCoach.swift */,
@@ -1291,6 +1309,12 @@
 				1ARIA0422F9FF867004091AA /* Menstrual/MenstrualHealthView.swift in Sources */,
 				1E44AFC830182A1F00D1C14D /* PeriodEndFeedbackView.swift in Sources */,
 				1ARIA0402F9FF867004091AA /* MenstrualHealthStore.swift in Sources */,
+				D934D774E172A472C0F0C5A7 /* MenstrualHealthStore+Settings.swift in Sources */,
+				A3BB7D321D20160411219B2F /* MenstrualHealthStore+Logging.swift in Sources */,
+				9FC77F8DED25E37614408497 /* MenstrualHealthStore+People.swift in Sources */,
+				C67DE6F26D785828F5BC1D6D /* MenstrualHealthStore+Recompute.swift in Sources */,
+				DFAD02CD6941A035C6C01983 /* MenstrualHealthStore+HealthKit.swift in Sources */,
+				A2C5EDADB407191EC019770C /* MenstrualHealthStore+Aria.swift in Sources */,
 				1CYC0012F9FF867004091AA /* CycleDataEvaluator.swift in Sources */,
 				1CYC0032F9FF867004091AA /* CycleAriaAnalyst.swift in Sources */,
 				1ARIA0442F9FF867004091AA /* PartnerSupportCoach.swift in Sources */,

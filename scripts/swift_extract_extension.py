@@ -130,6 +130,11 @@ def main():
     for m in members:
         if not m['private']:
             continue
+        # `init`, `deinit` and `subscript` are not referenced by those names, so
+        # matching on them just flags every member that happens to write
+        # `SomeOtherType.init(...)`.
+        if m['kind'] in ('init', 'deinit', 'subscript'):
+            continue
         owner = home.get(id(m))          # None means "stays in the type body"
         for other in members:
             if other is m or home.get(id(other)) == owner:
