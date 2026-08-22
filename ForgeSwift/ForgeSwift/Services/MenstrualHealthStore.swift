@@ -12,16 +12,16 @@ import ForgeCore
 final class MenstrualHealthStore: ObservableObject {
     static let shared = MenstrualHealthStore()
 
-    @Published private(set) var settings: MenstrualTrackingSettings
-    @Published private(set) var logs: [CycleDayLog]
-    @Published private(set) var snapshot: MenstrualCycleSnapshot
+    @Published var settings: MenstrualTrackingSettings
+    @Published var logs: [CycleDayLog]
+    @Published var snapshot: MenstrualCycleSnapshot
 
     /// Every person this user supports. First-class — partner and daughter
     /// are separate rows, not a costume on one slot.
-    @Published private(set) var supportedPeople: [SupportedPerson]
-    @Published private(set) var selectedPersonId: String?
-    @Published private(set) var personSnapshots: [String: MenstrualCycleSnapshot]
-    @Published private(set) var personBriefs: [String: PartnerSupportBrief]
+    @Published var supportedPeople: [SupportedPerson]
+    @Published var selectedPersonId: String?
+    @Published var personSnapshots: [String: MenstrualCycleSnapshot]
+    @Published var personBriefs: [String: PartnerSupportBrief]
 
     /// Selected person, mirrored so existing UI and ARIA call sites keep working.
     @Published private(set) var partnerSettings: PartnerCycleSettings
@@ -29,22 +29,22 @@ final class MenstrualHealthStore: ObservableObject {
     @Published private(set) var partnerSnapshot: MenstrualCycleSnapshot
     @Published private(set) var partnerSupportBrief: PartnerSupportBrief?
 
-    @Published private(set) var lastSyncAt: Date?
-    @Published private(set) var isSyncing = false
-    @Published private(set) var accuracyReport: CycleAccuracyReport = .empty
-    @Published private(set) var predictionFeedback: [CyclePredictionFeedback] = []
+    @Published var lastSyncAt: Date?
+    @Published var isSyncing = false
+    @Published var accuracyReport: CycleAccuracyReport = .empty
+    @Published var predictionFeedback: [CyclePredictionFeedback] = []
     /// Frozen forecasts scored on actual starts (honest MAE).
-    @Published private(set) var forecastArchive: [CycleForecastRecord] = []
-    @Published private(set) var lastEvaluation: CycleDataEvaluation = .empty
-    @Published private(set) var lastAriaBrief: CycleAriaAnalyst.Brief?
-    @Published private(set) var lastTeachingMessage: String?
+    @Published var forecastArchive: [CycleForecastRecord] = []
+    @Published var lastEvaluation: CycleDataEvaluation = .empty
+    @Published var lastAriaBrief: CycleAriaAnalyst.Brief?
+    @Published var lastTeachingMessage: String?
     /// Last live next-period median we advertised (cache; archive is source of truth).
-    @Published private(set) var lastAdvertisedNextPeriodMedian: String?
+    @Published var lastAdvertisedNextPeriodMedian: String?
     /// Short toast after model auto-corrects (cleared by UI).
     @Published var lastModelUpdateMessage: String?
     /// Period-end feedback history + continuously learned coaching preferences.
-    @Published private(set) var periodEndFeedbacks: [PeriodEndFeedback] = []
-    @Published private(set) var coachingPreferences: PeriodCoachingPreferences = .neutral
+    @Published var periodEndFeedbacks: [PeriodEndFeedback] = []
+    @Published var coachingPreferences: PeriodCoachingPreferences = .neutral
     /// Pending episode metadata after logPeriodEnd — UI presents feedback sheet.
     @Published var pendingPeriodEndEpisode: PeriodEpisode?
     /// True when the user's biological sex makes the cycle surface relevant, so the UI

@@ -44,6 +44,9 @@ final class AppStore: ObservableObject {
     @Published var chatMessages: [ChatMessage] = []
     @Published var isGeneratingResponse: Bool = false
 
+    /// Durable memory anchors (goals, injuries, standing insights) — not full history.
+    @Published var durableMemoryAnchors: [String] = []
+
     // Chat momentum — lives here (not in the view) so XP and level survive
     // relaunches and stay consistent with the rest of the ARIA context.
     @Published var chatXP: Int = UserDefaults.standard.integer(forKey: AppStore.chatXPKey) {

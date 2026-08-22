@@ -20,9 +20,6 @@ extension AppStore {
     /// Cap for durable memory anchors persisted independently of the transcript.
     private static let maxDurableAnchors = 12
 
-    /// Durable memory anchors (goals, injuries, standing insights) — not full history.
-    @Published private(set) var durableMemoryAnchors: [String] = []
-
     var chatXPProgress: Double { Double(chatXP % Self.xpPerChatLevel) / Double(Self.xpPerChatLevel) }
 
     var chatXPToNextLevel: Int { Self.xpPerChatLevel - (chatXP % Self.xpPerChatLevel) }

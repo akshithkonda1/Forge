@@ -286,12 +286,12 @@ class HealthKitManager: ObservableObject {
     @Published var cycleSummary: CycleHealthSummary?
     @Published var clinicalSummary: ClinicalRecordsSummary?
     
-    @Published private(set) var loggedMeals: [MealLog] = []
+    @Published var loggedMeals: [MealLog] = []
     /// Today's dietary-water samples, newest first. HealthKit is the ledger —
     /// Forge-authored drinks and Watch/other-app drinks live in the same list.
-    @Published private(set) var todayWaterLogs: [WaterLog] = []
-    @Published private(set) var weeklyWaterMilliliters: [DailyWaterTotal] = []
-    @Published private(set) var todayWaterMilliliters: Double = 0
+    @Published var todayWaterLogs: [WaterLog] = []
+    @Published var weeklyWaterMilliliters: [DailyWaterTotal] = []
+    @Published var todayWaterMilliliters: Double = 0
 
     private var observerQueries: [HKObserverQuery] = []
     private var liveRefreshTask: Task<Void, Never>?

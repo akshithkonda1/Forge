@@ -75,6 +75,22 @@ jobs:
       - name: Scan for redeclarations
         run: python3 scripts/check-duplicate-decls.py
 
+  extension-access:
+    name: Access across extension splits
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # Splitting a class into Type.swift + Type+Concern.swift changes what
+      # `private` means: from "this type" to "this file". A private member read
+      # from a sibling stops resolving, and a `private(set)` property assigned
+      # from a sibling reads fine and fails only on the write — which is not
+      # something a diff shows you. Both have already cost a macOS CI round
+      # trip on this branch.
+      - name: Scan for file-scoped access across a split type
+        run: python3 scripts/check-extension-access.py ForgeSwift
+
   usage-strings:
     name: Permission usage strings
     runs-on: ubuntu-latest

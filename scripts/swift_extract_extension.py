@@ -26,11 +26,45 @@ import os
 import re
 import sys
 
+# `private(set)` has to be in here. Without it, `@Published private(set) var
+# durableMemoryAnchors` was not recognised as the start of a member, so its lines
+# were absorbed into the member above it and travelled into an extension — where
+# a stored property is not legal Swift at all.
 MEMBER = re.compile(
     r'^\s{1,8}(?:@[\w.]+(?:\([^)]*\))?\s*)*'
-    r'((?:public |internal |fileprivate |private |static |class |final |lazy |'
-    r'weak |unowned |mutating |nonisolated |override |convenience |required )*)'
+    r'((?:(?:public|internal|fileprivate|private|open)(?:\(set\))?\s+|'
+    r'static\s+|class\s+|final\s+|lazy\s+|weak\s+|unowned\s+|mutating\s+|'
+    r'nonisolated\s+|override\s+|convenience\s+|required\s+|dynamic\s+)*)'
     r'(func|var|let|init|subscript|deinit)\b\s*\(?\s*([A-Za-z_][A-Za-z0-9_]*)?')
+
+STORED_AT_SCOPE = re.compile(
+    r'^\s*(?:@[\w.]+(?:\([^)]*\))?\s*)*'
+    r'(?:(?:public|internal|fileprivate|private|open)(?:\(set\))?\s+|final\s+|'
+    r'lazy\s+|weak\s+|unowned\s+|nonisolated\s+)*'
+    r'(static\s+)?(?:var|let)\s+\w+')
+PROPERTY_WRAPPER = re.compile(
+    r'@(Published|AppStorage|State|StateObject|ObservedObject|EnvironmentObject|Environment)\b')
+
+
+def stored_properties_at_top_level(text):
+    """Stored instance properties sitting directly inside the emitted extension.
+
+    Checked by brace depth rather than indentation: a `var` eight spaces in is
+    usually a local inside a method body, and reading those as declarations
+    turns one real error into forty false ones.
+    """
+    found, depth = [], 0
+    for n, line in enumerate(text.split('\n'), 1):
+        code = re.sub(r'//.*|"(?:[^"\\]|\\.)*"', '', line)
+        if depth == 1:
+            m = STORED_AT_SCOPE.match(line)
+            if m and not m.group(1) and (PROPERTY_WRAPPER.search(line)
+                                         or '=' in line.split('{')[0]):
+                found.append((n, line.strip()))
+        depth += (code.count('{') - code.count('}')
+                  + code.count('(') - code.count(')')
+                  + code.count('[') - code.count(']'))
+    return found
 
 
 def members_of(path, typename):
@@ -139,12 +173,22 @@ def main():
         for other in members:
             if other is m or home.get(id(other)) == owner:
                 continue
-            if re.search(r'\b' + re.escape(m['name']) + r'\b', other['body']):
+            if setter_only:
+                hit = re.search(
+                    r'(?<![.\w])' + re.escape(m['name'])
+                    + r'\s*(?:\??\.\w+)*\s*(?:\[[^\]]*\])?\s*[-+*/]?=(?!=)'
+                    r'|(?<![.\w])' + re.escape(m['name'])
+                    + r'\s*\.\s*(?:append|insert|remove|removeAll|sort|merge)\b',
+                    other['body'])
+                verb = 'has a private setter but is assigned by'
+            else:
+                hit = re.search(r'\b' + re.escape(m['name']) + r'\b', other['body'])
+                verb = 'is private but is used by'
+            if hit:
                 where = home.get(id(other)) or f"{os.path.basename(path)} (the type body)"
                 problems.append(
-                    f"{m['name']} is private in "
-                    f"{owner or os.path.basename(path) + ' (the type body)'} "
-                    f"but used by {other['name']} in {where}")
+                    f"{m['name']} {verb} {other['name']} in {where} "
+                    f"(declared in {owner or os.path.basename(path) + ' (the type body)'})")
     if problems:
         raise SystemExit("cannot move these as asked:\n  " + "\n  ".join(sorted(set(problems))))
 
@@ -163,8 +207,16 @@ def main():
         chunks.sort(key=lambda m: m['start'])
         body = '\n\n'.join(m['body'] for m in chunks)
         target = os.path.join(os.path.dirname(path), filename)
+        content = f"{header}\n\nextension {typename} {{\n\n{body}\n}}\n"
+        # Last line of defence: whatever the member scan believed, a stored
+        # instance property in the emitted file will not compile.
+        strays = stored_properties_at_top_level(content)
+        if strays:
+            raise SystemExit(
+                f"{filename} would contain stored instance properties:\n  " +
+                "\n  ".join(f"line {n}: {t}" for n, t in strays))
         with open(target, 'w', encoding='utf-8') as fh:
-            fh.write(f"{header}\n\nextension {typename} {{\n\n{body}\n}}\n")
+            fh.write(content)
         print(f"  wrote {target} ({body.count(chr(10)) + 4} lines, {len(chunks)} members)")
     print(f"  {path} keeps {len(members) - len(moved)} members")
 
