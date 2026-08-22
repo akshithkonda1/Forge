@@ -106,7 +106,10 @@ def declarations(path):
         if before != 0:
             continue
         text = lines[i]
-        if not seen_code and (text.startswith('import ') or text.startswith('@_exported')):
+        # `@preconcurrency import AVFoundation` and `@_exported import X` are
+        # imports; matching only a leading `import` left them to be mistaken for
+        # the first declaration's attributes.
+        if not seen_code and re.match(r'^\s*(?:@[\w.]+\s+)*import\s+\w+', text):
             header_end = i + 1
             continue
         if DECL.match(text) and not text.lstrip().startswith('//'):

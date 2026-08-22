@@ -123,6 +123,18 @@
 		AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000A1 /* HomeAuroraBackground.swift */; };
 		AA0001000000000000000008 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000008 /* ChatView.swift */; };
 		AA0001000000000000000009 /* WorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000009 /* WorkoutView.swift */; };
+		1AB79BAC8BDB10BD5B60057F /* ExerciseCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4019A65454265EF4A2A51FD /* ExerciseCatalog.swift */; };
+		8AEE13A27BA4358BC5A5BCF0 /* WorkoutAdaptiveEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20B310891020D005C57A095 /* WorkoutAdaptiveEngine.swift */; };
+		914DE5BA081FF82C5D0F7E2E /* ARIACoachService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C814AC395880FAADE3F39C53 /* ARIACoachService.swift */; };
+		9A83B2C708843E036DC608DB /* FormCameraController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8C8AB624A6954BF6789B457 /* FormCameraController.swift */; };
+		A17305D9EAE3309E453B3BB6 /* WorkoutSessionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 322A57B8F4B49977C7A231B2 /* WorkoutSessionModels.swift */; };
+		F26321CE0CE8690ED4FE9D71 /* MusicControlBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAA60D0695137233AF6992B0 /* MusicControlBar.swift */; };
+		565E0329AD3B2C4B35A0B5FD /* ExerciseLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0BD14A1AF47C441759E8C6B /* ExerciseLibraryView.swift */; };
+		437A70F45A8E9682FEAB094F /* ARIADashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334AC7CA1A8022C141949A51 /* ARIADashboardView.swift */; };
+		2F6E67C778B35E7BF89A8DF8 /* ActiveWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 535E2571D03F347B1BA79733 /* ActiveWorkoutView.swift */; };
+		5918512ADD7061ECA32C322F /* WorkoutSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62BA508E03891820E6B25432 /* WorkoutSummaryView.swift */; };
+		B3CDF62A58BA0D809EAF271E /* ExerciseDemonstrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0DDF55AA3A4FF0B1F67304A /* ExerciseDemonstrationView.swift */; };
+		6F942A1093A4321ED41D862F /* WorkoutViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */; };
 		AA000100000000000000000A /* SleepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000A /* SleepView.swift */; };
 		AA000100000000000000000B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000B /* ProfileView.swift */; };
 		AA000100000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000C /* Assets.xcassets */; };
@@ -373,6 +385,18 @@
 		AA00020000000000000000A1 /* HomeAuroraBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeAuroraBackground.swift; sourceTree = "<group>"; };
 		AA0002000000000000000008 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000009 /* WorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutView.swift; sourceTree = "<group>"; };
+		F4019A65454265EF4A2A51FD /* ExerciseCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCatalog.swift; sourceTree = "<group>"; };
+		C20B310891020D005C57A095 /* WorkoutAdaptiveEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutAdaptiveEngine.swift; sourceTree = "<group>"; };
+		C814AC395880FAADE3F39C53 /* ARIACoachService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARIACoachService.swift; sourceTree = "<group>"; };
+		A8C8AB624A6954BF6789B457 /* FormCameraController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormCameraController.swift; sourceTree = "<group>"; };
+		322A57B8F4B49977C7A231B2 /* WorkoutSessionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionModels.swift; sourceTree = "<group>"; };
+		FAA60D0695137233AF6992B0 /* MusicControlBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicControlBar.swift; sourceTree = "<group>"; };
+		E0BD14A1AF47C441759E8C6B /* ExerciseLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseLibraryView.swift; sourceTree = "<group>"; };
+		334AC7CA1A8022C141949A51 /* ARIADashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARIADashboardView.swift; sourceTree = "<group>"; };
+		535E2571D03F347B1BA79733 /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
+		62BA508E03891820E6B25432 /* WorkoutSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSummaryView.swift; sourceTree = "<group>"; };
+		D0DDF55AA3A4FF0B1F67304A /* ExerciseDemonstrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDemonstrationView.swift; sourceTree = "<group>"; };
+		BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutViewHelpers.swift; sourceTree = "<group>"; };
 		AA000200000000000000000A /* SleepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepView.swift; sourceTree = "<group>"; };
 		AA000200000000000000000B /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		AA000200000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -590,6 +614,18 @@
 				AA00020000000000000000A1 /* HomeAuroraBackground.swift */,
 				AA0002000000000000000008 /* ChatView.swift */,
 				AA0002000000000000000009 /* WorkoutView.swift */,
+				F4019A65454265EF4A2A51FD /* ExerciseCatalog.swift */,
+				C20B310891020D005C57A095 /* WorkoutAdaptiveEngine.swift */,
+				C814AC395880FAADE3F39C53 /* ARIACoachService.swift */,
+				A8C8AB624A6954BF6789B457 /* FormCameraController.swift */,
+				322A57B8F4B49977C7A231B2 /* WorkoutSessionModels.swift */,
+				FAA60D0695137233AF6992B0 /* MusicControlBar.swift */,
+				E0BD14A1AF47C441759E8C6B /* ExerciseLibraryView.swift */,
+				334AC7CA1A8022C141949A51 /* ARIADashboardView.swift */,
+				535E2571D03F347B1BA79733 /* ActiveWorkoutView.swift */,
+				62BA508E03891820E6B25432 /* WorkoutSummaryView.swift */,
+				D0DDF55AA3A4FF0B1F67304A /* ExerciseDemonstrationView.swift */,
+				BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */,
 				AA000200000000000000000A /* SleepView.swift */,
 				AA000200000000000000000B /* ProfileView.swift */,
 				AA000200000000000000000C /* Assets.xcassets */,
@@ -1104,6 +1140,18 @@
 				1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator.swift in Sources */,
 				1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */,
 				AA0001000000000000000009 /* WorkoutView.swift in Sources */,
+				1AB79BAC8BDB10BD5B60057F /* ExerciseCatalog.swift in Sources */,
+				8AEE13A27BA4358BC5A5BCF0 /* WorkoutAdaptiveEngine.swift in Sources */,
+				914DE5BA081FF82C5D0F7E2E /* ARIACoachService.swift in Sources */,
+				9A83B2C708843E036DC608DB /* FormCameraController.swift in Sources */,
+				A17305D9EAE3309E453B3BB6 /* WorkoutSessionModels.swift in Sources */,
+				F26321CE0CE8690ED4FE9D71 /* MusicControlBar.swift in Sources */,
+				565E0329AD3B2C4B35A0B5FD /* ExerciseLibraryView.swift in Sources */,
+				437A70F45A8E9682FEAB094F /* ARIADashboardView.swift in Sources */,
+				2F6E67C778B35E7BF89A8DF8 /* ActiveWorkoutView.swift in Sources */,
+				5918512ADD7061ECA32C322F /* WorkoutSummaryView.swift in Sources */,
+				B3CDF62A58BA0D809EAF271E /* ExerciseDemonstrationView.swift in Sources */,
+				6F942A1093A4321ED41D862F /* WorkoutViewHelpers.swift in Sources */,
 				AA000100000000000000000A /* SleepView.swift in Sources */,
 				AA000100000000000000000B /* ProfileView.swift in Sources */,
 				F0F1000000000000000000A1 /* LifestyleTargets.swift in Sources */,

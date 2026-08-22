@@ -50,38 +50,55 @@ IMPORT_MARKERS = {
     'CryptoKit': r'\b(SHA256|SymmetricKey|CryptoKit|HMAC|Insecure)\b',
     'CoreMotion': r'\b(CM[A-Z]\w+|CoreMotion)\b',
     'AppIntents': r'\b(AppIntent|AppShortcut|AppIntents|EntityQuery)\b',
-    'Charts_': None,
+    'MediaPlayer': r'\b(MP[A-Z]\w+|MediaPlayer)\b',
+    'Combine': r'\b(Published|ObservableObject|AnyCancellable|PassthroughSubject|CurrentValueSubject|Publisher|ObservableObjectPublisher|objectWillChange)\b|\.sink|\.store\(in:',
 }
+
+# `@preconcurrency import AVFoundation` is an import too. Matching only on a
+# leading `import` copied it into all thirteen files, including the nine with
+# no audio or capture in them.
+IMPORT_LINE = re.compile(r'^\s*(?:@[\w.]+\s+)*import\s+(\w+)')
 
 SUBSTANTIVE = re.compile(r'^\s*(//|/\*|\*|$)')
 
 
 MEMBER = re.compile(
-    r'^\s{1,8}(?:@\w+\s+)*(?:public |internal |fileprivate |private |static |class |final |mutating |nonisolated )*'
+    r'^\s*(?:@\w+(?:\([^)]*\))?\s+)*'
+    r'(?:public |internal |fileprivate |private |static |class |final |mutating |nonisolated |lazy |override )*'
     r'(?:func|var|let|subscript)\s+([A-Za-z_][A-Za-z0-9_]*)')
-INIT_LABEL = re.compile(r'^\s{1,8}(?:@\w+\s+)*(?:\w+ )*init\??\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*:')
+INIT_LABEL = re.compile(
+    r'^\s*(?:@\w+\s+)*(?:\w+ )*init\??\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*:')
 
 
 def scoped_symbols(decl, lines):
     """The names that stop resolving if this declaration moves files.
 
-    For a type, that is the type's own name. For an `extension` it is not:
-    the extension's name *is* the type it extends, which every ordinary user of
-    that type mentions, so checking it would flag every reference to a perfectly
+    For a type, that is the type's own name. For an `extension` it is not: the
+    extension's name *is* the type it extends, which every ordinary user of that
+    type mentions, so checking it would flag every reference to a perfectly
     internal enum. What `private extension` actually confines is its members —
     so those are what get checked, and an `init` is addressed by its first
-    argument label, which is how a call to it is recognisable in the first place.
+    argument label, which is how a call to it is recognisable at all.
+
+    Members are found by brace depth rather than by indentation. Indentation
+    looked equivalent and was not: `let scale` and `let target` inside a method
+    body are indented like members, and reading them as members flagged eleven
+    references to two local variables.
     """
     if decl['kind'] != 'extension':
         return [decl['name']]
     names = []
+    depth = 0
     for line in lines[decl['start']:decl['end'] + 1]:
-        m = MEMBER.match(line)
-        if m:
-            names.append(m.group(1))
-        m = INIT_LABEL.match(line)
-        if m:
-            names.append(m.group(1))
+        code = re.sub(r'//.*|"(?:[^"\\]|\\.)*"', '', line)
+        if depth == 1:
+            m = MEMBER.match(line)
+            if m:
+                names.append(m.group(1))
+            m = INIT_LABEL.match(line)
+            if m:
+                names.append(m.group(1))
+        depth += code.count('{') - code.count('}')
     return names
 
 
@@ -166,10 +183,12 @@ def split(source_path, plan):
                 claimed.add(i)
             pieces.append('\n'.join(lines[start:end + 1]))
         body = '\n\n'.join(pieces)
-        keep = [h for h in header
-                if not h.startswith('import ')
-                or IMPORT_MARKERS.get(h.split()[-1]) is None
-                or re.search(IMPORT_MARKERS[h.split()[-1]], body)]
+        keep = []
+        for h in header:
+            m = IMPORT_LINE.match(h)
+            marker = IMPORT_MARKERS.get(m.group(1)) if m else None
+            if marker is None or re.search(marker, body):
+                keep.append(h)
         written[filename] = '\n'.join(keep).rstrip('\n') + '\n\n' + body.rstrip('\n') + '\n'
 
     # --- Verify -------------------------------------------------------------
