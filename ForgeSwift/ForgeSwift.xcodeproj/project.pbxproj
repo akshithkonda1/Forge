@@ -137,6 +137,18 @@
 		6F942A1093A4321ED41D862F /* WorkoutViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */; };
 		AA000100000000000000000A /* SleepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000A /* SleepView.swift */; };
 		AA000100000000000000000B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000B /* ProfileView.swift */; };
+		95AE5FF2D55FC04CECA87263 /* ProgressPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125597C26056DBE7682E5451 /* ProgressPageView.swift */; };
+		1933FBEC0A8E8D9D78CE7609 /* WorkoutHistoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */; };
+		F75B54F9794C1DECC9240724 /* SettingsPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DBF3F5B4E943D90A01FB398 /* SettingsPageView.swift */; };
+		651B4E5D41EE26C57D1E169E /* ForgeAboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */; };
+		BCC7261848DBE6001B2DBC5C /* ClinicalDataNonPHIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */; };
+		AA6AB39BF736B5FD37746022 /* ProfileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9638727829C4D00A83E2F4 /* ProfileModels.swift */; };
+		B82A3D64CC815A754DC8A65D /* AppStore+Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = D455F77E6B09ACDEEB1CA89D /* AppStore+Profile.swift */; };
+		195FDA7D73290864DD73F5BC /* ProfileComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE4FFBC45D6BDF5B687D9C9 /* ProfileComponents.swift */; };
+		A3C80D30240B535E8A7F9FC3 /* ProgressStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEBE942BCDEAA018906AEF5A /* ProgressStatsView.swift */; };
+		3CDFEAC2734D2F45D94565CB /* ProfileEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A34CBCE5BC782847437A33A /* ProfileEditorView.swift */; };
+		FABCB777FF39597DE2CB2523 /* CoachingStylePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BE5A2F4F6EEFE45674113B2 /* CoachingStylePickerView.swift */; };
+		0AF23A887EDD96C00F754936 /* DataPermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB90BFB6F1FEB4F1ADCB75B7 /* DataPermissionsView.swift */; };
 		AA000100000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000C /* Assets.xcassets */; };
 		F0B100000000000000000001 /* ForgeWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000001 /* ForgeWatchApp.swift */; };
 		F0B100000000000000000002 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000002 /* HomeView.swift */; };
@@ -399,6 +411,18 @@
 		BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutViewHelpers.swift; sourceTree = "<group>"; };
 		AA000200000000000000000A /* SleepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepView.swift; sourceTree = "<group>"; };
 		AA000200000000000000000B /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		125597C26056DBE7682E5451 /* ProgressPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressPageView.swift; sourceTree = "<group>"; };
+		23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryListView.swift; sourceTree = "<group>"; };
+		3DBF3F5B4E943D90A01FB398 /* SettingsPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPageView.swift; sourceTree = "<group>"; };
+		6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAboutView.swift; sourceTree = "<group>"; };
+		3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClinicalDataNonPHIView.swift; sourceTree = "<group>"; };
+		BB9638727829C4D00A83E2F4 /* ProfileModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileModels.swift; sourceTree = "<group>"; };
+		D455F77E6B09ACDEEB1CA89D /* AppStore+Profile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore+Profile.swift; sourceTree = "<group>"; };
+		5FE4FFBC45D6BDF5B687D9C9 /* ProfileComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileComponents.swift; sourceTree = "<group>"; };
+		AEBE942BCDEAA018906AEF5A /* ProgressStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressStatsView.swift; sourceTree = "<group>"; };
+		3A34CBCE5BC782847437A33A /* ProfileEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileEditorView.swift; sourceTree = "<group>"; };
+		5BE5A2F4F6EEFE45674113B2 /* CoachingStylePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingStylePickerView.swift; sourceTree = "<group>"; };
+		DB90BFB6F1FEB4F1ADCB75B7 /* DataPermissionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPermissionsView.swift; sourceTree = "<group>"; };
 		AA000200000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA000200000000000000000D /* ForgeSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForgeSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0F100000000000000000001 /* ForgeWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWatchApp.swift; sourceTree = "<group>"; };
@@ -628,6 +652,18 @@
 				BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */,
 				AA000200000000000000000A /* SleepView.swift */,
 				AA000200000000000000000B /* ProfileView.swift */,
+				125597C26056DBE7682E5451 /* ProgressPageView.swift */,
+				23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */,
+				3DBF3F5B4E943D90A01FB398 /* SettingsPageView.swift */,
+				6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */,
+				3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */,
+				BB9638727829C4D00A83E2F4 /* ProfileModels.swift */,
+				D455F77E6B09ACDEEB1CA89D /* AppStore+Profile.swift */,
+				5FE4FFBC45D6BDF5B687D9C9 /* ProfileComponents.swift */,
+				AEBE942BCDEAA018906AEF5A /* ProgressStatsView.swift */,
+				3A34CBCE5BC782847437A33A /* ProfileEditorView.swift */,
+				5BE5A2F4F6EEFE45674113B2 /* CoachingStylePickerView.swift */,
+				DB90BFB6F1FEB4F1ADCB75B7 /* DataPermissionsView.swift */,
 				AA000200000000000000000C /* Assets.xcassets */,
 				1ED842E22F90C15300693D3E /* LifestyleView.swift */,
 				74D9E1B3713556C9528D8A07 /* LifestyleModels.swift */,
@@ -1154,6 +1190,18 @@
 				6F942A1093A4321ED41D862F /* WorkoutViewHelpers.swift in Sources */,
 				AA000100000000000000000A /* SleepView.swift in Sources */,
 				AA000100000000000000000B /* ProfileView.swift in Sources */,
+				95AE5FF2D55FC04CECA87263 /* ProgressPageView.swift in Sources */,
+				1933FBEC0A8E8D9D78CE7609 /* WorkoutHistoryListView.swift in Sources */,
+				F75B54F9794C1DECC9240724 /* SettingsPageView.swift in Sources */,
+				651B4E5D41EE26C57D1E169E /* ForgeAboutView.swift in Sources */,
+				BCC7261848DBE6001B2DBC5C /* ClinicalDataNonPHIView.swift in Sources */,
+				AA6AB39BF736B5FD37746022 /* ProfileModels.swift in Sources */,
+				B82A3D64CC815A754DC8A65D /* AppStore+Profile.swift in Sources */,
+				195FDA7D73290864DD73F5BC /* ProfileComponents.swift in Sources */,
+				A3C80D30240B535E8A7F9FC3 /* ProgressStatsView.swift in Sources */,
+				3CDFEAC2734D2F45D94565CB /* ProfileEditorView.swift in Sources */,
+				FABCB777FF39597DE2CB2523 /* CoachingStylePickerView.swift in Sources */,
+				0AF23A887EDD96C00F754936 /* DataPermissionsView.swift in Sources */,
 				F0F1000000000000000000A1 /* LifestyleTargets.swift in Sources */,
 				FWSETED02 /* SettingsEditorViews.swift in Sources */,
 				FWNSCHED02 /* ForgeNotificationScheduler.swift in Sources */,
