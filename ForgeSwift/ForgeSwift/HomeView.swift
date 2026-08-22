@@ -665,6 +665,12 @@ private struct HomeHeroReadinessCard: View {
 // MARK: - Life sentence
 // ============================================================
 
+/// Reads `AppStore` and `MenstrualHealthStore.shared`, both of which are
+/// `@MainActor`, so this is too. Without the annotation the two static functions
+/// below are nonisolated and every property access is an error — eleven of them.
+/// Both call sites are already on the main actor (a `View` body and a Button
+/// action), so nothing at the call sites changes.
+@MainActor
 enum HomeLifeSentence {
     struct Line {
         let text: String
