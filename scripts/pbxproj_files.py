@@ -71,6 +71,16 @@ def find_anchor(lines, anchor):
     return build_def, file_def, build_use, group_use
 
 
+# Xcode leaves a value unquoted only when it is alphanumerics, `_` and `.`;
+# anything else it quotes. `AppStore+Profile.swift` written bare made Xcode
+# call the whole project damaged and refuse to open it, with every ID correct.
+BARE = re.compile(r"[A-Za-z0-9_.]+")
+
+
+def plist_value(text):
+    return text if BARE.fullmatch(text) else f'"{text}"'
+
+
 def make_id(seed, taken):
     """A stable 24-character identifier that is not already in the project."""
     for salt in range(1000):
@@ -100,7 +110,8 @@ def add(project, anchor, new_files):
             f'fileRef = {fid} /* {base} */; }};')
         inserts[file_def].append(
             f'\t\t{fid} /* {base} */ = {{isa = PBXFileReference; '
-            f'lastKnownFileType = sourcecode.swift; path = {base}; sourceTree = "<group>"; }};')
+            f'lastKnownFileType = sourcecode.swift; path = {plist_value(base)}; '
+            f'sourceTree = "<group>"; }};')
         inserts[group_use].append(f'{anchor_indent}{fid} /* {base} */,')
         inserts[build_use].append(f'{phase_indent}{bid} /* {base} in Sources */,')
 
