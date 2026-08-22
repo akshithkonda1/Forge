@@ -1,5 +1,6 @@
 import SwiftUI
 import AuthenticationServices
+import ForgeCore
 
 // MARK: - Sign In (returning athletes)
 
@@ -126,6 +127,23 @@ struct AuthSignInView: View {
                         .buttonStyle(AuthPressButtonStyle())
                         .disabled(!canSubmit || isBusy)
 
+                        if ForgeAuthClient.shared.canUseDevOverride {
+                            Button {
+                                continueAsTester()
+                            } label: {
+                                Text("Continue as tester")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(.steel)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                                    .background(Color.steel.opacity(0.12))
+                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isBusy)
+                            .accessibilityHint("Debug-only local account. Never ships in Release.")
+                        }
+
                         Text("New here? Close and tap Start forging on the welcome screen.")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.textTertiary)
@@ -147,7 +165,7 @@ struct AuthSignInView: View {
     }
 
     private var canSubmit: Bool {
-        email.contains("@") && password.count >= 6
+        email.contains("@") && password.count >= 8
     }
 
     private func field(
@@ -200,34 +218,46 @@ struct AuthSignInView: View {
     }
 
     private func completeSocialSignIn(provider: String, displayName: String) {
+        errorMessage = ForgeAuthClient.shared.canUseDevOverride
+            ? "\(provider.capitalized) isn’t wired. Use Continue as tester on this debug build."
+            : "\(provider.capitalized) sign-in isn’t connected yet. Use email, or a debug tester account."
+    }
+
+    private func continueAsTester() {
         isBusy = true
         errorMessage = nil
-        // isNewAccount: true when this device has no completed onboarding record.
-        // TODO: replace placeholder email with real OAuth identity once OAuth ships.
-        let isNew = !UserDefaults.standard.bool(forKey: "forge.onboarding.completed")
-        store.authenticate(
-            provider: provider,
-            email: "\(provider)@forge.local",
-            displayName: displayName,
-            isNewAccount: isNew
-        )
+        do {
+            let session = try ForgeAuthClient.shared.continueAsTester()
+            let isNew = !UserDefaults.standard.bool(forKey: "forge.onboarding.completed")
+            store.applyAuthSession(session, isNewAccount: isNew)
+            dismiss()
+        } catch {
+            errorMessage = "Tester account is off. It only exists in debug builds pointed at a dev API."
+        }
         isBusy = false
-        dismiss()
     }
 
     private func submitEmail() {
         guard canSubmit else { return }
         isBusy = true
         errorMessage = nil
-        let local = email.split(separator: "@").first.map(String.init) ?? "Athlete"
-        let isNew = !UserDefaults.standard.bool(forKey: "forge.onboarding.completed")
-        store.authenticate(
-            provider: "email",
-            email: email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-            displayName: local.capitalized,
-            isNewAccount: isNew
-        )
-        isBusy = false
-        dismiss()
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        Task {
+            do {
+                let session = try await ForgeAuthClient.shared.signIn(email: trimmed, password: password)
+                let isNew = !UserDefaults.standard.bool(forKey: "forge.onboarding.completed")
+                store.applyAuthSession(session, isNewAccount: isNew)
+                dismiss()
+            } catch ForgeAuthError.cognitoNotConfigured {
+                errorMessage = ForgeAuthClient.shared.canUseDevOverride
+                    ? "Cognito isn’t configured. Use Continue as tester."
+                    : "Sign-in isn’t configured for this build."
+            } catch ForgeAuthError.cognitoRejected(let message) {
+                errorMessage = message
+            } catch {
+                errorMessage = "Couldn’t reach the sign-in service."
+            }
+            isBusy = false
+        }
     }
 }

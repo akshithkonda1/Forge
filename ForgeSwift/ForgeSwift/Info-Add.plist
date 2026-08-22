@@ -14,6 +14,19 @@
 	<key>CKSharingSupported</key>
 	<true/>
 
+	<!-- Filled by infra output / generate_client_config. Empty is valid: debug
+	     builds use the tester account; Release refuses to fake a user. -->
+	<key>FORGEAPIBaseURL</key>
+	<string>http://127.0.0.1:3001</string>
+	<key>FORGECognitoRegion</key>
+	<string></string>
+	<key>FORGECognitoClientId</key>
+	<string></string>
+	<key>FORGECognitoUserPoolId</key>
+	<string></string>
+	<key>FORGEEnvironment</key>
+	<string>dev</string>
+
 	<!-- Used by the Messages extension to hand off to the app: forge://cycle/sharing
 	     opens the sharing screen, which is where consent and revocation live. -->
 	<key>CFBundleURLTypes</key>

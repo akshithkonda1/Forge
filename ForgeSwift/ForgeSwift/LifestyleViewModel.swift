@@ -1,0 +1,462 @@
+import SwiftUI
+import Combine
+import ForgeCore
+
+@MainActor
+final class LifestyleViewModel: ObservableObject {
+    @Published private(set) var metrics: LifestyleMetrics = .default
+    @Published private(set) var recommendations: [AIRecommendation] = []
+    @Published private(set) var isLoading = false
+    @Published var error: LifestyleError?
+    
+    // Real-time health data
+    @Published var healthStats: DailyHealthStats?
+    @Published var weeklyTrends: [WeeklyHealthTrend] = []
+    @Published var mindfulTrend: [MindfulDay] = []
+    @Published var qolHistory: [QOLDay] = []
+    @Published var aiWorkouts: [AIWorkoutSuggestion] = []
+    @Published var loggedMeals: [MealLog] = []
+    @Published var mindfulMinutesToday: Int = 0
+    @Published var mindfulMinutesWeek: Int = 0
+
+    // Live ARIA insights — overlay real Claude/Bedrock reasoning onto the cards.
+    // When nil, the cards render their existing local heuristic content (fallback).
+    @Published var aiLifeAnalysis: String?
+    @Published var aiNutritionInsight: String?
+    @Published var aiBestPicksNote: String?
+    @Published var aiMealNote: String?
+    @Published var aiInsightsLive = false      // true when the last refresh came from the remote engine
+    @Published var aiInsightsLoading = false
+
+    private let healthManager = HealthKitManager.shared
+    private let workoutManager = WorkoutPlanManager()
+    private let notificationManager = SmartNotificationManager.shared
+    static let shared = LifestyleViewModel()
+
+    private var lastLoadAt: Date?
+    private var remindersArmed = false
+    private var lastInsightAt: Date?
+    private var lastInsightKey: String?
+    private static let loadTTL: TimeInterval = 90
+    private static let insightTTL: TimeInterval = 15 * 60
+
+    init() {}
+
+    func load(force: Bool = false) async {
+        guard !isLoading else { return }
+        if !force,
+           let last = lastLoadAt,
+           Date().timeIntervalSince(last) < Self.loadTTL,
+           healthStats != nil {
+            applyCachedHealth()
+            return
+        }
+        isLoading = true
+        defer { isLoading = false }
+        error = nil
+
+        // Apple Health and notifications are optional. A denied prompt must not
+        // blank the whole Lifestyle tab — that was the "unusable" bug.
+        // Don't re-prompt on every tab tap.
+        if !healthManager.isAuthorized {
+            _ = try? await healthManager.requestAuthorization()
+        }
+
+        await healthManager.fetchTodayStats(force: force)
+        healthStats = healthManager.todayStats
+        loggedMeals = healthManager.loggedMeals
+
+        metrics = (try? await fetchMetrics()) ?? .default
+        recommendations = (try? await fetchRecommendations()) ?? []
+        qolHistory = LifestyleWellbeingStore.recordQOL(metrics.qualityOfLifeScore)
+        lastLoadAt = Date()
+
+        if !remindersArmed {
+            remindersArmed = true
+            await scheduleSmartReminders()
+        }
+        syncAriaContext()
+    }
+
+    func refresh() async { await load(force: true) }
+
+    /// Trends and mindful minutes — only when Wellbeing is on screen.
+    func loadWellbeingExtrasIfNeeded() async {
+        if weeklyTrends.isEmpty {
+            await healthManager.fetchWeeklyTrends()
+            weeklyTrends = healthManager.weeklyTrends
+        }
+        if mindfulTrend.isEmpty {
+            await healthManager.fetchMindfulTrend()
+            mindfulTrend = healthManager.mindfulTrend
+        }
+        if mindfulMinutesToday == 0 && mindfulMinutesWeek == 0 {
+            let now = Date()
+            let startOfDay = Calendar.current.startOfDay(for: now)
+            let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? startOfDay
+            async let today = healthManager.fetchMindfulMinutes(from: startOfDay, to: now)
+            async let week = healthManager.fetchMindfulMinutes(from: weekAgo, to: now)
+            mindfulMinutesToday = Int(await today)
+            mindfulMinutesWeek = Int(await week)
+        }
+    }
+
+    /// Workout cards — only when AI Optimize is on screen.
+    func loadWorkoutsIfNeeded() async {
+        guard aiWorkouts.isEmpty else { return }
+        aiWorkouts = await generateAIWorkouts(from: healthStats)
+    }
+
+    private func applyCachedHealth() {
+        if healthStats == nil { healthStats = healthManager.todayStats }
+        if loggedMeals.isEmpty { loggedMeals = healthManager.loggedMeals }
+        if weeklyTrends.isEmpty { weeklyTrends = healthManager.weeklyTrends }
+        if mindfulTrend.isEmpty { mindfulTrend = healthManager.mindfulTrend }
+    }
+
+    func syncAriaContext() {
+        AriaContextStore.shared.syncLifestyleSignals(
+            metrics: metrics,
+            stats: healthStats,
+            recommendations: recommendations,
+            loggedMeals: loggedMeals
+        )
+        LifestyleWidgetBridge.update(metrics: metrics, recommendations: recommendations)
+    }
+
+    /// Overlay ARIA onto the cards. Default is local + cache. Network is
+    /// opt-in (insights sheet or pull-to-refresh) so opening Lifestyle
+    /// does not fire two Bedrock rounds.
+    func refreshAIInsights(store: AppStore, allowNetwork: Bool = false) async {
+        guard !aiInsightsLoading else { return }
+        if aiLifeAnalysis == nil {
+            aiLifeAnalysis = localLifestyleSummary()
+        }
+        guard allowNetwork else { return }
+
+        let key = insightCacheKey
+        if let lastInsightAt,
+           lastInsightKey == key,
+           Date().timeIntervalSince(lastInsightAt) < Self.insightTTL {
+            return
+        }
+
+        aiInsightsLoading = true
+        defer { aiInsightsLoading = false }
+
+        syncAriaContext()
+        // One short insight, not two sequential chat rounds.
+        let analysisResp = await store.ariaInsight(prompt: lifestyleAnalysisPrompt())
+        if let prose = analysisResp.map({ $0.proseSummary ?? $0.message }) {
+            aiLifeAnalysis = prose
+        }
+        aiInsightsLive = !AriaService.shared.isLocalFallback && analysisResp != nil
+        lastInsightAt = Date()
+        lastInsightKey = key
+    }
+
+    private var insightCacheKey: String {
+        "\(metrics.qualityOfLifeScore)|\(metrics.dailySteps)|\(Int(healthStats?.protein ?? 0))|\(metrics.stressLevel.rawValue)"
+    }
+
+    private func localLifestyleSummary() -> String {
+        let qol = metrics.qualityOfLifeScore
+        if qol >= 80 {
+            return "Today looks solid — keep the same small habits. Sleep, water, and a walk will compound."
+        }
+        if metrics.stressLevel == .high || (healthStats?.hrv ?? 100) < 40 {
+            return "Recovery is asking for less today. One easy win: water, a short walk, or an earlier night."
+        }
+        if metrics.sleepAverage < 7 {
+            return "Sleep is the highest-leverage change right now. Protect bedtime — everything else gets easier."
+        }
+        return "One small change today beats a perfect plan. Pick water, a walk, or protein at the next meal."
+    }
+
+    private func lifestyleAnalysisPrompt() -> String {
+        let s = healthStats
+        return """
+        Analyze my lifestyle today in 2-3 sentences. QOL \(metrics.qualityOfLifeScore)/100, \
+        sleep \(String(format: "%.1f", metrics.sleepAverage))h, \(metrics.dailySteps) steps, \
+        stress \(metrics.stressLevel.rawValue), protein \(Int(s?.protein ?? 0))g, HRV \(Int(s?.hrv ?? 0))ms. \
+        What is the single highest-impact change I should make right now?
+        """
+    }
+
+    private func nutritionCoachPrompt() -> String {
+        let s = healthStats
+        return """
+        Coach my nutrition in 2-3 sentences. Today: \(Int(s?.protein ?? 0))g protein (target 180), \
+        \(s?.totalCalories ?? 0) kcal (target 2600), \(Int(s?.water ?? 0)) glasses water today. \
+        Give one specific, actionable tip for my next meal.
+        """
+    }
+
+    /// Lazy ARIA coaching note for the restaurant "Best Picks" — fired only when the
+    /// Restaurants tab appears. Leaves the note nil (heuristic-only) on failure.
+    func refreshBestPicksNote(store: AppStore) async {
+        let gap = max(0, Int(180 - (healthStats?.protein ?? 0)))
+        let kcalLeft = max(0, 2600 - (healthStats?.totalCalories ?? 0))
+        let prompt = """
+        I'm picking a restaurant meal. I have about \(gap)g protein and \(kcalLeft) kcal left today. \
+        In 1-2 sentences, what should I prioritize ordering to close my protein gap without \
+        overshooting calories?
+        """
+        let resp = await store.ariaInsight(prompt: prompt)
+        aiBestPicksNote = resp.map { $0.proseSummary ?? $0.message }
+    }
+
+    /// Lazy ARIA dish suggestion for the Nutrition tab's meal-suggestions card.
+    /// Distinct from the macro coach tip; nil → heuristic rows only.
+    func refreshMealNote(store: AppStore) async {
+        let gap = max(0, Int(180 - (healthStats?.protein ?? 0)))
+        let kcalLeft = max(0, 2600 - (healthStats?.totalCalories ?? 0))
+        let prompt = """
+        Suggest one specific dish or meal to eat next, in a single sentence, to help me close \
+        a \(gap)g protein gap within \(kcalLeft) kcal remaining today.
+        """
+        let resp = await store.ariaInsight(prompt: prompt)
+        aiMealNote = resp.map { $0.proseSummary ?? $0.message }
+    }
+
+    func logMeal(name: String, calories: Double, protein: Double, carbs: Double, fat: Double) async {
+        let meal = MealLog(name: name, calories: calories, protein: protein, carbs: carbs, fat: fat)
+        try? await healthManager.logMeal(meal)
+        await refresh()
+    }
+    
+    func logWater(glasses: Int) async {
+        try? await healthManager.logWater(
+            milliliters: HydrationEngine.milliliters(fromGlasses: Double(glasses))
+        )
+        await refresh()
+    }
+    
+    func logMindfulSession(minutes: Int) async {
+        try? await healthManager.logMindfulSession(minutes: Double(minutes))
+        await refresh()
+    }
+
+    private func generateAIWorkouts(from stats: DailyHealthStats?) async -> [AIWorkoutSuggestion] {
+        var suggestions: [AIWorkoutSuggestion] = []
+        
+        if let hrv = stats?.hrv, hrv < 30 {
+            let recoveryWorkout = await workoutManager.generateAIWorkout(
+                goals: [.mobility],
+                equipment: [.bodyweight, .bands],
+                duration: 30
+            )
+            suggestions.append(AIWorkoutSuggestion(
+                title: "Active Recovery",
+                reason: "HRV is low (\(Int(hrv))ms) — prioritize mobility and light movement",
+                workout: recoveryWorkout
+            ))
+        } else {
+            let strengthWorkout = await workoutManager.generateAIWorkout(
+                goals: [.strength, .hypertrophy],
+                equipment: [.barbell, .dumbbells],
+                duration: 60
+            )
+            suggestions.append(AIWorkoutSuggestion(
+                title: "Strength Focus",
+                reason: "Recovery metrics are solid — time to push hard",
+                workout: strengthWorkout
+            ))
+        }
+        
+        if let stats, stats.steps < 6000 {
+            let cardioWorkout = await workoutManager.generateAIWorkout(
+                goals: [.endurance],
+                equipment: [.bodyweight],
+                duration: 30
+            )
+            suggestions.append(AIWorkoutSuggestion(
+                title: "HIIT Cardio",
+                reason: "Only \(stats.steps) steps today — let's boost activity",
+                workout: cardioWorkout
+            ))
+        }
+        
+        return suggestions
+    }
+    
+    private func scheduleSmartReminders() async {
+        // Hydration reminder every 2 hours
+        await notificationManager.scheduleHydrationReminder(every: 2)
+        
+        // Meal reminders
+        var lunch = DateComponents()
+        lunch.hour = 12
+        lunch.minute = 0
+        await notificationManager.scheduleMealReminder(time: lunch, mealType: "Lunch")
+        
+        var dinner = DateComponents()
+        dinner.hour = 18
+        dinner.minute = 30
+        await notificationManager.scheduleMealReminder(time: dinner, mealType: "Dinner")
+        
+        // Sleep reminder
+        var bedtime = DateComponents()
+        bedtime.hour = 22
+        bedtime.minute = 0
+        await notificationManager.scheduleSleepReminder(bedtime: bedtime)
+    }
+
+    private func fetchMetrics() async throws -> LifestyleMetrics {
+        guard let stats = healthStats else {
+            return .default
+        }
+        
+        let sleepQuality = Int((stats.sleepHours / 8.0) * 100)
+        let nutritionScore = calculateNutritionScore(stats: stats)
+        let physicalHealth = calculatePhysicalHealth(stats: stats)
+        let mentalWellbeing = calculateMentalWellbeing(stats: stats)
+        let energyLevels = calculateEnergyLevels(stats: stats)
+        
+        let qol = (sleepQuality + nutritionScore + physicalHealth + mentalWellbeing + energyLevels) / 5
+        
+        return LifestyleMetrics(
+            sleepAverage: stats.sleepHours,
+            sleepTarget: 8.0,
+            nutritionQuality: Double(nutritionScore) / 100.0,
+            dailySteps: stats.steps,
+            stressLevel: stats.hrv < 30 ? .high : stats.hrv < 50 ? .medium : .low,
+            qualityOfLifeScore: qol,
+            physicalHealth: physicalHealth,
+            mentalWellbeing: mentalWellbeing,
+            energyLevels: energyLevels,
+            sleepQuality: sleepQuality,
+            nutritionScore: nutritionScore
+        )
+    }
+    
+    private func calculateNutritionScore(stats: DailyHealthStats) -> Int {
+        var score = 0
+        
+        // Protein (target 180g)
+        let proteinScore = min(Int((stats.protein / 180.0) * 100), 100)
+        score += proteinScore
+        
+        // Calorie balance (target 2600)
+        let calorieScore = stats.totalCalories > 0 ? min(Int((Double(stats.totalCalories) / 2600.0) * 100), 100) : 50
+        score += calorieScore
+        
+        // Hydration against a mass-derived need, not a fixed eight glasses.
+        let need = max(1, HydrationEngine.glasses(
+            fromMilliliters: HydrationEngine.targetMilliliters(weightKilograms: nil)
+        ))
+        let hydrationScore = min(Int((stats.water / need) * 100), 100)
+        score += hydrationScore
+        
+        return score / 3
+    }
+    
+    private func calculatePhysicalHealth(stats: DailyHealthStats) -> Int {
+        var score = 0
+        
+        // Steps (target 10000)
+        let stepScore = min(Int((Double(stats.steps) / 10000.0) * 100), 100)
+        score += stepScore
+        
+        // Active calories (target 600)
+        let calorieScore = min(Int((Double(stats.activeCalories) / 600.0) * 100), 100)
+        score += calorieScore
+        
+        // Resting HR (lower is better, 60 is optimal)
+        let hrScore = stats.restingHeartRate > 0 ? max(100 - Int((stats.restingHeartRate - 60) * 2), 0) : 70
+        score += hrScore
+        
+        return score / 3
+    }
+    
+    private func calculateMentalWellbeing(stats: DailyHealthStats) -> Int {
+        var score = 70 // Base score
+        
+        // HRV (higher is better, 50+ is good)
+        if stats.hrv > 0 {
+            score = min(Int(stats.hrv * 1.5), 100)
+        }
+        
+        // Sleep quality bonus
+        if stats.sleepHours >= 7.5 {
+            score = min(score + 10, 100)
+        }
+        
+        return score
+    }
+    
+    private func calculateEnergyLevels(stats: DailyHealthStats) -> Int {
+        var score = 0
+        
+        // Sleep impact (40% weight)
+        let sleepScore = Int((stats.sleepHours / 8.0) * 100)
+        score += Int(Double(sleepScore) * 0.4)
+        
+        // Nutrition impact (30% weight)
+        let nutritionScore = calculateNutritionScore(stats: stats)
+        score += Int(Double(nutritionScore) * 0.3)
+        
+        // Activity impact (30% weight)
+        let activityScore = min(Int((Double(stats.steps) / 10000.0) * 100), 100)
+        score += Int(Double(activityScore) * 0.3)
+        
+        return min(score, 100)
+    }
+
+    private func fetchRecommendations() async throws -> [AIRecommendation] {
+        var recommendations: [AIRecommendation] = []
+        
+        // Generate personalized recommendations based on real data
+        if let stats = healthStats {
+            // Protein recommendation
+            if stats.protein < 150 {
+                let deficit = Int(180 - stats.protein)
+                recommendations.append(AIRecommendation(
+                    title: "Increase protein by \(deficit)g",
+                    description: "You've consumed \(Int(stats.protein))g today. Add \(deficit)g to hit your 180g target — try Greek yogurt or chicken.",
+                    impact: .high,
+                    category: .nutrition
+                ))
+            }
+            
+            // Sleep recommendation
+            if stats.sleepHours < 7.5 {
+                let deficit = 8.0 - stats.sleepHours
+                recommendations.append(AIRecommendation(
+                    title: "Add \(String(format: "%.1f", deficit)) hours of sleep",
+                    description: "Last night: \(String(format: "%.1f", stats.sleepHours))h. Deep sleep improves by 18% when you hit 8 hours.",
+                    impact: .high,
+                    category: .sleep
+                ))
+            }
+            
+            // HRV/Recovery recommendation
+            if stats.hrv < 40 {
+                recommendations.append(AIRecommendation(
+                    title: "Priority: Recovery",
+                    description: "HRV is \(Int(stats.hrv))ms (low). Consider mobility work, meditation, or a rest day.",
+                    impact: .high,
+                    category: .wellbeing
+                ))
+            }
+            
+            // Steps recommendation
+            if stats.steps < 8000 {
+                let deficit = 10000 - stats.steps
+                recommendations.append(AIRecommendation(
+                    title: "Boost movement by \(deficit.formatted()) steps",
+                    description: "Currently at \(stats.steps.formatted()) steps. A 15-min walk adds ~2,000 steps.",
+                    impact: .medium,
+                    category: .fitness
+                ))
+            }
+        }
+        
+        // Add baseline recommendations if none generated
+        if recommendations.isEmpty {
+            return AIRecommendation.sampleRecommendations
+        }
+        
+        return recommendations
+    }
+}

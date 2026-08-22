@@ -214,10 +214,11 @@ final class AriaArchetypeStudio: ObservableObject {
         ]
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
         do {
-            let (data, resp) = try await URLSession.shared.data(for: req)
-            guard let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-                return nil
-            }
+            // ForgeAPI attaches the bearer token and recovers a single 401,
+            // and it throws rather than returning a non-2xx, so the status
+            // check below is now unreachable-by-construction rather than the
+            // thing standing between a bare request and a silent failure.
+            let (data, _) = try await ForgeAPI.send(req)
             guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 return nil
             }

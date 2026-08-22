@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import ForgeCore
 
 @main
 struct ForgeSwiftApp: App {
@@ -10,6 +11,7 @@ struct ForgeSwiftApp: App {
     @UIApplicationDelegateAdaptor(ForgeAppDelegate.self) private var appDelegate
 
     init() {
+        SecureStoreMigration.run(from: .standard, to: KeychainStore())
         // Listens for watch workout state and mirrors it into a Live
         // Activity (lock screen + Dynamic Island). Also owns WCSession
         // on the phone so companion config can flow to ForgeWatch.

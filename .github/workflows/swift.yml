@@ -57,20 +57,22 @@ jobs:
           cd ForgeCore
           swift test
 
-      - name: Build ForgeSwift (iOS Simulator)
+      - name: Build ForgeSwift + tests (iOS Simulator)
         run: |
           set -euo pipefail
-          # Build only the iOS application target without forcing the
-          # ForgeWatch scheme dependency graph used by local Xcode schemes.
-          # Explicit -target still honors pbxproj target dependencies if any;
-          # we temporarily rely on skipping watch by not selecting the scheme.
+          # `build-for-testing` rather than `build`, so the ForgeSwiftTests
+          # bundle is compiled as well. A test target CI never builds is a test
+          # target that silently rots. It compiles against the generic
+          # destination, so no simulator runtime has to be installed — actually
+          # *running* the tests needs a booted simulator, which is a separate
+          # change carrying its own runtime-availability risk.
           xcodebuild \
             -project ForgeSwift.xcodeproj \
             -scheme ForgeSwift \
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
             -skipPackagePluginValidation \
-            build \
+            build-for-testing \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
             IPHONEOS_DEPLOYMENT_TARGET=17.0 \

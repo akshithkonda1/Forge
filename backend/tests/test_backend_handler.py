@@ -466,6 +466,50 @@ class AuthAndAISecurityTests(unittest.TestCase):
         response = handler(event("GET", "/dashboard/today"), None)
         self.assertEqual(response["statusCode"], 401)
 
+    def test_dev_override_unsigned_jwt_identifies_the_tester(self):
+        """Same three-part alg=none token the iOS Continue as tester button mints."""
+        import base64
+
+        os.environ["ENVIRONMENT"] = "dev"
+        os.environ.pop("FORGE_ALLOW_ANON_TEST_USER", None)
+        os.environ.pop("FORGE_TEST_USER_ID", None)
+
+        def b64url(obj):
+            raw = json.dumps(obj, separators=(",", ":"), sort_keys=True).encode()
+            return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+        token = (
+            b64url({"alg": "none", "typ": "JWT"})
+            + "."
+            + b64url({
+                "email": "tester@forge.dev",
+                "iss": "forge-dev-override",
+                "sub": "test-user-00000000",
+                "token_use": "access",
+            })
+            + "."
+        )
+        ev = event("GET", "/dashboard/today")
+        ev["headers"] = {"authorization": f"Bearer {token}"}
+        response = handler(ev, None)
+        self.assertEqual(response["statusCode"], 200)
+
+    def test_production_rejects_the_dev_override_token(self):
+        import base64
+
+        os.environ["ENVIRONMENT"] = "production"
+        os.environ.pop("FORGE_ALLOW_ANON_TEST_USER", None)
+
+        def b64url(obj):
+            raw = json.dumps(obj, separators=(",", ":"), sort_keys=True).encode()
+            return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+        token = b64url({"alg": "none", "typ": "JWT"}) + "." + b64url({"sub": "test-user-00000000"}) + "."
+        ev = event("GET", "/dashboard/today")
+        ev["headers"] = {"authorization": f"Bearer {token}"}
+        response = handler(ev, None)
+        self.assertEqual(response["statusCode"], 401)
+
     def test_production_health_is_redacted(self):
         os.environ["ENVIRONMENT"] = "production"
         response = handler(event("GET", "/health"), None)

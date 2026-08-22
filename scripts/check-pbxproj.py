@@ -15,8 +15,12 @@ has actually happened in this repo:
 These are all decidable from the text alone. This script decides them, on Linux,
 in under a second, so a bad edit fails at commit time instead of in CI.
 
-It is deliberately not a plist parser: it works on the ID graph, which is the
-part that breaks. Exit 1 on any finding.
+It works mostly on the ID graph, which is usually the part that breaks, plus one
+lexical rule — because the ID graph is not the only part that breaks. A file
+called `AppStore+Profile.swift` was registered as `path = AppStore+Profile.swift;`
+and `+` is not a legal character in an unquoted old-style plist string, so Xcode
+reported "missing semicolon in dictionary on line 420" and refused to open the
+project at all. Every ID was correct. Exit 1 on any finding.
 """
 
 from __future__ import annotations
@@ -209,6 +213,67 @@ def check(path: str) -> list[str]:
         if os.path.basename(rel) not in _repo_entries():
             findings.append(f"{path}: {rel} is compiled by a target but does not exist on disk")
 
+    findings += unquoted_value_findings(path, text)
+    findings += duplicate_object_findings(path, text)
+    return findings
+
+
+# The characters Xcode leaves unquoted in a value. It quotes anything else —
+# `"Info-Add.plist"` in this very project — and a value that needs quoting and
+# does not have it stops the parse dead at that line.
+BARE_STRING = re.compile(r"[A-Za-z0-9_./]+")
+ASSIGNMENT = re.compile(r"^\s*[\w.\[\]]+ = (.+);\s*$")
+TRAILING_COMMENT = re.compile(r"/\*.*?\*/")
+
+
+def unquoted_value_findings(path: str, text: str) -> list[str]:
+    """Values that would fail the old-style plist lexer."""
+    findings = []
+    for n, line in enumerate(text.split("\n"), 1):
+        # Skip the inline dictionary lines; their inner values are checked by
+        # the same rule when split on ';'.
+        for chunk in line.split(";"):
+            m = ASSIGNMENT.match(chunk + ";")
+            if not m:
+                continue
+            value = TRAILING_COMMENT.sub("", m.group(1)).strip()
+            if not value or value.startswith(("\"", "{", "(")):
+                continue
+            if not BARE_STRING.fullmatch(value):
+                findings.append(
+                    f"{path}:{n}: value {value!r} needs quoting — "
+                    f"Xcode cannot parse it and will call the project damaged")
+    return findings
+
+
+OBJECT_DEF = re.compile(rf"^\t\t({ID}) /\* (.*?) \*/ = \{{isa = (\w+);")
+
+
+def duplicate_object_findings(path: str, text: str) -> list[str]:
+    """One id, two definitions.
+
+    An old-style plist dictionary with a repeated key keeps one of them and
+    silently discards the other, so two definitions of the same object are
+    harmless right up until they stop being identical — at which point which one
+    survives is not something the file tells you. This project carried 24 such
+    pairs, all byte-identical, from some earlier edit that re-inserted a block
+    that already existed.
+    """
+    seen: dict[str, tuple[int, str]] = {}
+    findings = []
+    for n, line in enumerate(text.split("\n"), 1):
+        m = OBJECT_DEF.match(line)
+        if not m:
+            continue
+        oid = m.group(1)
+        if oid in seen:
+            first_line, first_text = seen[oid]
+            same = "identical" if first_text == line else "DIFFERENT content"
+            findings.append(
+                f"{path}:{n}: {oid} ({m.group(2)}) is already defined at line "
+                f"{first_line} with {same} — one definition is silently discarded")
+        else:
+            seen[oid] = (n, line)
     return findings
 
 

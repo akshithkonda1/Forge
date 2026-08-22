@@ -40,7 +40,9 @@ enum WatchAriaConfigBridge {
         if let name, !name.isEmpty {
             payload[Keys.firstName] = name
         }
-        // Intentionally no authToken write yet — soft-auth backend tolerates missing Bearer.
+        if let token = ForgeAuthClient.shared.session?.accessToken, !token.isEmpty {
+            payload[Keys.authToken] = token
+        }
 
         // 1) App Group (works on device when both apps share the suite)
         if let shared = UserDefaults(suiteName: appGroupID) {

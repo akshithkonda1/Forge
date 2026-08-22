@@ -107,6 +107,12 @@ final class WorkoutSessionManager {
     }
 
     private func beginSession() async {
+        // One HKWorkoutSession per process. End mindful HR capture first so
+        // starting a gym session cannot collide with a breath session.
+        if let health = WatchHKLiveSession.health {
+            _ = await health.endMindfulHeartRateCapture()
+        }
+        WatchHKLiveSession.workoutRunning = true
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = workoutType.hkActivityType
         configuration.locationType = .indoor
@@ -129,6 +135,7 @@ final class WorkoutSessionManager {
         } catch {
             // Session couldn't start (auth, simulator quirks). Land back
             // in idle with a calm cue rather than a dead screen.
+            WatchHKLiveSession.workoutRunning = false
             phase = .idle
             coachingCue = "Couldn't start sensors just now — check Health permissions and try again."
         }
@@ -294,6 +301,7 @@ final class WorkoutSessionManager {
         session = nil
         builder = nil
         builderDelegate = nil
+        WatchHKLiveSession.workoutRunning = false
 
         let avgHR = hrSamples.isEmpty ? nil : hrSamples.reduce(0, +) / Double(hrSamples.count)
         let dominantZone = zoneSeconds.max(by: { $0.value < $1.value })?.key
