@@ -122,6 +122,16 @@
 		AA0001000000000000000007 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000007 /* HomeView.swift */; };
 		AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000A1 /* HomeAuroraBackground.swift */; };
 		AA0001000000000000000008 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000008 /* ChatView.swift */; };
+		60A29EB8CFF073B8FE95D0A3 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0EECC86FCDA945D9F0AAD58 /* ChatModels.swift */; };
+		786603F7F7BF7BAB4051F54D /* ChatHaptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4F9E64F4C756500FF72D39D /* ChatHaptics.swift */; };
+		6D3001F7BE5B6394E6858876 /* SpeechManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329F018C6DBA3607076E1AAC /* SpeechManager.swift */; };
+		C34617308B7C19A07F7A3C16 /* MomentumEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8D9BF28642B6FAD2F1FB827 /* MomentumEngine.swift */; };
+		2D9DC499B96A88E94FAB6FCA /* ChatHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9468C5A08CE0DC2EB6DAA37 /* ChatHeaderView.swift */; };
+		9B8B14DCF405B61BE9B8229E /* ChatMessageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E509FD0A002496A42A2D596 /* ChatMessageViews.swift */; };
+		A63245F4A2EC0EFC6A6C2100 /* ChatEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB0D784C49569890D1EEB494 /* ChatEmptyStateView.swift */; };
+		FE51C885416EF0AE0DEFAB91 /* ChatInputAreaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A18CDF8561BB5B4C1289D86 /* ChatInputAreaView.swift */; };
+		ACE45AF3C089322AD1CE0744 /* VoiceOrbOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E1C990157A8D4EC8AB45F8C /* VoiceOrbOverlay.swift */; };
+		8A35071816F1EA8B299F27D5 /* ChatRichCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78707CC1590A6382FBE0B6EC /* ChatRichCards.swift */; };
 		AA0001000000000000000009 /* WorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000009 /* WorkoutView.swift */; };
 		1AB79BAC8BDB10BD5B60057F /* ExerciseCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4019A65454265EF4A2A51FD /* ExerciseCatalog.swift */; };
 		8AEE13A27BA4358BC5A5BCF0 /* WorkoutAdaptiveEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20B310891020D005C57A095 /* WorkoutAdaptiveEngine.swift */; };
@@ -404,6 +414,16 @@
 		AA0002000000000000000007 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		AA00020000000000000000A1 /* HomeAuroraBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeAuroraBackground.swift; sourceTree = "<group>"; };
 		AA0002000000000000000008 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		C0EECC86FCDA945D9F0AAD58 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
+		A4F9E64F4C756500FF72D39D /* ChatHaptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHaptics.swift; sourceTree = "<group>"; };
+		329F018C6DBA3607076E1AAC /* SpeechManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechManager.swift; sourceTree = "<group>"; };
+		D8D9BF28642B6FAD2F1FB827 /* MomentumEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MomentumEngine.swift; sourceTree = "<group>"; };
+		C9468C5A08CE0DC2EB6DAA37 /* ChatHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHeaderView.swift; sourceTree = "<group>"; };
+		7E509FD0A002496A42A2D596 /* ChatMessageViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessageViews.swift; sourceTree = "<group>"; };
+		DB0D784C49569890D1EEB494 /* ChatEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatEmptyStateView.swift; sourceTree = "<group>"; };
+		3A18CDF8561BB5B4C1289D86 /* ChatInputAreaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputAreaView.swift; sourceTree = "<group>"; };
+		3E1C990157A8D4EC8AB45F8C /* VoiceOrbOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceOrbOverlay.swift; sourceTree = "<group>"; };
+		78707CC1590A6382FBE0B6EC /* ChatRichCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatRichCards.swift; sourceTree = "<group>"; };
 		AA0002000000000000000009 /* WorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutView.swift; sourceTree = "<group>"; };
 		F4019A65454265EF4A2A51FD /* ExerciseCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCatalog.swift; sourceTree = "<group>"; };
 		C20B310891020D005C57A095 /* WorkoutAdaptiveEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutAdaptiveEngine.swift; sourceTree = "<group>"; };
@@ -653,6 +673,16 @@
 				AA0002000000000000000007 /* HomeView.swift */,
 				AA00020000000000000000A1 /* HomeAuroraBackground.swift */,
 				AA0002000000000000000008 /* ChatView.swift */,
+				C0EECC86FCDA945D9F0AAD58 /* ChatModels.swift */,
+				A4F9E64F4C756500FF72D39D /* ChatHaptics.swift */,
+				329F018C6DBA3607076E1AAC /* SpeechManager.swift */,
+				D8D9BF28642B6FAD2F1FB827 /* MomentumEngine.swift */,
+				C9468C5A08CE0DC2EB6DAA37 /* ChatHeaderView.swift */,
+				7E509FD0A002496A42A2D596 /* ChatMessageViews.swift */,
+				DB0D784C49569890D1EEB494 /* ChatEmptyStateView.swift */,
+				3A18CDF8561BB5B4C1289D86 /* ChatInputAreaView.swift */,
+				3E1C990157A8D4EC8AB45F8C /* VoiceOrbOverlay.swift */,
+				78707CC1590A6382FBE0B6EC /* ChatRichCards.swift */,
 				AA0002000000000000000009 /* WorkoutView.swift */,
 				F4019A65454265EF4A2A51FD /* ExerciseCatalog.swift */,
 				C20B310891020D005C57A095 /* WorkoutAdaptiveEngine.swift */,
@@ -1196,6 +1226,16 @@
 				AA0001000000000000000007 /* HomeView.swift in Sources */,
 				AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */,
 				AA0001000000000000000008 /* ChatView.swift in Sources */,
+				60A29EB8CFF073B8FE95D0A3 /* ChatModels.swift in Sources */,
+				786603F7F7BF7BAB4051F54D /* ChatHaptics.swift in Sources */,
+				6D3001F7BE5B6394E6858876 /* SpeechManager.swift in Sources */,
+				C34617308B7C19A07F7A3C16 /* MomentumEngine.swift in Sources */,
+				2D9DC499B96A88E94FAB6FCA /* ChatHeaderView.swift in Sources */,
+				9B8B14DCF405B61BE9B8229E /* ChatMessageViews.swift in Sources */,
+				A63245F4A2EC0EFC6A6C2100 /* ChatEmptyStateView.swift in Sources */,
+				FE51C885416EF0AE0DEFAB91 /* ChatInputAreaView.swift in Sources */,
+				ACE45AF3C089322AD1CE0744 /* VoiceOrbOverlay.swift in Sources */,
+				8A35071816F1EA8B299F27D5 /* ChatRichCards.swift in Sources */,
 				1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */,
 				1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator.swift in Sources */,
 				1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */,
