@@ -95,6 +95,13 @@
 		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
 		1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */; };
 		1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED842E22F90C15300693D3E /* LifestyleView.swift */; };
+		35A81356CC836973378A412F /* LifestyleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74D9E1B3713556C9528D8A07 /* LifestyleModels.swift */; };
+		373EC9928467751C3ADEA77F /* LifestyleServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = B69CD378C6DBF59D2A7DA2C7 /* LifestyleServices.swift */; };
+		CA40F48072326848E8B6B51B /* LifestyleViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 888D3FAA001A21DC8081E395 /* LifestyleViewModel.swift */; };
+		9326D4114CB68F9AEE78E49F /* LifestyleOptimizationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B819FFADE3830A0B43832E0 /* LifestyleOptimizationView.swift */; };
+		A9D45FB931EDF266E13A5DC7 /* LifestyleNutritionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B80677C558CBB8DCE00EF823 /* LifestyleNutritionView.swift */; };
+		00101E9CDD38D96A91A97E15 /* LifestyleWellbeingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41991C47BEF8D13160298B11 /* LifestyleWellbeingView.swift */; };
+		4D8E544D568595AB65EBB3A4 /* RestaurantCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD24B87686B6EA1C5B7C9474 /* RestaurantCatalog.swift */; };
 		1EHKS0022F9FF867004091AA /* HealthKitSleepService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */; };
 		1NAV012F9FF867004091AA /* ForgeNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1NAV022F9FF867004091AA /* ForgeNavigation.swift */; };
 		1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0022F9FF867004091AA /* SexualHealthCoach.swift */; };
@@ -339,6 +346,13 @@
 		1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachViews.swift; sourceTree = "<group>"; };
 		1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachIntegration.swift; sourceTree = "<group>"; };
 		1ED842E22F90C15300693D3E /* LifestyleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleView.swift; sourceTree = "<group>"; };
+		74D9E1B3713556C9528D8A07 /* LifestyleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleModels.swift; sourceTree = "<group>"; };
+		B69CD378C6DBF59D2A7DA2C7 /* LifestyleServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleServices.swift; sourceTree = "<group>"; };
+		888D3FAA001A21DC8081E395 /* LifestyleViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleViewModel.swift; sourceTree = "<group>"; };
+		6B819FFADE3830A0B43832E0 /* LifestyleOptimizationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleOptimizationView.swift; sourceTree = "<group>"; };
+		B80677C558CBB8DCE00EF823 /* LifestyleNutritionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleNutritionView.swift; sourceTree = "<group>"; };
+		41991C47BEF8D13160298B11 /* LifestyleWellbeingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleWellbeingView.swift; sourceTree = "<group>"; };
+		CD24B87686B6EA1C5B7C9474 /* RestaurantCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestaurantCatalog.swift; sourceTree = "<group>"; };
 		1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepService.swift; sourceTree = "<group>"; };
 		1NAV022F9FF867004091AA /* ForgeNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeNavigation.swift; sourceTree = "<group>"; };
 		1WC0022F9FF867004091AA /* SexualHealthCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCoach.swift; sourceTree = "<group>"; };
@@ -580,6 +594,13 @@
 				AA000200000000000000000B /* ProfileView.swift */,
 				AA000200000000000000000C /* Assets.xcassets */,
 				1ED842E22F90C15300693D3E /* LifestyleView.swift */,
+				74D9E1B3713556C9528D8A07 /* LifestyleModels.swift */,
+				B69CD378C6DBF59D2A7DA2C7 /* LifestyleServices.swift */,
+				888D3FAA001A21DC8081E395 /* LifestyleViewModel.swift */,
+				6B819FFADE3830A0B43832E0 /* LifestyleOptimizationView.swift */,
+				B80677C558CBB8DCE00EF823 /* LifestyleNutritionView.swift */,
+				41991C47BEF8D13160298B11 /* LifestyleWellbeingView.swift */,
+				CD24B87686B6EA1C5B7C9474 /* RestaurantCatalog.swift */,
 				1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */,
 				1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */,
 				1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */,
@@ -1068,6 +1089,13 @@
 				1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */,
 				1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */,
 				1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */,
+				35A81356CC836973378A412F /* LifestyleModels.swift in Sources */,
+				373EC9928467751C3ADEA77F /* LifestyleServices.swift in Sources */,
+				CA40F48072326848E8B6B51B /* LifestyleViewModel.swift in Sources */,
+				9326D4114CB68F9AEE78E49F /* LifestyleOptimizationView.swift in Sources */,
+				A9D45FB931EDF266E13A5DC7 /* LifestyleNutritionView.swift in Sources */,
+				00101E9CDD38D96A91A97E15 /* LifestyleWellbeingView.swift in Sources */,
+				4D8E544D568595AB65EBB3A4 /* RestaurantCatalog.swift in Sources */,
 				1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */,
 				AA0001000000000000000007 /* HomeView.swift in Sources */,
 				AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */,
