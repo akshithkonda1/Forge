@@ -104,6 +104,7 @@ def declarations(path):
     decls = []
     header_end = 0
     seen_code = False
+    directive_open = []
 
     for i, before, after, code in scanned:
         if before != 0:
@@ -115,8 +116,22 @@ def declarations(path):
         if not seen_code and re.match(r'^\s*(?:@[\w.]+\s+)*import\s+\w+', text):
             header_end = i + 1
             continue
+        # A conditional import — `#if canImport(FoundationModels)` — is part of
+        # the header, and taking the `import` inside it without the closing
+        # `#endif` produces a header that does not compile. Copied into six
+        # extension files, that is six broken files.
+        if not seen_code and text.strip().startswith(('#if', '#elseif', '#else', '#endif')):
+            if text.strip().startswith('#if'):
+                directive_open.append(i)
+            elif text.strip().startswith('#endif') and directive_open:
+                directive_open.pop()
+            header_end = i + 1
+            continue
         if DECL.match(text) and not text.lstrip().startswith('//'):
             seen_code = True
+            if directive_open:
+                header_end = min(header_end, directive_open[0])
+                directive_open = []
             # Walk back over the comments and attributes attached to this decl.
             start = i
             k = i - 1

@@ -132,6 +132,15 @@
 		AA0001000000000000000002 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000002 /* Theme.swift */; };
 		AA0001000000000000000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000003 /* Models.swift */; };
 		AA0001000000000000000004 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000004 /* AppStore.swift */; };
+		8CB0ADBC701D60630E70D45D /* AppStore+Chat.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCAEF23050E6FCDBAF318A66 /* AppStore+Chat.swift */; };
+		E39C337B25CE65266160AE34 /* AppStore+Auth.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF8B2B64DCDEDA8E028DEE31 /* AppStore+Auth.swift */; };
+		07F70A6DEC2285F5EA968022 /* AppStore+Workout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0080F92CDBCD10A6089E5748 /* AppStore+Workout.swift */; };
+		2FBE9FEFC46BC7EEF5075439 /* AppStore+Readiness.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0EE6500FC7A5AECE65975AE /* AppStore+Readiness.swift */; };
+		B91DA7A207B86349641820B5 /* AppStore+Navigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 288E48C7D7A3D5F5151FA652 /* AppStore+Navigation.swift */; };
+		A25E5F21E475A359A160746C /* AppStore+Context.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C314E07776FECA71858A43 /* AppStore+Context.swift */; };
+		BA9881825031CB92A10A23F2 /* TrainerContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45DE692F185925545A3B17DE /* TrainerContext.swift */; };
+		AD90BAFEC8EA35A4F14EF83C /* FoundationModelsResponseGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07D1E15950564F4991B10AF1 /* FoundationModelsResponseGenerator.swift */; };
+		DF0C39F95818C60589E494FC /* RuleBasedResponseGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29625FECFF8DB18803D4B06D /* RuleBasedResponseGenerator.swift */; };
 		AA0001000000000000000005 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000005 /* ContentView.swift */; };
 		AA0001000000000000000006 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000006 /* OnboardingView.swift */; };
 		D1919B244B3A650517464755 /* OnboardingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D739BE302C6406D4FD5FFAF1 /* OnboardingModels.swift */; };
@@ -452,6 +461,15 @@
 		AA0002000000000000000002 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		AA0002000000000000000003 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		AA0002000000000000000004 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
+		FCAEF23050E6FCDBAF318A66 /* AppStore+Chat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Chat.swift"; sourceTree = "<group>"; };
+		AF8B2B64DCDEDA8E028DEE31 /* AppStore+Auth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Auth.swift"; sourceTree = "<group>"; };
+		0080F92CDBCD10A6089E5748 /* AppStore+Workout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Workout.swift"; sourceTree = "<group>"; };
+		A0EE6500FC7A5AECE65975AE /* AppStore+Readiness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Readiness.swift"; sourceTree = "<group>"; };
+		288E48C7D7A3D5F5151FA652 /* AppStore+Navigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Navigation.swift"; sourceTree = "<group>"; };
+		D1C314E07776FECA71858A43 /* AppStore+Context.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Context.swift"; sourceTree = "<group>"; };
+		45DE692F185925545A3B17DE /* TrainerContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainerContext.swift; sourceTree = "<group>"; };
+		07D1E15950564F4991B10AF1 /* FoundationModelsResponseGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoundationModelsResponseGenerator.swift; sourceTree = "<group>"; };
+		29625FECFF8DB18803D4B06D /* RuleBasedResponseGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuleBasedResponseGenerator.swift; sourceTree = "<group>"; };
 		AA0002000000000000000005 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000006 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		D739BE302C6406D4FD5FFAF1 /* OnboardingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingModels.swift; sourceTree = "<group>"; };
@@ -729,6 +747,15 @@
 				AA0002000000000000000002 /* Theme.swift */,
 				AA0002000000000000000003 /* Models.swift */,
 				AA0002000000000000000004 /* AppStore.swift */,
+				FCAEF23050E6FCDBAF318A66 /* AppStore+Chat.swift */,
+				AF8B2B64DCDEDA8E028DEE31 /* AppStore+Auth.swift */,
+				0080F92CDBCD10A6089E5748 /* AppStore+Workout.swift */,
+				A0EE6500FC7A5AECE65975AE /* AppStore+Readiness.swift */,
+				288E48C7D7A3D5F5151FA652 /* AppStore+Navigation.swift */,
+				D1C314E07776FECA71858A43 /* AppStore+Context.swift */,
+				45DE692F185925545A3B17DE /* TrainerContext.swift */,
+				07D1E15950564F4991B10AF1 /* FoundationModelsResponseGenerator.swift */,
+				29625FECFF8DB18803D4B06D /* RuleBasedResponseGenerator.swift */,
 				AA0002000000000000000005 /* ContentView.swift */,
 				1NAV022F9FF867004091AA /* ForgeNavigation.swift */,
 				1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */,
@@ -1295,6 +1322,15 @@
 				1E4DF71E2F9FFAE1004091AA /* SmartProfileSetupView.swift in Sources */,
 				AA0001000000000000000003 /* Models.swift in Sources */,
 				AA0001000000000000000004 /* AppStore.swift in Sources */,
+				8CB0ADBC701D60630E70D45D /* AppStore+Chat.swift in Sources */,
+				E39C337B25CE65266160AE34 /* AppStore+Auth.swift in Sources */,
+				07F70A6DEC2285F5EA968022 /* AppStore+Workout.swift in Sources */,
+				2FBE9FEFC46BC7EEF5075439 /* AppStore+Readiness.swift in Sources */,
+				B91DA7A207B86349641820B5 /* AppStore+Navigation.swift in Sources */,
+				A25E5F21E475A359A160746C /* AppStore+Context.swift in Sources */,
+				BA9881825031CB92A10A23F2 /* TrainerContext.swift in Sources */,
+				AD90BAFEC8EA35A4F14EF83C /* FoundationModelsResponseGenerator.swift in Sources */,
+				DF0C39F95818C60589E494FC /* RuleBasedResponseGenerator.swift in Sources */,
 				1E4DF71A2F9FFA70004091AA /* OnboardingDataManager.swift in Sources */,
 				AA0001000000000000000005 /* ContentView.swift in Sources */,
 				1NAV012F9FF867004091AA /* ForgeNavigation.swift in Sources */,
