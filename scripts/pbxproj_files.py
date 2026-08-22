@@ -39,8 +39,11 @@ def find_anchor(lines, anchor):
         for line in lines:
             if wanted_ref in line and 'isa = PBXBuildFile' in line:
                 build_ref = line.split()[0].strip()
+    # A bare substring test matches WatchHealthKitManager.swift when looking for
+    # HealthKitManager.swift, which reads as "this file is in several targets".
+    boundary = re.compile(r'(?<![A-Za-z0-9_+])' + re.escape(name))
     for i, line in enumerate(lines):
-        if name not in line:
+        if not boundary.search(line):
             continue
         if wanted_ref and wanted_ref not in line and (
                 build_ref is None or build_ref not in line):

@@ -214,6 +214,7 @@ def check(path: str) -> list[str]:
             findings.append(f"{path}: {rel} is compiled by a target but does not exist on disk")
 
     findings += unquoted_value_findings(path, text)
+    findings += duplicate_object_findings(path, text)
     return findings
 
 
@@ -242,6 +243,37 @@ def unquoted_value_findings(path: str, text: str) -> list[str]:
                 findings.append(
                     f"{path}:{n}: value {value!r} needs quoting — "
                     f"Xcode cannot parse it and will call the project damaged")
+    return findings
+
+
+OBJECT_DEF = re.compile(rf"^\t\t({ID}) /\* (.*?) \*/ = \{{isa = (\w+);")
+
+
+def duplicate_object_findings(path: str, text: str) -> list[str]:
+    """One id, two definitions.
+
+    An old-style plist dictionary with a repeated key keeps one of them and
+    silently discards the other, so two definitions of the same object are
+    harmless right up until they stop being identical — at which point which one
+    survives is not something the file tells you. This project carried 24 such
+    pairs, all byte-identical, from some earlier edit that re-inserted a block
+    that already existed.
+    """
+    seen: dict[str, tuple[int, str]] = {}
+    findings = []
+    for n, line in enumerate(text.split("\n"), 1):
+        m = OBJECT_DEF.match(line)
+        if not m:
+            continue
+        oid = m.group(1)
+        if oid in seen:
+            first_line, first_text = seen[oid]
+            same = "identical" if first_text == line else "DIFFERENT content"
+            findings.append(
+                f"{path}:{n}: {oid} ({m.group(2)}) is already defined at line "
+                f"{first_line} with {same} — one definition is silently discarded")
+        else:
+            seen[oid] = (n, line)
     return findings
 
 
