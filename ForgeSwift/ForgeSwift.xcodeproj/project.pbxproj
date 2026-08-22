@@ -136,6 +136,14 @@
 		B3CDF62A58BA0D809EAF271E /* ExerciseDemonstrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0DDF55AA3A4FF0B1F67304A /* ExerciseDemonstrationView.swift */; };
 		6F942A1093A4321ED41D862F /* WorkoutViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */; };
 		AA000100000000000000000A /* SleepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000A /* SleepView.swift */; };
+		00C9C45A23CBD05FF6583B9B /* SleepModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 827364B87E627CF4CC80BFE2 /* SleepModels.swift */; };
+		2FFACC674BBEA570D73CE1E8 /* SleepNightTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02B8B267BDE65BC4C962889 /* SleepNightTab.swift */; };
+		D73A7502C11F243B8CA79DB3 /* SleepAlarmTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4621301CC9D9971E70777C7C /* SleepAlarmTab.swift */; };
+		EEC7867EE378171FAB034AD7 /* SleepSoundsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A623D0F06FD3C50C8C9C2DF0 /* SleepSoundsTab.swift */; };
+		CDA91213B4AFC8A533C4E2D4 /* SleepWakeUpTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C453AB65225E570720899AB3 /* SleepWakeUpTab.swift */; };
+		CEAD2F52487C32101B080DB7 /* SleepInsightCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5505055FD73CA7ABA5E30C5A /* SleepInsightCards.swift */; };
+		A03C28515F509A3422756067 /* SleepDetailSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D57284AB740A5B9CBDEDDF /* SleepDetailSheets.swift */; };
+		103AF044FA4BE442F6FD43B3 /* SleepComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67EA3CDCC095F0FF25571589 /* SleepComponents.swift */; };
 		AA000100000000000000000B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000B /* ProfileView.swift */; };
 		95AE5FF2D55FC04CECA87263 /* ProgressPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125597C26056DBE7682E5451 /* ProgressPageView.swift */; };
 		1933FBEC0A8E8D9D78CE7609 /* WorkoutHistoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */; };
@@ -410,6 +418,14 @@
 		D0DDF55AA3A4FF0B1F67304A /* ExerciseDemonstrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDemonstrationView.swift; sourceTree = "<group>"; };
 		BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutViewHelpers.swift; sourceTree = "<group>"; };
 		AA000200000000000000000A /* SleepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepView.swift; sourceTree = "<group>"; };
+		827364B87E627CF4CC80BFE2 /* SleepModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepModels.swift; sourceTree = "<group>"; };
+		D02B8B267BDE65BC4C962889 /* SleepNightTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepNightTab.swift; sourceTree = "<group>"; };
+		4621301CC9D9971E70777C7C /* SleepAlarmTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepAlarmTab.swift; sourceTree = "<group>"; };
+		A623D0F06FD3C50C8C9C2DF0 /* SleepSoundsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSoundsTab.swift; sourceTree = "<group>"; };
+		C453AB65225E570720899AB3 /* SleepWakeUpTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeUpTab.swift; sourceTree = "<group>"; };
+		5505055FD73CA7ABA5E30C5A /* SleepInsightCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepInsightCards.swift; sourceTree = "<group>"; };
+		50D57284AB740A5B9CBDEDDF /* SleepDetailSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepDetailSheets.swift; sourceTree = "<group>"; };
+		67EA3CDCC095F0FF25571589 /* SleepComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepComponents.swift; sourceTree = "<group>"; };
 		AA000200000000000000000B /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		125597C26056DBE7682E5451 /* ProgressPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressPageView.swift; sourceTree = "<group>"; };
 		23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryListView.swift; sourceTree = "<group>"; };
@@ -651,6 +667,14 @@
 				D0DDF55AA3A4FF0B1F67304A /* ExerciseDemonstrationView.swift */,
 				BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */,
 				AA000200000000000000000A /* SleepView.swift */,
+				827364B87E627CF4CC80BFE2 /* SleepModels.swift */,
+				D02B8B267BDE65BC4C962889 /* SleepNightTab.swift */,
+				4621301CC9D9971E70777C7C /* SleepAlarmTab.swift */,
+				A623D0F06FD3C50C8C9C2DF0 /* SleepSoundsTab.swift */,
+				C453AB65225E570720899AB3 /* SleepWakeUpTab.swift */,
+				5505055FD73CA7ABA5E30C5A /* SleepInsightCards.swift */,
+				50D57284AB740A5B9CBDEDDF /* SleepDetailSheets.swift */,
+				67EA3CDCC095F0FF25571589 /* SleepComponents.swift */,
 				AA000200000000000000000B /* ProfileView.swift */,
 				125597C26056DBE7682E5451 /* ProgressPageView.swift */,
 				23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */,
@@ -1189,6 +1213,14 @@
 				B3CDF62A58BA0D809EAF271E /* ExerciseDemonstrationView.swift in Sources */,
 				6F942A1093A4321ED41D862F /* WorkoutViewHelpers.swift in Sources */,
 				AA000100000000000000000A /* SleepView.swift in Sources */,
+				00C9C45A23CBD05FF6583B9B /* SleepModels.swift in Sources */,
+				2FFACC674BBEA570D73CE1E8 /* SleepNightTab.swift in Sources */,
+				D73A7502C11F243B8CA79DB3 /* SleepAlarmTab.swift in Sources */,
+				EEC7867EE378171FAB034AD7 /* SleepSoundsTab.swift in Sources */,
+				CDA91213B4AFC8A533C4E2D4 /* SleepWakeUpTab.swift in Sources */,
+				CEAD2F52487C32101B080DB7 /* SleepInsightCards.swift in Sources */,
+				A03C28515F509A3422756067 /* SleepDetailSheets.swift in Sources */,
+				103AF044FA4BE442F6FD43B3 /* SleepComponents.swift in Sources */,
 				AA000100000000000000000B /* ProfileView.swift in Sources */,
 				95AE5FF2D55FC04CECA87263 /* ProgressPageView.swift in Sources */,
 				1933FBEC0A8E8D9D78CE7609 /* WorkoutHistoryListView.swift in Sources */,
