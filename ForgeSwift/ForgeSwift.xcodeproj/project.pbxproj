@@ -58,10 +58,17 @@
 		1ARIA0302F9FF867004091AA /* AriaTrainingTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */; };
 		1ARIA0322F9FF867004091AA /* AriaPlanEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */; };
 		1ARIA0342F9FF867004091AA /* AriaVoiceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */; };
+		720BDCB7970B26F219A0E3A6 /* AriaVoiceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58F793F880B626970035DF6E /* AriaVoiceModels.swift */; };
 		1HCM0022F9FF867004091AA /* HomeCookedMeals.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */; };
 		1HCV0022F9FF867004091AA /* HomeCookingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HCV0012F9FF867004091AA /* HomeCookingView.swift */; };
 		1PAS0022F9FF867004091AA /* ProfileAvatarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */; };
 		1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */; };
+		9CA2D002923A38A23B0541B2 /* CyclePhaseModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F95A7292C154940E408DE17 /* CyclePhaseModels.swift */; };
+		916D0CBAAF82E3EACDF6E9C8 /* CycleQualityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E86CA635A02CDDFA9BB8EA36 /* CycleQualityModels.swift */; };
+		814D0C4B388CD3D17BD8B9AE /* PeriodFeedbackModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55EAD5F4DC405AFE7EC79FFC /* PeriodFeedbackModels.swift */; };
+		076DBC5E060851F3447D7A21 /* PeriodCoachingPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = A98AD81BEB39576DC5AD6E82 /* PeriodCoachingPreferences.swift */; };
+		EC6342B0AA238F37F8217985 /* MenstrualTrackingSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03C2096D82535F6A37771403 /* MenstrualTrackingSettings.swift */; };
+		2AFC51155E2DE86DFF541D73 /* CycleSupportModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AD4710C0C082EFAA666EC96 /* CycleSupportModels.swift */; };
 		AA00010000000000000000B1 /* PartnerCycleDigest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B1 /* PartnerCycleDigest.swift */; };
 		1ARIA0382F9FF867004091AA /* MenstrualCycleEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */; };
 		1ARIA0402F9FF867004091AA /* MenstrualHealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */; };
@@ -91,6 +98,8 @@
 		1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */; };
 		1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */; };
 		1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */; };
+		C82BC7E19F20D94DAE955D97 /* OnboardingInterviewModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */; };
+		E7ACBAA738CA8B1E5C3F044C /* OnboardingAriaBot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E82C39E6C70CE31BD2644BC /* OnboardingAriaBot.swift */; };
 		1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */; };
 		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
 		1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */; };
@@ -119,6 +128,10 @@
 		AA0001000000000000000004 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000004 /* AppStore.swift */; };
 		AA0001000000000000000005 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000005 /* ContentView.swift */; };
 		AA0001000000000000000006 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000006 /* OnboardingView.swift */; };
+		D1919B244B3A650517464755 /* OnboardingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D739BE302C6406D4FD5FFAF1 /* OnboardingModels.swift */; };
+		616F3C419B3EB7ADAE50115B /* AriaInterviewLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EFADEBB5E6749FF6794C3D4 /* AriaInterviewLayout.swift */; };
+		4A125A771F1A069647744C7B /* OnboardingComposers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D1B4CAD5FA5D25B74EC6E1C /* OnboardingComposers.swift */; };
+		6CBB68B52859EB1DA316AE05 /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946C46A9CAC2E8FAA15F2A6E /* OnboardingComponents.swift */; };
 		AA0001000000000000000007 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000007 /* HomeView.swift */; };
 		CBEEDC3EE856524D0A77DB39 /* HomeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */; };
 		DA2E7330C7F2CD27BE372197 /* HomeHeroCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */; };
@@ -358,10 +371,17 @@
 		1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaTrainingTheme.swift; sourceTree = "<group>"; };
 		1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPlanEngine.swift; sourceTree = "<group>"; };
 		1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceEngine.swift; sourceTree = "<group>"; };
+		58F793F880B626970035DF6E /* AriaVoiceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceModels.swift; sourceTree = "<group>"; };
 		1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCookedMeals.swift; sourceTree = "<group>"; };
 		1HCV0012F9FF867004091AA /* HomeCookingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCookingView.swift; sourceTree = "<group>"; };
 		1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileAvatarStore.swift; sourceTree = "<group>"; };
 		1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleModels.swift; sourceTree = "<group>"; };
+		5F95A7292C154940E408DE17 /* CyclePhaseModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseModels.swift; sourceTree = "<group>"; };
+		E86CA635A02CDDFA9BB8EA36 /* CycleQualityModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleQualityModels.swift; sourceTree = "<group>"; };
+		55EAD5F4DC405AFE7EC79FFC /* PeriodFeedbackModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeriodFeedbackModels.swift; sourceTree = "<group>"; };
+		A98AD81BEB39576DC5AD6E82 /* PeriodCoachingPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeriodCoachingPreferences.swift; sourceTree = "<group>"; };
+		03C2096D82535F6A37771403 /* MenstrualTrackingSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualTrackingSettings.swift; sourceTree = "<group>"; };
+		9AD4710C0C082EFAA666EC96 /* CycleSupportModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleSupportModels.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B1 /* PartnerCycleDigest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleDigest.swift; sourceTree = "<group>"; };
 		1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngine.swift; sourceTree = "<group>"; };
 		1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualHealthStore.swift; sourceTree = "<group>"; };
@@ -392,6 +412,8 @@
 		1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeDesignSystem.swift; sourceTree = "<group>"; };
 		1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+ForgeCardShadow.swift"; sourceTree = "<group>"; };
 		1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCoordinator.swift; sourceTree = "<group>"; };
+		20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingInterviewModels.swift; sourceTree = "<group>"; };
+		3E82C39E6C70CE31BD2644BC /* OnboardingAriaBot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingAriaBot.swift; sourceTree = "<group>"; };
 		1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachManager.swift; sourceTree = "<group>"; };
 		1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachViews.swift; sourceTree = "<group>"; };
 		1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachIntegration.swift; sourceTree = "<group>"; };
@@ -419,6 +441,10 @@
 		AA0002000000000000000004 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
 		AA0002000000000000000005 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000006 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		D739BE302C6406D4FD5FFAF1 /* OnboardingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingModels.swift; sourceTree = "<group>"; };
+		3EFADEBB5E6749FF6794C3D4 /* AriaInterviewLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewLayout.swift; sourceTree = "<group>"; };
+		5D1B4CAD5FA5D25B74EC6E1C /* OnboardingComposers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComposers.swift; sourceTree = "<group>"; };
+		946C46A9CAC2E8FAA15F2A6E /* OnboardingComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComponents.swift; sourceTree = "<group>"; };
 		AA0002000000000000000007 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeModels.swift; sourceTree = "<group>"; };
 		A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHeroCards.swift; sourceTree = "<group>"; };
@@ -622,6 +648,12 @@
 			isa = PBXGroup;
 			children = (
 				1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */,
+				5F95A7292C154940E408DE17 /* CyclePhaseModels.swift */,
+				E86CA635A02CDDFA9BB8EA36 /* CycleQualityModels.swift */,
+				55EAD5F4DC405AFE7EC79FFC /* PeriodFeedbackModels.swift */,
+				A98AD81BEB39576DC5AD6E82 /* PeriodCoachingPreferences.swift */,
+				03C2096D82535F6A37771403 /* MenstrualTrackingSettings.swift */,
+				9AD4710C0C082EFAA666EC96 /* CycleSupportModels.swift */,
 				AA00020000000000000000B1 /* PartnerCycleDigest.swift */,
 				1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */,
 				1ARIA0572F9FF867004091AA /* CyclePrivacy.swift */,
@@ -651,6 +683,7 @@
 				1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */,
 				1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */,
 				1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */,
+				58F793F880B626970035DF6E /* AriaVoiceModels.swift */,
 				1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */,
 				1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */,
 				1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */,
@@ -686,6 +719,10 @@
 				1AUTH0042F9FF867004091AA /* AuthSignInView.swift */,
 				1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */,
 				AA0002000000000000000006 /* OnboardingView.swift */,
+				D739BE302C6406D4FD5FFAF1 /* OnboardingModels.swift */,
+				3EFADEBB5E6749FF6794C3D4 /* AriaInterviewLayout.swift */,
+				5D1B4CAD5FA5D25B74EC6E1C /* OnboardingComposers.swift */,
+				946C46A9CAC2E8FAA15F2A6E /* OnboardingComponents.swift */,
 				AA0002000000000000000007 /* HomeView.swift */,
 				E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */,
 				A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */,
@@ -774,6 +811,8 @@
 				F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */,
 				F0F10000000000000000002A /* WatchAriaConfigBridge.swift */,
 				1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */,
+				20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */,
+				3E82C39E6C70CE31BD2644BC /* OnboardingAriaBot.swift */,
 			);
 			path = ForgeSwift;
 			sourceTree = "<group>";
@@ -1200,6 +1239,7 @@
 				1ARIA0562F9FF867004091AA /* CyclePrivacy.swift in Sources */,
 				1ARIA0322F9FF867004091AA /* AriaPlanEngine.swift in Sources */,
 				1ARIA0342F9FF867004091AA /* AriaVoiceEngine.swift in Sources */,
+				720BDCB7970B26F219A0E3A6 /* AriaVoiceModels.swift in Sources */,
 				1ARIA0422F9FF867004091AA /* Menstrual/MenstrualHealthView.swift in Sources */,
 				1E44AFC830182A1F00D1C14D /* PeriodEndFeedbackView.swift in Sources */,
 				1ARIA0402F9FF867004091AA /* MenstrualHealthStore.swift in Sources */,
@@ -1216,6 +1256,12 @@
 				1HCV0022F9FF867004091AA /* HomeCookingView.swift in Sources */,
 				1PAS0022F9FF867004091AA /* ProfileAvatarStore.swift in Sources */,
 				1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */,
+				9CA2D002923A38A23B0541B2 /* CyclePhaseModels.swift in Sources */,
+				916D0CBAAF82E3EACDF6E9C8 /* CycleQualityModels.swift in Sources */,
+				814D0C4B388CD3D17BD8B9AE /* PeriodFeedbackModels.swift in Sources */,
+				076DBC5E060851F3447D7A21 /* PeriodCoachingPreferences.swift in Sources */,
+				EC6342B0AA238F37F8217985 /* MenstrualTrackingSettings.swift in Sources */,
+				2AFC51155E2DE86DFF541D73 /* CycleSupportModels.swift in Sources */,
 				AA00010000000000000000B1 /* PartnerCycleDigest.swift in Sources */,
 				1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */,
 				1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */,
@@ -1235,6 +1281,10 @@
 				1AUTH0072F9FF867004091AA /* ForgeAuthClient.swift in Sources */,
 				1API00010000000000000001 /* ForgeAPI.swift in Sources */,
 				AA0001000000000000000006 /* OnboardingView.swift in Sources */,
+				D1919B244B3A650517464755 /* OnboardingModels.swift in Sources */,
+				616F3C419B3EB7ADAE50115B /* AriaInterviewLayout.swift in Sources */,
+				4A125A771F1A069647744C7B /* OnboardingComposers.swift in Sources */,
+				6CBB68B52859EB1DA316AE05 /* OnboardingComponents.swift in Sources */,
 				1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */,
 				1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */,
 				1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */,
@@ -1270,6 +1320,8 @@
 				8A35071816F1EA8B299F27D5 /* ChatRichCards.swift in Sources */,
 				1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */,
 				1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator.swift in Sources */,
+				C82BC7E19F20D94DAE955D97 /* OnboardingInterviewModels.swift in Sources */,
+				E7ACBAA738CA8B1E5C3F044C /* OnboardingAriaBot.swift in Sources */,
 				1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */,
 				AA0001000000000000000009 /* WorkoutView.swift in Sources */,
 				1AB79BAC8BDB10BD5B60057F /* ExerciseCatalog.swift in Sources */,

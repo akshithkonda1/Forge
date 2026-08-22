@@ -145,6 +145,7 @@ def declarations(path):
                 'end': end,
                 'lines': end - start + 1,
             })
+    decls = merge_conditional_blocks(lines, decls)
     return {
         'path': path,
         'total': len(lines),
@@ -152,6 +153,51 @@ def declarations(path):
         'header': lines[:header_end],
         'decls': decls,
     }
+
+
+def merge_conditional_blocks(lines, decls):
+    """Fold each top-level `#if ... #endif` into the declaration it guards.
+
+    `#if DEBUG` around a declaration is not part of the declaration as far as
+    brace depth is concerned, so the directive lines were left unclaimed and the
+    split refused to run. They are also not separable: moving the declaration
+    without its guard changes when it compiles. So the whole region becomes one
+    unit, and everything inside it necessarily lands in the same file.
+    """
+    regions = []
+    depth = 0
+    start = None
+    for i, line in enumerate(lines):
+        head = line.strip()
+        if head.startswith('#if'):
+            if depth == 0:
+                start = i
+            depth += 1
+        elif head.startswith('#endif') and depth:
+            depth -= 1
+            if depth == 0 and start is not None:
+                regions.append((start, i))
+                start = None
+    if not regions:
+        return decls
+
+    merged = []
+    for lo, hi in regions:
+        inside = [d for d in decls if d['start'] >= lo and d['end'] <= hi]
+        if not inside:
+            continue
+        first = dict(inside[0])
+        first['start'], first['end'] = lo, hi
+        first['lines'] = hi - lo + 1
+        merged.append((inside, first))
+
+    out = list(decls)
+    for inside, first in merged:
+        index = out.index(inside[0])
+        for d in inside:
+            out.remove(d)
+        out.insert(index, first)
+    return out
 
 
 if __name__ == '__main__':
