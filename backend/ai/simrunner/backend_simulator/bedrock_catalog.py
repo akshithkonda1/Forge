@@ -30,7 +30,17 @@ class BedrockModel:
         return _display(self.model_id)
 
 
+# Cross-region inference profiles carry a scope prefix — `global.`, `us.`, `eu.`
+# — ahead of the vendor segment. Splitting on the first dot then leaves the
+# vendor in the display name ("Xai.Grok 4.6"), so the scope comes off first.
+_SCOPE_PREFIXES = ("global.", "us.", "eu.", "apac.")
+
+
 def _display(model_id: str) -> str:
+    for scope in _SCOPE_PREFIXES:
+        if model_id.startswith(scope):
+            model_id = model_id[len(scope):]
+            break
     name = model_id.split(".", 1)[-1]
     name = re.sub(r"[-:]v\d+(:\d+)?$", "", name)   # strip -v1:0 / :0
     name = re.sub(r"-\d{8}$", "", name)            # strip date stamps
@@ -95,10 +105,18 @@ _CATALOG: list[tuple] = [
     ("ai21.jamba-instruct-v1:0", "ai21", "jamba", "balanced", "text", 256000),
     # DeepSeek
     ("deepseek.r1-v1:0", "deepseek", "deepseek", "reasoning", "text", 128000),
-    # Moonshot / Kimi (text)
-    ("moonshot.kimi-k2-instruct-v1:0", "moonshot", "kimi", "frontier", "text", 128000),
-    ("moonshot.kimi-k2-thinking-v1:0", "moonshot", "kimi", "reasoning", "text", 128000),
-    ("moonshot.kimi-latest-v1:0", "moonshot", "kimi", "balanced", "text", 128000),
+    # Moonshot / Kimi (text) — this is the id ai_router.py actually calls
+    # (AI_ROUTER_MODEL_3_ID). The catalog previously carried three
+    # `moonshot.kimi-*-v1:0` entries under the wrong vendor prefix, none of which
+    # the router has ever asked for, so SimRunner's verdicts were being formed
+    # against a model production does not use.
+    ("moonshotai.kimi-k2.5", "moonshotai", "kimi", "frontier", "text", 128000),
+    # xAI — not in the router's default slots today, but the catalog is a list of
+    # what Bedrock offers rather than of what Forge currently routes to (Cohere,
+    # AI21, Writer and the rest are all here on the same basis), and slotting Grok
+    # in is live work. Whether it answers the native Converse operation at all is
+    # unverified — see the caveat in ai_router.py.
+    ("global.xai.grok-4.6", "xai", "grok", "frontier", "text", 256000),
     # Stability (image)
     ("stability.stable-image-ultra-v1:0", "stability", "stable-image", "image", "image", None),
     ("stability.stable-image-core-v1:0", "stability", "stable-image", "image", "image", None),
