@@ -432,7 +432,12 @@ class LiveBedrockTests(unittest.TestCase):
         # recommendation routes to the primary model; reported as the concrete Bedrock id.
         self.assertEqual(resp["model"], "anthropic.claude-opus-4-8")
         # the model received the canonical ARIA system prompt + ground-truth block.
-        self.assertEqual(captured["system"], aria_engine.ARIA_SYSTEM_PROMPT)
+        # It must also carry the security law: this assertion previously required
+        # the system prompt to be *exactly* ARIA_SYSTEM_PROMPT, which is how the
+        # directive stayed unattached to every live call without a test noticing.
+        self.assertEqual(captured["system"], aria_engine.live_system_prompt())
+        self.assertIn("SECURITY LAW (mandatory)", captured["system"])
+        self.assertTrue(captured["system"].startswith(aria_engine.ARIA_SYSTEM_PROMPT))
         self.assertIn("USER MODEL", captured["user"])
         self.assertIn("should I train today?", captured["user"])
         # the model card is merged over the deterministic card, not dropped.
@@ -516,6 +521,48 @@ class LiveBedrockTests(unittest.TestCase):
                 os.environ.pop("ARIA_BEDROCK_ENABLED", None)
             else:
                 os.environ["ARIA_BEDROCK_ENABLED"] = original
+
+
+class SecurityDirectiveTests(unittest.TestCase):
+    """The security law has to actually reach the model.
+
+    It was defined in security.py under a comment calling it "security rules
+    appended to AI system prompts (Bedrock + local)" and was imported by nothing,
+    so no live call ever carried it. These tests fail if that regresses.
+    """
+
+    def test_live_system_prompt_carries_every_clause(self):
+        from security import AI_SECURITY_DIRECTIVE
+
+        prompt = aria_engine.live_system_prompt()
+        self.assertIn(AI_SECURITY_DIRECTIVE, prompt)
+        for clause in range(1, 8):
+            self.assertIn(f"{clause}.", prompt, f"clause {clause} missing")
+
+    def test_live_system_prompt_keeps_the_persona_first(self):
+        prompt = aria_engine.live_system_prompt()
+        self.assertTrue(prompt.startswith(aria_engine.ARIA_SYSTEM_PROMPT))
+        self.assertLess(
+            prompt.index("You are ARIA"),
+            prompt.index("SECURITY LAW"),
+            "persona must precede the law so the law is the final word",
+        )
+
+    def test_the_live_path_uses_it_rather_than_the_bare_persona(self):
+        captured: dict[str, str] = {}
+
+        def fake_converse(model_id: str, system: str, user: str) -> str:
+            captured["system"] = system
+            return json.dumps({"schema_version": aria_engine.SCHEMA_VERSION,
+                               "response_type": "insight",
+                               "prose_summary": "ok"})
+
+        aria_engine.generate_response_live(
+            "how did I sleep?",
+            aria_engine.ARIAContext.from_payload({"user_id": "u1"}),
+            converse=fake_converse,
+        )
+        self.assertIn("SECURITY LAW (mandatory)", captured.get("system", ""))
 
 
 if __name__ == "__main__":

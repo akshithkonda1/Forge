@@ -176,8 +176,8 @@ struct FormCheckCameraView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(exercise.name).font(.system(size: 16, weight: .bold)).foregroundColor(.white)
                 HStack(spacing: 5) {
-                    Circle().fill(aria.hasAPIKey ? Color.success : Color.warning).frame(width: 6, height: 6)
-                    Text(aria.hasAPIKey ? "ARIA vision live" : "On-device preview").font(.system(size: 11, weight: .semibold)).foregroundColor(.white.opacity(0.7))
+                    Circle().fill(aria.isLiveCoachingAvailable ? Color.success : Color.warning).frame(width: 6, height: 6)
+                    Text(aria.isLiveCoachingAvailable ? "ARIA vision live" : "On-device preview").font(.system(size: 11, weight: .semibold)).foregroundColor(.white.opacity(0.7))
                 }
             }
             Spacer()

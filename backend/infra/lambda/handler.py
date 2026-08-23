@@ -16,6 +16,7 @@ from routes import (
     coach,
     dashboard,
     devices,
+    form_check,
     health,
     integrations,
     profile,
@@ -204,6 +205,9 @@ def _route(event, _context):
 
         if method == "POST" and path == "/workouts/logs":
             return workouts.handle_post_workout_log(user_id, body)
+
+        if method == "POST" and path == "/workouts/form-check":
+            return form_check.handle_post_form_check(body, user_id=user_id)
 
         if method == "GET" and path == "/progress/summary":
             days = _query_int(event, "days", 30, maximum=365)

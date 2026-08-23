@@ -38,106 +38,100 @@ final class ARIACoachService: ObservableObject {
     @Published var lastFeedback: FormFeedback?
     @Published var lastError: String?
 
-    // Real-time form coaching is latency-sensitive and high-frequency, so it defaults to a
-    // fast vision-capable model. Swap this one constant for `claude-opus-4-8` if you want the
-    // deepest analysis at the cost of speed.
-    private let visionModel = "claude-sonnet-4-6"
-    private let textModel   = "claude-sonnet-4-6"
-    private let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
-
-    private var apiKey: String? {
-        (Bundle.main.infoDictionary?["ANTHROPIC_API_KEY"] as? String)?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .nilIfEmpty
-    }
-    var hasAPIKey: Bool { apiKey != nil }
+    /// Whether the server last told us live coaching was available.
+    ///
+    /// Optimistic until proven otherwise: the first call decides. This replaces
+    /// `hasAPIKey`, which asked the wrong question — whether *this device* held a
+    /// credential — and answered it by reading one out of the app bundle.
+    @Published private(set) var isLiveCoachingAvailable = true
 
     // ── Vision: analyze a camera frame against the movement ───────────────────
     func analyzeForm(image: UIImage, context: ARIALiveContext) async -> FormFeedback {
         isAnalyzing = true
         defer { isAnalyzing = false }
 
-        guard let key = apiKey, let jpeg = image.downscaledJPEG(maxDimension: 1024, quality: 0.55) else {
-            let fb = Self.heuristicFeedback(for: context)
-            lastFeedback = fb
-            return fb
+        guard let jpeg = image.downscaledJPEG(maxDimension: 1024, quality: 0.55) else {
+            return fallback(for: context)
         }
 
-        let system = """
-        You are ARIA, an elite strength & conditioning coach watching a single video frame of an \
-        athlete training. Judge only what is visible. Be specific to the named exercise and the \
-        live biometrics. Respond with STRICT JSON and nothing else:
-        {"score": <0-100 form quality>, "status": "good"|"adjust"|"stop", \
-        "summary": "<one short sentence>", "cues": ["<≤2 imperative cues, ≤8 words each>"]}
-        If the body is not clearly visible, status "adjust" and ask them to reframe.
-        """
-        let prompt = """
-        Exercise: \(context.exerciseName)
-        Set: \(context.setLabel) · \(context.weight > 0 ? "\(context.weight) lb × " : "")\(context.reps) reps
-        Live: HR \(context.heartRate) bpm (Zone \(context.hrZone)), SpO₂ \(context.spO2)%, elapsed \(context.elapsed)
-        Key technique points: \(context.cues.prefix(3).joined(separator: "; "))
-        Analyze this athlete's form from the frame.
-        """
-        let content: [[String: Any]] = [
-            ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": jpeg.base64EncodedString()]],
-            ["type": "text", "text": prompt],
+        let body: [String: Any] = [
+            "mode": "vision",
+            "context": Self.payload(for: context),
+            "image_base64": jpeg.base64EncodedString(),
         ]
 
         do {
-            let text = try await call(model: visionModel, maxTokens: 400, system: system, content: content, key: key)
-            let fb = Self.parseFeedback(text, context: context)
+            let json = try await post(body)
+            guard (json["available"] as? Bool) == true,
+                  let raw = json["feedback"] as? String else {
+                // The server declines rather than guessing when vision routing is
+                // not wired up. That is the same situation the old code was in
+                // whenever no API key was present, and it is handled the same way.
+                isLiveCoachingAvailable = false
+                return fallback(for: context)
+            }
+            isLiveCoachingAvailable = true
+            let fb = Self.parseFeedback(raw, context: context)
             lastFeedback = fb
             lastError = nil
             return fb
         } catch {
-            lastError = error.localizedDescription
-            let fb = Self.heuristicFeedback(for: context)
-            lastFeedback = fb
-            return fb
+            lastError = (error as? ForgeAPI.Failure)?.userMessage ?? error.localizedDescription
+            return fallback(for: context)
         }
+    }
+
+    private func fallback(for context: ARIALiveContext) -> FormFeedback {
+        let fb = Self.heuristicFeedback(for: context)
+        lastFeedback = fb
+        return fb
     }
 
     // ── Text: turn a session snapshot into a coaching briefing ────────────────
     func briefing(for snapshot: ARIASessionSnapshot) async -> String? {
-        guard let key = apiKey else { return nil }
-        let system = """
-        You are ARIA, the athlete's onboard coach. Given a workout data summary, write a tight, \
-        motivating debrief (3-4 sentences, no markdown, no lists). Reference the strongest numbers, \
-        flag one balance or recovery insight, and end with one concrete focus for next session.
-        """
-        let content: [[String: Any]] = [["type": "text", "text": snapshot.promptPayload]]
         do {
-            return try await call(model: textModel, maxTokens: 320, system: system, content: content, key: key)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let json = try await post(["mode": "briefing", "snapshot": snapshot.promptPayload])
+            guard (json["available"] as? Bool) == true,
+                  let text = json["briefing"] as? String else { return nil }
+            return text.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
         } catch {
-            lastError = error.localizedDescription
+            lastError = (error as? ForgeAPI.Failure)?.userMessage ?? error.localizedDescription
             return nil
         }
     }
 
-    // ── Transport (raw HTTP — Swift has no official Anthropic SDK) ─────────────
-    private func call(model: String, maxTokens: Int, system: String, content: [[String: Any]], key: String) async throws -> String {
-        var req = URLRequest(url: endpoint)
-        req.httpMethod = "POST"
-        req.timeoutInterval = 30
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue(key, forHTTPHeaderField: "x-api-key")
-        req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        let body: [String: Any] = [
-            "model": model, "max_tokens": maxTokens, "system": system,
-            "messages": [["role": "user", "content": content]],
+    // ── Transport ─────────────────────────────────────────────────────────────
+    //
+    // One authenticated request to Forge's own backend. This used to be a raw
+    // POST to api.anthropic.com carrying a key read out of Info.plist — an
+    // extractable secret in any build that set it, and a request that skipped
+    // auth, sanitization, the model router and every cost control at once.
+    private func post(_ body: [String: Any]) async throws -> [String: Any] {
+        guard let url = URL(string: "workouts/form-check", relativeTo: AriaService.shared.baseURL) else {
+            throw ForgeAPI.Failure.notConfigured
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 30
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, _) = try await ForgeAPI.send(request)
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+    }
+
+    private static func payload(for context: ARIALiveContext) -> [String: Any] {
+        [
+            "exerciseName": context.exerciseName,
+            "setLabel": context.setLabel,
+            "weight": context.weight,
+            "reps": context.reps,
+            "heartRate": context.heartRate,
+            "hrZone": context.hrZone,
+            "spO2": context.spO2,
+            "elapsed": context.elapsed,
+            "cues": Array(context.cues.prefix(3)),
         ]
-        req.httpBody = try JSONSerialization.data(withJSONObject: body)
-        let (data, resp) = try await URLSession.shared.data(for: req)
-        guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
-            throw NSError(domain: "ARIA", code: (resp as? HTTPURLResponse)?.statusCode ?? -1,
-                          userInfo: [NSLocalizedDescriptionKey: "ARIA service returned an error."])
-        }
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let blocks = json["content"] as? [[String: Any]] else {
-            throw NSError(domain: "ARIA", code: -2, userInfo: [NSLocalizedDescriptionKey: "Unreadable response."])
-        }
-        return blocks.compactMap { $0["text"] as? String }.joined()
     }
 
     // ── Parsing + offline fallback ────────────────────────────────────────────

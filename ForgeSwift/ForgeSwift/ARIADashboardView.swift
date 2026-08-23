@@ -202,8 +202,13 @@ struct ARIADashboardView: View {
                 .cornerRadius(16).shadow(color: (sent ? Color.success : Color.ember).opacity(0.5), radius: 16, y: 6)
             }
             .disabled(loadingBrief)
-            if !aria.hasAPIKey {
-                Text("Tip: add ANTHROPIC_API_KEY to enable ARIA's live Claude debrief. Using the on-device analysis for now.")
+            if !aria.isLiveCoachingAvailable {
+                // Was: "add ANTHROPIC_API_KEY to enable ARIA's live Claude debrief."
+                // Telling a user to put an API key in the app was the visible end
+                // of a client that called Anthropic directly. Whether live
+                // reasoning is on is now a server-side fact, and not something
+                // anyone should be able to change from the device.
+                Text("ARIA's live debrief isn't available right now. Using the on-device analysis instead.")
                     .font(.system(size: 11)).foregroundColor(.white.opacity(0.35)).multilineTextAlignment(.center)
             }
         }
