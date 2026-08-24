@@ -1,16 +1,17 @@
 {
-  "composite": 63.8,
+  "bedrock_model_id": null,
+  "composite": 63.4,
   "consumer_stability_grade": "B+",
   "critical_failures": 0,
   "derived": false,
   "determinism_rate": 100.0,
   "dimensions": {
-    "actionability": 72.5,
+    "actionability": 75.0,
     "chronotype_alignment": 85.0,
-    "context_utilization": 46.1,
-    "directional_correctness": 46.1,
+    "context_utilization": 44.5,
+    "directional_correctness": 48.4,
     "epistemic_honesty": 75.5,
-    "tone_compliance": 95.5
+    "tone_compliance": 86.5
   },
   "display_name": "Nova Premier \u2014 The Mid-Dataset Career Shift",
   "engine_model": "opus->anthropic.claude-opus-4-8, sonnet->anthropic.claude-sonnet-4-6",
@@ -18,8 +19,10 @@
   "grade": "C",
   "mission_critical_count": 0,
   "mission_critical_queries": [],
+  "model_archetype": "baseline",
+  "model_archetype_name": "Baseline",
   "model_id": "amazon.nova-premier-driftshift",
   "system_passed": false,
   "tier": 5,
-  "verdict": "HOLD \u2014 pass rate 0.0% < 80%"
+  "verdict": "HOLD \u2014 pass rate 15.0% < 80%"
 }
