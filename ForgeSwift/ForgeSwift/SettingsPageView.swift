@@ -16,7 +16,6 @@ struct SettingsPageView: View {
     @State private var catalogRevision = 0
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
-    @State private var showTrainingThemePicker = false
     @State private var showTermsSheet = false
     @State private var showClinicalData = false
     @State private var showDataPermissions = false
@@ -64,30 +63,12 @@ struct SettingsPageView: View {
                     .buttonStyle(.plain)
 
                     Divider().background(Color.borderColor)
-
-                    Button(action: { showTrainingThemePicker = true }) {
-                        SettingsRow(
-                            icon: store.userProfile.trainingTheme.icon,
-                            iconColor: Color(hex: store.userProfile.trainingTheme.accentHex),
-                            label: "Training Theme",
-                            trailingText: store.userProfile.trainingTheme.label,
-                            showChevron: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    Divider().background(Color.borderColor)
                     VStack(alignment: .leading, spacing: 0) {
                         Text(store.userProfile.coachingStyle.description)
                             .font(.system(size: 12))
                             .foregroundColor(.textTertiary)
                             .lineSpacing(2)
                             .padding(.horizontal, 16).padding(.vertical, 10)
-                        Text(store.userProfile.trainingTheme.tagline)
-                            .font(.system(size: 12))
-                            .foregroundColor(Color(hex: store.userProfile.trainingTheme.accentHex).opacity(0.9))
-                            .lineSpacing(2)
-                            .padding(.horizontal, 16).padding(.bottom, 10)
                         Divider().background(Color.borderColor)
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Training Goals")
@@ -516,9 +497,6 @@ struct SettingsPageView: View {
         }
         .sheet(isPresented: $showCoachingStylePicker) {
             CoachingStylePickerView()
-        }
-        .sheet(isPresented: $showTrainingThemePicker) {
-            TrainingThemePickerView()
         }
         .sheet(isPresented: $showDevicesSheet) {
             ConnectedDevicesLibraryView()

@@ -193,16 +193,16 @@ struct StreakCalendarSection: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 HStack(spacing: 6) {
-                    Image(systemName: "flame.fill")
+                    Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 13))
                         .foregroundColor(.ember)
-                    Text("\(store.currentStreak)-DAY STREAK")
-                        .font(.system(size: 10, weight: .black))
+                    Text("THIS WEEK")
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(.ember)
                         .tracking(2)
                 }
                 Spacer()
-                Text("This week")
+                Text("Days you trained")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.textMuted)
             }
@@ -219,8 +219,8 @@ struct StreakCalendarSection: View {
                                 .frame(width: 34, height: 34)
                             if day.hasWorkout {
                                 Circle().stroke(Color.ember.opacity(0.4), lineWidth: 1).frame(width: 34, height: 34)
-                                Image(systemName: "flame.fill")
-                                    .font(.system(size: 14))
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(.ember)
                             } else if day.isToday {
                                 Circle().stroke(Color.ember.opacity(0.6), lineWidth: 1.5).frame(width: 34, height: 34)
@@ -249,6 +249,6 @@ struct StreakCalendarSection: View {
         }
         .homeEntrance(delay: 0.32)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(store.currentStreak) day streak this week")
+        .accessibilityLabel("This week. Checkmarks on days you trained.")
     }
 }

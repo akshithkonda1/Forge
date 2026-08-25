@@ -47,7 +47,6 @@ struct ChatBubbleShape: Shape {
 struct ChatView: View {
     @EnvironmentObject var store: AppStore
     @StateObject private var speech = SpeechManager()
-    @StateObject private var momentum = MomentumEngine()
     @StateObject private var ariaContext = AriaContextStore.shared
 
     @State private var inputText:         String = ""
@@ -56,22 +55,16 @@ struct ChatView: View {
     @State private var showQuickActions:  Bool   = true
     @State private var ariaMood:          ARIAMood = .focused
     @State private var swipeReplyTarget:  ChatMessage? = nil
-    @State private var showMilestone:     Bool   = false
-    @State private var reactionBurstAt:   CGPoint = .zero
-    @State private var showReactionBurst: Bool   = false
     @State private var showContextInspector = false
     @State private var proactiveInsight: String?
     @State private var composerMode: AriaComposerMode = .chat
     @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
 
     // Cancellable timers for transient UI so nothing fires after teardown.
-    @State private var milestoneResetTask:    Task<Void, Never>? = nil
-    @State private var reactionBurstTask:     Task<Void, Never>? = nil
     @State private var proactiveInsightTask:  Task<Void, Never>? = nil
 
     @FocusState private var isInputFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -83,8 +76,6 @@ struct ChatView: View {
                 // ── Header ──────────────────────────────────────
                 ChatHeaderView(
                     mood:              ariaMood,
-                    momentum:          momentum,
-                    relationshipLevel: ariaContext.context.relationshipLevel,
                     onAvatarLongPress: { showContextInspector = true }
                 )
 
@@ -143,16 +134,7 @@ struct ChatView: View {
                             )
                         }
                     },
-                    onReactionBurst:  { pt in
-                        reactionBurstAt   = pt
-                        showReactionBurst = true
-                        reactionBurstTask?.cancel()
-                        reactionBurstTask = Task { @MainActor in
-                            try? await Task.sleep(nanoseconds: 1_200_000_000)
-                            guard !Task.isCancelled else { return }
-                            showReactionBurst = false
-                        }
-                    }
+                    onReactionBurst:  { _ in }
                 )
 
                 // Reply preview bar
@@ -188,32 +170,6 @@ struct ChatView: View {
                 )
             }
 
-            // ── XP Burst ─────────────────────────────────────────
-            if momentum.showXPBurst && !reduceMotion {
-                XPBurstView(amount: momentum.lastXPGain)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(.top, 100).padding(.trailing, 20)
-                    .allowsHitTesting(false)
-                    .zIndex(50)
-            }
-
-            // ── Level Up Banner ───────────────────────────────────
-            if momentum.showLevelUp {
-                LevelUpBanner(level: momentum.level)
-                    .zIndex(60)
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.7).combined(with: .opacity),
-                        removal:   .opacity
-                    ))
-            }
-
-            // ── Micro-confetti burst on reaction ─────────────────
-            if showReactionBurst && !reduceMotion {
-                MicroConfettiBurst(at: reactionBurstAt)
-                    .allowsHitTesting(false)
-                    .zIndex(70)
-            }
-
             // ── Voice Orb Overlay ─────────────────────────────────
             if showVoiceOrb {
                 VoiceOrbOverlay(
@@ -243,7 +199,6 @@ struct ChatView: View {
             )
         }
         .onAppear {
-            momentum.bind(to: store)
             ariaMood = ARIAMood.derive(
                 readiness: store.readiness.overall,
                 sleepScore: store.sleepData.first?.score
@@ -281,9 +236,6 @@ struct ChatView: View {
         .onDisappear {
             // Nothing should keep running once chat is off-screen.
             speech.cancel()
-            momentum.cancelPendingAnimations()
-            milestoneResetTask?.cancel()
-            reactionBurstTask?.cancel()
             proactiveInsightTask?.cancel()
             showVoiceOrb = false
         }
@@ -339,9 +291,6 @@ struct ChatView: View {
         swipeReplyTarget = nil
         proactiveInsight = nil
 
-        let xpGain = trimmed.split(separator: " ").count > 5 ? 15 : 10
-        momentum.award(xp: xpGain)
-
         Task {
             if composerMode == .research {
                 await store.sendMessage(
@@ -353,18 +302,6 @@ struct ChatView: View {
             }
             isTyping = false
             choreographedHaptic(.messageReceived, mood: ariaMood)
-
-            let count = store.chatMessages.filter { $0.role == .trainer }.count
-            if [5, 10, 25, 50].contains(count) {
-                choreographedHaptic(.milestone, mood: ariaMood)
-                withAnimation(FDS.Spring.hero) { showMilestone = true }
-                milestoneResetTask?.cancel()
-                milestoneResetTask = Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: 2_500_000_000)
-                    guard !Task.isCancelled else { return }
-                    withAnimation(FDS.Spring.standard) { showMilestone = false }
-                }
-            }
         }
     }
 }

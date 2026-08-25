@@ -157,13 +157,12 @@ struct StreaksAndMilestonesView: View {
         let current = store.currentStreak
         let best = longestStreak
         if current == 0 {
-            return "Complete a workout today to start a new streak."
+            return "No session logged today. That’s fine — train when it fits."
         }
         if current >= best {
-            return "This is your longest streak yet — keep it going!"
+            return "Longest stretch so far. A fact, not a record to defend."
         }
-        let remaining = best - current + 1
-        return "\(remaining) more \(remaining == 1 ? "day" : "days") to beat your \(best)-day record."
+        return "Longest stretch: \(best) days. Consecutive days are a note, not a ladder."
     }
 
     private func nextTarget(above value: Int, ladder: [Int]) -> Int {
@@ -185,10 +184,10 @@ struct StreaksAndMilestonesView: View {
 
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Image(systemName: "flame.fill")
+                Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 18))
-                    .foregroundColor(.warning)
-                Text("Streaks & Milestones")
+                    .foregroundColor(.ember)
+                Text("Your training")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.textPrimary)
             }
@@ -211,7 +210,7 @@ struct StreaksAndMilestonesView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Current Streak")
+                        Text("Days in a row")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.textPrimary)
                         Text(streakMessage)
@@ -226,7 +225,7 @@ struct StreaksAndMilestonesView: View {
                 .cornerRadius(12)
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.warning.opacity(0.3), lineWidth: 2))
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Current streak: \(store.currentStreak) days. \(streakMessage)")
+                .accessibilityLabel("Days trained in a row: \(store.currentStreak). \(streakMessage)")
 
                 // Milestones grid — next goal scales with actual progress
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -253,7 +252,7 @@ struct StreaksAndMilestonesView: View {
                     )
                     MilestoneCard(
                         icon: "chart.line.uptrend.xyaxis",
-                        title: "\(streakTarget)-Day Streak",
+                        title: "\(streakTarget) days in a row",
                         subtitle: "Best: \(longestStreak)",
                         progress: min(1, Double(longestStreak) / Double(streakTarget)),
                         color: .success

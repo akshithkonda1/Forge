@@ -111,7 +111,7 @@ struct PartnerCycleSettings: Codable, Equatable {
         partnerName: "",
         relationshipLabel: "partner",
         supportRole: .romantic,
-        shareWithAria: true,
+        shareWithAria: false,
         averageCycleOverride: nil,
         averagePeriodOverride: nil,
         typicalLutealDays: 14,

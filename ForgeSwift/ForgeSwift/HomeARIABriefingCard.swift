@@ -47,7 +47,7 @@ struct HomeARIABriefingCard: View {
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(.textMuted)
                     }
-                    Text("Daily command · Forge")
+                    Text(briefingKicker)
                         .font(.system(size: 11))
                         .foregroundColor(.textMuted)
                 }
@@ -125,28 +125,18 @@ struct HomeARIABriefingCard: View {
         }
     }
 
-    private var themedPlanLabel: String {
-        switch store.userProfile.trainingTheme {
-        case .soloLeveling: return "Daily quest"
-        case .classic: return "Today's plan"
-        default: return store.userProfile.trainingTheme.label
-        }
+    private var briefingKicker: String {
+        let first = store.userProfile.name.components(separatedBy: " ").first ?? ""
+        if first.isEmpty { return "A note for you" }
+        return "A note for \(first)"
     }
 
-    private var themedPlanIcon: String {
-        store.userProfile.trainingTheme == .classic ? "sparkles" : store.userProfile.trainingTheme.icon
-    }
+    private var themedPlanLabel: String { "Today’s plan" }
+
+    private var themedPlanIcon: String { "sparkles" }
 
     private var themedPlanPrompt: String {
-        let theme = store.userProfile.trainingTheme
-        switch theme {
-        case .soloLeveling:
-            return "Build today's Solo Leveling daily quest based on my readiness."
-        case .classic:
-            return "What should I train today based on my readiness?"
-        default:
-            return "Build a \(theme.label) training plan for me based on my readiness."
-        }
+        "What should I train today based on my readiness?"
     }
 
     private func briefingChip(icon: String, label: String, action: @escaping () -> Void) -> some View {
@@ -240,11 +230,7 @@ enum HomeARIABriefingBuilder {
 
         // --- Blocks today's action, so it ranks above passive observations.
         if store.todayWorkout == nil {
-            if theme == .soloLeveling {
-                beats.append(.init(text: "No quest locked — ask for today's daily quest.", priority: .blocking))
-            } else if theme != .classic {
-                beats.append(.init(text: "No plan locked — I can build a \(theme.label) session.", priority: .blocking))
-            }
+            beats.append(.init(text: "No session yet — ask me what to train today.", priority: .blocking))
         }
 
         // --- Support context. The phase-specific line is time-sensitive and

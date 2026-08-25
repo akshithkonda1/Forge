@@ -33,6 +33,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
     /// Last bleeding day the user confirmed ("Period finished"). Belongs to the current
     /// episode only; a new period start must clear it so it cannot suppress a fresh bleed.
     var confirmedPeriodEndDayKey: String?
+    /// How much a support person may see. Default is Support coach — never a chart.
+    var partnerShareTier: PartnerShareTier
 
     enum CodingKeys: String, CodingKey {
         case enabled, shareWithAria, averageCycleOverride, averagePeriodOverride
@@ -40,12 +42,12 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         case privacyAcknowledged, calibrationOffsetDays, highAccuracyMode, overdueWidenDays
         case learnedLutealDays
         case bbtReminderEnabled, bbtReminderHour, fertileWindowAlertEnabled, periodReminderEnabled
-        case cycleGoal, condition, confirmedPeriodEndDayKey
+        case cycleGoal, condition, confirmedPeriodEndDayKey, partnerShareTier
     }
 
     static let `default` = MenstrualTrackingSettings(
         enabled: false,
-        shareWithAria: true,
+        shareWithAria: false,
         averageCycleOverride: nil,
         averagePeriodOverride: nil,
         typicalLutealDays: 14,
@@ -80,7 +82,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         periodReminderEnabled: Bool = false,
         cycleGoal: CycleGoal = .general,
         condition: CycleCondition = .none,
-        confirmedPeriodEndDayKey: String? = nil
+        confirmedPeriodEndDayKey: String? = nil,
+        partnerShareTier: PartnerShareTier = .supportCoach
     ) {
         self.enabled = enabled
         self.shareWithAria = shareWithAria
@@ -101,12 +104,13 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         self.cycleGoal = cycleGoal
         self.condition = condition
         self.confirmedPeriodEndDayKey = confirmedPeriodEndDayKey
+        self.partnerShareTier = partnerShareTier
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         enabled = try c.decode(Bool.self, forKey: .enabled)
-        shareWithAria = try c.decode(Bool.self, forKey: .shareWithAria)
+        shareWithAria = try c.decodeIfPresent(Bool.self, forKey: .shareWithAria) ?? false
         averageCycleOverride = try c.decodeIfPresent(Int.self, forKey: .averageCycleOverride)
         averagePeriodOverride = try c.decodeIfPresent(Int.self, forKey: .averagePeriodOverride)
         typicalLutealDays = try c.decodeIfPresent(Int.self, forKey: .typicalLutealDays) ?? 14
@@ -124,6 +128,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         cycleGoal = try c.decodeIfPresent(CycleGoal.self, forKey: .cycleGoal) ?? .general
         condition = try c.decodeIfPresent(CycleCondition.self, forKey: .condition) ?? .none
         confirmedPeriodEndDayKey = try c.decodeIfPresent(String.self, forKey: .confirmedPeriodEndDayKey)
+        partnerShareTier = try c.decodeIfPresent(PartnerShareTier.self, forKey: .partnerShareTier) ?? .supportCoach
     }
 
     func encode(to encoder: Encoder) throws {
@@ -147,6 +152,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         try c.encode(cycleGoal, forKey: .cycleGoal)
         try c.encode(condition, forKey: .condition)
         try c.encodeIfPresent(confirmedPeriodEndDayKey, forKey: .confirmedPeriodEndDayKey)
+        try c.encode(partnerShareTier, forKey: .partnerShareTier)
     }
 
     /// Effective luteal for calendar fallback.

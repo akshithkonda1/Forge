@@ -116,9 +116,15 @@ struct SupporterDigestView: View {
                         .font(FDS.TypeScale.title(20))
                         .foregroundColor(.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(digest.energy.label)
-                        .font(FDS.TypeScale.body(13))
-                        .foregroundColor(.textSecondary)
+                    if let day = digest.periodDay {
+                        Text("Day \(day)")
+                            .font(FDS.TypeScale.body(13))
+                            .foregroundColor(.textSecondary)
+                    } else if digest.phase != .notBleeding {
+                        Text(digest.energy.label)
+                            .font(FDS.TypeScale.body(13))
+                            .foregroundColor(.textSecondary)
+                    }
                 }
                 Spacer(minLength: 0)
             }
@@ -235,19 +241,21 @@ struct SupporterDigestView: View {
 
     private var accent: Color {
         switch digest.phase {
-        case .bleeding:   return Color(hex: "F43F5E")
-        case .rebuilding: return Color(hex: "22C55E")
-        case .winding:    return Color(hex: "A78BFA")
-        case .unknown:    return Color(hex: "94A3B8")
+        case .bleeding:     return Color(hex: "F43F5E")
+        case .rebuilding:   return Color(hex: "22C55E")
+        case .winding:      return Color(hex: "A78BFA")
+        case .notBleeding:  return Color(hex: "94A3B8")
+        case .unknown:      return Color(hex: "94A3B8")
         }
     }
 
     private var phaseIcon: String {
         switch digest.phase {
-        case .bleeding:   return "drop.fill"
-        case .rebuilding: return "sun.max.fill"
-        case .winding:    return "moon.fill"
-        case .unknown:    return "questionmark"
+        case .bleeding:     return "drop.fill"
+        case .rebuilding:   return "sun.max.fill"
+        case .winding:      return "moon.fill"
+        case .notBleeding:  return "heart.fill"
+        case .unknown:      return "questionmark"
         }
     }
 

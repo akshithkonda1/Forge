@@ -255,6 +255,7 @@
 		AA000100000000000000F3A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */; };
 		AA000100000000000000F4A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */; };
 		1TEST01200000000000000A /* MenstrualCycleEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */; };
+		1TEST01400000000000000A /* PartnerCycleDigestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01300000000000000A /* PartnerCycleDigestTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -585,6 +586,7 @@
 		AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngineTests.swift; sourceTree = "<group>"; };
+		1TEST01300000000000000A /* PartnerCycleDigestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleDigestTests.swift; sourceTree = "<group>"; };
 		1TEST00700000000000000A /* ForgeSwiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForgeSwiftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -1022,6 +1024,7 @@
 			isa = PBXGroup;
 			children = (
 				1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */,
+				1TEST01300000000000000A /* PartnerCycleDigestTests.swift */,
 			);
 			path = ForgeSwiftTests;
 			sourceTree = "<group>";
@@ -1520,6 +1523,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1TEST01200000000000000A /* MenstrualCycleEngineTests.swift in Sources */,
+				1TEST01400000000000000A /* PartnerCycleDigestTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

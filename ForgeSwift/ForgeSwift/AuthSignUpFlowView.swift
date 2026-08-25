@@ -1,9 +1,9 @@
 import SwiftUI
 import AuthenticationServices
 
-// MARK: - Immersive Sign Up (Day 0 forge)
+// MARK: - Immersive Sign Up
 
-/// Multi-beat identity → goal → account forge. Designed to feel like leveling into Forge.
+/// Multi-beat identity → goal → account. Designed to feel like meeting a coach who will remember you.
 struct AuthSignUpFlowView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss
@@ -27,9 +27,9 @@ struct AuthSignUpFlowView: View {
 
         var title: String {
             switch self {
-            case .identity: return "Identity"
-            case .spark: return "First quest"
-            case .account: return "Forge key"
+            case .identity: return "Your name"
+            case .spark: return "Your goal"
+            case .account: return "Your account"
             }
         }
 
@@ -170,8 +170,8 @@ struct AuthSignUpFlowView: View {
             Spacer()
 
             VStack(spacing: 2) {
-                Text("DAY 0")
-                    .font(.system(size: 10, weight: .black))
+                Text("WELCOME")
+                    .font(.system(size: 10, weight: .semibold))
                     .tracking(2)
                     .foregroundColor(.ember)
                 Text(step.title)
@@ -181,19 +181,14 @@ struct AuthSignUpFlowView: View {
 
             Spacer()
 
-            // XP chip
-            HStack(spacing: 4) {
-                Image(systemName: "star.fill")
-                    .font(.system(size: 10))
-                Text("\(step.rawValue * 40)/120 XP")
-                    .font(.system(size: 11, weight: .bold))
-            }
-            .foregroundStyle(Color(hex: "F59E0B"))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(Color(hex: "F59E0B").opacity(0.12))
-            .clipShape(Capsule())
-            .frame(minWidth: 40)
+            Text("\(step.rawValue + 1) of \(SignUpStep.allCases.count)")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.textTertiary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color.white.opacity(0.06))
+                .clipShape(Capsule())
+                .frame(minWidth: 40)
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
@@ -290,15 +285,15 @@ struct AuthSignUpFlowView: View {
         }
     }
 
-    // MARK: Step 2 — First quest
+    // MARK: Step 2 — Your goal
 
     private var sparkStep: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
                 heroCopy(
-                    kicker: "Our First Goal! What is it,\name?",
-                    title: "\(trimmedName), what are\nwe forging first?",
-                    body: "Pick one north star. You can change it later — this unlocks a sharper day-one plan."
+                    kicker: "Nice to meet you, \(trimmedName).",
+                    title: "\(trimmedName), what should\nwe start with?",
+                    body: "Pick one focus. You can change it later — this just helps today’s session fit you."
                 )
 
                 VStack(spacing: 10) {
@@ -355,9 +350,9 @@ struct AuthSignUpFlowView: View {
                 }
 
                 primaryButton(
-                    title: "Lock quest · +\(40) XP",
+                    title: "Continue",
                     enabled: true,
-                    icon: "flag.fill"
+                    icon: "arrow.right"
                 ) {
                     FDS.haptic(.medium)
                     withAnimation(FDS.Spring.page) { step = .account }
@@ -374,12 +369,11 @@ struct AuthSignUpFlowView: View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 18) {
                 heroCopy(
-                    kicker: "FORGE KEY",
-                    title: "Save your progress,\n\(trimmedName).",
-                    body: "One tap. Then ARIA interviews you — Apple Health optional — and builds plan one."
+                    kicker: "YOUR ACCOUNT",
+                    title: "Save this so I remember you,\n\(trimmedName).",
+                    body: "One tap. Then a few questions — Apple Health optional — and a first session that fits."
                 )
 
-                // Quest recap
                 HStack(spacing: 12) {
                     Image(systemName: spark.icon)
                         .foregroundStyle(Color(hex: spark.accentHex))
@@ -387,7 +381,7 @@ struct AuthSignUpFlowView: View {
                         .background(Color(hex: spark.accentHex).opacity(0.15))
                         .clipShape(Circle())
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Quest locked")
+                        Text("Starting with")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundColor(.textTertiary)
                         Text(spark.label)
@@ -395,9 +389,6 @@ struct AuthSignUpFlowView: View {
                             .foregroundColor(.textPrimary)
                     }
                     Spacer()
-                    Text("+80 XP")
-                        .font(.system(size: 12, weight: .black))
-                        .foregroundStyle(Color(hex: "F59E0B"))
                 }
                 .padding(14)
                 .forgeGlassCard(cornerRadius: 16, accent: Color(hex: spark.accentHex))
@@ -689,25 +680,20 @@ private struct SignUpCelebrationOverlay: View {
                         .font(.system(size: 48, weight: .bold))
                         .foregroundStyle(FDS.Gradient.ember)
                 }
-                Text("PATH UNLOCKED")
-                    .font(.system(size: 13, weight: .black))
-                    .tracking(3)
+                Text("WELCOME")
+                    .font(.system(size: 13, weight: .semibold))
+                    .tracking(2)
                     .foregroundColor(.ember)
-                Text(name.isEmpty ? "You’ve forged\nyour own path." : "\(name), you’ve forged\nyour own path.")
-                    .font(.system(size: 26, weight: .black, design: .rounded))
+                Text(name.isEmpty ? "Let’s learn how you live." : "Nice to meet you, \(name).")
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
-                Text("ARIA is preparing your interview…")
+                Text("ARIA will ask a few questions so today’s session fits you.")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.textSecondary)
-                Text("+120 XP · Day 0 complete")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color(hex: "F59E0B"))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Color(hex: "F59E0B").opacity(0.15))
-                    .clipShape(Capsule())
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
             }
             .scaleEffect(scale)
             .opacity(opacity)

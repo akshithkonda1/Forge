@@ -5,16 +5,17 @@ struct HomeWinCard: View {
     @EnvironmentObject var store: AppStore
 
     private var title: String {
-        if store.isWorkoutActive { return "Session in progress" }
-        if store.currentStreak >= 7 { return "\(store.currentStreak)-day streak" }
-        if store.currentStreak > 0 { return "Streak: \(store.currentStreak) days" }
-        return "Forge day zero energy"
+        if store.isWorkoutActive { return "You’re in a session" }
+        if store.didTrainToday { return "You trained today" }
+        if store.currentStreak > 0 { return "\(store.currentStreak) days trained in a row" }
+        return "Nothing logged yet — that’s fine"
     }
 
     private var subtitle: String {
-        if store.isWorkoutActive { return "Finish strong — then log recovery." }
-        if store.currentStreak >= 3 { return "Consistency is compounding. Protect sleep tonight." }
-        return "Complete today’s plan to light the streak."
+        if store.isWorkoutActive { return "Finish, then give recovery a real chance." }
+        if store.didTrainToday { return "Sleep tonight is the rest of the work." }
+        if store.currentStreak > 0 { return "A quiet fact, not a score to protect." }
+        return "When you’re ready, ARIA will write today’s session from how you live."
     }
 
     var body: some View {
@@ -23,11 +24,12 @@ struct HomeWinCard: View {
                 Circle()
                     .fill(Color.ember.opacity(0.18))
                     .frame(width: 42, height: 42)
-                Image(systemName: "flame.fill")
+                Image(systemName: "checkmark")
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Color.ember)
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text("WIN")
+                Text("TODAY")
                     .forgeSectionLabel()
                     .foregroundStyle(Color.ember)
                 Text(title)

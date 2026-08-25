@@ -4,12 +4,9 @@ struct ChatHeaderView: View {
     @EnvironmentObject var store: AppStore
     @ObservedObject private var ariaService = AriaService.shared
     let mood:              ARIAMood
-    @ObservedObject var momentum: MomentumEngine
-    var relationshipLevel: Int = 1
     var onAvatarLongPress: (() -> Void)? = nil
     @State private var pulse        = false
     @State private var appeared     = false
-    @State private var showXPRing   = false
 
     private var scoreColor: Color {
         switch store.readiness.overall {
@@ -22,27 +19,8 @@ struct ChatHeaderView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // ARIA Avatar + presence + XP ring
             ZStack(alignment: .bottomTrailing) {
                 ZStack {
-                    // XP ring overlay
-                    Circle()
-                        .stroke(Color.white.opacity(0.06), lineWidth: 2.5)
-                        .frame(width: 54, height: 54)
-                    Circle()
-                        .trim(from: 0, to: CGFloat(momentum.xpProgress))
-                        .stroke(
-                            AngularGradient(
-                                colors: [mood.accentColor.opacity(0.6), mood.accentColor],
-                                center: .center
-                            ),
-                            style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
-                        )
-                        .frame(width: 54, height: 54)
-                        .rotationEffect(.degrees(-90))
-                        .animation(.spring(response: 1.0, dampingFraction: 0.72), value: momentum.xpProgress)
-
-                    // Core avatar
                     Circle()
                         .fill(LinearGradient(
                             colors: [mood.accentColor.opacity(0.22), mood.accentColor.opacity(0.08)],
@@ -83,32 +61,15 @@ struct ChatHeaderView: View {
                 onAvatarLongPress?()
             }
 
-            // Name + mood badge
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text("ARIA")
-                        .font(.system(size: 17, weight: .black))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.textPrimary)
-                        .tracking(0.5)
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 13))
-                        .foregroundColor(mood.accentColor)
-
-                    // Mood badge
-                    HStack(spacing: 3) {
-                        Text(mood.emoji)
-                            .font(.system(size: 10))
-                        Text(mood.displayName)
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(mood.accentColor)
-                    }
-                    .padding(.horizontal, 7).padding(.vertical, 3)
-                    .background(mood.accentColor.opacity(0.12))
-                    .cornerRadius(FDS.Radius.pill)
-                    .overlay(Capsule().stroke(mood.accentColor.opacity(0.3), lineWidth: 0.5))
-                    .id(mood)
-                    .transition(.opacity.combined(with: .scale(scale: 0.85)))
-                    .animation(FDS.Spring.standard, value: mood)
+                        .tracking(0.3)
+                    Text("your coach")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.textTertiary)
                 }
 
                 HStack(spacing: 5) {
@@ -116,12 +77,12 @@ struct ChatHeaderView: View {
                         Image(systemName: "bolt.fill")
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(Color.ember)
-                        Text("Local · Bond Lv.\(relationshipLevel) · Chat Lv.\(momentum.level)")
+                        Text("On this phone")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(Color.ember.opacity(0.8))
                     } else {
                         Circle().fill(Color(hex: "22C55E")).frame(width: 5, height: 5)
-                        Text("Active · Bond Lv.\(relationshipLevel) · Chat Lv.\(momentum.level)")
+                        Text(headerStatusLine)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.textSecondary)
                     }
@@ -164,5 +125,16 @@ struct ChatHeaderView: View {
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : -10)
         .onAppear { withAnimation(FDS.Spring.hero.delay(0.05)) { appeared = true } }
+    }
+
+    private var headerStatusLine: String {
+        let first = store.userProfile.name.components(separatedBy: " ").first ?? ""
+        let score = store.readiness.overall
+        if first.isEmpty {
+            return score < 55 ? "Easy day — I’m here" : "Ready when you are"
+        }
+        if score < 55 { return "\(first), let’s keep it easy" }
+        if score >= 85 { return "You look ready, \(first)" }
+        return "Here for you, \(first)"
     }
 }

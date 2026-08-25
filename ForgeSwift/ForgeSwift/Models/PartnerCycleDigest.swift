@@ -2,6 +2,46 @@ import Foundation
 import ForgeCore
 
 // ============================================================
+// MARK: - How much a supporter may see
+// ============================================================
+
+/// Owner-chosen share depth. Default is conservative: enough to help, never a chart.
+///
+/// Fertile window, ovulation, flow, BBT, symptoms and private notes are **never**
+/// in any tier. Timing is a coarse next-period window, not a calendar.
+enum PartnerShareTier: String, Codable, CaseIterable, Identifiable {
+    /// Yes/no they're on their period, plus a reminder to be extra kind.
+    case onPeriod
+    /// Phase band, day of the bleed if they are bleeding, one support tip.
+    case supportCoach
+    /// Support coach plus a coarse “likely this week / next week” window.
+    case timing
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .onPeriod:      return "On period?"
+        case .supportCoach:  return "Support coach"
+        case .timing:        return "Timing too"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .onPeriod:
+            return "Yes or no, and a reminder to be extra kind. Nothing else."
+        case .supportCoach:
+            return "Early, mid or late period — or not bleeding — plus day 1–N and one way to help. Recommended."
+        case .timing:
+            return "Everything in Support coach, plus a coarse window for the next period. Still no fertility charts."
+        }
+    }
+
+    var isRecommended: Bool { self == .supportCoach }
+}
+
+// ============================================================
 // MARK: - Partner cycle digest
 // ============================================================
 
@@ -20,8 +60,9 @@ import ForgeCore
 ///
 /// **Deliberately absent, and it must stay that way:** fertile window, fertile score,
 /// ovulation timing, cycle goal, two-week-wait state, health conditions, flow volume,
-/// individual symptoms, sexual-activity logs, test results, exact cycle day, and any
-/// raw day-level entry.
+/// individual symptoms, sexual-activity logs, test results, follicular/luteal cycle day,
+/// and any raw day-level entry. Bleed day 1–N is allowed only on `.supportCoach` and
+/// `.timing`, because that is how a partner shows up — not a fertility clock.
 struct PartnerCycleDigest: Codable, Equatable, Hashable {
 
     /// A deliberately coarser phase than `MenstrualPhase`.
@@ -38,14 +79,19 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
         case rebuilding
         /// Luteal.
         case winding
+        /// On-period tier, not currently bleeding. Distinct from `.unknown`
+        /// so a supporter does not read “no data” when the owner is simply
+        /// not menstruating.
+        case notBleeding
         case unknown
 
         var label: String {
             switch self {
-            case .bleeding:   return "On their period"
-            case .rebuilding: return "Energy building"
-            case .winding:    return "Winding down"
-            case .unknown:    return "No recent data"
+            case .bleeding:     return "On their period"
+            case .rebuilding:   return "Energy building"
+            case .winding:      return "Winding down"
+            case .notBleeding:  return "Not on their period"
+            case .unknown:      return "No recent data"
             }
         }
     }
@@ -70,6 +116,10 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
     /// Rough distance to the next period, in days, bucketed — never an exact date.
     /// `nil` when unknown or when the prediction is not confident enough to share.
     let daysUntilNextPeriodApprox: Int?
+
+    /// Day of the current bleed (1–N), only when they are menstruating and the
+    /// owner chose Support coach or Timing. Never a cycle-day-of-cycle.
+    let periodDay: Int?
 
     /// True when a little extra thoughtfulness lands well. Derived from phase and
     /// energy only — never from symptoms or mood logs.
@@ -122,6 +172,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
             phase: .unknown,
             energy: .steady,
             daysUntilNextPeriodApprox: nil,
+            periodDay: nil,
             extraThoughtfulnessHelps: false,
             supportHeadline: SupporterGuidance.headline(phase: .unknown,
                                                         energy: .steady,
@@ -138,6 +189,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
     private init(phase: SupportPhase,
                  energy: EnergyBand,
                  daysUntilNextPeriodApprox: Int?,
+                 periodDay: Int?,
                  extraThoughtfulnessHelps: Bool,
                  supportHeadline: String,
                  asOfDayKey: String,
@@ -146,6 +198,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
         self.phase = phase
         self.energy = energy
         self.daysUntilNextPeriodApprox = daysUntilNextPeriodApprox
+        self.periodDay = periodDay
         self.extraThoughtfulnessHelps = extraThoughtfulnessHelps
         self.supportHeadline = supportHeadline
         self.asOfDayKey = asOfDayKey
@@ -160,6 +213,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
             phase: nextPhase,
             energy: nextPhase == .rebuilding ? .high : energy,
             daysUntilNextPeriodApprox: daysUntilNextPeriodApprox,
+            periodDay: nil,
             extraThoughtfulnessHelps: false,
             supportHeadline: "Period finished. Everyday support is enough.",
             asOfDayKey: dayKey,
@@ -182,7 +236,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
     /// nothing checks it. It is now derived from the coarse values this
     /// initialiser has already computed, so the digest cannot say more than the
     /// digest contains.
-    init(redacting snapshot: MenstrualCycleSnapshot) {
+    init(redacting snapshot: MenstrualCycleSnapshot, tier: PartnerShareTier = .supportCoach) {
         // Everything is resolved into locals first and assigned in one block at
         // the end. The headline is a function of the other fields, and reading a
         // half-initialised `self` to compute it is the kind of thing that works
@@ -190,35 +244,49 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
 
         // Fertile and ovulatory days are folded into `.rebuilding` so the digest
         // cannot be used to infer conception timing.
-        let resolvedPhase: SupportPhase
+        let coachPhase: SupportPhase
         switch snapshot.phase {
         case .menstruation:
-            resolvedPhase = .bleeding
+            coachPhase = .bleeding
         case .follicular, .fertileWindow, .ovulation:
-            resolvedPhase = .rebuilding
+            coachPhase = .rebuilding
         case .luteal:
-            resolvedPhase = .winding
+            coachPhase = .winding
         case .unknown:
-            resolvedPhase = .unknown
+            coachPhase = .unknown
+        }
+
+        let resolvedPhase: SupportPhase
+        switch tier {
+        case .onPeriod:
+            resolvedPhase = (coachPhase == .bleeding) ? .bleeding : .notBleeding
+        case .supportCoach, .timing:
+            resolvedPhase = coachPhase
         }
 
         let resolvedEnergy: EnergyBand
-        switch resolvedPhase {
-        case .bleeding:   resolvedEnergy = snapshot.recommendRecoveryBias ? .low : .steady
-        case .rebuilding: resolvedEnergy = .high
-        case .winding:    resolvedEnergy = snapshot.recommendRecoveryBias ? .low : .steady
-        case .unknown:    resolvedEnergy = .steady
+        switch (tier, resolvedPhase) {
+        case (.onPeriod, _):
+            // Energy would leak luteal vs follicular. On-period only answers yes/no.
+            resolvedEnergy = .steady
+        case (_, .bleeding):
+            resolvedEnergy = snapshot.recommendRecoveryBias ? .low : .steady
+        case (_, .rebuilding):
+            resolvedEnergy = .high
+        case (_, .winding):
+            resolvedEnergy = snapshot.recommendRecoveryBias ? .low : .steady
+        case (_, .notBleeding), (_, .unknown):
+            resolvedEnergy = .steady
         }
 
         // Bucketed to a coarse number of days. The exact predicted date is withheld
         // even though it is known, because a date invites counting and a rough
-        // distance is all a supporter needs.
+        // distance is all a supporter needs. Timing tier only.
         let approxDays: Int? = {
-            guard let next = snapshot.nextPeriod,
+            guard tier == .timing,
+                  let next = snapshot.nextPeriod,
                   let days = CycleDayKey.daysBetween(snapshot.asOfDayKey, next.medianDayKey),
                   days >= 0,
-                  // Withhold entirely when the underlying prediction is weak, rather
-                  // than sharing a guess someone might plan around.
                   snapshot.periodTimingConfidence >= 0.4
             else { return nil }
             switch days {
@@ -230,36 +298,58 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
             }
         }()
 
+        let bleedDay: Int? = {
+            guard tier != .onPeriod, resolvedPhase == .bleeding else { return nil }
+            if let count = snapshot.currentPeriodDayCount, count > 0 { return min(count, 10) }
+            if let day = snapshot.dayInCycle, (1...10).contains(day) { return day }
+            return nil
+        }()
+
         let thoughtful = (resolvedPhase == .bleeding)
             || (resolvedPhase == .winding && snapshot.recommendRecoveryBias)
 
         phase = resolvedPhase
         energy = resolvedEnergy
         daysUntilNextPeriodApprox = approxDays
+        periodDay = bleedDay
         extraThoughtfulnessHelps = thoughtful
         let finished = snapshot.periodEndConfirmed && !snapshot.isCurrentlyBleeding
-        supportHeadline = finished
-            ? "Period finished. Everyday support is enough."
-            : SupporterGuidance.headline(
+        supportHeadline = {
+            if finished { return "Period finished. Everyday support is enough." }
+            if tier == .onPeriod {
+                return resolvedPhase == .bleeding
+                    ? "Be extra kind this week."
+                    : "Everyday support is enough."
+            }
+            if let day = bleedDay, resolvedPhase == .bleeding {
+                return "Day \(day). \(SupporterGuidance.headline(phase: resolvedPhase, energy: resolvedEnergy, thoughtfulnessHelps: thoughtful))"
+            }
+            return SupporterGuidance.headline(
                 phase: resolvedPhase,
                 energy: resolvedEnergy,
                 thoughtfulnessHelps: thoughtful
             )
+        }()
         asOfDayKey = snapshot.asOfDayKey
         periodFinished = finished
         periodFinishedDayKey = finished ? snapshot.asOfDayKey : nil
     }
 
     enum CodingKeys: String, CodingKey {
-        case phase, energy, daysUntilNextPeriodApprox, extraThoughtfulnessHelps
+        case phase, energy, daysUntilNextPeriodApprox, periodDay, extraThoughtfulnessHelps
         case supportHeadline, asOfDayKey, periodFinished, periodFinishedDayKey
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        phase = try c.decode(SupportPhase.self, forKey: .phase)
+        if let decoded = try? c.decode(SupportPhase.self, forKey: .phase) {
+            phase = decoded
+        } else {
+            phase = .unknown
+        }
         energy = try c.decode(EnergyBand.self, forKey: .energy)
         daysUntilNextPeriodApprox = try c.decodeIfPresent(Int.self, forKey: .daysUntilNextPeriodApprox)
+        periodDay = try c.decodeIfPresent(Int.self, forKey: .periodDay)
         extraThoughtfulnessHelps = try c.decode(Bool.self, forKey: .extraThoughtfulnessHelps)
         supportHeadline = try c.decode(String.self, forKey: .supportHeadline)
         asOfDayKey = try c.decode(String.self, forKey: .asOfDayKey)
@@ -272,6 +362,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
         try c.encode(phase, forKey: .phase)
         try c.encode(energy, forKey: .energy)
         try c.encodeIfPresent(daysUntilNextPeriodApprox, forKey: .daysUntilNextPeriodApprox)
+        try c.encodeIfPresent(periodDay, forKey: .periodDay)
         try c.encode(extraThoughtfulnessHelps, forKey: .extraThoughtfulnessHelps)
         try c.encode(supportHeadline, forKey: .supportHeadline)
         try c.encode(asOfDayKey, forKey: .asOfDayKey)
@@ -397,11 +488,11 @@ struct PartnerCycleInvite: Codable, Equatable {
     /// no Forge app. Deliberately vague about *what* is being shared — the sender
     /// should decide who knows they track a cycle, not a lock-screen preview.
     var fallbackMessageBody: String {
-        "\(fromDisplayName) wants to share their Forge support updates with you. \(shareURL.absoluteString)"
+        "\(fromDisplayName) is sharing a support view in Forge — not a full log. \(shareURL.absoluteString)"
     }
 
     /// Bubble caption for the Messages extension. Same discretion rule.
-    var bubbleCaption: String { "Support updates from \(fromDisplayName)" }
+    var bubbleCaption: String { "\(fromDisplayName) would like your support" }
 
     /// Live state of an invite already sitting in a thread. The Messages extension
     /// updates the bubble in place through `MSSession`, so a revoked invite stops

@@ -56,7 +56,7 @@ final class OnboardingCoordinator {
         Task { await runIntro() }
     }
 
-    /// Pulls name + first quest chosen during immersive Day 0 sign-up.
+    /// Pulls name and goals chosen during sign-up.
     private func seedFromSignUpDraft() {
         let draft = AppStore._signUpDraftProfile
         if !draft.trimmedName.isEmpty {
@@ -403,7 +403,8 @@ final class OnboardingCoordinator {
                 let labels = profile.freeTimeInterests.prefix(3).map(\.label).joined(separator: ", ")
                 await ariaSay("I'll keep \(labels) in mind so training doesn't fight your life.", mood: .focused)
             }
-            await advanceTo(.trainingTheme)
+            profile.trainingTheme = .classic
+            await advanceTo(.lifeContext)
         }
     }
 
@@ -440,10 +441,6 @@ final class OnboardingCoordinator {
         appendUser("Skip — classic coach")
         FDS.haptic(.light)
         Task {
-            await ariaSay(
-                "Classic for now. Tell me any franchise later — I’ll rewrite the plan in that style.",
-                mood: .calm
-            )
             await advanceTo(.lifeContext)
         }
     }

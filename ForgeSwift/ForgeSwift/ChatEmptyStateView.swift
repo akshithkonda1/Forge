@@ -13,19 +13,19 @@ struct ChatEmptyStateView: View {
     private var greeting: String {
         let first = store.userProfile.name.components(separatedBy: " ").first ?? ""
         switch mood {
-        case .energized: return "You're dialed in today\(first.isEmpty ? "" : ", \(first)").\nLet's make it count. 🔥"
-        case .focused:   return "Ready when you are\(first.isEmpty ? "" : ", \(first)").\nWhat's on your mind?"
-        case .calm:      return "Easy does it\(first.isEmpty ? "" : ", \(first)").\nHow are you feeling tonight?"
-        case .pushed:    return "Rough day? That's okay.\nI'm here for whatever you need."
+        case .energized: return "You look ready today\(first.isEmpty ? "" : ", \(first)").\nWant a session that uses that?"
+        case .focused:   return "I’m here\(first.isEmpty ? "" : ", \(first)").\nWhat’s on your mind?"
+        case .calm:      return "Easy does it\(first.isEmpty ? "" : ", \(first)").\nHow are you feeling?"
+        case .pushed:    return "Rough day? That’s okay.\nI’m here for whatever you need."
         }
     }
 
     private var subtext: String {
         switch mood {
-        case .energized: return "Your readiness is peaking — optimal window for max output."
-        case .focused:   return "I'm analyzing your biometrics in real-time."
-        case .calm:      return "Recovery and rest are part of the process."
-        case .pushed:    return "We go at your pace. No pressure, just support."
+        case .energized: return "Readiness is high — we can train if you want."
+        case .focused:   return "I’ll use last night’s sleep and today’s load."
+        case .calm:      return "Recovery is part of training. We can keep it light."
+        case .pushed:    return "We go at your pace. No pressure."
         }
     }
 

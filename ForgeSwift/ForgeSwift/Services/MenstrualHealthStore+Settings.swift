@@ -52,7 +52,7 @@ extension MenstrualHealthStore {
         guard gender == .female, !settings.enabled, settings.privacyAcknowledged else { return }
         updateSettings {
             $0.enabled = true
-            $0.shareWithAria = true
+            $0.shareWithAria = false
         }
     }
 
@@ -62,7 +62,7 @@ extension MenstrualHealthStore {
         updateSettings {
             $0.enabled = true
             $0.privacyAcknowledged = true
-            $0.shareWithAria = true
+            $0.shareWithAria = false
         }
     }
 

@@ -282,8 +282,6 @@ struct MessageBubbleView: View {
                                 onReaction?(message.id, r.emoji)
                             }
                             choreographedHaptic(.reactionAdded)
-                            // Trigger confetti burst
-                            onReactionBurst(CGPoint(x: UIScreen.main.bounds.width / 2, y: 300))
                         } label: {
                             Text(r.emoji)
                                 .font(.system(size: 20))

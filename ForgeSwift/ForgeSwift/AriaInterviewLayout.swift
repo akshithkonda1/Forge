@@ -91,16 +91,14 @@ struct AriaInterviewLayout: View {
 
                 Spacer()
 
-                // Quest XP chip — addictive progress language
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("QUEST \(min(coordinator.step.rawValue + 1, AriaInterviewStep.allCases.count))/\(AriaInterviewStep.allCases.count)")
-                        .font(.system(size: 10, weight: .black))
-                        .tracking(0.6)
+                    Text("\(min(coordinator.step.rawValue + 1, AriaInterviewStep.allCases.count)) of \(AriaInterviewStep.allCases.count)")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(0.4)
                         .foregroundColor(.ember)
-                    Text("\(Int(coordinator.progress * 100))%")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                    Text(coordinator.step.progressLabel)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundColor(.textPrimary)
-                        .contentTransition(.numericText())
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -112,7 +110,7 @@ struct AriaInterviewLayout: View {
             .animation(FDS.Spring.snap, value: dictation.isListening)
             .animation(FDS.Spring.snap, value: coordinator.step)
 
-            // XP-style progress with glow
+            // Quiet progress — no score, just how far through the interview.
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.white.opacity(0.08)).frame(height: 5)
@@ -125,7 +123,7 @@ struct AriaInterviewLayout: View {
             }
             .frame(height: 5)
 
-            // Milestone dots
+            // Step dots
             HStack(spacing: 4) {
                 ForEach(AriaInterviewStep.allCases, id: \.rawValue) { s in
                     Circle()
