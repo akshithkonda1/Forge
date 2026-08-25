@@ -1834,6 +1834,7 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves Mindful Minutes and workouts from your watch so your Health history stays complete.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets Forge notice arriving at familiar places, like your gym, to adapt suggestions. Location never leaves your device.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to recognize places like your gym or office and suggest context-aware micro-habits. Location never leaves your device.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Forge notices when you have been sitting for a long stretch so it can offer a short reset. Motion stays on this watch.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.forge.ForgeSwift;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
@@ -1870,6 +1871,7 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves Mindful Minutes and workouts from your watch so your Health history stays complete.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets Forge notice arriving at familiar places, like your gym, to adapt suggestions. Location never leaves your device.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to recognize places like your gym or office and suggest context-aware micro-habits. Location never leaves your device.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Forge notices when you have been sitting for a long stretch so it can offer a short reset. Motion stays on this watch.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.forge.ForgeSwift;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
