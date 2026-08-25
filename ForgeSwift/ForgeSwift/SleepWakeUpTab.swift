@@ -355,10 +355,22 @@ struct MorningRoutineCard: View {
 }
 
 struct WakeGreetingCard: View {
-    @State private var greeting = "Good morning, Akshith 🌅"
+    @EnvironmentObject private var store: AppStore
+
+    @State private var greeting = ""
     @State private var showWeather = true
     @State private var showWorkout = true
     @State private var showSleepScore = true
+
+    private var firstName: String {
+        store.userProfile.name.components(separatedBy: " ").first ?? ""
+    }
+
+    /// The greeting this person would write for themselves, not the one the
+    /// demo shipped with. It used to read "Good morning, Akshith" for everybody.
+    private var defaultGreeting: String {
+        firstName.isEmpty ? "Good morning 🌅" : "Good morning, \(firstName) 🌅"
+    }
 
     var body: some View {
         WakeUpSection(icon: "hand.wave.fill", title: "Wake Screen", color: Color(hex: "F59E0B")) {
@@ -399,6 +411,9 @@ struct WakeGreetingCard: View {
                     WakeToggle(label: "Show today's workout", value: $showWorkout, color: .ember)
                 }
             }
+        }
+        .onAppear {
+            if greeting.isEmpty { greeting = defaultGreeting }
         }
     }
 }
