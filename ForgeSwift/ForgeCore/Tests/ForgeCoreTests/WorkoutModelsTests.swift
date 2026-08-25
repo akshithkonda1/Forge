@@ -81,8 +81,8 @@ final class WorkoutModelsTests: XCTestCase {
 
     // MARK: Structured plan
 
-    func testDemoPlanIsWellFormed() {
-        let plan = StructuredWorkout.demoStrength
+    func testStarterPlanIsWellFormed() {
+        let plan = StructuredWorkout.starterStrength
         XCTAssertFalse(plan.exercises.isEmpty)
         XCTAssertEqual(plan.totalSets, plan.exercises.reduce(0) { $0 + $1.sets.count })
         for exercise in plan.exercises {

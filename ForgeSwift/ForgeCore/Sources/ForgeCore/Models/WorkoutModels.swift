@@ -122,8 +122,16 @@ public struct StructuredWorkout: Codable, Sendable, Equatable, Identifiable {
         exercises.reduce(0) { $0 + $1.sets.count }
     }
 
-    /// v1 demo plan until synced plans arrive from the iOS app / backend.
-    public static var demoStrength: StructuredWorkout {
+    /// The plan offered on the wrist before a personalised one has synced.
+    ///
+    /// Named for what it is. It was `demoStrength`, described as a "v1 demo
+    /// plan", while being the only guided session the watch actually offers —
+    /// and the watch offers it to real users. Nothing about it is fabricated:
+    /// four compound movements needing no equipment beyond a single weight,
+    /// which is a defensible starting point for someone Forge knows nothing
+    /// about yet. A synced plan should replace it; until one does, this is a
+    /// real answer rather than a placeholder pretending to be one.
+    public static var starterStrength: StructuredWorkout {
         StructuredWorkout(
             name: "Full-Body Strength",
             type: .strength,
