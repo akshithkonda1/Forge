@@ -24,6 +24,11 @@ struct ForgeWatchApp: App {
     @State private var path: [WatchRoute] = []
 
     init() {
+        // Earlier builds wrote the session token the phone sends into
+        // UserDefaults in the clear, on both the shared suite and standard.
+        // Clear those before anything reads either — a token copied into the
+        // Keychain while the plaintext stays behind has moved nothing.
+        PhoneLinkService.migrateStoredSecrets()
         // Activate the phone link early so Live Activity state flows from
         // the first workout tick.
         PhoneLinkService.shared.activate()
