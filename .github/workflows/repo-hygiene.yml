@@ -106,3 +106,22 @@ jobs:
       # behind "Find Workout Buddies".
       - name: Check usage strings
         run: python3 scripts/check-usage-strings.py
+
+  client-config:
+    name: Client configuration consistency
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # Info-Add.plist carries the API base URL, Cognito ids and environment
+      # name that ForgeAuthConfig reads at launch. The committed values are dev
+      # placeholders — http://127.0.0.1:3001 and empty Cognito fields — which is
+      # correct for a dev build and fatal for a shipped one: loopback is
+      # unreachable from a device, so every request fails and sign-in cannot
+      # work at all. This does not demand real values on every branch; it fails
+      # only when the plist contradicts itself, which is the shape the mistake
+      # takes — an archive labelled prod still pointing at localhost, or an
+      # environment name misspelled into the permissive bucket.
+      - name: Check client configuration
+        run: python3 scripts/generate_client_config.py --check
