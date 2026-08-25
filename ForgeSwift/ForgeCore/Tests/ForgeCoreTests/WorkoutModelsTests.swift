@@ -1,6 +1,14 @@
 import XCTest
 @testable import ForgeCore
 
+// HealthKit is unavailable on macOS, and CI runs these through `swift test` on a
+// Mac — so the mapping tests below compile out there. They are still worth
+// carrying: they run the moment anyone tests on an iOS or watchOS destination,
+// and they are the thing that catches a mapping collision.
+#if canImport(HealthKit)
+import HealthKit
+#endif
+
 final class WorkoutModelsTests: XCTestCase {
 
     // MARK: HR zones — parity with iOS Theme.swift hrZone(for:)
@@ -40,6 +48,36 @@ final class WorkoutModelsTests: XCTestCase {
         XCTAssertLessThan(ForgeWorkoutType.cardio.targetZone, ForgeWorkoutType.strength.targetZone)
         XCTAssertLessThan(ForgeWorkoutType.strength.targetZone, ForgeWorkoutType.hiit.targetZone)
     }
+
+    // MARK: HealthKit activity type mapping
+    //
+    // Recovering a workout that outlived the app gives back only an
+    // HKWorkoutConfiguration, so the mapping has to survive a round trip. If it
+    // ever stops doing so, a recovered session comes back labelled as the wrong
+    // kind of workout and its debrief reasons about the wrong target zone.
+
+    #if canImport(HealthKit)
+    func testEveryWorkoutTypeSurvivesAHealthKitRoundTrip() {
+        for type in ForgeWorkoutType.allCases {
+            XCTAssertEqual(
+                ForgeWorkoutType(hkActivityType: type.hkActivityType),
+                type,
+                "\(type.rawValue) did not survive the HealthKit round trip"
+            )
+        }
+    }
+
+    func testDistinctForgeTypesUseDistinctHealthKitTypes() {
+        // A collision would make the round trip above pass while still
+        // resolving two different workouts to whichever case came first.
+        let mapped = Set(ForgeWorkoutType.allCases.map(\.hkActivityType.rawValue))
+        XCTAssertEqual(mapped.count, ForgeWorkoutType.allCases.count)
+    }
+
+    func testUnmappedActivityTypeFallsBackRatherThanTrapping() {
+        XCTAssertEqual(ForgeWorkoutType(hkActivityType: .archery), .cardio)
+    }
+    #endif
 
     // MARK: Structured plan
 

@@ -56,6 +56,11 @@ final class WorkoutSessionManager {
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
     private var builderDelegate: WorkoutBuilderDelegate?
+    private var sessionDelegate: WorkoutSessionDelegate?
+    /// Guards against ending twice — the user tapping End and the system
+    /// reporting the session ended are the same outcome arriving from two
+    /// directions, and both call end().
+    private var isEnding = false
 
     private var ticker: Task<Void, Never>?
     private var restTask: Task<Void, Never>?
@@ -107,11 +112,22 @@ final class WorkoutSessionManager {
     }
 
     private func beginSession() async {
+        // The 3-2-1 runs as a Task and the user can leave during it. Both this
+        // and end() are MainActor-isolated, so the phase is the authoritative
+        // answer to "does anyone still want this session?" — checked before the
+        // await and again after, because ending the mindful capture suspends.
+        // Without this, backing out at the wrong instant opened an
+        // HKWorkoutSession after end() had already run: nothing left to close
+        // it, and workoutRunning stayed true for the rest of the process.
+        guard phase == .countdown else { return }
+
         // One HKWorkoutSession per process. End mindful HR capture first so
         // starting a gym session cannot collide with a breath session.
         if let health = WatchHKLiveSession.health {
             _ = await health.endMindfulHeartRateCapture()
         }
+        guard phase == .countdown else { return }
+
         WatchHKLiveSession.workoutRunning = true
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = workoutType.hkActivityType
@@ -125,6 +141,7 @@ final class WorkoutSessionManager {
             }
             builder.delegate = delegate
             builderDelegate = delegate
+            attachSessionDelegate(to: session)
             self.session = session
             self.builder = builder
             session.startActivity(with: Date())
@@ -279,7 +296,21 @@ final class WorkoutSessionManager {
     }
 
     func end() async {
-        guard phase != .idle, phase != .summary else { return }
+        guard phase != .idle, phase != .summary, !isEnding else { return }
+
+        // Backing out during the 3-2-1: no session was ever opened, so there is
+        // nothing to save and nothing to summarize. Returning to idle here also
+        // closes the window beginSession() guards against.
+        if phase == .countdown {
+            countdownTask?.cancel()
+            countdownTask = nil
+            phase = .idle
+            return
+        }
+
+        isEnding = true
+        defer { isEnding = false }
+
         ticker?.cancel()
         restTask?.cancel()
         countdownTask?.cancel()
@@ -288,7 +319,14 @@ final class WorkoutSessionManager {
         var saved = false
         var duration = elapsed
         if let session, let builder {
-            session.end()
+            if session.state != .ended {
+                session.end()
+            }
+            // HealthKit reaches .ended asynchronously. Finishing the builder
+            // before it gets there throws, and that throw was being swallowed
+            // into savedToHealth = false — the workout simply never reached
+            // Health, with one tertiary line of apology as the only trace.
+            await waitForSessionToEnd(session)
             do {
                 try await builder.endCollection(at: Date())
                 let workout = try await builder.finishWorkout()
@@ -301,6 +339,7 @@ final class WorkoutSessionManager {
         session = nil
         builder = nil
         builderDelegate = nil
+        sessionDelegate = nil
         WatchHKLiveSession.workoutRunning = false
 
         let avgHR = hrSamples.isEmpty ? nil : hrSamples.reduce(0, +) / Double(hrSamples.count)
@@ -326,6 +365,101 @@ final class WorkoutSessionManager {
         summary = nil
         phase = .idle
         plan = nil
+    }
+
+    /// Polls for the session to reach `.ended`, giving up after `timeout`.
+    ///
+    /// Deliberately a poll rather than a continuation resumed by the delegate:
+    /// the delegate is called on an arbitrary queue, and a CheckedContinuation
+    /// that never gets resumed — a dropped callback, a session that fails on
+    /// its way down — traps. Reading the session's own state cannot get stuck,
+    /// and the timeout means a wedged session costs a few seconds rather than
+    /// the whole end path.
+    private func waitForSessionToEnd(_ session: HKWorkoutSession, timeout: TimeInterval = 5) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while session.state != .ended, Date() < deadline {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+    }
+
+    // MARK: Session state from HealthKit
+
+    private func attachSessionDelegate(to session: HKWorkoutSession) {
+        let delegate = WorkoutSessionDelegate(
+            onStateChange: { [weak self] state in
+                Task { @MainActor [weak self] in self?.sessionDidChange(to: state) }
+            },
+            onFailure: { [weak self] in
+                Task { @MainActor [weak self] in self?.sessionDidFail() }
+            }
+        )
+        session.delegate = delegate
+        sessionDelegate = delegate
+    }
+
+    /// The system can end a session this app did not end — Control Center, low
+    /// battery, another app claiming the sensors. Without observing it the UI
+    /// showed a live workout indefinitely and the data was never written.
+    private func sessionDidChange(to state: HKWorkoutSessionState) {
+        guard state == .ended, !isEnding, phase != .idle, phase != .summary else { return }
+        Task { await end() }
+    }
+
+    private func sessionDidFail() {
+        guard !isEnding, phase != .idle, phase != .summary else { return }
+        coachingCue = "The sensors dropped out. Wrapping up here so what you did still gets saved."
+        Task { await end() }
+    }
+
+    // MARK: Recovery
+
+    /// Reattaches to a session that outlived the app.
+    ///
+    /// watchOS suspends and terminates apps freely, and an HKWorkoutSession
+    /// keeps running when it does. Before this, relaunching mid-workout showed
+    /// the start screen while the real session carried on in the background:
+    /// unendable, unsaveable, and still costing battery and a filled ring.
+    ///
+    /// A structured plan's cursor is not restored — HealthKit knows the session,
+    /// not Forge's place in it — so a recovered session comes back unstructured.
+    /// Ending and saving it is the part that matters.
+    func recoverIfNeeded() async {
+        guard phase == .idle, session == nil else { return }
+
+        let recovered: HKWorkoutSession? = await withCheckedContinuation { continuation in
+            store.recoverActiveWorkoutSession { session, _ in
+                continuation.resume(returning: session)
+            }
+        }
+        guard let recovered, recovered.state != .ended else { return }
+
+        let builder = recovered.associatedWorkoutBuilder()
+        if builder.dataSource == nil {
+            builder.dataSource = HKLiveWorkoutDataSource(
+                healthStore: store,
+                workoutConfiguration: recovered.workoutConfiguration
+            )
+        }
+        let delegate = WorkoutBuilderDelegate { [weak self] update in
+            Task { @MainActor [weak self] in self?.apply(update) }
+        }
+        builder.delegate = delegate
+        builderDelegate = delegate
+        attachSessionDelegate(to: recovered)
+
+        session = recovered
+        self.builder = builder
+        WatchHKLiveSession.workoutRunning = true
+
+        workoutType = ForgeWorkoutType(hkActivityType: recovered.workoutConfiguration.activityType)
+        plan = nil
+        exerciseIndex = 0
+        setIndex = 0
+        summary = nil
+        elapsed = builder.elapsedTime
+        phase = recovered.state == .paused ? .paused : .active
+        coachingCue = "Picked your session back up where it left off."
+        startTicker()
     }
 
     // MARK: Publishing (complication + iPhone Live Activity)
@@ -401,6 +535,37 @@ final class WorkoutSessionManager {
             return "\(minutes) minutes at an easier effort than planned — still fully in the bank. Some days that's precisely the right read."
         }
         return "\(minutes) minutes running hotter than planned — you clearly had it today. The reset matters a little extra after intensity."
+    }
+}
+
+// MARK: - Session delegate (non-isolated, hops to MainActor)
+
+private final class WorkoutSessionDelegate: NSObject, HKWorkoutSessionDelegate {
+    private let onStateChange: (HKWorkoutSessionState) -> Void
+    private let onFailure: () -> Void
+
+    init(
+        onStateChange: @escaping (HKWorkoutSessionState) -> Void,
+        onFailure: @escaping () -> Void
+    ) {
+        self.onStateChange = onStateChange
+        self.onFailure = onFailure
+    }
+
+    func workoutSession(
+        _ workoutSession: HKWorkoutSession,
+        didChangeTo toState: HKWorkoutSessionState,
+        from fromState: HKWorkoutSessionState,
+        date: Date
+    ) {
+        onStateChange(toState)
+    }
+
+    func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) {
+        // The error is not surfaced: it names internal HealthKit state and the
+        // user can do nothing with it. What they need is the session closing
+        // cleanly with their effort saved.
+        onFailure()
     }
 }
 

@@ -64,6 +64,16 @@ public enum ForgeWorkoutType: String, Codable, CaseIterable, Identifiable, Senda
         case .mobility: return .flexibility
         }
     }
+
+    /// The Forge type behind a HealthKit configuration.
+    ///
+    /// Recovering a session the app did not start this launch gives back an
+    /// `HKWorkoutConfiguration` and nothing else, so the mapping has to run
+    /// backwards. Recovery only ever returns this app's own sessions, so the
+    /// fallback is unreachable in practice — it exists so the API is total.
+    public init(hkActivityType: HKWorkoutActivityType) {
+        self = ForgeWorkoutType.allCases.first { $0.hkActivityType == hkActivityType } ?? .cardio
+    }
     #endif
 }
 

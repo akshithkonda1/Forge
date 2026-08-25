@@ -67,6 +67,11 @@ struct ForgeWatchApp: App {
                 // Ensure WCSession is live whenever the scene is up (covers cold launch
                 // after phone reinstall without requiring a workout start).
                 PhoneLinkService.shared.activate()
+                // watchOS keeps an HKWorkoutSession running through app suspension
+                // and termination. Reattach before anything renders, so a session
+                // that outlived the app can still be ended and saved instead of
+                // burning battery behind a start screen.
+                await workout.recoverIfNeeded()
             }
         }
     }
