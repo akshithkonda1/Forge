@@ -11,9 +11,29 @@ variable "project_name" {
 }
 
 variable "environment" {
-  description = "Deployment environment name."
+  description = <<-EOT
+    Deployment environment name. This is a security control, not a label: the
+    Lambda reads it as ENVIRONMENT and uses it to decide whether unsigned
+    dev-override tokens are accepted and whether seeded demo data may stand in
+    for a user's own health data. Both are enabled for the non-production names
+    and disabled for prod/production/staging/stage.
+
+    Deliberately has no default. A value of "dev" inherited by accident is a
+    production API that accepts a forged identity, so the choice is made at the
+    call site or not at all.
+  EOT
   type        = string
-  default     = "dev"
+
+  validation {
+    # An unrecognised name (a typo like "produciton") would fall outside the
+    # backend's production allowlist and be treated as a dev environment, so
+    # the set is closed here rather than left to a substring match at runtime.
+    condition = contains(
+      ["local", "dev", "development", "test", "ci", "stage", "staging", "prod", "production"],
+      var.environment
+    )
+    error_message = "environment must be one of: local, dev, development, test, ci, stage, staging, prod, production."
+  }
 }
 
 variable "allowed_origins" {

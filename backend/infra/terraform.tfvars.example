@@ -1,6 +1,10 @@
 aws_region   = "us-east-1"
 project_name = "forge"
-environment  = "dev"
+
+# Required, no default. Anything outside prod/production/staging/stage leaves the
+# unsigned dev-override token accepted and serves seeded demo data in place of a
+# user's own health metrics. Set "prod" for anything real people log into.
+environment = "dev"
 
 allowed_origins = [
   "http://localhost:3000",

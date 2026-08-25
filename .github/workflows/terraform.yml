@@ -30,6 +30,12 @@ concurrency:
 env:
   AWS_REGION: us-east-1
   TF_WORKING_DIR: backend/infra
+  # var.environment has no default on purpose: it decides whether the API accepts
+  # unsigned dev-override tokens and whether seeded demo data stands in for real
+  # health metrics. Naming it here keeps that choice visible at the deploy
+  # definition instead of buried in a variable default. Change this to "prod"
+  # when this workflow is the thing deploying the production stack.
+  TF_VAR_environment: dev
 
 jobs:
   terraform-checks:
