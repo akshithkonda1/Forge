@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from responses import ok
+from security import demo_data_enabled
 from seed_data import default_sleep
 from storage import dynamodb, keys
 
@@ -11,7 +12,7 @@ def _load_sleep(user_id: str, days: int) -> list[dict[str, Any]]:
     items = dynamodb.query_prefix_desc(keys.user_pk(user_id), "SLEEP#", limit=days)
     if items:
         return [{k: v for k, v in i.items() if k not in ("pk", "sk")} for i in items]
-    return default_sleep()[:days]
+    return default_sleep()[:days] if demo_data_enabled() else []
 
 
 def handle_get_sleep(user_id: str, days: int) -> dict:

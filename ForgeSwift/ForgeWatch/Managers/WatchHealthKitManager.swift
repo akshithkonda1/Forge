@@ -13,6 +13,13 @@ import ForgeCore
 // Nothing leaves the watch except what ARIAWatchService explicitly sends
 // for deeper coaching (and that path is opt-in + token-gated).
 
+/// HealthKit permits one `HKWorkoutSession` per process. The gym workout and
+/// the mindful HR tap both want one — this gate makes them take turns.
+enum WatchHKLiveSession {
+    static var workoutRunning = false
+    static weak var health: WatchHealthKitManager?
+}
+
 @MainActor
 @Observable
 final class WatchHealthKitManager {
@@ -206,6 +213,10 @@ final class WatchHealthKitManager {
 
     func beginMindfulHeartRateCapture() async {
         guard isAuthorized, captureSession == nil else { return }
+        // HealthKit allows one HKWorkoutSession per process. A live workout
+        // already owns it — stealing it would kill the gym session.
+        guard !WatchHKLiveSession.workoutRunning else { return }
+        WatchHKLiveSession.health = self
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = .mindAndBody
         configuration.locationType = .indoor

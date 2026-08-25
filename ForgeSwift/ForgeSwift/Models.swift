@@ -1,12 +1,15 @@
 import Foundation
 import SwiftUI
 
+#if DEBUG
+/// Dates the demo fixtures below are pinned to. Nothing outside them calls it.
 private func isoDateString(daysAgo: Int) -> String {
     let date = Date().addingTimeInterval(-86400 * Double(daysAgo))
     let formatter = ISO8601DateFormatter()
     formatter.formatOptions = [.withFullDate]
     return String(formatter.string(from: date).prefix(10))
 }
+#endif
 
 // MARK: - Enums (mirrors /src/types/index.ts)
 
@@ -664,7 +667,13 @@ let emptyMetrics = DailyMetrics(
     totalSleep: 0
 )
 
-// MARK: - Mock Data (DEBUG fallback only — mirrors useAppStore.ts)
+// MARK: - Mock Data
+//
+// Demo fixtures: one invented person's name, devices, biometrics and lifts.
+// The header said "DEBUG fallback only" long before anything enforced it, and
+// mockChatMessages was in fact reachable from a release build. Gated for real
+// now, so a shipping binary does not even carry the strings.
+#if DEBUG
 
 let mockProfile = UserProfile(
     name: "Akshith",
@@ -835,3 +844,4 @@ let mockPersonalRecords: [PersonalRecord] = [
     PersonalRecord(exercise:"Mile Run",    value:6.45, unit:"min",  date: isoDateString(daysAgo: 5)),
     PersonalRecord(exercise:"Pull-Ups",    value:18,   unit:"reps", date: isoDateString(daysAgo: 2)),
 ]
+#endif

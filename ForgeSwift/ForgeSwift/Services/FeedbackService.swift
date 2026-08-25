@@ -50,6 +50,6 @@ final class FeedbackService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = data
 
-        _ = try? await URLSession.shared.data(for: request)
+        _ = try? await ForgeAPI.send(request)
     }
 }

@@ -1,0 +1,160 @@
+import Foundation
+import ForgeCore
+
+/// Phone-side auth. Cognito for real accounts; a DEBUG tester session so
+/// device work does not depend on AWS secrets.
+@MainActor
+final class ForgeAuthClient: ObservableObject {
+    static let shared = ForgeAuthClient()
+
+    @Published private(set) var session: ForgeAuthSession?
+
+    var config: ForgeAuthConfig
+
+    /// User-facing switch. Ignored in Release and when the API environment is prod.
+    var devOverrideEnabled: Bool {
+        didSet { UserDefaults.standard.set(devOverrideEnabled, forKey: Self.overrideKey) }
+    }
+
+    var canUseDevOverride: Bool {
+        ForgeAuthPolicy.devOverrideAllowed(userEnabled: devOverrideEnabled, config: config)
+    }
+
+    private static let overrideKey = "forge.auth.devOverride"
+    private static let sessionKey = "forge.aria.authSession"
+    private let store: SecureStore
+
+    init(
+        config: ForgeAuthConfig = ForgeAuthConfig.fromInfoDictionary(Bundle.main.infoDictionary ?? [:]),
+        store: SecureStore = KeychainStore()
+    ) {
+        self.config = config
+        self.store = store
+        #if DEBUG
+        if UserDefaults.standard.object(forKey: Self.overrideKey) == nil {
+            UserDefaults.standard.set(true, forKey: Self.overrideKey)
+        }
+        #endif
+        self.devOverrideEnabled = UserDefaults.standard.bool(forKey: Self.overrideKey)
+        self.session = try? store.value(ForgeAuthSession.self, forKey: Self.sessionKey)
+        if config.apiBaseURL.host != nil, UserDefaults.standard.string(forKey: "forge.api.baseURL") == nil {
+            UserDefaults.standard.set(config.apiBaseURL.absoluteString, forKey: "forge.api.baseURL")
+        }
+    }
+
+    func continueAsTester() throws -> ForgeAuthSession {
+        guard canUseDevOverride else { throw ForgeAuthError.overrideDisabled }
+        let minted = DevAuthOverride.session()
+        try persist(minted)
+        return minted
+    }
+
+    func signIn(email: String, password: String) async throws -> ForgeAuthSession {
+        let request = try CognitoPasswordAuth.initiateAuthRequest(
+            region: config.cognitoRegion,
+            clientId: config.cognitoClientId,
+            username: email,
+            password: password
+        )
+        let data: Data
+        do {
+            let (body, _) = try await URLSession.shared.data(for: request)
+            data = body
+        } catch {
+            throw ForgeAuthError.network
+        }
+        let result = try CognitoPasswordAuth.parseAuthResponse(data, email: email)
+        let local = email.split(separator: "@").first.map(String.init) ?? "Athlete"
+        let session = ForgeAuthSession(
+            userId: result.userId,
+            email: result.email,
+            displayName: local.capitalized,
+            provider: "email",
+            accessToken: result.accessToken,
+            idToken: result.idToken,
+            refreshToken: result.refreshToken,
+            mode: .cognito
+        )
+        try persist(session)
+        return session
+    }
+
+    /// Renew the access token, once, without racing.
+    ///
+    /// Six services can hit a 401 at the same moment. Without a shared in-flight
+    /// task each would start its own refresh, and Cognito would rotate the token
+    /// out from under the others — so the first caller does the work and the rest
+    /// await the same result.
+    private var refreshTask: Task<ForgeAuthSession, Error>?
+
+    @discardableResult
+    func refreshSession() async throws -> ForgeAuthSession {
+        if let existing = refreshTask { return try await existing.value }
+
+        guard let current = session else { throw ForgeAuthError.signedOut }
+        // A tester session has no Cognito behind it; renewing is a no-op rather
+        // than an error, so DEBUG device work keeps running.
+        guard current.mode == .cognito else { return current }
+        guard let refreshToken = current.refreshToken, !refreshToken.isEmpty else {
+            signOut()
+            throw ForgeAuthError.signedOut
+        }
+
+        let task = Task<ForgeAuthSession, Error> { [config] in
+            let request = try CognitoPasswordAuth.refreshRequest(
+                region: config.cognitoRegion,
+                clientId: config.cognitoClientId,
+                refreshToken: refreshToken
+            )
+            let data: Data
+            do {
+                let (body, _) = try await URLSession.shared.data(for: request)
+                data = body
+            } catch {
+                throw ForgeAuthError.network
+            }
+            let result = try CognitoPasswordAuth.parseRefreshResponse(
+                data, email: current.email, existingRefreshToken: refreshToken
+            )
+            var renewed = current
+            renewed.accessToken = result.accessToken
+            renewed.idToken = result.idToken
+            renewed.refreshToken = result.refreshToken
+            return renewed
+        }
+        refreshTask = task
+        defer { refreshTask = nil }
+
+        do {
+            let renewed = try await task.value
+            try persist(renewed)
+            return renewed
+        } catch {
+            // A refresh token Cognito refuses is not a transient failure — it is
+            // revoked or expired, and the only honest response is to sign out
+            // rather than retry forever.
+            if let authError = error as? ForgeAuthError,
+               case .cognitoRejected = authError {
+                signOut()
+            }
+            throw error
+        }
+    }
+
+    func signOut() {
+        session = nil
+        try? store.remove(Self.sessionKey)
+        try? store.remove("forge.aria.authToken")
+    }
+
+    func authorizationHeader() -> String? {
+        session.map(\.authorizationHeader)
+    }
+
+    private func persist(_ session: ForgeAuthSession) throws {
+        self.session = session
+        try store.setValue(session, forKey: Self.sessionKey)
+        try store.set(session.accessToken, forKey: "forge.aria.authToken")
+        AriaContextStore.shared.configure(userId: session.userId)
+    }
+}

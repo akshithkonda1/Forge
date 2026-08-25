@@ -42,6 +42,10 @@
 		1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */; };
 		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
 		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
+		B5516E84A984973E2E0A546A /* HealthKitManager+Queries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */; };
+		393B4C47DAF62A8BFD1D0BC7 /* HealthKitManager+DailyStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */; };
+		D0F5A89396724B3BA3E7CC4B /* HealthKitManager+Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */; };
+		74DA797C011F4C076C5051C3 /* HealthKitManager+Clinical.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EB4405A8E5B4B03D8429D91 /* HealthKitManager+Clinical.swift */; };
 		1EHKS0022F9FF867004091AA /* HealthKitSleepService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */; };
 		1ARIA0022F9FF867004091AA /* AriaContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0012F9FF867004091AA /* AriaContext.swift */; };
 		1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0032F9FF867004091AA /* AriaResponse.swift */; };
@@ -58,14 +62,31 @@
 		1ARIA0302F9FF867004091AA /* AriaTrainingTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */; };
 		1ARIA0322F9FF867004091AA /* AriaPlanEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */; };
 		1ARIA0342F9FF867004091AA /* AriaVoiceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */; };
+		720BDCB7970B26F219A0E3A6 /* AriaVoiceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58F793F880B626970035DF6E /* AriaVoiceModels.swift */; };
 		1HCM0022F9FF867004091AA /* HomeCookedMeals.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */; };
+		591B27D73B4A288393E5A331 /* Pantry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A99FDA05F6363949CB75E8AE /* Pantry.swift */; };
+		4B4F89B0711EF41F88F47F5A /* HomeMealModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14DE5A5C804FC14866CB0A03 /* HomeMealModels.swift */; };
 		1HCV0022F9FF867004091AA /* HomeCookingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HCV0012F9FF867004091AA /* HomeCookingView.swift */; };
 		1PAS0022F9FF867004091AA /* ProfileAvatarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */; };
 		1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */; };
+		9CA2D002923A38A23B0541B2 /* CyclePhaseModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F95A7292C154940E408DE17 /* CyclePhaseModels.swift */; };
+		916D0CBAAF82E3EACDF6E9C8 /* CycleQualityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E86CA635A02CDDFA9BB8EA36 /* CycleQualityModels.swift */; };
+		814D0C4B388CD3D17BD8B9AE /* PeriodFeedbackModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55EAD5F4DC405AFE7EC79FFC /* PeriodFeedbackModels.swift */; };
+		076DBC5E060851F3447D7A21 /* PeriodCoachingPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = A98AD81BEB39576DC5AD6E82 /* PeriodCoachingPreferences.swift */; };
+		EC6342B0AA238F37F8217985 /* MenstrualTrackingSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03C2096D82535F6A37771403 /* MenstrualTrackingSettings.swift */; };
+		2AFC51155E2DE86DFF541D73 /* CycleSupportModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AD4710C0C082EFAA666EC96 /* CycleSupportModels.swift */; };
 		AA00010000000000000000B1 /* PartnerCycleDigest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B1 /* PartnerCycleDigest.swift */; };
 		1ARIA0382F9FF867004091AA /* MenstrualCycleEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */; };
 		1ARIA0402F9FF867004091AA /* MenstrualHealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */; };
+		D934D774E172A472C0F0C5A7 /* MenstrualHealthStore+Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A2FA6248D60CFB4E51D86A5 /* MenstrualHealthStore+Settings.swift */; };
+		A3BB7D321D20160411219B2F /* MenstrualHealthStore+Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EFA08123DB0AE20DDDE4F39 /* MenstrualHealthStore+Logging.swift */; };
+		9FC77F8DED25E37614408497 /* MenstrualHealthStore+People.swift in Sources */ = {isa = PBXBuildFile; fileRef = 024834B6BA4A2216068B15E3 /* MenstrualHealthStore+People.swift */; };
+		C67DE6F26D785828F5BC1D6D /* MenstrualHealthStore+Recompute.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E36C3CF6A30436812D6CA6 /* MenstrualHealthStore+Recompute.swift */; };
+		DFAD02CD6941A035C6C01983 /* MenstrualHealthStore+HealthKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30B047292ADD42FD4B118B6 /* MenstrualHealthStore+HealthKit.swift */; };
+		A2C5EDADB407191EC019770C /* MenstrualHealthStore+Aria.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41A17320AF2DF34E1036CFD6 /* MenstrualHealthStore+Aria.swift */; };
 		1ARIA0422F9FF867004091AA /* Menstrual/MenstrualHealthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */; };
+		9EE00809EB0529B6F52B5C25 /* CycleSupportCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3C951B0286809343384EDB /* CycleSupportCards.swift */; };
+		16416824CF33C5A419A08AF2 /* CycleFertilityCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31F1B24D2EFD154619C5FB43 /* CycleFertilityCards.swift */; };
 		1ARIA0442F9FF867004091AA /* PartnerSupportCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0452F9FF867004091AA /* PartnerSupportCoach.swift */; };
 		1ARIA0462F9FF867004091AA /* AriaRelationalCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0472F9FF867004091AA /* AriaRelationalCoach.swift */; };
 		1ARIA0482F9FF867004091AA /* AriaEmotionalSupportCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0492F9FF867004091AA /* AriaEmotionalSupportCoach.swift */; };
@@ -76,12 +97,11 @@
 		1AUTH0012F9FF867004091AA /* AuthWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */; };
 		1AUTH0032F9FF867004091AA /* AuthSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0042F9FF867004091AA /* AuthSignInView.swift */; };
 		1AUTH0052F9FF867004091AA /* AuthSignUpFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */; };
+		1AUTH0072F9FF867004091AA /* ForgeAuthClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */; };
+		1API00010000000000000001 /* ForgeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1API00020000000000000001 /* ForgeAPI.swift */; };
 		1CYC0012F9FF867004091AA /* CycleDataEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */; };
 		1CYC0032F9FF867004091AA /* CycleAriaAnalyst.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */; };
-		1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */; };
 		1E44AFC830182A1F00D1C14D /* PeriodEndFeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */; };
-		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
-		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
 		1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */; };
 		1E4DF71A2F9FFA70004091AA /* OnboardingDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */; };
 		1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */; };
@@ -89,33 +109,101 @@
 		1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */; };
 		1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */; };
 		1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */; };
+		C82BC7E19F20D94DAE955D97 /* OnboardingInterviewModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */; };
+		E7ACBAA738CA8B1E5C3F044C /* OnboardingAriaBot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E82C39E6C70CE31BD2644BC /* OnboardingAriaBot.swift */; };
 		1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */; };
 		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
 		1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */; };
 		1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED842E22F90C15300693D3E /* LifestyleView.swift */; };
-		1EHKS0022F9FF867004091AA /* HealthKitSleepService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */; };
+		35A81356CC836973378A412F /* LifestyleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74D9E1B3713556C9528D8A07 /* LifestyleModels.swift */; };
+		373EC9928467751C3ADEA77F /* LifestyleServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = B69CD378C6DBF59D2A7DA2C7 /* LifestyleServices.swift */; };
+		CA40F48072326848E8B6B51B /* LifestyleViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 888D3FAA001A21DC8081E395 /* LifestyleViewModel.swift */; };
+		9326D4114CB68F9AEE78E49F /* LifestyleOptimizationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B819FFADE3830A0B43832E0 /* LifestyleOptimizationView.swift */; };
+		9795D3B4BF471FCE82779AE4 /* LifestyleHealthCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40D5B929BF1BF782AA72310C /* LifestyleHealthCards.swift */; };
+		4059ED039EF1C0AA5A2FA786 /* LifestyleWorkoutCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCE3F3B3DD465EC4DC4D01CC /* LifestyleWorkoutCards.swift */; };
+		9948CA95E34A5032AA207ADD /* LifestyleAnalysisCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E4A31E82F73910B8F36B6 /* LifestyleAnalysisCards.swift */; };
+		A9D45FB931EDF266E13A5DC7 /* LifestyleNutritionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B80677C558CBB8DCE00EF823 /* LifestyleNutritionView.swift */; };
+		188620D11F4C0866F2FD6FA0 /* LifestyleRestaurantViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357B9527B62703C0646A867F /* LifestyleRestaurantViews.swift */; };
+		00101E9CDD38D96A91A97E15 /* LifestyleWellbeingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41991C47BEF8D13160298B11 /* LifestyleWellbeingView.swift */; };
+		4D8E544D568595AB65EBB3A4 /* RestaurantCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD24B87686B6EA1C5B7C9474 /* RestaurantCatalog.swift */; };
 		1NAV012F9FF867004091AA /* ForgeNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1NAV022F9FF867004091AA /* ForgeNavigation.swift */; };
-		1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0022F9FF867004091AA /* SexualHealthCoach.swift */; };
-		1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */; };
-		1WC0052F9FF867004091AA /* CyclePhaseCoachingDirective.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */; };
-		1WC0072F9FF867004091AA /* BiologicalSexStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */; };
-		1WC0092F9FF867004091AA /* CycleLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */; };
-		1WC00B2F9FF867004091AA /* CycleLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */; };
-		1WC00C2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00D2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift */; };
-		1WC00E2F9FF867004091AA /* CyclePhaseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */; };
 		1WC1012F9FF867004091AA /* CrossZoneConsistency.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */; };
 		AA0001000000000000000001 /* ForgeSwiftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000001 /* ForgeSwiftApp.swift */; };
 		AA0001000000000000000002 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000002 /* Theme.swift */; };
 		AA0001000000000000000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000003 /* Models.swift */; };
 		AA0001000000000000000004 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000004 /* AppStore.swift */; };
+		8CB0ADBC701D60630E70D45D /* AppStore+Chat.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCAEF23050E6FCDBAF318A66 /* AppStore+Chat.swift */; };
+		E39C337B25CE65266160AE34 /* AppStore+Auth.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF8B2B64DCDEDA8E028DEE31 /* AppStore+Auth.swift */; };
+		07F70A6DEC2285F5EA968022 /* AppStore+Workout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0080F92CDBCD10A6089E5748 /* AppStore+Workout.swift */; };
+		2FBE9FEFC46BC7EEF5075439 /* AppStore+Readiness.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0EE6500FC7A5AECE65975AE /* AppStore+Readiness.swift */; };
+		B91DA7A207B86349641820B5 /* AppStore+Navigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 288E48C7D7A3D5F5151FA652 /* AppStore+Navigation.swift */; };
+		A25E5F21E475A359A160746C /* AppStore+Context.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C314E07776FECA71858A43 /* AppStore+Context.swift */; };
+		BA9881825031CB92A10A23F2 /* TrainerContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45DE692F185925545A3B17DE /* TrainerContext.swift */; };
+		AD90BAFEC8EA35A4F14EF83C /* FoundationModelsResponseGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07D1E15950564F4991B10AF1 /* FoundationModelsResponseGenerator.swift */; };
+		DF0C39F95818C60589E494FC /* RuleBasedResponseGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29625FECFF8DB18803D4B06D /* RuleBasedResponseGenerator.swift */; };
 		AA0001000000000000000005 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000005 /* ContentView.swift */; };
 		AA0001000000000000000006 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000006 /* OnboardingView.swift */; };
+		D1919B244B3A650517464755 /* OnboardingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D739BE302C6406D4FD5FFAF1 /* OnboardingModels.swift */; };
+		616F3C419B3EB7ADAE50115B /* AriaInterviewLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EFADEBB5E6749FF6794C3D4 /* AriaInterviewLayout.swift */; };
+		4A125A771F1A069647744C7B /* OnboardingComposers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D1B4CAD5FA5D25B74EC6E1C /* OnboardingComposers.swift */; };
+		6CBB68B52859EB1DA316AE05 /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946C46A9CAC2E8FAA15F2A6E /* OnboardingComponents.swift */; };
 		AA0001000000000000000007 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000007 /* HomeView.swift */; };
+		CBEEDC3EE856524D0A77DB39 /* HomeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */; };
+		DA2E7330C7F2CD27BE372197 /* HomeHeroCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */; };
+		477615BBC4667F2CD2D411F3 /* HomeARIABriefingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */; };
+		BABC54B4506AFAABCC62995B /* HomeCycleModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */; };
+		AB10DEFDAF19A3B38E122F17 /* HomeCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0381C148DB04CDCCA8B766 /* HomeCards.swift */; };
+		79F46F73D48458B779562937 /* HomeReadinessViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */; };
+		C5AAE2E6F4609C4595542DE9 /* HomeOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = 666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */; };
+		3CA296A1780DDB7EE484486E /* HomeCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9A27D1156644101FD07B5D6 /* HomeCopy.swift */; };
 		AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000A1 /* HomeAuroraBackground.swift */; };
 		AA0001000000000000000008 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000008 /* ChatView.swift */; };
+		60A29EB8CFF073B8FE95D0A3 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0EECC86FCDA945D9F0AAD58 /* ChatModels.swift */; };
+		786603F7F7BF7BAB4051F54D /* ChatHaptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4F9E64F4C756500FF72D39D /* ChatHaptics.swift */; };
+		6D3001F7BE5B6394E6858876 /* SpeechManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329F018C6DBA3607076E1AAC /* SpeechManager.swift */; };
+		C34617308B7C19A07F7A3C16 /* MomentumEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8D9BF28642B6FAD2F1FB827 /* MomentumEngine.swift */; };
+		2D9DC499B96A88E94FAB6FCA /* ChatHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9468C5A08CE0DC2EB6DAA37 /* ChatHeaderView.swift */; };
+		9B8B14DCF405B61BE9B8229E /* ChatMessageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E509FD0A002496A42A2D596 /* ChatMessageViews.swift */; };
+		A63245F4A2EC0EFC6A6C2100 /* ChatEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB0D784C49569890D1EEB494 /* ChatEmptyStateView.swift */; };
+		FE51C885416EF0AE0DEFAB91 /* ChatInputAreaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A18CDF8561BB5B4C1289D86 /* ChatInputAreaView.swift */; };
+		ACE45AF3C089322AD1CE0744 /* VoiceOrbOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E1C990157A8D4EC8AB45F8C /* VoiceOrbOverlay.swift */; };
+		8A35071816F1EA8B299F27D5 /* ChatRichCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78707CC1590A6382FBE0B6EC /* ChatRichCards.swift */; };
 		AA0001000000000000000009 /* WorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000009 /* WorkoutView.swift */; };
+		1AB79BAC8BDB10BD5B60057F /* ExerciseCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4019A65454265EF4A2A51FD /* ExerciseCatalog.swift */; };
+		8AEE13A27BA4358BC5A5BCF0 /* WorkoutAdaptiveEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20B310891020D005C57A095 /* WorkoutAdaptiveEngine.swift */; };
+		914DE5BA081FF82C5D0F7E2E /* ARIACoachService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C814AC395880FAADE3F39C53 /* ARIACoachService.swift */; };
+		9A83B2C708843E036DC608DB /* FormCameraController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8C8AB624A6954BF6789B457 /* FormCameraController.swift */; };
+		A17305D9EAE3309E453B3BB6 /* WorkoutSessionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 322A57B8F4B49977C7A231B2 /* WorkoutSessionModels.swift */; };
+		F26321CE0CE8690ED4FE9D71 /* MusicControlBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAA60D0695137233AF6992B0 /* MusicControlBar.swift */; };
+		565E0329AD3B2C4B35A0B5FD /* ExerciseLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0BD14A1AF47C441759E8C6B /* ExerciseLibraryView.swift */; };
+		437A70F45A8E9682FEAB094F /* ARIADashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334AC7CA1A8022C141949A51 /* ARIADashboardView.swift */; };
+		2F6E67C778B35E7BF89A8DF8 /* ActiveWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 535E2571D03F347B1BA79733 /* ActiveWorkoutView.swift */; };
+		74312ADDADCC2DC50E97BD18 /* ActiveWorkoutPanels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D086AF80FD16F6087103C20D /* ActiveWorkoutPanels.swift */; };
+		5918512ADD7061ECA32C322F /* WorkoutSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62BA508E03891820E6B25432 /* WorkoutSummaryView.swift */; };
+		B3CDF62A58BA0D809EAF271E /* ExerciseDemonstrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0DDF55AA3A4FF0B1F67304A /* ExerciseDemonstrationView.swift */; };
+		6F942A1093A4321ED41D862F /* WorkoutViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */; };
 		AA000100000000000000000A /* SleepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000A /* SleepView.swift */; };
+		00C9C45A23CBD05FF6583B9B /* SleepModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 827364B87E627CF4CC80BFE2 /* SleepModels.swift */; };
+		2FFACC674BBEA570D73CE1E8 /* SleepNightTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02B8B267BDE65BC4C962889 /* SleepNightTab.swift */; };
+		D73A7502C11F243B8CA79DB3 /* SleepAlarmTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4621301CC9D9971E70777C7C /* SleepAlarmTab.swift */; };
+		EEC7867EE378171FAB034AD7 /* SleepSoundsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A623D0F06FD3C50C8C9C2DF0 /* SleepSoundsTab.swift */; };
+		CDA91213B4AFC8A533C4E2D4 /* SleepWakeUpTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C453AB65225E570720899AB3 /* SleepWakeUpTab.swift */; };
+		CEAD2F52487C32101B080DB7 /* SleepInsightCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5505055FD73CA7ABA5E30C5A /* SleepInsightCards.swift */; };
+		A03C28515F509A3422756067 /* SleepDetailSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D57284AB740A5B9CBDEDDF /* SleepDetailSheets.swift */; };
+		103AF044FA4BE442F6FD43B3 /* SleepComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67EA3CDCC095F0FF25571589 /* SleepComponents.swift */; };
 		AA000100000000000000000B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000B /* ProfileView.swift */; };
+		95AE5FF2D55FC04CECA87263 /* ProgressPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125597C26056DBE7682E5451 /* ProgressPageView.swift */; };
+		1933FBEC0A8E8D9D78CE7609 /* WorkoutHistoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */; };
+		F75B54F9794C1DECC9240724 /* SettingsPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DBF3F5B4E943D90A01FB398 /* SettingsPageView.swift */; };
+		651B4E5D41EE26C57D1E169E /* ForgeAboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */; };
+		BCC7261848DBE6001B2DBC5C /* ClinicalDataNonPHIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */; };
+		AA6AB39BF736B5FD37746022 /* ProfileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9638727829C4D00A83E2F4 /* ProfileModels.swift */; };
+		B82A3D64CC815A754DC8A65D /* AppStore+Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = D455F77E6B09ACDEEB1CA89D /* AppStore+Profile.swift */; };
+		195FDA7D73290864DD73F5BC /* ProfileComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE4FFBC45D6BDF5B687D9C9 /* ProfileComponents.swift */; };
+		A3C80D30240B535E8A7F9FC3 /* ProgressStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEBE942BCDEAA018906AEF5A /* ProgressStatsView.swift */; };
+		3CDFEAC2734D2F45D94565CB /* ProfileEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A34CBCE5BC782847437A33A /* ProfileEditorView.swift */; };
+		FABCB777FF39597DE2CB2523 /* CoachingStylePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BE5A2F4F6EEFE45674113B2 /* CoachingStylePickerView.swift */; };
+		0AF23A887EDD96C00F754936 /* DataPermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB90BFB6F1FEB4F1ADCB75B7 /* DataPermissionsView.swift */; };
 		AA000100000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000C /* Assets.xcassets */; };
 		F0B100000000000000000001 /* ForgeWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000001 /* ForgeWatchApp.swift */; };
 		F0B100000000000000000002 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000002 /* HomeView.swift */; };
@@ -162,6 +250,11 @@
 		F0F1000000000000000000A1 /* LifestyleTargets.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F1000000000000000000A2 /* LifestyleTargets.swift */; };
 		FWNSCHED02 /* ForgeNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FWNSCHED01 /* ForgeNotificationScheduler.swift */; };
 		FWSETED02 /* SettingsEditorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FWSETED01 /* SettingsEditorViews.swift */; };
+		AA000100000000000000F1A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F1A0 /* PrivacyInfo.xcprivacy */; };
+		AA000100000000000000F2A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F2A0 /* PrivacyInfo.xcprivacy */; };
+		AA000100000000000000F3A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */; };
+		AA000100000000000000F4A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */; };
+		1TEST01200000000000000A /* MenstrualCycleEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -192,6 +285,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = F0C100000000000000000003;
 			remoteInfo = ForgeWidgetExtension;
+		};
+		1TEST01000000000000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0008000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA0005000000000000000001;
+			remoteInfo = ForgeSwift;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -271,6 +371,10 @@
 		1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MusicControllerFactory.swift; sourceTree = SOURCE_ROOT; };
 		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
 		1E4DF7152F9FF867004091AA /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
+		405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+Queries.swift"; sourceTree = "<group>"; };
+		8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+DailyStats.swift"; sourceTree = "<group>"; };
+		84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+Logging.swift"; sourceTree = "<group>"; };
+		2EB4405A8E5B4B03D8429D91 /* HealthKitManager+Clinical.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+Clinical.swift"; sourceTree = "<group>"; };
 		1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepService.swift; sourceTree = "<group>"; };
 		1ARIA0012F9FF867004091AA /* AriaContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContext.swift; sourceTree = "<group>"; };
 		1ARIA0032F9FF867004091AA /* AriaResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaResponse.swift; sourceTree = "<group>"; };
@@ -287,14 +391,31 @@
 		1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaTrainingTheme.swift; sourceTree = "<group>"; };
 		1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPlanEngine.swift; sourceTree = "<group>"; };
 		1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceEngine.swift; sourceTree = "<group>"; };
+		58F793F880B626970035DF6E /* AriaVoiceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceModels.swift; sourceTree = "<group>"; };
 		1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCookedMeals.swift; sourceTree = "<group>"; };
+		A99FDA05F6363949CB75E8AE /* Pantry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pantry.swift; sourceTree = "<group>"; };
+		14DE5A5C804FC14866CB0A03 /* HomeMealModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeMealModels.swift; sourceTree = "<group>"; };
 		1HCV0012F9FF867004091AA /* HomeCookingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCookingView.swift; sourceTree = "<group>"; };
 		1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileAvatarStore.swift; sourceTree = "<group>"; };
 		1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleModels.swift; sourceTree = "<group>"; };
+		5F95A7292C154940E408DE17 /* CyclePhaseModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseModels.swift; sourceTree = "<group>"; };
+		E86CA635A02CDDFA9BB8EA36 /* CycleQualityModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleQualityModels.swift; sourceTree = "<group>"; };
+		55EAD5F4DC405AFE7EC79FFC /* PeriodFeedbackModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeriodFeedbackModels.swift; sourceTree = "<group>"; };
+		A98AD81BEB39576DC5AD6E82 /* PeriodCoachingPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeriodCoachingPreferences.swift; sourceTree = "<group>"; };
+		03C2096D82535F6A37771403 /* MenstrualTrackingSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualTrackingSettings.swift; sourceTree = "<group>"; };
+		9AD4710C0C082EFAA666EC96 /* CycleSupportModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleSupportModels.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B1 /* PartnerCycleDigest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleDigest.swift; sourceTree = "<group>"; };
 		1ARIA0392F9FF867004091AA /* MenstrualCycleEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngine.swift; sourceTree = "<group>"; };
 		1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualHealthStore.swift; sourceTree = "<group>"; };
+		6A2FA6248D60CFB4E51D86A5 /* MenstrualHealthStore+Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenstrualHealthStore+Settings.swift"; sourceTree = "<group>"; };
+		7EFA08123DB0AE20DDDE4F39 /* MenstrualHealthStore+Logging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenstrualHealthStore+Logging.swift"; sourceTree = "<group>"; };
+		024834B6BA4A2216068B15E3 /* MenstrualHealthStore+People.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenstrualHealthStore+People.swift"; sourceTree = "<group>"; };
+		F1E36C3CF6A30436812D6CA6 /* MenstrualHealthStore+Recompute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenstrualHealthStore+Recompute.swift"; sourceTree = "<group>"; };
+		F30B047292ADD42FD4B118B6 /* MenstrualHealthStore+HealthKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenstrualHealthStore+HealthKit.swift"; sourceTree = "<group>"; };
+		41A17320AF2DF34E1036CFD6 /* MenstrualHealthStore+Aria.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenstrualHealthStore+Aria.swift"; sourceTree = "<group>"; };
 		1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Menstrual/MenstrualHealthView.swift; sourceTree = "<group>"; };
+		BA3C951B0286809343384EDB /* CycleSupportCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Menstrual/CycleSupportCards.swift"; sourceTree = "<group>"; };
+		31F1B24D2EFD154619C5FB43 /* CycleFertilityCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Menstrual/CycleFertilityCards.swift"; sourceTree = "<group>"; };
 		1ARIA0452F9FF867004091AA /* PartnerSupportCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerSupportCoach.swift; sourceTree = "<group>"; };
 		1ARIA0472F9FF867004091AA /* AriaRelationalCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaRelationalCoach.swift; sourceTree = "<group>"; };
 		1ARIA0492F9FF867004091AA /* AriaEmotionalSupportCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaEmotionalSupportCoach.swift; sourceTree = "<group>"; };
@@ -305,13 +426,11 @@
 		1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthWelcomeView.swift; sourceTree = "<group>"; };
 		1AUTH0042F9FF867004091AA /* AuthSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSignInView.swift; sourceTree = "<group>"; };
 		1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSignUpFlowView.swift; sourceTree = "<group>"; };
+		1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAuthClient.swift; sourceTree = "<group>"; };
+		1API00020000000000000001 /* ForgeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAPI.swift; sourceTree = "<group>"; };
 		1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleDataEvaluator.swift; sourceTree = "<group>"; };
 		1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleAriaAnalyst.swift; sourceTree = "<group>"; };
-		1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbComponents.swift; sourceTree = "<group>"; };
 		1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeriodEndFeedbackView.swift; sourceTree = "<group>"; };
-		1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MusicControllerFactory.swift; sourceTree = SOURCE_ROOT; };
-		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
-		1E4DF7152F9FF867004091AA /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingHealthKitViews.swift; sourceTree = "<group>"; };
 		1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDataManager.swift; sourceTree = "<group>"; };
 		1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedDataConnectionView.swift; sourceTree = "<group>"; };
@@ -319,32 +438,101 @@
 		1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeDesignSystem.swift; sourceTree = "<group>"; };
 		1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+ForgeCardShadow.swift"; sourceTree = "<group>"; };
 		1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCoordinator.swift; sourceTree = "<group>"; };
+		20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingInterviewModels.swift; sourceTree = "<group>"; };
+		3E82C39E6C70CE31BD2644BC /* OnboardingAriaBot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingAriaBot.swift; sourceTree = "<group>"; };
 		1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachManager.swift; sourceTree = "<group>"; };
 		1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachViews.swift; sourceTree = "<group>"; };
 		1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachIntegration.swift; sourceTree = "<group>"; };
 		1ED842E22F90C15300693D3E /* LifestyleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleView.swift; sourceTree = "<group>"; };
-		1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepService.swift; sourceTree = "<group>"; };
+		74D9E1B3713556C9528D8A07 /* LifestyleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleModels.swift; sourceTree = "<group>"; };
+		B69CD378C6DBF59D2A7DA2C7 /* LifestyleServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleServices.swift; sourceTree = "<group>"; };
+		888D3FAA001A21DC8081E395 /* LifestyleViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleViewModel.swift; sourceTree = "<group>"; };
+		6B819FFADE3830A0B43832E0 /* LifestyleOptimizationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleOptimizationView.swift; sourceTree = "<group>"; };
+		40D5B929BF1BF782AA72310C /* LifestyleHealthCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleHealthCards.swift; sourceTree = "<group>"; };
+		FCE3F3B3DD465EC4DC4D01CC /* LifestyleWorkoutCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleWorkoutCards.swift; sourceTree = "<group>"; };
+		A11E4A31E82F73910B8F36B6 /* LifestyleAnalysisCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleAnalysisCards.swift; sourceTree = "<group>"; };
+		B80677C558CBB8DCE00EF823 /* LifestyleNutritionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleNutritionView.swift; sourceTree = "<group>"; };
+		357B9527B62703C0646A867F /* LifestyleRestaurantViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleRestaurantViews.swift; sourceTree = "<group>"; };
+		41991C47BEF8D13160298B11 /* LifestyleWellbeingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleWellbeingView.swift; sourceTree = "<group>"; };
+		CD24B87686B6EA1C5B7C9474 /* RestaurantCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestaurantCatalog.swift; sourceTree = "<group>"; };
 		1NAV022F9FF867004091AA /* ForgeNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeNavigation.swift; sourceTree = "<group>"; };
-		1WC0022F9FF867004091AA /* SexualHealthCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCoach.swift; sourceTree = "<group>"; };
-		1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCurriculum.swift; sourceTree = "<group>"; };
-		1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseCoachingDirective.swift; sourceTree = "<group>"; };
-		1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiologicalSexStepView.swift; sourceTree = "<group>"; };
-		1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleLiveActivityAttributes.swift; sourceTree = "<group>"; };
-		1WC00D2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleFertileWindowLiveActivity.swift; sourceTree = "<group>"; };
-		1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseWidget.swift; sourceTree = "<group>"; };
 		1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrossZoneConsistency.swift; sourceTree = "<group>"; };
 		AA0002000000000000000001 /* ForgeSwiftApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSwiftApp.swift; sourceTree = "<group>"; };
 		AA0002000000000000000002 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		AA0002000000000000000003 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		AA0002000000000000000004 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
+		FCAEF23050E6FCDBAF318A66 /* AppStore+Chat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Chat.swift"; sourceTree = "<group>"; };
+		AF8B2B64DCDEDA8E028DEE31 /* AppStore+Auth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Auth.swift"; sourceTree = "<group>"; };
+		0080F92CDBCD10A6089E5748 /* AppStore+Workout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Workout.swift"; sourceTree = "<group>"; };
+		A0EE6500FC7A5AECE65975AE /* AppStore+Readiness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Readiness.swift"; sourceTree = "<group>"; };
+		288E48C7D7A3D5F5151FA652 /* AppStore+Navigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Navigation.swift"; sourceTree = "<group>"; };
+		D1C314E07776FECA71858A43 /* AppStore+Context.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Context.swift"; sourceTree = "<group>"; };
+		45DE692F185925545A3B17DE /* TrainerContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainerContext.swift; sourceTree = "<group>"; };
+		07D1E15950564F4991B10AF1 /* FoundationModelsResponseGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoundationModelsResponseGenerator.swift; sourceTree = "<group>"; };
+		29625FECFF8DB18803D4B06D /* RuleBasedResponseGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuleBasedResponseGenerator.swift; sourceTree = "<group>"; };
 		AA0002000000000000000005 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000006 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		D739BE302C6406D4FD5FFAF1 /* OnboardingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingModels.swift; sourceTree = "<group>"; };
+		3EFADEBB5E6749FF6794C3D4 /* AriaInterviewLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewLayout.swift; sourceTree = "<group>"; };
+		5D1B4CAD5FA5D25B74EC6E1C /* OnboardingComposers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComposers.swift; sourceTree = "<group>"; };
+		946C46A9CAC2E8FAA15F2A6E /* OnboardingComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComponents.swift; sourceTree = "<group>"; };
 		AA0002000000000000000007 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeModels.swift; sourceTree = "<group>"; };
+		A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHeroCards.swift; sourceTree = "<group>"; };
+		220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeARIABriefingCard.swift; sourceTree = "<group>"; };
+		5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCycleModule.swift; sourceTree = "<group>"; };
+		7A0381C148DB04CDCCA8B766 /* HomeCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCards.swift; sourceTree = "<group>"; };
+		B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReadinessViews.swift; sourceTree = "<group>"; };
+		666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeOverlays.swift; sourceTree = "<group>"; };
+		A9A27D1156644101FD07B5D6 /* HomeCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCopy.swift; sourceTree = "<group>"; };
 		AA00020000000000000000A1 /* HomeAuroraBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeAuroraBackground.swift; sourceTree = "<group>"; };
 		AA0002000000000000000008 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		C0EECC86FCDA945D9F0AAD58 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
+		A4F9E64F4C756500FF72D39D /* ChatHaptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHaptics.swift; sourceTree = "<group>"; };
+		329F018C6DBA3607076E1AAC /* SpeechManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechManager.swift; sourceTree = "<group>"; };
+		D8D9BF28642B6FAD2F1FB827 /* MomentumEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MomentumEngine.swift; sourceTree = "<group>"; };
+		C9468C5A08CE0DC2EB6DAA37 /* ChatHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHeaderView.swift; sourceTree = "<group>"; };
+		7E509FD0A002496A42A2D596 /* ChatMessageViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessageViews.swift; sourceTree = "<group>"; };
+		DB0D784C49569890D1EEB494 /* ChatEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatEmptyStateView.swift; sourceTree = "<group>"; };
+		3A18CDF8561BB5B4C1289D86 /* ChatInputAreaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputAreaView.swift; sourceTree = "<group>"; };
+		3E1C990157A8D4EC8AB45F8C /* VoiceOrbOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceOrbOverlay.swift; sourceTree = "<group>"; };
+		78707CC1590A6382FBE0B6EC /* ChatRichCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatRichCards.swift; sourceTree = "<group>"; };
 		AA0002000000000000000009 /* WorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutView.swift; sourceTree = "<group>"; };
+		F4019A65454265EF4A2A51FD /* ExerciseCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCatalog.swift; sourceTree = "<group>"; };
+		C20B310891020D005C57A095 /* WorkoutAdaptiveEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutAdaptiveEngine.swift; sourceTree = "<group>"; };
+		C814AC395880FAADE3F39C53 /* ARIACoachService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARIACoachService.swift; sourceTree = "<group>"; };
+		A8C8AB624A6954BF6789B457 /* FormCameraController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormCameraController.swift; sourceTree = "<group>"; };
+		322A57B8F4B49977C7A231B2 /* WorkoutSessionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionModels.swift; sourceTree = "<group>"; };
+		FAA60D0695137233AF6992B0 /* MusicControlBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicControlBar.swift; sourceTree = "<group>"; };
+		E0BD14A1AF47C441759E8C6B /* ExerciseLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseLibraryView.swift; sourceTree = "<group>"; };
+		334AC7CA1A8022C141949A51 /* ARIADashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARIADashboardView.swift; sourceTree = "<group>"; };
+		535E2571D03F347B1BA79733 /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
+		D086AF80FD16F6087103C20D /* ActiveWorkoutPanels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutPanels.swift; sourceTree = "<group>"; };
+		62BA508E03891820E6B25432 /* WorkoutSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSummaryView.swift; sourceTree = "<group>"; };
+		D0DDF55AA3A4FF0B1F67304A /* ExerciseDemonstrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDemonstrationView.swift; sourceTree = "<group>"; };
+		BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutViewHelpers.swift; sourceTree = "<group>"; };
 		AA000200000000000000000A /* SleepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepView.swift; sourceTree = "<group>"; };
+		827364B87E627CF4CC80BFE2 /* SleepModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepModels.swift; sourceTree = "<group>"; };
+		D02B8B267BDE65BC4C962889 /* SleepNightTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepNightTab.swift; sourceTree = "<group>"; };
+		4621301CC9D9971E70777C7C /* SleepAlarmTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepAlarmTab.swift; sourceTree = "<group>"; };
+		A623D0F06FD3C50C8C9C2DF0 /* SleepSoundsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSoundsTab.swift; sourceTree = "<group>"; };
+		C453AB65225E570720899AB3 /* SleepWakeUpTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeUpTab.swift; sourceTree = "<group>"; };
+		5505055FD73CA7ABA5E30C5A /* SleepInsightCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepInsightCards.swift; sourceTree = "<group>"; };
+		50D57284AB740A5B9CBDEDDF /* SleepDetailSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepDetailSheets.swift; sourceTree = "<group>"; };
+		67EA3CDCC095F0FF25571589 /* SleepComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepComponents.swift; sourceTree = "<group>"; };
 		AA000200000000000000000B /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		125597C26056DBE7682E5451 /* ProgressPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressPageView.swift; sourceTree = "<group>"; };
+		23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryListView.swift; sourceTree = "<group>"; };
+		3DBF3F5B4E943D90A01FB398 /* SettingsPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPageView.swift; sourceTree = "<group>"; };
+		6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAboutView.swift; sourceTree = "<group>"; };
+		3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClinicalDataNonPHIView.swift; sourceTree = "<group>"; };
+		BB9638727829C4D00A83E2F4 /* ProfileModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileModels.swift; sourceTree = "<group>"; };
+		D455F77E6B09ACDEEB1CA89D /* AppStore+Profile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Profile.swift"; sourceTree = "<group>"; };
+		5FE4FFBC45D6BDF5B687D9C9 /* ProfileComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileComponents.swift; sourceTree = "<group>"; };
+		AEBE942BCDEAA018906AEF5A /* ProgressStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressStatsView.swift; sourceTree = "<group>"; };
+		3A34CBCE5BC782847437A33A /* ProfileEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileEditorView.swift; sourceTree = "<group>"; };
+		5BE5A2F4F6EEFE45674113B2 /* CoachingStylePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingStylePickerView.swift; sourceTree = "<group>"; };
+		DB90BFB6F1FEB4F1ADCB75B7 /* DataPermissionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPermissionsView.swift; sourceTree = "<group>"; };
 		AA000200000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA000200000000000000000D /* ForgeSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForgeSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0F100000000000000000001 /* ForgeWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWatchApp.swift; sourceTree = "<group>"; };
@@ -392,6 +580,12 @@
 		F0F1000000000000000000A2 /* LifestyleTargets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleTargets.swift; sourceTree = "<group>"; };
 		FWNSCHED01 /* ForgeNotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeNotificationScheduler.swift; sourceTree = "<group>"; };
 		FWSETED01 /* SettingsEditorViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsEditorViews.swift; sourceTree = "<group>"; };
+		AA000200000000000000F1A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		AA000200000000000000F2A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngineTests.swift; sourceTree = "<group>"; };
+		1TEST00700000000000000A /* ForgeSwiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForgeSwiftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -435,6 +629,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1TEST00600000000000000A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -452,6 +653,8 @@
 			children = (
 				1ARIA0152F9FF867004091AA /* Chat */,
 				1ARIA0432F9FF867004091AA /* MenstrualHealthView.swift */,
+				BA3C951B0286809343384EDB /* CycleSupportCards.swift */,
+				31F1B24D2EFD154619C5FB43 /* CycleFertilityCards.swift */,
 				AA00020000000000000000D2 /* SupporterDigestView.swift */,
 				AA00020000000000000000D3 /* CycleSharingView.swift */,
 				AA00020000000000000000E1 /* EnergyScheduleView.swift */,
@@ -471,6 +674,8 @@
 			isa = PBXGroup;
 			children = (
 				1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */,
+				A99FDA05F6363949CB75E8AE /* Pantry.swift */,
+				14DE5A5C804FC14866CB0A03 /* HomeMealModels.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -479,6 +684,12 @@
 			isa = PBXGroup;
 			children = (
 				1ARIA0372F9FF867004091AA /* MenstrualCycleModels.swift */,
+				5F95A7292C154940E408DE17 /* CyclePhaseModels.swift */,
+				E86CA635A02CDDFA9BB8EA36 /* CycleQualityModels.swift */,
+				55EAD5F4DC405AFE7EC79FFC /* PeriodFeedbackModels.swift */,
+				A98AD81BEB39576DC5AD6E82 /* PeriodCoachingPreferences.swift */,
+				03C2096D82535F6A37771403 /* MenstrualTrackingSettings.swift */,
+				9AD4710C0C082EFAA666EC96 /* CycleSupportModels.swift */,
 				AA00020000000000000000B1 /* PartnerCycleDigest.swift */,
 				1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */,
 				1ARIA0572F9FF867004091AA /* CyclePrivacy.swift */,
@@ -496,6 +707,8 @@
 				1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */,
 				1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */,
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
+				1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */,
+				1API00020000000000000001 /* ForgeAPI.swift */,
 				AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */,
 				AA00020000000000000000B2 /* PartnerCycleSharing.swift */,
 				AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */,
@@ -506,7 +719,14 @@
 				1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */,
 				1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */,
 				1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */,
+				58F793F880B626970035DF6E /* AriaVoiceModels.swift */,
 				1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */,
+				6A2FA6248D60CFB4E51D86A5 /* MenstrualHealthStore+Settings.swift */,
+				7EFA08123DB0AE20DDDE4F39 /* MenstrualHealthStore+Logging.swift */,
+				024834B6BA4A2216068B15E3 /* MenstrualHealthStore+People.swift */,
+				F1E36C3CF6A30436812D6CA6 /* MenstrualHealthStore+Recompute.swift */,
+				F30B047292ADD42FD4B118B6 /* MenstrualHealthStore+HealthKit.swift */,
+				41A17320AF2DF34E1036CFD6 /* MenstrualHealthStore+Aria.swift */,
 				1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */,
 				1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */,
 				1ARIA0452F9FF867004091AA /* PartnerSupportCoach.swift */,
@@ -528,26 +748,102 @@
 		AA0004000000000000000001 /* ForgeSwift */ = {
 			isa = PBXGroup;
 			children = (
+				AA000200000000000000F1A0 /* PrivacyInfo.xcprivacy */,
 				1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */,
 				AA00020000000000000000B5 /* Info-Add.plist */,
 				AA0002000000000000000001 /* ForgeSwiftApp.swift */,
 				AA0002000000000000000002 /* Theme.swift */,
 				AA0002000000000000000003 /* Models.swift */,
 				AA0002000000000000000004 /* AppStore.swift */,
+				FCAEF23050E6FCDBAF318A66 /* AppStore+Chat.swift */,
+				AF8B2B64DCDEDA8E028DEE31 /* AppStore+Auth.swift */,
+				0080F92CDBCD10A6089E5748 /* AppStore+Workout.swift */,
+				A0EE6500FC7A5AECE65975AE /* AppStore+Readiness.swift */,
+				288E48C7D7A3D5F5151FA652 /* AppStore+Navigation.swift */,
+				D1C314E07776FECA71858A43 /* AppStore+Context.swift */,
+				45DE692F185925545A3B17DE /* TrainerContext.swift */,
+				07D1E15950564F4991B10AF1 /* FoundationModelsResponseGenerator.swift */,
+				29625FECFF8DB18803D4B06D /* RuleBasedResponseGenerator.swift */,
 				AA0002000000000000000005 /* ContentView.swift */,
 				1NAV022F9FF867004091AA /* ForgeNavigation.swift */,
 				1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */,
 				1AUTH0042F9FF867004091AA /* AuthSignInView.swift */,
 				1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */,
 				AA0002000000000000000006 /* OnboardingView.swift */,
+				D739BE302C6406D4FD5FFAF1 /* OnboardingModels.swift */,
+				3EFADEBB5E6749FF6794C3D4 /* AriaInterviewLayout.swift */,
+				5D1B4CAD5FA5D25B74EC6E1C /* OnboardingComposers.swift */,
+				946C46A9CAC2E8FAA15F2A6E /* OnboardingComponents.swift */,
 				AA0002000000000000000007 /* HomeView.swift */,
+				E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */,
+				A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */,
+				220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */,
+				5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */,
+				7A0381C148DB04CDCCA8B766 /* HomeCards.swift */,
+				B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */,
+				666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */,
+				A9A27D1156644101FD07B5D6 /* HomeCopy.swift */,
 				AA00020000000000000000A1 /* HomeAuroraBackground.swift */,
 				AA0002000000000000000008 /* ChatView.swift */,
+				C0EECC86FCDA945D9F0AAD58 /* ChatModels.swift */,
+				A4F9E64F4C756500FF72D39D /* ChatHaptics.swift */,
+				329F018C6DBA3607076E1AAC /* SpeechManager.swift */,
+				D8D9BF28642B6FAD2F1FB827 /* MomentumEngine.swift */,
+				C9468C5A08CE0DC2EB6DAA37 /* ChatHeaderView.swift */,
+				7E509FD0A002496A42A2D596 /* ChatMessageViews.swift */,
+				DB0D784C49569890D1EEB494 /* ChatEmptyStateView.swift */,
+				3A18CDF8561BB5B4C1289D86 /* ChatInputAreaView.swift */,
+				3E1C990157A8D4EC8AB45F8C /* VoiceOrbOverlay.swift */,
+				78707CC1590A6382FBE0B6EC /* ChatRichCards.swift */,
 				AA0002000000000000000009 /* WorkoutView.swift */,
+				F4019A65454265EF4A2A51FD /* ExerciseCatalog.swift */,
+				C20B310891020D005C57A095 /* WorkoutAdaptiveEngine.swift */,
+				C814AC395880FAADE3F39C53 /* ARIACoachService.swift */,
+				A8C8AB624A6954BF6789B457 /* FormCameraController.swift */,
+				322A57B8F4B49977C7A231B2 /* WorkoutSessionModels.swift */,
+				FAA60D0695137233AF6992B0 /* MusicControlBar.swift */,
+				E0BD14A1AF47C441759E8C6B /* ExerciseLibraryView.swift */,
+				334AC7CA1A8022C141949A51 /* ARIADashboardView.swift */,
+				535E2571D03F347B1BA79733 /* ActiveWorkoutView.swift */,
+				D086AF80FD16F6087103C20D /* ActiveWorkoutPanels.swift */,
+				62BA508E03891820E6B25432 /* WorkoutSummaryView.swift */,
+				D0DDF55AA3A4FF0B1F67304A /* ExerciseDemonstrationView.swift */,
+				BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */,
 				AA000200000000000000000A /* SleepView.swift */,
+				827364B87E627CF4CC80BFE2 /* SleepModels.swift */,
+				D02B8B267BDE65BC4C962889 /* SleepNightTab.swift */,
+				4621301CC9D9971E70777C7C /* SleepAlarmTab.swift */,
+				A623D0F06FD3C50C8C9C2DF0 /* SleepSoundsTab.swift */,
+				C453AB65225E570720899AB3 /* SleepWakeUpTab.swift */,
+				5505055FD73CA7ABA5E30C5A /* SleepInsightCards.swift */,
+				50D57284AB740A5B9CBDEDDF /* SleepDetailSheets.swift */,
+				67EA3CDCC095F0FF25571589 /* SleepComponents.swift */,
 				AA000200000000000000000B /* ProfileView.swift */,
+				125597C26056DBE7682E5451 /* ProgressPageView.swift */,
+				23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */,
+				3DBF3F5B4E943D90A01FB398 /* SettingsPageView.swift */,
+				6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */,
+				3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */,
+				BB9638727829C4D00A83E2F4 /* ProfileModels.swift */,
+				D455F77E6B09ACDEEB1CA89D /* AppStore+Profile.swift */,
+				5FE4FFBC45D6BDF5B687D9C9 /* ProfileComponents.swift */,
+				AEBE942BCDEAA018906AEF5A /* ProgressStatsView.swift */,
+				3A34CBCE5BC782847437A33A /* ProfileEditorView.swift */,
+				5BE5A2F4F6EEFE45674113B2 /* CoachingStylePickerView.swift */,
+				DB90BFB6F1FEB4F1ADCB75B7 /* DataPermissionsView.swift */,
 				AA000200000000000000000C /* Assets.xcassets */,
 				1ED842E22F90C15300693D3E /* LifestyleView.swift */,
+				74D9E1B3713556C9528D8A07 /* LifestyleModels.swift */,
+				B69CD378C6DBF59D2A7DA2C7 /* LifestyleServices.swift */,
+				888D3FAA001A21DC8081E395 /* LifestyleViewModel.swift */,
+				6B819FFADE3830A0B43832E0 /* LifestyleOptimizationView.swift */,
+				40D5B929BF1BF782AA72310C /* LifestyleHealthCards.swift */,
+				FCE3F3B3DD465EC4DC4D01CC /* LifestyleWorkoutCards.swift */,
+				A11E4A31E82F73910B8F36B6 /* LifestyleAnalysisCards.swift */,
+				B80677C558CBB8DCE00EF823 /* LifestyleNutritionView.swift */,
+				357B9527B62703C0646A867F /* LifestyleRestaurantViews.swift */,
+				41991C47BEF8D13160298B11 /* LifestyleWellbeingView.swift */,
+				CD24B87686B6EA1C5B7C9474 /* RestaurantCatalog.swift */,
 				1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */,
 				1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */,
 				1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */,
@@ -557,6 +853,10 @@
 				1ARIA0162F9FF867004091AA /* Views */,
 				1EHKS0032F9FF867004091AA /* Services */,
 				1E4DF7152F9FF867004091AA /* HealthKitManager.swift */,
+				405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */,
+				8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */,
+				84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */,
+				2EB4405A8E5B4B03D8429D91 /* HealthKitManager+Clinical.swift */,
 				1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */,
 				1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */,
 				1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */,
@@ -571,6 +871,8 @@
 				F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */,
 				F0F10000000000000000002A /* WatchAriaConfigBridge.swift */,
 				1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */,
+				20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */,
+				3E82C39E6C70CE31BD2644BC /* OnboardingAriaBot.swift */,
 			);
 			path = ForgeSwift;
 			sourceTree = "<group>";
@@ -583,6 +885,7 @@
 				F0F100000000000000000019 /* ForgeWatchWidgets.appex */,
 				F0F100000000000000000025 /* ForgeWidgetExtension.appex */,
 				AA00020000000000000000C6 /* ForgeMessagesExtension.appex */,
+				1TEST00700000000000000A /* ForgeSwiftTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -591,6 +894,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0004000000000000000001 /* ForgeSwift */,
+				1TEST00800000000000000A /* ForgeSwiftTests */,
 				F0F100000000000000000017 /* ForgeCore */,
 				F0A100000000000000000001 /* ForgeWatch */,
 				F0A100000000000000000006 /* LiveActivities */,
@@ -603,6 +907,7 @@
 		AA00040000000000000000C1 /* ForgeMessagesExtension */ = {
 			isa = PBXGroup;
 			children = (
+				AA000200000000000000F2A0 /* PrivacyInfo.xcprivacy */,
 				AA00020000000000000000C1 /* MessagesViewController.swift */,
 				AA00020000000000000000C2 /* InviteBubble.swift */,
 				AA00020000000000000000C3 /* InviteScreens.swift */,
@@ -627,6 +932,7 @@
 		F0A100000000000000000007 /* ForgeWidgetExtension */ = {
 			isa = PBXGroup;
 			children = (
+				AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */,
 				F0F100000000000000000020 /* ForgeWidgetExtensionBundle.swift */,
 				F0F100000000000000000024 /* LifestyleWidget.swift */,
 				1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */,
@@ -645,6 +951,7 @@
 		F0A100000000000000000001 /* ForgeWatch */ = {
 			isa = PBXGroup;
 			children = (
+				AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */,
 				F0F100000000000000000001 /* ForgeWatchApp.swift */,
 				F0A100000000000000000002 /* Views */,
 				F0A100000000000000000003 /* Components */,
@@ -709,6 +1016,14 @@
 				F0F100000000000000000016 /* ForgeWatchWidgets.entitlements */,
 			);
 			path = Complications;
+			sourceTree = "<group>";
+		};
+		1TEST00800000000000000A /* ForgeSwiftTests */ = {
+			isa = PBXGroup;
+			children = (
+				1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */,
+			);
+			path = ForgeSwiftTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -821,6 +1136,23 @@
 			productReference = F0F100000000000000000025 /* ForgeWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		1TEST00100000000000000A /* ForgeSwiftTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1TEST00200000000000000A /* Build configuration list for PBXNativeTarget "ForgeSwiftTests" */;
+			buildPhases = (
+				1TEST00500000000000000A /* Sources */,
+				1TEST00600000000000000A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1TEST00900000000000000A /* PBXTargetDependency */,
+			);
+			name = ForgeSwiftTests;
+			productName = ForgeSwiftTests;
+			productReference = 1TEST00700000000000000A /* ForgeSwiftTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -866,6 +1198,7 @@
 				F0C100000000000000000002 /* ForgeWatchWidgets */,
 				F0C100000000000000000003 /* ForgeWidgetExtension */,
 				AA00050000000000000000C1 /* ForgeMessagesExtension */,
+				1TEST00100000000000000A /* ForgeSwiftTests */,
 			);
 		};
 /* End PBXProject section */
@@ -875,6 +1208,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA000100000000000000F2A0 /* PrivacyInfo.xcprivacy in Resources */,
 				AA00010000000000000000CA /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -883,6 +1217,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA000100000000000000F1A0 /* PrivacyInfo.xcprivacy in Resources */,
 				AA000100000000000000000C /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -891,6 +1226,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA000100000000000000F3A0 /* PrivacyInfo.xcprivacy in Resources */,
 				F0B10000000000000000000F /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -906,6 +1242,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA000100000000000000F4A0 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -944,6 +1281,10 @@
 				1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */,
 				AA0001000000000000000002 /* Theme.swift in Sources */,
 				1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */,
+				B5516E84A984973E2E0A546A /* HealthKitManager+Queries.swift in Sources */,
+				393B4C47DAF62A8BFD1D0BC7 /* HealthKitManager+DailyStats.swift in Sources */,
+				D0F5A89396724B3BA3E7CC4B /* HealthKitManager+Logging.swift in Sources */,
+				74DA797C011F4C076C5051C3 /* HealthKitManager+Clinical.swift in Sources */,
 				1EHKS0022F9FF867004091AA /* HealthKitSleepService.swift in Sources */,
 				1ARIA0022F9FF867004091AA /* AriaContext.swift in Sources */,
 				1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */,
@@ -962,9 +1303,18 @@
 				1ARIA0562F9FF867004091AA /* CyclePrivacy.swift in Sources */,
 				1ARIA0322F9FF867004091AA /* AriaPlanEngine.swift in Sources */,
 				1ARIA0342F9FF867004091AA /* AriaVoiceEngine.swift in Sources */,
+				720BDCB7970B26F219A0E3A6 /* AriaVoiceModels.swift in Sources */,
 				1ARIA0422F9FF867004091AA /* Menstrual/MenstrualHealthView.swift in Sources */,
+				9EE00809EB0529B6F52B5C25 /* CycleSupportCards.swift in Sources */,
+				16416824CF33C5A419A08AF2 /* CycleFertilityCards.swift in Sources */,
 				1E44AFC830182A1F00D1C14D /* PeriodEndFeedbackView.swift in Sources */,
 				1ARIA0402F9FF867004091AA /* MenstrualHealthStore.swift in Sources */,
+				D934D774E172A472C0F0C5A7 /* MenstrualHealthStore+Settings.swift in Sources */,
+				A3BB7D321D20160411219B2F /* MenstrualHealthStore+Logging.swift in Sources */,
+				9FC77F8DED25E37614408497 /* MenstrualHealthStore+People.swift in Sources */,
+				C67DE6F26D785828F5BC1D6D /* MenstrualHealthStore+Recompute.swift in Sources */,
+				DFAD02CD6941A035C6C01983 /* MenstrualHealthStore+HealthKit.swift in Sources */,
+				A2C5EDADB407191EC019770C /* MenstrualHealthStore+Aria.swift in Sources */,
 				1CYC0012F9FF867004091AA /* CycleDataEvaluator.swift in Sources */,
 				1CYC0032F9FF867004091AA /* CycleAriaAnalyst.swift in Sources */,
 				1ARIA0442F9FF867004091AA /* PartnerSupportCoach.swift in Sources */,
@@ -975,9 +1325,17 @@
 				1ARIA0502F9FF867004091AA /* AriaPersonAdaptation.swift in Sources */,
 				1ARIA0382F9FF867004091AA /* MenstrualCycleEngine.swift in Sources */,
 				1HCM0022F9FF867004091AA /* HomeCookedMeals.swift in Sources */,
+				591B27D73B4A288393E5A331 /* Pantry.swift in Sources */,
+				4B4F89B0711EF41F88F47F5A /* HomeMealModels.swift in Sources */,
 				1HCV0022F9FF867004091AA /* HomeCookingView.swift in Sources */,
 				1PAS0022F9FF867004091AA /* ProfileAvatarStore.swift in Sources */,
 				1ARIA0362F9FF867004091AA /* MenstrualCycleModels.swift in Sources */,
+				9CA2D002923A38A23B0541B2 /* CyclePhaseModels.swift in Sources */,
+				916D0CBAAF82E3EACDF6E9C8 /* CycleQualityModels.swift in Sources */,
+				814D0C4B388CD3D17BD8B9AE /* PeriodFeedbackModels.swift in Sources */,
+				076DBC5E060851F3447D7A21 /* PeriodCoachingPreferences.swift in Sources */,
+				EC6342B0AA238F37F8217985 /* MenstrualTrackingSettings.swift in Sources */,
+				2AFC51155E2DE86DFF541D73 /* CycleSupportModels.swift in Sources */,
 				AA00010000000000000000B1 /* PartnerCycleDigest.swift in Sources */,
 				1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */,
 				1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */,
@@ -988,27 +1346,106 @@
 				1E4DF71E2F9FFAE1004091AA /* SmartProfileSetupView.swift in Sources */,
 				AA0001000000000000000003 /* Models.swift in Sources */,
 				AA0001000000000000000004 /* AppStore.swift in Sources */,
+				8CB0ADBC701D60630E70D45D /* AppStore+Chat.swift in Sources */,
+				E39C337B25CE65266160AE34 /* AppStore+Auth.swift in Sources */,
+				07F70A6DEC2285F5EA968022 /* AppStore+Workout.swift in Sources */,
+				2FBE9FEFC46BC7EEF5075439 /* AppStore+Readiness.swift in Sources */,
+				B91DA7A207B86349641820B5 /* AppStore+Navigation.swift in Sources */,
+				A25E5F21E475A359A160746C /* AppStore+Context.swift in Sources */,
+				BA9881825031CB92A10A23F2 /* TrainerContext.swift in Sources */,
+				AD90BAFEC8EA35A4F14EF83C /* FoundationModelsResponseGenerator.swift in Sources */,
+				DF0C39F95818C60589E494FC /* RuleBasedResponseGenerator.swift in Sources */,
 				1E4DF71A2F9FFA70004091AA /* OnboardingDataManager.swift in Sources */,
 				AA0001000000000000000005 /* ContentView.swift in Sources */,
 				1NAV012F9FF867004091AA /* ForgeNavigation.swift in Sources */,
 				1AUTH0012F9FF867004091AA /* AuthWelcomeView.swift in Sources */,
 				1AUTH0032F9FF867004091AA /* AuthSignInView.swift in Sources */,
 				1AUTH0052F9FF867004091AA /* AuthSignUpFlowView.swift in Sources */,
+				1AUTH0072F9FF867004091AA /* ForgeAuthClient.swift in Sources */,
+				1API00010000000000000001 /* ForgeAPI.swift in Sources */,
 				AA0001000000000000000006 /* OnboardingView.swift in Sources */,
+				D1919B244B3A650517464755 /* OnboardingModels.swift in Sources */,
+				616F3C419B3EB7ADAE50115B /* AriaInterviewLayout.swift in Sources */,
+				4A125A771F1A069647744C7B /* OnboardingComposers.swift in Sources */,
+				6CBB68B52859EB1DA316AE05 /* OnboardingComponents.swift in Sources */,
 				1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */,
 				1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */,
 				1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */,
 				1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */,
+				35A81356CC836973378A412F /* LifestyleModels.swift in Sources */,
+				373EC9928467751C3ADEA77F /* LifestyleServices.swift in Sources */,
+				CA40F48072326848E8B6B51B /* LifestyleViewModel.swift in Sources */,
+				9326D4114CB68F9AEE78E49F /* LifestyleOptimizationView.swift in Sources */,
+				9795D3B4BF471FCE82779AE4 /* LifestyleHealthCards.swift in Sources */,
+				4059ED039EF1C0AA5A2FA786 /* LifestyleWorkoutCards.swift in Sources */,
+				9948CA95E34A5032AA207ADD /* LifestyleAnalysisCards.swift in Sources */,
+				A9D45FB931EDF266E13A5DC7 /* LifestyleNutritionView.swift in Sources */,
+				188620D11F4C0866F2FD6FA0 /* LifestyleRestaurantViews.swift in Sources */,
+				00101E9CDD38D96A91A97E15 /* LifestyleWellbeingView.swift in Sources */,
+				4D8E544D568595AB65EBB3A4 /* RestaurantCatalog.swift in Sources */,
 				1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */,
 				AA0001000000000000000007 /* HomeView.swift in Sources */,
+				CBEEDC3EE856524D0A77DB39 /* HomeModels.swift in Sources */,
+				DA2E7330C7F2CD27BE372197 /* HomeHeroCards.swift in Sources */,
+				477615BBC4667F2CD2D411F3 /* HomeARIABriefingCard.swift in Sources */,
+				BABC54B4506AFAABCC62995B /* HomeCycleModule.swift in Sources */,
+				AB10DEFDAF19A3B38E122F17 /* HomeCards.swift in Sources */,
+				79F46F73D48458B779562937 /* HomeReadinessViews.swift in Sources */,
+				C5AAE2E6F4609C4595542DE9 /* HomeOverlays.swift in Sources */,
+				3CA296A1780DDB7EE484486E /* HomeCopy.swift in Sources */,
 				AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */,
 				AA0001000000000000000008 /* ChatView.swift in Sources */,
+				60A29EB8CFF073B8FE95D0A3 /* ChatModels.swift in Sources */,
+				786603F7F7BF7BAB4051F54D /* ChatHaptics.swift in Sources */,
+				6D3001F7BE5B6394E6858876 /* SpeechManager.swift in Sources */,
+				C34617308B7C19A07F7A3C16 /* MomentumEngine.swift in Sources */,
+				2D9DC499B96A88E94FAB6FCA /* ChatHeaderView.swift in Sources */,
+				9B8B14DCF405B61BE9B8229E /* ChatMessageViews.swift in Sources */,
+				A63245F4A2EC0EFC6A6C2100 /* ChatEmptyStateView.swift in Sources */,
+				FE51C885416EF0AE0DEFAB91 /* ChatInputAreaView.swift in Sources */,
+				ACE45AF3C089322AD1CE0744 /* VoiceOrbOverlay.swift in Sources */,
+				8A35071816F1EA8B299F27D5 /* ChatRichCards.swift in Sources */,
 				1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */,
 				1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator.swift in Sources */,
+				C82BC7E19F20D94DAE955D97 /* OnboardingInterviewModels.swift in Sources */,
+				E7ACBAA738CA8B1E5C3F044C /* OnboardingAriaBot.swift in Sources */,
 				1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */,
 				AA0001000000000000000009 /* WorkoutView.swift in Sources */,
+				1AB79BAC8BDB10BD5B60057F /* ExerciseCatalog.swift in Sources */,
+				8AEE13A27BA4358BC5A5BCF0 /* WorkoutAdaptiveEngine.swift in Sources */,
+				914DE5BA081FF82C5D0F7E2E /* ARIACoachService.swift in Sources */,
+				9A83B2C708843E036DC608DB /* FormCameraController.swift in Sources */,
+				A17305D9EAE3309E453B3BB6 /* WorkoutSessionModels.swift in Sources */,
+				F26321CE0CE8690ED4FE9D71 /* MusicControlBar.swift in Sources */,
+				565E0329AD3B2C4B35A0B5FD /* ExerciseLibraryView.swift in Sources */,
+				437A70F45A8E9682FEAB094F /* ARIADashboardView.swift in Sources */,
+				2F6E67C778B35E7BF89A8DF8 /* ActiveWorkoutView.swift in Sources */,
+				74312ADDADCC2DC50E97BD18 /* ActiveWorkoutPanels.swift in Sources */,
+				5918512ADD7061ECA32C322F /* WorkoutSummaryView.swift in Sources */,
+				B3CDF62A58BA0D809EAF271E /* ExerciseDemonstrationView.swift in Sources */,
+				6F942A1093A4321ED41D862F /* WorkoutViewHelpers.swift in Sources */,
 				AA000100000000000000000A /* SleepView.swift in Sources */,
+				00C9C45A23CBD05FF6583B9B /* SleepModels.swift in Sources */,
+				2FFACC674BBEA570D73CE1E8 /* SleepNightTab.swift in Sources */,
+				D73A7502C11F243B8CA79DB3 /* SleepAlarmTab.swift in Sources */,
+				EEC7867EE378171FAB034AD7 /* SleepSoundsTab.swift in Sources */,
+				CDA91213B4AFC8A533C4E2D4 /* SleepWakeUpTab.swift in Sources */,
+				CEAD2F52487C32101B080DB7 /* SleepInsightCards.swift in Sources */,
+				A03C28515F509A3422756067 /* SleepDetailSheets.swift in Sources */,
+				103AF044FA4BE442F6FD43B3 /* SleepComponents.swift in Sources */,
 				AA000100000000000000000B /* ProfileView.swift in Sources */,
+				95AE5FF2D55FC04CECA87263 /* ProgressPageView.swift in Sources */,
+				1933FBEC0A8E8D9D78CE7609 /* WorkoutHistoryListView.swift in Sources */,
+				F75B54F9794C1DECC9240724 /* SettingsPageView.swift in Sources */,
+				651B4E5D41EE26C57D1E169E /* ForgeAboutView.swift in Sources */,
+				BCC7261848DBE6001B2DBC5C /* ClinicalDataNonPHIView.swift in Sources */,
+				AA6AB39BF736B5FD37746022 /* ProfileModels.swift in Sources */,
+				B82A3D64CC815A754DC8A65D /* AppStore+Profile.swift in Sources */,
+				195FDA7D73290864DD73F5BC /* ProfileComponents.swift in Sources */,
+				A3C80D30240B535E8A7F9FC3 /* ProgressStatsView.swift in Sources */,
+				3CDFEAC2734D2F45D94565CB /* ProfileEditorView.swift in Sources */,
+				FABCB777FF39597DE2CB2523 /* CoachingStylePickerView.swift in Sources */,
+				0AF23A887EDD96C00F754936 /* DataPermissionsView.swift in Sources */,
 				F0F1000000000000000000A1 /* LifestyleTargets.swift in Sources */,
 				FWSETED02 /* SettingsEditorViews.swift in Sources */,
 				FWNSCHED02 /* ForgeNotificationScheduler.swift in Sources */,
@@ -1078,6 +1515,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1TEST00500000000000000A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1TEST01200000000000000A /* MenstrualCycleEngineTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1100,6 +1545,11 @@
 			isa = PBXTargetDependency;
 			target = F0C100000000000000000003 /* ForgeWidgetExtension */;
 			targetProxy = F0C200000000000000000003 /* PBXContainerItemProxy */;
+		};
+		1TEST00900000000000000A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA0005000000000000000001 /* ForgeSwift */;
+			targetProxy = 1TEST01000000000000000A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1299,9 +1749,12 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "Forge looks for contacts who already use Forge so you can train together. Contacts stay on this iPhone — Forge never uploads your address book.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses the microphone so you can talk to your coach and log workouts hands-free. Audio is transcribed on this iPhone and is never stored or uploaded.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Forge turns what you say into text so you can ask your coach questions and log meals and sets by voice.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -1338,9 +1791,12 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "Forge looks for contacts who already use Forge so you can train together. Contacts stay on this iPhone — Forge never uploads your address book.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses the microphone so you can talk to your coach and log workouts hands-free. Audio is transcribed on this iPhone and is never stored or uploaded.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Forge turns what you say into text so you can ask your coach questions and log meals and sets by voice.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -1541,6 +1997,42 @@
 			};
 			name = Release;
 		};
+		1TEST00300000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwiftTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ForgeSwift.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ForgeSwift";
+			};
+			name = Debug;
+		};
+		1TEST00400000000000000A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwiftTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ForgeSwift.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ForgeSwift";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1597,6 +2089,15 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
+		};
+		1TEST00200000000000000A /* Build configuration list for PBXNativeTarget "ForgeSwiftTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1TEST00300000000000000A /* Debug */,
+				1TEST00400000000000000A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 

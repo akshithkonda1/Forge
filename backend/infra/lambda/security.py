@@ -25,6 +25,9 @@ MAX_CHAT_MESSAGE_CHARS = 4_000
 MAX_ARCHETYPE_DESCRIPTION_CHARS = 2_000
 MAX_USER_ID_CHARS = 128
 
+_TRUTHY = frozenset({"1", "true", "yes", "on"})
+_FALSY = frozenset({"0", "false", "no", "off"})
+
 
 def environment() -> str:
     return (os.getenv("ENVIRONMENT") or "").strip().lower()
@@ -39,6 +42,29 @@ def allow_test_identity() -> bool:
     if is_production_like():
         return False
     return environment() in _DEV_LIKE or bool(os.getenv("FORGE_ALLOW_TEST_USER"))
+
+
+def demo_data_enabled() -> bool:
+    """Whether seeded fixtures may stand in for a user's own data.
+
+    Never true in a production-like environment, and not overridable there by
+    an env var. ARIA reasons over whatever these endpoints return, so fixture
+    biometrics reaching a real account is a safety defect rather than a
+    cosmetic one: a user who has never granted HealthKit access would be
+    coached on somebody else's invented HRV, sleep and lifts.
+
+    Outside production the fixtures are the point -- they are what makes the
+    demo build and the local dev loop show a populated app -- so they stay on
+    by default, and ``FORGE_DEMO_DATA`` can force either way.
+    """
+    if is_production_like():
+        return False
+    flag = (os.getenv("FORGE_DEMO_DATA") or "").strip().lower()
+    if flag in _TRUTHY:
+        return True
+    if flag in _FALSY:
+        return False
+    return environment() in _DEV_LIKE
 
 
 # --- Text sanitization ------------------------------------------------------

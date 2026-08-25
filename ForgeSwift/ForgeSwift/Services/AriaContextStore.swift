@@ -95,12 +95,31 @@ final class AriaContextStore: ObservableObject {
         }()
 
         let steps3: Double? = store.sleepData.isEmpty ? nil : Double(store.dailyMetrics.steps)
-        let hrvValues: [Double] = store.sleepData.prefix(7).map { _ in Double(store.dailyMetrics.hrv) }
-        let hrvBaseline: Double? = hrvValues.isEmpty ? nil : hrvValues.reduce(0, +) / Double(hrvValues.count)
-        let hrvTrend: Double? = hrvBaseline.flatMap { baseline in
-            guard baseline > 0 else { return nil }
-            return ((Double(store.dailyMetrics.hrv) - baseline) / baseline) * 100
-        }
+
+        // HRV trend comes from the server, which is the only place it can come
+        // from. `DailyMetrics.hrv` is a single scalar overwritten on every
+        // refresh — there is no seven-day history on the client to average, and
+        // the code here used to fake one:
+        //
+        //     store.sleepData.prefix(7).map { _ in Double(store.dailyMetrics.hrv) }
+        //
+        // The `_ in` threw each night away and substituted today's reading seven
+        // times, so the baseline equalled today's value and the trend computed to
+        // exactly 0.0 for every user, always — not occasionally wrong, incapable
+        // of being anything else. `aria_engine.py` branches on
+        // `hrv_7day_trend <= -8` and `>= 5`; neither could ever fire from a real
+        // device.
+        //
+        // `BodyModel.to_aria_context()` already computes this properly from
+        // stored samples with a median-based robust baseline, and
+        // `BiometricsObserveService.observe` already hands the result to
+        // `applyObservedContext`. The answer was arriving and being ignored.
+        // Absent that, these stay nil: "we don't know yet" is a state ARIA
+        // handles, and a fabricated zero is not.
+        let observedReadiness = lastObservedContext?.readiness
+        let hrvBaseline: Double? = observedReadiness?.hrv30DayBaseline
+        let hrvTrend: Double? = observedReadiness?.hrv7DayTrend
+        let hrvDaysAvailable: Int? = observedReadiness?.hrvDaysAvailable
 
         let workouts30d = store.workoutHistory.filter {
             guard let date = ISO8601DateFormatter().date(from: $0.date) else { return false }
@@ -120,7 +139,7 @@ final class AriaContextStore: ObservableObject {
             hrv7DayTrend: hrvTrend,
             hrv30DayBaseline: hrvBaseline,
             recoveryScore: Double(store.readiness.recoveryScore),
-            hrvDaysAvailable: hrvValues.isEmpty ? nil : hrvValues.count
+            hrvDaysAvailable: hrvDaysAvailable
         )
         let weeklyLoad: Double?
         if store.workoutHistory.count >= 3 {

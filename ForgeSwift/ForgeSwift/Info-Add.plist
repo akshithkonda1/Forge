@@ -14,6 +14,31 @@
 	<key>CKSharingSupported</key>
 	<true/>
 
+	<!-- Read at launch by ForgeAuthConfig.fromInfoDictionary.
+
+	     The values below are dev placeholders. A build that ships them cannot
+	     reach anything: 127.0.0.1 is unreachable from a device, and empty
+	     Cognito fields make cognitoConfigured false, so sign-in fails before it
+	     starts. Fill them from an applied stack before archiving, with
+	     scripts/generate_client_config.py — pass it the JSON from
+	     "terraform output" and the environment name you are building for.
+
+	     FORGEEnvironment is a control, not a label. ForgeAuthPolicy refuses the
+	     tester override when it is production-like, and ForgeAuthConfig treats
+	     any name it does not recognise as non-production, the permissive side,
+	     which is why the generator rejects a misspelling rather than writing it.
+	     The same script in check mode enforces all of this in CI. -->
+	<key>FORGEAPIBaseURL</key>
+	<string>http://127.0.0.1:3001</string>
+	<key>FORGECognitoRegion</key>
+	<string></string>
+	<key>FORGECognitoClientId</key>
+	<string></string>
+	<key>FORGECognitoUserPoolId</key>
+	<string></string>
+	<key>FORGEEnvironment</key>
+	<string>dev</string>
+
 	<!-- Used by the Messages extension to hand off to the app: forge://cycle/sharing
 	     opens the sharing screen, which is where consent and revocation live. -->
 	<key>CFBundleURLTypes</key>

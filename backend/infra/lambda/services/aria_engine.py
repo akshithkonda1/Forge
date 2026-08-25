@@ -1370,6 +1370,50 @@ def _default_converse(model_id: str, system_prompt: str, user_prompt: str) -> st
     return str(result.get("answer") or "")
 
 
+def live_system_prompt() -> str:
+    """ARIA's persona plus the security law, for any live model call.
+
+    `AI_SECURITY_DIRECTIVE` describes itself in security.py as "security rules
+    appended to AI system prompts (Bedrock + local)" and was appended to nothing:
+    it was defined and never imported, so no live call carried clauses 1-7. Every
+    path that reaches a model goes through this function now, which is why it is
+    a function rather than a module constant — a constant composed at import time
+    is easy to reintroduce the bug around by passing ARIA_SYSTEM_PROMPT directly.
+    """
+    from security import AI_SECURITY_DIRECTIVE
+
+    return f"{ARIA_SYSTEM_PROMPT}\n\n{AI_SECURITY_DIRECTIVE}"
+
+
+def generate_coach_text(
+    task_prompt: str,
+    user_prompt: str,
+    *,
+    model_class: str = MODEL_FAST,
+    converse: Callable[[str, str, str], str] | None = None,
+) -> str | None:
+    """One-shot coaching text for surfaces that are not the chat envelope.
+
+    The chat path returns a structured envelope; a form-check briefing is just
+    prose. Both go through the same gateway and the same `live_system_prompt()`,
+    so a new surface cannot quietly acquire a different security posture — which
+    is exactly how the iOS client ended up calling api.anthropic.com directly.
+
+    Returns None rather than raising: every caller has a degraded path, and a
+    coaching nicety must never take down the request that asked for it.
+    """
+    if not bedrock_enabled():
+        return None
+    caller = converse or _default_converse
+    system = f"{live_system_prompt()}\n\n{task_prompt}".strip()
+    try:
+        text = caller(_bedrock_model_id(model_class), system, user_prompt)
+    except Exception:  # noqa: BLE001 — degrade, never raise
+        return None
+    text = (text or "").strip()
+    return text or None
+
+
 def generate_response_live(
     message: str,
     ctx: ARIAContext,
@@ -1393,7 +1437,7 @@ def generate_response_live(
         user_prompt += f"\n\n[VOICE MODE] Reply with prose only (no card), {VOICE_TOKEN_CAP} tokens max."
 
     try:
-        text = caller(model_id, ARIA_SYSTEM_PROMPT, user_prompt)
+        text = caller(model_id, live_system_prompt(), user_prompt)
         data = _parse_model_envelope(text)
         prose = str(data.get("prose_summary") or "").strip()
         if not prose:

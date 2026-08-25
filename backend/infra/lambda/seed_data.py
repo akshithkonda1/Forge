@@ -414,6 +414,12 @@ def default_chat_messages() -> list[dict[str, Any]]:
 
 
 def dashboard_payload() -> dict[str, Any]:
+    """The fully seeded dashboard, for demos and fixtures only.
+
+    Nothing on the request path calls this -- ``routes/dashboard.py`` assembles
+    its own payload field by field so each one can prefer stored data. Reaching
+    for this from a route would hand every caller the whole fixture at once.
+    """
     return {
         "profile": default_profile(),
         "readiness": default_readiness(),
