@@ -15,6 +15,13 @@ import ForgeCore
 
 /// HealthKit permits one `HKWorkoutSession` per process. The gym workout and
 /// the mindful HR tap both want one — this gate makes them take turns.
+///
+/// MainActor-isolated because it is shared mutable state. Every reader and
+/// writer already lives on the main actor (WorkoutSessionManager and
+/// WatchHealthKitManager are both @MainActor), so this costs nothing today and
+/// is the difference between compiling and not under Swift 6, where a mutable
+/// `static var` without isolation is an error rather than a warning.
+@MainActor
 enum WatchHKLiveSession {
     static var workoutRunning = false
     static weak var health: WatchHealthKitManager?

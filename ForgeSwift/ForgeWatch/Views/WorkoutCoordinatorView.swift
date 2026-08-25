@@ -55,12 +55,12 @@ private struct WorkoutStartView: View {
 
                 if suggested.type == .strength || suggested.type == .hiit {
                     ForgeActionButton(
-                        title: "Guided: \(StructuredWorkout.demoStrength.name)",
+                        title: "Guided: \(StructuredWorkout.starterStrength.name)",
                         systemImage: "list.bullet.rectangle",
                         tint: ForgePalette.ember,
                         accessibilityHint: "Starts the structured plan with sets, reps, and rest timers."
                     ) {
-                        workout.start(type: .strength, plan: .demoStrength)
+                        workout.start(type: .strength, plan: .starterStrength)
                     }
                 }
 
@@ -95,21 +95,23 @@ private struct WorkoutStartView: View {
 // MARK: - Countdown
 
 private struct CountdownView: View {
-    @State private var count = 3
+    @Environment(WorkoutSessionManager.self) private var workout
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// The manager owns the countdown. This view used to run a second, parallel
+    /// timer, so the number shown and the session's actual start agreed only by
+    /// coincidence — and any re-render restarted the display from 3 while the
+    /// manager kept counting down underneath it.
+    private var count: Int {
+        workout.countdownRemaining ?? WorkoutSessionManager.countdownSeconds
+    }
 
     var body: some View {
         Text("\(count)")
             .font(ForgeType.metric(64))
             .foregroundStyle(ForgePalette.ember)
-            .scaleEffect(reduceMotion ? 1 : 1 + CGFloat(3 - count) * 0.06)
+            .scaleEffect(reduceMotion ? 1 : 1 + CGFloat(WorkoutSessionManager.countdownSeconds - count) * 0.06)
             .animation(reduceMotion ? nil : ForgeDS.Spring.snap, value: count)
-            .task {
-                while count > 1 {
-                    try? await Task.sleep(for: .seconds(1))
-                    count -= 1
-                }
-            }
             .navigationBarBackButtonHidden(true)
             .accessibilityLabel("Starting in \(count)")
     }

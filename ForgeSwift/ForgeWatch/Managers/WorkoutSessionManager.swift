@@ -46,9 +46,14 @@ final class WorkoutSessionManager {
     private(set) var currentZone: ForgeHRZone?
     private(set) var activeCalories: Double?
     private(set) var restRemaining: Int?
+    /// Seconds left in the 3-2-1, published so the view renders this clock
+    /// rather than running a second one of its own.
+    private(set) var countdownRemaining: Int?
     /// Latest coaching cue — shown quietly under the metrics, never modal.
     private(set) var coachingCue: String?
     private(set) var summary: Summary?
+
+    static let countdownSeconds = 3
 
     // HealthKit machinery (own store instance; auth was requested by
     // WatchHealthKitManager and covers these types).
@@ -69,6 +74,14 @@ final class WorkoutSessionManager {
     private var zoneSeconds: [Int: Int] = [:]
     private var lastCueZone: Int?
     private var lastCueAt = Date.distantPast
+    /// When the session really began.
+    ///
+    /// publishLiveState used to derive this each tick as `now - elapsed`, and
+    /// `elapsed` comes from the builder, which excludes paused time — so the
+    /// "start" slid forward for as long as the workout was paused. It is
+    /// stamped onto ForgeWorkoutActivityAttributes, which the docs on that type
+    /// describe as fixed for the activity's lifetime.
+    private var sessionStartedAt: Date?
 
     var currentExercise: WorkoutExercise? {
         guard let plan, exerciseIndex < plan.exercises.count else { return nil }
@@ -100,9 +113,14 @@ final class WorkoutSessionManager {
         lastCueAt = .distantPast
 
         phase = .countdown
+        countdownRemaining = Self.countdownSeconds
         countdownTask = Task { [weak self] in
-            // 3-2-1 with clicks; .start haptic when the session begins.
-            for _ in 0..<3 {
+            // One clock for the number on screen and the clicks. CountdownView
+            // used to run its own parallel .task loop, so the two agreed only by
+            // coincidence and any re-render restarted the display while this
+            // kept counting.
+            for step in stride(from: Self.countdownSeconds, through: 1, by: -1) {
+                self?.countdownRemaining = step
                 WKInterfaceDevice.current().play(.click)
                 try? await Task.sleep(for: .seconds(1))
                 if Task.isCancelled { return }
@@ -144,8 +162,13 @@ final class WorkoutSessionManager {
             attachSessionDelegate(to: session)
             self.session = session
             self.builder = builder
-            session.startActivity(with: Date())
-            try await builder.beginCollection(at: Date())
+            // One instant for both, and kept: two Date() calls a line apart
+            // disagree, and the second one is what everything downstream reads.
+            let startedAt = Date()
+            sessionStartedAt = startedAt
+            session.startActivity(with: startedAt)
+            try await builder.beginCollection(at: startedAt)
+            countdownRemaining = nil
             phase = .active
             WKInterfaceDevice.current().play(.start)
             startTicker()
@@ -153,6 +176,8 @@ final class WorkoutSessionManager {
             // Session couldn't start (auth, simulator quirks). Land back
             // in idle with a calm cue rather than a dead screen.
             WatchHKLiveSession.workoutRunning = false
+            sessionStartedAt = nil
+            countdownRemaining = nil
             phase = .idle
             coachingCue = "Couldn't start sensors just now — check Health permissions and try again."
         }
@@ -179,26 +204,25 @@ final class WorkoutSessionManager {
         }
     }
 
-    /// Zone-boundary coaching: one line + gentle haptic, throttled to
-    /// once per 45s, anchored to the workout's target zone. Information,
-    /// not commands — the user owns the effort.
+    /// Zone-boundary coaching: one line + gentle haptic, throttled, anchored
+    /// to the workout's target zone. Information, not commands — the user owns
+    /// the effort. The decision itself is WorkoutCoaching.cue, where the
+    /// throttle and the wording are tested.
     private func maybeCoach(zone: ForgeHRZone, previousZone: Int?) {
-        guard phase == .active,
-              zone.zone != previousZone,
-              Date().timeIntervalSince(lastCueAt) > 45 else { return }
-        lastCueAt = Date()
-        lastCueZone = zone.zone
+        guard phase == .active else { return }
+        guard let decision = WorkoutCoaching.cue(
+            zone: zone,
+            previousZone: previousZone,
+            target: workoutType.targetZone,
+            lastCueAt: lastCueAt,
+            // "You could go harder" is the wrong thing to say about a mobility
+            // or yoga session at all.
+            allowsBuildingUp: workoutType != .mobility && workoutType != .yoga
+        ) else { return }
 
-        let target = workoutType.targetZone
-        if zone.zone == target {
-            coachingCue = zone.coachingLine
-        } else if zone.zone > target + 1 {
-            coachingCue = "Running above the day's plan — easing off a touch keeps this sustainable. Your call."
-        } else if zone.zone < target - 1, workoutType != .mobility, workoutType != .yoga {
-            coachingCue = "Plenty in reserve if you want to build toward Zone \(target). No rush."
-        } else {
-            coachingCue = zone.coachingLine
-        }
+        lastCueAt = decision.firedAt
+        lastCueZone = zone.zone
+        coachingCue = decision.cue
         WKInterfaceDevice.current().play(.click)
     }
 
@@ -304,6 +328,7 @@ final class WorkoutSessionManager {
         if phase == .countdown {
             countdownTask?.cancel()
             countdownTask = nil
+            countdownRemaining = nil
             phase = .idle
             return
         }
@@ -340,6 +365,8 @@ final class WorkoutSessionManager {
         builder = nil
         builderDelegate = nil
         sessionDelegate = nil
+        sessionStartedAt = nil
+        countdownRemaining = nil
         WatchHKLiveSession.workoutRunning = false
 
         let avgHR = hrSamples.isEmpty ? nil : hrSamples.reduce(0, +) / Double(hrSamples.count)
@@ -457,6 +484,9 @@ final class WorkoutSessionManager {
         setIndex = 0
         summary = nil
         elapsed = builder.elapsedTime
+        // The builder knows when it really started; deriving it from elapsed
+        // would place the start after every pause the session already took.
+        sessionStartedAt = builder.startDate ?? Date().addingTimeInterval(-builder.elapsedTime)
         phase = recovered.state == .paused ? .paused : .active
         coachingCue = "Picked your session back up where it left off."
         startTicker()
@@ -475,7 +505,7 @@ final class WorkoutSessionManager {
         var state = WorkoutLiveState(
             workoutType: workoutType,
             phase: livePhase,
-            startedAt: Date().addingTimeInterval(-elapsed),
+            startedAt: sessionStartedAt ?? Date().addingTimeInterval(-elapsed),
             elapsedSeconds: elapsed,
             heartRate: heartRate,
             zoneNumber: currentZone?.zone,
