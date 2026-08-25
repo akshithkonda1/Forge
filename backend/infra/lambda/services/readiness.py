@@ -3,11 +3,16 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from empty_state import empty_readiness
+
 
 def compute_readiness(sleep_records: list[dict[str, Any]], hrv: float | None = None) -> dict[str, Any]:
     """Compute a readiness score from recent sleep and optional HRV."""
     if not sleep_records:
-        return _default_readiness()
+        # Nothing to score. Both callers guard against this already; returning an
+        # invented mid-range score here is how the guard stops mattering the next
+        # time someone adds a third caller.
+        return empty_readiness()
 
     latest = sleep_records[0]
     sleep_score = float(latest.get("score", 75))
@@ -34,16 +39,5 @@ def compute_readiness(sleep_records: list[dict[str, Any]], hrv: float | None = N
         "recoveryScore": round(recovery_score),
         "stressLevel": max(0, 100 - overall),
         "energyBank": round(overall * 0.92),
-        "generatedAt": datetime.now(timezone.utc).isoformat(),
-    }
-
-
-def _default_readiness() -> dict[str, Any]:
-    return {
-        "overall": 75,
-        "sleepQuality": 75,
-        "recoveryScore": 75,
-        "stressLevel": 25,
-        "energyBank": 70,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
     }

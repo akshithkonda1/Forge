@@ -51,11 +51,21 @@ def handle_post_coach_message(user_id: str, body: dict) -> dict:
         "question": content,
         "context": coach_context.context_to_prompt_block(context),
     }
-    fallback = (
-        f"Readiness is {context['readiness']['overall']}/100. Your last sleep score was "
-        f"{(context['recentSleep'] or [{'score': 0}])[0].get('score', 0)}. Train within "
-        "your current readiness band and avoid stacking high-intensity days."
-    )
+    overall = coach_context.readiness_overall(context)
+    last_sleep = (context["recentSleep"] or [{}])[0].get("score")
+    if overall is None:
+        fallback = (
+            "I do not have readiness or sleep data for you yet, so I cannot tell you "
+            "how hard to train today. Sync a sleep source or log a night and ask me again."
+        )
+    else:
+        sleep_clause = (
+            f" Your last sleep score was {last_sleep}." if last_sleep is not None else ""
+        )
+        fallback = (
+            f"Readiness is {overall}/100.{sleep_clause} Train within your current "
+            "readiness band and avoid stacking high-intensity days."
+        )
     routed = _safe_route(payload, fallback)
     return ok({
         "id": f"coach-{int(datetime.now(timezone.utc).timestamp() * 1000)}",
@@ -70,7 +80,7 @@ def handle_post_coach_workout_plan(user_id: str, _body: dict) -> dict:
     context = coach_context.gather_user_context(user_id)
     last_workout_type = (context.get("recentWorkouts") or [{}])[0].get("type")
     baseline = scoring.baseline_workout_recommendation(
-        context["readiness"]["overall"], last_workout_type
+        coach_context.readiness_overall(context), last_workout_type
     )
 
     payload = {
@@ -80,10 +90,16 @@ def handle_post_coach_workout_plan(user_id: str, _body: dict) -> dict:
         ),
         "context": coach_context.context_to_prompt_block(context),
     }
+    today_plan = context.get("todayPlan")
+    plan_clause = (
+        f" Use today's plan ('{today_plan['name']}') as the template and reduce volume "
+        "by 10% if energy bank drops below 60."
+        if isinstance(today_plan, dict) and today_plan.get("name")
+        else " Nothing is scheduled for today yet, so treat this as the starting point."
+    )
     fallback = (
         f"Suggested focus: {baseline['focus']} ({baseline['suggestedType']}, "
-        f"{baseline['intensity']} intensity). Use today's plan ('{context['todayPlan']['name']}') "
-        "as the template and reduce volume by 10% if energy bank drops below 60."
+        f"{baseline['intensity']} intensity).{plan_clause}"
     )
     routed = _safe_route(payload, fallback)
     return ok({
@@ -104,11 +120,22 @@ def handle_post_coach_sleep_insight(user_id: str, _body: dict) -> dict:
         "context": coach_context.context_to_prompt_block(context),
     }
     recovery = context["recoveryTrend"]
-    direction = "improving" if recovery["delta"] > 0 else "declining" if recovery["delta"] < 0 else "steady"
-    fallback = (
-        f"Sleep trend is {direction} (avg {recovery['current']} vs prior {recovery['previous']}). "
-        "Protect a consistent wind-down window to lift deep-sleep minutes."
-    )
+    if not context.get("recentSleep"):
+        fallback = (
+            "You have no sleep logged yet, so there is no trend to analyze. Connect a "
+            "sleep source and I will have something to work with in a few nights."
+        )
+    else:
+        direction = (
+            "improving" if recovery["delta"] > 0
+            else "declining" if recovery["delta"] < 0
+            else "steady"
+        )
+        fallback = (
+            f"Sleep trend is {direction} (avg {recovery['current']} vs prior "
+            f"{recovery['previous']}). Protect a consistent wind-down window to lift "
+            "deep-sleep minutes."
+        )
     routed = _safe_route(payload, fallback)
     return ok({
         "recoveryTrend": recovery,
@@ -127,10 +154,16 @@ def handle_post_coach_progress_review(user_id: str, _body: dict) -> dict:
         "context": coach_context.context_to_prompt_block(context),
     }
     load = context["trainingLoad"]
-    fallback = (
-        f"Training load is {load['trend']} ({load['current']} vs {load['previous']}). "
-        "Keep current intensity but rotate movement patterns to break the plateau."
-    )
+    if not context.get("recentWorkouts"):
+        fallback = (
+            "You have no logged sessions yet, so there is no progress to review. Log a "
+            "few workouts and I will summarize the block."
+        )
+    else:
+        fallback = (
+            f"Training load is {load['trend']} ({load['current']} vs {load['previous']}). "
+            "Keep current intensity but rotate movement patterns to break the plateau."
+        )
     routed = _safe_route(payload, fallback)
     return ok({
         "trainingLoad": load,

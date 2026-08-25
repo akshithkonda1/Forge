@@ -74,10 +74,23 @@ def detect_personal_records(workouts: list[dict[str, Any]]) -> list[dict[str, An
 
 
 def baseline_workout_recommendation(
-    readiness_overall: int,
+    readiness_overall: int | None,
     last_workout_type: str | None,
 ) -> dict[str, Any]:
-    """Pick a workout focus given readiness and the most recent workout type."""
+    """Pick a workout focus given readiness and the most recent workout type.
+
+    Unknown readiness is treated as the conservative band rather than assumed
+    average: prescribing high intensity to someone whose recovery state has never
+    been measured is the one error here with a physical cost.
+    """
+    if readiness_overall is None:
+        return {
+            "focus": "technique",
+            "intensity": "low",
+            "suggestedType": "strength",
+            "readinessKnown": False,
+        }
+
     if readiness_overall >= 80:
         focus = "power"
         intensity = "high"
