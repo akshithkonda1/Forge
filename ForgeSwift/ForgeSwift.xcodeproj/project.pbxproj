@@ -50,6 +50,8 @@
 		1ARIA0022F9FF867004091AA /* AriaContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0012F9FF867004091AA /* AriaContext.swift */; };
 		1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0032F9FF867004091AA /* AriaResponse.swift */; };
 		1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0052F9FF867004091AA /* AriaService.swift */; };
+		1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */; };
+		1TEST01600000000000000A /* AriaCoachAgentRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */; };
 		AA00010000000000000000B2 /* PartnerCycleSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B2 /* PartnerCycleSharing.swift */; };
 		1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0072F9FF867004091AA /* AriaContextStore.swift */; };
 		1ARIA0102F9FF867004091AA /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0092F9FF867004091AA /* FeedbackService.swift */; };
@@ -382,6 +384,8 @@
 		1ARIA0012F9FF867004091AA /* AriaContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContext.swift; sourceTree = "<group>"; };
 		1ARIA0032F9FF867004091AA /* AriaResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaResponse.swift; sourceTree = "<group>"; };
 		1ARIA0052F9FF867004091AA /* AriaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaService.swift; sourceTree = "<group>"; };
+		1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgent.swift; sourceTree = "<group>"; };
+		1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgentRouterTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
@@ -703,6 +707,7 @@
 				1ARIA0032F9FF867004091AA /* AriaResponse.swift */,
 				1ARIA0212F9FF867004091AA /* ARIAContextPayload.swift */,
 				1ARIA0232F9FF867004091AA /* AriaPermissions.swift */,
+				1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -1031,6 +1036,7 @@
 			children = (
 				1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */,
 				1TEST01300000000000000A /* PartnerCycleDigestTests.swift */,
+				1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */,
 			);
 			path = ForgeSwiftTests;
 			sourceTree = "<group>";
@@ -1298,6 +1304,7 @@
 				1ARIA0022F9FF867004091AA /* AriaContext.swift in Sources */,
 				1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */,
 				1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */,
+				1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */,
 				AA00010000000000000000B2 /* PartnerCycleSharing.swift in Sources */,
 				1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */,
 				1WC1012F9FF867004091AA /* CrossZoneConsistency.swift in Sources */,
@@ -1532,6 +1539,7 @@
 			files = (
 				1TEST01200000000000000A /* MenstrualCycleEngineTests.swift in Sources */,
 				1TEST01400000000000000A /* PartnerCycleDigestTests.swift in Sources */,
+				1TEST01600000000000000A /* AriaCoachAgentRouterTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

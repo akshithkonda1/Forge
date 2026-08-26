@@ -119,7 +119,7 @@ struct MessageBubbleView: View {
                                 startPoint: .topLeading, endPoint: .bottomTrailing
                             ))
                             .frame(width: 28, height: 28)
-                        Image(systemName: "flame.fill")
+                        Image(systemName: AriaCoachAgent(rawValue: message.coachAgent ?? "")?.icon ?? "sparkles")
                             .font(.system(size: 12))
                             .foregroundColor(mood.accentColor)
                     }

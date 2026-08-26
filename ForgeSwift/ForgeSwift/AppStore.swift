@@ -87,6 +87,22 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// Nil means ARIA picks the specialist. Persisted so the same coach comes back.
+    @Published var pinnedCoachAgent: AriaCoachAgent? = {
+        let raw = UserDefaults.standard.string(forKey: "forge.aria.pinnedCoach.v1") ?? ""
+        return AriaCoachAgent(rawValue: raw)
+    }() {
+        didSet {
+            UserDefaults.standard.set(pinnedCoachAgent?.rawValue ?? "", forKey: "forge.aria.pinnedCoach.v1")
+        }
+    }
+
+    /// Last specialist that actually answered. Header and bubbles read this.
+    @Published var lastRoutedCoachAgent: AriaCoachAgent = .aria
+    /// Every worker spawned for the last turn. Header lists them when there
+    /// is more than one.
+    @Published var lastCoachWorkers: [AriaCoachWorker] = []
+
     // Settings — @Published so SwiftUI observes them directly, instead of
     // decoding UserDefaults on every access with a manual objectWillChange.
     // didSet persists (and reschedules notifications) the same way as before.

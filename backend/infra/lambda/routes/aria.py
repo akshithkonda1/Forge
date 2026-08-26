@@ -75,12 +75,21 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     weekly_note = weekly_review.briefing_for_chat(uid)
     if weekly_note:
         message = f"{weekly_note}\n\n{message}"
-    reason = (
-        aria_engine.generate_response_live
-        if aria_engine.bedrock_enabled()
-        else aria_engine.generate_response
-    )
-    response = reason(message, context, permissions=permissions, voice_mode=voice_mode)
+    roster = aria_engine.normalize_coach_agents(body.get("agents"), body.get("agent"))
+    if aria_engine.bedrock_enabled():
+        response = aria_engine.generate_response_live(
+            message,
+            context,
+            permissions=permissions,
+            voice_mode=voice_mode,
+            agents=roster,
+        )
+    else:
+        response = aria_engine.generate_response(
+            message, context, permissions=permissions, voice_mode=voice_mode
+        )
+        response["agent"] = roster[0]
+        response["agents"] = roster
 
     memory = _context.memory_reference(uid, message) if permissions.allows("lifestyle") else None
     legacy_metrics = {

@@ -225,12 +225,29 @@ extension AppStore {
             // Learn partner/daughter/family support context from plain language.
             applySupportContextIfDetected(from: outbound)
 
-            let aria = try await AriaService.shared.sendMessage(
+            let plan = AriaCoachAgentRouter.plan(
+                message: outbound,
+                context: AriaCoachAgentRouter.context(pinned: pinnedCoachAgent)
+            )
+            lastRoutedCoachAgent = plan.primary.kind
+            lastCoachWorkers = plan.workers
+
+            var aria = try await AriaService.shared.sendMessage(
                 outbound,
                 store: self,
                 localGenerator: responseGenerator,
-                voiceMode: ariaVoiceMode
+                voiceMode: ariaVoiceMode,
+                agent: plan.primary.kind,
+                agents: plan.backendIds
             )
+            let extras = await AriaCoachAgentRouter.supportingBriefs(
+                plan: plan,
+                store: self,
+                primaryText: aria.message
+            )
+            if !extras.isEmpty {
+                aria.message += "\n\n" + extras.joined(separator: "\n")
+            }
 
             lastSuggestedActions = aria.suggestedActions ?? []
 
@@ -251,7 +268,8 @@ extension AppStore {
                 confidence: aria.confidence,
                 suggestedActions: aria.suggestedActions,
                 memoryReference: aria.memoryReference,
-                confidenceReason: aria.confidenceReason
+                confidenceReason: aria.confidenceReason,
+                coachAgent: plan.primary.kind.rawValue
             )
             chatMessages.append(trainerMessage)
             beginStreamingReveal(for: trainerMessage.id, fullLength: trainerMessage.content.count)

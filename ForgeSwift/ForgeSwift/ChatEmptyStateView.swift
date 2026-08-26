@@ -14,7 +14,7 @@ struct ChatEmptyStateView: View {
         let first = store.userProfile.name.components(separatedBy: " ").first ?? ""
         switch mood {
         case .energized: return "You look ready today\(first.isEmpty ? "" : ", \(first)").\nWant a session that uses that?"
-        case .focused:   return "I’m here\(first.isEmpty ? "" : ", \(first)").\nWhat’s on your mind?"
+        case .focused:   return "I’m here\(first.isEmpty ? "" : ", \(first)").\nTrain, recover, eat, live — pick a coach or just talk."
         case .calm:      return "Easy does it\(first.isEmpty ? "" : ", \(first)").\nHow are you feeling?"
         case .pushed:    return "Rough day? That’s okay.\nI’m here for whatever you need."
         }

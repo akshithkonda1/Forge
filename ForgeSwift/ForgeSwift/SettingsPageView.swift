@@ -63,6 +63,29 @@ struct SettingsPageView: View {
                     .buttonStyle(.plain)
 
                     Divider().background(Color.borderColor)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Personal coaches")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.textPrimary)
+                        Text("ARIA spawns as many specialists as the question needs — one live call, the rest in parallel on this phone. Pin one to lead, or leave Auto.")
+                            .font(.system(size: 12))
+                            .foregroundColor(.textTertiary)
+                        FlowLayout(spacing: 8) {
+                            coachPinChip(nil, title: "Auto")
+                            ForEach(AriaCoachAgent.allCases) { agent in
+                                if AriaCoachAgentRouter.isAvailable(
+                                    agent,
+                                    context: AriaCoachAgentRouter.context(pinned: store.pinnedCoachAgent)
+                                ) {
+                                    coachPinChip(agent, title: agent.label)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+
+                    Divider().background(Color.borderColor)
                     VStack(alignment: .leading, spacing: 0) {
                         Text(store.userProfile.coachingStyle.description)
                             .font(.system(size: 12))
@@ -592,6 +615,22 @@ struct SettingsPageView: View {
             )
         }
         .onAppear { weeklyReview.refreshDue() }
+    }
+
+    private func coachPinChip(_ agent: AriaCoachAgent?, title: String) -> some View {
+        let selected = store.pinnedCoachAgent == agent
+        return Button {
+            store.pinnedCoachAgent = agent
+            if let agent { store.lastRoutedCoachAgent = agent }
+        } label: {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(selected ? .ember : .textPrimary)
+                .padding(.horizontal, 12).padding(.vertical, 5)
+                .background(selected ? Color.ember.opacity(0.18) : Color.ember.opacity(0.12))
+                .cornerRadius(100)
+        }
+        .buttonStyle(.plain)
     }
 
     /// Opens the user's mail client with a support draft already addressed and stamped

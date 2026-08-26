@@ -67,9 +67,20 @@ struct ChatHeaderView: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.textPrimary)
                         .tracking(0.3)
-                    Text("your coach")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.textTertiary)
+                    if store.lastCoachWorkers.count > 1 {
+                        Text("· " + store.lastCoachWorkers.map(\.kind.label).joined(separator: " + "))
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(store.lastRoutedCoachAgent.accent)
+                            .lineLimit(1)
+                    } else if store.lastRoutedCoachAgent != .aria {
+                        Text("· \(store.lastRoutedCoachAgent.label)")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(store.lastRoutedCoachAgent.accent)
+                    } else {
+                        Text("your coaches")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.textTertiary)
+                    }
                 }
 
                 HStack(spacing: 5) {

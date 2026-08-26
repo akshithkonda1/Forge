@@ -34,7 +34,9 @@ final class AriaService: ObservableObject {
         store: AppStore,
         localGenerator: TrainerResponseGenerator,
         voiceMode: Bool = false,
-        mode: String? = nil
+        mode: String? = nil,
+        agent: AriaCoachAgent = .aria,
+        agents: [String]? = nil
     ) async throws -> AriaResponse {
         let isInsight = mode == "insight"
         // Full chat may read structured records. Lifestyle cards must not.
@@ -50,7 +52,9 @@ final class AriaService: ObservableObject {
             recentMetrics: legacyMetrics,
             permissions: DataPermissionsStore.shared.payloadIfRestricted(),
             voiceMode: voiceMode || store.ariaVoiceMode,
-            mode: mode
+            mode: mode,
+            agent: agent.backendId,
+            agents: agents
         )
 
         // Deliberately not `try?`. A transport failure means the user is
@@ -108,7 +112,8 @@ final class AriaService: ObservableObject {
             text: text,
             store: store,
             generator: localGenerator,
-            rich: contextStore.buildRichContext(from: store)
+            rich: contextStore.buildRichContext(from: store),
+            agent: agent
         )
     }
 
@@ -134,7 +139,8 @@ final class AriaService: ObservableObject {
         text: String,
         store: AppStore,
         generator: TrainerResponseGenerator,
-        rich: AriaRichContext
+        rich: AriaRichContext,
+        agent: AriaCoachAgent = .aria
     ) async throws -> AriaResponse {
         let trainerContext = store.makeTrainerContext()
 
