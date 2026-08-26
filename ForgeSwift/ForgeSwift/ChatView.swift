@@ -189,7 +189,19 @@ struct ChatView: View {
                 .zIndex(100)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
+
+            if !store.hasCompletedAriaUseOnboarding {
+                AriaUseOnboardingView { prompt in
+                    store.completeAriaUseOnboarding()
+                    if let prompt {
+                        sendMessage(prompt)
+                    }
+                }
+                .zIndex(180)
+                .transition(.opacity)
+            }
         }
+        .animation(FDS.Spring.hero, value: store.hasCompletedAriaUseOnboarding)
         .animation(FDS.Spring.hero, value: showVoiceOrb)
         .animation(FDS.Spring.standard, value: swipeReplyTarget?.id)
         .sheet(isPresented: $showContextInspector) {

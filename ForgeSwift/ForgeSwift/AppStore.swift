@@ -132,6 +132,20 @@ final class AppStore: ObservableObject {
     /// True when today's numbers came from ForgeCore's Test-Ready Health pack
     /// because Apple Health had nothing. Never set from a real sample.
     @Published var usingTestReadyHealthPack: Bool = false
+
+    /// First-run ARIA intro on the chat tab. Replayable from Settings.
+    @Published var hasCompletedAriaUseOnboarding: Bool = UserDefaults.standard.bool(forKey: AriaUseOnboarding.storageKey) {
+        didSet { UserDefaults.standard.set(hasCompletedAriaUseOnboarding, forKey: AriaUseOnboarding.storageKey) }
+    }
+
+    func completeAriaUseOnboarding() {
+        hasCompletedAriaUseOnboarding = true
+    }
+
+    func replayAriaUseOnboarding() {
+        hasCompletedAriaUseOnboarding = false
+        activeTab = .chat
+    }
     
     // Streak tracking — consecutive calendar days with a completed session.
     @Published var currentStreak: Int = 0

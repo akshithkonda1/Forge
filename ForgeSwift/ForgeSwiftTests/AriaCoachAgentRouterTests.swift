@@ -158,3 +158,33 @@ final class AriaFirstHealthBriefingTests: XCTestCase {
         XCTAssertTrue(insights.contains { $0.contains("HRV 52") })
     }
 }
+
+final class AriaUseOnboardingTests: XCTestCase {
+
+    func testGuideHasFiveStepsAndATryPrompt() {
+        let snap = AriaFirstHealthBriefing.Snapshot(
+            sleepHours: 7.2, sleepScore: 88, hrvMs: 52,
+            restingHR: 58, readiness: 78, steps: nil,
+            lastWorkoutName: nil, fromHealthKit: true
+        )
+        let pages = AriaUseOnboarding.pages(name: "Ada", snapshot: snap)
+        XCTAssertEqual(pages.map(\.step), AriaUseOnboardingStep.allCases)
+        XCTAssertTrue(pages[0].title.contains("Ada"))
+        XCTAssertTrue(pages[1].body.contains("How did I sleep"))
+        XCTAssertTrue(pages[2].body.contains("Train"))
+        XCTAssertTrue(pages[3].body.contains("7.2"))
+        XCTAssertEqual(pages.last?.step, .tryIt)
+        XCTAssertTrue(AriaUseOnboarding.tryPrompts.contains("What should I train?"))
+    }
+
+    func testHealthPageWithoutSignalsStillTeachesConnect() {
+        let snap = AriaFirstHealthBriefing.Snapshot(
+            sleepHours: nil, sleepScore: nil, hrvMs: nil,
+            restingHR: nil, readiness: nil, steps: nil,
+            lastWorkoutName: nil, fromHealthKit: false
+        )
+        let health = AriaUseOnboarding.pages(name: "", snapshot: snap)
+            .first { $0.step == .health }
+        XCTAssertTrue(health?.body.contains("Connect Apple Health") == true)
+    }
+}

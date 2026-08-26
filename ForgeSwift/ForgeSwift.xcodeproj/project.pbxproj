@@ -54,6 +54,8 @@
 		1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */; };
 		1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */; };
 		1ARIA0832F9FF867004091AA /* AriaFirstHealthBriefing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */; };
+		1ARIA0912F9FF867004091AA /* AriaUseOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */; };
+		1ARIA0932F9FF867004091AA /* AriaUseOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0922F9FF867004091AA /* AriaUseOnboardingView.swift */; };
 		1TEST01600000000000000A /* AriaCoachAgentRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */; };
 		AA00010000000000000000B2 /* PartnerCycleSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B2 /* PartnerCycleSharing.swift */; };
 		1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0072F9FF867004091AA /* AriaContextStore.swift */; };
@@ -391,6 +393,8 @@
 		1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgent.swift; sourceTree = "<group>"; };
 		1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestrator.swift; sourceTree = "<group>"; };
 		1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaFirstHealthBriefing.swift; sourceTree = "<group>"; };
+		1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaUseOnboarding.swift; sourceTree = "<group>"; };
+		1ARIA0922F9FF867004091AA /* AriaUseOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaUseOnboardingView.swift; sourceTree = "<group>"; };
 		1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgentRouterTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
@@ -660,6 +664,7 @@
 			children = (
 				1ARIA0112F9FF867004091AA /* ContextInspectorView.swift */,
 				1ARIA0132F9FF867004091AA /* ProactiveCardView.swift */,
+				1ARIA0922F9FF867004091AA /* AriaUseOnboardingView.swift */,
 			);
 			path = Chat;
 			sourceTree = "<group>";
@@ -726,6 +731,7 @@
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
 				1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */,
 				1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */,
+				1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */,
 				1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */,
 				1API00020000000000000001 /* ForgeAPI.swift */,
 				AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */,
@@ -1317,6 +1323,8 @@
 				1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */,
 				1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */,
 				1ARIA0832F9FF867004091AA /* AriaFirstHealthBriefing.swift in Sources */,
+				1ARIA0912F9FF867004091AA /* AriaUseOnboarding.swift in Sources */,
+				1ARIA0932F9FF867004091AA /* AriaUseOnboardingView.swift in Sources */,
 				AA00010000000000000000B2 /* PartnerCycleSharing.swift in Sources */,
 				1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */,
 				1WC1012F9FF867004091AA /* CrossZoneConsistency.swift in Sources */,

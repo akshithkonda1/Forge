@@ -70,6 +70,15 @@ struct SettingsPageView: View {
                         Text("ARIA spawns as many specialists as the question needs — one live call, the rest in parallel on this phone. Pin one to lead, or leave Auto.")
                             .font(.system(size: 12))
                             .foregroundColor(.textTertiary)
+                        Button {
+                            store.replayAriaUseOnboarding()
+                        } label: {
+                            Text("Replay ARIA intro")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.ember)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 4)
                         FlowLayout(spacing: 8) {
                             coachPinChip(nil, title: "Auto")
                             ForEach(AriaCoachAgent.allCases) { agent in

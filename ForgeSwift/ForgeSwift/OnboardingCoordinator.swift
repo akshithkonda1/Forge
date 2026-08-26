@@ -713,6 +713,7 @@ final class OnboardingCoordinator {
             )
             AriaContextStore.shared.addInsight("Onboarding interview complete.")
             try? await Task.sleep(nanoseconds: 550_000_000)
+            store.activeTab = .chat
             store.isOnboarded = true
         }
     }
