@@ -228,6 +228,8 @@
 		F0B10000000000000000001B /* PhoneLinkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001B /* PhoneLinkService.swift */; };
 		F0B10000000000000000001C /* WorkoutCoordinatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001C /* WorkoutCoordinatorView.swift */; };
 		F0B10000000000000000001D /* ActiveWorkoutComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001D /* ActiveWorkoutComplication.swift */; };
+		F0B100000000000000000050 /* SupportComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000050 /* SupportComplication.swift */; };
+		F0B100000000000000000051 /* SupportGlanceWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000051 /* SupportGlanceWidget.swift */; };
 		F0B10000000000000000001E /* ForgeWorkoutActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001E /* ForgeWorkoutActivityAttributes.swift */; };
 		F0B10000000000000000001F /* ForgeWorkoutLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001F /* ForgeWorkoutLiveActivity.swift */; };
 		AA00010000000000000000C9 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA000F0000000000000000C1 /* ForgeCore */; };
@@ -565,6 +567,8 @@
 		F0F10000000000000000001B /* PhoneLinkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneLinkService.swift; sourceTree = "<group>"; };
 		F0F10000000000000000001C /* WorkoutCoordinatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCoordinatorView.swift; sourceTree = "<group>"; };
 		F0F10000000000000000001D /* ActiveWorkoutComplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutComplication.swift; sourceTree = "<group>"; };
+		F0F100000000000000000050 /* SupportComplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportComplication.swift; sourceTree = "<group>"; };
+		F0F100000000000000000051 /* SupportGlanceWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportGlanceWidget.swift; sourceTree = "<group>"; };
 		F0F10000000000000000001E /* ForgeWorkoutActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWorkoutActivityAttributes.swift; sourceTree = "<group>"; };
 		F0F10000000000000000001F /* ForgeWorkoutLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWorkoutLiveActivity.swift; sourceTree = "<group>"; };
 		F0F100000000000000000020 /* ForgeWidgetExtensionBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWidgetExtensionBundle.swift; sourceTree = "<group>"; };
@@ -944,6 +948,7 @@
 				F0F100000000000000000043 /* TodayWidget.swift */,
 				F0F100000000000000000044 /* LogWaterIntent.swift */,
 				F0F100000000000000000045 /* WidgetChrome.swift */,
+				F0F100000000000000000051 /* SupportGlanceWidget.swift */,
 				F0F100000000000000000021 /* Info.plist */,
 				F0F100000000000000000022 /* ForgeWidgetExtension.entitlements */,
 			);
@@ -1014,6 +1019,7 @@
 				F0F100000000000000000013 /* MindfulnessResetComplication.swift */,
 				F0F100000000000000000014 /* SleepQualityComplication.swift */,
 				F0F10000000000000000001D /* ActiveWorkoutComplication.swift */,
+				F0F100000000000000000050 /* SupportComplication.swift */,
 				F0F100000000000000000015 /* Info.plist */,
 				F0F100000000000000000016 /* ForgeWatchWidgets.entitlements */,
 			);
@@ -1495,6 +1501,7 @@
 				F0B100000000000000000013 /* MindfulnessResetComplication.swift in Sources */,
 				F0B100000000000000000014 /* SleepQualityComplication.swift in Sources */,
 				F0B10000000000000000001D /* ActiveWorkoutComplication.swift in Sources */,
+				F0B100000000000000000050 /* SupportComplication.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1515,6 +1522,7 @@
 				F0B100000000000000000043 /* TodayWidget.swift in Sources */,
 				F0B100000000000000000044 /* LogWaterIntent.swift in Sources */,
 				F0B100000000000000000045 /* WidgetChrome.swift in Sources */,
+				F0B100000000000000000051 /* SupportGlanceWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

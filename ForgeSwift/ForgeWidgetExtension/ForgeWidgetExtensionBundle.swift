@@ -16,6 +16,7 @@ struct ForgeWidgetExtensionBundle: WidgetBundle {
         SleepWidget()
         LifestyleWidget()
         CyclePhaseWidget()
+        SupportGlanceWidget()
         ForgeWorkoutLiveActivity()
         CycleFertileWindowLiveActivity()
     }

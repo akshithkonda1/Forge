@@ -234,6 +234,7 @@ public enum ForgeWidgetLink {
     public static let hydration = URL(string: "forge://hydration")!
     public static let sleep     = URL(string: "forge://sleep")!
     public static let cycle     = URL(string: "forge://cycle")!
+    public static let support   = URL(string: "forge://cycle/support")!
     public static let workout   = URL(string: "forge://workout")!
     public static let lifestyle = URL(string: "forge://lifestyle")!
     public static let today     = URL(string: "forge://home")!

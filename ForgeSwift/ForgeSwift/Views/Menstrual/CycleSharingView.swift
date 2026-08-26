@@ -108,7 +108,7 @@ struct CycleSharingView: View {
                 .font(FDS.TypeScale.body(14))
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("They see how to help. They never see your log. You can stop at any time.")
+            Text("They see how to help. They never see your log. If they use Forge, a Watch glance and a morning reminder stay lock-safe. You can stop at any time.")
                 .font(FDS.TypeScale.body(12))
                 .foregroundStyle(Color(hex: "22C55E"))
         }

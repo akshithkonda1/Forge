@@ -54,6 +54,7 @@ let package = Package(
                 "Utils/PublishGate.swift",
                 "Utils/WatchSnapshotStore.swift",
                 "Utils/HomeWidgetSnapshot.swift",
+                "Utils/PartnerSupportGlance.swift",
             ]
         ),
         .testTarget(
@@ -69,6 +70,7 @@ let package = Package(
                 "HydrationEngineTests.swift",
                 "MindfulnessSuggestionEngineTests.swift",
                 "PartnerInvitePayloadTests.swift",
+                "PartnerSupportGlanceTests.swift",
                 "SupportedPersonMatchTests.swift",
                 "PublishGateTests.swift",
                 "SecureStoreTests.swift",
