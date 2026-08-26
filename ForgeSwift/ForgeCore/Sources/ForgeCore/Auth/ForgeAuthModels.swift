@@ -41,6 +41,14 @@ public struct ForgeAuthConfig: Equatable, Sendable {
         ["prod", "production", "staging", "stage"].contains(environment.lowercased())
     }
 
+    /// `127.0.0.1` is the Mac when you Run in Xcode. On a phone in Device Hub
+    /// it is the phone itself — chat would hang. Loopback means Test-Ready
+    /// dummy, not a network call.
+    public var apiIsLoopback: Bool {
+        guard let host = apiBaseURL.host?.lowercased(), !host.isEmpty else { return true }
+        return host == "127.0.0.1" || host == "localhost" || host == "::1"
+    }
+
     /// Matches `backend/infra/lambda/auth.py` `_TEST_USER_ID`.
     public static let testUserId = "test-user-00000000"
     public static let testEmail = "tester@forge.dev"
@@ -115,6 +123,38 @@ public enum ForgeAuthPolicy {
         debugBuild: Bool = isDebugBuild
     ) -> Bool {
         debugBuild && userEnabled && !config.isProductionLike
+    }
+
+    /// True when this process was started from Xcode (Device Hub, simulator,
+    /// or an attached iPhone). `OS_ACTIVITY_DT_MODE` is what Xcode injects.
+    public static var isXcodeDeviceHubLaunch: Bool {
+        isXcodeDeviceHubLaunch(
+            environment: ProcessInfo.processInfo.environment,
+            debugBuild: isDebugBuild
+        )
+    }
+
+    public static func isXcodeDeviceHubLaunch(
+        environment: [String: String],
+        debugBuild: Bool
+    ) -> Bool {
+        guard debugBuild else { return false }
+        if environment["OS_ACTIVITY_DT_MODE"] != nil { return true }
+        if environment["SIMULATOR_DEVICE_NAME"] != nil { return true }
+        if environment["SIMULATOR_UDID"] != nil { return true }
+        if environment["DYLD_INSERT_LIBRARIES"]?.contains("libBacktraceRecording") == true {
+            return true
+        }
+        return false
+    }
+
+    /// Mint the tester session so Device Hub / loopback runs never wait on AWS.
+    public static func shouldAutoInstallTester(
+        allowed: Bool,
+        xcodeLaunch: Bool,
+        apiIsLoopback: Bool
+    ) -> Bool {
+        allowed && (xcodeLaunch || apiIsLoopback)
     }
 }
 

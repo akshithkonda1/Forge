@@ -19,6 +19,62 @@ final class ForgeAuthTests: XCTestCase {
         XCTAssertTrue(ForgeAuthPolicy.devOverrideAllowed(userEnabled: true, config: dev, debugBuild: true))
     }
 
+    func testXcodeDeviceHubLaunchDetectsXcodeEnv() {
+        XCTAssertTrue(
+            ForgeAuthPolicy.isXcodeDeviceHubLaunch(
+                environment: ["OS_ACTIVITY_DT_MODE": "enable"],
+                debugBuild: true
+            )
+        )
+        XCTAssertTrue(
+            ForgeAuthPolicy.isXcodeDeviceHubLaunch(
+                environment: ["SIMULATOR_DEVICE_NAME": "iPhone 17 Pro"],
+                debugBuild: true
+            )
+        )
+        XCTAssertFalse(
+            ForgeAuthPolicy.isXcodeDeviceHubLaunch(
+                environment: ["OS_ACTIVITY_DT_MODE": "enable"],
+                debugBuild: false
+            )
+        )
+        XCTAssertFalse(
+            ForgeAuthPolicy.isXcodeDeviceHubLaunch(
+                environment: [:],
+                debugBuild: true
+            )
+        )
+    }
+
+    func testLoopbackAPIAndXcodeLaunchAutoInstallTester() {
+        let loopback = ForgeAuthConfig(
+            apiBaseURL: URL(string: "http://127.0.0.1:3001")!,
+            environment: "dev"
+        )
+        XCTAssertTrue(loopback.apiIsLoopback)
+        XCTAssertTrue(
+            ForgeAuthPolicy.shouldAutoInstallTester(
+                allowed: true,
+                xcodeLaunch: true,
+                apiIsLoopback: false
+            )
+        )
+        XCTAssertTrue(
+            ForgeAuthPolicy.shouldAutoInstallTester(
+                allowed: true,
+                xcodeLaunch: false,
+                apiIsLoopback: true
+            )
+        )
+        XCTAssertFalse(
+            ForgeAuthPolicy.shouldAutoInstallTester(
+                allowed: false,
+                xcodeLaunch: true,
+                apiIsLoopback: true
+            )
+        )
+    }
+
     func testTesterSessionMatchesBackendTestUser() {
         let session = DevAuthOverride.session()
         XCTAssertEqual(session.userId, "test-user-00000000")

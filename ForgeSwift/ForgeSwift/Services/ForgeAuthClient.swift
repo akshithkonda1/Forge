@@ -40,6 +40,32 @@ final class ForgeAuthClient: ObservableObject {
         if config.apiBaseURL.host != nil, UserDefaults.standard.string(forKey: "forge.api.baseURL") == nil {
             UserDefaults.standard.set(config.apiBaseURL.absoluteString, forKey: "forge.api.baseURL")
         }
+        installTestReadySessionIfNeeded()
+    }
+
+    /// Xcode Device Hub (simulator or a plugged-in phone) and loopback API
+    /// builds get a tester session so ARIA is Test-Ready on-device. Never
+    /// clobbers a real Cognito session unless the API URL cannot work from
+    /// the phone (`127.0.0.1`).
+    @discardableResult
+    func installTestReadySessionIfNeeded() -> ForgeAuthSession? {
+        let allowed = ForgeAuthPolicy.devOverrideAllowed(
+            userEnabled: devOverrideEnabled,
+            config: config
+        )
+        let auto = ForgeAuthPolicy.shouldAutoInstallTester(
+            allowed: allowed,
+            xcodeLaunch: ForgeAuthPolicy.isXcodeDeviceHubLaunch,
+            apiIsLoopback: config.apiIsLoopback
+        )
+        guard auto else { return session }
+        if let current = session, current.mode == .cognito, !config.apiIsLoopback {
+            return current
+        }
+        if session?.mode == .devOverride { return session }
+        let minted = DevAuthOverride.session()
+        try? persist(minted)
+        return minted
     }
 
     func continueAsTester() throws -> ForgeAuthSession {

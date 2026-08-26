@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 /// Layer 1 bridge — talks to ARIA backend with graceful local fallback.
 @MainActor
@@ -24,8 +25,11 @@ final class AriaService: ObservableObject {
     /// Continue-as-tester (debug, non-prod) stays on the dummy orchestra —
     /// same idea as SimRunner: no production ARIA instance.
     static var shouldUseTestReadyDummy: Bool {
-        guard let session = ForgeAuthClient.shared.session else { return false }
-        return session.mode == .devOverride && ForgeAuthClient.shared.canUseDevOverride
+        let client = ForgeAuthClient.shared
+        guard client.canUseDevOverride else { return false }
+        if client.session?.mode == .devOverride { return true }
+        // Device Hub / loopback: don't wait on a tester tap or a Mac localhost.
+        return ForgeAuthPolicy.isXcodeDeviceHubLaunch || client.config.apiIsLoopback
     }
 
     private static let baseURLKey = "forge.api.baseURL"
@@ -58,13 +62,7 @@ final class AriaService: ObservableObject {
             isTestReady = true
             isLocalFallback = true
             lastRemoteError = nil
-            return try await generateLocally(
-                text: text,
-                store: store,
-                generator: localGenerator,
-                rich: contextStore.buildRichContext(from: store),
-                agent: agent
-            )
+            return AriaDummyOrchestrator.reply(text: text, store: store, agent: agent)
         }
         isTestReady = false
 

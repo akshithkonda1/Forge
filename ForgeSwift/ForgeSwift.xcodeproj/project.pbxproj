@@ -51,6 +51,7 @@
 		1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0032F9FF867004091AA /* AriaResponse.swift */; };
 		1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0052F9FF867004091AA /* AriaService.swift */; };
 		1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */; };
+		1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */; };
 		1TEST01600000000000000A /* AriaCoachAgentRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */; };
 		AA00010000000000000000B2 /* PartnerCycleSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B2 /* PartnerCycleSharing.swift */; };
 		1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0072F9FF867004091AA /* AriaContextStore.swift */; };
@@ -385,6 +386,7 @@
 		1ARIA0032F9FF867004091AA /* AriaResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaResponse.swift; sourceTree = "<group>"; };
 		1ARIA0052F9FF867004091AA /* AriaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaService.swift; sourceTree = "<group>"; };
 		1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgent.swift; sourceTree = "<group>"; };
+		1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestrator.swift; sourceTree = "<group>"; };
 		1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgentRouterTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
@@ -718,6 +720,7 @@
 				1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */,
 				1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */,
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
+				1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */,
 				1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */,
 				1API00020000000000000001 /* ForgeAPI.swift */,
 				AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */,
@@ -1305,6 +1308,7 @@
 				1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */,
 				1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */,
 				1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */,
+				1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */,
 				AA00010000000000000000B2 /* PartnerCycleSharing.swift in Sources */,
 				1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */,
 				1WC1012F9FF867004091AA /* CrossZoneConsistency.swift in Sources */,
