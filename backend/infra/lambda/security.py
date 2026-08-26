@@ -44,6 +44,19 @@ def allow_test_identity() -> bool:
     return environment() in _DEV_LIKE or bool(os.getenv("FORGE_ALLOW_TEST_USER"))
 
 
+def aria_test_ready() -> bool:
+    """Whether /ai/chat may use the SimRunner dummy orchestrator.
+
+    Always false in production-like environments — even if someone sets
+    ``FORGE_ARIA_TEST_READY``. Opt-in elsewhere so existing unit tests keep
+    hitting the deterministic engine unless they ask for Test-Ready.
+    """
+    if is_production_like():
+        return False
+    flag = (os.getenv("FORGE_ARIA_TEST_READY") or "").strip().lower()
+    return flag in _TRUTHY
+
+
 def demo_data_enabled() -> bool:
     """Whether seeded fixtures may stand in for a user's own data.
 

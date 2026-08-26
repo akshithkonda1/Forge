@@ -6,6 +6,8 @@ final class AriaService: ObservableObject {
     static let shared = AriaService()
 
     @Published private(set) var isLocalFallback = false
+    /// Tester session on the SimRunner dummy path — never a production instance.
+    @Published private(set) var isTestReady = false
     /// Set when the backend answered with a failure the user should know about —
     /// signed out, server error, rate limited. Nil when Forge is simply
     /// unreachable, because that is what offline mode is already saying.
@@ -17,6 +19,13 @@ final class AriaService: ObservableObject {
             return url
         }
         return ForgeAuthClient.shared.config.apiBaseURL
+    }
+
+    /// Continue-as-tester (debug, non-prod) stays on the dummy orchestra —
+    /// same idea as SimRunner: no production ARIA instance.
+    static var shouldUseTestReadyDummy: Bool {
+        guard let session = ForgeAuthClient.shared.session else { return false }
+        return session.mode == .devOverride && ForgeAuthClient.shared.canUseDevOverride
     }
 
     private static let baseURLKey = "forge.api.baseURL"
@@ -45,6 +54,20 @@ final class AriaService: ObservableObject {
         }
         let domainContext = contextStore.buildARIAContext(from: store)
         let legacyMetrics = contextStore.buildRichContext(from: store).recentMetrics
+        if Self.shouldUseTestReadyDummy {
+            isTestReady = true
+            isLocalFallback = true
+            lastRemoteError = nil
+            return try await generateLocally(
+                text: text,
+                store: store,
+                generator: localGenerator,
+                rich: contextStore.buildRichContext(from: store),
+                agent: agent
+            )
+        }
+        isTestReady = false
+
         let request = AriaChatRequest(
             userId: contextStore.context.userId,
             message: text,

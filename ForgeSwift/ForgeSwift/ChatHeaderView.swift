@@ -84,7 +84,14 @@ struct ChatHeaderView: View {
                 }
 
                 HStack(spacing: 5) {
-                    if ariaService.isLocalFallback {
+                    if ariaService.isTestReady {
+                        Image(systemName: "checkmark.seal")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(Color.steel)
+                        Text("Test-ready · not production")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Color.steel.opacity(0.9))
+                    } else if ariaService.isLocalFallback {
                         Image(systemName: "bolt.fill")
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(Color.ember)

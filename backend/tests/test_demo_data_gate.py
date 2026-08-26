@@ -14,7 +14,7 @@ import _bootstrap  # noqa: F401
 
 from handler import handler  # noqa: E402
 from routes import coach as coach_routes  # noqa: E402
-from security import demo_data_enabled  # noqa: E402
+from security import aria_test_ready, demo_data_enabled  # noqa: E402
 from services import coach_context  # noqa: E402
 from storage import dynamodb as dynamodb_store  # noqa: E402
 
@@ -65,11 +65,17 @@ class _EnvCase(unittest.TestCase):
         coach_routes.set_router_invoker(None)
         self._saved = {
             k: os.environ.get(k)
-            for k in ("ENVIRONMENT", "FORGE_DEMO_DATA", "FORGE_ALLOW_ANON_TEST_USER")
+            for k in (
+                "ENVIRONMENT",
+                "FORGE_DEMO_DATA",
+                "FORGE_ALLOW_ANON_TEST_USER",
+                "FORGE_ARIA_TEST_READY",
+            )
         }
         os.environ["ENVIRONMENT"] = self.ENV
         os.environ.pop("FORGE_DEMO_DATA", None)
         os.environ.pop("FORGE_ALLOW_ANON_TEST_USER", None)
+        os.environ.pop("FORGE_ARIA_TEST_READY", None)
 
     def tearDown(self):
         dynamodb_store.clear_local_store()
@@ -112,6 +118,21 @@ class DemoGateTests(_EnvCase):
             with self.subTest(value=value):
                 os.environ["FORGE_DEMO_DATA"] = value
                 self.assertFalse(demo_data_enabled())
+
+
+class AriaTestReadyGateTests(_EnvCase):
+    def test_production_never_uses_the_dummy_orchestrator(self):
+        for env in ("prod", "production", "staging", "stage"):
+            with self.subTest(env=env):
+                os.environ["ENVIRONMENT"] = env
+                os.environ["FORGE_ARIA_TEST_READY"] = "true"
+                self.assertFalse(aria_test_ready())
+
+    def test_opt_in_only_outside_production(self):
+        os.environ["ENVIRONMENT"] = "test"
+        self.assertFalse(aria_test_ready())
+        os.environ["FORGE_ARIA_TEST_READY"] = "1"
+        self.assertTrue(aria_test_ready())
 
 
 class ProductionDashboardTests(_EnvCase):
