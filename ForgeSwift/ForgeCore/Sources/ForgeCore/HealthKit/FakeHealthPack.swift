@@ -242,7 +242,12 @@ public struct FakeHealthPack: Sendable, Equatable {
     /// `testStreamHasShortNightsAndWorkouts` on almost every seed and fail on a
     /// few, and since the app now re-seeds per session, "almost every" is a bug
     /// that ships and never reproduces.
-    struct DayPlan {
+    /// `fileprivate`, not internal: it takes the file-private `SplitMix64` in
+    /// its initializer, and Swift requires a declaration be no more visible
+    /// than the types in its signature. Internal here fails only when the
+    /// module interface is emitted, which is why it built locally in every
+    /// balance and gate check and died in CI.
+    fileprivate struct DayPlan {
         /// Never includes 0: today has to stay citable (`> 5h`, deep and REM
         /// both non-zero) for the pack to be worth anything on first launch.
         var shortNights: Set<Int> = []
@@ -251,7 +256,7 @@ public struct FakeHealthPack: Sendable, Equatable {
         /// begin on the same day of the pack.
         var trainingPhase: Int = 0
 
-        init(count: Int, rng: inout SplitMix64) {
+        fileprivate init(count: Int, rng: inout SplitMix64) {
             var candidates = Array(1..<max(2, count))
             // Fisher-Yates with the same rng, so the pick stays seed-determined.
             if candidates.count > 1 {
