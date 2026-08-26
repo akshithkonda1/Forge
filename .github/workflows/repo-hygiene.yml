@@ -125,3 +125,21 @@ jobs:
       # environment name misspelled into the permissive bucket.
       - name: Check client configuration
         run: python3 scripts/generate_client_config.py --check
+
+  package-sources:
+    name: SwiftPM sources lists
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # ForgeCore's Package.swift names every file instead of letting SwiftPM
+      # walk the directory, to avoid picking up Finder " 2.swift" duplicates.
+      # The cost is a second place to remember, and forgetting it fails silently
+      # in the direction that matters: an unlisted source is never compiled, and
+      # an unlisted *test* is never run while `swift test` still reports success.
+      # Nothing goes red. That nearly happened on the commit adding
+      # SessionClockTests, CompanionConfigTests and WorkoutCoachingTests — a
+      # change whose whole point was to end "these managers have no tests".
+      - name: Check SwiftPM sources lists
+        run: python3 scripts/check-package-sources.py
