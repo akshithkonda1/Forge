@@ -33,7 +33,7 @@ struct AuthSignInView: View {
                                 .font(.system(size: 11, weight: .bold))
                                 .tracking(2)
                                 .foregroundColor(.ember)
-                            Text("Your forge is\nwaiting.")
+                            Text("ARIA is still\nhere.")
                                 .font(.system(size: 30, weight: .black, design: .rounded))
                                 .foregroundStyle(
                                     LinearGradient(
@@ -42,7 +42,7 @@ struct AuthSignInView: View {
                                         endPoint: .trailing
                                     )
                                 )
-                            Text("Pick up readiness, ARIA, and your streak where you left off.")
+                            Text("Pick up with your coach where you left off.")
                                 .font(.system(size: 15, weight: .medium))
                                 .foregroundColor(.textSecondary)
                         }
@@ -144,7 +144,7 @@ struct AuthSignInView: View {
                             .accessibilityHint("Debug-only local account. Never ships in Release.")
                         }
 
-                        Text("New here? Close and tap Start forging on the welcome screen.")
+                        Text("New here? Close and tap Get started on the welcome screen.")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.textTertiary)
                             .padding(.bottom, 28)

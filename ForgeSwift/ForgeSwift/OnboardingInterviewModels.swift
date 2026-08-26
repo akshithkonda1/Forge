@@ -19,11 +19,10 @@ enum HealthKitState: Equatable {
 
 enum AriaInterviewStep: Int, CaseIterable, Hashable {
     case intro = 0
-    case age
     case name
     case health
+    case details
     case goals
-    case biologicalSex
     case experience
     case workouts
     case sleep
@@ -37,11 +36,10 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
     var progressLabel: String {
         switch self {
         case .intro:          return "Hello"
-        case .age:            return "Safety"
-        case .name:           return "Identity"
-        case .health:         return "Signals"
+        case .name:           return "Name"
+        case .health:         return "Apple Health"
+        case .details:        return "Your details"
         case .goals:          return "Goals"
-        case .biologicalSex:  return "Biology"
         case .experience:     return "Level"
         case .workouts:       return "Training"
         case .sleep:          return "Sleep"
@@ -53,6 +51,11 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
         case .ready:          return "Ready"
         }
     }
+}
+
+/// Which body-detail fields arrived from Apple Health so the UI can label them.
+enum OnboardingHealthSourcedField: String, Hashable {
+    case birthday, sex, height, weight
 }
 
 enum AriaOnboardingRole: Equatable {
@@ -161,10 +164,65 @@ enum ReportedCondition: String, CaseIterable, Identifiable {
 
 extension OnboardingProfile {
     var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
-    var ageYears: Int {
-        Calendar.current.dateComponents([.year], from: birthday, to: Date()).year ?? 0
-    }
+    var trimmedLastName: String { lastName.trimmingCharacters(in: .whitespacesAndNewlines) }
+    /// What ARIA says out loud — preferred first name only.
     var firstName: String {
         trimmedName.split(separator: " ").first.map(String.init) ?? trimmedName
+    }
+    /// Profile display name: preferred + optional last.
+    var profileDisplayName: String {
+        [trimmedName, trimmedLastName].filter { !$0.isEmpty }.joined(separator: " ")
+    }
+    var isPreferredNameValid: Bool {
+        let n = trimmedName
+        return (2...32).contains(n.count)
+    }
+    var ageYears: Int {
+        guard let birthday else { return 0 }
+        return Calendar.current.dateComponents([.year], from: birthday, to: Date()).year ?? 0
+    }
+    var hasBirthday: Bool { birthday != nil }
+    var hasConfirmedDetails: Bool {
+        hasBirthday && ageYears >= 13 && biologicalSex != nil
+    }
+    var detailsSummaryLine: String {
+        var parts: [String] = []
+        if !trimmedName.isEmpty { parts.append(firstName) }
+        if hasBirthday { parts.append("\(ageYears)") }
+        if let sex = biologicalSex { parts.append(sex.label) }
+        if let h = heightCm { parts.append(OnboardingBodyUnits.heightLabel(cm: h, metric: usesMetricUnits)) }
+        if let w = weightKg { parts.append(OnboardingBodyUnits.weightLabel(kg: w, metric: usesMetricUnits)) }
+        return parts.joined(separator: " · ")
+    }
+}
+
+enum OnboardingBodyUnits {
+    static let lbsPerKg = 2.20462
+    static let cmPerInch = 2.54
+
+    static func centimeters(feet: Int, inches: Int) -> Double {
+        Double(max(0, feet) * 12 + max(0, inches)) * cmPerInch
+    }
+
+    static func feetAndInches(cm: Double) -> (feet: Int, inches: Int) {
+        let total = (cm / cmPerInch).rounded()
+        var feet = Int(total) / 12
+        var inches = Int(total) % 12
+        if inches == 12 { feet += 1; inches = 0 }
+        return (feet, inches)
+    }
+
+    static func pounds(kg: Double) -> Double { kg * lbsPerKg }
+    static func kilograms(lbs: Double) -> Double { lbs / lbsPerKg }
+
+    static func heightLabel(cm: Double, metric: Bool) -> String {
+        if metric { return "\(Int(cm.rounded())) cm" }
+        let pair = feetAndInches(cm: cm)
+        return "\(pair.feet)′\(pair.inches)″"
+    }
+
+    static func weightLabel(kg: Double, metric: Bool) -> String {
+        if metric { return String(format: "%.1f kg", kg) }
+        return "\(Int(pounds(kg: kg).rounded())) lb"
     }
 }

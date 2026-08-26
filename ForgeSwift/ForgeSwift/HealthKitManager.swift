@@ -292,6 +292,9 @@ class HealthKitManager: ObservableObject {
     @Published var todayWaterLogs: [WaterLog] = []
     @Published var weeklyWaterMilliliters: [DailyWaterTotal] = []
     @Published var todayWaterMilliliters: Double = 0
+    /// Remembered Test-Ready water so a later empty HealthKit refresh does
+    /// not wipe the ForgeCore pack on a simulator.
+    var testReadyHydrationMilliliters: Double?
 
     private var observerQueries: [HKObserverQuery] = []
     private var liveRefreshTask: Task<Void, Never>?
@@ -306,6 +309,12 @@ class HealthKitManager: ObservableObject {
     let mealsStorageKey = "HealthKitManager.loggedMeals"
     let mealsStorageDateKey = "HealthKitManager.loggedMealsDate"
     static let forgeWaterMetadataKey = "com.forge.hydration"
+    /// Marks samples the Test-Ready pack wrote so we can delete and rewrite
+    /// them every simulator launch without touching anyone else's data.
+    static let testReadyPackMetadataKey = "com.forge.testReadyPack"
+    static let testReadySessionNameKey = "com.forge.sessionName"
+    static let testReadyIntensityKey = "com.forge.intensity"
+    static let testReadyVolumeKey = "com.forge.volume"
     
     // Types requested by the primary onboarding flow. Keep this prompt focused and reliable.
     private let coreReadTypes: Set<HKObjectType> = [
@@ -457,6 +466,22 @@ class HealthKitManager: ObservableObject {
     func requestAuthorization() async throws {
         try await requestHealthKitAuthorization(
             toShare: coreWriteTypes,
+            read: coreReadTypes,
+            requestedKey: authorizationRequestedKey
+        )
+    }
+
+    /// Extra share types the simulator Health pack needs (sleep, HRV, RHR,
+    /// steps). Production onboarding does not ask to write these.
+    func requestTestReadyPackAuthorization() async throws {
+        let extra: Set<HKSampleType> = [
+            HKCategoryType(.sleepAnalysis),
+            HKQuantityType(.heartRateVariabilitySDNN),
+            HKQuantityType(.restingHeartRate),
+            HKQuantityType(.stepCount),
+        ]
+        try await requestHealthKitAuthorization(
+            toShare: coreWriteTypes.union(extra),
             read: coreReadTypes,
             requestedKey: authorizationRequestedKey
         )
@@ -658,6 +683,7 @@ struct SleepNightSample {
 
 struct UserHealthProfile {
     let age: Int?
+    let dateOfBirth: Date?
     let biologicalSex: String?
     let bloodType: String?
     let weightKg: Double?
@@ -672,7 +698,7 @@ struct UserHealthProfile {
     let clinicalSummary: ClinicalRecordsSummary?
     
     var hasData: Bool {
-        age != nil || biologicalSex != nil || bloodType != nil || weightKg != nil || heightCm != nil || bodyMassIndex != nil || leanBodyMassKg != nil || bodyFatPercentage != nil || restingHeartRate != nil || vo2Max != nil || averageHRV != nil || cycleSummary?.hasData == true || clinicalSummary?.hasData == true
+        age != nil || dateOfBirth != nil || biologicalSex != nil || bloodType != nil || weightKg != nil || heightCm != nil || bodyMassIndex != nil || leanBodyMassKg != nil || bodyFatPercentage != nil || restingHeartRate != nil || vo2Max != nil || averageHRV != nil || cycleSummary?.hasData == true || clinicalSummary?.hasData == true
     }
 }
 

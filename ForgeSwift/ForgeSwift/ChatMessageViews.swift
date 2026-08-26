@@ -119,7 +119,7 @@ struct MessageBubbleView: View {
                                 startPoint: .topLeading, endPoint: .bottomTrailing
                             ))
                             .frame(width: 28, height: 28)
-                        Image(systemName: "flame.fill")
+                        Image(systemName: AriaCoachAgent(rawValue: message.coachAgent ?? "")?.icon ?? "sparkles")
                             .font(.system(size: 12))
                             .foregroundColor(mood.accentColor)
                     }
@@ -282,8 +282,6 @@ struct MessageBubbleView: View {
                                 onReaction?(message.id, r.emoji)
                             }
                             choreographedHaptic(.reactionAdded)
-                            // Trigger confetti burst
-                            onReactionBurst(CGPoint(x: UIScreen.main.bounds.width / 2, y: 300))
                         } label: {
                             Text(r.emoji)
                                 .font(.system(size: 20))

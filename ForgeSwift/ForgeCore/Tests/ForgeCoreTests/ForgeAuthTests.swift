@@ -19,6 +19,62 @@ final class ForgeAuthTests: XCTestCase {
         XCTAssertTrue(ForgeAuthPolicy.devOverrideAllowed(userEnabled: true, config: dev, debugBuild: true))
     }
 
+    func testXcodeDeviceHubLaunchDetectsXcodeEnv() {
+        XCTAssertTrue(
+            ForgeAuthPolicy.isXcodeDeviceHubLaunch(
+                environment: ["OS_ACTIVITY_DT_MODE": "enable"],
+                debugBuild: true
+            )
+        )
+        XCTAssertTrue(
+            ForgeAuthPolicy.isXcodeDeviceHubLaunch(
+                environment: ["SIMULATOR_DEVICE_NAME": "iPhone 17 Pro"],
+                debugBuild: true
+            )
+        )
+        XCTAssertFalse(
+            ForgeAuthPolicy.isXcodeDeviceHubLaunch(
+                environment: ["OS_ACTIVITY_DT_MODE": "enable"],
+                debugBuild: false
+            )
+        )
+        XCTAssertFalse(
+            ForgeAuthPolicy.isXcodeDeviceHubLaunch(
+                environment: [:],
+                debugBuild: true
+            )
+        )
+    }
+
+    func testLoopbackAPIAndXcodeLaunchAutoInstallTester() {
+        let loopback = ForgeAuthConfig(
+            apiBaseURL: URL(string: "http://127.0.0.1:3001")!,
+            environment: "dev"
+        )
+        XCTAssertTrue(loopback.apiIsLoopback)
+        XCTAssertTrue(
+            ForgeAuthPolicy.shouldAutoInstallTester(
+                allowed: true,
+                xcodeLaunch: true,
+                apiIsLoopback: false
+            )
+        )
+        XCTAssertTrue(
+            ForgeAuthPolicy.shouldAutoInstallTester(
+                allowed: true,
+                xcodeLaunch: false,
+                apiIsLoopback: true
+            )
+        )
+        XCTAssertFalse(
+            ForgeAuthPolicy.shouldAutoInstallTester(
+                allowed: false,
+                xcodeLaunch: true,
+                apiIsLoopback: true
+            )
+        )
+    }
+
     func testTesterSessionMatchesBackendTestUser() {
         let session = DevAuthOverride.session()
         XCTAssertEqual(session.userId, "test-user-00000000")
@@ -90,6 +146,38 @@ final class ForgeAuthTests: XCTestCase {
                 .cognitoRejected("Incorrect username or password.")
             )
         }
+    }
+
+    func testPasswordPolicyMatchesTheCognitoPool() {
+        XCTAssertFalse(CognitoPasswordPolicy.isValid("short"))
+        XCTAssertFalse(CognitoPasswordPolicy.isValid("longenoughbutnosymbol1A"))
+        XCTAssertTrue(CognitoPasswordPolicy.isValid("Correct-Horse-1"))
+        XCTAssertEqual(
+            CognitoPasswordPolicy.problems(in: "abc"),
+            ["at least 12 characters", "an uppercase letter", "a number", "a symbol"]
+        )
+    }
+
+    func testSignUpRequestTargetsCognitoSignUp() throws {
+        let request = try CognitoPasswordAuth.signUpRequest(
+            region: "us-east-1",
+            clientId: "ios-client",
+            username: "maya@forge.dev",
+            password: "Correct-Horse-1",
+            name: "Maya"
+        )
+        XCTAssertEqual(request.value(forHTTPHeaderField: "X-Amz-Target"), "AWSCognitoIdentityProviderService.SignUp")
+        let body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: Any]
+        XCTAssertEqual(body["Username"] as? String, "maya@forge.dev")
+        XCTAssertEqual(body["Password"] as? String, "Correct-Horse-1")
+    }
+
+    func testSignUpParseReadsUnconfirmedUser() throws {
+        let json = #"{"UserConfirmed":false,"UserSub":"abc","CodeDeliveryDetails":{"Destination":"m***@forge.dev"}}"#
+        let result = try CognitoPasswordAuth.parseSignUpResponse(Data(json.utf8))
+        XCTAssertFalse(result.userConfirmed)
+        XCTAssertEqual(result.userSub, "abc")
+        XCTAssertEqual(result.codeDestination, "m***@forge.dev")
     }
 
     func testConfigFromPlist() {

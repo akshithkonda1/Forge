@@ -73,6 +73,11 @@ struct ForgeSwiftApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: WeeklyAriaReviewStore.openNotification)) { _ in
                     store.handleDeepLink(URL(string: "forge://aria/weekly")!)
                 }
+                .onReceive(NotificationCenter.default.publisher(for: ForgeAppDelegate.openURLNotification)) { note in
+                    if let url = note.object as? URL {
+                        store.handleDeepLink(url)
+                    }
+                }
         }
     }
 }

@@ -39,10 +39,10 @@ struct ForgeAmbientBackground: View {
 
     private var routeColor: Color {
         switch step {
-        case 0, 1, 2: return Color(hex: "A855F7")
-        case 3: return .steel
-        case 7, 8, 9: return Color(hex: "22C55E")
-        case 10: return .warning
+        case 0, 1: return Color.aurora
+        case 2: return Color.steel
+        case 3: return Color.ember
+        case 7, 8: return Color.vitality
         default: return .ember
         }
     }

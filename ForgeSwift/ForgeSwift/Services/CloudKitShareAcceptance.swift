@@ -72,6 +72,8 @@ enum PartnerShareAcceptance {
 /// and a share dropped on the floor at cold launch is precisely the case a
 /// supporter hits when they tap the invite without Forge already running.
 final class ForgeAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    static let openURLNotification = Notification.Name("forge.app.openURL")
+
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
@@ -93,6 +95,11 @@ final class ForgeAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificatio
         if id == ForgeNotificationScheduler.ID.weeklyAriaReview
             || destination == "forge://aria/weekly" {
             NotificationCenter.default.post(name: WeeklyAriaReviewStore.openNotification, object: nil)
+        }
+        if id == ForgeNotificationScheduler.ID.partnerSupport
+            || destination == ForgeWidgetLink.support.absoluteString,
+           let url = URL(string: destination ?? ForgeWidgetLink.support.absoluteString) {
+            NotificationCenter.default.post(name: ForgeAppDelegate.openURLNotification, object: url)
         }
     }
 

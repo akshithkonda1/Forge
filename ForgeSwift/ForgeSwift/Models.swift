@@ -423,6 +423,8 @@ struct ChatMessage: Identifiable, Codable {
     var suggestedActions: [String]? = nil
     var memoryReference: String? = nil
     var confidenceReason: String? = nil
+    /// Which specialist answered. Optional so older transcripts still decode.
+    var coachAgent: String? = nil
 }
 
 struct SleepData: Identifiable {

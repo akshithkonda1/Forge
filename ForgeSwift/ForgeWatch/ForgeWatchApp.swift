@@ -4,7 +4,7 @@ import ForgeCore
 // MARK: - ForgeWatchApp
 //
 // Entry point. Managers are created once here and injected through the
-// Observation-based environment (watchOS 10+). Complications deep-link in
+// Observation-based environment (watchOS 27). Complications deep-link in
 // via forgewatch:// URLs and land pre-filled.
 
 enum WatchRoute: Hashable {
@@ -132,15 +132,9 @@ struct ForgeWatchApp: App {
 // MARK: - Shared view helpers
 
 extension View {
-    /// Marks a button as the Double Tap gesture target on watchOS 11+,
-    /// no-op on watchOS 10 (deployment target).
-    @ViewBuilder
+    /// Marks a button as the Double Tap gesture target (watchOS 27).
     func primaryDoubleTapShortcut() -> some View {
-        if #available(watchOS 11.0, *) {
-            self.handGestureShortcut(.primaryAction)
-        } else {
-            self
-        }
+        self.handGestureShortcut(.primaryAction)
     }
 }
 

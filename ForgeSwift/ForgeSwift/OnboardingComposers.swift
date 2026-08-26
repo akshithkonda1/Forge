@@ -1,100 +1,449 @@
 import SwiftUI
+import UIKit
 
-struct AgeComposer: View {
-    @Bindable var coordinator: OnboardingCoordinator
-
-    private var minimumBirthday: Date {
-        Calendar.current.date(byAdding: .year, value: -120, to: Date()) ?? Date()
-    }
-
-    var body: some View {
-        VStack(spacing: 12) {
-            DatePicker(
-                "Birthday",
-                selection: $coordinator.profile.birthday,
-                in: minimumBirthday...Date(),
-                displayedComponents: [.date]
-            )
-            .datePickerStyle(.wheel)
-            .labelsHidden()
-            .colorScheme(.dark)
-            .frame(maxHeight: 140)
-
-            Text(coordinator.isUnderage ? "Must be 13+" : "\(coordinator.profile.ageYears) years old")
-                .font(.caption.weight(.bold))
-                .foregroundColor(coordinator.isUnderage ? .danger : .success)
-
-            PrimaryCTA(
-                title: coordinator.isUnderage ? "Age requirement not met" : "Continue",
-                icon: "arrow.right",
-                enabled: !coordinator.isUnderage,
-                action: coordinator.confirmAge
-            )
-        }
-    }
-}
-
+/// Preferred name + optional last name. Modeled on Claude/Grok ("what should we call you")
+/// and Apple Health Health Details (first / last as separate fields).
 struct NameComposer: View {
     @Bindable var coordinator: OnboardingCoordinator
     @ObservedObject var dictation: SpeechManager
-    @FocusState private var focused: Bool
+    @FocusState private var focusedField: NameField?
+
+    private enum NameField: Hashable { case preferred, last }
 
     var body: some View {
-        VStack(spacing: 10) {
-            if dictation.isListening {
-                Text(coordinator.freeText.isEmpty ? "Say your name…" : "\"\(coordinator.freeText)\"")
-                    .font(.caption.weight(.medium))
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Preferred name")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundColor(.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .transition(.opacity)
+                HStack(spacing: 10) {
+                    TextField("Maya", text: $coordinator.profile.name)
+                        .focused($focusedField, equals: .preferred)
+                        .textContentType(.givenName)
+                        .textInputAutocapitalization(.words)
+                        .autocorrectionDisabled()
+                        .font(.system(size: 28, weight: .semibold, design: .rounded))
+                        .foregroundColor(.textPrimary)
+                        .onSubmit { focusedField = .last }
+
+                    DictationMicButton(dictation: dictation) {
+                        applySpokenName()
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color.surfaceElevated)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(
+                            focusedField == .preferred || dictation.isListening
+                                ? Color.ember.opacity(0.55)
+                                : Color.white.opacity(0.08),
+                            lineWidth: 1
+                        )
+                )
+                Text("What you’ll hear in coaching. First name is enough.")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.textTertiary)
             }
 
-            HStack(spacing: 10) {
-                TextField("Your name", text: $coordinator.freeText)
-                    .focused($focused)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Text("Last name")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(.textSecondary)
+                    Text("optional")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(.textMuted)
+                }
+
+                TextField("Chen", text: $coordinator.profile.lastName)
+                    .focused($focusedField, equals: .last)
+                    .textContentType(.familyName)
                     .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled()
+                    .font(.system(size: 18, weight: .medium, design: .rounded))
+                    .foregroundColor(.textPrimary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
-                    .background(Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                    .background(Color.surfaceElevated)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .stroke(
-                                dictation.isListening
-                                    ? Color.ember.opacity(0.7)
-                                    : (focused ? Color.ember.opacity(0.5) : Color.borderColor),
-                                lineWidth: dictation.isListening ? 1.5 : 1
+                                focusedField == .last ? Color.ember.opacity(0.4) : Color.white.opacity(0.07),
+                                lineWidth: 1
                             )
                     )
                     .onSubmit { submit() }
+                Text("Stays on your profile. ARIA won’t say it unless you ask.")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.textTertiary)
+            }
 
-                DictationMicButton(dictation: dictation) {
-                    // Finalized utterance — ensure freeText has last transcript
-                    let spoken = dictation.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !spoken.isEmpty {
-                        coordinator.freeText = spoken
-                    }
-                    if !coordinator.freeText.trimmingCharacters(in: .whitespaces).isEmpty {
-                        submit()
-                    }
+            if coordinator.profile.isPreferredNameValid {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkle")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.ember)
+                    Text("ARIA will call you \(coordinator.profile.firstName).")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(.textPrimary)
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.ember.opacity(0.10))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
 
-                Button(action: submit) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 36))
-                        .foregroundStyle(FDS.Gradient.ember)
-                }
-                .disabled(coordinator.freeText.trimmingCharacters(in: .whitespaces).isEmpty)
-                .opacity(coordinator.freeText.trimmingCharacters(in: .whitespaces).isEmpty ? 0.4 : 1)
+            PrimaryCTA(
+                title: coordinator.profile.trimmedName.isEmpty ? "Continue" : "Continue as \(coordinator.profile.firstName)",
+                icon: "arrow.right",
+                enabled: coordinator.profile.isPreferredNameValid,
+                action: submit
+            )
+        }
+        .onAppear {
+            if coordinator.profile.trimmedName.isEmpty {
+                focusedField = .preferred
             }
         }
-        .onAppear { focused = true }
+        .onChange(of: dictation.recognizedText) { _, text in
+            guard dictation.isListening, focusedField != .last else { return }
+            let spoken = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !spoken.isEmpty { coordinator.profile.name = spoken }
+        }
         .animation(FDS.Spring.snap, value: dictation.isListening)
+        .animation(FDS.Spring.snap, value: coordinator.profile.isPreferredNameValid)
+    }
+
+    private func applySpokenName() {
+        let spoken = dictation.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !spoken.isEmpty else { return }
+        let parts = spoken.split(separator: " ").map(String.init)
+        if focusedField == .last, parts.count == 1 {
+            coordinator.profile.lastName = spoken
+        } else if parts.count >= 2 {
+            coordinator.profile.name = parts[0]
+            coordinator.profile.lastName = parts.dropFirst().joined(separator: " ")
+        } else {
+            coordinator.profile.name = spoken
+        }
     }
 
     private func submit() {
         dictation.cancel()
         coordinator.submitName()
+    }
+}
+
+/// Date of birth, biological sex, height, weight — Apple Health / Bevel Health Details,
+/// not a riddle. Prefills from Apple Health when connected; every field is labeled with why.
+struct DetailsComposer: View {
+    @Bindable var coordinator: OnboardingCoordinator
+    @State private var showBirthdayPicker = false
+    @State private var heightFeet = ""
+    @State private var heightInches = ""
+    @State private var heightCmText = ""
+    @State private var weightText = ""
+    @State private var hydratingFields = false
+
+    private var minimumBirthday: Date {
+        Calendar.current.date(byAdding: .year, value: -120, to: Date()) ?? Date()
+    }
+
+    private var birthdayBinding: Binding<Date> {
+        Binding(
+            get: { coordinator.profile.birthday ?? Self.startingBirthday },
+            set: { coordinator.profile.birthday = $0 }
+        )
+    }
+
+    private static var startingBirthday: Date {
+        Calendar.current.date(byAdding: .year, value: -25, to: Date()) ?? Date()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if !coordinator.profile.detailsSummaryLine.isEmpty {
+                Text(coordinator.profile.detailsSummaryLine)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundColor(.textPrimary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.white.opacity(0.05))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+
+            birthdayBlock
+            sexBlock
+            bodyBlock
+
+            PrimaryCTA(
+                title: coordinator.isUnderage ? "Must be 13 or older" : "Confirm details",
+                icon: "arrow.right",
+                enabled: coordinator.profile.hasConfirmedDetails && !coordinator.isUnderage,
+                action: coordinator.confirmDetails
+            )
+        }
+        .onAppear { hydrateBodyFields() }
+        .onChange(of: coordinator.profile.heightCm) { _, _ in hydrateBodyFields() }
+        .onChange(of: coordinator.profile.weightKg) { _, _ in hydrateBodyFields() }
+        .onChange(of: coordinator.profile.usesMetricUnits) { _, _ in hydrateBodyFields() }
+    }
+
+    private var birthdayBlock: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            fieldHeader(
+                "Date of birth",
+                sourced: coordinator.profile.healthSourcedFields.contains(.birthday)
+            )
+            Text("Heart-rate zones, recovery norms, and 13+ safety.")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.textTertiary)
+
+            if coordinator.profile.birthday == nil, !showBirthdayPicker {
+                Button {
+                    coordinator.profile.birthday = Self.startingBirthday
+                    showBirthdayPicker = true
+                    FDS.haptic(.light)
+                } label: {
+                    HStack {
+                        Text("Select date")
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .foregroundColor(.textPrimary)
+                        Spacer()
+                        Image(systemName: "calendar")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.ember)
+                    }
+                    .padding(16)
+                    .background(Color.surfaceElevated)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            } else {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(coordinator.isUnderage ? "Must be 13+" : "\(coordinator.profile.ageYears)")
+                        .font(.system(size: 34, weight: .semibold, design: .rounded))
+                        .foregroundColor(coordinator.isUnderage ? .danger : .textPrimary)
+                        .contentTransition(.numericText())
+                    Text(coordinator.isUnderage ? "" : "years old")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.textSecondary)
+                    Spacer()
+                }
+                DatePicker(
+                    "Date of birth",
+                    selection: birthdayBinding,
+                    in: minimumBirthday...Date(),
+                    displayedComponents: [.date]
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .colorScheme(.dark)
+                .frame(maxHeight: 120)
+            }
+        }
+        .padding(16)
+        .background(Color.surfaceElevated.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+        )
+    }
+
+    private var sexBlock: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            fieldHeader(
+                "Biological sex",
+                sourced: coordinator.profile.healthSourcedFields.contains(.sex)
+            )
+            Text("Calories, heart-rate zones, Cycle Health. Not gender — that’s in Profile.")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            BiologicalSexStepView(coordinator: coordinator)
+        }
+        .padding(16)
+        .background(Color.surfaceElevated.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+        )
+    }
+
+    private var bodyBlock: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                fieldHeader(
+                    "Height & weight",
+                    sourced: coordinator.profile.healthSourcedFields.contains(.height)
+                        || coordinator.profile.healthSourcedFields.contains(.weight)
+                )
+                Spacer()
+                Picker("Units", selection: $coordinator.profile.usesMetricUnits) {
+                    Text("ft / lb").tag(false)
+                    Text("cm / kg").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 168)
+            }
+            Text("Optional. Used for calorie and load math.")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.textTertiary)
+
+            if coordinator.profile.usesMetricUnits {
+                HStack(spacing: 10) {
+                    metricField(placeholder: "170", text: $heightCmText, unit: "cm") { value in
+                        if let cm = Double(value.replacingOccurrences(of: ",", with: ".")),
+                           (90...250).contains(cm) {
+                            coordinator.profile.heightCm = cm
+                            coordinator.profile.healthSourcedFields.remove(.height)
+                        } else if value.trimmingCharacters(in: .whitespaces).isEmpty {
+                            coordinator.profile.heightCm = nil
+                        }
+                    }
+                    metricField(placeholder: "70", text: $weightText, unit: "kg") { value in
+                        applyWeightText(value)
+                    }
+                }
+            } else {
+                HStack(spacing: 10) {
+                    unitField(placeholder: "5", text: $heightFeet, unit: "ft") { syncImperialHeight() }
+                    unitField(placeholder: "10", text: $heightInches, unit: "in") { syncImperialHeight() }
+                    metricField(placeholder: "160", text: $weightText, unit: "lb") { value in
+                        applyWeightText(value)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.surfaceElevated.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+        )
+    }
+
+    private func fieldHeader(_ title: String, sourced: Bool) -> some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(.textSecondary)
+            if sourced {
+                HStack(spacing: 4) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 8, weight: .bold))
+                    Text("Apple Health")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .foregroundColor(.vitality)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.vitality.opacity(0.14))
+                .clipShape(Capsule())
+            }
+        }
+    }
+
+    private func unitField(placeholder: String, text: Binding<String>, unit: String, onChange: @escaping () -> Void) -> some View {
+        HStack(spacing: 6) {
+            TextField(placeholder, text: text)
+                .keyboardType(.numberPad)
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .multilineTextAlignment(.center)
+                .padding(.vertical, 12)
+                .onChange(of: text.wrappedValue) { _, _ in onChange() }
+            Text(unit)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.textMuted)
+        }
+        .padding(.horizontal, 10)
+        .background(Color.background.opacity(0.55))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func metricField(placeholder: String, text: Binding<String>, unit: String, onEdit: @escaping (String) -> Void) -> some View {
+        HStack(spacing: 6) {
+            TextField(placeholder, text: text)
+                .keyboardType(.decimalPad)
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .multilineTextAlignment(.center)
+                .padding(.vertical, 12)
+                .onChange(of: text.wrappedValue) { _, value in
+                    guard !hydratingFields else { return }
+                    onEdit(value)
+                }
+            Text(unit)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.textMuted)
+        }
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity)
+        .background(Color.background.opacity(0.55))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func applyWeightText(_ value: String) {
+        let cleaned = value.replacingOccurrences(of: ",", with: ".")
+        guard let number = Double(cleaned) else {
+            if value.trimmingCharacters(in: .whitespaces).isEmpty {
+                coordinator.profile.weightKg = nil
+            }
+            return
+        }
+        if coordinator.profile.usesMetricUnits {
+            guard (30...300).contains(number) else { return }
+            coordinator.profile.weightKg = number
+        } else {
+            guard (50...800).contains(number) else { return }
+            coordinator.profile.weightKg = OnboardingBodyUnits.kilograms(lbs: number)
+        }
+        coordinator.profile.healthSourcedFields.remove(.weight)
+    }
+
+    private func hydrateBodyFields() {
+        hydratingFields = true
+        if let cm = coordinator.profile.heightCm {
+            let pair = OnboardingBodyUnits.feetAndInches(cm: cm)
+            heightFeet = String(pair.feet)
+            heightInches = String(pair.inches)
+            heightCmText = String(Int(cm.rounded()))
+        }
+        if let kg = coordinator.profile.weightKg {
+            if coordinator.profile.usesMetricUnits {
+                weightText = String(format: "%g", (kg * 10).rounded() / 10)
+            } else {
+                weightText = String(Int(OnboardingBodyUnits.pounds(kg: kg).rounded()))
+            }
+        }
+        if coordinator.profile.birthday != nil {
+            showBirthdayPicker = true
+        }
+        hydratingFields = false
+    }
+
+    private func syncImperialHeight() {
+        guard !hydratingFields else { return }
+        let feet = Int(heightFeet) ?? 0
+        let inches = Int(heightInches) ?? 0
+        if feet == 0 && inches == 0 && heightFeet.isEmpty && heightInches.isEmpty {
+            coordinator.profile.heightCm = nil
+            return
+        }
+        let totalInches = feet * 12 + inches
+        guard (36...96).contains(totalInches) else { return }
+        coordinator.profile.heightCm = OnboardingBodyUnits.centimeters(feet: feet, inches: inches)
+        coordinator.profile.healthSourcedFields.remove(.height)
     }
 }
 
@@ -152,7 +501,35 @@ struct HealthComposer: View {
     @Bindable var coordinator: OnboardingCoordinator
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 16) {
+            HStack(alignment: .top, spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.vitality.opacity(0.14))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: "heart.text.square.fill")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(.vitality)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Apple Health")
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundColor(.textPrimary)
+                    Text("Sleep, heart, and activity stay on this iPhone. ARIA coaches from what you already have.")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.surfaceElevated.opacity(0.7))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.white.opacity(0.06), lineWidth: 1)
+            )
+
             PrimaryCTA(
                 title: coordinator.healthKitState == .requesting ? "Connecting…" : "Connect Apple Health",
                 icon: "heart.text.square.fill",
@@ -160,7 +537,7 @@ struct HealthComposer: View {
                 action: coordinator.connectHealthKit
             )
             Button("Skip for now") { coordinator.skipHealthKit() }
-                .font(.subheadline.weight(.semibold))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundColor(.textSecondary)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 40)
@@ -178,25 +555,24 @@ struct MultiChipComposer: View {
     let onContinue: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title.uppercased())
-                .font(.caption2.weight(.black))
-                .tracking(1.4)
-                .foregroundColor(.textMuted)
+        VStack(alignment: .leading, spacing: 14) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(.textSecondary)
 
             OnboardingFlowLayout(spacing: 8) {
                 ForEach(items, id: \.id) { item in
                     let selected = isSelected(item.id)
                     Button { onToggle(item.id) } label: {
                         Text(item.label)
-                            .font(.caption.weight(.semibold))
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
                             .foregroundColor(selected ? .white : .textSecondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                            .background(selected ? Color.ember.opacity(0.85) : Color.surface)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(selected ? Color.ember.opacity(0.88) : Color.surfaceElevated)
                             .clipShape(Capsule())
                             .overlay(
-                                Capsule().stroke(selected ? Color.ember : Color.borderColor, lineWidth: 1)
+                                Capsule().stroke(selected ? Color.ember.opacity(0.9) : Color.white.opacity(0.07), lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
@@ -216,32 +592,32 @@ struct OptionCardsComposer: View {
         VStack(spacing: 8) {
             ForEach(options, id: \.id) { opt in
                 Button { onSelect(opt.id) } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 3) {
                             Text(opt.title)
-                                .font(.subheadline.weight(.bold))
+                                .font(.system(size: 16, weight: .semibold, design: .rounded))
                                 .foregroundColor(.textPrimary)
                             if !opt.subtitle.isEmpty {
                                 Text(opt.subtitle)
-                                    .font(.caption)
+                                    .font(.system(size: 13, weight: .medium))
                                     .foregroundColor(.textTertiary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .font(.caption.weight(.bold))
+                            .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.textMuted)
                     }
-                    .padding(14)
-                    .background(Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                    .padding(16)
+                    .background(Color.surfaceElevated.opacity(0.8))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                            .stroke(Color.borderColor, lineWidth: 0.7)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.white.opacity(0.06), lineWidth: 1)
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(AuthPressButtonStyle())
             }
         }
     }
@@ -253,13 +629,12 @@ struct ConditionsComposer: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("CONDITIONS TO RESPECT")
-                .font(.caption2.weight(.black))
-                .tracking(1.4)
-                .foregroundColor(.textMuted)
+            Text("Conditions to respect")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(.textSecondary)
 
             Text("Optional. Lifestyle coach only — not medical care.")
-                .font(.caption)
+                .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.textTertiary)
 
             OnboardingFlowLayout(spacing: 8) {
@@ -298,9 +673,9 @@ struct ConditionsComposer: View {
             }
 
             PrimaryCTA(
-                title: "Continue",
+                title: coordinator.profile.reportedConditions.isEmpty ? "Skip" : "Continue",
                 icon: "arrow.right",
-                enabled: !coordinator.profile.reportedConditions.isEmpty,
+                enabled: true,
                 action: {
                     dictation.cancel()
                     coordinator.confirmConditions()
@@ -336,15 +711,15 @@ struct CoachingComposer: View {
                         }
                         Spacer()
                     }
-                    .padding(14)
-                    .background(Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                    .padding(16)
+                    .background(Color.surfaceElevated.opacity(0.8))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                            .stroke(style.color.opacity(0.35), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(style.color.opacity(0.28), lineWidth: 1)
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(AuthPressButtonStyle())
             }
         }
     }
@@ -355,16 +730,22 @@ struct ReadyComposer: View {
     let onFinish: () -> Void
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 14) {
+            if !coordinator.profile.firstName.isEmpty {
+                Text("You’re set, \(coordinator.profile.firstName).")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundColor(.textPrimary)
+                    .frame(maxWidth: .infinity)
+            }
             if coordinator.profile.guidanceOnlyMode {
                 Text("ARIA will coach with guidance only for the conditions you shared.")
-                    .font(.caption)
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.textTertiary)
                     .multilineTextAlignment(.center)
             }
             PrimaryCTA(
-                title: coordinator.isCompleting ? "Activating ARIA…" : "Start training with ARIA",
-                icon: "flame.fill",
+                title: coordinator.isCompleting ? "Starting…" : "Start with ARIA",
+                icon: "arrow.right",
                 enabled: !coordinator.isCompleting && coordinator.canFinish,
                 action: onFinish
             )
@@ -382,15 +763,18 @@ struct PrimaryCTA: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                Text(title).font(.headline.weight(.bold))
+                    .font(.system(size: 15, weight: .bold))
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
             }
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 52)
+            .frame(height: 54)
             .background(enabled ? AnyShapeStyle(FDS.Gradient.ember) : AnyShapeStyle(Color.white.opacity(0.08)))
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(color: enabled ? Color.ember.opacity(0.35) : .clear, radius: 16, y: 8)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AuthPressButtonStyle())
         .disabled(!enabled)
     }
 }
@@ -403,34 +787,27 @@ struct MessageBubble: View {
         Group {
             switch message.role {
             case .aria:
-                HStack(alignment: .top, spacing: 10) {
-                    Circle()
-                        .fill(FDS.Gradient.ember)
-                        .frame(width: 28, height: 28)
-                        .overlay(Text("A").font(.caption2.weight(.black)).foregroundColor(.white))
+                HStack(alignment: .top, spacing: 0) {
                     Text(message.text)
-                        .font(.subheadline)
+                        .font(.system(size: 16, weight: .regular, design: .rounded))
                         .foregroundColor(.textPrimary)
-                        .lineSpacing(3)
-                        .padding(12)
-                        .background(Color.surface.opacity(0.95))
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color.ember.opacity(0.2), lineWidth: 1)
-                        )
-                    Spacer(minLength: 24)
+                        .lineSpacing(4)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(Color.white.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    Spacer(minLength: 36)
                 }
             case .user:
                 HStack {
-                    Spacer(minLength: 40)
+                    Spacer(minLength: 48)
                     Text(message.text)
-                        .font(.subheadline.weight(.medium))
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
                         .foregroundColor(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(Color.ember.opacity(0.85))
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .background(Color.ember.opacity(0.82))
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
             case .system:
                 HStack {
@@ -459,11 +836,7 @@ struct TypingIndicator: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Circle()
-                .fill(FDS.Gradient.ember)
-                .frame(width: 28, height: 28)
-                .overlay(Text("A").font(.caption2.weight(.black)).foregroundColor(.white))
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 ForEach(0..<3, id: \.self) { i in
                     Circle()
                         .fill(Color.textMuted)
@@ -471,9 +844,10 @@ struct TypingIndicator: View {
                         .offset(y: sin(phase + Double(i)) * 3)
                 }
             }
-            .padding(12)
-            .background(Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Color.white.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             Spacer()
         }
         .onAppear {

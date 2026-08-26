@@ -123,6 +123,29 @@ extension HealthKitManager {
         if todayWaterMilliliters == 0, let fromStats = todayStats {
             todayWaterMilliliters = HydrationEngine.milliliters(fromGlasses: fromStats.water)
         }
+        if todayWaterMilliliters == 0, let seeded = testReadyHydrationMilliliters {
+            installTestReadyHydration(milliliters: seeded)
+        }
+    }
+
+    /// In-memory water for Device Hub / simulator. Not written to HealthKit.
+    func installTestReadyHydration(milliliters: Double) {
+        guard milliliters > 0 else { return }
+        testReadyHydrationMilliliters = milliliters
+        if todayWaterMilliliters == 0 {
+            todayWaterMilliliters = milliliters
+        }
+        if todayWaterLogs.isEmpty {
+            todayWaterLogs = [
+                WaterLog(
+                    id: UUID(uuidString: "F0A6E000-0000-4000-8000-000000000001") ?? UUID(),
+                    date: Date(),
+                    milliliters: milliliters,
+                    sourceName: "Test-ready pack",
+                    isForge: true
+                )
+            ]
+        }
     }
 
     func fetchTodayWaterLogs() async {

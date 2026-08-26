@@ -281,10 +281,10 @@ struct MenstrualHealthView: View {
                     .foregroundStyle(Color.ember)
                     .frame(width: 30)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Let someone support you")
+                    Text("Invite someone to support me")
                         .font(FDS.TypeScale.label(15))
                         .foregroundColor(.textPrimary)
-                    Text("Share a general picture over iMessage. Never your logs.")
+                    Text("They see how to help. They never see your log.")
                         .font(FDS.TypeScale.body(12))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -747,7 +747,7 @@ struct MenstrualHealthView: View {
                 guard privacyAccepted else { return }
                 cycleStore.updateSettings {
                     $0.enabled = true
-                    $0.shareWithAria = true
+                    $0.shareWithAria = false
                     $0.privacyAcknowledged = true
                 }
                 FDS.haptic(.medium)
@@ -1793,7 +1793,7 @@ struct MenstrualHealthView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Share cycle with ARIA")
                         .foregroundColor(.textPrimary)
-                    Text("Read-only for your coaching. Off = ARIA never sees cycle phase.")
+                    Text("Off until you turn it on. ARIA never sees phase unless you opt in.")
                         .font(FDS.TypeScale.body(11))
                         .foregroundColor(.textTertiary)
                 }
@@ -2209,7 +2209,7 @@ struct MenstrualHealthView: View {
                 } else {
                     cycleStore.updatePartnerSettings {
                         $0.enabled = true
-                        $0.shareWithAria = true
+                        $0.shareWithAria = false
                         $0.supportRole = supportRole
                         $0.relationshipLabel = supportRole.suggestedLabels.first ?? "partner"
                     }
@@ -2302,7 +2302,7 @@ struct MenstrualHealthView: View {
                     $0.relationshipLabel = partnerRelDraft.isEmpty
                         ? (supportRole.suggestedLabels.first ?? "partner")
                         : partnerRelDraft
-                    $0.shareWithAria = true
+                    $0.shareWithAria = false
                 }
                 FDS.notificationHaptic(.success)
             } label: {
@@ -2532,7 +2532,7 @@ struct MenstrualHealthView: View {
             )) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Share with ARIA").foregroundColor(.textPrimary)
-                    Text("Read for coaching only — never sold or resold.")
+                    Text("Off until you turn it on. ARIA coaches you from what you log.")
                         .font(FDS.TypeScale.body(11))
                         .foregroundColor(.textTertiary)
                 }

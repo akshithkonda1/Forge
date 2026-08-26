@@ -61,6 +61,7 @@ func widgetDeepLink(for kind: String) -> URL {
     case "HydrationWidget": return ForgeWidgetLink.hydration
     case "SleepWidget":     return ForgeWidgetLink.sleep
     case "CyclePhaseWidget": return ForgeWidgetLink.cycle
+    case "SupportGlanceWidget": return ForgeWidgetLink.support
     case "LifestyleWidget": return ForgeWidgetLink.lifestyle
     default:                return ForgeWidgetLink.today
     }

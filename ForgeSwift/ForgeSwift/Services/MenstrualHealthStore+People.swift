@@ -56,7 +56,7 @@ extension MenstrualHealthStore {
         settings.relationshipLabel = relationshipLabel
             ?? role.suggestedLabels.first
             ?? role.shortLabel.lowercased()
-        settings.shareWithAria = true
+        settings.shareWithAria = false
         settings.consentAcknowledged = consentAcknowledged
         let person = SupportedPerson.make(settings: settings, cloudKitOwnerID: cloudKitOwnerID)
         supportedPeople.append(person)
@@ -429,6 +429,6 @@ extension MenstrualHealthStore {
     /// forget to clear. `PartnerCycleDigest.init(redacting:)` is the only
     /// crossing point, and this is the only thing that calls it.
     var supporterDigest: PartnerCycleDigest {
-        PartnerCycleDigest(redacting: snapshot)
+        PartnerCycleDigest(redacting: snapshot, tier: settings.partnerShareTier)
     }
 }

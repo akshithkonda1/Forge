@@ -25,7 +25,7 @@ func readinessWhyCopy(store: AppStore) -> String {
         bits.append("cycle phase suggests a recovery bias")
     }
     if bits.isEmpty {
-        return "Balanced drivers across sleep, recovery, stress, and energy. Readiness is a composite — not a single sensor."
+        return "Sleep, recovery, stress, and energy are in balance. This isn’t one sensor — it’s how today looks together."
     }
     let joined = bits.joined(separator: "; ")
     return joined.prefix(1).uppercased() + joined.dropFirst() + "."
@@ -76,9 +76,9 @@ enum HomeReadiness {
 func homeStatusLine(store: AppStore) -> String {
     let score = store.readiness.overall
     switch score {
-    case 85...: return "Primed to perform"
-    case 70..<85: return "Recovered enough to train"
-    case 55..<70: return "Train smart, not maximal"
-    default: return "Protect recovery today"
+    case 85...: return "You’re at \(score). You look ready."
+    case 70..<85: return "You’re at \(score). A solid session fits."
+    case 55..<70: return "You’re at \(score). Train smart, not maximal."
+    default: return "You’re at \(score). Easy session today."
     }
 }

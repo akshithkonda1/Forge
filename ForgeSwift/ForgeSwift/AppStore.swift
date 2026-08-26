@@ -87,6 +87,22 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// Nil means ARIA picks the specialist. Persisted so the same coach comes back.
+    @Published var pinnedCoachAgent: AriaCoachAgent? = {
+        let raw = UserDefaults.standard.string(forKey: "forge.aria.pinnedCoach.v1") ?? ""
+        return AriaCoachAgent(rawValue: raw)
+    }() {
+        didSet {
+            UserDefaults.standard.set(pinnedCoachAgent?.rawValue ?? "", forKey: "forge.aria.pinnedCoach.v1")
+        }
+    }
+
+    /// Last specialist that actually answered. Header and bubbles read this.
+    @Published var lastRoutedCoachAgent: AriaCoachAgent = .aria
+    /// Every worker spawned for the last turn. Header lists them when there
+    /// is more than one.
+    @Published var lastCoachWorkers: [AriaCoachWorker] = []
+
     // Settings — @Published so SwiftUI observes them directly, instead of
     // decoding UserDefaults on every access with a manual objectWillChange.
     // didSet persists (and reschedules notifications) the same way as before.
@@ -113,6 +129,29 @@ final class AppStore: ObservableObject {
     @Published var healthKitLive: Bool = false
     /// Last successful metrics refresh (Home status pill).
     @Published var lastMetricsRefresh: Date? = nil
+    /// True when today's numbers came from ForgeCore's Test-Ready Health pack
+    /// because Apple Health had nothing. Never set from a real sample.
+    @Published var usingTestReadyHealthPack: Bool = false
+
+    /// First conversation with ARIA. Completes once; replay from Settings.
+    @Published var hasCompletedAriaUseOnboarding: Bool = UserDefaults.standard.bool(forKey: AriaUseOnboarding.storageKey) {
+        didSet { UserDefaults.standard.set(hasCompletedAriaUseOnboarding, forKey: AriaUseOnboarding.storageKey) }
+    }
+    @Published var isInAriaFirstBond: Bool = false
+    var ariaFirstBondBeat: AriaFirstBond.Beat = .opening
+    var ariaFirstBondForceReplay: Bool = false
+
+    func completeAriaUseOnboarding() {
+        isInAriaFirstBond = false
+        hasCompletedAriaUseOnboarding = true
+    }
+
+    func replayAriaUseOnboarding() {
+        hasCompletedAriaUseOnboarding = false
+        ariaFirstBondForceReplay = true
+        activeTab = .chat
+        startAriaFirstBondIfNeeded()
+    }
     
     // Streak tracking — consecutive calendar days with a completed session.
     @Published var currentStreak: Int = 0
@@ -130,15 +169,10 @@ final class AppStore: ObservableObject {
     init() {
         // Initialize AI response generator
         #if canImport(FoundationModels)
-        if #available(iOS 26.0, *) {
-            let foundationModelsGenerator = FoundationModelsResponseGenerator()
-            self.aiModelAvailable = foundationModelsGenerator.isAvailable
-            self.responseGenerator = foundationModelsGenerator.isAvailable ?
-                foundationModelsGenerator : RuleBasedResponseGenerator()
-        } else {
-            self.responseGenerator = RuleBasedResponseGenerator()
-            self.aiModelAvailable = false
-        }
+        let foundationModelsGenerator = FoundationModelsResponseGenerator()
+        self.aiModelAvailable = foundationModelsGenerator.isAvailable
+        self.responseGenerator = foundationModelsGenerator.isAvailable ?
+            foundationModelsGenerator : RuleBasedResponseGenerator()
         #else
         self.responseGenerator = RuleBasedResponseGenerator()
         self.aiModelAvailable = false

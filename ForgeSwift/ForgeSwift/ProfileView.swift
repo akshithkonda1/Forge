@@ -175,7 +175,7 @@ struct ProfileHeroHeader: View {
 
     private var statBand: some View {
         HStack(spacing: 0) {
-            heroStat(value: "\(store.currentStreak)", label: "Day streak", icon: "flame.fill", tint: .warning)
+            heroStat(value: "\(store.currentStreak)", label: "Days trained", icon: "checkmark.circle.fill", tint: .ember)
             statDivider
             heroStat(value: "\(totalWorkouts)", label: "Workouts", icon: "figure.strengthtraining.traditional", tint: .ember)
             statDivider

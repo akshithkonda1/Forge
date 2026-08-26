@@ -126,13 +126,10 @@ final class SpeechManager: ObservableObject {
     private func beginRecognition() {
         do {
             let session = AVAudioSession.sharedInstance()
-            // `.allowBluetoothHFP` is the iOS 26 rename of `.allowBluetooth` and does
-            // not exist in the iOS 18.5 SDK that CI builds against (Xcode 16.4), so it
-            // failed to compile there while building fine on a newer local Xcode. The
-            // original spelling means the same thing — route input over a Bluetooth
-            // headset's Hands-Free Profile — and is available on every SDK this project
-            // supports, given the iOS 17.0 deployment target.
-            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetooth])
+            // iOS 26 renamed `.allowBluetooth` → `.allowBluetoothHFP`. Forge's
+            // deployment target is iOS 27, and CI builds with Xcode 27, so use
+            // the current name.
+            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetoothHFP])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             voiceState = .error("Microphone error")
@@ -142,9 +139,7 @@ final class SpeechManager: ObservableObject {
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let recognitionRequest else { return }
         recognitionRequest.shouldReportPartialResults = true
-        if #available(iOS 13, *) {
-            recognitionRequest.requiresOnDeviceRecognition = false
-        }
+        recognitionRequest.requiresOnDeviceRecognition = false
 
         let inputNode = audioEngine.inputNode
         let format = inputNode.outputFormat(forBus: 0)

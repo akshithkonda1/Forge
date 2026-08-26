@@ -29,6 +29,11 @@ six dimensions, and turns those scores into a defensible **ship / hold** verdict
 ## Quick start
 
 ```bash
+# Test-Ready dummy orchestrator — local SimRunner stub only. No AWS, no cloud.
+python -m backend.simrunner --test-ready
+python -m backend.simrunner --test-ready --message "I slept badly — what should I train and eat?"
+python -m backend.simrunner --test-ready --gate
+
 # Default: Tier 1 only (fast sanity check)
 python -m backend.simrunner
 
@@ -66,6 +71,8 @@ Tier 1.
 | `--baseline [DIR]` | write golden snapshots (default `baselines/`) |
 | `--compare [DIR]` | diff this run against a committed baseline → `comparison.json` |
 | `--gate` | fail (exit 2) on a composite regression or a new mission-critical |
+| `--test-ready` | local dummy coach orchestra (SimRunner stub; no AWS / Bedrock / cloud) |
+| `--message` | with `--test-ready`, a prompt to orchestrate (repeatable) |
 | `--list` / `--list-bedrock` | print the 20 archetypes / the full Bedrock catalog |
 
 ---

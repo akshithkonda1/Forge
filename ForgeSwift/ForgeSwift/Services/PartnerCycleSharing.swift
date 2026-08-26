@@ -518,6 +518,7 @@ final class PartnerCycleSharing: ObservableObject {
             // and with several sharers, "no zones at all" is no longer the only
             // way that happens.
             receivedDigests = found.sorted { $0.ownerName < $1.ownerName }
+            publishSupportSurfaces()
             return receivedDigests
         } catch {
             lastPublishError = error.localizedDescription
@@ -561,6 +562,7 @@ final class PartnerCycleSharing: ObservableObject {
                     role: receivedDigests[idx].role,
                     digest: updated
                 )
+                publishSupportSurfaces()
             }
             lastPublishError = nil
             return true
@@ -617,6 +619,37 @@ final class PartnerCycleSharing: ObservableObject {
             await publish(.paused())
         } else if let current = digestSource() {
             await publishIfChanged(current)
+        }
+    }
+
+    /// Write the wrist / Lock Screen glance and the morning “how to help”
+    /// notification from the most timely received digest. Empty or paused
+    /// shares clear both so a revoked invite cannot keep looking live.
+    func publishSupportSurfaces() {
+        guard let top = primaryReceivedDigest() else {
+            PartnerSupportGlanceStore.clear()
+            Task { await ForgeNotificationScheduler.syncPartnerSupport(nil) }
+            return
+        }
+        let first = top.ownerName.split(separator: " ").first.map(String.init) ?? top.ownerName
+        let glance = PartnerSupportGlance(
+            firstName: first,
+            extraThoughtfulnessHelps: top.digest.extraThoughtfulnessHelps,
+            headline: top.digest.supportHeadline,
+            asOfDayKey: top.digest.asOfDayKey,
+            isPaused: top.digest.phase == .unknown
+        )
+        PartnerSupportGlanceStore.save(glance)
+        Task { await ForgeNotificationScheduler.syncPartnerSupport(glance) }
+    }
+
+    /// Prefer whoever currently needs extra care; otherwise the newest digest.
+    private func primaryReceivedDigest() -> ReceivedDigest? {
+        receivedDigests.max { a, b in
+            if a.digest.extraThoughtfulnessHelps != b.digest.extraThoughtfulnessHelps {
+                return !a.digest.extraThoughtfulnessHelps && b.digest.extraThoughtfulnessHelps
+            }
+            return a.digest.asOfDayKey < b.digest.asOfDayKey
         }
     }
 

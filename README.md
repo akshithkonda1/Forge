@@ -51,7 +51,7 @@ The core problem it solves: **fragmentation kills insight**. Your data exists, b
 Forge is well past the prototype stage. The monorepo contains production-grade pieces across the stack:
 
 ### iOS (Primary — ForgeSwift/)
-- **Mature native SwiftUI app** (iOS 17+)
+- **Mature native SwiftUI app** (iOS 27+ / watchOS 27+)
 - Full feature set: Home dashboard with readiness ring + AI greeting + today's plan, rich **ARIA ChatView** with contextual cards, detailed **SleepView** (stages, timelines, trends, AI insights), **WorkoutView** (live biometrics, rest timer, exercise nav, progressive overload), Lifestyle, Profile, multi-step Onboarding with coaching style selection.
 - Heavy investment in polish: custom design system, Swift Charts, HealthKitManager (deep integration), advanced UI patterns (glassmorphism, particles, animations, Aurora Orb components), accessibility, widgets (ForgeWidget).
 - Dozens of high-quality planning and implementation docs living alongside the code (AWARD_WINNING_*, CHATVIEW_IMPROVEMENTS, IMPLEMENTATION_SUMMARY, etc.).
@@ -174,7 +174,7 @@ forge/
 ## Getting Started
 
 ### Prerequisites
-- Xcode 15+ + iOS 17+ simulator/device (for ForgeSwift)
+- Xcode 27 + iOS 27 / watchOS 27 simulator or device (for ForgeSwift)
 - Node.js 18+ + pnpm (for web client)
 - Python 3.10+ (for backend/SimRunner)
 - AWS CLI + Terraform (for infra)
@@ -190,7 +190,7 @@ cd Forge
 ```bash
 open ForgeSwift/ForgeSwift.xcodeproj
 ```
-- Select simulator or device (iOS 17+)
+- Select simulator or device (iOS 27)
 - Build & run (⌘R)
 - Grant HealthKit permissions when prompted
 - Explore Home → Chat (ARIA) → Sleep → Workout flows
@@ -283,7 +283,7 @@ Full documentation: [`backend/ai/simrunner/README.md`](backend/ai/simrunner/READ
 - [ ] Adaptive training plans
 - [ ] Deeper trend/anomaly detection
 - [ ] Expanded SimRunner archetypes + prompt A/B testing in CI
-- [x] Apple Watch companion — **v1 underway**: `ForgeWatch` watchOS 10 target with context-aware Mindfulness Coach (breathing orb + haptic guidance + on-device suggestion engine), readiness/sleep/mindfulness complications, and a shared `ForgeCore` Swift package. See `ForgeSwift/WATCH_APP_IMPLEMENTATION_PLAN.md`.
+- [x] Apple Watch companion — **v1 underway**: `ForgeWatch` watchOS 27 target with context-aware Mindfulness Coach (breathing orb + haptic guidance + on-device suggestion engine), readiness/sleep/mindfulness complications, and a shared `ForgeCore` Swift package. See `ForgeSwift/WATCH_APP_IMPLEMENTATION_PLAN.md`.
 
 ### Phase 5 — Growth
 - Android native improvements, social features, export APIs, etc.

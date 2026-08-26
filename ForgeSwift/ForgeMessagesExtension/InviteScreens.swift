@@ -89,10 +89,10 @@ private struct ComposeStagedView: View {
     var body: some View {
         InviteLayout(
             icon: "heart.text.square.fill",
-            title: "Invite your \(payload.roleLabel.lowercased())",
+            title: "Invite them to support you",
             // States the boundary in the same breath as the offer, so nobody
             // sends this without knowing what it hands over.
-            subtitle: "They'll see how to show up for you. Not your logs.",
+            subtitle: "They’ll see how to show up. Not your log, flow, or symptoms.",
             actions: actions
         ) {
             if !actions.isCompact {

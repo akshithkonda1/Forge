@@ -132,11 +132,11 @@ If the project file is ever rebuilt from scratch:
 
 1. File → New → Target → **watchOS → App**, name `ForgeWatch`, bundle ID
    `com.forge.ForgeSwift.watchkitapp`, "Watch App for Existing iOS App"
-   (companion: `com.forge.ForgeSwift`), deployment target **watchOS 10.0**.
+   (companion: `com.forge.ForgeSwift`), deployment target **watchOS 27.0**.
    Delete the template ContentView/App files and add everything under
    `ForgeWatch/` (except `Complications/`) to the target.
 2. File → New → Target → **watchOS → Widget Extension**, name
-   `ForgeWatchWidgets`, embed in ForgeWatch, deployment 10.0. Delete the
+   `ForgeWatchWidgets`, embed in ForgeWatch, deployment 27.0. Delete the
    template widget and add the files under `ForgeWatch/Complications/`.
 3. Add the local package: File → Add Package Dependencies → Add Local →
    select `ForgeSwift/ForgeCore`; link the `ForgeCore` product to **both**

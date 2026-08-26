@@ -40,6 +40,54 @@ struct AriaResearchProgress: View {
     }
 }
 
+private struct CoachAgentChipRow: View {
+    @EnvironmentObject var store: AppStore
+
+    private var context: AriaCoachAgentRouter.Context {
+        AriaCoachAgentRouter.context(pinned: store.pinnedCoachAgent)
+    }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                pinChip(nil, title: "Auto", icon: "sparkles")
+                ForEach(AriaCoachAgent.allCases) { agent in
+                    if AriaCoachAgentRouter.isAvailable(agent, context: context) {
+                        pinChip(agent, title: agent.label, icon: agent.icon)
+                    }
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 8)
+        }
+        .accessibilityLabel("Personal coaches")
+    }
+
+    private func pinChip(_ agent: AriaCoachAgent?, title: String, icon: String) -> some View {
+        let selected = store.pinnedCoachAgent == agent
+        return Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            store.pinnedCoachAgent = agent
+            if let agent { store.lastRoutedCoachAgent = agent }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundColor(selected ? .textPrimary : .textTertiary)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 6)
+            .background(selected ? Color.white.opacity(0.10) : Color.clear)
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
 struct ChatInputAreaView: View {
     @EnvironmentObject var store: AppStore
     @Binding var inputText:        String
@@ -88,7 +136,30 @@ struct ChatInputAreaView: View {
             .padding(.horizontal, 18)
             .padding(.top, 10)
 
-            if showQuickActions && !isInputFocused {
+            if !store.isInAriaFirstBond {
+                CoachAgentChipRow()
+            }
+
+            if store.isInAriaFirstBond, !store.lastSuggestedActions.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 9) {
+                        ForEach(store.lastSuggestedActions, id: \.self) { label in
+                            let yesLike = label.lowercased().hasPrefix("yes")
+                            let noLike = label.lowercased().hasPrefix("no")
+                            SmartChip(
+                                label: label,
+                                icon: yesLike ? "checkmark" : (noLike ? "xmark" : "arrow.up.right"),
+                                color: yesLike ? Color(hex: "22C55E") : (noLike ? Color(hex: "F43F5E") : mood.accentColor),
+                                disabled: isTyping
+                            ) {
+                                onSend(label)
+                                choreographedHaptic(.quickChipTap)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 18).padding(.vertical, 11)
+                }
+            } else if showQuickActions && !isInputFocused {
                 let chips = smartQuickActions(
                     mood:         mood,
                     readiness:    store.readiness.overall,

@@ -19,7 +19,7 @@ SimRunner epistemic honesty.
 
 ```
 ForgeSwift/
-├── ForgeCore/                     # Shared Swift Package (iOS 17+ / watchOS 10+)
+├── ForgeCore/                     # Shared Swift Package (iOS 27+ / watchOS 27+)
 │   ├── DesignSystem/              # ForgePalette, ForgeDS tokens, ForgeType
 │   ├── Models/                    # Readiness (+calculator), LifestyleContext,
 │   │                              #   MindfulnessPractice, WatchARIAContext
@@ -27,7 +27,7 @@ ForgeSwift/
 │   ├── HealthKit/                 # ForgeHealthQueries (async, non-UI)
 │   ├── Utils/                     # WatchSnapshotStore (App Group ⇄ complications)
 │   └── Tests/                     # Readiness + suggestion engine unit tests
-├── ForgeWatch/                    # watchOS 10 app target
+├── ForgeWatch/                    # watchOS 27 app target
 │   ├── Views/                     # HomeView, MindfulnessView, LifestyleContextView
 │   ├── Components/                # AuroraOrbWatch, BreathingOrb, ReadinessRing,
 │   │                              #   ContextCard, HapticButton

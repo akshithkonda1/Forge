@@ -190,12 +190,15 @@ struct HomeTodayHero: View {
                                 .font(.system(size: 22, weight: .semibold, design: .rounded))
                                 .foregroundColor(.textPrimary)
                                 .fixedSize(horizontal: false, vertical: true)
-                            Text("\(session.duration) min · \(session.intensity.label)")
+                            Text(homeStatusLine(store: store))
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(.textSecondary)
+                            Text("\(session.duration) min · \(session.intensity.label)")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.textTertiary)
                         }
                     } else {
-                        Text("Today’s session will be written from this.")
+                        Text(homeStatusLine(store: store))
                             .font(.system(size: 15, weight: .medium, design: .rounded))
                             .foregroundColor(.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)

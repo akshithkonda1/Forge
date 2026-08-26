@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import ForgeCore
 
 /// Idempotent notification scheduling driven by Settings toggles.
 @MainActor
@@ -23,6 +24,8 @@ enum ForgeNotificationScheduler {
         static let cycleFertileWindow = "forge.notif.cycle.fertile"
         static let cyclePeriodReminder = "forge.notif.cycle.period"
         static let cyclePhaseTransition = "forge.notif.cycle.phase"
+        /// Local, on the supporter's phone. Body is lock-safe — never a phase.
+        static let partnerSupport = "forge.notif.partner.support"
     }
 
     static func sync(
@@ -199,7 +202,31 @@ enum ForgeNotificationScheduler {
         }
     }
 
-    private static func scheduleDaily(id: String, hour: Int, minute: Int, title: String, body: String) async {
+    /// Morning “how to help” on the supporter's phone. Uses the lock-safe line
+    /// so a lock screen never names a period. Cleared when the share is empty,
+    /// paused, or stale.
+    static func syncPartnerSupport(_ glance: PartnerSupportGlance?) async {
+        center.removePendingNotificationRequests(withIdentifiers: [ID.partnerSupport])
+        center.removeDeliveredNotifications(withIdentifiers: [ID.partnerSupport])
+        guard let glance, !glance.isPaused, !glance.isStale else { return }
+        do { try await center.requestAuthorization(options: [.alert, .sound, .badge]) } catch {}
+        await scheduleDaily(
+            id: ID.partnerSupport,
+            hour: 8, minute: 0,
+            title: glance.notificationTitle,
+            body: glance.notificationBody,
+            destination: ForgeWidgetLink.support.absoluteString
+        )
+    }
+
+    private static func scheduleDaily(
+        id: String,
+        hour: Int,
+        minute: Int,
+        title: String,
+        body: String,
+        destination: String? = nil
+    ) async {
         var components = DateComponents()
         components.hour = hour
         components.minute = minute
@@ -207,6 +234,9 @@ enum ForgeNotificationScheduler {
         content.title = title
         content.body = body
         content.sound = .default
+        if let destination {
+            content.userInfo = ["destination": destination]
+        }
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
         try? await center.add(request)

@@ -170,6 +170,63 @@ voice mode, return prose only and cap at ~{VOICE_TOKEN_CAP} tokens — no card.
 """
 
 
+# Specialist personal coaches. ARIA is the orchestrator; these agents are how
+# she speaks when the user pinned one or the router picked a lane. Cycle is
+# lifestyle support only — never fertility, flow, or a medical claim.
+COACH_AGENTS = {
+    "aria": (
+        "AGENT — ARIA (orchestrator). Stay the personal coach. Bring a specialist "
+        "lane only in the prose if the question is clearly training, recovery, fuel, "
+        "life, or cycle. One next move. Second person."
+    ),
+    "train": (
+        "AGENT — Train. Today's session from readiness and last load. No XP, no "
+        "quests, no rank. If recovery is low, make the session easier rather than "
+        "motivational."
+    ),
+    "recover": (
+        "AGENT — Recover. Sleep, HRV, and whether to protect the day. Name the "
+        "numbers you were given. Do not prescribe supplements or diagnosis."
+    ),
+    "fuel": (
+        "AGENT — Fuel. The next meal, protein, water. Not a diet identity. If "
+        "nutrition domains are restricted, say so and stop."
+    ),
+    "life": (
+        "AGENT — Life. Fit training into the day they already have (work, travel, "
+        "places). Do not rebuild their calendar."
+    ),
+    "cycle": (
+        "AGENT — Cycle. Lifestyle coaching around a menstrual cycle or supporting "
+        "someone they love. Not medical care, not contraception, not a fertility "
+        "calendar. Never invent flow, BBT, ovulation timing, or symptoms. If cycle "
+        "context is absent or restricted, say you don't have it and coach generally."
+    ),
+}
+
+
+def normalize_coach_agent(raw: Any | None) -> str:
+    key = str(raw or "aria").strip().lower()
+    return key if key in COACH_AGENTS else "aria"
+
+
+def normalize_coach_agents(raw: Any | None, single: Any | None = None) -> list[str]:
+    """Unbounded roster for one turn. Dedupe unknown names. Empty → ARIA."""
+    values: list[Any] = []
+    if isinstance(raw, list):
+        values.extend(raw)
+    elif raw not in (None, ""):
+        values.append(raw)
+    if single not in (None, ""):
+        values.append(single)
+    out: list[str] = []
+    for value in values:
+        key = str(value or "").strip().lower()
+        if key in COACH_AGENTS and key not in out:
+            out.append(key)
+    return out or ["aria"]
+
+
 # --- Context model (Section 1) -----------------------------------------------
 
 
@@ -1370,7 +1427,7 @@ def _default_converse(model_id: str, system_prompt: str, user_prompt: str) -> st
     return str(result.get("answer") or "")
 
 
-def live_system_prompt() -> str:
+def live_system_prompt(agent: str | None = None, agents: list[str] | None = None) -> str:
     """ARIA's persona plus the security law, for any live model call.
 
     `AI_SECURITY_DIRECTIVE` describes itself in security.py as "security rules
@@ -1379,10 +1436,20 @@ def live_system_prompt() -> str:
     path that reaches a model goes through this function now, which is why it is
     a function rather than a module constant — a constant composed at import time
     is easy to reintroduce the bug around by passing ARIA_SYSTEM_PROMPT directly.
+
+    Several specialists ride along in *one* prompt so a multi-agent turn is one
+    Bedrock call, not N serial ones.
     """
     from security import AI_SECURITY_DIRECTIVE
 
-    return f"{ARIA_SYSTEM_PROMPT}\n\n{AI_SECURITY_DIRECTIVE}"
+    roster = normalize_coach_agents(agents, agent)
+    assignment = "\n".join(COACH_AGENTS[key] for key in roster)
+    if len(roster) > 1:
+        assignment += (
+            "\nYou have several specialists in the room. Answer once, synthesizing "
+            "them. Do not call further models."
+        )
+    return f"{ARIA_SYSTEM_PROMPT}\n\n{assignment}\n\n{AI_SECURITY_DIRECTIVE}"
 
 
 def generate_coach_text(
@@ -1421,12 +1488,18 @@ def generate_response_live(
     permissions: DataPermissions | None = None,
     voice_mode: bool = False,
     converse: Callable[[str, str, str], str] | None = None,
+    agent: str | None = None,
+    agents: list[str] | None = None,
 ) -> dict[str, Any]:
     """Top-level entry for the live path: deterministic reasoning, then a real
     Claude pass overlaid on top. Falls back to the deterministic envelope on any
     error. ``converse`` is injectable so tests never need boto3 or AWS."""
     base = generate_response(message, ctx, permissions=permissions, voice_mode=voice_mode)
     caller = converse or _default_converse
+    roster = normalize_coach_agents(agents, agent)
+    coach = roster[0]
+    base["agent"] = coach
+    base["agents"] = roster
 
     perms = permissions if isinstance(permissions, DataPermissions) else DataPermissions.allow_all()
     sanitized, restricted = apply_permissions(ctx, perms)
@@ -1437,7 +1510,7 @@ def generate_response_live(
         user_prompt += f"\n\n[VOICE MODE] Reply with prose only (no card), {VOICE_TOKEN_CAP} tokens max."
 
     try:
-        text = caller(model_id, live_system_prompt(), user_prompt)
+        text = caller(model_id, live_system_prompt(agents=roster), user_prompt)
         data = _parse_model_envelope(text)
         prose = str(data.get("prose_summary") or "").strip()
         if not prose:

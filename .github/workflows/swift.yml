@@ -1,4 +1,4 @@
-# Build ForgeSwift (iOS) + ForgeWatch (watchOS) and test ForgeCore on macOS.
+# Build ForgeSwift (iOS 27) + ForgeWatch (watchOS 27) and test ForgeCore on macOS.
 
 name: Swift
 
@@ -32,7 +32,9 @@ env:
 
 jobs:
   build:
-    runs-on: macos-15
+    # Xcode 27 / iOS 27 / watchOS 27 — the SDK Forge is developed against.
+    # macos-15 ships Xcode 16 and cannot compile IPHONEOS_DEPLOYMENT_TARGET=27.
+    runs-on: xcode-27
     defaults:
       run:
         working-directory: ForgeSwift
@@ -75,7 +77,7 @@ jobs:
             build-for-testing \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
-            IPHONEOS_DEPLOYMENT_TARGET=17.0 \
+            IPHONEOS_DEPLOYMENT_TARGET=27.0 \
             ONLY_ACTIVE_ARCH=NO \
             EXCLUDED_ARCHS=x86_64 \
             COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/ios-build.log
@@ -106,7 +108,7 @@ jobs:
             build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
-            WATCHOS_DEPLOYMENT_TARGET=10.0 \
+            WATCHOS_DEPLOYMENT_TARGET=27.0 \
             ONLY_ACTIVE_ARCH=NO \
             COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/watch-build.log
 

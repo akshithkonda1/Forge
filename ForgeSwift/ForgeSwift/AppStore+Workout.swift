@@ -91,6 +91,27 @@ extension AppStore {
         currentStreak = Self.consecutiveWorkoutStreak(workoutHistory)
     }
 
+    /// A fact about today — not a streak to protect.
+    var didTrainToday: Bool {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        return workoutHistory.contains { history in
+            if let historyDate = ISO8601DateFormatter().date(from: history.date) {
+                return cal.isDate(historyDate, inSameDayAs: today)
+            }
+            if history.date.count >= 10 {
+                let f = DateFormatter()
+                f.calendar = cal
+                f.locale = Locale(identifier: "en_US_POSIX")
+                f.dateFormat = "yyyy-MM-dd"
+                if let historyDate = f.date(from: String(history.date.prefix(10))) {
+                    return cal.isDate(historyDate, inSameDayAs: today)
+                }
+            }
+            return false
+        }
+    }
+
     private static func consecutiveWorkoutStreak(_ history: [WorkoutHistory], now: Date = Date()) -> Int {
         let cal = Calendar.current
         let formatter = ISO8601DateFormatter()
