@@ -292,6 +292,9 @@ class HealthKitManager: ObservableObject {
     @Published var todayWaterLogs: [WaterLog] = []
     @Published var weeklyWaterMilliliters: [DailyWaterTotal] = []
     @Published var todayWaterMilliliters: Double = 0
+    /// Remembered Test-Ready water so a later empty HealthKit refresh does
+    /// not wipe the ForgeCore pack on a simulator.
+    var testReadyHydrationMilliliters: Double?
 
     private var observerQueries: [HKObserverQuery] = []
     private var liveRefreshTask: Task<Void, Never>?

@@ -16,34 +16,43 @@ enum AriaDummyOrchestrator {
         let r = store.readiness.overall
         let sleepMin = store.dailyMetrics.totalSleep
         let hrv = store.dailyMetrics.hrv
+        let night = store.sleepData.first
         let sleepLine: String = {
+            if let night {
+                return String(format: "last night was %.1fh, score %d", night.totalHours, night.score)
+            }
             guard sleepMin > 0 else { return "I don’t have last night’s sleep on this phone yet" }
             return "last night was \(sleepMin / 60)h \(sleepMin % 60)m"
         }()
         let hrvLine = hrv > 0 ? "HRV \(hrv)ms" : "no HRV yet"
+        let packNote = store.usingTestReadyHealthPack
+            ? " Test-ready Health pack on this simulator — not Apple Health."
+            : ""
 
         let prose: String
         switch agent {
         case .recover:
-            prose = "\(you) at \(r). \(sleepLine.prefix(1).uppercased() + sleepLine.dropFirst()). \(hrvLine). Keep today easy."
+            prose = "\(you) at \(r). \(sleepLine.prefix(1).uppercased() + sleepLine.dropFirst()). \(hrvLine). Keep today easy.\(packNote)"
         case .train:
             if let session = store.todayWorkout {
-                prose = "\(you) at \(r). Train · \(displaySessionName(session.name)), \(session.duration) min · \(session.intensity.label)."
+                prose = "\(you) at \(r). Train · \(displaySessionName(session.name)), \(session.duration) min · \(session.intensity.label).\(packNote)"
             } else {
                 prose = "\(you) at \(r). I’ll write a session from how you live — no production model on this Device Hub run."
             }
         case .fuel:
-            prose = "\(you) at \(r). Fuel · protein and water next. Not a diet plan."
+            prose = "\(you) at \(r). Fuel · protein and water next. Not a diet plan.\(packNote)"
         case .life:
-            prose = "\(you) at \(r). Fit training into the day you already have."
+            prose = "\(you) at \(r). Fit training into the day you already have.\(packNote)"
         case .cycle:
             prose = "\(you) at \(r). Cycle coaching on this phone only — no log leaves the device, no fertility calendar."
         case .aria:
-            prose = "\(you) at \(r). \(sleepLine). Test-ready ARIA on this device — not a production instance."
+            prose = "\(you) at \(r). \(sleepLine). \(hrvLine). Test-ready ARIA on this device — not a production instance.\(packNote)"
         }
 
         return AriaResponse(
-            confidenceReason: "Test-ready dummy on this device. SimRunner-shaped. No cloud.",
+            confidenceReason: store.usingTestReadyHealthPack
+                ? "Test-ready dummy + ForgeCore Health pack. SimRunner-shaped. No cloud."
+                : "Test-ready dummy on this device. SimRunner-shaped. No cloud.",
             proseSummary: prose,
             message: prose,
             suggestedActions: ["What should I train?", "How did I sleep?", "How do I show up?"],

@@ -48,12 +48,79 @@ extension AppStore {
             mergeSleepDataLocally(nights)
         }
 
+        installFakeHealthPackIfNeeded()
+
         lastMetricsRefresh = Date()
         rebuildTodayPlanFromLife()
         recomputeStreak()
         await flushPendingWidgetWater()
         publishHomeWidgets()
         objectWillChange.send()
+    }
+
+    /// SimRunner-shaped 30-day pack from ForgeCore. Fills Home / Sleep / ARIA
+    /// when Device Hub or the iOS 27 simulator has no Apple Health samples.
+    /// Real HealthKit always wins; this never writes into Health.
+    func installFakeHealthPackIfNeeded() {
+        let testReady = AriaService.shouldUseTestReadyDummy
+        guard FakeHealthPack.shouldInstall(
+            debugBuild: ForgeAuthPolicy.isDebugBuild,
+            testReady: testReady,
+            hasRealHealthSignal: hasMeaningfulLifeSignal
+        ) else {
+            usingTestReadyHealthPack = false
+            return
+        }
+        apply(FakeHealthPack.generate())
+    }
+
+    func apply(_ pack: FakeHealthPack) {
+        guard let today = pack.today else { return }
+        usingTestReadyHealthPack = true
+        dailyMetrics = DailyMetrics(
+            steps: today.steps,
+            activeCalories: today.activeCalories,
+            hrv: today.hrvMs,
+            restingHR: today.restingHR,
+            deepSleep: Int(today.night.deepMinutes.rounded()),
+            totalSleep: Int(today.night.totalMinutes.rounded())
+        )
+        let score = ReadinessCalculator.score(from: pack.readinessInputs)
+        readiness = ReadinessData(
+            overall: score.overall,
+            sleepQuality: score.sleepQuality,
+            recoveryScore: score.recovery,
+            stressLevel: max(0, 100 - score.recovery),
+            energyBank: score.overall
+        )
+        sleepData = pack.days.map { day in
+            SleepData(
+                date: day.isoDate,
+                totalHours: day.night.totalMinutes / 60,
+                deepMinutes: Int(day.night.deepMinutes.rounded()),
+                remMinutes: Int(day.night.remMinutes.rounded()),
+                lightMinutes: Int(day.night.coreMinutes.rounded()),
+                awakeMinutes: Int(day.night.awakeMinutes.rounded()),
+                score: day.sleepScore,
+                onset: day.night.start,
+                wake: day.night.end
+            )
+        }
+        workoutHistory = pack.days.compactMap { day in
+            guard let session = day.workout else { return nil }
+            return WorkoutHistory(
+                id: "fake-\(day.isoDate)-\(session.name)",
+                date: day.isoDate,
+                name: session.name,
+                type: WorkoutType(rawValue: session.type.rawValue) ?? .strength,
+                duration: session.durationMinutes,
+                volume: session.volume,
+                intensity: WorkoutIntensity(rawValue: session.intensity) ?? .moderate
+            )
+        }
+        if HealthKitManager.shared.todayWaterMilliliters == 0 {
+            HealthKitManager.shared.installTestReadyHydration(milliliters: today.hydrationMl)
+        }
     }
 
     /// Sleep, HRV, or any Health write that means today's number is theirs — not a blank launch.

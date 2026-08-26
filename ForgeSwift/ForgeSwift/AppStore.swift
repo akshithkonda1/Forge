@@ -129,6 +129,9 @@ final class AppStore: ObservableObject {
     @Published var healthKitLive: Bool = false
     /// Last successful metrics refresh (Home status pill).
     @Published var lastMetricsRefresh: Date? = nil
+    /// True when today's numbers came from ForgeCore's Test-Ready Health pack
+    /// because Apple Health had nothing. Never set from a real sample.
+    @Published var usingTestReadyHealthPack: Bool = false
     
     // Streak tracking — consecutive calendar days with a completed session.
     @Published var currentStreak: Int = 0
