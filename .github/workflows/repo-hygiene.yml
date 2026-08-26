@@ -143,3 +143,19 @@ jobs:
       # change whose whole point was to end "these managers have no tests".
       - name: Check SwiftPM sources lists
         run: python3 scripts/check-package-sources.py
+
+  widget-bundles:
+    name: Widget bundle registration
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # WidgetKit only shows what the bundle lists, so a widget that is on
+      # disk, in the Xcode target and compiling can still be invisible on
+      # every device. There is no build error and no failing test — the
+      # feature is simply gone. #155 and #156 both added a complication on
+      # the same line of ForgeWatchWidgetBundle.body; the merge kept one, and
+      # every other gate stayed green while the watch face lost hydration.
+      - name: Check widget bundle registration
+        run: python3 scripts/check-widget-bundles.py
