@@ -62,6 +62,8 @@ enum SupporterGuidance {
         case .winding:
             moves.append("Lower the stakes on the week — fewer commitments, earlier nights.")
             moves.append("Ask what would help rather than guessing.")
+        case .notBleeding:
+            moves.append("Everyday support is enough. Ask how they are, not how their cycle is.")
         case .unknown:
             moves.append("No recent updates. Just ask how they're doing.")
         }
@@ -97,7 +99,7 @@ enum SupporterGuidance {
             }
         case .winding:
             avoid.append("Don't save up a hard conversation for this week.")
-        case .rebuilding, .unknown:
+        case .rebuilding, .notBleeding, .unknown:
             break
         }
 
@@ -123,6 +125,8 @@ enum SupporterGuidance {
         case .winding:
             return ["Comfort and familiarity tend to land better than novelty.",
                     "Tenderness without an agenda is worth more than you'd think."]
+        case .notBleeding:
+            return ["Nothing special about tonight. Ask, don't assume."]
         case .unknown:
             return ["No recent updates. The only reliable signal is asking."]
         }
@@ -167,6 +171,8 @@ enum SupporterGuidance {
             return "Energy's building — a good stretch for plans."
         case (.rebuilding, _):
             return "Steadier stretch. Follow their lead on how much to take on."
+        case (.notBleeding, _):
+            return "Not on their period. Everyday support is enough."
         case (.unknown, _):
             return thoughtfulnessHelps
                 ? "No recent updates — checking in never hurts."

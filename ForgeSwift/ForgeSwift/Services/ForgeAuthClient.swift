@@ -40,6 +40,32 @@ final class ForgeAuthClient: ObservableObject {
         if config.apiBaseURL.host != nil, UserDefaults.standard.string(forKey: "forge.api.baseURL") == nil {
             UserDefaults.standard.set(config.apiBaseURL.absoluteString, forKey: "forge.api.baseURL")
         }
+        installTestReadySessionIfNeeded()
+    }
+
+    /// Xcode Device Hub (simulator or a plugged-in phone) and loopback API
+    /// builds get a tester session so ARIA is Test-Ready on-device. Never
+    /// clobbers a real Cognito session unless the API URL cannot work from
+    /// the phone (`127.0.0.1`).
+    @discardableResult
+    func installTestReadySessionIfNeeded() -> ForgeAuthSession? {
+        let allowed = ForgeAuthPolicy.devOverrideAllowed(
+            userEnabled: devOverrideEnabled,
+            config: config
+        )
+        let auto = ForgeAuthPolicy.shouldAutoInstallTester(
+            allowed: allowed,
+            xcodeLaunch: ForgeAuthPolicy.isXcodeDeviceHubLaunch,
+            apiIsLoopback: config.apiIsLoopback
+        )
+        guard auto else { return session }
+        if let current = session, current.mode == .cognito, !config.apiIsLoopback {
+            return current
+        }
+        if session?.mode == .devOverride { return session }
+        let minted = DevAuthOverride.session()
+        try? persist(minted)
+        return minted
     }
 
     func continueAsTester() throws -> ForgeAuthSession {
@@ -47,6 +73,41 @@ final class ForgeAuthClient: ObservableObject {
         let minted = DevAuthOverride.session()
         try persist(minted)
         return minted
+    }
+
+    func signUp(email: String, password: String, displayName: String) async throws -> CognitoPasswordAuth.SignUpResult {
+        let request = try CognitoPasswordAuth.signUpRequest(
+            region: config.cognitoRegion,
+            clientId: config.cognitoClientId,
+            username: email,
+            password: password,
+            name: displayName
+        )
+        let data: Data
+        do {
+            let (body, _) = try await URLSession.shared.data(for: request)
+            data = body
+        } catch {
+            throw ForgeAuthError.network
+        }
+        return try CognitoPasswordAuth.parseSignUpResponse(data)
+    }
+
+    func confirmSignUp(email: String, code: String) async throws {
+        let request = try CognitoPasswordAuth.confirmSignUpRequest(
+            region: config.cognitoRegion,
+            clientId: config.cognitoClientId,
+            username: email,
+            code: code
+        )
+        let data: Data
+        do {
+            let (body, _) = try await URLSession.shared.data(for: request)
+            data = body
+        } catch {
+            throw ForgeAuthError.network
+        }
+        try CognitoPasswordAuth.parseConfirmSignUpResponse(data)
     }
 
     func signIn(email: String, password: String) async throws -> ForgeAuthSession {

@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 /// Layer 1 bridge — talks to ARIA backend with graceful local fallback.
 @MainActor
@@ -6,6 +7,8 @@ final class AriaService: ObservableObject {
     static let shared = AriaService()
 
     @Published private(set) var isLocalFallback = false
+    /// Tester session on the SimRunner dummy path — never a production instance.
+    @Published private(set) var isTestReady = false
     /// Set when the backend answered with a failure the user should know about —
     /// signed out, server error, rate limited. Nil when Forge is simply
     /// unreachable, because that is what offline mode is already saying.
@@ -17,6 +20,16 @@ final class AriaService: ObservableObject {
             return url
         }
         return ForgeAuthClient.shared.config.apiBaseURL
+    }
+
+    /// Continue-as-tester (debug, non-prod) stays on the dummy orchestra —
+    /// same idea as SimRunner: no production ARIA instance.
+    static var shouldUseTestReadyDummy: Bool {
+        let client = ForgeAuthClient.shared
+        guard client.canUseDevOverride else { return false }
+        if client.session?.mode == .devOverride { return true }
+        // Device Hub / loopback: don't wait on a tester tap or a Mac localhost.
+        return ForgeAuthPolicy.isXcodeDeviceHubLaunch || client.config.apiIsLoopback
     }
 
     private static let baseURLKey = "forge.api.baseURL"
@@ -34,7 +47,9 @@ final class AriaService: ObservableObject {
         store: AppStore,
         localGenerator: TrainerResponseGenerator,
         voiceMode: Bool = false,
-        mode: String? = nil
+        mode: String? = nil,
+        agent: AriaCoachAgent = .aria,
+        agents: [String]? = nil
     ) async throws -> AriaResponse {
         let isInsight = mode == "insight"
         // Full chat may read structured records. Lifestyle cards must not.
@@ -43,6 +58,14 @@ final class AriaService: ObservableObject {
         }
         let domainContext = contextStore.buildARIAContext(from: store)
         let legacyMetrics = contextStore.buildRichContext(from: store).recentMetrics
+        if Self.shouldUseTestReadyDummy {
+            isTestReady = true
+            isLocalFallback = true
+            lastRemoteError = nil
+            return AriaDummyOrchestrator.reply(text: text, store: store, agent: agent)
+        }
+        isTestReady = false
+
         let request = AriaChatRequest(
             userId: contextStore.context.userId,
             message: text,
@@ -50,7 +73,9 @@ final class AriaService: ObservableObject {
             recentMetrics: legacyMetrics,
             permissions: DataPermissionsStore.shared.payloadIfRestricted(),
             voiceMode: voiceMode || store.ariaVoiceMode,
-            mode: mode
+            mode: mode,
+            agent: agent.backendId,
+            agents: agents
         )
 
         // Deliberately not `try?`. A transport failure means the user is
@@ -108,7 +133,8 @@ final class AriaService: ObservableObject {
             text: text,
             store: store,
             generator: localGenerator,
-            rich: contextStore.buildRichContext(from: store)
+            rich: contextStore.buildRichContext(from: store),
+            agent: agent
         )
     }
 
@@ -134,7 +160,8 @@ final class AriaService: ObservableObject {
         text: String,
         store: AppStore,
         generator: TrainerResponseGenerator,
-        rich: AriaRichContext
+        rich: AriaRichContext,
+        agent: AriaCoachAgent = .aria
     ) async throws -> AriaResponse {
         let trainerContext = store.makeTrainerContext()
 

@@ -5,10 +5,10 @@ struct SleepStreakDetailView: View {
     let streak: Int
 
     private let milestones: [(days: Int, title: String, icon: String)] = [
-        (7,   "Week Warrior",  "flame.fill"),
-        (30,  "Month Master",  "moon.stars.fill"),
-        (100, "Century Club",  "crown.fill"),
-        (365, "Year Legend",   "trophy.fill"),
+        (7,   "A week of nights",  "checkmark"),
+        (30,  "A month of nights", "moon.stars.fill"),
+        (100, "A hundred nights",  "moon.fill"),
+        (365, "A year of nights",  "calendar"),
     ]
 
     var body: some View {
@@ -24,16 +24,16 @@ struct SleepStreakDetailView: View {
                                     .fill(LinearGradient(colors: [Color.ember, Color.ember.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
                                     .frame(width: 100, height: 100)
                                     .shadow(color: Color.ember.opacity(0.45), radius: 20, y: 8)
-                                Image(systemName: "flame.fill").font(.system(size: 46)).foregroundColor(.white)
+                                Image(systemName: "moon.fill").font(.system(size: 46)).foregroundColor(.white)
                             }
-                            Text("\(streak) Days").font(.system(size: 36, weight: .black, design: .rounded)).foregroundColor(.textPrimary)
-                            Text("Current Sleep Streak").font(.system(size: 16)).foregroundColor(.textSecondary)
+                            Text("\(streak) nights").font(.system(size: 36, weight: .black, design: .rounded)).foregroundColor(.textPrimary)
+                            Text("Nights logged, in a row").font(.system(size: 16)).foregroundColor(.textSecondary)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 28)
 
                         // Milestones
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Milestones").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                            Text("Logged nights").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
                             VStack(spacing: 10) {
                                 ForEach(milestones, id: \.days) { m in
                                     HStack(spacing: 14) {
@@ -63,7 +63,7 @@ struct SleepStreakDetailView: View {
 
                         // Benefits
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Streak Benefits").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                            Text("Why nights in a row matter").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
                             VStack(spacing: 10) {
                                 ForEach([("heart.fill", "Improved cardiovascular health"), ("brain.head.profile", "Enhanced cognitive function"), ("figure.run", "Better athletic performance"), ("face.smiling.fill", "Elevated mood & energy")], id: \.0) { icon, text in
                                     HStack(spacing: 12) {

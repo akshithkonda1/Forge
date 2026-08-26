@@ -43,6 +43,7 @@ struct CycleSharingView: View {
                     } else {
                         intro
                         rolePicker
+                        tierPicker
                         nameField
                         createButton
                     }
@@ -56,7 +57,7 @@ struct CycleSharingView: View {
                 .padding(20)
             }
             .background(Color.background.ignoresSafeArea())
-            .navigationTitle("Share support")
+            .navigationTitle("Invite to support me")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -100,16 +101,14 @@ struct CycleSharingView: View {
             Image(systemName: "person.2.badge.key.fill")
                 .font(.system(size: 32))
                 .foregroundStyle(Color.ember)
-            Text("Let someone support you")
+            Text("Invite someone to support me")
                 .font(FDS.TypeScale.title(22))
                 .foregroundColor(.textPrimary)
-            Text("They'll see a general picture — roughly where you are, whether your energy is low or high, and one line on how to show up. Not your logs.")
+            Text("Send them a short iMessage. They get coaching on how to show up — heat, water, a lighter evening — not your log, flow, or symptoms. Especially useful if they haven’t been taught this.")
                 .font(FDS.TypeScale.body(14))
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            // Named up front, not buried at the bottom. Someone deciding whether
-            // to share should know the exit exists before they walk in.
-            Text("You can stop at any time, and they simply stop seeing updates.")
+            Text("They see how to help. They never see your log. If they use Forge, a Watch glance and a morning reminder stay lock-safe. You can stop at any time.")
                 .font(FDS.TypeScale.body(12))
                 .foregroundStyle(Color(hex: "22C55E"))
         }
@@ -151,9 +150,59 @@ struct CycleSharingView: View {
                 .buttonStyle(.plain)
             }
             if role == .romantic {
-                Text("Partners also see comfort and intimacy notes. No fertility timing, for anyone.")
+                Text("Partners also see comfort and intimacy notes. Fertility timing stays off unless you pick Timing.")
                     .font(FDS.TypeScale.body(11))
                     .foregroundColor(.textTertiary)
+            }
+        }
+    }
+
+    private var tierPicker: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("HOW MUCH THEY SEE")
+                .forgeSectionLabel()
+            ForEach(PartnerShareTier.allCases) { option in
+                Button {
+                    cycleStore.updateSettings { $0.partnerShareTier = option }
+                } label: {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: option == .supportCoach ? "heart.text.square.fill" : (option == .onPeriod ? "drop.fill" : "calendar"))
+                            .frame(width: 22)
+                            .padding(.top, 2)
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 8) {
+                                Text(option.label)
+                                    .font(FDS.TypeScale.body(15))
+                                if option.isRecommended {
+                                    Text("Recommended")
+                                        .font(FDS.TypeScale.micro(10))
+                                        .foregroundStyle(Color.ember)
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 2)
+                                        .background(Color.ember.opacity(0.15))
+                                        .clipShape(Capsule())
+                                }
+                            }
+                            Text(option.detail)
+                                .font(FDS.TypeScale.body(12))
+                                .foregroundColor(.textTertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer()
+                        if cycleStore.settings.partnerShareTier == option {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(Color.ember)
+                        }
+                    }
+                    .foregroundColor(cycleStore.settings.partnerShareTier == option ? .textPrimary : .textSecondary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(cycleStore.settings.partnerShareTier == option ? Color.ember.opacity(0.12) : Color.surfaceElevated)
+                    )
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -186,7 +235,7 @@ struct CycleSharingView: View {
                 } else {
                     Image(systemName: "link.badge.plus")
                 }
-                Text(isMinting ? "Creating…" : "Create invite")
+                Text(isMinting ? "Creating…" : "Create iMessage invite")
             }
             .font(FDS.TypeScale.label(15))
             .foregroundColor(.white)
@@ -234,8 +283,8 @@ struct CycleSharingView: View {
             // or come back. Said plainly rather than letting the button quietly
             // stop working.
             ShareLink(item: invite.shareURL, message: Text(invite.fallbackMessageBody)) {
-                Label(acceptedCount > 0 ? "Invite someone else" : "Send the invite",
-                      systemImage: "square.and.arrow.up")
+                Label(acceptedCount > 0 ? "Invite someone else in Messages" : "Send in Messages",
+                      systemImage: "message.fill")
                     .font(FDS.TypeScale.label(15))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -244,7 +293,7 @@ struct CycleSharingView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
 
-            Text("You can also open the Forge app inside Messages and send it there.")
+            Text("Or open Forge inside Messages — the bubble never names period details.")
                 .font(FDS.TypeScale.body(11))
                 .foregroundColor(.textTertiary)
 

@@ -45,11 +45,18 @@
 		B5516E84A984973E2E0A546A /* HealthKitManager+Queries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */; };
 		393B4C47DAF62A8BFD1D0BC7 /* HealthKitManager+DailyStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */; };
 		D0F5A89396724B3BA3E7CC4B /* HealthKitManager+Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */; };
+		F0A6E1010000000000000001 /* HealthKitManager+TestReadyPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A6E1020000000000000001 /* HealthKitManager+TestReadyPack.swift */; };
 		74DA797C011F4C076C5051C3 /* HealthKitManager+Clinical.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EB4405A8E5B4B03D8429D91 /* HealthKitManager+Clinical.swift */; };
 		1EHKS0022F9FF867004091AA /* HealthKitSleepService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */; };
 		1ARIA0022F9FF867004091AA /* AriaContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0012F9FF867004091AA /* AriaContext.swift */; };
 		1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0032F9FF867004091AA /* AriaResponse.swift */; };
 		1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0052F9FF867004091AA /* AriaService.swift */; };
+		1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */; };
+		1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */; };
+		1ARIA0832F9FF867004091AA /* AriaFirstHealthBriefing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */; };
+		1ARIA0912F9FF867004091AA /* AriaUseOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */; };
+
+		1TEST01600000000000000A /* AriaCoachAgentRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */; };
 		AA00010000000000000000B2 /* PartnerCycleSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B2 /* PartnerCycleSharing.swift */; };
 		1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0072F9FF867004091AA /* AriaContextStore.swift */; };
 		1ARIA0102F9FF867004091AA /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0092F9FF867004091AA /* FeedbackService.swift */; };
@@ -228,6 +235,8 @@
 		F0B10000000000000000001B /* PhoneLinkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001B /* PhoneLinkService.swift */; };
 		F0B10000000000000000001C /* WorkoutCoordinatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001C /* WorkoutCoordinatorView.swift */; };
 		F0B10000000000000000001D /* ActiveWorkoutComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001D /* ActiveWorkoutComplication.swift */; };
+		F0B100000000000000000050 /* SupportComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000050 /* SupportComplication.swift */; };
+		F0B100000000000000000051 /* SupportGlanceWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000051 /* SupportGlanceWidget.swift */; };
 		F0B10000000000000000001E /* ForgeWorkoutActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001E /* ForgeWorkoutActivityAttributes.swift */; };
 		F0B10000000000000000001F /* ForgeWorkoutLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001F /* ForgeWorkoutLiveActivity.swift */; };
 		AA00010000000000000000C9 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA000F0000000000000000C1 /* ForgeCore */; };
@@ -255,6 +264,7 @@
 		AA000100000000000000F3A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */; };
 		AA000100000000000000F4A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */; };
 		1TEST01200000000000000A /* MenstrualCycleEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */; };
+		1TEST01400000000000000A /* PartnerCycleDigestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01300000000000000A /* PartnerCycleDigestTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -374,11 +384,18 @@
 		405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+Queries.swift"; sourceTree = "<group>"; };
 		8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+DailyStats.swift"; sourceTree = "<group>"; };
 		84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+Logging.swift"; sourceTree = "<group>"; };
+		F0A6E1020000000000000001 /* HealthKitManager+TestReadyPack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+TestReadyPack.swift"; sourceTree = "<group>"; };
 		2EB4405A8E5B4B03D8429D91 /* HealthKitManager+Clinical.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+Clinical.swift"; sourceTree = "<group>"; };
 		1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepService.swift; sourceTree = "<group>"; };
 		1ARIA0012F9FF867004091AA /* AriaContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContext.swift; sourceTree = "<group>"; };
 		1ARIA0032F9FF867004091AA /* AriaResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaResponse.swift; sourceTree = "<group>"; };
 		1ARIA0052F9FF867004091AA /* AriaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaService.swift; sourceTree = "<group>"; };
+		1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgent.swift; sourceTree = "<group>"; };
+		1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestrator.swift; sourceTree = "<group>"; };
+		1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaFirstHealthBriefing.swift; sourceTree = "<group>"; };
+		1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaUseOnboarding.swift; sourceTree = "<group>"; };
+
+		1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgentRouterTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
@@ -564,6 +581,8 @@
 		F0F10000000000000000001B /* PhoneLinkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneLinkService.swift; sourceTree = "<group>"; };
 		F0F10000000000000000001C /* WorkoutCoordinatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCoordinatorView.swift; sourceTree = "<group>"; };
 		F0F10000000000000000001D /* ActiveWorkoutComplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutComplication.swift; sourceTree = "<group>"; };
+		F0F100000000000000000050 /* SupportComplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportComplication.swift; sourceTree = "<group>"; };
+		F0F100000000000000000051 /* SupportGlanceWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportGlanceWidget.swift; sourceTree = "<group>"; };
 		F0F10000000000000000001E /* ForgeWorkoutActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWorkoutActivityAttributes.swift; sourceTree = "<group>"; };
 		F0F10000000000000000001F /* ForgeWorkoutLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWorkoutLiveActivity.swift; sourceTree = "<group>"; };
 		F0F100000000000000000020 /* ForgeWidgetExtensionBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWidgetExtensionBundle.swift; sourceTree = "<group>"; };
@@ -585,6 +604,7 @@
 		AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngineTests.swift; sourceTree = "<group>"; };
+		1TEST01300000000000000A /* PartnerCycleDigestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleDigestTests.swift; sourceTree = "<group>"; };
 		1TEST00700000000000000A /* ForgeSwiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForgeSwiftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -697,6 +717,7 @@
 				1ARIA0032F9FF867004091AA /* AriaResponse.swift */,
 				1ARIA0212F9FF867004091AA /* ARIAContextPayload.swift */,
 				1ARIA0232F9FF867004091AA /* AriaPermissions.swift */,
+				1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -707,6 +728,9 @@
 				1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */,
 				1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */,
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
+				1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */,
+				1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */,
+				1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */,
 				1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */,
 				1API00020000000000000001 /* ForgeAPI.swift */,
 				AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */,
@@ -856,6 +880,7 @@
 				405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */,
 				8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */,
 				84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */,
+				F0A6E1020000000000000001 /* HealthKitManager+TestReadyPack.swift */,
 				2EB4405A8E5B4B03D8429D91 /* HealthKitManager+Clinical.swift */,
 				1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */,
 				1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */,
@@ -942,6 +967,7 @@
 				F0F100000000000000000043 /* TodayWidget.swift */,
 				F0F100000000000000000044 /* LogWaterIntent.swift */,
 				F0F100000000000000000045 /* WidgetChrome.swift */,
+				F0F100000000000000000051 /* SupportGlanceWidget.swift */,
 				F0F100000000000000000021 /* Info.plist */,
 				F0F100000000000000000022 /* ForgeWidgetExtension.entitlements */,
 			);
@@ -1012,6 +1038,7 @@
 				F0F100000000000000000013 /* MindfulnessResetComplication.swift */,
 				F0F100000000000000000014 /* SleepQualityComplication.swift */,
 				F0F10000000000000000001D /* ActiveWorkoutComplication.swift */,
+				F0F100000000000000000050 /* SupportComplication.swift */,
 				F0F100000000000000000015 /* Info.plist */,
 				F0F100000000000000000016 /* ForgeWatchWidgets.entitlements */,
 			);
@@ -1022,6 +1049,8 @@
 			isa = PBXGroup;
 			children = (
 				1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */,
+				1TEST01300000000000000A /* PartnerCycleDigestTests.swift */,
+				1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */,
 			);
 			path = ForgeSwiftTests;
 			sourceTree = "<group>";
@@ -1284,11 +1313,16 @@
 				B5516E84A984973E2E0A546A /* HealthKitManager+Queries.swift in Sources */,
 				393B4C47DAF62A8BFD1D0BC7 /* HealthKitManager+DailyStats.swift in Sources */,
 				D0F5A89396724B3BA3E7CC4B /* HealthKitManager+Logging.swift in Sources */,
+				F0A6E1010000000000000001 /* HealthKitManager+TestReadyPack.swift in Sources */,
 				74DA797C011F4C076C5051C3 /* HealthKitManager+Clinical.swift in Sources */,
 				1EHKS0022F9FF867004091AA /* HealthKitSleepService.swift in Sources */,
 				1ARIA0022F9FF867004091AA /* AriaContext.swift in Sources */,
 				1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */,
 				1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */,
+				1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */,
+				1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */,
+				1ARIA0832F9FF867004091AA /* AriaFirstHealthBriefing.swift in Sources */,
+				1ARIA0912F9FF867004091AA /* AriaUseOnboarding.swift in Sources */,
 				AA00010000000000000000B2 /* PartnerCycleSharing.swift in Sources */,
 				1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */,
 				1WC1012F9FF867004091AA /* CrossZoneConsistency.swift in Sources */,
@@ -1492,6 +1526,7 @@
 				F0B100000000000000000013 /* MindfulnessResetComplication.swift in Sources */,
 				F0B100000000000000000014 /* SleepQualityComplication.swift in Sources */,
 				F0B10000000000000000001D /* ActiveWorkoutComplication.swift in Sources */,
+				F0B100000000000000000050 /* SupportComplication.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1512,6 +1547,7 @@
 				F0B100000000000000000043 /* TodayWidget.swift in Sources */,
 				F0B100000000000000000044 /* LogWaterIntent.swift in Sources */,
 				F0B100000000000000000045 /* WidgetChrome.swift in Sources */,
+				F0B100000000000000000051 /* SupportGlanceWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1520,6 +1556,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				1TEST01200000000000000A /* MenstrualCycleEngineTests.swift in Sources */,
+				1TEST01400000000000000A /* PartnerCycleDigestTests.swift in Sources */,
+				1TEST01600000000000000A /* AriaCoachAgentRouterTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1565,7 +1603,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ForgeMessagesExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Forge;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1593,7 +1631,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ForgeMessagesExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Forge;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1664,7 +1702,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1723,7 +1761,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -1760,7 +1798,7 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1802,7 +1840,7 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1849,7 +1887,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 11.6;
+				WATCHOS_DEPLOYMENT_TARGET = 27.0;
 			};
 			name = Debug;
 		};
@@ -1885,7 +1923,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 11.6;
+				WATCHOS_DEPLOYMENT_TARGET = 27.0;
 			};
 			name = Release;
 		};
@@ -1912,7 +1950,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+				WATCHOS_DEPLOYMENT_TARGET = 27.0;
 			};
 			name = Debug;
 		};
@@ -1939,7 +1977,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+				WATCHOS_DEPLOYMENT_TARGET = 27.0;
 			};
 			name = Release;
 		};
@@ -1953,7 +1991,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ForgeWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Forge Widgets";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1980,7 +2018,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ForgeWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Forge Widgets";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -2004,7 +2042,7 @@
 				CODE_SIGNING_ALLOWED = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwiftTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2022,7 +2060,7 @@
 				CODE_SIGNING_ALLOWED = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwiftTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";

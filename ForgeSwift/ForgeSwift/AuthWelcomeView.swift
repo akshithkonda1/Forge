@@ -99,9 +99,7 @@ struct AuthWelcomeView: View {
                         showSignUp = true
                     } label: {
                         HStack(spacing: 10) {
-                            Image(systemName: "bolt.fill")
-                                .font(.system(size: 15, weight: .bold))
-                            Text(page == pages.count - 1 ? "Begin Day 0" : "Start forging")
+                            Text("Get started")
                                 .font(.system(size: 17, weight: .bold))
                             Spacer(minLength: 0)
                             Image(systemName: "arrow.right")
@@ -124,7 +122,7 @@ struct AuthWelcomeView: View {
                         .shadow(color: Color.ember.opacity(0.5), radius: 22, y: 10)
                     }
                     .buttonStyle(AuthPressButtonStyle())
-                    .accessibilityLabel("Start forging your way.")
+                    .accessibilityLabel("Get started")
 
                     if page < pages.count - 1 {
                         Button {
@@ -212,7 +210,7 @@ private struct AuthHookPage: Identifiable {
             body: "ARIA is an adaptive lifestyle coach, not a commander. She works with the life you already have — readiness, sleep, wearables — and raises quality of life the way compound interest works. Enough small moves and one day life is slightly different. Over time you see it and appreciate it. You still decide.",
             icon: "sparkles",
             accentHex: "FF5A00",
-            reward: "+ Unlock personal coach"
+            reward: "A coach who already knows you"
         ),
         AuthHookPage(
             id: "readiness",
@@ -221,7 +219,7 @@ private struct AuthHookPage: Identifiable {
             body: "ARIA takes standardized metrics and creates a standardized plan that's best for you. All your stats are saved daily so you don't erase progress but rather you build on it the next day. Everytime you use ARIA it feels intentional not like its a burden.",
             icon: "waveform.path.ecg",
             accentHex: "38BDF8",
-            reward: "+ Unlock readiness dial"
+            reward: "Sessions that match how you feel"
         ),
         AuthHookPage(
             id: "life",
@@ -230,7 +228,7 @@ private struct AuthHookPage: Identifiable {
             body: "ARIA looks into how you eat and sleep, but it also seeks to learn more about how you spend your free time, how you provide support to those you love in their time of need — one control center and its private by design.",
             icon: "leaf.fill",
             accentHex: "22C55E",
-            reward: "+ Unlock lifestyle layer"
+            reward: "Private by design"
         ),
         AuthHookPage(
             id: "forge",
@@ -239,7 +237,7 @@ private struct AuthHookPage: Identifiable {
             body: "It doesn't take long. Name your goal and how you want to train. Connect Health if you want and walk out with a first plan and a coach that already knows you.",
             icon: "flame.fill",
             accentHex: "F59E0B",
-            reward: "Start your streak →"
+            reward: "Meet ARIA →"
         ),
     ]
 }

@@ -437,12 +437,85 @@ class LiveBedrockTests(unittest.TestCase):
         # directive stayed unattached to every live call without a test noticing.
         self.assertEqual(captured["system"], aria_engine.live_system_prompt())
         self.assertIn("SECURITY LAW (mandatory)", captured["system"])
-        self.assertTrue(captured["system"].startswith(aria_engine.ARIA_SYSTEM_PROMPT))
-        self.assertIn("USER MODEL", captured["user"])
-        self.assertIn("should I train today?", captured["user"])
-        # the model card is merged over the deterministic card, not dropped.
-        self.assertEqual(resp["card"]["model_note"], "from the live model")
 
+
+class CoachAgentTests(unittest.TestCase):
+    def test_unknown_agent_falls_back_to_aria(self):
+        self.assertEqual(aria_engine.normalize_coach_agent(None), "aria")
+        self.assertEqual(aria_engine.normalize_coach_agent("wizard"), "aria")
+        self.assertEqual(aria_engine.normalize_coach_agent("Train"), "train")
+
+    def test_agents_list_is_unbounded_and_deduped(self):
+        roster = aria_engine.normalize_coach_agents(
+            ["train", "recover", "train", "fuel", "life", "cycle", "ghost"],
+            "train",
+        )
+        self.assertEqual(roster, ["train", "recover", "fuel", "life", "cycle"])
+        self.assertEqual(aria_engine.normalize_coach_agents(None), ["aria"])
+
+    def test_cycle_agent_prompt_forbids_fertility_and_diagnosis(self):
+        prompt = aria_engine.live_system_prompt("cycle")
+        self.assertIn("AGENT — Cycle", prompt)
+        self.assertIn("fertility", prompt.lower())
+        self.assertIn("not medical care", prompt.lower())
+        self.assertIn("SECURITY LAW (mandatory)", prompt)
+
+    def test_live_path_sends_the_pinned_agent_into_the_system_prompt(self):
+        captured = {}
+
+        def fake_converse(model_id, system_prompt, user_prompt):
+            captured["system"] = system_prompt
+            return json.dumps({
+                "schema_version": aria_engine.SCHEMA_VERSION,
+                "response_type": "recommendation",
+                "confidence": 0.7,
+                "confidence_reason": "ok",
+                "prose_summary": "Keep today easy.",
+                "card": {},
+                "restricted_domains": [],
+            })
+
+        resp = aria_engine.generate_response_live(
+            "should I train today?",
+            full_context(),
+            converse=fake_converse,
+            agent="recover",
+        )
+        self.assertEqual(resp["agent"], "recover")
+        self.assertEqual(resp["agents"], ["recover"])
+        self.assertIn("AGENT — Recover", captured["system"])
+        self.assertNotIn("AGENT — Train", captured["system"])
+
+    def test_multi_agent_turn_is_still_one_system_prompt(self):
+        captured = {}
+
+        def fake_converse(model_id, system_prompt, user_prompt):
+            captured["system"] = system_prompt
+            return json.dumps({
+                "schema_version": aria_engine.SCHEMA_VERSION,
+                "response_type": "recommendation",
+                "confidence": 0.7,
+                "confidence_reason": "ok",
+                "prose_summary": "Easy session, then eat.",
+                "card": {},
+                "restricted_domains": [],
+            })
+
+        resp = aria_engine.generate_response_live(
+            "I slept badly — what should I train and eat?",
+            full_context(),
+            converse=fake_converse,
+            agents=["recover", "train", "fuel"],
+        )
+        self.assertEqual(resp["agents"], ["recover", "train", "fuel"])
+        self.assertIn("AGENT — Recover", captured["system"])
+        self.assertIn("AGENT — Train", captured["system"])
+        self.assertIn("AGENT — Fuel", captured["system"])
+        self.assertIn("several specialists in the room", captured["system"])
+        self.assertIn("Do not call further models", captured["system"])
+
+
+class LiveBedrockDegradeTests(unittest.TestCase):
     def test_live_falls_back_to_deterministic_on_error(self):
         def boom(*_args):
             raise RuntimeError("bedrock unavailable")

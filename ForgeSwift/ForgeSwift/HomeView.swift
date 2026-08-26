@@ -3,14 +3,11 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var store: AppStore
     @State private var showHeaderBlur = false
-    @State private var showCelebration = false
-    @State private var celebrationKey = 0
     @State private var showTrend = false
     @State private var proactiveInsight: String?
     /// Cycle Health is opened only from Home (full-screen cover), not a bottom tab.
     @State private var showCycleHealth = false
     @State private var cycleInitialPane: MenstrualHealthView.Pane? = nil
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var primaryAction: HomePrimaryAction {
         HomePrimaryAction.resolve(store: store)
@@ -101,19 +98,8 @@ struct HomeView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            if showCelebration && !reduceMotion {
-                CelebrationOverlay(key: celebrationKey, onDismiss: {
-                    withAnimation(FDS.Spring.standard) { showCelebration = false }
-                })
-                .ignoresSafeArea()
-                .zIndex(100)
-            }
-
         }
         .animation(.easeInOut(duration: 0.22), value: showHeaderBlur)
-        .onChange(of: store.readiness.overall) { old, new in
-            if new >= 85 && old < 85 { triggerCelebration() }
-        }
         .task {
             await store.refreshDailyData()
             proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store)
@@ -158,22 +144,12 @@ struct HomeView: View {
         }
     }
 
-    private func triggerCelebration() {
-        celebrationKey += 1
-        withAnimation(FDS.Spring.hero) { showCelebration = true }
-        FDS.notificationHaptic(.success)
-        // Dismissal is owned by the overlay's own timer, which calls back through
-        // `onDismiss`. This used to schedule a competing 4.5s timer against the
-        // overlay's 3.8s one, so the teardown animation ran twice.
-    }
-
     @MainActor
     private func refreshData() async {
         FDS.haptic(.light)
         await store.refreshDailyData()
         proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store)
         FDS.notificationHaptic(.success)
-        if store.readiness.overall >= 85 { triggerCelebration() }
     }
 }
 
@@ -233,25 +209,12 @@ struct HomeHeaderView: View {
             Button {
                 store.activeTab = .profile
             } label: {
-                ZStack(alignment: .topTrailing) {
-                    ProfileAvatarView(
-                        fileName: store.userProfile.avatarFileName,
-                        initials: String(firstName.prefix(1)).uppercased(),
-                        size: 40,
-                        showsRing: false
-                    )
-
-                    if store.currentStreak > 0 {
-                        Text("\(store.currentStreak)")
-                            .font(.system(size: 9, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                            .frame(width: 18, height: 18)
-                            .background(Color.ember)
-                            .clipShape(Circle())
-                            .offset(x: 5, y: -5)
-                            .accessibilityLabel("\(store.currentStreak) day streak")
-                    }
-                }
+                ProfileAvatarView(
+                    fileName: store.userProfile.avatarFileName,
+                    initials: String(firstName.prefix(1)).uppercased(),
+                    size: 40,
+                    showsRing: false
+                )
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Profile")

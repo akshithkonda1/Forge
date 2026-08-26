@@ -447,7 +447,7 @@ final class AriaContextStore: ObservableObject {
         var settings = PartnerCycleSettings.default
         settings.enabled = true
         settings.consentAcknowledged = true
-        settings.shareWithAria = true
+        settings.shareWithAria = false
         settings.partnerName = partnerName
         settings.relationshipLabel = relationshipLabel
         settings.supportRole = role
@@ -707,21 +707,9 @@ final class AriaContextStore: ObservableObject {
         }
 
         if readiness < 55 {
-            if theme == .soloLeveling {
-                lastProactiveInsight = "Readiness is low — Safe Zone day. Want a Solo Leveling recovery quest?"
-            } else if theme != .classic {
-                lastProactiveInsight = "Recovery is dipping. Want a lighter \(theme.label) session?"
-            } else {
-                lastProactiveInsight = "Your recovery is dipping — want a lighter plan today?"
-            }
+            lastProactiveInsight = "You’re run down. Want an easy session today?"
         } else if readiness >= 85 {
-            if theme == .soloLeveling {
-                lastProactiveInsight = "S-Rank window. Ready for a full daily quest + gate clear?"
-            } else if theme != .classic {
-                lastProactiveInsight = "You're primed. I can build a \(theme.label) performance session."
-            } else {
-                lastProactiveInsight = "You're primed. I can line up a performance-focused session."
-            }
+            lastProactiveInsight = "You look ready. Want a session that uses that?"
         } else if let insight = context.lastInsights.first {
             lastProactiveInsight = "Building on last time: \(insight)"
         } else {

@@ -51,7 +51,7 @@ struct HomeCycleModule: View {
             }
             return "Family support · open to log or ask ARIA"
         }
-        return "Track your cycle or support someone you love"
+        return "Private by design — invite someone only if you want support"
     }
 
     var body: some View {

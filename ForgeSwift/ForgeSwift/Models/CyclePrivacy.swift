@@ -7,7 +7,7 @@ enum CyclePrivacy {
 
     /// Short line for chips / home module.
     static let shortPromise =
-        "Secured for your coaching only — never sold or shared for profit."
+        "Your log stays on this phone. They only see how to help if you invite them."
 
     /// Full user-facing policy (lifestyle product language).
     static let policy = """

@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import HealthKit
+import ForgeCore
 
 /// ARIA-led interview: questions, parallel HealthKit, progressive living-context seed.
 @Observable
@@ -41,7 +42,8 @@ final class OnboardingCoordinator {
     }
     var isUnderage: Bool { profile.ageYears < 13 }
     var canFinish: Bool {
-        !profile.trimmedName.isEmpty
+        profile.isPreferredNameValid
+            && profile.hasConfirmedDetails
             && !profile.fitnessGoals.isEmpty
             && !profile.preferredWorkouts.isEmpty
             && !isCompleting
@@ -56,11 +58,14 @@ final class OnboardingCoordinator {
         Task { await runIntro() }
     }
 
-    /// Pulls name + first quest chosen during immersive Day 0 sign-up.
+    /// Pulls name, last name, and first quest chosen during Day 0 sign-up.
     private func seedFromSignUpDraft() {
         let draft = AppStore._signUpDraftProfile
         if !draft.trimmedName.isEmpty {
             profile.name = draft.trimmedName
+        }
+        if !draft.trimmedLastName.isEmpty {
+            profile.lastName = draft.trimmedLastName
         }
         if !draft.fitnessGoals.isEmpty {
             profile.fitnessGoals = draft.fitnessGoals
@@ -91,7 +96,7 @@ final class OnboardingCoordinator {
                 mood: .calm
             )
         }
-        await advanceTo(.age)
+        await advanceTo(.name)
     }
 
     private func advanceTo(_ next: AriaInterviewStep) async {
@@ -100,30 +105,38 @@ final class OnboardingCoordinator {
         switch next {
         case .intro:
             break
-        case .age:
-            await ariaSay("First — how old are you? I need this for safety and to calibrate intensity.", mood: .focused)
-            ariaOrbState = .listening
         case .name:
-            if !profile.trimmedName.isEmpty {
-                // Already claimed during Day 0 sign-up — confirm and skip typing.
+            if profile.isPreferredNameValid {
                 await ariaSay(
-                    "I'll keep calling you \(profile.firstName). Say the word if that's wrong later — for now we move.",
-                    mood: .energized
+                    "I have you as \(profile.firstName) from sign-up. Confirm the spelling, add a last name if you want it on your profile, then continue.",
+                    mood: .focused
                 )
-                appendUser(profile.trimmedName)
-                AriaContextStore.shared.updateProfile(
-                    lifestyleTags: ["onboarding:in_progress", "name:\(profile.trimmedName)"]
+            } else {
+                await ariaSay(
+                    "What should I call you? Your first name is enough — that's what I'll use in coaching. Last name is optional and stays on your profile.",
+                    mood: .focused
                 )
-                await advanceTo(.health)
-                return
             }
-            await ariaSay("What should I call you?", mood: .focused)
             ariaOrbState = .listening
         case .health:
             await ariaSay(
-                "Want me to connect Apple Health? Sleep, HRV, and workouts make coaching far more accurate — I'll keep loading them while we finish talking.",
+                "This is the first time Forge will read Apple Health on this phone. Sleep, HRV, and activity — I coach from those, I don’t guess. Connect and I’ll tell you what I see.",
                 mood: .energized
             )
+            ariaOrbState = .listening
+        case .details:
+            showingEducationalCyclePrompt = false
+            if healthKitState == .authorized, !profile.healthSourcedFields.isEmpty {
+                await ariaSay(
+                    "Apple Health already has some of your details. Check date of birth, biological sex, height, and weight — change anything that's off.",
+                    mood: .focused
+                )
+            } else {
+                await ariaSay(
+                    "Your details next — date of birth, biological sex, height, and weight. I use these for heart-rate zones, calories, and Cycle Health. This is not gender.",
+                    mood: .focused
+                )
+            }
             ariaOrbState = .listening
         case .goals:
             if profile.fitnessGoals.count == 1 {
@@ -135,13 +148,6 @@ final class OnboardingCoordinator {
             } else {
                 await ariaSay(personalizedGoalsPrompt(), mood: .focused)
             }
-            ariaOrbState = .listening
-        case .biologicalSex:
-            showingEducationalCyclePrompt = false
-            await ariaSay(
-                "One more thing before we get into your training — this helps me tailor health features for you. What is your biological sex?",
-                mood: .focused
-            )
             ariaOrbState = .listening
         case .experience:
             await ariaSay(experiencePrompt(), mood: .focused)
@@ -195,45 +201,46 @@ final class OnboardingCoordinator {
 
     // MARK: - Answers
 
-    func confirmAge() {
-        guard step == .age else { return }
+    func submitName() {
+        guard step == .name else { return }
+        guard profile.isPreferredNameValid else { return }
+        let spoken = profile.profileDisplayName
+        appendUser(spoken)
+        FDS.haptic(.medium)
+        AriaContextStore.shared.updateProfile(
+            lifestyleTags: ["onboarding:in_progress", "name:\(profile.trimmedName)"]
+        )
+        AriaContextStore.shared.addInsight("Met \(profile.trimmedName) during onboarding interview.")
+        Task {
+            await ariaSay(
+                "I'll call you \(profile.firstName). Next I want Apple Health so your details can prefill instead of you typing them.",
+                mood: .energized
+            )
+            await advanceTo(.health)
+        }
+    }
+
+    func confirmDetails() {
+        guard step == .details else { return }
         if isUnderage {
             FDS.notificationHaptic(.warning)
             withAnimation(FDS.Spring.hero) { showAgeBlocked = true }
             return
         }
-        let years = profile.ageYears
-        appendUser("I'm \(years)")
+        guard profile.hasConfirmedDetails else { return }
+        appendUser(profile.detailsSummaryLine)
         FDS.haptic(.light)
+        syncPartialContext()
         Task {
+            let years = profile.ageYears
+            let sexNote = profile.biologicalSex.map { ", \($0.label.lowercased())" } ?? ""
             await ariaSay(
                 years < 18
-                    ? "Got it. I'll keep programming age-appropriate and recovery-aware."
-                    : "Age locked for eligibility and load math.",
+                    ? "Details locked: \(years)\(sexNote). I'll keep programming age-appropriate and recovery-aware."
+                    : "Details locked: \(years)\(sexNote). Heart-rate zones and load math will use this.",
                 mood: .focused
             )
-            await advanceTo(.name)
-        }
-    }
-
-    func submitName() {
-        guard step == .name else { return }
-        let name = freeText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return }
-        profile.name = name
-        freeText = ""
-        appendUser(name)
-        FDS.haptic(.medium)
-        AriaContextStore.shared.updateProfile(
-            lifestyleTags: ["onboarding:in_progress", "name:\(name)"]
-        )
-        AriaContextStore.shared.addInsight("Met \(name) during onboarding interview.")
-        Task {
-            await ariaSay(
-                "Great to meet you, \(profile.firstName). Let's get body signals online.",
-                mood: .energized
-            )
-            await advanceTo(.health)
+            await advanceTo(.goals)
         }
     }
 
@@ -243,7 +250,7 @@ final class OnboardingCoordinator {
         FDS.haptic(.medium)
         Task {
             await requestHealthKit()
-            await advanceTo(.goals)
+            await advanceTo(.details)
         }
     }
 
@@ -256,10 +263,10 @@ final class OnboardingCoordinator {
         FDS.haptic(.light)
         Task {
             await ariaSay(
-                "No problem — we can still build a strong plan. Connect Apple Health anytime and I'll fold recovery in.",
+                "No problem — enter your details next. Connect Apple Health anytime and I'll fold recovery in.",
                 mood: .calm
             )
-            await advanceTo(.goals)
+            await advanceTo(.details)
         }
     }
 
@@ -282,50 +289,29 @@ final class OnboardingCoordinator {
         syncPartialContext()
         Task {
             await ariaSay("Locked: \(labels). Primary outcomes set.", mood: .energized)
-            await advanceTo(.biologicalSex)
+            await advanceTo(.experience)
         }
     }
 
     func selectBiologicalSex(_ sex: BiologicalSex) {
-        guard step == .biologicalSex else { return }
+        guard step == .details else { return }
         profile.biologicalSex = sex
-        appendUser(sex.label)
-        FDS.haptic(.light)
+        profile.healthSourcedFields.remove(.sex)
+        FDS.selectionHaptic()
         if sex.cycleAutoEnabled {
-            Task {
-                await ariaSay(
-                    "Cycle Health features are automatically enabled for you — you can customise this any time.",
-                    mood: .energized
-                )
-                await advanceTo(.experience)
-            }
-        } else {
-            // Male: ask about educational mode before advancing
+            showingEducationalCyclePrompt = false
+        } else if sex == .male {
             showingEducationalCyclePrompt = true
-            Task {
-                await ariaSay(
-                    "Would you like access to Cycle Health education — it helps many people support partners, daughters, or family?",
-                    mood: .calm
-                )
-            }
+        } else {
+            showingEducationalCyclePrompt = false
         }
     }
 
     func selectEducationalCycleMode(_ enabled: Bool) {
-        guard step == .biologicalSex else { return }
+        guard step == .details else { return }
         profile.educationalCycleMode = enabled
         showingEducationalCyclePrompt = false
-        appendUser(enabled ? "Yes, enable it" : "No thanks")
         FDS.haptic(.light)
-        Task {
-            await ariaSay(
-                enabled
-                    ? "Cycle Health education enabled — you'll find it in the app anytime."
-                    : "No problem — you can enable it later in Settings.",
-                mood: .focused
-            )
-            await advanceTo(.experience)
-        }
     }
 
     func selectExperience(_ level: ExperienceLevel) {
@@ -403,7 +389,8 @@ final class OnboardingCoordinator {
                 let labels = profile.freeTimeInterests.prefix(3).map(\.label).joined(separator: ", ")
                 await ariaSay("I'll keep \(labels) in mind so training doesn't fight your life.", mood: .focused)
             }
-            await advanceTo(.trainingTheme)
+            profile.trainingTheme = .classic
+            await advanceTo(.lifeContext)
         }
     }
 
@@ -440,10 +427,6 @@ final class OnboardingCoordinator {
         appendUser("Skip — classic coach")
         FDS.haptic(.light)
         Task {
-            await ariaSay(
-                "Classic for now. Tell me any franchise later — I’ll rewrite the plan in that style.",
-                mood: .calm
-            )
             await advanceTo(.lifeContext)
         }
     }
@@ -556,13 +539,15 @@ final class OnboardingCoordinator {
         ariaOrbState = .processing
 
         do {
-            try await HealthKitManager.shared.requestAuthorization()
+            try await connectAppleHealthForFirstTime()
             healthKitState = .authorized
+            await refreshHealthDataQuietly()
+            let snap = briefingSnapshot()
             await ariaSay(
-                "Apple Health connected. Pulling sleep, heart rate, and activity in the background while we finish.",
+                AriaFirstHealthBriefing.onboardingConnectedLine(snapshot: snap),
                 mood: .energized
             )
-            Task { await refreshHealthDataQuietly() }
+            await ariaSay(AriaFirstHealthBriefing.identityShort(), mood: .focused)
         } catch {
             healthKitState = .denied
             await ariaSay(
@@ -570,6 +555,32 @@ final class OnboardingCoordinator {
                 mood: .calm
             )
         }
+    }
+
+    /// System Health sheet first, then (on the sim) write the Test-Ready pack
+    /// into HealthKit so the read-back is a real first integration.
+    private func connectAppleHealthForFirstTime() async throws {
+        #if targetEnvironment(simulator)
+        if AriaService.shouldUseTestReadyDummy {
+            try await HealthKitManager.shared.requestTestReadyPackAuthorization()
+            try await HealthKitManager.shared.replaceTestReadyPack(FakeHealthPack.generate())
+            return
+        }
+        #endif
+        try await HealthKitManager.shared.requestAuthorization()
+    }
+
+    private func briefingSnapshot() -> AriaFirstHealthBriefing.Snapshot {
+        AriaFirstHealthBriefing.Snapshot(
+            sleepHours: healthSnapshot?.sleepHours,
+            sleepScore: nil,
+            hrvMs: healthSnapshot?.hrv.map { Int($0) },
+            restingHR: healthSnapshot?.restingHeartRate,
+            readiness: nil,
+            steps: healthSnapshot?.steps,
+            lastWorkoutName: nil,
+            fromHealthKit: healthKitState == .authorized
+        )
     }
 
     private func refreshHealthDataQuietly() async {
@@ -580,12 +591,30 @@ final class OnboardingCoordinator {
         healthSnapshot = snap
 
         var prefill: [String] = []
-        if let h = prof?.heightCm {
+        if profile.birthday == nil, let dob = prof?.dateOfBirth {
+            profile.birthday = dob
+            profile.healthSourcedFields.insert(.birthday)
+            prefill.append("born \(profile.ageYears)")
+        }
+        if profile.biologicalSex == nil, let raw = prof?.biologicalSex {
+            switch raw {
+            case "Female": profile.biologicalSex = .female
+            case "Male": profile.biologicalSex = .male
+            default: break
+            }
+            if profile.biologicalSex != nil {
+                profile.healthSourcedFields.insert(.sex)
+                prefill.append(raw)
+            }
+        }
+        if profile.heightCm == nil, let h = prof?.heightCm {
             profile.heightCm = h
+            profile.healthSourcedFields.insert(.height)
             prefill.append("height \(Int(h)) cm")
         }
-        if let w = prof?.weightKg {
+        if profile.weightKg == nil, let w = prof?.weightKg {
             profile.weightKg = w
+            profile.healthSourcedFields.insert(.weight)
             prefill.append("weight \(Int(w)) kg")
         }
         if let vo2 = prof?.vo2Max {
@@ -647,6 +676,9 @@ final class OnboardingCoordinator {
         ariaOrbState = .processing
 
         store.userProfile = profile.toCoreProfile()
+        if let sex = profile.biologicalSex {
+            MenstrualHealthStore.shared.enableForBiologicalSexIfNeeded(sex)
+        }
         let healthConnected = healthKitState == .authorized
 
         AriaContextStore.shared.seedFromOnboarding(
@@ -661,29 +693,24 @@ final class OnboardingCoordinator {
             trainingTheme: profile.trainingTheme
         )
 
-        // Seed today's plan under the chosen theme so Home isn't stuck on mock upper body.
-        if profile.trainingTheme != .classic || store.readiness.overall > 0 {
-            let plan = AriaPlanEngine.evaluate(
-                input: "Build my first \(profile.trainingTheme.label) training plan",
-                context: store.makeTrainerContext()
-            )
-            store.todayWorkout = plan.workoutPlan
-        }
-
-        let welcome = AriaOnboardingGuide.welcomeChatMessage(
-            profile: profile,
-            healthConnected: healthConnected
-        )
-        store.seedAriaWelcomeFromOnboarding(message: welcome)
-        AriaContextStore.shared.addInsight("Onboarding interview complete.")
-
-        if healthConnected {
-            Task { await store.refreshDailyData() }
-        }
-
         FDS.haptic(.heavy)
         FDS.notificationHaptic(.success)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+
+        Task { @MainActor in
+            if healthConnected {
+                await store.refreshDailyData()
+            }
+            store.learnFromFirstHealthConnectIfNeeded()
+            if profile.trainingTheme != .classic || store.readiness.overall > 0 {
+                let plan = AriaPlanEngine.evaluate(
+                    input: "Build my first \(profile.trainingTheme.label) training plan",
+                    context: store.makeTrainerContext()
+                )
+                store.todayWorkout = plan.workoutPlan
+            }
+            AriaContextStore.shared.addInsight("Onboarding interview complete.")
+            try? await Task.sleep(nanoseconds: 550_000_000)
+            store.activeTab = .chat
             store.isOnboarded = true
         }
     }
@@ -694,8 +721,10 @@ final class OnboardingCoordinator {
 
     func devSkipToEnd(in store: AppStore) {
         profile.name = "Dev User"
-        profile.birthday = Calendar.current.date(byAdding: .year, value: -28, to: Date()) ?? Date()
+        profile.lastName = "Forge"
+        profile.birthday = Calendar.current.date(byAdding: .year, value: -28, to: Date())
         profile.gender = .male
+        profile.biologicalSex = .male
         profile.heightCm = 178
         profile.weightKg = 82
         profile.fitnessGoals = [.buildMuscle, .improveEndurance]

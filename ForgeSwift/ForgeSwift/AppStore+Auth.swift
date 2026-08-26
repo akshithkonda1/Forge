@@ -10,6 +10,7 @@ extension AppStore {
 
     /// Rehydrates auth + completed onboarding on cold launch.
     func restoreOnboardingState() {
+        ForgeAuthClient.shared.installTestReadySessionIfNeeded()
         if let session = ForgeAuthClient.shared.session {
             isAuthenticated = true
             authProvider = session.provider

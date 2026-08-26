@@ -325,6 +325,45 @@ def _print_diffs(diffs) -> None:
         print(line)
 
 
+def _run_test_ready(args) -> int:
+    """Dummy orchestrator smoke — Test-Ready ARIA, never a production instance."""
+    from .aria_simrunner.dummy_orchestrator import (
+        REASONING_SOURCE,
+        refuse_if_cloud,
+        run_smoke,
+    )
+
+    try:
+        refuse_if_cloud()
+    except RuntimeError as exc:
+        print(f"error: {exc}")
+        return 2
+
+    print("ARIA Test-Ready — dummy orchestrator (SimRunner stub, no Bedrock, no prod)")
+    print("-" * 70)
+    rows = run_smoke(args.message)
+    failed = 0
+    for row in rows:
+        source = row.get("reasoning_source")
+        workers = ", ".join(
+            w["kind"] + (f"·{w['subject']}" if w.get("subject") else "")
+            for w in row.get("workers") or []
+        )
+        ok = source == REASONING_SOURCE and row.get("test_ready") is True
+        mark = "ok" if ok else "FAIL"
+        if not ok:
+            failed += 1
+        print(f"  [{mark}] agents={workers or row.get('agent')}  source={source}")
+        prose = (row.get("prose_summary") or "")[:120]
+        if prose:
+            print(f"         {prose}")
+    if args.gate and failed:
+        print(f"gate: {failed} test-ready turn(s) did not use the dummy orchestrator")
+        return 2
+    print(f"test-ready: {len(rows) - failed}/{len(rows)} turns on {REASONING_SOURCE}")
+    return 0 if not failed else 2
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="backend.simrunner",
@@ -366,7 +405,21 @@ def main(argv: list[str] | None = None) -> int:
                         help="diff this run against a committed baseline (default dir: baselines/)")
     parser.add_argument("--gate", action="store_true",
                         help="fail (exit 2) on a composite regression or a new mission-critical failure")
+    parser.add_argument(
+        "--test-ready",
+        action="store_true",
+        help="run the dummy ARIA orchestrator (SimRunner stub, no production instance)",
+    )
+    parser.add_argument(
+        "--message",
+        action="append",
+        default=None,
+        help="with --test-ready, a prompt to orchestrate (repeatable)",
+    )
     args = parser.parse_args(argv)
+
+    if args.test_ready:
+        return _run_test_ready(args)
 
     if args.list:
         _print_catalog()

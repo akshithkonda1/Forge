@@ -115,20 +115,8 @@ extension AppStore {
         }
 
         // First launch, or a transcript we can no longer decode.
-        //
-        // The demo conversation is fifteen messages in which ARIA calls the user
-        // Akshith, says it has already synced their Apple Watch and Oura Ring,
-        // and quotes their HRV, deep sleep and a bench stuck at 225. None of
-        // that is theirs. ContentView routes a non-onboarded user to
-        // OnboardingView, so today only that routing keeps it off screen --
-        // which is a thin thing to rely on for a fabricated health history.
-        // A real build starts empty and gets its opening line from
-        // seedAriaWelcomeFromOnboarding once onboarding actually finishes.
-        #if DEBUG
-        chatMessages = isOnboarded ? [] : mockChatMessages
-        #else
+        // Opening line comes from seedAriaWelcomeFromOnboarding after the interview.
         chatMessages = []
-        #endif
         chatLevel = max(1, (chatXP / Self.xpPerChatLevel) + 1)
         if let anchorData = UserDefaults.standard.data(forKey: Self.durableMemoryKey),
            let anchors = try? JSONDecoder().decode([String].self, from: anchorData) {
@@ -205,8 +193,110 @@ extension AppStore {
         persistChatHistory()
     }
 
+    /// First time in this tab: a live yes/no conversation, not a tour.
+    func startAriaFirstBondIfNeeded() {
+        if ariaFirstBondForceReplay {
+            ariaFirstBondForceReplay = false
+            beginAriaFirstBond()
+            return
+        }
+        if hasCompletedAriaUseOnboarding {
+            isInAriaFirstBond = false
+            return
+        }
+        let alreadyTalked = chatMessages.contains { $0.role == .user && !AriaFirstBond.isBondMessageID($0.id) }
+        if alreadyTalked {
+            completeAriaUseOnboarding()
+            return
+        }
+        if chatMessages.contains(where: { $0.id == AriaFirstBond.openingID }) {
+            isInAriaFirstBond = true
+            return
+        }
+        beginAriaFirstBond()
+    }
+
+    private func bondContext() -> AriaFirstBond.Context {
+        AriaFirstBond.Context(
+            name: userProfile.name,
+            snapshot: AriaFirstHealthBriefing.snapshot(from: self),
+            goal: userProfile.fitnessGoals.first?.label,
+            cycleAvailable: AriaCoachAgentRouter.cycleAvailable()
+        )
+    }
+
+    private func beginAriaFirstBond() {
+        let turn = AriaFirstBond.start(bondContext())
+        ariaFirstBondBeat = turn.next
+        isInAriaFirstBond = true
+        let msg = ChatMessage(
+            id: AriaFirstBond.openingID,
+            role: .trainer,
+            content: turn.message,
+            timestamp: Date(),
+            confidence: 0.94,
+            suggestedActions: turn.replies,
+            coachAgent: AriaCoachAgent.aria.rawValue
+        )
+        if chatMessages.contains(where: { $0.role == .user }) {
+            chatMessages.append(msg)
+        } else {
+            chatMessages = [msg]
+        }
+        lastSuggestedActions = turn.replies
+        beginStreamingReveal(for: msg.id, fullLength: msg.content.count)
+        persistChatHistory()
+    }
+
+    private func completeAriaFirstBond() {
+        completeAriaUseOnboarding()
+        let nextLevel = min(10, AriaContextStore.shared.context.relationshipLevel + 1)
+        AriaContextStore.shared.applyUpdates(["relationship_level": nextLevel])
+        AriaContextStore.shared.addInsight("We started. First conversation.")
+        rememberDurable("ARIA is a lifestyle coach — not a doctor, not a game. She reads Apple Health.")
+    }
+
     /// Send a message through ARIA (remote when available, local fallback).
     func sendMessage(_ text: String, ariaPayload: String? = nil) async {
+        if isInAriaFirstBond, !hasCompletedAriaUseOnboarding {
+            let turn = AriaFirstBond.advance(
+                beat: ariaFirstBondBeat,
+                userText: text,
+                context: bondContext()
+            )
+            if !(turn.finishes && turn.message.isEmpty) {
+                let userMessage = ChatMessage(
+                    id: UUID().uuidString,
+                    role: .user,
+                    content: text,
+                    timestamp: Date()
+                )
+                chatMessages.append(userMessage)
+                isGeneratingResponse = true
+                try? await Task.sleep(nanoseconds: 380_000_000)
+                let reply = ChatMessage(
+                    id: AriaFirstBond.replyIDPrefix + UUID().uuidString,
+                    role: .trainer,
+                    content: turn.message,
+                    timestamp: Date(),
+                    confidence: 0.93,
+                    suggestedActions: turn.replies,
+                    coachAgent: AriaCoachAgent.aria.rawValue
+                )
+                chatMessages.append(reply)
+                lastSuggestedActions = turn.replies
+                ariaFirstBondBeat = turn.next
+                isGeneratingResponse = false
+                beginStreamingReveal(for: reply.id, fullLength: reply.content.count)
+                persistChatHistory()
+                if turn.finishes {
+                    completeAriaFirstBond()
+                }
+                return
+            }
+            completeAriaFirstBond()
+        }
+
         let userMessage = ChatMessage(
             id: UUID().uuidString,
             role: .user,
@@ -225,12 +315,29 @@ extension AppStore {
             // Learn partner/daughter/family support context from plain language.
             applySupportContextIfDetected(from: outbound)
 
-            let aria = try await AriaService.shared.sendMessage(
+            let plan = AriaCoachAgentRouter.plan(
+                message: outbound,
+                context: AriaCoachAgentRouter.context(pinned: pinnedCoachAgent)
+            )
+            lastRoutedCoachAgent = plan.primary.kind
+            lastCoachWorkers = plan.workers
+
+            var aria = try await AriaService.shared.sendMessage(
                 outbound,
                 store: self,
                 localGenerator: responseGenerator,
-                voiceMode: ariaVoiceMode
+                voiceMode: ariaVoiceMode,
+                agent: plan.primary.kind,
+                agents: plan.backendIds
             )
+            let extras = await AriaCoachAgentRouter.supportingBriefs(
+                plan: plan,
+                store: self,
+                primaryText: aria.message
+            )
+            if !extras.isEmpty {
+                aria.message += "\n\n" + extras.joined(separator: "\n")
+            }
 
             lastSuggestedActions = aria.suggestedActions ?? []
 
@@ -251,7 +358,8 @@ extension AppStore {
                 confidence: aria.confidence,
                 suggestedActions: aria.suggestedActions,
                 memoryReference: aria.memoryReference,
-                confidenceReason: aria.confidenceReason
+                confidenceReason: aria.confidenceReason,
+                coachAgent: plan.primary.kind.rawValue
             )
             chatMessages.append(trainerMessage)
             beginStreamingReveal(for: trainerMessage.id, fullLength: trainerMessage.content.count)

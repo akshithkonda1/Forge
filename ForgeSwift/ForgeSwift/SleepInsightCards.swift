@@ -14,14 +14,14 @@ struct SleepStreakCard: View {
                         .fill(LinearGradient(colors: [Color.ember, Color.ember.opacity(0.75)], startPoint: .topLeading, endPoint: .bottomTrailing))
                         .frame(width: 58, height: 58)
                         .shadow(color: Color.ember.opacity(0.45), radius: 10, y: 4)
-                    Image(systemName: "flame.fill").font(.system(size: 26)).foregroundColor(.white)
+                    Image(systemName: "moon.fill").font(.system(size: 26)).foregroundColor(.white)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text("\(streak)").font(.system(size: 28, weight: .black, design: .rounded)).foregroundColor(.textPrimary)
-                        Text("Day Streak").font(.system(size: 16, weight: .medium)).foregroundColor(.textSecondary)
+                        Text("nights in a row").font(.system(size: 16, weight: .medium)).foregroundColor(.textSecondary)
                     }
-                    Text(streak >= 7 ? "🔥 On fire!" : "Keep it going!")
+                    Text(streak >= 7 ? "A full week logged." : "Nights you actually slept — not a score.")
                         .font(.system(size: 13)).foregroundColor(.textTertiary)
                 }
                 Spacer()

@@ -16,7 +16,6 @@ struct SettingsPageView: View {
     @State private var catalogRevision = 0
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
-    @State private var showTrainingThemePicker = false
     @State private var showTermsSheet = false
     @State private var showClinicalData = false
     @State private var showDataPermissions = false
@@ -64,17 +63,36 @@ struct SettingsPageView: View {
                     .buttonStyle(.plain)
 
                     Divider().background(Color.borderColor)
-
-                    Button(action: { showTrainingThemePicker = true }) {
-                        SettingsRow(
-                            icon: store.userProfile.trainingTheme.icon,
-                            iconColor: Color(hex: store.userProfile.trainingTheme.accentHex),
-                            label: "Training Theme",
-                            trailingText: store.userProfile.trainingTheme.label,
-                            showChevron: true
-                        )
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Personal coaches")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.textPrimary)
+                        Text("ARIA spawns as many specialists as the question needs — one live call, the rest in parallel on this phone. Pin one to lead, or leave Auto.")
+                            .font(.system(size: 12))
+                            .foregroundColor(.textTertiary)
+                        Button {
+                            store.replayAriaUseOnboarding()
+                        } label: {
+                            Text("Meet ARIA again")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.ember)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 4)
+                        FlowLayout(spacing: 8) {
+                            coachPinChip(nil, title: "Auto")
+                            ForEach(AriaCoachAgent.allCases) { agent in
+                                if AriaCoachAgentRouter.isAvailable(
+                                    agent,
+                                    context: AriaCoachAgentRouter.context(pinned: store.pinnedCoachAgent)
+                                ) {
+                                    coachPinChip(agent, title: agent.label)
+                                }
+                            }
+                        }
                     }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
 
                     Divider().background(Color.borderColor)
                     VStack(alignment: .leading, spacing: 0) {
@@ -83,11 +101,6 @@ struct SettingsPageView: View {
                             .foregroundColor(.textTertiary)
                             .lineSpacing(2)
                             .padding(.horizontal, 16).padding(.vertical, 10)
-                        Text(store.userProfile.trainingTheme.tagline)
-                            .font(.system(size: 12))
-                            .foregroundColor(Color(hex: store.userProfile.trainingTheme.accentHex).opacity(0.9))
-                            .lineSpacing(2)
-                            .padding(.horizontal, 16).padding(.bottom, 10)
                         Divider().background(Color.borderColor)
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Training Goals")
@@ -517,9 +530,6 @@ struct SettingsPageView: View {
         .sheet(isPresented: $showCoachingStylePicker) {
             CoachingStylePickerView()
         }
-        .sheet(isPresented: $showTrainingThemePicker) {
-            TrainingThemePickerView()
-        }
         .sheet(isPresented: $showDevicesSheet) {
             ConnectedDevicesLibraryView()
                 .environmentObject(store)
@@ -614,6 +624,22 @@ struct SettingsPageView: View {
             )
         }
         .onAppear { weeklyReview.refreshDue() }
+    }
+
+    private func coachPinChip(_ agent: AriaCoachAgent?, title: String) -> some View {
+        let selected = store.pinnedCoachAgent == agent
+        return Button {
+            store.pinnedCoachAgent = agent
+            if let agent { store.lastRoutedCoachAgent = agent }
+        } label: {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(selected ? .ember : .textPrimary)
+                .padding(.horizontal, 12).padding(.vertical, 5)
+                .background(selected ? Color.ember.opacity(0.18) : Color.ember.opacity(0.12))
+                .cornerRadius(100)
+        }
+        .buttonStyle(.plain)
     }
 
     /// Opens the user's mail client with a support draft already addressed and stamped
