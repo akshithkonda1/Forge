@@ -159,32 +159,75 @@ final class AriaFirstHealthBriefingTests: XCTestCase {
     }
 }
 
-final class AriaUseOnboardingTests: XCTestCase {
+final class AriaFirstBondTests: XCTestCase {
 
-    func testGuideHasFiveStepsAndATryPrompt() {
-        let snap = AriaFirstHealthBriefing.Snapshot(
+    private var snap: AriaFirstHealthBriefing.Snapshot {
+        AriaFirstHealthBriefing.Snapshot(
             sleepHours: 7.2, sleepScore: 88, hrvMs: 52,
             restingHR: 58, readiness: 78, steps: nil,
             lastWorkoutName: nil, fromHealthKit: true
         )
-        let pages = AriaUseOnboarding.pages(name: "Ada", snapshot: snap)
-        XCTAssertEqual(pages.map(\.step), AriaUseOnboardingStep.allCases)
-        XCTAssertTrue(pages[0].title.contains("Ada"))
-        XCTAssertTrue(pages[1].body.contains("How did I sleep"))
-        XCTAssertTrue(pages[2].body.contains("Train"))
-        XCTAssertTrue(pages[3].body.contains("7.2"))
-        XCTAssertEqual(pages.last?.step, .tryIt)
-        XCTAssertTrue(AriaUseOnboarding.tryPrompts.contains("What should I train?"))
     }
 
-    func testHealthPageWithoutSignalsStillTeachesConnect() {
-        let snap = AriaFirstHealthBriefing.Snapshot(
-            sleepHours: nil, sleepScore: nil, hrvMs: nil,
-            restingHR: nil, readiness: nil, steps: nil,
-            lastWorkoutName: nil, fromHealthKit: false
-        )
-        let health = AriaUseOnboarding.pages(name: "", snapshot: snap)
-            .first { $0.step == .health }
-        XCTAssertTrue(health?.body.contains("Connect Apple Health") == true)
+    private func ctx(cycle: Bool = false) -> AriaFirstBond.Context {
+        AriaFirstBond.Context(name: "Ada", snapshot: snap, goal: "Build muscle", cycleAvailable: cycle)
+    }
+
+    func testOpeningIsPersonalAndAsksToStay() {
+        let turn = AriaFirstBond.start(ctx())
+        XCTAssertTrue(turn.message.contains("Ada"))
+        XCTAssertTrue(turn.message.contains("ARIA"))
+        XCTAssertTrue(turn.message.contains("7.2"))
+        XCTAssertTrue(turn.message.contains("Build muscle") || turn.message.contains("build muscle"))
+        XCTAssertTrue(turn.replies.contains("I’m here."))
+        XCTAssertEqual(turn.next, .opening)
+        XCTAssertFalse(turn.finishes)
+    }
+
+    func testYesNoChecksAreSequentialAndDynamic() {
+        let context = ctx(cycle: true)
+        var turn = AriaFirstBond.advance(beat: .opening, userText: "I’m here.", context: context)
+        XCTAssertTrue(turn.message.contains("not a doctor"))
+        XCTAssertEqual(turn.replies, AriaFirstBond.yesNo)
+        XCTAssertEqual(turn.next, .notDoctor)
+
+        turn = AriaFirstBond.advance(beat: .notDoctor, userText: "Yes.", context: context)
+        XCTAssertTrue(turn.message.contains("Apple Health"))
+        XCTAssertEqual(turn.next, .health)
+
+        turn = AriaFirstBond.advance(beat: .health, userText: "No.", context: context)
+        XCTAssertTrue(turn.message.lowercased().contains("invent") || turn.message.contains("missing"))
+        XCTAssertTrue(turn.message.contains("game") || turn.message.contains("XP"))
+        XCTAssertEqual(turn.next, .notGame)
+
+        turn = AriaFirstBond.advance(beat: .notGame, userText: "Not sure.", context: context)
+        XCTAssertTrue(turn.message.contains("Cycle"))
+        XCTAssertEqual(turn.next, .specialists)
+    }
+
+    func testCycleStaysOutWhenNotShared() {
+        let turn = AriaFirstBond.advance(beat: .notGame, userText: "Yes.", context: ctx(cycle: false))
+        XCTAssertTrue(turn.message.contains("Cycle stays out"))
+    }
+
+    func testWrongAnswerCorrectsThenContinues() {
+        let turn = AriaFirstBond.advance(beat: .notDoctor, userText: "No.", context: ctx())
+        XCTAssertTrue(turn.message.contains("won’t diagnose") || turn.message.contains("won't diagnose")
+                      || turn.message.contains("not medical"))
+        XCTAssertEqual(turn.next, .health)
+    }
+
+    func testLeaveEndsTheBond() {
+        let turn = AriaFirstBond.advance(beat: .opening, userText: "Not now.", context: ctx())
+        XCTAssertTrue(turn.finishes)
+        XCTAssertTrue(turn.message.contains("ours"))
+    }
+
+    func testRealQuestionHandoffAfterChecks() {
+        XCTAssertTrue(AriaFirstBond.shouldHandoffToCoach("How did I sleep?"))
+        XCTAssertFalse(AriaFirstBond.shouldHandoffToCoach("Yes."))
+        let turn = AriaFirstBond.advance(beat: .invite, userText: "How did I sleep?", context: ctx())
+        XCTAssertTrue(turn.finishes)
+        XCTAssertTrue(turn.message.isEmpty)
     }
 }

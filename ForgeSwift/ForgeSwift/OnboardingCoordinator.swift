@@ -708,15 +708,6 @@ final class OnboardingCoordinator {
                 )
                 store.todayWorkout = plan.workoutPlan
             }
-            let briefing = AriaFirstHealthBriefing.welcome(
-                name: profile.firstName,
-                healthConnected: healthConnected,
-                snapshot: AriaFirstHealthBriefing.snapshot(from: store)
-            )
-            store.seedAriaWelcomeFromOnboarding(
-                message: briefing.message,
-                suggestedActions: briefing.actions
-            )
             AriaContextStore.shared.addInsight("Onboarding interview complete.")
             try? await Task.sleep(nanoseconds: 550_000_000)
             store.activeTab = .chat

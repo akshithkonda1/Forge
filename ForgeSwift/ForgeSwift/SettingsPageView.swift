@@ -73,7 +73,7 @@ struct SettingsPageView: View {
                         Button {
                             store.replayAriaUseOnboarding()
                         } label: {
-                            Text("Replay ARIA intro")
+                            Text("Meet ARIA again")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.ember)
                         }

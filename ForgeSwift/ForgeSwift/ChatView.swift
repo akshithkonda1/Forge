@@ -190,18 +190,7 @@ struct ChatView: View {
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
 
-            if !store.hasCompletedAriaUseOnboarding {
-                AriaUseOnboardingView { prompt in
-                    store.completeAriaUseOnboarding()
-                    if let prompt {
-                        sendMessage(prompt)
-                    }
-                }
-                .zIndex(180)
-                .transition(.opacity)
-            }
         }
-        .animation(FDS.Spring.hero, value: store.hasCompletedAriaUseOnboarding)
         .animation(FDS.Spring.hero, value: showVoiceOrb)
         .animation(FDS.Spring.standard, value: swipeReplyTarget?.id)
         .sheet(isPresented: $showContextInspector) {
@@ -229,6 +218,10 @@ struct ChatView: View {
             }
             consumePendingHomeHandoff()
             weeklyReview.considerPresenting()
+            store.startAriaFirstBondIfNeeded()
+            if store.isInAriaFirstBond {
+                showQuickActions = true
+            }
         }
         .onChange(of: store.ariaPendingChatPrompt) { _, prompt in
             guard prompt != nil else { return }
@@ -299,7 +292,7 @@ struct ChatView: View {
 
         inputText = ""
         isTyping = true
-        showQuickActions = false
+        showQuickActions = store.isInAriaFirstBond
         swipeReplyTarget = nil
         proactiveInsight = nil
 
@@ -313,6 +306,7 @@ struct ChatView: View {
                 await store.sendMessage(trimmed)
             }
             isTyping = false
+            if store.isInAriaFirstBond { showQuickActions = true }
             choreographedHaptic(.messageReceived, mood: ariaMood)
         }
     }

@@ -133,18 +133,24 @@ final class AppStore: ObservableObject {
     /// because Apple Health had nothing. Never set from a real sample.
     @Published var usingTestReadyHealthPack: Bool = false
 
-    /// First-run ARIA intro on the chat tab. Replayable from Settings.
+    /// First conversation with ARIA. Completes once; replay from Settings.
     @Published var hasCompletedAriaUseOnboarding: Bool = UserDefaults.standard.bool(forKey: AriaUseOnboarding.storageKey) {
         didSet { UserDefaults.standard.set(hasCompletedAriaUseOnboarding, forKey: AriaUseOnboarding.storageKey) }
     }
+    @Published var isInAriaFirstBond: Bool = false
+    var ariaFirstBondBeat: AriaFirstBond.Beat = .opening
+    var ariaFirstBondForceReplay: Bool = false
 
     func completeAriaUseOnboarding() {
+        isInAriaFirstBond = false
         hasCompletedAriaUseOnboarding = true
     }
 
     func replayAriaUseOnboarding() {
         hasCompletedAriaUseOnboarding = false
+        ariaFirstBondForceReplay = true
         activeTab = .chat
+        startAriaFirstBondIfNeeded()
     }
     
     // Streak tracking — consecutive calendar days with a completed session.

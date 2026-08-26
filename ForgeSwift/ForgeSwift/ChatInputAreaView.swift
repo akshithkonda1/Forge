@@ -136,9 +136,30 @@ struct ChatInputAreaView: View {
             .padding(.horizontal, 18)
             .padding(.top, 10)
 
-            CoachAgentChipRow()
+            if !store.isInAriaFirstBond {
+                CoachAgentChipRow()
+            }
 
-            if showQuickActions && !isInputFocused {
+            if store.isInAriaFirstBond, !store.lastSuggestedActions.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 9) {
+                        ForEach(store.lastSuggestedActions, id: \.self) { label in
+                            let yesLike = label.lowercased().hasPrefix("yes")
+                            let noLike = label.lowercased().hasPrefix("no")
+                            SmartChip(
+                                label: label,
+                                icon: yesLike ? "checkmark" : (noLike ? "xmark" : "arrow.up.right"),
+                                color: yesLike ? Color(hex: "22C55E") : (noLike ? Color(hex: "F43F5E") : mood.accentColor),
+                                disabled: isTyping
+                            ) {
+                                onSend(label)
+                                choreographedHaptic(.quickChipTap)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 18).padding(.vertical, 11)
+                }
+            } else if showQuickActions && !isInputFocused {
                 let chips = smartQuickActions(
                     mood:         mood,
                     readiness:    store.readiness.overall,
