@@ -446,6 +446,12 @@ resource "aws_lambda_function" "backend" {
       APP_DATA_TABLE_NAME    = aws_dynamodb_table.app_data.name
       ARIA_BEDROCK_ENABLED   = var.aria_bedrock_enabled ? "true" : "false"
       ENVIRONMENT            = var.environment
+      # Third router slot. Passing "" would override ai_router.py's default with
+      # an empty model id and break routing on any environment that has not set
+      # these, so an unset variable must fall back to the code default rather
+      # than to the empty string.
+      AI_ROUTER_MODEL_3_ID   = var.ai_router_model_3_id != "" ? var.ai_router_model_3_id : "moonshotai.kimi-k2.5"
+      AI_ROUTER_MODEL_3_NAME = var.ai_router_model_3_name != "" ? var.ai_router_model_3_name : "Kimi K2.5"
       UPLOADS_BUCKET_NAME    = aws_s3_bucket.uploads.bucket
       USER_POOL_ID           = aws_cognito_user_pool.forge.id
     }

@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 /// Composes ARIA speech across infinite-feeling combinations of style axes,
 /// theme lexicon, coaching style, readiness, time, and relationship depth.
@@ -311,7 +312,22 @@ enum AriaVoiceEngine {
         var filtered = beats.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         filtered = applyLength(filtered, profile: profile, rng: &rng)
 
-        if profile.guidanceOnly, intent == .trainingPlan || intent == .lowEnergy || intent == .pain {
+        // Banded, not blanket. The old rule appended the same disclaimer to
+        // every training, low-energy and pain turn whenever `guidanceOnly` was
+        // set, which taught people to skip the last line of every reply — and
+        // then it was still just a line on the turn where it mattered.
+        let guidance = AriaGuidancePolicy.decide(text: input, guidanceOnlyMode: profile.guidanceOnly)
+        if guidance.band == .referOut {
+            // Do not coach around it and do not bury it under a session. The
+            // composed beats are discarded on purpose: attaching a workout to
+            // "I get chest pain on the stairs" is the failure worth designing
+            // against, and a softened version of it is still that failure.
+            return guidance.line ?? guidanceLine(rng: &rng)
+        }
+        if guidance.band == .coachWithCare, let line = guidance.line {
+            filtered.append(line)
+        } else if guidance.band == .coach,
+                  AriaGuidancePolicy.shouldRemindOnOrdinaryTurn(turnIndex: context.totalMessageCount) {
             filtered.append(guidanceLine(rng: &rng))
         }
 

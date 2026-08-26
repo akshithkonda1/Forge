@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 /// Domains a local turn can be about.
 ///
@@ -171,6 +172,22 @@ final class LocalTestingOrchestrator {
         affinity[domain, default: 0] += 1
         captureFacts(from: text)
         exchanges += 1
+
+        // Checked before anything is generated. Familiarity, mode and tone all
+        // sit below this: a coach who has known you for forty turns still does
+        // not get to answer a question about chest pain with a training tweak.
+        let guidance = AriaGuidancePolicy.decide(text: text)
+        if guidance.band == .referOut, let line = guidance.line {
+            return AriaResponse(
+                confidenceReason: "Local testing — outside coaching scope, referred out.",
+                proseSummary: line,
+                message: line,
+                richCard: nil,
+                suggestedActions: nil,
+                contextUpdates: nil,
+                confidence: 1.0
+            )
+        }
 
         var context = store.makeTrainerContext()
         // Feed session depth into the voice layer. `AriaVoiceEngine` infers

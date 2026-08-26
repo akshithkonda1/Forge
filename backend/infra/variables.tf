@@ -91,6 +91,18 @@ variable "aria_bedrock_enabled" {
   default     = false
 }
 
+variable "ai_router_model_3_id" {
+  description = "Bedrock model id for the AI router's third slot — the one agentic turns call in when a mode fans out to its own specialists and subagents. Empty keeps ai_router.py's own default (moonshotai.kimi-k2.5). Set per environment so a new tertiary can be proven in staging before production follows."
+  type        = string
+  default     = ""
+}
+
+variable "ai_router_model_3_name" {
+  description = "Display name for the third router slot, surfaced in responses and in the client's routing label. Set it alongside ai_router_model_3_id — a name that disagrees with the id is worse than no name, because it makes the transcript claim a model that never answered."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Additional tags applied to all resources."
   type        = map(string)

@@ -158,6 +158,41 @@ extension AppStore {
         }
     }
 
+    /// Everything the intent resolver may read about this turn.
+    ///
+    /// Affinity is derived from the transcript rather than held as separate
+    /// state, so it works identically on the live path and in local testing and
+    /// cannot drift out of sync with what was actually said.
+    func intentSignals(for text: String) -> AriaIntentInput {
+        let classifier = RuleBasedResponseGenerator()
+        var affinity: [String: Int] = [:]
+        for message in chatMessages.suffix(40) where message.role == .user {
+            let domain = classifier.domain(of: message.content)
+            // The coach router's vocabulary and the resolver's overlap but are
+            // not identical; only count the ones the resolver can act on.
+            if AriaIntentDomain(rawValue: domain.rawValue) != nil {
+                affinity[domain.rawValue, default: 0] += 1
+            }
+        }
+
+        let lastNight = sleepData.first
+        let shortRun = sleepData.prefix(4).prefix { $0.totalHours < 6.5 }.count
+        let today = ISO8601DateFormatter()
+        today.formatOptions = [.withFullDate]
+        let todayKey = String(today.string(from: Date()).prefix(10))
+
+        return AriaIntentInput(
+            text: text,
+            readiness: readiness.overall > 0 ? readiness.overall : nil,
+            sleepMinutesLastNight: lastNight.map { Int(($0.totalHours * 60).rounded()) },
+            consecutiveShortNights: shortRun,
+            hasSessionLoggedToday: workoutHistory.contains { $0.date.hasPrefix(todayKey) },
+            cycleTrackingAvailable: AriaCoachAgentRouter.cycleAvailable(),
+            topicAffinity: affinity,
+            rememberedFacts: durableMemoryAnchors
+        )
+    }
+
     func visibleContent(for message: ChatMessage) -> String {
         guard streamingMessageId == message.id, streamingVisibleCount > 0 else {
             return message.content
@@ -336,7 +371,8 @@ extension AppStore {
 
             let plan = AriaCoachAgentRouter.plan(
                 message: outbound,
-                context: AriaCoachAgentRouter.context(pinned: pinnedCoachAgent)
+                context: AriaCoachAgentRouter.context(pinned: pinnedCoachAgent),
+                signals: intentSignals(for: outbound)
             )
             lastRoutedCoachAgent = plan.primary.kind
             lastCoachWorkers = plan.workers
