@@ -71,7 +71,12 @@ final class AriaService: ObservableObject {
             isTestReady = false
             isLocalFallback = true
             lastRemoteError = nil
-            return try await LocalTestingOrchestrator.shared.reply(to: text, store: store)
+            return try await LocalTestingOrchestrator.shared.reply(
+                to: text,
+                store: store,
+                agent: agent,
+                agents: agents
+            )
         }
 
         if Self.shouldUseTestReadyDummy {

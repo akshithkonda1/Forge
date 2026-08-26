@@ -32,6 +32,49 @@ enum AriaLocalDomain: String, CaseIterable {
     }
 }
 
+/// Which model slot a turn would route to in production.
+///
+/// Mirrors `default_models()` in `backend/infra/lambda/ai_router.py`, which
+/// defines three slots: a fast primary responder, a fallback/verifier, and a
+/// third that pressure-tests edge cases. Local testing never calls any of them
+/// — it reports the routing it *would* have taken, so a tester sees the same
+/// decision production would make.
+///
+/// Note the tertiary name here is Grok by instruction, while the backend's
+/// slot-3 default is still `moonshotai.kimi-k2.5`. The slot is env-overridable
+/// (`AI_ROUTER_MODEL_3_ID` / `_NAME`), so nothing is wrong in the client — but
+/// the two disagree until that env is set, and a label that quietly lies about
+/// which model answered is worse than no label.
+enum AriaModelTier: String {
+    case primary
+    case secondary
+    case tertiary
+
+    var slot: Int {
+        switch self {
+        case .primary:   return 1
+        case .secondary: return 2
+        case .tertiary:  return 3
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .primary:   return "Claude Sonnet 4.6"
+        case .secondary: return "Claude Opus 4.7"
+        case .tertiary:  return "Grok"
+        }
+    }
+
+    /// Typical turns run on data plus the primary and secondary models. Agentic
+    /// work — a mode spawning its own specialists and subagents to solve
+    /// something the single-pass path cannot — calls in the tertiary.
+    static func route(workerCount: Int, hasSubagents: Bool) -> AriaModelTier {
+        if workerCount > 1 || hasSubagents { return .tertiary }
+        return .primary
+    }
+}
+
 /// On-device ARIA for testing: stateful across a session, no network, no model.
 ///
 /// This wraps `RuleBasedResponseGenerator` and `AriaVoiceEngine` rather than
@@ -103,8 +146,26 @@ final class LocalTestingOrchestrator {
 
     // MARK: - Reply
 
-    func reply(to text: String, store: AppStore) async throws -> AriaResponse {
-        await simulateThinking()
+    func reply(
+        to text: String,
+        store: AppStore,
+        agent: AriaCoachAgent = .aria,
+        agents: [String]? = nil
+    ) async throws -> AriaResponse {
+        // The 5-mode structure is not rebuilt here. `AppStore+Chat` already
+        // runs `AriaCoachAgentRouter.plan` for every turn, spawns a worker per
+        // specialist the message needs (and one per subject for cycle, which is
+        // what a subagent is), and appends their briefs after this returns.
+        // All of that happens in local testing too. What was missing is that
+        // this orchestrator threw the routing away and answered as a generalist,
+        // so a tester saw none of it.
+        let routed = agents ?? [agent.backendId]
+        let tier = AriaModelTier.route(
+            workerCount: routed.count,
+            hasSubagents: routed.count > 1
+        )
+
+        await simulateThinking(tier: tier)
 
         let domain = generator.domain(of: text)
         affinity[domain, default: 0] += 1
@@ -134,8 +195,13 @@ final class LocalTestingOrchestrator {
             parts.append(crossover)
         }
 
+        let specialists = routed.count > 1
+            ? "\(agent.label) + \(routed.count - 1) specialist\(routed.count - 1 == 1 ? "" : "s")"
+            : agent.label
+
         return AriaResponse(
-            confidenceReason: "Local testing — on-device ARIA, no cloud. Familiarity \(familiarity)/10.",
+            confidenceReason: "Local testing — \(specialists) · would route to slot \(tier.slot) "
+                + "(\(tier.displayName)) · no cloud · familiarity \(familiarity)/10.",
             proseSummary: base.content,
             message: parts.joined(separator: "\n\n"),
             richCard: nil,
@@ -149,9 +215,13 @@ final class LocalTestingOrchestrator {
 
     /// Instant replies are the single biggest tell that something is canned
     /// rather than considered, so the wait is real even though the work is not.
-    private func simulateThinking() async {
+    private func simulateThinking(tier: AriaModelTier) async {
         var rng = AriaSeededRNG(seed: seed &+ UInt64(exchanges &* 7 &+ 1))
-        let milliseconds = rng.int(in: 800..<2_000)
+        // Agentic turns fan out to several specialists before anything comes
+        // back, so they take visibly longer. A local mode where the hard
+        // question returns as fast as "hey" is the tell that nothing fanned out.
+        let range = tier == .tertiary ? 1_600..<3_200 : 800..<2_000
+        let milliseconds = rng.int(in: range)
         try? await Task.sleep(nanoseconds: UInt64(milliseconds) * 1_000_000)
     }
 

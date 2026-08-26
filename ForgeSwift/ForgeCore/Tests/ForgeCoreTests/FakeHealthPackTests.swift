@@ -117,4 +117,80 @@ final class FakeHealthPackTests: XCTestCase {
         XCTAssertEqual(Set(dates).count, dates.count)
         XCTAssertEqual(dates, dates.sorted(by: >))
     }
+
+    // MARK: - Lifestyle history
+
+    func testMonthShapeVariesWithSeedNotJustValues() {
+        // The shape used to be hardcoded to the offset, so every seed told the
+        // same month: same short nights, same rest days. Different seeds must
+        // now produce different *stories*, not just different jitter.
+        let a = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 11)
+        let b = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 977)
+        let shortA = Set(a.days.enumerated().filter { $0.element.night.totalMinutes < 6.5 * 60 }.map(\.offset))
+        let shortB = Set(b.days.enumerated().filter { $0.element.night.totalMinutes < 6.5 * 60 }.map(\.offset))
+        XCTAssertNotEqual(shortA, shortB, "short nights must not land on the same days for every seed")
+
+        let workoutsA = a.days.map { $0.workout?.name ?? "-" }
+        let workoutsB = b.days.map { $0.workout?.name ?? "-" }
+        XCTAssertNotEqual(workoutsA, workoutsB, "the training week must not always start on the same pack index")
+    }
+
+    func testGuaranteesHoldAcrossManySeeds() {
+        // The app re-seeds per session now, so a guarantee that holds for the
+        // tests' pinned seeds but not for arbitrary ones is a bug that ships and
+        // never reproduces.
+        for seed in stride(from: 1, through: 400, by: 7) {
+            let pack = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: seed)
+            let short = pack.days.filter { $0.night.totalMinutes < 6.5 * 60 }
+            XCTAssertGreaterThanOrEqual(short.count, 2, "seed \(seed) lost the sleep-debt story")
+            XCTAssertGreaterThanOrEqual(pack.days.compactMap(\.workout).count, 8, "seed \(seed) lost sessions")
+            XCTAssertTrue(pack.days.compactMap(\.workout).contains { $0.type == .strength }, "seed \(seed) lost strength")
+
+            guard let today = pack.today else { return XCTFail("seed \(seed) has no today") }
+            XCTAssertGreaterThan(today.night.totalMinutes, 5 * 60, "seed \(seed) made today uncitable")
+            XCTAssertGreaterThan(today.night.deepMinutes, 0)
+            XCTAssertTrue((28...95).contains(today.hrvMs), "seed \(seed) HRV out of range")
+            XCTAssertTrue((48...78).contains(today.restingHR), "seed \(seed) RHR out of range")
+            XCTAssertTrue(today.social.isEmpty, "today's evening has not happened yet")
+        }
+    }
+
+    func testSocialEventsActuallyMoveTheBiometrics() {
+        // A late night with drinks that left sleep and HRV untouched would be
+        // worse than no social data: ARIA would learn to say things the numbers
+        // contradict.
+        var heavyNights = 0
+        var quietNights = 0
+        var heavyHRV = 0
+        var quietHRV = 0
+        for seed in stride(from: 3, through: 300, by: 11) {
+            let pack = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: seed)
+            for day in pack.days.dropFirst() {
+                if let event = day.social.first, event.drinks >= 3 {
+                    heavyNights += 1
+                    heavyHRV += day.hrvMs
+                } else if day.social.isEmpty {
+                    quietNights += 1
+                    quietHRV += day.hrvMs
+                }
+            }
+        }
+        XCTAssertGreaterThan(heavyNights, 20, "not enough heavy nights generated to compare")
+        XCTAssertGreaterThan(quietNights, 20)
+        let heavyMean = Double(heavyHRV) / Double(heavyNights)
+        let quietMean = Double(quietHRV) / Double(quietNights)
+        XCTAssertLessThan(heavyMean, quietMean, "drinking nights must depress HRV relative to quiet ones")
+    }
+
+    func testDaysCarryPlacesAndSomeEvenings() {
+        let pack = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
+        XCTAssertTrue(pack.days.allSatisfy { !$0.markers.isEmpty }, "every day needs at least home")
+        XCTAssertTrue(
+            pack.days.allSatisfy { day in day.markers == day.markers.sorted { $0.arrival < $1.arrival } },
+            "markers must read in the order the day happened"
+        )
+        let social = pack.days.flatMap(\.social)
+        XCTAssertFalse(social.isEmpty, "a month with no evenings in it is not an average person")
+        XCTAssertTrue(pack.days.contains { $0.markers.contains { $0.kind == .gym } })
+    }
 }

@@ -167,6 +167,52 @@ extension AppStore {
         return Int(truncatingIfNeeded: time ^ UInt64(truncatingIfNeeded: UUID().hashValue))
     }()
 
+    /// Turn the pack's lifestyle history into tags ARIA already reads.
+    ///
+    /// Without this the markers and social events are generated, written and
+    /// never seen — thirty days of evenings that no surface can reach, which is
+    /// the same failure as a widget that is not in its bundle. `lifestyleTags`
+    /// is the existing channel to both the local path and the backend, so the
+    /// history travels the same way every other lifestyle signal does.
+    static func lifestyleTags(from pack: FakeHealthPack) -> [String] {
+        var tags: [String] = []
+
+        // Last night is the one the user is living in right now, so it gets to
+        // be specific rather than aggregate.
+        if let recent = pack.days.dropFirst().first, let event = recent.social.first {
+            tags.append("lastnight:\(event.kind.rawValue)")
+            if event.drinks > 0 { tags.append("lastnight:drinks:\(event.drinks)") }
+            if event.ranLate { tags.append("lastnight:late") }
+        }
+
+        // Where the month actually went, most-visited first. Counts, not
+        // coordinates: ARIA should know this person trains and eats out, not
+        // where they were on the 14th.
+        var placeCounts: [String: Int] = [:]
+        var drinkingNights = 0
+        var socialNights = 0
+        for day in pack.days {
+            for marker in day.markers {
+                placeCounts[marker.kind.rawValue, default: 0] += 1
+            }
+            if let event = day.social.first {
+                socialNights += 1
+                if event.drinks >= 2 { drinkingNights += 1 }
+            }
+        }
+        for (kind, count) in placeCounts.sorted(by: { $0.value > $1.value }).prefix(4) {
+            tags.append("place:\(kind):\(count)")
+        }
+        tags.append("social:nights:\(socialNights)")
+        if drinkingNights > 0 { tags.append("social:drinking_nights:\(drinkingNights)") }
+
+        let workDays = placeCounts["work"] ?? 0
+        if workDays >= pack.days.count / 3 { tags.append("routine:office_regular") }
+        if (placeCounts["travel"] ?? 0) >= 2 { tags.append("routine:travels") }
+
+        return tags
+    }
+
     func installFakeHealthPackIfNeeded() {
         let testReady = AriaService.shouldUseTestReadyDummy
         guard FakeHealthPack.shouldInstall(
@@ -211,6 +257,8 @@ extension AppStore {
                 wake: day.night.end
             )
         }
+        AriaContextStore.shared.applyLifestyleHistoryTags(Self.lifestyleTags(from: pack))
+
         workoutHistory = pack.days.compactMap { day in
             guard let session = day.workout else { return nil }
             return WorkoutHistory(
