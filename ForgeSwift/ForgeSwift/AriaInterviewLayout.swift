@@ -10,11 +10,13 @@ struct AriaInterviewLayout: View {
         // themes) scroll inside a capped region so they never crush the
         // transcript or push content under the status bar / Dynamic Island.
         GeometryReader { geo in
-            let composerCap = max(240, geo.size.height * 0.55)
+            let composerCap = coordinator.step == .details
+                ? max(300, geo.size.height * 0.64)
+                : max(220, geo.size.height * 0.50)
             VStack(spacing: 0) {
                 header
                 transcript
-                    .frame(minHeight: 96, maxHeight: .infinity)
+                    .frame(minHeight: 88, maxHeight: .infinity)
                 composer(maxHeight: composerCap)
             }
         }
@@ -47,15 +49,14 @@ struct AriaInterviewLayout: View {
     }
 
     private var header: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
+        VStack(spacing: 14) {
+            HStack(spacing: 14) {
                 ZStack {
-                    // Soft glow when listening
-                    if dictation.isListening {
+                    if dictation.isListening || coordinator.ariaOrbState == .speaking {
                         Circle()
-                            .fill(Color.ember.opacity(0.22))
-                            .frame(width: 58, height: 58)
-                            .blur(radius: 8)
+                            .fill(coordinator.ariaMood.accentColor.opacity(0.22))
+                            .frame(width: 54, height: 54)
+                            .blur(radius: 10)
                     }
                     AuroraOrbView(
                         state: dictation.isListening ? .listening : coordinator.ariaOrbState,
@@ -63,79 +64,45 @@ struct AriaInterviewLayout: View {
                             ? dictation.amplitude
                             : (coordinator.ariaOrbState == .speaking ? 0.55 : 0.22),
                         mood: coordinator.ariaMood,
-                        size: 48
+                        size: 44
                     )
                 }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text("ARIA")
-                            .font(.caption2.weight(.black))
-                            .tracking(2)
-                            .foregroundColor(coordinator.ariaMood.accentColor)
-                        if dictation.isListening {
-                            Text("· listening")
-                                .font(.caption2.weight(.bold))
-                                .foregroundColor(.ember)
-                                .transition(.opacity)
-                        } else {
-                            Text("· interview")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundColor(.textMuted)
-                        }
-                    }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(dictation.isListening ? "Listening" : "ARIA")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .tracking(1.4)
+                        .foregroundColor(coordinator.ariaMood.accentColor)
                     Text(coordinator.step.progressLabel)
-                        .font(.subheadline.weight(.bold))
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
                         .foregroundColor(.textPrimary)
                 }
 
-                Spacer()
+                Spacer(minLength: 8)
 
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(min(coordinator.step.rawValue + 1, AriaInterviewStep.allCases.count)) of \(AriaInterviewStep.allCases.count)")
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(0.4)
-                        .foregroundColor(.ember)
-                    Text(coordinator.step.progressLabel)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundColor(.textPrimary)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color.ember.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-
-                HealthKitStatusPill(state: coordinator.healthKitState)
+                Text("\(min(coordinator.step.rawValue + 1, AriaInterviewStep.allCases.count)) / \(AriaInterviewStep.allCases.count)")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(.textTertiary)
+                    .monospacedDigit()
             }
             .animation(FDS.Spring.snap, value: dictation.isListening)
-            .animation(FDS.Spring.snap, value: coordinator.step)
+            .animation(FDS.Spring.page, value: coordinator.step)
 
-            // Quiet progress — no score, just how far through the interview.
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.08)).frame(height: 5)
+                    Capsule().fill(Color.white.opacity(0.08)).frame(height: 3)
                     Capsule()
                         .fill(FDS.Gradient.ember)
-                        .frame(width: max(10, geo.size.width * coordinator.progress), height: 5)
-                        .shadow(color: Color.ember.opacity(0.55), radius: 6, y: 0)
+                        .frame(width: max(8, geo.size.width * coordinator.progress), height: 3)
+                        .shadow(color: Color.ember.opacity(0.4), radius: 4, y: 0)
                         .animation(FDS.Spring.standard, value: coordinator.progress)
                 }
             }
-            .frame(height: 5)
-
-            // Step dots
-            HStack(spacing: 4) {
-                ForEach(AriaInterviewStep.allCases, id: \.rawValue) { s in
-                    Circle()
-                        .fill(s.rawValue <= coordinator.step.rawValue ? Color.ember : Color.white.opacity(0.12))
-                        .frame(width: 5, height: 5)
-                }
-            }
-            .frame(maxWidth: .infinity)
+            .frame(height: 3)
         }
         .padding(.horizontal, FDS.Spacing.xl)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
     }
 
     private var transcript: some View {
@@ -172,8 +139,12 @@ struct AriaInterviewLayout: View {
 
     @ViewBuilder
     private func composer(maxHeight: CGFloat) -> some View {
-        VStack(spacing: 12) {
-            Divider().overlay(Color.white.opacity(0.06))
+        VStack(spacing: 0) {
+            Capsule()
+                .fill(Color.white.opacity(0.14))
+                .frame(width: 36, height: 4)
+                .padding(.top, 10)
+                .padding(.bottom, 8)
 
             if case .error(let msg) = dictation.voiceState {
                 Text(msg)
@@ -181,19 +152,35 @@ struct AriaInterviewLayout: View {
                     .foregroundColor(.warning)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, FDS.Spacing.xl)
+                    .padding(.bottom, 8)
             }
 
-            // Reserve a bounded region for options. Long lists scroll here instead
-            // of overflowing the screen or covering the header / ARIA transcript.
             ScrollView(showsIndicators: false) {
                 composerBody
             }
             .frame(minHeight: min(180, maxHeight), maxHeight: maxHeight, alignment: .top)
         }
-        .background(
-            Color.background.opacity(0.96)
-                .shadow(color: .black.opacity(0.35), radius: 20, y: -8)
-        )
+        .background {
+            UnevenRoundedRectangle(
+                topLeadingRadius: 28,
+                bottomLeadingRadius: 0,
+                bottomTrailingRadius: 0,
+                topTrailingRadius: 28,
+                style: .continuous
+            )
+            .fill(Color.surface.opacity(0.94))
+            .overlay(alignment: .top) {
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 28,
+                    bottomLeadingRadius: 0,
+                    bottomTrailingRadius: 0,
+                    topTrailingRadius: 28,
+                    style: .continuous
+                )
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.45), radius: 28, y: -12)
+        }
         .animation(FDS.Spring.page, value: coordinator.step)
     }
 
@@ -326,8 +313,8 @@ struct AriaInterviewLayout: View {
                 ReadyComposer(coordinator: coordinator, onFinish: onFinish)
             }
         }
-        .padding(.horizontal, FDS.Spacing.xl)
-        .padding(.bottom, 28)
+        .padding(.horizontal, 22)
+        .padding(.bottom, 34)
         .id(coordinator.step)
         .transition(.asymmetric(
             insertion: .move(edge: .bottom).combined(with: .opacity),
