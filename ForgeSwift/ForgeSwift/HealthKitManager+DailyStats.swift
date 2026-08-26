@@ -147,17 +147,21 @@ extension HealthKitManager {
     }
 
     private func fetchRecentWorkouts() async -> [HKWorkout] {
+        await fetchWorkoutsForHistory(days: 7, limit: 10)
+    }
+
+    /// History path — enough days to cover the Test-Ready pack.
+    func fetchWorkoutsForHistory(days: Int, limit: Int = HKObjectQueryNoLimit) async -> [HKWorkout] {
         let workoutType = HKWorkoutType.workoutType()
-        
-        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
-        let predicate = HKQuery.predicateForSamples(withStart: sevenDaysAgo, end: Date(), options: .strictStartDate)
+        let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
-        
+
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: workoutType,
                 predicate: predicate,
-                limit: 10,
+                limit: limit,
                 sortDescriptors: [sortDescriptor]
             ) { _, samples, _ in
                 continuation.resume(returning: (samples as? [HKWorkout]) ?? [])

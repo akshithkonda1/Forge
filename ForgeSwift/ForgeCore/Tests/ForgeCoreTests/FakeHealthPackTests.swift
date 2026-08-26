@@ -35,6 +35,22 @@ final class FakeHealthPackTests: XCTestCase {
         )
     }
 
+    func testShouldSeedHealthKitEverySimulatorLaunch() {
+        XCTAssertTrue(
+            FakeHealthPack.shouldSeedHealthKit(debugBuild: true, testReady: true, isSimulator: true)
+        )
+        XCTAssertFalse(
+            FakeHealthPack.shouldSeedHealthKit(debugBuild: true, testReady: true, isSimulator: false),
+            "never write the pack into a physical phone's Health store"
+        )
+        XCTAssertFalse(
+            FakeHealthPack.shouldSeedHealthKit(debugBuild: false, testReady: true, isSimulator: true)
+        )
+        XCTAssertFalse(
+            FakeHealthPack.shouldSeedHealthKit(debugBuild: true, testReady: false, isSimulator: true)
+        )
+    }
+
     func testGenerateIsDeterministic() {
         let a = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 7)
         let b = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 7)

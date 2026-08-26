@@ -26,7 +26,7 @@ enum AriaDummyOrchestrator {
         }()
         let hrvLine = hrv > 0 ? "HRV \(hrv)ms" : "no HRV yet"
         let packNote = store.usingTestReadyHealthPack
-            ? " Test-ready Health pack on this simulator — not Apple Health."
+            ? " Numbers came from HealthKit on this simulator (Test-Ready pack)."
             : ""
 
         let prose: String
@@ -51,7 +51,7 @@ enum AriaDummyOrchestrator {
 
         return AriaResponse(
             confidenceReason: store.usingTestReadyHealthPack
-                ? "Test-ready dummy + ForgeCore Health pack. SimRunner-shaped. No cloud."
+                ? "Test-ready dummy. HealthKit on this simulator (ForgeCore pack). No cloud."
                 : "Test-ready dummy on this device. SimRunner-shaped. No cloud.",
             proseSummary: prose,
             message: prose,

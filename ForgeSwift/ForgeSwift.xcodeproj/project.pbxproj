@@ -45,6 +45,7 @@
 		B5516E84A984973E2E0A546A /* HealthKitManager+Queries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */; };
 		393B4C47DAF62A8BFD1D0BC7 /* HealthKitManager+DailyStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */; };
 		D0F5A89396724B3BA3E7CC4B /* HealthKitManager+Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */; };
+		F0A6E1010000000000000001 /* HealthKitManager+TestReadyPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A6E1020000000000000001 /* HealthKitManager+TestReadyPack.swift */; };
 		74DA797C011F4C076C5051C3 /* HealthKitManager+Clinical.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EB4405A8E5B4B03D8429D91 /* HealthKitManager+Clinical.swift */; };
 		1EHKS0022F9FF867004091AA /* HealthKitSleepService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */; };
 		1ARIA0022F9FF867004091AA /* AriaContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0012F9FF867004091AA /* AriaContext.swift */; };
@@ -380,6 +381,7 @@
 		405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+Queries.swift"; sourceTree = "<group>"; };
 		8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+DailyStats.swift"; sourceTree = "<group>"; };
 		84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+Logging.swift"; sourceTree = "<group>"; };
+		F0A6E1020000000000000001 /* HealthKitManager+TestReadyPack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+TestReadyPack.swift"; sourceTree = "<group>"; };
 		2EB4405A8E5B4B03D8429D91 /* HealthKitManager+Clinical.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+Clinical.swift"; sourceTree = "<group>"; };
 		1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepService.swift; sourceTree = "<group>"; };
 		1ARIA0012F9FF867004091AA /* AriaContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContext.swift; sourceTree = "<group>"; };
@@ -870,6 +872,7 @@
 				405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */,
 				8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */,
 				84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */,
+				F0A6E1020000000000000001 /* HealthKitManager+TestReadyPack.swift */,
 				2EB4405A8E5B4B03D8429D91 /* HealthKitManager+Clinical.swift */,
 				1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */,
 				1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */,
@@ -1302,6 +1305,7 @@
 				B5516E84A984973E2E0A546A /* HealthKitManager+Queries.swift in Sources */,
 				393B4C47DAF62A8BFD1D0BC7 /* HealthKitManager+DailyStats.swift in Sources */,
 				D0F5A89396724B3BA3E7CC4B /* HealthKitManager+Logging.swift in Sources */,
+				F0A6E1010000000000000001 /* HealthKitManager+TestReadyPack.swift in Sources */,
 				74DA797C011F4C076C5051C3 /* HealthKitManager+Clinical.swift in Sources */,
 				1EHKS0022F9FF867004091AA /* HealthKitSleepService.swift in Sources */,
 				1ARIA0022F9FF867004091AA /* AriaContext.swift in Sources */,

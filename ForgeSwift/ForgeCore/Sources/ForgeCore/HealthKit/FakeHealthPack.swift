@@ -3,9 +3,10 @@ import Foundation
 /// Deterministic Test-Ready Health stream.
 ///
 /// Same idea as SimRunner's 30-day persona: sleep stages, HRV, resting HR,
-/// steps, calories, water, and a few sessions. Pure numbers — never written
-/// to Apple Health, never sent to AWS. The iOS / Watch apps install this
-/// only when a debug Device Hub / simulator run has nothing real to read.
+/// steps, calories, water, and a few sessions. On the iOS 27 simulator the
+/// app writes this into HealthKit every launch, then reads it back through
+/// the normal HealthKit path. Never sent to AWS. Never written on a
+/// physical phone.
 public struct FakeHealthWorkout: Sendable, Equatable {
     public var name: String
     public var type: ForgeWorkoutType
@@ -99,8 +100,18 @@ public struct FakeHealthPack: Sendable, Equatable {
         )
     }
 
-    /// Debug + Test-Ready + no real HealthKit numbers. A phone with actual
-    /// samples must never be overwritten by this pack.
+    /// Simulator Test-Ready path: write the pack into HealthKit every launch,
+    /// then read it back. A physical phone is never a HealthKit seed target.
+    public static func shouldSeedHealthKit(
+        debugBuild: Bool,
+        testReady: Bool,
+        isSimulator: Bool
+    ) -> Bool {
+        debugBuild && testReady && isSimulator
+    }
+
+    /// In-memory fallback when HealthKit cannot be written (Device Hub on a
+    /// real phone with an empty store). Real HealthKit samples always win.
     public static func shouldInstall(
         debugBuild: Bool,
         testReady: Bool,

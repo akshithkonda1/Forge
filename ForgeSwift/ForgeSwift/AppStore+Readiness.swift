@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import UIKit
+import HealthKit
 import ForgeCore
 #if canImport(FoundationModels)
 import FoundationModels
@@ -10,6 +11,7 @@ extension AppStore {
 
     func refreshDailyData() async {
         let hk = HealthKitManager.shared
+        let seeded = await seedTestReadyHealthKitIfNeeded()
         let authorized = await hk.checkAuthorizationStatus()
         healthKitLive = authorized
 
@@ -44,11 +46,19 @@ extension AppStore {
         }
 
         if authorized {
-            let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 14)
+            let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 30)
             mergeSleepDataLocally(nights)
+            let workouts = await hk.fetchWorkoutsForHistory(days: 30)
+            mergeWorkoutsFromHealthKit(workouts)
         }
 
-        installFakeHealthPackIfNeeded()
+        // In-memory pack only if HealthKit did not give us numbers
+        // (write failed, or Device Hub on a phone we will not seed).
+        if !seeded || !hasMeaningfulLifeSignal {
+            installFakeHealthPackIfNeeded()
+        } else {
+            usingTestReadyHealthPack = true
+        }
 
         lastMetricsRefresh = Date()
         rebuildTodayPlanFromLife()
@@ -58,9 +68,69 @@ extension AppStore {
         objectWillChange.send()
     }
 
-    /// SimRunner-shaped 30-day pack from ForgeCore. Fills Home / Sleep / ARIA
-    /// when Device Hub or the iOS 27 simulator has no Apple Health samples.
-    /// Real HealthKit always wins; this never writes into Health.
+    /// Simulator Test-Ready patch: write the ForgeCore pack into HealthKit
+    /// every launch, then the fetch above is what ARIA reads.
+    @discardableResult
+    func seedTestReadyHealthKitIfNeeded() async -> Bool {
+        #if targetEnvironment(simulator)
+        let isSimulator = true
+        #else
+        let isSimulator = false
+        #endif
+        guard FakeHealthPack.shouldSeedHealthKit(
+            debugBuild: ForgeAuthPolicy.isDebugBuild,
+            testReady: AriaService.shouldUseTestReadyDummy,
+            isSimulator: isSimulator
+        ) else { return false }
+        do {
+            try await HealthKitManager.shared.requestTestReadyPackAuthorization()
+            try await HealthKitManager.shared.replaceTestReadyPack(FakeHealthPack.generate())
+            usingTestReadyHealthPack = true
+            return true
+        } catch {
+            print("Test-Ready HealthKit seed failed: \(error)")
+            return false
+        }
+    }
+
+    func mergeWorkoutsFromHealthKit(_ workouts: [HKWorkout]) {
+        guard !workouts.isEmpty else { return }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withFullDate]
+        var merged = Dictionary(workoutHistory.map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
+        for workout in workouts {
+            let date = String(formatter.string(from: workout.startDate).prefix(10))
+            let name = (workout.metadata?[HealthKitManager.testReadySessionNameKey] as? String)
+                ?? (workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String)
+                ?? "Session"
+            let intensityRaw = workout.metadata?[HealthKitManager.testReadyIntensityKey] as? String
+            let volume = Int(workout.metadata?[HealthKitManager.testReadyVolumeKey] as? String ?? "") ?? 0
+            let type: WorkoutType = {
+                switch workout.workoutActivityType {
+                case .traditionalStrengthTraining: return .strength
+                case .running, .walking, .cycling: return .cardio
+                case .highIntensityIntervalTraining: return .hiit
+                case .yoga: return .yoga
+                case .flexibility, .cooldown: return .mobility
+                default: return .strength
+                }
+            }()
+            let record = WorkoutHistory(
+                id: workout.uuid.uuidString,
+                date: date,
+                name: name,
+                type: type,
+                duration: max(1, Int((workout.duration / 60).rounded())),
+                volume: volume,
+                intensity: WorkoutIntensity(rawValue: intensityRaw ?? "") ?? .moderate
+            )
+            merged[record.id] = record
+        }
+        workoutHistory = merged.values.sorted { $0.date > $1.date }
+    }
+
+    /// SimRunner-shaped 30-day pack from ForgeCore. In-memory fallback when
+    /// HealthKit cannot be written. Real HealthKit samples always win.
     func installFakeHealthPackIfNeeded() {
         let testReady = AriaService.shouldUseTestReadyDummy
         guard FakeHealthPack.shouldInstall(
@@ -68,7 +138,6 @@ extension AppStore {
             testReady: testReady,
             hasRealHealthSignal: hasMeaningfulLifeSignal
         ) else {
-            usingTestReadyHealthPack = false
             return
         }
         apply(FakeHealthPack.generate())

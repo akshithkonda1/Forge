@@ -309,6 +309,12 @@ class HealthKitManager: ObservableObject {
     let mealsStorageKey = "HealthKitManager.loggedMeals"
     let mealsStorageDateKey = "HealthKitManager.loggedMealsDate"
     static let forgeWaterMetadataKey = "com.forge.hydration"
+    /// Marks samples the Test-Ready pack wrote so we can delete and rewrite
+    /// them every simulator launch without touching anyone else's data.
+    static let testReadyPackMetadataKey = "com.forge.testReadyPack"
+    static let testReadySessionNameKey = "com.forge.sessionName"
+    static let testReadyIntensityKey = "com.forge.intensity"
+    static let testReadyVolumeKey = "com.forge.volume"
     
     // Types requested by the primary onboarding flow. Keep this prompt focused and reliable.
     private let coreReadTypes: Set<HKObjectType> = [
@@ -460,6 +466,22 @@ class HealthKitManager: ObservableObject {
     func requestAuthorization() async throws {
         try await requestHealthKitAuthorization(
             toShare: coreWriteTypes,
+            read: coreReadTypes,
+            requestedKey: authorizationRequestedKey
+        )
+    }
+
+    /// Extra share types the simulator Health pack needs (sleep, HRV, RHR,
+    /// steps). Production onboarding does not ask to write these.
+    func requestTestReadyPackAuthorization() async throws {
+        let extra: Set<HKSampleType> = [
+            HKCategoryType(.sleepAnalysis),
+            HKQuantityType(.heartRateVariabilitySDNN),
+            HKQuantityType(.restingHeartRate),
+            HKQuantityType(.stepCount),
+        ]
+        try await requestHealthKitAuthorization(
+            toShare: coreWriteTypes.union(extra),
             read: coreReadTypes,
             requestedKey: authorizationRequestedKey
         )
