@@ -13,6 +13,8 @@ import ForgeCore
 struct SnapshotEntry: TimelineEntry {
     let date: Date
     let snapshot: WatchSnapshot?
+    /// Drives Smart Stack ordering. See `SmartStackRelevance`.
+    var relevance: TimelineEntryRelevance?
 }
 
 struct SnapshotProvider: TimelineProvider {
@@ -26,11 +28,30 @@ struct SnapshotProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SnapshotEntry>) -> Void) {
-        let entry = SnapshotEntry(date: Date(), snapshot: WatchSnapshotStore.load())
+        let snapshot = WatchSnapshotStore.load()
+        let entry = SnapshotEntry(
+            date: Date(),
+            snapshot: snapshot,
+            relevance: SmartStackRelevance.score(for: snapshot)?.timelineRelevance
+        )
         // The app reloads timelines on every meaningful change; this
         // .after policy is just a slow safety refresh, not the mechanism.
         let refresh = Calendar.current.date(byAdding: .minute, value: 30, to: Date()) ?? Date()
         completion(Timeline(entries: [entry], policy: .after(refresh)))
+    }
+}
+
+// MARK: - Smart Stack relevance
+//
+// The decision lives in ForgeCore.SmartStackRelevance, where it is tested
+// without WidgetKit. This is the conversion and nothing else.
+
+private extension SmartStackRelevance.Relevance {
+    var timelineRelevance: TimelineEntryRelevance {
+        if let duration {
+            return TimelineEntryRelevance(score: score, duration: duration)
+        }
+        return TimelineEntryRelevance(score: score)
     }
 }
 
@@ -47,6 +68,8 @@ extension WatchSnapshot {
         snapshot.recommendedDuration = 90
         snapshot.recommendationReason = "A short reset keeps your focus sustainable."
         snapshot.mindfulMinutesToday = 6
+        snapshot.hydrationMilliliters = 1_400
+        snapshot.hydrationTargetMilliliters = 2_300
         return snapshot
     }
 

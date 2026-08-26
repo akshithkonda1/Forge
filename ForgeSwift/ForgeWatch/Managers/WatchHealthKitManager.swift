@@ -63,6 +63,10 @@ final class WatchHealthKitManager {
             HKCategoryType(.sleepAnalysis),
             HKCategoryType(.mindfulSession),
             HKObjectType.workoutType(),
+            // Water is read as well as written so a glass logged on the phone
+            // counts on the wrist; body mass sizes HydrationEngine's target.
+            HKQuantityType(.dietaryWater),
+            HKQuantityType(.bodyMass),
         ]
     }
 
@@ -70,6 +74,7 @@ final class WatchHealthKitManager {
         [
             HKCategoryType(.mindfulSession),
             HKObjectType.workoutType(), // needed by the live builder used for HR biofeedback
+            HKQuantityType(.dietaryWater),
         ]
     }
 

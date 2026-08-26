@@ -36,6 +36,7 @@ let package = Package(
                 "Intelligence/MindfulnessSuggestionEngine.swift",
                 "Intelligence/SessionClock.swift",
                 "Intelligence/SleepStoryEngine.swift",
+                "Intelligence/SmartStackRelevance.swift",
                 "Intelligence/WindDownPredictor.swift",
                 "Intelligence/WorkoutCoaching.swift",
                 "Intelligence/WorkoutSuggestionEngine.swift",
@@ -81,6 +82,7 @@ let package = Package(
                 "CognitoRefreshTests.swift",
                 "ReadinessCalculatorTests.swift",
                 "SleepIntelligenceTests.swift",
+                "SmartStackRelevanceTests.swift",
                 "WorkoutCoachingTests.swift",
                 "WorkoutModelsTests.swift",
             ]
