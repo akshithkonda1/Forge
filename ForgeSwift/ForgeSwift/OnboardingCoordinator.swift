@@ -563,7 +563,7 @@ final class OnboardingCoordinator {
         #if targetEnvironment(simulator)
         if AriaService.shouldUseTestReadyDummy {
             try await HealthKitManager.shared.requestTestReadyPackAuthorization()
-            try await HealthKitManager.shared.replaceTestReadyPack(FakeHealthPack.generate())
+            try await HealthKitManager.shared.replaceTestReadyPack(FakeHealthPack.generate(seed: AppStore.testReadySessionSeed))
             return
         }
         #endif

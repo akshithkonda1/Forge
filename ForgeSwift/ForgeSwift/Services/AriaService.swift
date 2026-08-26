@@ -58,6 +58,22 @@ final class AriaService: ObservableObject {
         }
         let domainContext = contextStore.buildARIAContext(from: store)
         let legacyMetrics = contextStore.buildRichContext(from: store).recentMetrics
+        // The one place `AriaOperatingMode` is consulted. Nothing below this
+        // line runs in local testing: no request is built, `postChat` is never
+        // called, and `isLocalFallback` puts the offline badge on screen so a
+        // local answer can never be mistaken for a backend one.
+        //
+        // This is a *chosen* mode, which is the whole distinction from the old
+        // `try?` that swallowed a 500 and dressed the failure up as coaching.
+        // A deliberate local reply and a hidden remote failure look identical
+        // in the transcript; only one of them is honest.
+        if AriaOperatingMode.current.isLocalTesting {
+            isTestReady = false
+            isLocalFallback = true
+            lastRemoteError = nil
+            return try await LocalTestingOrchestrator.shared.reply(to: text, store: store)
+        }
+
         if Self.shouldUseTestReadyDummy {
             isTestReady = true
             isLocalFallback = true

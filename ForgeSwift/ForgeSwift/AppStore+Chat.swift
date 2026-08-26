@@ -162,9 +162,28 @@ extension AppStore {
         guard streamingMessageId == message.id, streamingVisibleCount > 0 else {
             return message.content
         }
-        let end = min(streamingVisibleCount, message.content.count)
-        let idx = message.content.index(message.content.startIndex, offsetBy: end)
-        return String(message.content[..<idx])
+        let content = message.content
+        let end = min(streamingVisibleCount, content.count)
+        let idx = content.index(content.startIndex, offsetBy: end)
+        if idx == content.endIndex { return content }
+
+        // Reveal by word, not by character. The counter still advances in small
+        // character steps — that is what keeps the ramp smooth and length-
+        // independent — but the text shown is cut back to the last completed
+        // word. Watching "recover" arrive as "reco", "recov", "recove" reads as
+        // a rendering glitch; whole words arriving in sequence reads as
+        // thinking.
+        //
+        // Source-agnostic on purpose: this is the same reveal whether the string
+        // came from `LocalTestingOrchestrator`, the offline generator, or a real
+        // streaming backend, so none of them needs its own presentation path.
+        let shown = content[..<idx]
+        if let lastBreak = shown.lastIndex(where: { $0 == " " || $0 == "\n" }) {
+            return String(content[..<lastBreak])
+        }
+        // Still inside the very first word — show the partial rather than an
+        // empty bubble, which would collapse the layout and then jump.
+        return String(shown)
     }
 
     // MARK: - Onboarding Persistence

@@ -1,0 +1,253 @@
+import Foundation
+
+/// Domains a local turn can be about.
+///
+/// Names mirror `ALL_DOMAINS` in `backend/infra/lambda/services/aria_engine.py`
+/// so a tally read here means the same thing it means there — even though this
+/// state never leaves the device. `cycle` is the one addition: the local
+/// dispatch has `isCycleQuery` and the backend tuple has no equivalent, so it
+/// is marked rather than folded into `body` and quietly mixed with injuries.
+enum AriaLocalDomain: String, CaseIterable {
+    case sleep
+    case readiness
+    case activity
+    case training
+    case chronotype
+    case body
+    case nutrition
+    case profile
+    case progress
+    case lifestyle
+    case clinicalData = "clinical_data"
+    case cycle
+
+    var spokenName: String {
+        switch self {
+        case .clinicalData: return "your records"
+        case .cycle:        return "your cycle"
+        case .body:         return "how your body's holding up"
+        case .readiness:    return "your energy"
+        default:            return rawValue
+        }
+    }
+}
+
+/// On-device ARIA for testing: stateful across a session, no network, no model.
+///
+/// This wraps `RuleBasedResponseGenerator` and `AriaVoiceEngine` rather than
+/// reimplementing either. The keyword dispatch in `generateResponse` already is
+/// a domain agent per area ARIA covers; what it has never been is *stateful* —
+/// every turn starts from nothing, so ARIA cannot notice you have asked about
+/// sleep four times, and cannot remember you told it about a bad knee. That
+/// memorylessness, not the phrasing, is what makes a local session feel canned.
+/// Everything here exists to fix that and nothing else.
+///
+/// Deliberately holds no `URLSession`, no `baseURL`, and no reference to
+/// `AriaService`'s transport. That is checkable by grep, and it should stay
+/// checkable.
+@MainActor
+final class LocalTestingOrchestrator {
+
+    static let shared = LocalTestingOrchestrator()
+
+    // MARK: - Session state
+
+    /// Running per-domain tally. The point of keeping it is the *second* thing
+    /// it enables: once a domain dominates, ARIA can raise it unprompted.
+    private(set) var affinity: [AriaLocalDomain: Int] = [:]
+
+    /// Turns exchanged this session.
+    private(set) var exchanges: Int = 0
+
+    /// Offline mirror of the backend's `relationship_level`
+    /// (`CoachContextEngine.UserContext`), which the frontend otherwise never
+    /// reads. 1–10, same range, so the two are comparable when the live path
+    /// lands.
+    var familiarity: Int { min(10, 1 + exchanges / 3) }
+
+    /// What the user has told us about themselves this session. Recall, not
+    /// comprehension — which is most of what "it remembers me" reads as from
+    /// the outside.
+    private(set) var facts: [FactKey: String] = [:]
+
+    enum FactKey: String, CaseIterable {
+        case limitation   // "bad knee", "shoulder's been off"
+        case goal         // "training for a half marathon"
+        case schedule     // "I work nights"
+        case equipment    // "no gym this week"
+    }
+
+    private let generator = RuleBasedResponseGenerator()
+
+    /// Re-derived per session so a tester does not see identical phrasing every
+    /// launch. `AriaSeededRNG` is the same generator the voice layer uses.
+    private var seed: UInt64
+
+    private init() {
+        seed = Self.freshSeed()
+    }
+
+    /// Call on login / session start.
+    func resetForNewSession() {
+        affinity = [:]
+        exchanges = 0
+        facts = [:]
+        seed = Self.freshSeed()
+    }
+
+    static func freshSeed() -> UInt64 {
+        var value = UInt64(truncatingIfNeeded: Int(Date().timeIntervalSince1970 * 1_000))
+        value ^= UInt64(truncatingIfNeeded: UUID().hashValue)
+        return value == 0 ? 0x9E37_79B9_7F4A_7C15 : value
+    }
+
+    // MARK: - Reply
+
+    func reply(to text: String, store: AppStore) async throws -> AriaResponse {
+        await simulateThinking()
+
+        let domain = generator.domain(of: text)
+        affinity[domain, default: 0] += 1
+        captureFacts(from: text)
+        exchanges += 1
+
+        var context = store.makeTrainerContext()
+        // Feed session depth into the voice layer. `AriaVoiceEngine` infers
+        // relationship level from `totalMessageCount` and folds the same number
+        // into its phrasing salt, so this both deepens and rotates the voice.
+        //
+        // Note it does *not* travel through `profile.relationshipLevel`: that
+        // field is set on the profile and read by nothing in beat generation
+        // today, so gating on it would have been silently inert. The gating
+        // that actually changes output lives below.
+        context.totalMessageCount = max(context.totalMessageCount, exchanges * 4)
+
+        let base = try await generator.generateResponse(for: text, context: context)
+
+        var rng = AriaSeededRNG(seed: seed &+ UInt64(exchanges))
+        var parts: [String] = [base.content]
+
+        if let recall = recallBeat(for: domain, rng: &rng) {
+            parts.append(recall)
+        }
+        if let crossover = affinityBeat(excluding: domain, rng: &rng) {
+            parts.append(crossover)
+        }
+
+        return AriaResponse(
+            confidenceReason: "Local testing — on-device ARIA, no cloud. Familiarity \(familiarity)/10.",
+            proseSummary: base.content,
+            message: parts.joined(separator: "\n\n"),
+            richCard: nil,
+            suggestedActions: base.suggestedActions,
+            contextUpdates: ["relationship_level": familiarity],
+            confidence: base.confidence
+        )
+    }
+
+    // MARK: - Simulated thinking
+
+    /// Instant replies are the single biggest tell that something is canned
+    /// rather than considered, so the wait is real even though the work is not.
+    private func simulateThinking() async {
+        var rng = AriaSeededRNG(seed: seed &+ UInt64(exchanges &* 7 &+ 1))
+        let milliseconds = rng.int(in: 800..<2_000)
+        try? await Task.sleep(nanoseconds: UInt64(milliseconds) * 1_000_000)
+    }
+
+    // MARK: - Fact capture
+
+    /// Keyword capture, not parsing. Overbuilding this into an NLP layer would
+    /// buy accuracy nobody testing the app would notice, and cost the clarity
+    /// that makes a wrong recall obvious when it happens.
+    private func captureFacts(from text: String) {
+        let lower = text.lowercased()
+
+        for joint in ["knee", "shoulder", "back", "hip", "ankle", "wrist", "elbow", "neck"] {
+            let hurts = ["bad \(joint)", "\(joint) pain", "\(joint) hurts", "my \(joint) is",
+                         "hurt my \(joint)", "sore \(joint)", "\(joint) injury"]
+            if hurts.contains(where: { lower.contains($0) }) {
+                facts[.limitation] = joint
+                break
+            }
+        }
+
+        for marker in ["training for", "prepping for", "signed up for", "working toward"] {
+            guard let range = lower.range(of: marker) else { continue }
+            let tail = lower[range.upperBound...]
+                .prefix(40)
+                .trimmingCharacters(in: .whitespaces)
+            let goal = tail.split(whereSeparator: { ".,!?;".contains($0) }).first.map(String.init) ?? tail
+            if !goal.isEmpty { facts[.goal] = goal }
+            break
+        }
+
+        if lower.contains("work nights") || lower.contains("night shift") || lower.contains("graveyard") {
+            facts[.schedule] = "night shifts"
+        } else if lower.contains("early shift") || lower.contains("up at 4") || lower.contains("up at 5") {
+            facts[.schedule] = "early starts"
+        }
+
+        if lower.contains("no gym") || lower.contains("gym is closed") || lower.contains("traveling")
+            || lower.contains("hotel room") {
+            facts[.equipment] = "no gym"
+        } else if lower.contains("only dumbbells") || lower.contains("just dumbbells")
+            || lower.contains("home gym") {
+            facts[.equipment] = "dumbbells at home"
+        }
+    }
+
+    // MARK: - Stateful beats
+
+    /// Recall is gated on familiarity because a coach who quotes you back on the
+    /// first exchange sounds like it is reading a form, not listening.
+    private func recallBeat(for domain: AriaLocalDomain, rng: inout AriaSeededRNG) -> String? {
+        guard familiarity >= 2 else { return nil }
+
+        if let joint = facts[.limitation], domain == .training || domain == .body {
+            return rng.pick([
+                "Keeping that \(joint) in mind — nothing here should load it badly.",
+                "I've still got the \(joint) on file. Say the word if it flares and we reshape this.",
+                "Working around the \(joint), same as before.",
+            ])
+        }
+        if let goal = facts[.goal], domain == .training || domain == .progress {
+            return rng.pick([
+                "This still points at \(goal).",
+                "All of it feeds \(goal) — that's the thread I'm pulling.",
+            ])
+        }
+        if let schedule = facts[.schedule], domain == .sleep || domain == .readiness {
+            return rng.pick([
+                "Reading this against \(schedule), not a nine-to-five — the timing matters more than the total.",
+                "With \(schedule) in the mix, I'd judge consistency over any single night.",
+            ])
+        }
+        if let equipment = facts[.equipment], domain == .training {
+            return rng.pick([
+                "Built for \(equipment), since that's where you are.",
+                "Kept it to \(equipment).",
+            ])
+        }
+        return nil
+    }
+
+    /// Once a domain dominates a session, raise it unprompted. Threshold is
+    /// three so a passing mention does not turn ARIA into a single-subject bore.
+    private func affinityBeat(excluding current: AriaLocalDomain, rng: inout AriaSeededRNG) -> String? {
+        guard familiarity >= 3 else { return nil }
+        guard rng.chance(0.4) else { return nil }
+
+        let dominant = affinity
+            .filter { $0.key != current && $0.value >= 3 }
+            .max(by: { $0.value < $1.value })?
+            .key
+        guard let dominant else { return nil }
+
+        return rng.pick([
+            "You keep circling back to \(dominant.spokenName). Want to just take that apart properly?",
+            "Noticing \(dominant.spokenName) comes up a lot with you — worth a real look when you've got the patience.",
+            "That's the third time \(dominant.spokenName) has come up. I don't think it's incidental.",
+        ])
+    }
+}

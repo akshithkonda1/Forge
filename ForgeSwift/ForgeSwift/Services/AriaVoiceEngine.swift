@@ -431,45 +431,91 @@ enum AriaVoiceEngine {
         facts: AriaSpeechFacts,
         rng: inout AriaSeededRNG
     ) -> [String] {
-        let hrs = facts.sleepHours.map { String(format: "%.1f" , $0) } ?? "—"
-        let deep = facts.deepMinutes.map { "\($0)" } ?? "—"
-        let avg = facts.sleepAvg.map { "\($0)" } ?? "—"
+        // Insight first; the number is a second beat and often omitted.
+        //
+        // Every branch here used to open on the raw figure — "Last night: 5.2h,
+        // 34 min deep" — which makes ARIA a readout. The read is the thing a
+        // coach is for, and a precise number only earns its place when it
+        // changes what you would do about it. `motivationBeats` never cites a
+        // metric at all; this is that same restraint applied where numbers
+        // actually exist.
+        let hrs = facts.sleepHours.map { String(format: "%.1f", $0) }
+        let deep = facts.deepMinutes.map { "\($0)" }
+        let avg = facts.sleepAvg.map { "\($0)" }
+
+        // Clinical and data-driven users asked for precision, so they always get
+        // it. Everyone else gets it sometimes, which keeps it information rather
+        // than wallpaper.
+        let citesNumber = profile.register == .clinical
+            || profile.coaching == .dataDriven
+            || rng.chance(0.45)
 
         var beats: [String] = []
+
         switch facts.sleepBand {
         case .strong:
-            beats = rng.pick([
-                [
-                    "Last night: \(hrs)h, \(deep) min deep. That's real recovery currency.",
-                    "Deep sleep is where you rebuild — keep guarding the wind-down.",
-                ],
-                [
-                    "Sleep quality is working for you — \(hrs) hours, \(deep) deep.",
-                    profile.register == .clinical
-                        ? "Deep-sleep minutes in a high band. Protect latency to bed."
-                        : "That's the kind of night that makes tomorrow's work feel lighter.",
-                ],
-            ])
+            beats.append(rng.pick([
+                "You actually rebuilt last night. That's recovery currency in the bank.",
+                "Sleep did its job — you've got room to spend today.",
+                profile.register == .clinical
+                    ? "Deep-sleep contribution sits in a high band. Continuity looks protected."
+                    : "That's the kind of night that makes today's work feel lighter.",
+            ]))
+            if citesNumber, let hrs, let deep {
+                beats.append(rng.pick([
+                    "\(hrs)h with \(deep) minutes deep, if you want the receipt.",
+                    "For the record: \(hrs) hours, \(deep) deep.",
+                ]))
+            } else {
+                beats.append(rng.pick([
+                    "Whatever you did with the wind-down, keep doing it.",
+                    "Deep sleep is where you rebuild — keep guarding that hour before bed.",
+                ]))
+            }
+
         case .weak:
-            beats = [
-                rng.pick([
-                    "\(hrs)h total but only \(deep) min deep — that's a thin rebuild.",
-                    "Deep sleep undershot. \(deep) minutes isn't enough to pay back training stress.",
-                ]),
-                rng.pick([
-                    "Stress, late caffeine, bright screens — pick a lever tonight.",
-                    "Earlier lights-out by 30 minutes is the highest-ROI fix if life allows.",
-                ]),
-            ]
+            beats.append(rng.pick([
+                "That was a thin rebuild — your body didn't get paid back for the training stress.",
+                "Sleep came up short where it counts. Today wants less than you think.",
+                profile.register == .clinical
+                    ? "Deep-sleep contribution undershot. Treat today's load as provisional."
+                    : "You slept, but you didn't recover. Those aren't the same thing.",
+            ]))
+            if citesNumber, let deep {
+                beats.append(rng.pick([
+                    "Only \(deep) minutes deep" + (hrs.map { " out of \($0)h" } ?? "") + ".",
+                    "Deep came in at \(deep) minutes — that's the number that matters here.",
+                ]))
+            }
+            beats.append(rng.pick([
+                "Stress, late caffeine, bright screens — pick one lever for tonight.",
+                "Lights out thirty minutes earlier is the highest-return fix if life allows it.",
+                "Don't fix all of it. Fix the easiest one.",
+            ]))
+
         case .ok, .unknown:
-            beats = [
-                "Slept \(hrs)h with \(deep) min deep — fine, not elite.",
-                rng.pick([
-                    "Consistency will move this more than one perfect night.",
-                    "Weekly average is \(avg)/100 — that's the real scoreboard.",
-                ]),
-            ]
+            beats.append(rng.pick([
+                "Middling night. Enough to work with, not enough to be reckless.",
+                "Sleep was serviceable — fine, not elite.",
+                "Nothing alarming in last night. Nothing to brag about either.",
+            ]))
+            if citesNumber {
+                if let avg {
+                    beats.append(rng.pick([
+                        "Weekly average is \(avg)/100 — that's the real scoreboard, not any one night.",
+                        "The seven-day number is \(avg)/100. That's the one I'd watch.",
+                    ]))
+                } else if let hrs, let deep {
+                    beats.append("\(hrs)h, \(deep) min deep.")
+                }
+            } else {
+                beats.append(rng.pick([
+                    "Consistency moves this more than one perfect night ever will.",
+                    "One night is noise. The week is the signal.",
+                ]))
+            }
         }
+
         return beats
     }
 
@@ -510,7 +556,14 @@ enum AriaVoiceEngine {
                     : "Showing up is the whole game. The numbers are catching up.",
             ])
         ]
-        if sessions > 0 {
+        // Gated, not unconditional. Appending the count on every single
+        // progress turn makes it a fixed template in its own right — the exact
+        // habit the qualitative lead above exists to break. Data-driven users
+        // asked for the tally, so they keep it every time.
+        let citesTally = profile.coaching == .dataDriven
+            || profile.register == .clinical
+            || rng.chance(0.5)
+        if sessions > 0, citesTally {
             beats.append("Recent log: \(sessions) sessions on record" + (streak.map { ", streak \($0)" } ?? "") + ".")
         }
         if profile.energy == .hype {
@@ -680,17 +733,22 @@ enum AriaVoiceEngine {
         rng: inout AriaSeededRNG
     ) -> String? {
         let r = profile.readiness
+        // The number-free variants are not filler — they are the point. A hook
+        // that always cites readiness trains the reader to skim for the digit
+        // and ignore the sentence around it.
         if r < 55 {
             return rng.pick([
-                "Numbers are soft today at \(r) — how do you actually feel?",
-                "Recovery looks thin (\(r)). Checking in before we load anything.",
                 "Body's asking for care more than glory right now.",
+                "Recovery looks thin. Checking in before we load anything.",
+                "Something's still owed from the last few days — how do you actually feel?",
+                "Numbers are soft today at \(r) — how do you actually feel?",
             ])
         }
         if r >= 85 {
             return rng.pick([
+                "You're in a high window. Don't waste it on junk volume.",
+                "Green lights everywhere — this is a day to spend, not save.",
                 "You're in a high window at \(r). Don't waste it on junk volume.",
-                "Green lights everywhere — \(r) readiness.",
                 lexicon(profile, key: "highReady", rng: &rng, vars: ["r": "\(r)"]),
             ])
         }

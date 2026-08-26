@@ -87,7 +87,7 @@ extension AppStore {
         ) else { return false }
         do {
             try await HealthKitManager.shared.requestTestReadyPackAuthorization()
-            try await HealthKitManager.shared.replaceTestReadyPack(FakeHealthPack.generate())
+            try await HealthKitManager.shared.replaceTestReadyPack(FakeHealthPack.generate(seed: Self.testReadySessionSeed))
             usingTestReadyHealthPack = true
             return true
         } catch {
@@ -149,6 +149,24 @@ extension AppStore {
 
     /// SimRunner-shaped 30-day pack from ForgeCore. In-memory fallback when
     /// HealthKit cannot be written. Real HealthKit samples always win.
+    /// Seed for this run's Test-Ready dataset.
+    ///
+    /// The generator defaults to a fixed seed, so before this every launch
+    /// produced a byte-identical history: the same thirty nights, the same HRV
+    /// curve, the same sessions in the same order. That is exactly right for
+    /// `FakeHealthPackTests`, which pin their own seed and still do. It is
+    /// wrong for a person living in the app for an afternoon — you stop reading
+    /// the numbers and start recognising them, and a bug that only shows on one
+    /// shape of data never gets shown a second shape.
+    ///
+    /// Derived once per process, so all three call sites within a session still
+    /// agree with each other. Determinism was never the goal at the call sites;
+    /// reproducibility in the tests was, and that is untouched.
+    static let testReadySessionSeed: Int = {
+        let time = UInt64(max(0, Date().timeIntervalSince1970 * 1_000))
+        return Int(truncatingIfNeeded: time ^ UInt64(truncatingIfNeeded: UUID().hashValue))
+    }()
+
     func installFakeHealthPackIfNeeded() {
         let testReady = AriaService.shouldUseTestReadyDummy
         guard FakeHealthPack.shouldInstall(
@@ -158,7 +176,7 @@ extension AppStore {
         ) else {
             return
         }
-        apply(FakeHealthPack.generate())
+        apply(FakeHealthPack.generate(seed: Self.testReadySessionSeed))
     }
 
     func apply(_ pack: FakeHealthPack) {

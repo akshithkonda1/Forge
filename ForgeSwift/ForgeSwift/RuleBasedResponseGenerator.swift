@@ -86,6 +86,41 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         return generateFallbackResponse(context: context)
     }
     
+    // MARK: - Domain classification (tally only, not routing)
+
+    /// Which domain a turn is *about*, for callers that need to count topics
+    /// rather than answer them — `LocalTestingOrchestrator`'s topic affinity is
+    /// the only one today.
+    ///
+    /// This deliberately lives in the file that owns the keyword lists and
+    /// reuses the same detectors `generateResponse` dispatches on. A second copy
+    /// of these strings elsewhere would drift the moment either one is edited,
+    /// and the drift would be invisible: the tally would quietly disagree with
+    /// the routing about what the user just asked.
+    ///
+    /// Order mirrors `generateResponse`'s dispatch so the tally and the reply
+    /// never disagree about a turn that matches two detectors.
+    func domain(of input: String) -> AriaLocalDomain {
+        let lower = input.lowercased()
+        if isGreeting(lower) { return .profile }
+        if AriaThemeResolver.isPlanRequest(input) || isTrainingRequest(lower) { return .training }
+        if isCycleQuery(lower) { return .cycle }
+        if isLowEnergyMention(lower) { return .readiness }
+        if isSleepQuery(lower) { return .sleep }
+        if isPainMention(lower) { return .body }
+        if isProgressQuery(lower) { return .progress }
+        if isMotivationRequest(lower) || isGratitude(lower) { return .lifestyle }
+        if lower.contains("eat") || lower.contains("food") || lower.contains("protein")
+            || lower.contains("meal") || lower.contains("calorie") || lower.contains("hydrat")
+            || lower.contains("water") {
+            return .nutrition
+        }
+        if lower.contains("step") || lower.contains("walk") || lower.contains("move") {
+            return .activity
+        }
+        return .lifestyle
+    }
+
     // MARK: - Query Detection
 
     private func wantsHighIntensityOverride(_ text: String) -> Bool {

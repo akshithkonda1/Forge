@@ -206,6 +206,10 @@ final class ForgeAuthClient: ObservableObject {
         session = nil
         try? store.remove(Self.sessionKey)
         try? store.remove("forge.aria.authToken")
+        // Topic affinity, familiarity and remembered facts are this session's,
+        // not this device's. Carrying them across a sign-out would have ARIA
+        // greeting the next person with the last one's bad knee.
+        LocalTestingOrchestrator.shared.resetForNewSession()
     }
 
     func authorizationHeader() -> String? {
@@ -217,5 +221,9 @@ final class ForgeAuthClient: ObservableObject {
         try store.setValue(session, forKey: Self.sessionKey)
         try store.set(session.accessToken, forKey: "forge.aria.authToken")
         AriaContextStore.shared.configure(userId: session.userId)
+        // Fresh session, fresh local state and a fresh phrasing seed, so a
+        // tester who signs in twice does not get a transcript they have already
+        // read.
+        LocalTestingOrchestrator.shared.resetForNewSession()
     }
 }
