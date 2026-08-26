@@ -206,12 +206,12 @@
 		0AF23A887EDD96C00F754936 /* DataPermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB90BFB6F1FEB4F1ADCB75B7 /* DataPermissionsView.swift */; };
 		AA000100000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000C /* Assets.xcassets */; };
 		F0B100000000000000000001 /* ForgeWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000001 /* ForgeWatchApp.swift */; };
+		8DFBF2E9C6DAB939290C66BB /* ForgeWatchIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBC3A2D5AFA4571FF47AB5FE /* ForgeWatchIntents.swift */; };
+		241A6C4B8A83485794469DC2 /* ForgeWatchShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53C2AC8DDA85F78F68054287 /* ForgeWatchShortcuts.swift */; };
 		F0B100000000000000000002 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000002 /* HomeView.swift */; };
 		D0A272B6C3B6D461DCE22368 /* HydrationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DC70D751D8B43D734CC3AA6 /* HydrationCard.swift */; };
 		4E1DFB98AB390196E5D7F907 /* CycleGlanceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA4D5170F1B849A595166D44 /* CycleGlanceCard.swift */; };
 		C378B28AC90E25D0D6D5FF9B /* WeekView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2270B43BE515E33AEB9FA0E1 /* WeekView.swift */; };
-		AB6363C818661DF25A3C75EF /* ForgeWatchIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E56B7C670E529DE4A379AC7 /* ForgeWatchIntents.swift */; };
-		F5829E588EDB26188682DE8C /* ForgeWatchShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA29B65DD87C17AE4707EB7 /* ForgeWatchShortcuts.swift */; };
 		F0B100000000000000000003 /* MindfulnessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000003 /* MindfulnessView.swift */; };
 		F0B100000000000000000004 /* LifestyleContextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000004 /* LifestyleContextView.swift */; };
 		F0B100000000000000000005 /* AuroraOrbWatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000005 /* AuroraOrbWatch.swift */; };
@@ -543,12 +543,12 @@
 		AA000200000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA000200000000000000000D /* ForgeSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForgeSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0F100000000000000000001 /* ForgeWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWatchApp.swift; sourceTree = "<group>"; };
+		DBC3A2D5AFA4571FF47AB5FE /* ForgeWatchIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Intents/ForgeWatchIntents.swift"; sourceTree = "<group>"; };
+		53C2AC8DDA85F78F68054287 /* ForgeWatchShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Intents/ForgeWatchShortcuts.swift"; sourceTree = "<group>"; };
 		F0F100000000000000000002 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		5DC70D751D8B43D734CC3AA6 /* HydrationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HydrationCard.swift; sourceTree = "<group>"; };
 		BA4D5170F1B849A595166D44 /* CycleGlanceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleGlanceCard.swift; sourceTree = "<group>"; };
 		2270B43BE515E33AEB9FA0E1 /* WeekView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekView.swift; sourceTree = "<group>"; };
-		0E56B7C670E529DE4A379AC7 /* ForgeWatchIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWatchIntents.swift; sourceTree = "<group>"; };
-		9AA29B65DD87C17AE4707EB7 /* ForgeWatchShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWatchShortcuts.swift; sourceTree = "<group>"; };
 		F0F100000000000000000003 /* MindfulnessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MindfulnessView.swift; sourceTree = "<group>"; };
 		F0F100000000000000000004 /* LifestyleContextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleContextView.swift; sourceTree = "<group>"; };
 		F0F100000000000000000005 /* AuroraOrbWatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbWatch.swift; sourceTree = "<group>"; };
@@ -967,6 +967,8 @@
 			children = (
 				AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */,
 				F0F100000000000000000001 /* ForgeWatchApp.swift */,
+				DBC3A2D5AFA4571FF47AB5FE /* ForgeWatchIntents.swift */,
+				53C2AC8DDA85F78F68054287 /* ForgeWatchShortcuts.swift */,
 				F0A100000000000000000002 /* Views */,
 				F0A100000000000000000003 /* Components */,
 				F0A100000000000000000004 /* Managers */,
@@ -984,8 +986,6 @@
 				5DC70D751D8B43D734CC3AA6 /* HydrationCard.swift */,
 				BA4D5170F1B849A595166D44 /* CycleGlanceCard.swift */,
 				2270B43BE515E33AEB9FA0E1 /* WeekView.swift */,
-				0E56B7C670E529DE4A379AC7 /* ForgeWatchIntents.swift */,
-				9AA29B65DD87C17AE4707EB7 /* ForgeWatchShortcuts.swift */,
 				F0F100000000000000000003 /* MindfulnessView.swift */,
 				F0F100000000000000000004 /* LifestyleContextView.swift */,
 				F0F10000000000000000001C /* WorkoutCoordinatorView.swift */,
@@ -1481,12 +1481,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				F0B100000000000000000001 /* ForgeWatchApp.swift in Sources */,
+				8DFBF2E9C6DAB939290C66BB /* ForgeWatchIntents.swift in Sources */,
+				241A6C4B8A83485794469DC2 /* ForgeWatchShortcuts.swift in Sources */,
 				F0B100000000000000000002 /* HomeView.swift in Sources */,
 				D0A272B6C3B6D461DCE22368 /* HydrationCard.swift in Sources */,
 				4E1DFB98AB390196E5D7F907 /* CycleGlanceCard.swift in Sources */,
 				C378B28AC90E25D0D6D5FF9B /* WeekView.swift in Sources */,
-				AB6363C818661DF25A3C75EF /* ForgeWatchIntents.swift in Sources */,
-				F5829E588EDB26188682DE8C /* ForgeWatchShortcuts.swift in Sources */,
 				F0B100000000000000000003 /* MindfulnessView.swift in Sources */,
 				F0B100000000000000000004 /* LifestyleContextView.swift in Sources */,
 				F0B100000000000000000005 /* AuroraOrbWatch.swift in Sources */,
