@@ -53,8 +53,25 @@ done
 # place to audit, which is how these guarantees rot.
 DIGEST="ForgeSwift/ForgeSwift/Models/PartnerCycleDigest.swift"
 if [ -f "$DIGEST" ]; then
-    if ! grep -q 'init(redacting snapshot: MenstrualCycleSnapshot)' "$DIGEST"; then
+    # Deliberately does not require the parameter list to end here. #156 added a
+    # `tier:` argument and this check failed main, reporting that the boundary
+    # "moved or was removed" when it had done neither — the tier only ever
+    # narrows what a supporter sees (.onPeriod collapses the phase to bleeding
+    # or not-bleeding). A gate that cries wolf over a legitimate parameter is a
+    # gate people start overriding, which costs more than it protects.
+    if ! grep -q 'init(redacting snapshot: MenstrualCycleSnapshot' "$DIGEST"; then
         echo "✗ $DIGEST no longer declares init(redacting:) — the redaction boundary moved or was removed."
+        status=1
+    fi
+
+    # The invariant the boundary actually rests on, which nothing checked until
+    # now: the memberwise initialiser stays private, so init(redacting:) is the
+    # only way a snapshot becomes a digest. A caller that can build a digest
+    # field by field can put anything in it, and the redaction above becomes
+    # decorative.
+    if ! grep -q 'private init(phase:' "$DIGEST"; then
+        echo "✗ $DIGEST: the memberwise init is no longer private — a digest can now be built"
+        echo "  field by field, bypassing init(redacting:) entirely."
         status=1
     fi
     # A headline parameter used to exist and was a hole: a caller holding the
