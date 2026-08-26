@@ -81,6 +81,7 @@ let package = Package(
                 "SupportedPersonMatchTests.swift",
                 "PublishGateTests.swift",
                 "SecureStoreTests.swift",
+                "SessionClockTests.swift",
                 "FakeHealthPackTests.swift",
                 "ForgeAuthTests.swift",
                 "CognitoRefreshTests.swift",
