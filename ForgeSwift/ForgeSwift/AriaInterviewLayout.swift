@@ -21,7 +21,7 @@ struct AriaInterviewLayout: View {
         .onChange(of: dictation.recognizedText) { _, text in
             guard dictation.isListening || dictation.voiceState == .processing else { return }
             // Live partials into free-text steps
-            if coordinator.step == .name || coordinator.step == .conditions {
+            if coordinator.step == .conditions {
                 coordinator.freeText = text
             }
         }
@@ -203,12 +203,12 @@ struct AriaInterviewLayout: View {
             switch coordinator.step {
             case .intro:
                 EmptyView()
-            case .age:
-                AgeComposer(coordinator: coordinator)
             case .name:
                 NameComposer(coordinator: coordinator, dictation: dictation)
             case .health:
                 HealthComposer(coordinator: coordinator)
+            case .details:
+                DetailsComposer(coordinator: coordinator)
             case .goals:
                 MultiChipComposer(
                     title: "Goals",
@@ -225,8 +225,6 @@ struct AriaInterviewLayout: View {
                     continueTitle: "Continue",
                     onContinue: { coordinator.confirmGoals() }
                 )
-            case .biologicalSex:
-                BiologicalSexStepView(coordinator: coordinator)
             case .experience:
                 OptionCardsComposer(
                     options: ExperienceLevel.allCases.map {

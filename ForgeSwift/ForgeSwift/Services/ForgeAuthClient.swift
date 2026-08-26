@@ -75,6 +75,41 @@ final class ForgeAuthClient: ObservableObject {
         return minted
     }
 
+    func signUp(email: String, password: String, displayName: String) async throws -> CognitoPasswordAuth.SignUpResult {
+        let request = try CognitoPasswordAuth.signUpRequest(
+            region: config.cognitoRegion,
+            clientId: config.cognitoClientId,
+            username: email,
+            password: password,
+            name: displayName
+        )
+        let data: Data
+        do {
+            let (body, _) = try await URLSession.shared.data(for: request)
+            data = body
+        } catch {
+            throw ForgeAuthError.network
+        }
+        return try CognitoPasswordAuth.parseSignUpResponse(data)
+    }
+
+    func confirmSignUp(email: String, code: String) async throws {
+        let request = try CognitoPasswordAuth.confirmSignUpRequest(
+            region: config.cognitoRegion,
+            clientId: config.cognitoClientId,
+            username: email,
+            code: code
+        )
+        let data: Data
+        do {
+            let (body, _) = try await URLSession.shared.data(for: request)
+            data = body
+        } catch {
+            throw ForgeAuthError.network
+        }
+        try CognitoPasswordAuth.parseConfirmSignUpResponse(data)
+    }
+
     func signIn(email: String, password: String) async throws -> ForgeAuthSession {
         let request = try CognitoPasswordAuth.initiateAuthRequest(
             region: config.cognitoRegion,

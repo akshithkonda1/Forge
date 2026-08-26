@@ -189,7 +189,7 @@ extension HealthKitManager {
     }
 
     func fetchUserProfile() async -> UserHealthProfile? {
-        async let age = fetchAge()
+        async let dob = fetchDateOfBirth()
         async let biologicalSex = fetchBiologicalSex()
         async let bloodType = fetchBloodType()
         async let weight = fetchMostRecentWeight()
@@ -200,15 +200,20 @@ extension HealthKitManager {
         async let restingHR = fetchMostRecentRestingHeartRate()
         async let vo2Max = fetchMostRecentVO2Max()
         async let avgHRV = fetchAverageHRV()
-        
-        let profileValues = await (age, biologicalSex, bloodType, weight, height, bmi, leanMass, bodyFat, restingHR, vo2Max, avgHRV)
+
+        let profileValues = await (dob, biologicalSex, bloodType, weight, height, bmi, leanMass, bodyFat, restingHR, vo2Max, avgHRV)
+        let birth = profileValues.0
+        let age: Int? = birth.flatMap {
+            Calendar.current.dateComponents([.year], from: $0, to: Date()).year
+        }
         let expandedRequested = UserDefaults.standard.bool(forKey: expandedAuthorizationRequestedKey)
         let clinicalRequested = UserDefaults.standard.bool(forKey: clinicalAuthorizationRequestedKey)
         let cycle = expandedRequested ? await fetchCycleSummary() : nil
         let clinical = clinicalRequested ? await fetchClinicalRecordsSummary() : nil
-        
+
         return UserHealthProfile(
-            age: profileValues.0,
+            age: age,
+            dateOfBirth: birth,
             biologicalSex: profileValues.1,
             bloodType: profileValues.2,
             weightKg: profileValues.3,
@@ -224,17 +229,13 @@ extension HealthKitManager {
         )
     }
 
-    private func fetchAge() async -> Int? {
+    private func fetchDateOfBirth() async -> Date? {
         do {
-            let birthdayComponents = try healthStore.dateOfBirthComponents()
-            let now = Date()
-            let calendar = Calendar.current
-            if let birthDate = calendar.date(from: birthdayComponents) {
-                let components = calendar.dateComponents([.year], from: birthDate, to: now)
-                return components.year
-            }
-        } catch {}
-        return nil
+            let components = try healthStore.dateOfBirthComponents()
+            return Calendar.current.date(from: components)
+        } catch {
+            return nil
+        }
     }
 
     private func fetchBiologicalSex() async -> String? {

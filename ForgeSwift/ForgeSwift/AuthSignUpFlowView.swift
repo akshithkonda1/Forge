@@ -1,5 +1,6 @@
 import SwiftUI
 import AuthenticationServices
+import ForgeCore
 
 // MARK: - Immersive Sign Up
 
@@ -11,12 +12,17 @@ struct AuthSignUpFlowView: View {
 
     @State private var step: SignUpStep = .identity
     @State private var firstName = ""
+    @State private var lastName = ""
     @State private var spark: SignUpSpark = .buildMuscle
     @State private var email = ""
     @State private var password = ""
     @State private var isBusy = false
     @State private var errorMessage: String?
     @State private var showEmailForm = false
+    @State private var awaitingCode = false
+    @State private var confirmCode = ""
+    @State private var pendingPassword = ""
+    @State private var codeDestination = ""
     @State private var celebrate = false
     @State private var appeared = false
     @State private var nameFocused = false
@@ -216,16 +222,16 @@ struct AuthSignUpFlowView: View {
                 heroCopy(
                     kicker: "Who are you?",
                     title: "What should ARIA\ncall you?",
-                    body: "First names only. This is the start of a relationship — not a form."
+                    body: "Preferred name is what you'll hear in coaching. Last name is optional and stays on your profile."
                 )
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("YOUR NAME")
+                    Text("PREFERRED NAME")
                         .font(.system(size: 11, weight: .bold))
                         .tracking(1.4)
                         .foregroundColor(.textTertiary)
 
-                    TextField("e.g. Maya", text: $firstName)
+                    TextField("Maya", text: $firstName)
                         .focused($nameFieldFocused)
                         .textContentType(.givenName)
                         .textInputAutocapitalization(.words)
@@ -250,11 +256,31 @@ struct AuthSignUpFlowView: View {
                             }
                         }
 
+                    Text("LAST NAME (OPTIONAL)")
+                        .font(.system(size: 11, weight: .bold))
+                        .tracking(1.4)
+                        .foregroundColor(.textTertiary)
+                        .padding(.top, 8)
+
+                    TextField("Optional", text: $lastName)
+                        .textContentType(.familyName)
+                        .textInputAutocapitalization(.words)
+                        .autocorrectionDisabled()
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundColor(.textPrimary)
+                        .padding(16)
+                        .background(Color.surfaceElevated)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        )
+
                     if firstName.trimmingCharacters(in: .whitespaces).count >= 2 {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(Color(hex: "22C55E"))
-                            Text("Nice. \(trimmedName) — locked for ARIA.")
+                            Text("ARIA will call you \(trimmedName).")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.textSecondary)
                         }
@@ -393,8 +419,17 @@ struct AuthSignUpFlowView: View {
                 .padding(14)
                 .forgeGlassCard(cornerRadius: 16, accent: Color(hex: spark.accentHex))
 
-                if !showEmailForm {
+                if awaitingCode {
+                    verifyCodeBlock
+                } else if !showEmailForm {
                     VStack(spacing: 10) {
+                        if let errorMessage {
+                            Text(errorMessage)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.danger)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
                         SignInWithAppleButton(.signUp) { request in
                             request.requestedScopes = [.fullName, .email]
                         } onCompletion: { result in
@@ -405,7 +440,9 @@ struct AuthSignUpFlowView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                         Button {
-                            finish(provider: "google", email: "google@forge.local")
+                            errorMessage = ForgeAuthClient.shared.canUseDevOverride
+                                ? "Google isn’t wired. Use email, or Continue as tester on this debug build."
+                                : "Google sign-up isn’t connected yet. Use email."
                         } label: {
                             HStack(spacing: 10) {
                                 Image(systemName: "g.circle.fill")
@@ -440,7 +477,7 @@ struct AuthSignUpFlowView: View {
                 } else {
                     VStack(spacing: 12) {
                         authField("Email", text: $email, contentType: .emailAddress, secure: false)
-                        authField("Password (6+)", text: $password, contentType: .newPassword, secure: true)
+                        authField("Password (12+ · upper, lower, number, symbol)", text: $password, contentType: .newPassword, secure: true)
 
                         if let errorMessage {
                             Text(errorMessage)
@@ -467,6 +504,23 @@ struct AuthSignUpFlowView: View {
                     }
                 }
 
+                if ForgeAuthClient.shared.canUseDevOverride {
+                    Button {
+                        continueAsTester()
+                    } label: {
+                        Text("Continue as tester")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.steel)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.steel.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isBusy)
+                    .accessibilityHint("Debug-only local account. Never ships in Release.")
+                }
+
                 Text("By continuing you get lifestyle and fitness coaching, not medical diagnosis or care. ARIA is a lifestyle based fitness coach, not a doctor and cannot help in that way. If you are looking for urgent medical help, please call 911 or visit your local hospital or physician.")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.textMuted)
@@ -486,7 +540,37 @@ struct AuthSignUpFlowView: View {
     }
 
     private var canSubmitEmail: Bool {
-        email.contains("@") && password.count >= 6
+        email.contains("@") && CognitoPasswordPolicy.isValid(password)
+    }
+
+    private var verifyCodeBlock: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("We emailed a confirmation code to \(codeDestination.isEmpty ? email : codeDestination).")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.textSecondary)
+            authField("Confirmation code", text: $confirmCode, contentType: .oneTimeCode, secure: false)
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.danger)
+            }
+            primaryButton(
+                title: isBusy ? "Confirming…" : "Confirm email · enter Forge",
+                enabled: confirmCode.trimmingCharacters(in: .whitespaces).count >= 4 && !isBusy,
+                icon: "checkmark"
+            ) {
+                submitConfirmation()
+            }
+            Button {
+                awaitingCode = false
+                confirmCode = ""
+            } label: {
+                Text("Use a different email")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.textTertiary)
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     private func heroCopy(kicker: String, title: String, body: String) -> some View {
@@ -603,15 +687,10 @@ struct AuthSignUpFlowView: View {
 
     private func handleApple(_ result: Result<ASAuthorization, Error>) {
         switch result {
-        case .success(let auth):
-            var name = trimmedName
-            if let cred = auth.credential as? ASAuthorizationAppleIDCredential {
-                let parts = [cred.fullName?.givenName, cred.fullName?.familyName].compactMap { $0 }
-                if name.isEmpty, !parts.isEmpty {
-                    name = parts.joined(separator: " ")
-                }
-            }
-            finish(provider: "apple", email: "apple@forge.local", displayName: name)
+        case .success:
+            errorMessage = ForgeAuthClient.shared.canUseDevOverride
+                ? "Sign in with Apple isn’t wired. Use email, or Continue as tester on this debug build."
+                : "Sign in with Apple isn’t connected yet. Use email."
         case .failure(let error):
             if (error as NSError).code != ASAuthorizationError.canceled.rawValue {
                 errorMessage = error.localizedDescription
@@ -619,37 +698,105 @@ struct AuthSignUpFlowView: View {
         }
     }
 
-    private func submitEmail() {
-        guard canSubmitEmail else { return }
-        finish(
-            provider: "email",
-            email: email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-            displayName: trimmedName
-        )
-    }
-
-    private func finish(provider: String, email: String, displayName: String? = nil) {
+    private func continueAsTester() {
         isBusy = true
         errorMessage = nil
-        let name = (displayName ?? trimmedName).trimmingCharacters(in: .whitespacesAndNewlines)
-        // Seed goal into temp onboarding profile so ARIA interview starts partially filled.
+        do {
+            seedDraft(name: trimmedName)
+            let session = try ForgeAuthClient.shared.continueAsTester()
+            complete(with: session)
+        } catch {
+            errorMessage = "Tester account is off. It only exists in debug builds pointed at a dev API."
+            isBusy = false
+        }
+    }
+
+    private func submitEmail() {
+        guard canSubmitEmail else { return }
+        isBusy = true
+        errorMessage = nil
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        Task {
+            do {
+                guard ForgeAuthClient.shared.config.cognitoConfigured else {
+                    errorMessage = ForgeAuthClient.shared.canUseDevOverride
+                        ? "Cognito isn’t configured. Use Continue as tester."
+                        : "Sign-up isn’t configured for this build."
+                    isBusy = false
+                    return
+                }
+                let result = try await ForgeAuthClient.shared.signUp(
+                    email: trimmed,
+                    password: password,
+                    displayName: trimmedName
+                )
+                if result.userConfirmed {
+                    let session = try await ForgeAuthClient.shared.signIn(email: trimmed, password: password)
+                    seedDraft(name: trimmedName)
+                    complete(with: session)
+                } else {
+                    pendingPassword = password
+                    codeDestination = result.codeDestination ?? trimmed
+                    awaitingCode = true
+                    isBusy = false
+                }
+            } catch ForgeAuthError.cognitoNotConfigured {
+                errorMessage = ForgeAuthClient.shared.canUseDevOverride
+                    ? "Cognito isn’t configured. Use Continue as tester."
+                    : "Sign-up isn’t configured for this build."
+                isBusy = false
+            } catch ForgeAuthError.cognitoRejected(let message) {
+                errorMessage = message
+                isBusy = false
+            } catch {
+                errorMessage = "Couldn’t reach the sign-up service."
+                isBusy = false
+            }
+        }
+    }
+
+    private func submitConfirmation() {
+        let code = confirmCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard code.count >= 4 else { return }
+        isBusy = true
+        errorMessage = nil
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        Task {
+            do {
+                try await ForgeAuthClient.shared.confirmSignUp(email: trimmed, code: code)
+                let session = try await ForgeAuthClient.shared.signIn(email: trimmed, password: pendingPassword)
+                seedDraft(name: trimmedName)
+                complete(with: session)
+            } catch ForgeAuthError.cognitoRejected(let message) {
+                errorMessage = message
+                isBusy = false
+            } catch {
+                errorMessage = "Couldn’t confirm that code. Try again."
+                isBusy = false
+            }
+        }
+    }
+
+    private func seedDraft(name: String) {
         var draft = store.tempOnboardingProfile
         draft.name = name
+        draft.lastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
         if !draft.fitnessGoals.contains(spark.onboardingGoal) {
             draft.fitnessGoals = [spark.onboardingGoal]
         }
         store.tempOnboardingProfile = draft
+    }
 
+    private func complete(with session: ForgeAuthSession) {
         withAnimation(FDS.Spring.hero) { celebrate = true }
         FDS.notificationHaptic(.success)
-
         DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.35 : 1.15)) {
-            store.authenticate(
-                provider: provider,
-                email: email,
-                displayName: name.isEmpty ? "Athlete" : name,
-                isNewAccount: true
-            )
+            store.applyAuthSession(session, isNewAccount: true)
+            if !trimmedName.isEmpty {
+                store.userProfile.name = [trimmedName, lastName.trimmingCharacters(in: .whitespacesAndNewlines)]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " ")
+            }
             let core = spark.onboardingGoal.coreGoal
             if !store.userProfile.fitnessGoals.contains(core) {
                 store.userProfile.fitnessGoals = [core]

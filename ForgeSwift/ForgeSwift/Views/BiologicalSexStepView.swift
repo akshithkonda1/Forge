@@ -22,7 +22,7 @@ struct BiologicalSexStepView: View {
                                 .foregroundColor(.ember)
                                 .font(.subheadline)
                         } else {
-                            Image(systemName: "chevron.right")
+                            Image(systemName: "circle")
                                 .font(.caption.weight(.bold))
                                 .foregroundColor(.textMuted)
                         }

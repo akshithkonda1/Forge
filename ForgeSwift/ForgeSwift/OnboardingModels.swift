@@ -132,11 +132,17 @@ enum OnboardingCoachingStyle: String, CaseIterable, Identifiable {
 }
 
 struct OnboardingProfile {
+    /// Preferred name — what ARIA uses in coaching (Claude/Grok-style "what should we call you").
     var name: String = ""
-    var birthday: Date = Calendar.current.date(byAdding: .year, value: -25, to: Date()) ?? Date()
+    /// Optional family name for the profile card. Never spoken unless they ask.
+    var lastName: String = ""
+    /// Nil until they pick a date (or Apple Health prefills). Do not default to "25".
+    var birthday: Date? = nil
     var gender: Gender = .preferNotToSay
-    var heightCm: Double = 170
-    var weightKg: Double = 70
+    var heightCm: Double? = nil
+    var weightKg: Double? = nil
+    var usesMetricUnits: Bool = false
+    var healthSourcedFields: Set<OnboardingHealthSourcedField> = []
     var fitnessGoals: [OnboardingFitnessGoal] = []
     var experienceLevel: ExperienceLevel = .intermediate
     var preferredWorkouts: [OnboardingWorkoutType] = []
@@ -159,9 +165,16 @@ struct OnboardingProfile {
     var educationalCycleMode: Bool = false
 
     func toCoreProfile() -> UserProfile {
-        UserProfile(
-            name: name,
-            gender: gender,
+        let resolvedGender: Gender = {
+            switch biologicalSex {
+            case .female: return .female
+            case .male: return .male
+            default: return gender
+            }
+        }()
+        return UserProfile(
+            name: profileDisplayName.isEmpty ? name : profileDisplayName,
+            gender: resolvedGender,
             fitnessGoals: fitnessGoals.map(\.coreGoal).reduce(into: [UserFitnessGoal]()) { acc, goal in
                 if !acc.contains(goal) { acc.append(goal) }   // several onboarding goals map to .generalFitness; dedupe to avoid duplicate Identifiable IDs
             },
@@ -171,7 +184,7 @@ struct OnboardingProfile {
             connectedDevices: [],
             weeklySchedule: [],
             trainingEquipment: .commercialGym,
-            age: Calendar.current.dateComponents([.year], from: birthday, to: Date()).year,
+            age: hasBirthday ? ageYears : nil,
             weight: weightKg,
             height: heightCm,
             trainingTheme: trainingTheme,

@@ -115,26 +115,8 @@ extension AppStore {
         }
 
         // First launch, or a transcript we can no longer decode.
-        //
-        // The demo conversation is fifteen messages in which ARIA calls the user
-        // Akshith, says it has already synced their Apple Watch and Oura Ring,
-        // and quotes their HRV, deep sleep and a bench stuck at 225. None of
-        // that is theirs. ContentView routes a non-onboarded user to
-        // OnboardingView, so today only that routing keeps it off screen --
-        // which is a thin thing to rely on for a fabricated health history.
-        // A real build starts empty and gets its opening line from
-        // seedAriaWelcomeFromOnboarding once onboarding actually finishes.
-        #if DEBUG
-        // Test-Ready sim must not flash the old Akshith / Oura demo. ARIA's
-        // opening line comes from first Apple Health connect.
-        if AriaService.shouldUseTestReadyDummy {
-            chatMessages = []
-        } else {
-            chatMessages = isOnboarded ? [] : mockChatMessages
-        }
-        #else
+        // Opening line comes from seedAriaWelcomeFromOnboarding after the interview.
         chatMessages = []
-        #endif
         chatLevel = max(1, (chatXP / Self.xpPerChatLevel) + 1)
         if let anchorData = UserDefaults.standard.data(forKey: Self.durableMemoryKey),
            let anchors = try? JSONDecoder().decode([String].self, from: anchorData) {

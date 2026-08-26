@@ -683,6 +683,7 @@ struct SleepNightSample {
 
 struct UserHealthProfile {
     let age: Int?
+    let dateOfBirth: Date?
     let biologicalSex: String?
     let bloodType: String?
     let weightKg: Double?
@@ -697,7 +698,7 @@ struct UserHealthProfile {
     let clinicalSummary: ClinicalRecordsSummary?
     
     var hasData: Bool {
-        age != nil || biologicalSex != nil || bloodType != nil || weightKg != nil || heightCm != nil || bodyMassIndex != nil || leanBodyMassKg != nil || bodyFatPercentage != nil || restingHeartRate != nil || vo2Max != nil || averageHRV != nil || cycleSummary?.hasData == true || clinicalSummary?.hasData == true
+        age != nil || dateOfBirth != nil || biologicalSex != nil || bloodType != nil || weightKg != nil || heightCm != nil || bodyMassIndex != nil || leanBodyMassKg != nil || bodyFatPercentage != nil || restingHeartRate != nil || vo2Max != nil || averageHRV != nil || cycleSummary?.hasData == true || clinicalSummary?.hasData == true
     }
 }
 
