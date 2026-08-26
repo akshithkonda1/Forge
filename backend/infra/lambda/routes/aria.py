@@ -6,7 +6,6 @@ from responses import RouteError, ok
 from security import (
     MAX_ARCHETYPE_DESCRIPTION_CHARS,
     MAX_CHAT_MESSAGE_CHARS,
-    aria_test_ready,
     assert_body_user_matches_auth,
     sanitize_user_text,
 )
@@ -17,30 +16,6 @@ from services import weekly_review
 
 _context = CoachContextEngine()
 _feedback = FeedbackEngine(_context)
-
-
-def _dummy_orchestrator_response(
-    message: str, body: dict[str, Any], roster: list[str], user_id: str
-) -> dict[str, Any] | None:
-    """SimRunner dummy — Test-Ready only. Import is lazy so production Lambdas
-    never load the harness, and a missing package falls through to the
-    deterministic engine rather than 500ing a chat turn."""
-    try:
-        from backend.ai.simrunner.aria_simrunner.dummy_orchestrator import (  # noqa: WPS433
-            refuse_if_production,
-            respond,
-        )
-        refuse_if_production()
-        return respond(
-            message,
-            pinned=roster[0] if roster else None,
-            agents=roster,
-            cycle_subjects=list(body.get("cycle_subjects") or []),
-        )
-    except RuntimeError:
-        raise
-    except Exception:
-        return None
 
 
 def _voice_mode(body: dict[str, Any]) -> bool:
@@ -101,16 +76,6 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     if weekly_note:
         message = f"{weekly_note}\n\n{message}"
     roster = aria_engine.normalize_coach_agents(body.get("agents"), body.get("agent"))
-    dummy = _dummy_orchestrator_response(message, body, roster, uid) if aria_test_ready() else None
-    if dummy is not None:
-        dummy.update(
-            {
-                "user_id": uid,
-                "context_updates": {},
-                "memory_reference": None,
-            }
-        )
-        return ok(dummy)
     if aria_engine.bedrock_enabled():
         response = aria_engine.generate_response_live(
             message,

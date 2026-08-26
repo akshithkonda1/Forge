@@ -79,3 +79,44 @@ class DummyOrchestratorTests(unittest.TestCase):
             self.assertEqual(lifetime_suite.main(["--test-ready"]), 2)
         finally:
             sys.stdout = old
+
+    def test_refuses_lambda_and_other_cloud_runtimes(self):
+        for key in ("AWS_LAMBDA_FUNCTION_NAME", "K_SERVICE", "FUNCTION_TARGET", "WEBSITE_INSTANCE_ID"):
+            with self.subTest(key=key):
+                previous = os.environ.get(key)
+                os.environ[key] = "forge-dummy-test"
+                try:
+                    with self.assertRaises(RuntimeError) as ctx:
+                        dummy.respond("how did I sleep?")
+                    self.assertIn("local-only", str(ctx.exception))
+                finally:
+                    if previous is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = previous
+
+    def test_source_never_imports_cloud_clients(self):
+        src = Path(dummy.__file__).read_text()
+        imports = [
+            line.strip()
+            for line in src.splitlines()
+            if line.strip().startswith(("import ", "from "))
+        ]
+        forbidden = ("boto3", "botocore", "bedrock_client", "urllib", "requests", "http.client")
+        for stmt in imports:
+            for needle in forbidden:
+                self.assertNotIn(needle, stmt, f"dummy orchestrator imported {needle}")
+
+    def test_never_invokes_bedrock_converse(self):
+        from backend.ai.simrunner.aria_simrunner import bedrock_client
+
+        def boom(*_args, **_kwargs):
+            raise AssertionError("dummy orchestrator must not call Bedrock")
+
+        original = bedrock_client.converse
+        bedrock_client.converse = boom
+        try:
+            row = dummy.respond("What should I train today?", seed=1)
+            self.assertEqual(row["reasoning_source"], dummy.REASONING_SOURCE)
+        finally:
+            bedrock_client.converse = original

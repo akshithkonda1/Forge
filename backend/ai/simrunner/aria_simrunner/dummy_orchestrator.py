@@ -1,11 +1,13 @@
 """Test-ready dummy ARIA orchestrator.
 
 Same system as SimRunner: synthetic 30-day streams, the deterministic stub
-engine, no Bedrock, no tokens. It stands up as many coach agents as a turn
-needs so AI features can be exercised without a production instance.
+engine, no Bedrock, no tokens, no network. It stands up as many coach agents
+as a turn needs so AI features can be exercised without a production instance.
 
-Production-like ``ENVIRONMENT`` values refuse to run it. ``use_real_api`` is
-hard-off. This is how ARIA becomes Test-Ready.
+This module is local-only. It refuses production-like ``ENVIRONMENT`` values
+and any cloud runtime (Lambda, Cloud Run, Azure, GCP). It never imports a
+cloud SDK and never calls ``ARIAEngine.respond`` (that method can leave the
+machine). ``use_real_api`` is hard-off.
 """
 
 from __future__ import annotations
@@ -19,6 +21,15 @@ from ..backend_simulator import model_registry
 from .aria_engine import ARIAEngine
 
 _PROD_LIKE = frozenset({"prod", "production", "staging", "stage"})
+# Presence of any of these means we are on a cloud host, not a laptop.
+_CLOUD_RUNTIME_ENV = (
+    "AWS_LAMBDA_FUNCTION_NAME",
+    "AWS_EXECUTION_ENV",
+    "AWS_LAMBDA_RUNTIME_API",
+    "K_SERVICE",           # Cloud Run
+    "FUNCTION_TARGET",     # GCP Functions
+    "WEBSITE_INSTANCE_ID", # Azure App Service
+)
 REASONING_SOURCE = "simrunner-test-ready"
 STUB_MODEL = "simrunner-stub"
 
@@ -100,6 +111,25 @@ def refuse_if_production() -> None:
             "dummy ARIA orchestrator is test-only; "
             f"refused in production-like ENVIRONMENT={environment()!r}"
         )
+
+
+def refuse_if_cloud() -> None:
+    """Dummy orchestra is a laptop/CI process. Cloud hosts are out."""
+    refuse_if_production()
+    for key in _CLOUD_RUNTIME_ENV:
+        if os.getenv(key):
+            raise RuntimeError(
+                "dummy ARIA orchestrator is local-only and must not run on a "
+                f"cloud instance ({key} is set)"
+            )
+
+
+def _offline_stub(message: str, context, seed: int):
+    """The stub only. Never ``ARIAEngine.respond`` — that path can call Bedrock."""
+    engine = ARIAEngine(use_real_api=False)
+    if engine.use_real_api:
+        raise RuntimeError("dummy ARIA orchestrator cannot enable a live API")
+    return engine._stub_response(message, context, seed)
 
 
 def plan_workers(
@@ -190,9 +220,9 @@ def respond(
 ) -> dict:
     """One SimRunner stub call for the primary agent; supporting briefs in-process.
 
-    Never calls Bedrock. Never runs in production-like ENVIRONMENT.
+    Never calls Bedrock, AWS, or any other cloud. Local process only.
     """
-    refuse_if_production()
+    refuse_if_cloud()
 
     subjects = list(cycle_subjects or [])
     pinned_kind = (pinned or (agents[0] if agents else None) or "").strip().lower() or None
@@ -214,8 +244,7 @@ def respond(
     profile = model["behavioral_profile"]
     stream = generate_stream(profile, seed)
     ctx = build_context(stream, profile, 29)
-    engine = ARIAEngine(use_real_api=False)
-    stub = engine.respond(message, ctx, seed)
+    stub = _offline_stub(message, ctx, seed)
 
     extras = supporting_briefs(plan, ctx)
     prose = stub.prose_summary
@@ -244,7 +273,7 @@ def respond(
 
 def run_smoke(messages: list[str] | None = None, *, seed: int = 42) -> list[dict]:
     """CLI/CI smoke: a few multi-agent turns, always test-ready."""
-    refuse_if_production()
+    refuse_if_cloud()
     prompts = messages or [
         "How did I sleep last night?",
         "What should I train today?",

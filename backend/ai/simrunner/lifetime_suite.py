@@ -329,12 +329,12 @@ def _run_test_ready(args) -> int:
     """Dummy orchestrator smoke — Test-Ready ARIA, never a production instance."""
     from .aria_simrunner.dummy_orchestrator import (
         REASONING_SOURCE,
-        refuse_if_production,
+        refuse_if_cloud,
         run_smoke,
     )
 
     try:
-        refuse_if_production()
+        refuse_if_cloud()
     except RuntimeError as exc:
         print(f"error: {exc}")
         return 2
