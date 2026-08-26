@@ -5,8 +5,8 @@
 1. **Xcode → Settings → Platforms** — install **iOS** + **watchOS** (required on iOS 27 / Xcode 26+).
 2. Open **`ForgeSwift/ForgeSwift.xcodeproj`**.
 3. **Window → Devices and Simulators → Simulators**
-   - Create/boot an **iPhone** (e.g. iPhone 16 / 17).
-   - Under that iPhone, **pair + boot** an **Apple Watch** (Ultra 2 / Series 10).
+   - Create/boot an **iPhone** on **iOS 27** (e.g. iPhone 17).
+   - Under that iPhone, **pair + boot** an **Apple Watch** on **watchOS 27**.
 4. Scheme menu → **`ForgeSwift`** or **`ForgeCompanion`**.
 5. Destination → your **paired iPhone** (not “Any iOS Device”).
 6. **⌘R**.

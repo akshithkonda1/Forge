@@ -146,15 +146,10 @@ final class AppStore: ObservableObject {
     init() {
         // Initialize AI response generator
         #if canImport(FoundationModels)
-        if #available(iOS 26.0, *) {
-            let foundationModelsGenerator = FoundationModelsResponseGenerator()
-            self.aiModelAvailable = foundationModelsGenerator.isAvailable
-            self.responseGenerator = foundationModelsGenerator.isAvailable ?
-                foundationModelsGenerator : RuleBasedResponseGenerator()
-        } else {
-            self.responseGenerator = RuleBasedResponseGenerator()
-            self.aiModelAvailable = false
-        }
+        let foundationModelsGenerator = FoundationModelsResponseGenerator()
+        self.aiModelAvailable = foundationModelsGenerator.isAvailable
+        self.responseGenerator = foundationModelsGenerator.isAvailable ?
+            foundationModelsGenerator : RuleBasedResponseGenerator()
         #else
         self.responseGenerator = RuleBasedResponseGenerator()
         self.aiModelAvailable = false

@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.4
 import PackageDescription
 
 // ForgeCore — shared foundation for the Forge iOS app and ForgeWatch.
@@ -8,15 +8,16 @@ import PackageDescription
 // suggestion engine, and thin HealthKit query helpers. The suggestion
 // engine and readiness calculator are pure Swift so they can be unit
 // tested without a device or simulator.
+//
+// Forge is developed against iOS 27 / watchOS 27 (Xcode 27). `.v27`
+// needs tools 6.4. macOS stays listed so `swift test` works on CI
+// without an iOS/watchOS simulator destination.
 let package = Package(
     name: "ForgeCore",
     platforms: [
-        // macOS is listed so `swift test` works on CI runners without an
-        // iOS/watchOS simulator destination. Production consumers are still
-        // the iPhone + Watch apps.
         .macOS(.v14),
-        .iOS(.v17),
-        .watchOS(.v10),
+        .iOS(.v27),
+        .watchOS(.v27),
     ],
     products: [
         .library(name: "ForgeCore", targets: ["ForgeCore"]),
@@ -81,5 +82,8 @@ let package = Package(
                 "WorkoutModelsTests.swift",
             ]
         ),
-    ]
+    ],
+    // tools 6.4 is required for `.iOS(.v27)`, but ForgeCore is still Swift 5.
+    // Do not silently switch the package into Swift 6 language mode.
+    swiftLanguageModes: [.v5]
 )
