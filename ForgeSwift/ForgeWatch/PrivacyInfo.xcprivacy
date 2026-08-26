@@ -14,14 +14,73 @@
 			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
 			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
-				<!-- CA92.1: reads the App Group container the containing app owns.
-				     This extension transmits nothing. -->
+				<!-- The watch app does both things this category distinguishes:
+				     it reads and writes its own defaults (PhoneLinkService's
+				     companion config) and the App Group container it shares with
+				     the iPhone app and the complications (WatchSnapshotStore,
+				     ContextEngine, MindfulnessSessionManager). Both reasons are
+				     declared because both accesses happen. Nothing here is read
+				     from or written for another vendor's app. -->
 				<string>CA92.1</string>
+				<string>1C8F.1</string>
 			</array>
 		</dict>
 	</array>
 
 	<key>NSPrivacyCollectedDataTypes</key>
-	<array/>
+	<array>
+		<!-- This array was previously empty, above a comment reading "This
+		     extension transmits nothing". Two things were wrong with that: this
+		     is the watch app's manifest rather than an extension's, and
+		     ARIAWatchService.deeperDebrief POSTs a health context — readiness,
+		     HRV and its trend, total, deep and REM sleep minutes, sleep quality,
+		     hours since the last workout and its type, mindful minutes — to
+		     Forge's backend for a richer post-session debrief.
+
+		     What genuinely does not leave the watch is location. KnownPlacesStore
+		     keeps coordinates in the App Group and PlaceDetector's fixes are
+		     compared on-device; no place ever enters WatchARIAContext or any
+		     request body, so no location type is declared here. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeHealth</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeFitness</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- No user id is a field in the request body, but it carries a
+			     bearer token that identifies the account server-side, which is
+			     what makes the health types above Linked. Declared rather than
+			     argued about. -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

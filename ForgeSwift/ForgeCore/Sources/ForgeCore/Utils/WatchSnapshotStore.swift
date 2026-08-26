@@ -30,6 +30,11 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
     public var activeWorkout: WorkoutLiveState?
     /// Tonight's suggested wind-down start (SleepQualityComplication line).
     public var tonightWindDown: Date?
+    // Hydration — millilitres logged today and the target HydrationEngine
+    // computed for it, so the complication can render a ring without
+    // recomputing a target it has no body mass to compute from.
+    public var hydrationMilliliters: Double?
+    public var hydrationTargetMilliliters: Double?
     // Cycle phase fields — synced from MenstrualHealthStore.recompute()
     public var cyclePhase: String?
     public var cycleDayInCycle: Int?

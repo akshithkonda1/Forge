@@ -24,8 +24,11 @@ final class ARIAWatchService {
     private(set) var lastContext: WatchARIAContext?
 
     private let defaults = UserDefaults(suiteName: WatchSnapshotStore.appGroupID)
+    private let secureStore: SecureStore = KeychainStore()
     private enum Keys {
-        // Written by the iOS app when the user signs in; absent = local-only.
+        // Pushed across the link by the iOS app when the user signs in; absent
+        // = local-only. The token lives in the Keychain, the rest in the shared
+        // suite where complications can read them.
         static let baseURL = "forge.aria.baseURL"
         static let authToken = "forge.aria.authToken"
         static let userName = "forge.user.firstName"
@@ -80,11 +83,20 @@ final class ARIAWatchService {
         minutes: Double,
         heartRateSettleBPM: Double?
     ) async -> String? {
-        // A token is sent when one exists, but its absence must not block
-        // the call — the backend's Cognito-or-test-user auth tolerates a
-        // missing Bearer header, and no real token store exists yet.
+        // A token is required. This used to send the request either way, on the
+        // reasoning that "the backend's Cognito-or-test-user auth tolerates a
+        // missing Bearer header, and no real token store exists yet". Neither
+        // half is true any more: the backend answers 401 to an unauthenticated
+        // caller in production, and the Keychain store exists. Since every
+        // failure here returns nil and the local debrief is already on screen,
+        // calling without a token buys a request that cannot succeed and a
+        // silence indistinguishable from the feature being switched off.
+        // Signing in on the phone pushes a token across the link — that is the
+        // path that makes this tier work.
         guard
             let base = defaults?.string(forKey: Keys.baseURL),
+            let token = try? secureStore.string(forKey: Keys.authToken),
+            !token.isEmpty,
             let context = lastContext,
             let url = URL(string: base)?.appending(path: "watch/aria/suggest")
         else { return nil }
@@ -92,9 +104,7 @@ final class ARIAWatchService {
         var request = URLRequest(url: url, timeoutInterval: 10)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if let token = defaults?.string(forKey: Keys.authToken), !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         let payload = DebriefRequest(
             context: context,

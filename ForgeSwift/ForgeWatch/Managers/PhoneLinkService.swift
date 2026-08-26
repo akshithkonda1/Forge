@@ -23,6 +23,27 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
     /// Posted on the main queue when companion config is applied.
     static let companionConfigDidUpdate = Notification.Name("forge.watch.companionConfigDidUpdate")
 
+    private let secureStore: SecureStore = KeychainStore()
+
+    /// Clears secrets earlier builds wrote to UserDefaults in the clear.
+    ///
+    /// Deliberately not `SecureStoreMigration.sensitiveKeys`. That list is the
+    /// iOS app's and includes `forge.watch.context.profile`, which ContextEngine
+    /// reads straight back out of the shared suite — migrating it would move the
+    /// user's lifestyle profile into the Keychain, reset them to `.general` on
+    /// the next launch, and have the didSet write it to the suite again for the
+    /// following launch to move once more. Only keys whose readers on this
+    /// platform have been pointed at the Keychain belong here.
+    ///
+    /// Idempotent, so calling it on every launch is fine.
+    static func migrateStoredSecrets(store: SecureStore = KeychainStore()) {
+        let keys = Array(CompanionConfig.secretKeys)
+        SecureStoreMigration.run(keys: keys, from: .standard, to: store)
+        if let suite = UserDefaults(suiteName: WatchSnapshotStore.appGroupID) {
+            SecureStoreMigration.run(keys: keys, from: suite, to: store)
+        }
+    }
+
     private override init() {
         super.init()
     }
@@ -78,28 +99,28 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
     // MARK: Inbound companion config (from iPhone)
 
     private func ingest(_ message: [String: Any]) {
-        // Workout payloads are iPhone-bound; ignore if present.
-        if message[Self.workoutStateKey] != nil || message[Self.workoutEndedKey] != nil {
-            return
+        // Which half of this payload is a secret is a security decision, so it
+        // is made in ForgeCore where it is tested, not inline here. Workout
+        // payloads are the watch's own, travelling the other way; parse returns
+        // nil for them rather than reading our own echo as configuration.
+        guard let config = CompanionConfig.parse(message) else { return }
+        let suite = UserDefaults(suiteName: WatchSnapshotStore.appGroupID)
+
+        for (key, value) in config.secrets {
+            // WatchConnectivity delivered this over an encrypted link; writing
+            // it into UserDefaults on arrival would undo that. UserDefaults is
+            // an unencrypted plist in the container and it rides along in
+            // backups, so a stolen backup is a stolen session. Removing the old
+            // copies matters as much as the write: a token refreshed into the
+            // Keychain while a stale one stays in the plist has moved nothing.
+            try? secureStore.set(value, forKey: key)
+            suite?.removeObject(forKey: key)
+            UserDefaults.standard.removeObject(forKey: key)
         }
 
-        let config: [String: String]? = {
-            if let nested = message["forge.companion.config"] as? [String: String] {
-                return nested
-            }
-            var flat: [String: String] = [:]
-            for key in ["forge.aria.baseURL", "forge.aria.userId", "forge.aria.authToken",
-                        "forge.user.firstName", "forge.companion.syncedAt"] {
-                if let v = message[key] as? String { flat[key] = v }
-            }
-            return flat.isEmpty ? nil : flat
-        }()
-
-        guard let config else { return }
-        let suite = UserDefaults(suiteName: WatchSnapshotStore.appGroupID)
-        for (k, v) in config {
-            suite?.set(v, forKey: k)
-            UserDefaults.standard.set(v, forKey: k)
+        for (key, value) in config.preferences {
+            suite?.set(value, forKey: key)
+            UserDefaults.standard.set(value, forKey: key)
         }
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: Self.companionConfigDidUpdate, object: nil)

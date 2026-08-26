@@ -73,6 +73,17 @@ final class ContextEngine {
     /// so we nudge once per block, not once per evaluation tick.
     private var deskNudgeFiredForCurrentBlock = false
 
+    /// The most recent heart rate the app has seen, and when.
+    ///
+    /// This engine has no HealthKit access of its own; HomeView hands a reading
+    /// over on every foreground and refresh. The five-minute loop used to call
+    /// evaluate() with no reading at all, and gymSuggestionAllowed(nil) is
+    /// false, so the known-place gym rule could only ever fire while Home was
+    /// on screen — the one moment the user is least likely to be mid-set.
+    /// Remembering the last reading gives the loop something to reason from;
+    /// ContextRules.usableHeartRate decides whether it is still worth anything.
+    private var lastHeartRate: HeartRateReading?
+
     private enum Keys {
         static let mode = "forge.watch.context.mode"
         static let modeStart = "forge.watch.context.modeStart"
@@ -173,6 +184,10 @@ final class ContextEngine {
     }
 
     func evaluate(recentHeartRate: Double? = nil) async {
+        if let recentHeartRate {
+            lastHeartRate = HeartRateReading(bpm: recentHeartRate, takenAt: Date())
+        }
+
         // 1. Long-desk-block nudge: the flagship proactive trigger.
         //    (Rules live in ForgeCore/ContextRules — unit tested.)
         if ContextRules.deskBlockNudgeDue(
@@ -198,7 +213,9 @@ final class ContextEngine {
 
         // 3. Known-place detection + HR cross-signal (foreground fix only;
         //    coordinates never leave the device).
-        await refineWithPlace(recentHeartRate: recentHeartRate)
+        await refineWithPlace(
+            recentHeartRate: recentHeartRate ?? ContextRules.usableHeartRate(lastHeartRate)
+        )
 
         // 4. Motion cross-check (guarded — simulator/denied users skip this).
         await refineWithMotion()

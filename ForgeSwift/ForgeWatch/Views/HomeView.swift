@@ -14,6 +14,7 @@ struct HomeView: View {
     @Environment(ARIAWatchService.self) private var aria
     @Environment(MindfulnessSessionManager.self) private var session
     @Environment(WorkoutSessionManager.self) private var workout
+    @Environment(HydrationManager.self) private var hydration
     @Environment(\.scenePhase) private var scenePhase
 
     @Binding var path: [WatchRoute]
@@ -47,7 +48,10 @@ struct HomeView: View {
                 }
 
                 quickActions
+                HydrationCard()
+                CycleGlanceCard(snapshot: WatchSnapshotStore.load())
                 sleepGlance
+                weekLink
             }
             .padding(.horizontal, 2)
         }
@@ -72,6 +76,7 @@ struct HomeView: View {
             guard phase == .active else { return }
             Task {
                 await health.refreshAll()
+                await refreshHydration()
                 await contextEngine.evaluate(recentHeartRate: health.recentHeartRate)
                 aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday)
             }
@@ -229,6 +234,33 @@ struct HomeView: View {
         }
     }
 
+    /// Deliberately last and deliberately quiet. Looking back is a thing you
+    /// go and do, not a thing that should compete with today's one action.
+    private var weekLink: some View {
+        HapticButton(haptic: .click) {
+            path.append(.week)
+        } label: {
+            HStack(spacing: ForgeDS.Spacing.sm) {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 11))
+                    .foregroundStyle(ForgePalette.textTertiary)
+                Text("This week")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(ForgePalette.textSecondary)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9))
+                    .foregroundStyle(ForgePalette.textTertiary)
+            }
+            .padding(.horizontal, ForgeDS.Spacing.md)
+            .padding(.vertical, ForgeDS.Spacing.sm)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("This week")
+        .accessibilityHint("Sleep trend, resets and time since your last session.")
+        .accessibilityAddTraits(.isButton)
+    }
+
     private func sleepLine(_ sleep: SleepNight) -> String {
         if let quality = health.readiness?.sleepQuality, quality > 0 {
             return "\(sleep.durationLabel) · quality \(quality)"
@@ -241,7 +273,19 @@ struct HomeView: View {
     private func initialLoad() async {
         await health.requestAuthorization()
         await health.refreshAll()
+        await refreshHydration()
         await contextEngine.evaluate(recentHeartRate: health.recentHeartRate)
         aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday)
+    }
+
+    /// Hydration needs the day's shape from two other managers — how much was
+    /// burned, when the night starts, when this morning did — so it refreshes
+    /// after health rather than owning queries of its own.
+    private func refreshHydration() async {
+        await hydration.refresh(
+            activeCalories: workout.activeCalories ?? 0,
+            windDown: health.windDownPlan,
+            lastNight: health.sleepSummary
+        )
     }
 }

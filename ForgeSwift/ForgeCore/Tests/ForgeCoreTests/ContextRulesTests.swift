@@ -61,4 +61,64 @@ final class ContextRulesTests: XCTestCase {
         XCTAssertFalse(ContextRules.gymSuggestionAllowed(recentHeartRate: 72))
         XCTAssertTrue(ContextRules.gymSuggestionAllowed(recentHeartRate: 112))
     }
+
+    // MARK: Heart-rate freshness
+    //
+    // ContextEngine's five-minute loop has no HealthKit access; it remembers the
+    // last reading HomeView handed it. Before this rule existed the loop passed nil
+    // and gymSuggestionAllowed rejected it every time, so the known-place gym
+    // signal only ever worked while Home was on screen.
+
+
+    func testAFreshReadingIsUsable() {
+        let now = Date()
+        let reading = HeartRateReading(bpm: 128, takenAt: now.addingTimeInterval(-60))
+        XCTAssertEqual(ContextRules.usableHeartRate(reading, now: now), 128)
+    }
+
+    func testAStaleReadingIsNot() {
+        let now = Date()
+        let reading = HeartRateReading(bpm: 128, takenAt: now.addingTimeInterval(-3 * 3600))
+        XCTAssertNil(ContextRules.usableHeartRate(reading, now: now),
+                     "an elevated heart rate three hours ago is a workout already finished")
+    }
+
+    func testTheBoundaryIsInclusive() {
+        let now = Date()
+        let edge = HeartRateReading(bpm: 110, takenAt: now.addingTimeInterval(-ContextRules.heartRateFreshness))
+        XCTAssertEqual(ContextRules.usableHeartRate(edge, now: now), 110)
+
+        let past = HeartRateReading(bpm: 110, takenAt: now.addingTimeInterval(-ContextRules.heartRateFreshness - 1))
+        XCTAssertNil(ContextRules.usableHeartRate(past, now: now))
+    }
+
+    func testNoReadingIsNotUsable() {
+        XCTAssertNil(ContextRules.usableHeartRate(nil))
+    }
+
+    func testAFutureDatedReadingIsNotTreatedAsInfinitelyFresh() {
+        // A clock adjustment can stamp a reading ahead of now.
+        let now = Date()
+        let ahead = HeartRateReading(bpm: 140, takenAt: now.addingTimeInterval(3 * 3600))
+        XCTAssertNil(ContextRules.usableHeartRate(ahead, now: now))
+    }
+
+    func testTheGymRuleFiresOnceTheLoopHasAFreshReading() {
+        // The whole point: the background loop can now reach a true verdict.
+        let now = Date()
+        let training = HeartRateReading(bpm: 132, takenAt: now.addingTimeInterval(-120))
+        XCTAssertTrue(
+            ContextRules.gymSuggestionAllowed(
+                recentHeartRate: ContextRules.usableHeartRate(training, now: now)
+            )
+        )
+
+        let resting = HeartRateReading(bpm: 68, takenAt: now.addingTimeInterval(-120))
+        XCTAssertFalse(
+            ContextRules.gymSuggestionAllowed(
+                recentHeartRate: ContextRules.usableHeartRate(resting, now: now)
+            ),
+            "near the gym at resting heart rate is the car park"
+        )
+    }
 }

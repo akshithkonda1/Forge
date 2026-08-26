@@ -57,4 +57,47 @@ public enum ContextRules {
         guard let bpm = recentHeartRate else { return false }
         return bpm >= 100
     }
+
+    // MARK: Heart rate freshness
+
+    /// How long a heart-rate reading stays usable as evidence about *now*.
+    ///
+    /// "Elevated heart rate at the gym place" is evidence of training in
+    /// progress. The same number from three hours ago is evidence of a session
+    /// already finished, and acting on it would suggest gym mode on the drive
+    /// home.
+    public static let heartRateFreshness: TimeInterval = 15 * 60
+
+    /// The reading a background evaluation may reason from, or nil if it has
+    /// gone stale.
+    ///
+    /// ContextEngine's evaluation loop has no HealthKit access of its own —
+    /// HomeView hands it a reading on each foreground and refresh — so the
+    /// engine remembers the last one and asks this whether it still counts.
+    /// Before this existed the loop passed nil and `gymSuggestionAllowed`
+    /// rejected it every time, so the place rule could only ever fire while
+    /// Home was on screen.
+    ///
+    /// The comparison is absolute so a clock adjustment that stamps a reading
+    /// slightly ahead of `now` does not read as infinitely fresh.
+    public static func usableHeartRate(
+        _ reading: HeartRateReading?,
+        now: Date = Date(),
+        freshness: TimeInterval = ContextRules.heartRateFreshness
+    ) -> Double? {
+        guard let reading,
+              abs(now.timeIntervalSince(reading.takenAt)) <= freshness else { return nil }
+        return reading.bpm
+    }
+}
+
+/// A heart-rate sample with the time it was taken, so staleness is decidable.
+public struct HeartRateReading: Equatable, Sendable {
+    public var bpm: Double
+    public var takenAt: Date
+
+    public init(bpm: Double, takenAt: Date) {
+        self.bpm = bpm
+        self.takenAt = takenAt
+    }
 }

@@ -192,6 +192,63 @@ public enum ForgeHealthQueries {
     /// Writes a Mindful Minutes sample. Same shape as the iOS
     /// HealthKitManager.logMindfulSession so both platforms' data merge
     /// cleanly in Health.
+    /// Millilitres of water already logged today, from every source.
+    ///
+    /// Reads rather than tracking its own total so a glass logged on the
+    /// iPhone, or by any other app writing to Health, counts on the wrist too.
+    /// Two devices keeping separate tallies of the same day is how a user ends
+    /// up being told they are behind on water they have already drunk.
+    public static func waterToday(store: HKHealthStore, calendar: Calendar = .current) async -> Double {
+        let type = HKQuantityType(.dietaryWater)
+        let start = calendar.startOfDay(for: Date())
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(
+                quantityType: type,
+                quantitySamplePredicate: predicate,
+                options: .cumulativeSum
+            ) { _, statistics, _ in
+                let total = statistics?.sumQuantity()?.doubleValue(for: .literUnit(with: .milli)) ?? 0
+                continuation.resume(returning: total)
+            }
+            store.execute(query)
+        }
+    }
+
+    /// Writes a drink to Health, stamped at the moment it happened.
+    public static func saveWater(
+        store: HKHealthStore,
+        milliliters: Double,
+        at date: Date = Date()
+    ) async throws {
+        guard milliliters > 0 else { return }
+        let sample = HKQuantitySample(
+            type: HKQuantityType(.dietaryWater),
+            quantity: HKQuantity(unit: .literUnit(with: .milli), doubleValue: milliliters),
+            start: date,
+            end: date
+        )
+        try await store.save(sample)
+    }
+
+    /// Body mass in kilograms, for HydrationEngine's target. Nil when the user
+    /// has never recorded a weight — the engine falls back to a default rather
+    /// than inventing one.
+    public static func latestBodyMassKilograms(store: HKHealthStore) async -> Double? {
+        let type = HKQuantityType(.bodyMass)
+        return await withCheckedContinuation { continuation in
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+            let query = HKSampleQuery(
+                sampleType: type, predicate: nil, limit: 1, sortDescriptors: [sort]
+            ) { _, samples, _ in
+                let kg = (samples?.first as? HKQuantitySample)?
+                    .quantity.doubleValue(for: .gramUnit(with: .kilo))
+                continuation.resume(returning: kg)
+            }
+            store.execute(query)
+        }
+    }
+
     public static func saveMindfulSession(store: HKHealthStore, start: Date, end: Date) async throws {
         guard end > start else { return }
         let sample = HKCategorySample(

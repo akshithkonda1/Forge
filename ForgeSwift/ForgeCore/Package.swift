@@ -36,8 +36,11 @@ let package = Package(
                 "Intelligence/HydrationEngine.swift",
                 "Intelligence/ContextRules.swift",
                 "Intelligence/MindfulnessSuggestionEngine.swift",
+                "Intelligence/SessionClock.swift",
                 "Intelligence/SleepStoryEngine.swift",
+                "Intelligence/SmartStackRelevance.swift",
                 "Intelligence/WindDownPredictor.swift",
+                "Intelligence/WorkoutCoaching.swift",
                 "Intelligence/WorkoutSuggestionEngine.swift",
                 "Models/HealthDeviceCatalog.swift",
                 "Models/HRZones.swift",
@@ -53,6 +56,7 @@ let package = Package(
                 "Auth/ForgeAuthModels.swift",
                 "Security/SecureStore.swift",
                 "Security/SecureStoreMigration.swift",
+                "Utils/CompanionConfig.swift",
                 "Utils/PublishGate.swift",
                 "Utils/WatchSnapshotStore.swift",
                 "Utils/HomeWidgetSnapshot.swift",
@@ -66,6 +70,7 @@ let package = Package(
             // Explicit sources only — never pick up Finder " 2.swift" duplicates.
             sources: [
                 "CircadianRhythmTests.swift",
+                "CompanionConfigTests.swift",
                 "ContextRulesTests.swift",
                 "HealthDeviceCatalogTests.swift",
                 "HomeWidgetSnapshotTests.swift",
@@ -81,6 +86,8 @@ let package = Package(
                 "CognitoRefreshTests.swift",
                 "ReadinessCalculatorTests.swift",
                 "SleepIntelligenceTests.swift",
+                "SmartStackRelevanceTests.swift",
+                "WorkoutCoachingTests.swift",
                 "WorkoutModelsTests.swift",
             ]
         ),

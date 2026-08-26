@@ -46,9 +46,14 @@ final class WorkoutSessionManager {
     private(set) var currentZone: ForgeHRZone?
     private(set) var activeCalories: Double?
     private(set) var restRemaining: Int?
+    /// Seconds left in the 3-2-1, published so the view renders this clock
+    /// rather than running a second one of its own.
+    private(set) var countdownRemaining: Int?
     /// Latest coaching cue — shown quietly under the metrics, never modal.
     private(set) var coachingCue: String?
     private(set) var summary: Summary?
+
+    static let countdownSeconds = 3
 
     // HealthKit machinery (own store instance; auth was requested by
     // WatchHealthKitManager and covers these types).
@@ -56,6 +61,11 @@ final class WorkoutSessionManager {
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
     private var builderDelegate: WorkoutBuilderDelegate?
+    private var sessionDelegate: WorkoutSessionDelegate?
+    /// Guards against ending twice — the user tapping End and the system
+    /// reporting the session ended are the same outcome arriving from two
+    /// directions, and both call end().
+    private var isEnding = false
 
     private var ticker: Task<Void, Never>?
     private var restTask: Task<Void, Never>?
@@ -64,6 +74,14 @@ final class WorkoutSessionManager {
     private var zoneSeconds: [Int: Int] = [:]
     private var lastCueZone: Int?
     private var lastCueAt = Date.distantPast
+    /// When the session really began.
+    ///
+    /// publishLiveState used to derive this each tick as `now - elapsed`, and
+    /// `elapsed` comes from the builder, which excludes paused time — so the
+    /// "start" slid forward for as long as the workout was paused. It is
+    /// stamped onto ForgeWorkoutActivityAttributes, which the docs on that type
+    /// describe as fixed for the activity's lifetime.
+    private var sessionStartedAt: Date?
 
     var currentExercise: WorkoutExercise? {
         guard let plan, exerciseIndex < plan.exercises.count else { return nil }
@@ -95,9 +113,14 @@ final class WorkoutSessionManager {
         lastCueAt = .distantPast
 
         phase = .countdown
+        countdownRemaining = Self.countdownSeconds
         countdownTask = Task { [weak self] in
-            // 3-2-1 with clicks; .start haptic when the session begins.
-            for _ in 0..<3 {
+            // One clock for the number on screen and the clicks. CountdownView
+            // used to run its own parallel .task loop, so the two agreed only by
+            // coincidence and any re-render restarted the display while this
+            // kept counting.
+            for step in stride(from: Self.countdownSeconds, through: 1, by: -1) {
+                self?.countdownRemaining = step
                 WKInterfaceDevice.current().play(.click)
                 try? await Task.sleep(for: .seconds(1))
                 if Task.isCancelled { return }
@@ -107,11 +130,22 @@ final class WorkoutSessionManager {
     }
 
     private func beginSession() async {
+        // The 3-2-1 runs as a Task and the user can leave during it. Both this
+        // and end() are MainActor-isolated, so the phase is the authoritative
+        // answer to "does anyone still want this session?" — checked before the
+        // await and again after, because ending the mindful capture suspends.
+        // Without this, backing out at the wrong instant opened an
+        // HKWorkoutSession after end() had already run: nothing left to close
+        // it, and workoutRunning stayed true for the rest of the process.
+        guard phase == .countdown else { return }
+
         // One HKWorkoutSession per process. End mindful HR capture first so
         // starting a gym session cannot collide with a breath session.
         if let health = WatchHKLiveSession.health {
             _ = await health.endMindfulHeartRateCapture()
         }
+        guard phase == .countdown else { return }
+
         WatchHKLiveSession.workoutRunning = true
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = workoutType.hkActivityType
@@ -125,10 +159,16 @@ final class WorkoutSessionManager {
             }
             builder.delegate = delegate
             builderDelegate = delegate
+            attachSessionDelegate(to: session)
             self.session = session
             self.builder = builder
-            session.startActivity(with: Date())
-            try await builder.beginCollection(at: Date())
+            // One instant for both, and kept: two Date() calls a line apart
+            // disagree, and the second one is what everything downstream reads.
+            let startedAt = Date()
+            sessionStartedAt = startedAt
+            session.startActivity(with: startedAt)
+            try await builder.beginCollection(at: startedAt)
+            countdownRemaining = nil
             phase = .active
             WKInterfaceDevice.current().play(.start)
             startTicker()
@@ -136,6 +176,8 @@ final class WorkoutSessionManager {
             // Session couldn't start (auth, simulator quirks). Land back
             // in idle with a calm cue rather than a dead screen.
             WatchHKLiveSession.workoutRunning = false
+            sessionStartedAt = nil
+            countdownRemaining = nil
             phase = .idle
             coachingCue = "Couldn't start sensors just now — check Health permissions and try again."
         }
@@ -162,26 +204,25 @@ final class WorkoutSessionManager {
         }
     }
 
-    /// Zone-boundary coaching: one line + gentle haptic, throttled to
-    /// once per 45s, anchored to the workout's target zone. Information,
-    /// not commands — the user owns the effort.
+    /// Zone-boundary coaching: one line + gentle haptic, throttled, anchored
+    /// to the workout's target zone. Information, not commands — the user owns
+    /// the effort. The decision itself is WorkoutCoaching.cue, where the
+    /// throttle and the wording are tested.
     private func maybeCoach(zone: ForgeHRZone, previousZone: Int?) {
-        guard phase == .active,
-              zone.zone != previousZone,
-              Date().timeIntervalSince(lastCueAt) > 45 else { return }
-        lastCueAt = Date()
-        lastCueZone = zone.zone
+        guard phase == .active else { return }
+        guard let decision = WorkoutCoaching.cue(
+            zone: zone,
+            previousZone: previousZone,
+            target: workoutType.targetZone,
+            lastCueAt: lastCueAt,
+            // "You could go harder" is the wrong thing to say about a mobility
+            // or yoga session at all.
+            allowsBuildingUp: workoutType != .mobility && workoutType != .yoga
+        ) else { return }
 
-        let target = workoutType.targetZone
-        if zone.zone == target {
-            coachingCue = zone.coachingLine
-        } else if zone.zone > target + 1 {
-            coachingCue = "Running above the day's plan — easing off a touch keeps this sustainable. Your call."
-        } else if zone.zone < target - 1, workoutType != .mobility, workoutType != .yoga {
-            coachingCue = "Plenty in reserve if you want to build toward Zone \(target). No rush."
-        } else {
-            coachingCue = zone.coachingLine
-        }
+        lastCueAt = decision.firedAt
+        lastCueZone = zone.zone
+        coachingCue = decision.cue
         WKInterfaceDevice.current().play(.click)
     }
 
@@ -279,7 +320,22 @@ final class WorkoutSessionManager {
     }
 
     func end() async {
-        guard phase != .idle, phase != .summary else { return }
+        guard phase != .idle, phase != .summary, !isEnding else { return }
+
+        // Backing out during the 3-2-1: no session was ever opened, so there is
+        // nothing to save and nothing to summarize. Returning to idle here also
+        // closes the window beginSession() guards against.
+        if phase == .countdown {
+            countdownTask?.cancel()
+            countdownTask = nil
+            countdownRemaining = nil
+            phase = .idle
+            return
+        }
+
+        isEnding = true
+        defer { isEnding = false }
+
         ticker?.cancel()
         restTask?.cancel()
         countdownTask?.cancel()
@@ -288,7 +344,14 @@ final class WorkoutSessionManager {
         var saved = false
         var duration = elapsed
         if let session, let builder {
-            session.end()
+            if session.state != .ended {
+                session.end()
+            }
+            // HealthKit reaches .ended asynchronously. Finishing the builder
+            // before it gets there throws, and that throw was being swallowed
+            // into savedToHealth = false — the workout simply never reached
+            // Health, with one tertiary line of apology as the only trace.
+            await waitForSessionToEnd(session)
             do {
                 try await builder.endCollection(at: Date())
                 let workout = try await builder.finishWorkout()
@@ -301,6 +364,9 @@ final class WorkoutSessionManager {
         session = nil
         builder = nil
         builderDelegate = nil
+        sessionDelegate = nil
+        sessionStartedAt = nil
+        countdownRemaining = nil
         WatchHKLiveSession.workoutRunning = false
 
         let avgHR = hrSamples.isEmpty ? nil : hrSamples.reduce(0, +) / Double(hrSamples.count)
@@ -328,6 +394,104 @@ final class WorkoutSessionManager {
         plan = nil
     }
 
+    /// Polls for the session to reach `.ended`, giving up after `timeout`.
+    ///
+    /// Deliberately a poll rather than a continuation resumed by the delegate:
+    /// the delegate is called on an arbitrary queue, and a CheckedContinuation
+    /// that never gets resumed — a dropped callback, a session that fails on
+    /// its way down — traps. Reading the session's own state cannot get stuck,
+    /// and the timeout means a wedged session costs a few seconds rather than
+    /// the whole end path.
+    private func waitForSessionToEnd(_ session: HKWorkoutSession, timeout: TimeInterval = 5) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while session.state != .ended, Date() < deadline {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+    }
+
+    // MARK: Session state from HealthKit
+
+    private func attachSessionDelegate(to session: HKWorkoutSession) {
+        let delegate = WorkoutSessionDelegate(
+            onStateChange: { [weak self] state in
+                Task { @MainActor [weak self] in self?.sessionDidChange(to: state) }
+            },
+            onFailure: { [weak self] in
+                Task { @MainActor [weak self] in self?.sessionDidFail() }
+            }
+        )
+        session.delegate = delegate
+        sessionDelegate = delegate
+    }
+
+    /// The system can end a session this app did not end — Control Center, low
+    /// battery, another app claiming the sensors. Without observing it the UI
+    /// showed a live workout indefinitely and the data was never written.
+    private func sessionDidChange(to state: HKWorkoutSessionState) {
+        guard state == .ended, !isEnding, phase != .idle, phase != .summary else { return }
+        Task { await end() }
+    }
+
+    private func sessionDidFail() {
+        guard !isEnding, phase != .idle, phase != .summary else { return }
+        coachingCue = "The sensors dropped out. Wrapping up here so what you did still gets saved."
+        Task { await end() }
+    }
+
+    // MARK: Recovery
+
+    /// Reattaches to a session that outlived the app.
+    ///
+    /// watchOS suspends and terminates apps freely, and an HKWorkoutSession
+    /// keeps running when it does. Before this, relaunching mid-workout showed
+    /// the start screen while the real session carried on in the background:
+    /// unendable, unsaveable, and still costing battery and a filled ring.
+    ///
+    /// A structured plan's cursor is not restored — HealthKit knows the session,
+    /// not Forge's place in it — so a recovered session comes back unstructured.
+    /// Ending and saving it is the part that matters.
+    func recoverIfNeeded() async {
+        guard phase == .idle, session == nil else { return }
+
+        let recovered: HKWorkoutSession? = await withCheckedContinuation { continuation in
+            store.recoverActiveWorkoutSession { session, _ in
+                continuation.resume(returning: session)
+            }
+        }
+        guard let recovered, recovered.state != .ended else { return }
+
+        let builder = recovered.associatedWorkoutBuilder()
+        if builder.dataSource == nil {
+            builder.dataSource = HKLiveWorkoutDataSource(
+                healthStore: store,
+                workoutConfiguration: recovered.workoutConfiguration
+            )
+        }
+        let delegate = WorkoutBuilderDelegate { [weak self] update in
+            Task { @MainActor [weak self] in self?.apply(update) }
+        }
+        builder.delegate = delegate
+        builderDelegate = delegate
+        attachSessionDelegate(to: recovered)
+
+        session = recovered
+        self.builder = builder
+        WatchHKLiveSession.workoutRunning = true
+
+        workoutType = ForgeWorkoutType(hkActivityType: recovered.workoutConfiguration.activityType)
+        plan = nil
+        exerciseIndex = 0
+        setIndex = 0
+        summary = nil
+        elapsed = builder.elapsedTime
+        // The builder knows when it really started; deriving it from elapsed
+        // would place the start after every pause the session already took.
+        sessionStartedAt = builder.startDate ?? Date().addingTimeInterval(-builder.elapsedTime)
+        phase = recovered.state == .paused ? .paused : .active
+        coachingCue = "Picked your session back up where it left off."
+        startTicker()
+    }
+
     // MARK: Publishing (complication + iPhone Live Activity)
 
     private var lastPublish = Date.distantPast
@@ -341,7 +505,7 @@ final class WorkoutSessionManager {
         var state = WorkoutLiveState(
             workoutType: workoutType,
             phase: livePhase,
-            startedAt: Date().addingTimeInterval(-elapsed),
+            startedAt: sessionStartedAt ?? Date().addingTimeInterval(-elapsed),
             elapsedSeconds: elapsed,
             heartRate: heartRate,
             zoneNumber: currentZone?.zone,
@@ -401,6 +565,37 @@ final class WorkoutSessionManager {
             return "\(minutes) minutes at an easier effort than planned — still fully in the bank. Some days that's precisely the right read."
         }
         return "\(minutes) minutes running hotter than planned — you clearly had it today. The reset matters a little extra after intensity."
+    }
+}
+
+// MARK: - Session delegate (non-isolated, hops to MainActor)
+
+private final class WorkoutSessionDelegate: NSObject, HKWorkoutSessionDelegate {
+    private let onStateChange: (HKWorkoutSessionState) -> Void
+    private let onFailure: () -> Void
+
+    init(
+        onStateChange: @escaping (HKWorkoutSessionState) -> Void,
+        onFailure: @escaping () -> Void
+    ) {
+        self.onStateChange = onStateChange
+        self.onFailure = onFailure
+    }
+
+    func workoutSession(
+        _ workoutSession: HKWorkoutSession,
+        didChangeTo toState: HKWorkoutSessionState,
+        from fromState: HKWorkoutSessionState,
+        date: Date
+    ) {
+        onStateChange(toState)
+    }
+
+    func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) {
+        // The error is not surfaced: it names internal HealthKit state and the
+        // user can do nothing with it. What they need is the session closing
+        // cleanly with their effort saved.
+        onFailure()
     }
 }
 

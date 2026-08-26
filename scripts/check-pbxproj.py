@@ -215,6 +215,82 @@ def check(path: str) -> list[str]:
 
     findings += unquoted_value_findings(path, text)
     findings += duplicate_object_findings(path, text)
+    findings += missing_input_findings(path, objects)
+    return findings
+
+
+def missing_input_findings(path: str, objects: dict[str, str]) -> list[str]:
+    """Source files a target is told to compile that are not where it will look.
+
+    Paths in a pbxproj are relative to the group that contains the reference,
+    not to the project — so a file registered against the wrong group points at
+    a location that does not exist. Xcode's own answer is
+    `error: Build input files cannot be found`, which arrives six minutes into a
+    macOS runner rather than here.
+
+    This gate passed a project that failed exactly that way: two files under
+    ForgeWatch/Intents/ were registered beside a reference in the Views group,
+    so the build looked for them in ForgeWatch/Views/. Everything about the
+    structure was valid — the ids resolved, the values were quotable, nothing
+    was duplicated — and the project still could not build. Structure is not
+    the same as correctness.
+
+    Only `<group>`-relative Swift references are resolved. Anything rooted in
+    SDKROOT, BUILT_PRODUCTS_DIR or DEVELOPER_DIR is not on disk here.
+    """
+    project_dir = os.path.dirname(os.path.dirname(os.path.abspath(path)))
+
+    # Group id -> (own path component, parent id). Parent is found by looking at
+    # who lists the group as a child, which is how the tree is expressed.
+    parent_of: dict[str, str] = {}
+    for oid, body in objects.items():
+        if isa_of(body) not in ("PBXGroup", "PBXVariantGroup"):
+            continue
+        for child in re.findall(rf"({ID})\s*(?:/\*.*?\*/)?\s*,", body):
+            parent_of[child] = oid
+
+    def own_path(body: str) -> str:
+        # Unanchored on purpose. A PBXGroup writes `path` on its own line, but a
+        # PBXFileReference is emitted as one line with every key inline — so an
+        # anchored `^\s*path =` matches groups and silently skips every file,
+        # which is how the first version of this check passed a project that
+        # could not build.
+        match = re.search(r"\bpath = ([^;]+);", body)
+        if not match:
+            return ""
+        value = TRAILING_COMMENT.sub("", match.group(1)).strip()
+        return value.strip('"')
+
+    def source_tree(body: str) -> str:
+        match = re.search(r"sourceTree = (.+?);", body)
+        return match.group(1).strip().strip('"') if match else ""
+
+    findings: list[str] = []
+    for oid, body in objects.items():
+        if isa_of(body) != "PBXFileReference":
+            continue
+        rel = own_path(body)
+        if not rel.endswith(".swift") or source_tree(body) != "<group>":
+            continue
+
+        # Walk up, collecting each ancestor group's own path component.
+        parts = [rel]
+        cursor = oid
+        seen = {oid}
+        while (parent := parent_of.get(cursor)) and parent not in seen:
+            seen.add(parent)
+            component = own_path(objects.get(parent, ""))
+            if component:
+                parts.insert(0, component)
+            cursor = parent
+
+        resolved = os.path.join(project_dir, *parts)
+        if not os.path.exists(resolved):
+            shown = os.path.relpath(resolved, os.getcwd())
+            findings.append(
+                f"{path}: {oid} compiles {rel!r} but nothing is at {shown} — "
+                "a file registered against the wrong group resolves to the wrong folder."
+            )
     return findings
 
 

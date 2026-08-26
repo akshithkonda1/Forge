@@ -56,9 +56,10 @@ final class MindfulnessSessionManager {
         return recentSessions.filter { $0.completed && $0.startedAt >= startOfDay }.count
     }
 
-    // Pause bookkeeping: elapsed = accumulated + (now - segmentStart)
-    private var accumulated: TimeInterval = 0
-    private var segmentStartedAt: Date?
+    // Pause bookkeeping lives in ForgeCore's SessionClock, where it is tested.
+    // It used to be two mutable fields updated from five call sites, none of
+    // which anything checked.
+    private var clock = SessionClock()
     private var runner: Task<Void, Never>?
 
     private let defaults = UserDefaults(suiteName: WatchSnapshotStore.appGroupID)
@@ -81,12 +82,11 @@ final class MindfulnessSessionManager {
     /// Seconds of actual practice completed at `date` (frame-accurate for
     /// the BreathingOrb, pause-aware).
     func elapsed(at date: Date) -> TimeInterval {
-        guard let segmentStart = segmentStartedAt else { return accumulated }
-        return accumulated + max(0, date.timeIntervalSince(segmentStart))
+        clock.elapsed(at: date)
     }
 
     func remaining(at date: Date) -> TimeInterval {
-        max(0, plannedDuration - elapsed(at: date))
+        clock.remaining(at: date, of: plannedDuration)
     }
 
     // MARK: Lifecycle
@@ -95,9 +95,9 @@ final class MindfulnessSessionManager {
         guard state == .idle || state == .debrief else { return }
         activePractice = practice
         plannedDuration = duration
-        startedAt = Date()
-        accumulated = 0
-        segmentStartedAt = Date()
+        let now = Date()
+        startedAt = now
+        clock = .started(at: now)
         debrief = nil
         lastSkipAcknowledgement = nil
         state = .active
@@ -111,8 +111,7 @@ final class MindfulnessSessionManager {
 
     func pause() {
         guard state == .active else { return }
-        accumulated = elapsed(at: Date())
-        segmentStartedAt = nil
+        clock = clock.paused(at: Date())
         runner?.cancel()
         runner = nil
         state = .paused
@@ -121,7 +120,7 @@ final class MindfulnessSessionManager {
 
     func resume(health: WatchHealthKitManager) {
         guard state == .paused else { return }
-        segmentStartedAt = Date()
+        clock = clock.resumed(at: Date())
         state = .active
         WKInterfaceDevice.current().play(.start)
         runner = Task { [weak self, weak health] in
@@ -135,8 +134,7 @@ final class MindfulnessSessionManager {
         guard state == .active || state == .paused else { return }
         runner?.cancel()
         runner = nil
-        accumulated = state == .active ? elapsed(at: Date()) : accumulated
-        segmentStartedAt = nil
+        clock = clock.stopped(at: Date())
         Task { await finish(health: health) }
     }
 
@@ -184,8 +182,7 @@ final class MindfulnessSessionManager {
             }
         }
         guard !Task.isCancelled else { return }
-        accumulated = plannedDuration
-        segmentStartedAt = nil
+        clock = clock.completed(of: plannedDuration)
         if let health { await finish(health: health) }
     }
 
@@ -196,7 +193,7 @@ final class MindfulnessSessionManager {
         }
         runner = nil
 
-        let practicedSeconds = accumulated
+        let practicedSeconds = clock.accumulated
         let endDate = Date()
         let biofeedback = await health.endMindfulHeartRateCapture()
 
@@ -238,8 +235,7 @@ final class MindfulnessSessionManager {
         state = .idle
         activePractice = nil
         startedAt = nil
-        accumulated = 0
-        segmentStartedAt = nil
+        clock = SessionClock()
     }
 
     // MARK: Haptics

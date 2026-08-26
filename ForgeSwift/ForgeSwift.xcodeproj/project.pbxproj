@@ -213,7 +213,12 @@
 		0AF23A887EDD96C00F754936 /* DataPermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB90BFB6F1FEB4F1ADCB75B7 /* DataPermissionsView.swift */; };
 		AA000100000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000C /* Assets.xcassets */; };
 		F0B100000000000000000001 /* ForgeWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000001 /* ForgeWatchApp.swift */; };
+		8DFBF2E9C6DAB939290C66BB /* ForgeWatchIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBC3A2D5AFA4571FF47AB5FE /* ForgeWatchIntents.swift */; };
+		241A6C4B8A83485794469DC2 /* ForgeWatchShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53C2AC8DDA85F78F68054287 /* ForgeWatchShortcuts.swift */; };
 		F0B100000000000000000002 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000002 /* HomeView.swift */; };
+		D0A272B6C3B6D461DCE22368 /* HydrationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DC70D751D8B43D734CC3AA6 /* HydrationCard.swift */; };
+		4E1DFB98AB390196E5D7F907 /* CycleGlanceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA4D5170F1B849A595166D44 /* CycleGlanceCard.swift */; };
+		C378B28AC90E25D0D6D5FF9B /* WeekView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2270B43BE515E33AEB9FA0E1 /* WeekView.swift */; };
 		F0B100000000000000000003 /* MindfulnessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000003 /* MindfulnessView.swift */; };
 		F0B100000000000000000004 /* LifestyleContextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000004 /* LifestyleContextView.swift */; };
 		F0B100000000000000000005 /* AuroraOrbWatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000005 /* AuroraOrbWatch.swift */; };
@@ -223,12 +228,14 @@
 		F0B100000000000000000009 /* HapticButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000009 /* HapticButton.swift */; };
 		F0B10000000000000000000A /* WatchHealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000000A /* WatchHealthKitManager.swift */; };
 		F0B10000000000000000000B /* ContextEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000000B /* ContextEngine.swift */; };
+		19FAC9C055B40B75CDAED061 /* HydrationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE8AE9ED90F34D59A3C909BB /* HydrationManager.swift */; };
 		F0B10000000000000000000C /* MindfulnessSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000000C /* MindfulnessSessionManager.swift */; };
 		F0B10000000000000000000D /* ARIAWatchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000000D /* ARIAWatchService.swift */; };
 		F0B10000000000000000000F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000000F /* Assets.xcassets */; };
 		F0B100000000000000000010 /* ForgeWatchWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000010 /* ForgeWatchWidgetBundle.swift */; };
 		F0B100000000000000000011 /* ComplicationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000011 /* ComplicationProvider.swift */; };
 		F0B100000000000000000012 /* ReadinessComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000012 /* ReadinessComplication.swift */; };
+		5CA5B09D91F7F593D489C0E8 /* HydrationComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = B21B16B88EF2B7EC94BE6568 /* HydrationComplication.swift */; };
 		F0B100000000000000000013 /* MindfulnessResetComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000013 /* MindfulnessResetComplication.swift */; };
 		F0B100000000000000000014 /* SleepQualityComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000014 /* SleepQualityComplication.swift */; };
 		F0B10000000000000000001A /* WorkoutSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001A /* WorkoutSessionManager.swift */; };
@@ -553,7 +560,12 @@
 		AA000200000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA000200000000000000000D /* ForgeSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForgeSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0F100000000000000000001 /* ForgeWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWatchApp.swift; sourceTree = "<group>"; };
+		DBC3A2D5AFA4571FF47AB5FE /* ForgeWatchIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Intents/ForgeWatchIntents.swift"; sourceTree = "<group>"; };
+		53C2AC8DDA85F78F68054287 /* ForgeWatchShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Intents/ForgeWatchShortcuts.swift"; sourceTree = "<group>"; };
 		F0F100000000000000000002 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		5DC70D751D8B43D734CC3AA6 /* HydrationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HydrationCard.swift; sourceTree = "<group>"; };
+		BA4D5170F1B849A595166D44 /* CycleGlanceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleGlanceCard.swift; sourceTree = "<group>"; };
+		2270B43BE515E33AEB9FA0E1 /* WeekView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekView.swift; sourceTree = "<group>"; };
 		F0F100000000000000000003 /* MindfulnessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MindfulnessView.swift; sourceTree = "<group>"; };
 		F0F100000000000000000004 /* LifestyleContextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleContextView.swift; sourceTree = "<group>"; };
 		F0F100000000000000000005 /* AuroraOrbWatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbWatch.swift; sourceTree = "<group>"; };
@@ -563,6 +575,7 @@
 		F0F100000000000000000009 /* HapticButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticButton.swift; sourceTree = "<group>"; };
 		F0F10000000000000000000A /* WatchHealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHealthKitManager.swift; sourceTree = "<group>"; };
 		F0F10000000000000000000B /* ContextEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextEngine.swift; sourceTree = "<group>"; };
+		DE8AE9ED90F34D59A3C909BB /* HydrationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HydrationManager.swift; sourceTree = "<group>"; };
 		F0F10000000000000000000C /* MindfulnessSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MindfulnessSessionManager.swift; sourceTree = "<group>"; };
 		F0F10000000000000000000D /* ARIAWatchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARIAWatchService.swift; sourceTree = "<group>"; };
 		F0F10000000000000000000E /* ForgeWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeWatch.entitlements; sourceTree = "<group>"; };
@@ -570,6 +583,7 @@
 		F0F100000000000000000010 /* ForgeWatchWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWatchWidgetBundle.swift; sourceTree = "<group>"; };
 		F0F100000000000000000011 /* ComplicationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationProvider.swift; sourceTree = "<group>"; };
 		F0F100000000000000000012 /* ReadinessComplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessComplication.swift; sourceTree = "<group>"; };
+		B21B16B88EF2B7EC94BE6568 /* HydrationComplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HydrationComplication.swift; sourceTree = "<group>"; };
 		F0F100000000000000000013 /* MindfulnessResetComplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MindfulnessResetComplication.swift; sourceTree = "<group>"; };
 		F0F100000000000000000014 /* SleepQualityComplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepQualityComplication.swift; sourceTree = "<group>"; };
 		F0F100000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -979,6 +993,8 @@
 			children = (
 				AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */,
 				F0F100000000000000000001 /* ForgeWatchApp.swift */,
+				DBC3A2D5AFA4571FF47AB5FE /* ForgeWatchIntents.swift */,
+				53C2AC8DDA85F78F68054287 /* ForgeWatchShortcuts.swift */,
 				F0A100000000000000000002 /* Views */,
 				F0A100000000000000000003 /* Components */,
 				F0A100000000000000000004 /* Managers */,
@@ -993,6 +1009,9 @@
 			isa = PBXGroup;
 			children = (
 				F0F100000000000000000002 /* HomeView.swift */,
+				5DC70D751D8B43D734CC3AA6 /* HydrationCard.swift */,
+				BA4D5170F1B849A595166D44 /* CycleGlanceCard.swift */,
+				2270B43BE515E33AEB9FA0E1 /* WeekView.swift */,
 				F0F100000000000000000003 /* MindfulnessView.swift */,
 				F0F100000000000000000004 /* LifestyleContextView.swift */,
 				F0F10000000000000000001C /* WorkoutCoordinatorView.swift */,
@@ -1019,6 +1038,7 @@
 			children = (
 				F0F10000000000000000000A /* WatchHealthKitManager.swift */,
 				F0F10000000000000000000B /* ContextEngine.swift */,
+				DE8AE9ED90F34D59A3C909BB /* HydrationManager.swift */,
 				F0F10000000000000000000C /* MindfulnessSessionManager.swift */,
 				F0F10000000000000000000D /* ARIAWatchService.swift */,
 				F0F10000000000000000001A /* WorkoutSessionManager.swift */,
@@ -1035,6 +1055,7 @@
 				F0F100000000000000000010 /* ForgeWatchWidgetBundle.swift */,
 				F0F100000000000000000011 /* ComplicationProvider.swift */,
 				F0F100000000000000000012 /* ReadinessComplication.swift */,
+				B21B16B88EF2B7EC94BE6568 /* HydrationComplication.swift */,
 				F0F100000000000000000013 /* MindfulnessResetComplication.swift */,
 				F0F100000000000000000014 /* SleepQualityComplication.swift */,
 				F0F10000000000000000001D /* ActiveWorkoutComplication.swift */,
@@ -1494,7 +1515,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				F0B100000000000000000001 /* ForgeWatchApp.swift in Sources */,
+				8DFBF2E9C6DAB939290C66BB /* ForgeWatchIntents.swift in Sources */,
+				241A6C4B8A83485794469DC2 /* ForgeWatchShortcuts.swift in Sources */,
 				F0B100000000000000000002 /* HomeView.swift in Sources */,
+				D0A272B6C3B6D461DCE22368 /* HydrationCard.swift in Sources */,
+				4E1DFB98AB390196E5D7F907 /* CycleGlanceCard.swift in Sources */,
+				C378B28AC90E25D0D6D5FF9B /* WeekView.swift in Sources */,
 				F0B100000000000000000003 /* MindfulnessView.swift in Sources */,
 				F0B100000000000000000004 /* LifestyleContextView.swift in Sources */,
 				F0B100000000000000000005 /* AuroraOrbWatch.swift in Sources */,
@@ -1504,6 +1530,7 @@
 				F0B100000000000000000009 /* HapticButton.swift in Sources */,
 				F0B10000000000000000000A /* WatchHealthKitManager.swift in Sources */,
 				F0B10000000000000000000B /* ContextEngine.swift in Sources */,
+				19FAC9C055B40B75CDAED061 /* HydrationManager.swift in Sources */,
 				F0B10000000000000000000C /* MindfulnessSessionManager.swift in Sources */,
 				F0B10000000000000000000D /* ARIAWatchService.swift in Sources */,
 				F0B10000000000000000001A /* WorkoutSessionManager.swift in Sources */,
@@ -1523,6 +1550,7 @@
 				F0B100000000000000000010 /* ForgeWatchWidgetBundle.swift in Sources */,
 				F0B100000000000000000011 /* ComplicationProvider.swift in Sources */,
 				F0B100000000000000000012 /* ReadinessComplication.swift in Sources */,
+				5CA5B09D91F7F593D489C0E8 /* HydrationComplication.swift in Sources */,
 				F0B100000000000000000013 /* MindfulnessResetComplication.swift in Sources */,
 				F0B100000000000000000014 /* SleepQualityComplication.swift in Sources */,
 				F0B10000000000000000001D /* ActiveWorkoutComplication.swift in Sources */,
@@ -1872,6 +1900,7 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves Mindful Minutes and workouts from your watch so your Health history stays complete.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets Forge notice arriving at familiar places, like your gym, to adapt suggestions. Location never leaves your device.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to recognize places like your gym or office and suggest context-aware micro-habits. Location never leaves your device.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Forge notices when you have been sitting for a long stretch so it can offer a short reset. Motion stays on this watch.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.forge.ForgeSwift;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
@@ -1908,6 +1937,7 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves Mindful Minutes and workouts from your watch so your Health history stays complete.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets Forge notice arriving at familiar places, like your gym, to adapt suggestions. Location never leaves your device.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to recognize places like your gym or office and suggest context-aware micro-habits. Location never leaves your device.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Forge notices when you have been sitting for a long stretch so it can offer a short reset. Motion stays on this watch.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.forge.ForgeSwift;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
