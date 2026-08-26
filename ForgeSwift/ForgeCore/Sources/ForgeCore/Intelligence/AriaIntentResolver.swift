@@ -102,7 +102,10 @@ public enum AriaIntentResolver {
         for (domain, words) in Self.keywords {
             let hits = words.filter { lower.contains($0) }
             if !hits.isEmpty {
-                add(domain, Weight.keyword * min(2.0, Double(hits.count)), "mentions \(hits.prefix(2).joined(separator: ", "))")
+                let count: Double = Double(hits.count)
+                let weight: Double = Weight.keyword * min(2.0, count)
+                let named: String = hits.prefix(2).joined(separator: ", ")
+                add(domain, weight, "mentions \(named)")
             }
         }
 
@@ -123,7 +126,9 @@ public enum AriaIntentResolver {
             add(.sleep, Weight.dataPressure, "short night")
         }
         if input.consecutiveShortNights >= 2 {
-            add(.sleep, Weight.dataPressure * Double(min(3, input.consecutiveShortNights)) / 2.0, "\(input.consecutiveShortNights) short nights running")
+            let capped: Double = Double(min(3, input.consecutiveShortNights))
+            let weight: Double = Weight.dataPressure * capped / 2.0
+            add(.sleep, weight, "\(input.consecutiveShortNights) short nights running")
             add(.readiness, Weight.dataPressure * 0.75, "accumulating sleep debt")
         }
         if input.hasSessionLoggedToday {
@@ -145,7 +150,8 @@ public enum AriaIntentResolver {
         // --- What they keep coming back to ---
         for (raw, count) in input.topicAffinity {
             guard let domain = AriaIntentDomain(rawValue: raw), count >= 2 else { continue }
-            let bump = min(Weight.affinityCap, Weight.affinity * Double(count))
+            let scaled: Double = Weight.affinity * Double(count)
+            let bump: Double = min(Weight.affinityCap, scaled)
             add(domain, bump, "asks about this a lot")
         }
 
@@ -154,11 +160,23 @@ public enum AriaIntentResolver {
             drivers[.cycle] = nil
         }
 
-        let ranked = scores
-            .map { AriaIntentReading(domain: $0.key, score: $0.value, drivers: drivers[$0.key] ?? []) }
-            .sorted { lhs, rhs in
-                lhs.score == rhs.score ? lhs.domain.rawValue < rhs.domain.rawValue : lhs.score > rhs.score
-            }
+        // Built with an explicit loop rather than `.map { … }.sorted { … }`.
+        // The chained form blew the type-checker's budget outright — mapping a
+        // Dictionary into a struct initialiser and feeding that straight into a
+        // two-way comparison with a ternary gives it too many overloads to
+        // resolve at once. Spelled out, every type is pinned and it checks
+        // instantly. Same result, and it reads no worse.
+        var readings: [AriaIntentReading] = []
+        readings.reserveCapacity(scores.count)
+        for (domain, score) in scores {
+            let why: [String] = drivers[domain] ?? []
+            readings.append(AriaIntentReading(domain: domain, score: score, drivers: why))
+        }
+        readings.sort { lhs, rhs in
+            if lhs.score != rhs.score { return lhs.score > rhs.score }
+            return lhs.domain.rawValue < rhs.domain.rawValue
+        }
+        let ranked: [AriaIntentReading] = readings
 
         if ranked.isEmpty {
             return [AriaIntentReading(domain: .lifestyle, score: 0, drivers: ["nothing specific — general coaching"])]
@@ -174,8 +192,13 @@ public enum AriaIntentResolver {
     /// genuinely multi-part question, depending on where it was set.
     public static func actionable(_ ranked: [AriaIntentReading], limit: Int = 3) -> [AriaIntentDomain] {
         guard let top = ranked.first, top.score > 0 else { return [.lifestyle] }
-        let floor = max(2.0, top.score * 0.45)
-        return ranked.filter { $0.score >= floor }.prefix(limit).map(\.domain)
+        let floor: Double = max(2.0, top.score * 0.45)
+        var kept: [AriaIntentDomain] = []
+        for reading in ranked where reading.score >= floor {
+            kept.append(reading.domain)
+            if kept.count == limit { break }
+        }
+        return kept
     }
 
     // MARK: - Vocabulary

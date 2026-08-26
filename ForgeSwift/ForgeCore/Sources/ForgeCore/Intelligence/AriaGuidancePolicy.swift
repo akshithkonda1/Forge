@@ -115,8 +115,11 @@ public enum AriaGuidancePolicy {
     }
 
     private static func bodyRelated(_ lower: String) -> Bool {
-        ["pain", "hurt", "sore", "injury", "ache", "strain", "symptom", "flare"]
-            .contains { lower.contains($0) }
+        // Annotated and split for the same reason the resolver's expressions
+        // were: an unannotated literal feeding straight into `contains(where:)`
+        // is the shape that just cost a CI round trip next door.
+        let markers: [String] = ["pain", "hurt", "sore", "injury", "ache", "strain", "symptom", "flare"]
+        return markers.contains { lower.contains($0) }
     }
 
     /// Whether an ordinary turn should carry a light reminder anyway.

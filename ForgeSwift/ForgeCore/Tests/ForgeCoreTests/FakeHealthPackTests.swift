@@ -126,8 +126,19 @@ final class FakeHealthPackTests: XCTestCase {
         // now produce different *stories*, not just different jitter.
         let a = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 11)
         let b = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 977)
-        let shortA = Set(a.days.enumerated().filter { $0.element.night.totalMinutes < 6.5 * 60 }.map(\.offset))
-        let shortB = Set(b.days.enumerated().filter { $0.element.night.totalMinutes < 6.5 * 60 }.map(\.offset))
+        // Spelled out rather than chained: Set(enumerated().filter{}.map(\.offset))
+        // is the same shape that blew the type-checker's budget in
+        // AriaIntentResolver, and a test that will not compile is worth less
+        // than no test.
+        func shortNightIndices(_ pack: FakeHealthPack) -> Set<Int> {
+            var out: Set<Int> = []
+            for (index, day) in pack.days.enumerated() where day.night.totalMinutes < 6.5 * 60 {
+                out.insert(index)
+            }
+            return out
+        }
+        let shortA = shortNightIndices(a)
+        let shortB = shortNightIndices(b)
         XCTAssertNotEqual(shortA, shortB, "short nights must not land on the same days for every seed")
 
         let workoutsA = a.days.map { $0.workout?.name ?? "-" }
@@ -185,12 +196,14 @@ final class FakeHealthPackTests: XCTestCase {
     func testDaysCarryPlacesAndSomeEvenings() {
         let pack = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
         XCTAssertTrue(pack.days.allSatisfy { !$0.markers.isEmpty }, "every day needs at least home")
-        XCTAssertTrue(
-            pack.days.allSatisfy { day in day.markers == day.markers.sorted { $0.arrival < $1.arrival } },
-            "markers must read in the order the day happened"
-        )
+        for day in pack.days {
+            let arrivals: [Date] = day.markers.map(\.arrival)
+            let ordered: [Date] = arrivals.sorted()
+            XCTAssertEqual(arrivals, ordered, "markers must read in the order the day happened")
+        }
         let social = pack.days.flatMap(\.social)
         XCTAssertFalse(social.isEmpty, "a month with no evenings in it is not an average person")
-        XCTAssertTrue(pack.days.contains { $0.markers.contains { $0.kind == .gym } })
+        let allMarkers: [FakeLifestyleMarker] = pack.days.flatMap(\.markers)
+        XCTAssertTrue(allMarkers.contains { $0.kind == .gym })
     }
 }
