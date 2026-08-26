@@ -125,7 +125,13 @@ extension AppStore {
         // A real build starts empty and gets its opening line from
         // seedAriaWelcomeFromOnboarding once onboarding actually finishes.
         #if DEBUG
-        chatMessages = isOnboarded ? [] : mockChatMessages
+        // Test-Ready sim must not flash the old Akshith / Oura demo. ARIA's
+        // opening line comes from first Apple Health connect.
+        if AriaService.shouldUseTestReadyDummy {
+            chatMessages = []
+        } else {
+            chatMessages = isOnboarded ? [] : mockChatMessages
+        }
         #else
         chatMessages = []
         #endif

@@ -59,6 +59,7 @@ extension AppStore {
         } else {
             usingTestReadyHealthPack = true
         }
+        learnFromFirstHealthConnectIfNeeded()
 
         lastMetricsRefresh = Date()
         rebuildTodayPlanFromLife()
@@ -77,10 +78,12 @@ extension AppStore {
         #else
         let isSimulator = false
         #endif
+        let alreadyAuthorized = await HealthKitManager.shared.checkAuthorizationStatus()
         guard FakeHealthPack.shouldSeedHealthKit(
             debugBuild: ForgeAuthPolicy.isDebugBuild,
             testReady: AriaService.shouldUseTestReadyDummy,
-            isSimulator: isSimulator
+            isSimulator: isSimulator,
+            healthAuthorized: alreadyAuthorized
         ) else { return false }
         do {
             try await HealthKitManager.shared.requestTestReadyPackAuthorization()
@@ -91,6 +94,21 @@ extension AppStore {
             print("Test-Ready HealthKit seed failed: \(error)")
             return false
         }
+    }
+
+    /// Remember what Apple Health just taught ARIA. Once per fingerprint so
+    /// reseeding the sim pack does not spam the same insight.
+    func learnFromFirstHealthConnectIfNeeded() {
+        let snap = AriaFirstHealthBriefing.snapshot(from: self)
+        guard snap.fromHealthKit, hasMeaningfulLifeSignal else { return }
+        let token = AriaFirstHealthBriefing.fingerprint(snap)
+        let key = "forge.aria.learnedHealthConnect.v1"
+        if UserDefaults.standard.string(forKey: key) == token { return }
+        for insight in AriaFirstHealthBriefing.learnInsights(snapshot: snap) {
+            AriaContextStore.shared.addInsight(insight)
+            rememberDurable(insight)
+        }
+        UserDefaults.standard.set(token, forKey: key)
     }
 
     func mergeWorkoutsFromHealthKit(_ workouts: [HKWorkout]) {

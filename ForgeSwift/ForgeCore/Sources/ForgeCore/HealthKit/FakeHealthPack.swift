@@ -100,14 +100,16 @@ public struct FakeHealthPack: Sendable, Equatable {
         )
     }
 
-    /// Simulator Test-Ready path: write the pack into HealthKit every launch,
-    /// then read it back. A physical phone is never a HealthKit seed target.
+    /// Simulator Test-Ready path: write the pack into HealthKit after the
+    /// user connects Apple Health (first integration), then on every later
+    /// authorized launch. Never before Connect. Never on a physical phone.
     public static func shouldSeedHealthKit(
         debugBuild: Bool,
         testReady: Bool,
-        isSimulator: Bool
+        isSimulator: Bool,
+        healthAuthorized: Bool
     ) -> Bool {
-        debugBuild && testReady && isSimulator
+        debugBuild && testReady && isSimulator && healthAuthorized
     }
 
     /// In-memory fallback when HealthKit cannot be written (Device Hub on a

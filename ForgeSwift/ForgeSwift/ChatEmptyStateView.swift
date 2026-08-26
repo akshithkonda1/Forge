@@ -146,9 +146,10 @@ struct ChatEmptyStateView: View {
                 .padding(.horizontal, 4)
 
                 let prompts: [(String, String)] = [
-                    mood == .energized ? ("Let's go heavy today", "bolt.fill") : ("What's right for today?", "sparkles"),
-                    ("How'd I sleep?", "moon.fill"),
-                    ("Am I making progress?", "chart.line.uptrend.xyaxis"),
+                    ("Who are you?", "sparkles"),
+                    ("How did I sleep?", "moon.fill"),
+                    ("What should I train?", "figure.strengthtraining.traditional"),
+                    ("How do I show up?", "heart.fill"),
                 ]
 
                 ForEach(Array(prompts.enumerated()), id: \.offset) { i, prompt in

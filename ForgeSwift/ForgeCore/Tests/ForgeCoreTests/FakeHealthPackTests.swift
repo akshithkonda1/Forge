@@ -37,17 +37,31 @@ final class FakeHealthPackTests: XCTestCase {
 
     func testShouldSeedHealthKitEverySimulatorLaunch() {
         XCTAssertTrue(
-            FakeHealthPack.shouldSeedHealthKit(debugBuild: true, testReady: true, isSimulator: true)
+            FakeHealthPack.shouldSeedHealthKit(
+                debugBuild: true, testReady: true, isSimulator: true, healthAuthorized: true
+            )
         )
         XCTAssertFalse(
-            FakeHealthPack.shouldSeedHealthKit(debugBuild: true, testReady: true, isSimulator: false),
+            FakeHealthPack.shouldSeedHealthKit(
+                debugBuild: true, testReady: true, isSimulator: true, healthAuthorized: false
+            ),
+            "wait for Connect Apple Health — first integration"
+        )
+        XCTAssertFalse(
+            FakeHealthPack.shouldSeedHealthKit(
+                debugBuild: true, testReady: true, isSimulator: false, healthAuthorized: true
+            ),
             "never write the pack into a physical phone's Health store"
         )
         XCTAssertFalse(
-            FakeHealthPack.shouldSeedHealthKit(debugBuild: false, testReady: true, isSimulator: true)
+            FakeHealthPack.shouldSeedHealthKit(
+                debugBuild: false, testReady: true, isSimulator: true, healthAuthorized: true
+            )
         )
         XCTAssertFalse(
-            FakeHealthPack.shouldSeedHealthKit(debugBuild: true, testReady: false, isSimulator: true)
+            FakeHealthPack.shouldSeedHealthKit(
+                debugBuild: true, testReady: false, isSimulator: true, healthAuthorized: true
+            )
         )
     }
 

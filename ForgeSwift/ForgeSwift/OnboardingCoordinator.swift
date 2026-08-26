@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import HealthKit
+import ForgeCore
 
 /// ARIA-led interview: questions, parallel HealthKit, progressive living-context seed.
 @Observable
@@ -121,7 +122,7 @@ final class OnboardingCoordinator {
             ariaOrbState = .listening
         case .health:
             await ariaSay(
-                "Want me to connect Apple Health? Sleep, HRV, and workouts make coaching far more accurate — I'll keep loading them while we finish talking.",
+                "This is the first time Forge will read Apple Health on this phone. Sleep, HRV, and activity — I coach from those, I don’t guess. Connect and I’ll tell you what I see.",
                 mood: .energized
             )
             ariaOrbState = .listening
@@ -553,13 +554,15 @@ final class OnboardingCoordinator {
         ariaOrbState = .processing
 
         do {
-            try await HealthKitManager.shared.requestAuthorization()
+            try await connectAppleHealthForFirstTime()
             healthKitState = .authorized
+            await refreshHealthDataQuietly()
+            let snap = briefingSnapshot()
             await ariaSay(
-                "Apple Health connected. Pulling sleep, heart rate, and activity in the background while we finish.",
+                AriaFirstHealthBriefing.onboardingConnectedLine(snapshot: snap),
                 mood: .energized
             )
-            Task { await refreshHealthDataQuietly() }
+            await ariaSay(AriaFirstHealthBriefing.identityShort(), mood: .focused)
         } catch {
             healthKitState = .denied
             await ariaSay(
@@ -567,6 +570,32 @@ final class OnboardingCoordinator {
                 mood: .calm
             )
         }
+    }
+
+    /// System Health sheet first, then (on the sim) write the Test-Ready pack
+    /// into HealthKit so the read-back is a real first integration.
+    private func connectAppleHealthForFirstTime() async throws {
+        #if targetEnvironment(simulator)
+        if AriaService.shouldUseTestReadyDummy {
+            try await HealthKitManager.shared.requestTestReadyPackAuthorization()
+            try await HealthKitManager.shared.replaceTestReadyPack(FakeHealthPack.generate())
+            return
+        }
+        #endif
+        try await HealthKitManager.shared.requestAuthorization()
+    }
+
+    private func briefingSnapshot() -> AriaFirstHealthBriefing.Snapshot {
+        AriaFirstHealthBriefing.Snapshot(
+            sleepHours: healthSnapshot?.sleepHours,
+            sleepScore: nil,
+            hrvMs: healthSnapshot?.hrv.map { Int($0) },
+            restingHR: healthSnapshot?.restingHeartRate,
+            readiness: nil,
+            steps: healthSnapshot?.steps,
+            lastWorkoutName: nil,
+            fromHealthKit: healthKitState == .authorized
+        )
     }
 
     private func refreshHealthDataQuietly() async {
@@ -658,29 +687,32 @@ final class OnboardingCoordinator {
             trainingTheme: profile.trainingTheme
         )
 
-        // Seed today's plan under the chosen theme so Home isn't stuck on mock upper body.
-        if profile.trainingTheme != .classic || store.readiness.overall > 0 {
-            let plan = AriaPlanEngine.evaluate(
-                input: "Build my first \(profile.trainingTheme.label) training plan",
-                context: store.makeTrainerContext()
-            )
-            store.todayWorkout = plan.workoutPlan
-        }
-
-        let welcome = AriaOnboardingGuide.welcomeChatMessage(
-            profile: profile,
-            healthConnected: healthConnected
-        )
-        store.seedAriaWelcomeFromOnboarding(message: welcome)
-        AriaContextStore.shared.addInsight("Onboarding interview complete.")
-
-        if healthConnected {
-            Task { await store.refreshDailyData() }
-        }
-
         FDS.haptic(.heavy)
         FDS.notificationHaptic(.success)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+
+        Task { @MainActor in
+            if healthConnected {
+                await store.refreshDailyData()
+            }
+            store.learnFromFirstHealthConnectIfNeeded()
+            if profile.trainingTheme != .classic || store.readiness.overall > 0 {
+                let plan = AriaPlanEngine.evaluate(
+                    input: "Build my first \(profile.trainingTheme.label) training plan",
+                    context: store.makeTrainerContext()
+                )
+                store.todayWorkout = plan.workoutPlan
+            }
+            let briefing = AriaFirstHealthBriefing.welcome(
+                name: profile.firstName,
+                healthConnected: healthConnected,
+                snapshot: AriaFirstHealthBriefing.snapshot(from: store)
+            )
+            store.seedAriaWelcomeFromOnboarding(
+                message: briefing.message,
+                suggestedActions: briefing.actions
+            )
+            AriaContextStore.shared.addInsight("Onboarding interview complete.")
+            try? await Task.sleep(nanoseconds: 550_000_000)
             store.isOnboarded = true
         }
     }

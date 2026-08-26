@@ -12,6 +12,20 @@ enum AriaDummyOrchestrator {
         agent: AriaCoachAgent
     ) -> AriaResponse {
         let first = store.userProfile.name.split(separator: " ").first.map(String.init) ?? ""
+        let snapshot = AriaFirstHealthBriefing.snapshot(from: store)
+        if AriaFirstHealthBriefing.isIdentityQuestion(text) {
+            let identity = AriaFirstHealthBriefing.identityAnswer(name: first, snapshot: snapshot)
+            return AriaResponse(
+                confidenceReason: store.usingTestReadyHealthPack
+                    ? "Test-ready dummy. HealthKit on this simulator (ForgeCore pack). No cloud."
+                    : "Test-ready dummy on this device. SimRunner-shaped. No cloud.",
+                proseSummary: identity.message,
+                message: identity.message,
+                suggestedActions: identity.actions,
+                confidence: 0.9
+            )
+        }
+
         let you = first.isEmpty ? "You’re" : "\(first), you’re"
         let r = store.readiness.overall
         let sleepMin = store.dailyMetrics.totalSleep
@@ -55,7 +69,7 @@ enum AriaDummyOrchestrator {
                 : "Test-ready dummy on this device. SimRunner-shaped. No cloud.",
             proseSummary: prose,
             message: prose,
-            suggestedActions: ["What should I train?", "How did I sleep?", "How do I show up?"],
+            suggestedActions: AriaFirstHealthBriefing.suggestedActions,
             confidence: 0.74
         )
     }
