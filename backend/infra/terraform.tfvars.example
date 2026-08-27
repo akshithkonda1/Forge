@@ -25,3 +25,12 @@ allowed_origins = [
 tags = {
   Owner = "Forge"
 }
+
+# Third router slot — the model agentic turns call in when a mode fans out to
+# its own specialists and subagents. Leave both unset to keep the code default
+# (Kimi K2.5). Set both together to move the slot; a name that disagrees with
+# the id makes the transcript claim a model that never answered.
+#
+# Prove a new tertiary in staging before production follows:
+# ai_router_model_3_id   = "global.xai.grok-4.6"
+# ai_router_model_3_name = "Grok"

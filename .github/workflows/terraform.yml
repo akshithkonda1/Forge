@@ -91,10 +91,27 @@ jobs:
         with:
           terraform_version: 1.15.0
 
+      # Gated on `main`, which is the branch that actually exists.
+      #
+      # This previously gated on refs/heads/claude/forge-fitness-frontend-TwlOQ,
+      # a scaffold branch long since deleted, so the condition could never be
+      # true: this step never ran, the apply step below depends on its outcome,
+      # and Terraform has therefore never deployed from CI at all. Every run
+      # quietly took the plan-only path and reported success.
+      #
+      # What this now does on a push to main: apply to the environment named by
+      # TF_VAR_environment at the top of this file, which is `dev`. Still doubly
+      # gated — `continue-on-error` here means an environment with no AWS
+      # secrets configured skips the apply and falls through to plan validation
+      # rather than failing. Pull requests never apply.
+      #
+      # Before pointing this at production, change TF_VAR_environment to "prod"
+      # deliberately: it decides whether the API accepts unsigned dev-override
+      # tokens and whether seeded demo data stands in for real health metrics.
       - name: Configure AWS credentials
         id: aws-creds
         if: >-
-          (github.event_name == 'push' && github.ref == 'refs/heads/claude/forge-fitness-frontend-TwlOQ')
+          (github.event_name == 'push' && github.ref == 'refs/heads/main')
           || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
         continue-on-error: true
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v4
@@ -113,7 +130,7 @@ jobs:
         if: >-
           steps.aws-creds.outcome == 'success'
           && (
-            (github.event_name == 'push' && github.ref == 'refs/heads/claude/forge-fitness-frontend-TwlOQ')
+            (github.event_name == 'push' && github.ref == 'refs/heads/main')
             || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
           )
         env:

@@ -202,6 +202,76 @@ enum AriaCoachAgentRouter {
         return AriaCoachPlan(workers: workers)
     }
 
+    /// The same plan, plus whatever the body and the session history argue for.
+    ///
+    /// `plan(message:context:)` is unchanged and still keyword-driven: it is
+    /// tuned, it is covered by nineteen tests, and a clear sentence should
+    /// route the same way forever. This wraps it rather than replacing it.
+    ///
+    /// What it adds is the case keywords cannot reach. Someone who says "hey"
+    /// on three hours of sleep and 38 readiness is asking about recovery; the
+    /// words contain nothing to match on, so the old path answered as a
+    /// generalist and the data sat unread two feet away. `AriaIntentResolver`
+    /// scores language *and* data *and* what this person keeps returning to,
+    /// and anything it surfaces strongly enough joins the plan.
+    ///
+    /// Additive on purpose: this can add a specialist, never remove one. A
+    /// router that silently drops the agent the user explicitly asked for is a
+    /// worse failure than one that occasionally brings a spare.
+    static func plan(
+        message: String,
+        context: Context,
+        signals: AriaIntentInput
+    ) -> AriaCoachPlan {
+        let keywordPlan = plan(message: message, context: context)
+        let ranked = AriaIntentResolver.rank(signals)
+        let surfaced = AriaIntentResolver.actionable(ranked)
+
+        var extras: [AriaCoachAgent] = []
+        for domain in surfaced {
+            guard let kind = Self.agent(for: domain) else { continue }
+            guard isAvailable(kind, context: context) else { continue }
+            guard !keywordPlan.kinds.contains(kind) else { continue }
+            extras.append(kind)
+        }
+        guard !extras.isEmpty else { return keywordPlan }
+
+        // A generalist-only plan means the keywords found nothing. In that case
+        // the data's answer leads instead of tagging along behind `.aria`.
+        var workers = keywordPlan.workers
+        let keywordFoundNothing = keywordPlan.kinds == [.aria]
+        if keywordFoundNothing {
+            workers = []
+        }
+        for (index, kind) in extras.enumerated() {
+            workers.append(
+                AriaCoachWorker(
+                    id: kind.rawValue,
+                    kind: kind,
+                    subject: nil,
+                    isPrimary: keywordFoundNothing && index == 0
+                )
+            )
+        }
+        return AriaCoachPlan(workers: workers)
+    }
+
+    /// Intent domains are the resolver's vocabulary; coach agents are the
+    /// product's. Several domains map onto one specialist — `.sleep` and
+    /// `.readiness` are both Recover — and `.progress` has no specialist of its
+    /// own, which is why this returns an optional rather than inventing one.
+    static func agent(for domain: AriaIntentDomain) -> AriaCoachAgent? {
+        switch domain {
+        case .training:            return .train
+        case .sleep, .readiness:   return .recover
+        case .nutrition:           return .fuel
+        case .lifestyle:           return .life
+        case .cycle:               return .cycle
+        case .body:                return .recover
+        case .progress:            return nil
+        }
+    }
+
     static func isAvailable(_ agent: AriaCoachAgent, context: Context) -> Bool {
         if agent == .cycle { return context.cycleAvailable }
         return true

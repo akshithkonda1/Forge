@@ -668,6 +668,21 @@ final class AriaContextStore: ObservableObject {
         context.relationshipLevel >= 3 && !context.recentPatterns.isEmpty
     }
 
+    /// Merge lifestyle history tags, replacing the whole family each time.
+    ///
+    /// Follows the filter-then-merge shape every other tag writer in this file
+    /// uses: drop the prefixes we own, append the new set, dedupe, sort. Without
+    /// a single owner per prefix these accumulate — a month of `place:` tags
+    /// from every refresh, and ARIA reading a history that never forgets.
+    func applyLifestyleHistoryTags(_ incoming: [String]) {
+        let owned = ["place:", "social:", "lastnight:", "routine:"]
+        var tags = context.lifestyleTags.filter { tag in
+            !owned.contains { tag.hasPrefix($0) }
+        }
+        tags.append(contentsOf: incoming)
+        context.lifestyleTags = Array(Set(tags)).sorted()
+    }
+
     func refreshProactiveInsight(from store: AppStore) {
         guard shouldBeProactive() else {
             lastProactiveInsight = nil

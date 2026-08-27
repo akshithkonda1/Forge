@@ -29,6 +29,78 @@ public struct FakeHealthWorkout: Sendable, Equatable {
     }
 }
 
+/// Somewhere the person was, and for how long.
+///
+/// Coordinates are synthetic and jittered around a single arbitrary anchor —
+/// they exist so map surfaces and "where do you usually eat" questions have
+/// something shaped like real history to read, not so the location is
+/// meaningful. Nothing here describes a real place or a real person.
+public struct FakeLifestyleMarker: Sendable, Equatable {
+    public enum Kind: String, Sendable, CaseIterable {
+        case home, work, gym, restaurant, cafe, bar, park, market, travel
+    }
+
+    public var kind: Kind
+    public var name: String
+    public var arrival: Date
+    public var minutes: Int
+    public var latitude: Double
+    public var longitude: Double
+
+    public init(
+        kind: Kind,
+        name: String,
+        arrival: Date,
+        minutes: Int,
+        latitude: Double,
+        longitude: Double
+    ) {
+        self.kind = kind
+        self.name = name
+        self.arrival = arrival
+        self.minutes = minutes
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+}
+
+/// An evening that had something in it.
+///
+/// These are not decoration. A social event is generated *before* the night it
+/// precedes and then drives that night's onset, duration and next-morning HRV,
+/// so the biometrics and the calendar tell the same story. A late dinner with
+/// four drinks that left sleep untouched would be worse than having no social
+/// data at all: ARIA would learn to say things the numbers contradict.
+public struct FakeSocialEvent: Sendable, Equatable {
+    public enum Kind: String, Sendable, CaseIterable {
+        case dinnerOut, drinks, party, familyTime, workEvent, dateNight, travelDay
+    }
+
+    public var kind: Kind
+    public var title: String
+    public var start: Date
+    public var minutes: Int
+    public var drinks: Int
+    /// Ran past midnight. The single biggest driver of the night that follows.
+    public var ranLate: Bool
+
+    public init(
+        kind: Kind,
+        title: String,
+        start: Date,
+        minutes: Int,
+        drinks: Int,
+        ranLate: Bool
+    ) {
+        self.kind = kind
+        self.title = title
+        self.start = start
+        self.minutes = minutes
+        self.drinks = drinks
+        self.ranLate = ranLate
+    }
+}
+
 public struct FakeHealthDay: Sendable, Equatable {
     public var dayStart: Date
     public var isoDate: String
@@ -40,6 +112,10 @@ public struct FakeHealthDay: Sendable, Equatable {
     public var activeCalories: Int
     public var hydrationMl: Double
     public var workout: FakeHealthWorkout?
+    /// Where the day was spent, in order.
+    public var markers: [FakeLifestyleMarker]
+    /// What was on the evening that precedes this day's night. Usually empty.
+    public var social: [FakeSocialEvent]
 
     public init(
         dayStart: Date,
@@ -51,7 +127,9 @@ public struct FakeHealthDay: Sendable, Equatable {
         steps: Int,
         activeCalories: Int,
         hydrationMl: Double,
-        workout: FakeHealthWorkout?
+        workout: FakeHealthWorkout?,
+        markers: [FakeLifestyleMarker] = [],
+        social: [FakeSocialEvent] = []
     ) {
         self.dayStart = dayStart
         self.isoDate = isoDate
@@ -63,6 +141,8 @@ public struct FakeHealthDay: Sendable, Equatable {
         self.activeCalories = activeCalories
         self.hydrationMl = hydrationMl
         self.workout = workout
+        self.markers = markers
+        self.social = social
     }
 }
 
@@ -131,14 +211,69 @@ public struct FakeHealthPack: Sendable, Equatable {
         var rng = SplitMix64(seed: UInt64(truncatingIfNeeded: seed))
         let count = max(7, days)
         let todayStart = calendar.startOfDay(for: now)
+        let plan = DayPlan(count: count, rng: &rng)
         var built: [FakeHealthDay] = []
         built.reserveCapacity(count)
 
         for offset in 0..<count {
             let dayStart = calendar.date(byAdding: .day, value: -offset, to: todayStart) ?? todayStart
-            built.append(makeDay(offset: offset, dayStart: dayStart, calendar: calendar, rng: &rng))
+            built.append(
+                makeDay(offset: offset, dayStart: dayStart, calendar: calendar, plan: plan, rng: &rng)
+            )
         }
         return FakeHealthPack(days: built, generatedAt: now, seed: seed)
+    }
+
+    // MARK: - Shape of the month
+
+    /// Which days are rough, which evenings have something in them, and where
+    /// the training week starts.
+    ///
+    /// This exists because the shape used to be hardcoded to the offset —
+    /// `offset == 3 || offset == 10` was always the short nights, `offset % 7`
+    /// was always the training week. The seed only ever jittered values *inside*
+    /// a fixed story, so every run told the same month twice removed: same bad
+    /// Tuesday, same rest day, same debt arc. Someone testing for an afternoon
+    /// stops reading it and starts recognising it.
+    ///
+    /// The guarantees the tests depend on are structural here, not probabilistic
+    /// — picked by shuffling a candidate list and taking a fixed count, rather
+    /// than rolling per day and hoping. A per-day roll would satisfy
+    /// `testStreamHasShortNightsAndWorkouts` on almost every seed and fail on a
+    /// few, and since the app now re-seeds per session, "almost every" is a bug
+    /// that ships and never reproduces.
+    /// `fileprivate`, not internal: it takes the file-private `SplitMix64` in
+    /// its initializer, and Swift requires a declaration be no more visible
+    /// than the types in its signature. Internal here fails only when the
+    /// module interface is emitted, which is why it built locally in every
+    /// balance and gate check and died in CI.
+    fileprivate struct DayPlan {
+        /// Never includes 0: today has to stay citable (`> 5h`, deep and REM
+        /// both non-zero) for the pack to be worth anything on first launch.
+        var shortNights: Set<Int> = []
+        var lateNights: Set<Int> = []
+        /// Offset into the 7-day training rotation, so the week does not always
+        /// begin on the same day of the pack.
+        var trainingPhase: Int = 0
+
+        fileprivate init(count: Int, rng: inout SplitMix64) {
+            var candidates = Array(1..<max(2, count))
+            // Fisher-Yates with the same rng, so the pick stays seed-determined.
+            if candidates.count > 1 {
+                for i in stride(from: candidates.count - 1, to: 0, by: -1) {
+                    let j = rng.int(0...i)
+                    candidates.swapAt(i, j)
+                }
+            }
+            let shortCount = min(candidates.count, 3 + rng.int(0...2))
+            shortNights = Set(candidates.prefix(shortCount))
+
+            let remaining = candidates.dropFirst(shortCount)
+            let lateCount = min(remaining.count, 2 + rng.int(0...2))
+            lateNights = Set(remaining.prefix(lateCount))
+
+            trainingPhase = rng.int(0...6)
+        }
     }
 
     // MARK: - Day synthesis
@@ -147,14 +282,29 @@ public struct FakeHealthPack: Sendable, Equatable {
         offset: Int,
         dayStart: Date,
         calendar: Calendar,
+        plan: DayPlan,
         rng: inout SplitMix64
     ) -> FakeHealthDay {
-        // A few deliberately short / late nights so ARIA has a debt story.
-        let shortNight = offset == 3 || offset == 10
-        let lateNight = offset == 6
-        let hardSessionYesterday = offset == 1 || offset == 8
+        let weekday = calendar.component(.weekday, from: dayStart)   // 1 = Sunday
+        let isWeekend = weekday == 1 || weekday == 7
+        let workout = session(offset: offset, phase: plan.trainingPhase)
 
-        let asleepMinutes: Int
+        // The evening that precedes this day's night. Generated first, because
+        // everything below reads from it.
+        let social = socialEvent(
+            offset: offset,
+            dayStart: dayStart,
+            calendar: calendar,
+            isWeekend: isWeekend,
+            plannedLate: plan.lateNights.contains(offset),
+            rng: &rng
+        )
+
+        let shortNight = plan.shortNights.contains(offset)
+        let lateNight = plan.lateNights.contains(offset) || (social?.ranLate ?? false)
+        let hardSessionYesterday = workout?.intensity == "high"
+
+        var asleepMinutes: Int
         if shortNight {
             asleepMinutes = 5 * 60 + rng.int(20...50)
         } else if lateNight {
@@ -162,6 +312,14 @@ public struct FakeHealthPack: Sendable, Equatable {
         } else {
             asleepMinutes = 7 * 60 + rng.int(5...50)
         }
+        // Drinks fragment sleep more reliably than they shorten it, but a big
+        // night does both.
+        if let social, social.drinks >= 3 {
+            asleepMinutes -= rng.int(15...40)
+        }
+        // Today must stay citable no matter what the evening did.
+        if offset == 0 { asleepMinutes = max(asleepMinutes, 5 * 60 + 25) }
+        asleepMinutes = max(4 * 60 + 40, asleepMinutes)
 
         var onsetHour = 23
         var onsetMinute = rng.int(0...40)
@@ -171,6 +329,8 @@ public struct FakeHealthPack: Sendable, Equatable {
         } else if shortNight {
             onsetHour = 0
             onsetMinute = rng.int(5...25)
+        } else if isWeekend {
+            onsetMinute = rng.int(20...55)
         }
 
         let onsetDay = (onsetHour >= 18)
@@ -190,22 +350,42 @@ public struct FakeHealthPack: Sendable, Equatable {
             hrv -= rng.int(8...14)
             rhr += rng.int(3...7)
         }
+        // Alcohol is the clearest single-night signal in real HRV data, so it is
+        // the clearest thing for ARIA to have an opinion about here.
+        if let social {
+            hrv -= social.drinks * rng.int(2...4)
+            rhr += social.drinks >= 2 ? rng.int(2...5) : 0
+            if social.ranLate { rhr += rng.int(1...3) }
+        }
         hrv = min(95, max(28, hrv))
         rhr = min(78, max(48, rhr))
 
-        let workout = session(offset: offset)
         var steps = 7_400 + rng.int(-1_800...2_600)
         var calories = 380 + rng.int(-80...140)
         if let workout {
             steps += workout.type == .cardio || workout.type == .hiit ? 2_400 : 900
             calories += workout.durationMinutes * 6
         }
+        if isWeekend { steps += rng.int(-1_500...900) }
+        if social?.kind == .travelDay { steps += rng.int(1_200...3_400) }
         if offset == 0 {
             // "Today so far" — not a finished day.
             steps = min(steps, 8_600)
         }
 
-        let hydration = Double(1_180 + rng.int(0...900))
+        var hydration = Double(1_180 + rng.int(0...900))
+        if let social, social.drinks >= 2 { hydration -= Double(rng.int(80...260)) }
+
+        let markers = dayMarkers(
+            offset: offset,
+            dayStart: dayStart,
+            calendar: calendar,
+            isWeekend: isWeekend,
+            workout: workout,
+            social: social,
+            rng: &rng
+        )
+
         return FakeHealthDay(
             dayStart: dayStart,
             isoDate: isoDate(dayStart, calendar: calendar),
@@ -215,18 +395,153 @@ public struct FakeHealthPack: Sendable, Equatable {
             restingHR: rhr,
             steps: max(2_000, steps),
             activeCalories: max(120, calories),
-            hydrationMl: hydration,
-            workout: workout
+            hydrationMl: max(600, hydration),
+            workout: workout,
+            markers: markers,
+            social: social.map { [$0] } ?? []
         )
     }
 
-    private static func session(offset: Int) -> FakeHealthWorkout? {
+    // MARK: - Evenings
+
+    private static func socialEvent(
+        offset: Int,
+        dayStart: Date,
+        calendar: Calendar,
+        isWeekend: Bool,
+        plannedLate: Bool,
+        rng: inout SplitMix64
+    ) -> FakeSocialEvent? {
+        // Today's evening has not happened yet.
+        guard offset > 0 else { return nil }
+        let odds = plannedLate ? 100 : (isWeekend ? 55 : 18)
+        guard rng.int(1...100) <= odds else { return nil }
+
+        let kind: FakeSocialEvent.Kind = {
+            if isWeekend {
+                return [.dinnerOut, .drinks, .party, .dateNight, .familyTime][rng.int(0...4)]
+            }
+            return [.dinnerOut, .workEvent, .familyTime, .drinks, .travelDay][rng.int(0...4)]
+        }()
+
+        let title: String
+        let drinks: Int
+        switch kind {
+        case .dinnerOut:  title = "Dinner out";        drinks = rng.int(0...2)
+        case .drinks:     title = "Drinks with mates"; drinks = rng.int(2...5)
+        case .party:      title = "Birthday party";    drinks = rng.int(2...6)
+        case .dateNight:  title = "Date night";        drinks = rng.int(0...3)
+        case .familyTime: title = "Family dinner";     drinks = rng.int(0...1)
+        case .workEvent:  title = "Work dinner";       drinks = rng.int(0...3)
+        case .travelDay:  title = "Travel day";        drinks = 0
+        }
+
+        let startHour = kind == .travelDay ? rng.int(6...10) : rng.int(18...21)
+        let eveningDay = calendar.date(byAdding: .day, value: -1, to: dayStart) ?? dayStart
+        var parts = calendar.dateComponents([.year, .month, .day], from: eveningDay)
+        parts.hour = startHour
+        parts.minute = rng.int(0...50)
+        let start = calendar.date(from: parts) ?? dayStart
+
+        let minutes = kind == .travelDay ? rng.int(180...520) : rng.int(70...260)
+        let ranLate = plannedLate
+            || (kind != .travelDay && startHour + (minutes / 60) >= 24)
+            || drinks >= 4
+
+        return FakeSocialEvent(
+            kind: kind,
+            title: title,
+            start: start,
+            minutes: minutes,
+            drinks: drinks,
+            ranLate: ranLate
+        )
+    }
+
+    // MARK: - Places
+
+    /// Synthetic anchor. Not a real address, and deliberately not derived from
+    /// anything on the device — the pack must never look like it learned where
+    /// someone actually lives.
+    private static let anchorLatitude = 37.7840
+    private static let anchorLongitude = -122.4070
+
+    private static func jitter(_ base: Double, rng: inout SplitMix64) -> Double {
+        base + Double(rng.int(-260...260)) / 10_000.0
+    }
+
+    private static func dayMarkers(
+        offset: Int,
+        dayStart: Date,
+        calendar: Calendar,
+        isWeekend: Bool,
+        workout: FakeHealthWorkout?,
+        social: FakeSocialEvent?,
+        rng: inout SplitMix64
+    ) -> [FakeLifestyleMarker] {
+        func at(_ hour: Int, _ minute: Int = 0) -> Date {
+            calendar.date(bySettingHour: hour, minute: minute, second: 0, of: dayStart) ?? dayStart
+        }
+        func marker(_ kind: FakeLifestyleMarker.Kind, _ name: String, _ start: Date, _ minutes: Int) -> FakeLifestyleMarker {
+            FakeLifestyleMarker(
+                kind: kind,
+                name: name,
+                arrival: start,
+                minutes: minutes,
+                latitude: jitter(anchorLatitude, rng: &rng),
+                longitude: jitter(anchorLongitude, rng: &rng)
+            )
+        }
+
+        var out: [FakeLifestyleMarker] = [marker(.home, "Home", at(6, rng.int(10...50)), rng.int(60...150))]
+
+        if !isWeekend, social?.kind != .travelDay {
+            out.append(marker(.work, "Office", at(9, rng.int(0...40)), rng.int(300...520)))
+            if rng.int(1...100) <= 45 {
+                out.append(marker(.cafe, ["Blue Bottle", "Corner Coffee", "Sightglass"][rng.int(0...2)], at(8, rng.int(0...45)), rng.int(10...35)))
+            }
+        } else if social?.kind == .travelDay {
+            out.append(marker(.travel, "Airport", at(rng.int(7...11)), rng.int(90...240)))
+        } else {
+            if rng.int(1...100) <= 55 {
+                out.append(marker(.park, ["Riverside Park", "The Common", "Hill Trail"][rng.int(0...2)], at(rng.int(9...12)), rng.int(40...110)))
+            }
+            if rng.int(1...100) <= 40 {
+                out.append(marker(.market, "Farmers Market", at(rng.int(10...13)), rng.int(25...70)))
+            }
+        }
+
+        if workout != nil {
+            out.append(marker(.gym, "Iron Works Gym", at(rng.int(17...19)), rng.int(45...80)))
+        }
+
+        if let social {
+            let kind: FakeLifestyleMarker.Kind
+            let name: String
+            switch social.kind {
+            case .drinks, .party:            kind = .bar;        name = ["The Alibi", "Third Rail", "Lucky's"][rng.int(0...2)]
+            case .dinnerOut, .dateNight:     kind = .restaurant; name = ["Osteria", "Nopalito", "Kin Khao"][rng.int(0...2)]
+            case .workEvent:                 kind = .restaurant; name = "Company dinner"
+            case .familyTime:                kind = .home;       name = "Family's place"
+            case .travelDay:                 kind = .travel;     name = "In transit"
+            }
+            out.append(marker(kind, name, social.start, social.minutes))
+        }
+
+        return out.sorted { $0.arrival < $1.arrival }
+    }
+
+    private static func session(offset: Int, phase: Int) -> FakeHealthWorkout? {
         // Mon / Wed / Fri strength, Saturday conditioning, Sunday mobility.
-        // `offset` 0 is today; weekday is taken from the generated calendar day
-        // via a stable 7-day rotation so tests do not depend on "what day is it".
-        switch offset % 7 {
+        // `offset` 0 is today; the week is a stable 7-day rotation so tests do
+        // not depend on "what day is it", and `phase` shifts where that rotation
+        // begins so the same pack index is not always the same session.
+        //
+        // Today (offset 0) stays open regardless of phase: ARIA writes that
+        // session from this pack's own sleep and HRV.
+        if offset == 0 { return nil }
+        switch (offset + phase) % 7 {
         case 0:
-            // Today is still open — ARIA writes the session from this pack's sleep/HRV.
             return nil
         case 2:
             return FakeHealthWorkout(
@@ -253,7 +568,7 @@ public struct FakeHealthPack: Sendable, Equatable {
                 volume: 0
             )
         case 6:
-            return offset == 6 ? FakeHealthWorkout(
+            return offset % 14 == 6 ? FakeHealthWorkout(
                 name: "Mobility & Recovery",
                 type: .mobility,
                 durationMinutes: 25,

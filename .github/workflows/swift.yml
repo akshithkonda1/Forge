@@ -23,6 +23,19 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # Deployment targets are deliberately NOT passed to xcodebuild. The project
+  # sets IPHONEOS/WATCHOS_DEPLOYMENT_TARGET=27.0 across all fourteen build
+  # configurations, and that is what ships; a flag here would be a second place
+  # to remember, which is the only way the two can disagree.
+  #
+  # They did disagree. The overrides existed as four literals, and #156 raised
+  # the two Debug ones to 27.0 and left Release at 17.0 and 10.0. Release then
+  # built against a floor the code no longer supports and failed on
+  # `'FoundationModelsResponseGenerator' is only available in iOS 26.0 or
+  # newer` — in the configuration that actually ships, while Debug stayed
+  # green. Building anything other than what the project declares means CI is
+  # testing a configuration no user will ever run.
+
   # Shared xcodebuild flags — no signing in CI.
   XCODE_FLAGS: >-
     CODE_SIGNING_ALLOWED=NO
@@ -33,7 +46,7 @@ env:
 jobs:
   build:
     # Xcode 27 / iOS 27 / watchOS 27 — the SDK Forge is developed against.
-    # macos-15 ships Xcode 16 and cannot compile IPHONEOS_DEPLOYMENT_TARGET=27.
+    # macos-15 ships Xcode 16 and cannot compile a deployment target of 27.
     runs-on: xcode-27
     defaults:
       run:
@@ -77,7 +90,6 @@ jobs:
             build-for-testing \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
-            IPHONEOS_DEPLOYMENT_TARGET=27.0 \
             ONLY_ACTIVE_ARCH=NO \
             EXCLUDED_ARCHS=x86_64 \
             COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/ios-build.log
@@ -108,7 +120,6 @@ jobs:
             build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
-            WATCHOS_DEPLOYMENT_TARGET=27.0 \
             ONLY_ACTIVE_ARCH=NO \
             COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/watch-build.log
 
@@ -140,7 +151,6 @@ jobs:
             build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
-            IPHONEOS_DEPLOYMENT_TARGET=17.0 \
             ONLY_ACTIVE_ARCH=NO \
             EXCLUDED_ARCHS=x86_64 \
             COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/ios-release.log
@@ -165,7 +175,6 @@ jobs:
             build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
-            WATCHOS_DEPLOYMENT_TARGET=10.0 \
             ONLY_ACTIVE_ARCH=NO \
             COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/watch-release.log
 
