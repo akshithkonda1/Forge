@@ -141,37 +141,3 @@ enum HapticEvent {
     case celebration        // Sequence of impacts
     case typing             // Very light
 }
-
-enum AriaComposerMode: String, CaseIterable {
-    case chat
-    case research
-
-    var title: String {
-        switch self {
-        case .chat: return "Chat"
-        case .research: return "Research"
-        }
-    }
-
-    var placeholder: String {
-        switch self {
-        case .chat: return "Ask ARIA anything…"
-        case .research: return "Ask ARIA to go deep…"
-        }
-    }
-
-    static func researchPrompt(for question: String) -> String {
-        """
-        [DEEP RESEARCH]
-        Write a structured brief, not a chatty reply. Use this person's Forge context (sleep, readiness, training, lifestyle, cycle if present). Be honest about uncertainty.
-
-        Format exactly:
-        What we know
-        What the evidence says
-        What to do this week
-        What we should not claim
-
-        Question: \(question)
-        """
-    }
-}
