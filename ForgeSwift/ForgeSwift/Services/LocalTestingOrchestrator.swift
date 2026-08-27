@@ -87,8 +87,14 @@ enum AriaModelTier: String {
 /// Everything here exists to fix that and nothing else.
 ///
 /// Deliberately holds no `URLSession`, no `baseURL`, and no reference to
-/// `AriaService`'s transport. That is checkable by grep, and it should stay
-/// checkable.
+/// `AriaService`'s transport — this orchestrator itself never calls Forge's
+/// own backend. That is checkable by grep, and it should stay checkable.
+///
+/// The one intentional exception: `reply()` can call out to
+/// `AriaWebResearch`, a separate, clearly-named collaborator whose entire
+/// job is a curated, keyless fetch from a handful of general (non-Forge)
+/// reference URLs — gated to local testing, isolated in its own file so
+/// this file's own "no network" grep stays literally true.
 @MainActor
 final class LocalTestingOrchestrator {
 
@@ -210,6 +216,10 @@ final class LocalTestingOrchestrator {
         }
         if let crossover = affinityBeat(excluding: domain, rng: &rng) {
             parts.append(crossover)
+        }
+        if AriaWebResearch.isResearchWorthy(text: text, leadingDomain: domain),
+           let webNote = await AriaWebResearch.lookUp(domain: domain) {
+            parts.append(webNote)
         }
 
         let specialists = routed.count > 1
