@@ -53,10 +53,12 @@ enum AriaDummyOrchestrator {
             } else {
                 prose = "\(you) at \(r). I’ll write a session from how you live — no production model on this Device Hub run."
             }
-        case .fuel:
-            prose = "\(you) at \(r). Fuel · protein and water next. Not a diet plan.\(packNote)"
+        case .sleep:
+            prose = "\(you) at \(r). \(sleepLine.prefix(1).uppercased() + sleepLine.dropFirst()).\(packNote)"
         case .life:
-            prose = "\(you) at \(r). Fit training into the day you already have.\(packNote)"
+            prose = "\(you) at \(r). Fit training into the day you already have — protein and water next, not a diet plan.\(packNote)"
+        case .progress:
+            prose = "\(you) at \(r). Zooming out on trend, not just today — no production model on this Device Hub run.\(packNote)"
         case .cycle:
             prose = "\(you) at \(r). Cycle coaching on this phone only — no log leaves the device, no fertility calendar."
         case .aria:

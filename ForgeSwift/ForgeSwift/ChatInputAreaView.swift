@@ -1,5 +1,55 @@
 import SwiftUI
 
+/// Makes the multi-specialist routing visible while it's happening, not
+/// just afterward in ChatHeaderView's caption. This takes over the UI slot
+/// AriaResearchProgress used to occupy between send and reply.
+///
+/// All workers show "thinking" for the actual duration of the wait, rather
+/// than a staggered per-chip reveal: supportingBriefs() runs every
+/// non-primary brief() concurrently over synchronous, near-instant local
+/// computation, so real per-worker timing would flip every chip to "done"
+/// within microseconds of each other. Faking a staggered reveal would be
+/// less honest than showing "these specialists are being consulted" for
+/// the real wait and then simply resolving to the reply.
+struct AriaSpecialistActivityView: View {
+    let workers: [AriaCoachWorker]
+    @State private var pulse = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(workers.count > 1 ? "Consulting your specialists" : "Thinking")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.aurora)
+            FlowLayout(spacing: 8) {
+                ForEach(workers) { worker in
+                    HStack(spacing: 6) {
+                        Image(systemName: worker.kind.icon)
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(worker.label)
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(worker.kind.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(worker.kind.accent.opacity(pulse ? 0.22 : 0.1))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(worker.kind.accent.opacity(0.3), lineWidth: 1))
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.surface)
+        .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.aurora.opacity(0.25), lineWidth: 1))
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
+        }
+    }
+}
+
 private struct CoachAgentChipRow: View {
     @EnvironmentObject var store: AppStore
 
@@ -11,7 +61,11 @@ private struct CoachAgentChipRow: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 pinChip(nil, title: "Auto", icon: "sparkles")
-                ForEach(AriaCoachAgent.allCases) { agent in
+                // The five modes ARIA tracks, plus Cycle -- reachable here
+                // too, still consent-gated, just not one of the five
+                // headline modes. Not .allCases: that would also surface a
+                // redundant direct pin to .aria, which "Auto" already covers.
+                ForEach(AriaCoachAgent.trackedModes + [.cycle]) { agent in
                     if AriaCoachAgentRouter.isAvailable(agent, context: context) {
                         pinChip(agent, title: agent.label, icon: agent.icon)
                     }

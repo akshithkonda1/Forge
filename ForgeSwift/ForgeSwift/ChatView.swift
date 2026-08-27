@@ -144,6 +144,13 @@ struct ChatView: View {
                 }
 
                 // ── Input ────────────────────────────────────────
+                if isTyping, !store.lastCoachWorkers.isEmpty {
+                    AriaSpecialistActivityView(workers: store.lastCoachWorkers)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
                 ChatInputAreaView(
                     inputText:        $inputText,
                     isTyping:         $isTyping,

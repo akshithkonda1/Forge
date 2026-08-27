@@ -81,7 +81,11 @@ struct SettingsPageView: View {
                         .padding(.top, 4)
                         FlowLayout(spacing: 8) {
                             coachPinChip(nil, title: "Auto")
-                            ForEach(AriaCoachAgent.allCases) { agent in
+                            // Same roster as the chat pin row: the five
+                            // tracked modes plus Cycle, not .allCases (which
+                            // would also offer a redundant direct pin to
+                            // .aria -- "Auto" already covers that).
+                            ForEach(AriaCoachAgent.trackedModes + [.cycle]) { agent in
                                 if AriaCoachAgentRouter.isAvailable(
                                     agent,
                                     context: AriaCoachAgentRouter.context(pinned: store.pinnedCoachAgent)
