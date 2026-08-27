@@ -714,6 +714,16 @@ enum AriaVoiceEngine {
         facts: AriaSpeechFacts,
         rng: inout AriaSeededRNG
     ) -> String {
+        // A read first, then the numbers — and only sometimes the numbers.
+        //
+        // Every non-clinical branch here used to be a dump: "You're at 64/100 —
+        // Silver. HRV 48, heart 57." Three figures and a rank, no statement of
+        // what any of it means. This is the line `trainingBeats`,
+        // `briefingBeats` and `checkInBeats` all open on, so it set the tone for
+        // most of what ARIA says, and the tone was telemetry.
+        //
+        // The two registers that asked for precision keep it in full, every
+        // time. That is the whole point of having registers.
         let r = profile.readiness
         let hrv = context.dailyMetrics.hrv
         let rhr = context.dailyMetrics.restingHR
@@ -722,25 +732,53 @@ enum AriaVoiceEngine {
         if profile.register == .clinical || profile.coaching == .dataDriven {
             return "Readiness \(r)/100 · HRV \(hrv) ms · RHR \(rhr) bpm — band: \(rank)."
         }
+
+        // Plain-language band. Deliberately about capacity today rather than
+        // about the number, because that is the question the number is standing
+        // in for.
+        let read: String
+        switch r {
+        case ..<40:   read = "running close to empty"
+        case 40..<55: read = "under-recovered"
+        case 55..<70: read = "workable, not sharp"
+        case 70..<85: read = "in good shape"
+        default:      read = "primed"
+        }
+
+        let citesNumbers: Bool = rng.chance(0.4)
+        let figures: String = "Readiness \(r), HRV \(hrv), resting heart \(rhr)."
+
         if profile.metaphor != .none {
-            return rng.pick([
-                "\(address(profile, rng: &rng)) — \(r)/100. Status: \(rank).",
-                "Signals: readiness \(r), HRV \(hrv). \(rank).",
+            let who: String = address(profile, rng: &rng)
+            let opener: String = rng.pick([
+                "\(who) — \(read). Status: \(rank).",
+                "\(read) today. \(rank).",
                 lexicon(profile, key: "status", rng: &rng, vars: [
                     "r": "\(r)", "hrv": "\(hrv)", "rank": rank,
                 ]),
             ])
+            return citesNumbers ? "\(opener) \(figures)" : opener
         }
+
+        let opener: String
         switch profile.energy {
         case .hype:
-            return "You're at \(r)/100 — \(rank). HRV \(hrv), heart \(rhr)."
+            opener = rng.pick([
+                "You're \(read) — \(rank). Let's use it.",
+                "\(rank). You're \(read).",
+            ])
         case .soft, .warm:
-            return "Readiness is sitting at \(r). HRV \(hrv), resting heart \(rhr). \(rank)."
+            opener = rng.pick([
+                "You're \(read) today. \(rank).",
+                "Reading you as \(read). \(rank).",
+            ])
         case .razor:
-            return "\(r)/100. HRV \(hrv). RHR \(rhr). \(rank)."
+            opener = "\(read.prefix(1).uppercased() + read.dropFirst()). \(rank)."
         case .steady:
-            return "\(address(profile, rng: &rng)) — readiness \(r)/100 · HRV \(hrv) · RHR \(rhr). \(rank)."
+            let who: String = address(profile, rng: &rng)
+            opener = "\(who) — \(read). \(rank)."
         }
+        return citesNumbers ? "\(opener) \(figures)" : opener
     }
 
     private static func lightMetricHook(
