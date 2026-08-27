@@ -460,6 +460,15 @@ final class WorkoutSessionManager {
         }
         guard let recovered, recovered.state != .ended else { return }
 
+        // beginSession() or a fresh mindful-HR capture can win a race against
+        // this recovery await — both mutate phase/session/workoutRunning while
+        // this was suspended on the XPC round-trip to healthd. Re-checking
+        // before touching `recovered` mirrors beginSession()'s own re-check
+        // after its awaits; skipping it let a session started during the
+        // race get silently overwritten here and orphaned (never ended,
+        // sensors left running).
+        guard phase == .idle, session == nil, !WatchHKLiveSession.workoutRunning else { return }
+
         let builder = recovered.associatedWorkoutBuilder()
         if builder.dataSource == nil {
             builder.dataSource = HKLiveWorkoutDataSource(

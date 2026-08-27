@@ -80,6 +80,21 @@ class BackendHandlerTests(unittest.TestCase):
         self.assertEqual(payload["profile"]["coachingStyle"], "balanced")
         self.assertEqual(payload["profile"]["fitnessGoals"], ["build-muscle"])
 
+    def test_profile_sequential_patches_to_different_fields_both_persist(self):
+        # Not a true concurrency repro (see test_storage.py for that against
+        # the storage layer directly) -- this is the end-to-end sanity check
+        # that PUT /me/profile really does go through the field-level path
+        # rather than a read-modify-write that happens to still work when
+        # called back-to-back.
+        first = handler(event("PUT", "/me/profile", {"profile": {"name": "Riley"}}), None)
+        self.assertEqual(first["statusCode"], 200)
+
+        second = handler(event("PUT", "/me/profile", {"profile": {"coachingStyle": "aggressive"}}), None)
+        self.assertEqual(second["statusCode"], 200)
+        payload = body(second)
+        self.assertEqual(payload["profile"]["name"], "Riley")
+        self.assertEqual(payload["profile"]["coachingStyle"], "aggressive")
+
     def test_sleep_respects_days_query(self):
         response = handler(event("GET", "/sleep", query={"days": "3"}), None)
 
@@ -127,6 +142,36 @@ class IngestionRouteTests(unittest.TestCase):
                             "metricType": "body-weight",
                             "startedAt": "2026-05-06T08:00:00+00:00",
                             "value": 80,
+                            "unit": "kg",
+                        }
+                    ]
+                },
+            ),
+            None,
+        )
+
+        self.assertEqual(response["statusCode"], 200)
+        payload = body(response)
+        self.assertEqual(payload["accepted"], 1)
+        self.assertEqual(payload["rejected"], 0)
+
+    def test_health_batch_non_numeric_value_does_not_crash_batch(self):
+        # normalize_metric used to do `value * factor` unconditionally for a
+        # convertible metric type/unit pair; a non-numeric value (a batch
+        # entry the route only checks for presence, not numeric-ness) raised
+        # a bare TypeError that took the whole batch down with a 500 instead
+        # of rejecting just that one entry.
+        response = handler(
+            event(
+                "POST",
+                "/health/batch",
+                {
+                    "metrics": [
+                        {
+                            "source": "apple-health",
+                            "metricType": "body-weight",
+                            "startedAt": "2026-05-06T08:00:00+00:00",
+                            "value": "not-a-number",
                             "unit": "kg",
                         }
                     ]
@@ -209,6 +254,39 @@ class IngestionRouteTests(unittest.TestCase):
         history = handler(event("GET", "/workouts/history"), None)
         workouts = body(history)["workouts"]
         self.assertTrue(any(w.get("id") == "log-1" for w in workouts))
+
+    def test_sleep_session_rejects_non_numeric_score(self):
+        # A malformed score used to be accepted here (200) and only crash
+        # later, in an unrelated read (readiness.py, coach/*, progress/
+        # summary all do float(latest.get("score", 75))) once this record
+        # became the "latest" one. Rejecting it at write time means every
+        # later reader can keep trusting the field is numeric.
+        response = handler(
+            event(
+                "POST",
+                "/sleep/sessions",
+                {"session": {"date": "2026-05-06", "source": "oura", "score": "bad"}},
+            ),
+            None,
+        )
+        self.assertEqual(response["statusCode"], 400)
+
+    def test_workout_log_rejects_non_numeric_duration(self):
+        response = handler(
+            event(
+                "POST",
+                "/workouts/logs",
+                {
+                    "workout": {
+                        "id": "log-bad-duration",
+                        "startedAt": "2026-05-06T18:00:00+00:00",
+                        "duration": "bad",
+                    }
+                },
+            ),
+            None,
+        )
+        self.assertEqual(response["statusCode"], 400)
 
 
 class IntegrationSyncTests(unittest.TestCase):

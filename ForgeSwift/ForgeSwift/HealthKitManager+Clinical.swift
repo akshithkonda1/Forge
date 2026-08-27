@@ -38,7 +38,16 @@ extension HealthKitManager {
         }
 
         let items = recordBuckets.flatMap(\.1).sorted { $0.date > $1.date }
-        let counts = Dictionary(uniqueKeysWithValues: recordBuckets.map { ($0.0.rawValue, $0.1.count) })
+        // uniquingKeysWith, not uniqueKeysWithValues: every identifier falls
+        // back to the same (.allergy, []) bucket if HKObjectType.clinicalType
+        // ever returns nil for it (line 16-18 above) -- two such collisions
+        // in the same batch would trap here otherwise. Not currently
+        // reachable (the six identifiers are stable pre-iOS-12 API), but
+        // this is the identical failure class already fixed once in
+        // MenstrualHealthStore+HealthKit.swift, so it's summed rather than
+        // left to collide -- recordCountsByType should still add up to
+        // items.count either way.
+        let counts = Dictionary(recordBuckets.map { ($0.0.rawValue, $0.1.count) }, uniquingKeysWith: +)
         let summary = ClinicalRecordsSummary(
             items: items,
             totalRecordCount: items.count,
