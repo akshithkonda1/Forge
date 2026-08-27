@@ -21,6 +21,11 @@ import Foundation
 /// lives entirely in this file, under its own name, so the invariant stays
 /// real rather than just asserted in a comment the code no longer matches.
 /// `scripts/check-aria-web-research.py` enforces that in CI.
+///
+/// `@MainActor` because its only caller, `LocalTestingOrchestrator`, already
+/// is one — this costs no extra actor hop, and it's what `lookUp` needs
+/// anyway to read `AriaOperatingMode.current`, itself `@MainActor` by design.
+@MainActor
 enum AriaWebResearch {
 
     private static let session: URLSession = {
