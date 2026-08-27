@@ -159,3 +159,20 @@ jobs:
       # every other gate stayed green while the watch face lost hydration.
       - name: Check widget bundle registration
         run: python3 scripts/check-widget-bundles.py
+
+  aria-web-research:
+    name: ARIA web research stays local-testing-only
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # LocalTestingOrchestrator's own doc comment promises it holds no
+      # network transport — AriaWebResearch is the one intentional, isolated
+      # exception (a curated, keyless fetch gated to local testing). Neither
+      # half of that design fails a build or a test if it quietly erodes: a
+      # future URLSession creeping into the orchestrator directly, or
+      # AriaWebResearch getting called from somewhere that isn't actually
+      # gated behind AriaOperatingMode.isLocalTesting, both compile clean.
+      - name: Check AriaWebResearch stays isolated
+        run: python3 scripts/check-aria-web-research.py
