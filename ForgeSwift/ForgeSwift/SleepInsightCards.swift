@@ -90,51 +90,64 @@ struct SleepTimelineView: View {
         let id: String; let label: String; let minutes: Int; let color: Color
     }
 
-    var latest: SleepData { store.sleepData[0] }
-    var stages: [Stage] {[
-        Stage(id: "awake", label: "Awake", minutes: latest.awakeMinutes, color: .danger),
-        Stage(id: "light", label: "Light",  minutes: latest.lightMinutes, color: Color.borderColor),
-        Stage(id: "deep",  label: "Deep",   minutes: latest.deepMinutes,  color: .steel),
-        Stage(id: "rem",   label: "REM",    minutes: latest.remMinutes,   color: Color(hex: "A78BFA")),
-    ]}
+    // Dead code today (never instantiated -- the live sleep-detail path uses
+    // SleepLastNightStrip/SleepLastNightDetail, both already guarded on
+    // sleepData.first). Kept in the same graceful-empty shape as those two
+    // rather than the unguarded sleepData[0] this used to trap on.
+    private var night: SleepData? { store.sleepData.first }
+    var stages: [Stage] {
+        guard let night else { return [] }
+        return [
+            Stage(id: "awake", label: "Awake", minutes: night.awakeMinutes, color: .danger),
+            Stage(id: "light", label: "Light",  minutes: night.lightMinutes, color: Color.borderColor),
+            Stage(id: "deep",  label: "Deep",   minutes: night.deepMinutes,  color: .steel),
+            Stage(id: "rem",   label: "REM",    minutes: night.remMinutes,   color: Color(hex: "A78BFA")),
+        ]
+    }
     var total: Int { stages.reduce(0) { $0 + $1.minutes } }
 
     func fmt(_ m: Int) -> String { m >= 60 ? "\(m/60)h \(m%60)m" : "\(m)m" }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Sleep Stages").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+        if night != nil {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Sleep Stages").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
 
-            GeometryReader { geo in
-                HStack(spacing: 0) {
-                    ForEach(Array(stages.enumerated()), id: \.element.id) { i, stage in
-                        let w = total > 0 ? CGFloat(stage.minutes) / CGFloat(total) * geo.size.width : 0
-                        Rectangle().fill(stage.color)
-                            .frame(width: appeared ? w : 0, height: 36)
-                            .shadow(color: stage.id == "deep" ? stage.color.opacity(0.4) : .clear, radius: 6)
-                            .animation(.easeOut(duration: 0.8).delay(Double(i) * 0.1), value: appeared)
+                GeometryReader { geo in
+                    HStack(spacing: 0) {
+                        ForEach(Array(stages.enumerated()), id: \.element.id) { i, stage in
+                            let w = total > 0 ? CGFloat(stage.minutes) / CGFloat(total) * geo.size.width : 0
+                            Rectangle().fill(stage.color)
+                                .frame(width: appeared ? w : 0, height: 36)
+                                .shadow(color: stage.id == "deep" ? stage.color.opacity(0.4) : .clear, radius: 6)
+                                .animation(.easeOut(duration: 0.8).delay(Double(i) * 0.1), value: appeared)
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                .frame(height: 36)
+
+                FlowLayout(spacing: 12) {
+                    ForEach(stages) { s in
+                        HStack(spacing: 6) {
+                            Circle().fill(s.color).frame(width: 9, height: 9)
+                            Text(s.label).font(.system(size: 12)).foregroundColor(.textSecondary)
+                            Text(fmt(s.minutes)).font(.system(size: 12, weight: .semibold)).foregroundColor(.textPrimary)
+                        }
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
-            .frame(height: 36)
-
-            FlowLayout(spacing: 12) {
-                ForEach(stages) { s in
-                    HStack(spacing: 6) {
-                        Circle().fill(s.color).frame(width: 9, height: 9)
-                        Text(s.label).font(.system(size: 12)).foregroundColor(.textSecondary)
-                        Text(fmt(s.minutes)).font(.system(size: 12, weight: .semibold)).foregroundColor(.textPrimary)
-                    }
-                }
-            }
+            .padding(18)
+            .background(Color.surface)
+            .cornerRadius(20)
+            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
+            // Fixed: withAnimation requires value: parameter
+            .onAppear { withAnimation(.easeOut(duration: 0.6)) { appeared = true } }
+        } else {
+            Text("Sleep stages will show once Apple Health is connected.")
+                .font(.system(size: 13))
+                .foregroundColor(.textSecondary)
         }
-        .padding(18)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
-        // Fixed: withAnimation requires value: parameter
-        .onAppear { withAnimation(.easeOut(duration: 0.6)) { appeared = true } }
     }
 }
 
@@ -142,35 +155,44 @@ struct SleepBreakdownView: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
 
-    var latest: SleepData { store.sleepData[0] }
+    // Dead code today -- see the identical note on SleepTimelineView above.
+    private var night: SleepData? { store.sleepData.first }
     var efficiency: Double {
-        let t = latest.totalHours * 60
-        return t > 0 ? ((t - Double(latest.awakeMinutes)) / t) * 100 : 0
+        guard let night else { return 0 }
+        let t = night.totalHours * 60
+        return t > 0 ? ((t - Double(night.awakeMinutes)) / t) * 100 : 0
     }
     func fmt(_ m: Int) -> String { m >= 60 ? "\(m/60)hr \(m%60)min" : "\(m)min" }
 
     struct Card { let label: String; let value: String; let progress: Double?; let color: Color; let subtitle: String }
 
     var cards: [Card] {
+        guard let night else { return [] }
         let deepGoal = hkService.userProfile.chronotype.deepSleepGoalMinutes
         let remGoal = hkService.userProfile.chronotype.remSleepGoalMinutes
-        let dp = Double(latest.deepMinutes) / Double(deepGoal) * 100
-        let rp = Double(latest.remMinutes) / Double(remGoal) * 100
+        let dp = Double(night.deepMinutes) / Double(deepGoal) * 100
+        let rp = Double(night.remMinutes) / Double(remGoal) * 100
         return [
-            Card(label: "Deep Sleep",      value: fmt(latest.deepMinutes), progress: dp, color: dp >= 100 ? .success : .steel, subtitle: "\(Int(dp))% of \(deepGoal) min goal"),
-            Card(label: "REM Sleep",       value: fmt(latest.remMinutes),  progress: rp, color: rp >= 100 ? .success : .steel, subtitle: "\(Int(rp))% of \(remGoal) min goal"),
+            Card(label: "Deep Sleep",      value: fmt(night.deepMinutes), progress: dp, color: dp >= 100 ? .success : .steel, subtitle: "\(Int(dp))% of \(deepGoal) min goal"),
+            Card(label: "REM Sleep",       value: fmt(night.remMinutes),  progress: rp, color: rp >= 100 ? .success : .steel, subtitle: "\(Int(rp))% of \(remGoal) min goal"),
             Card(label: "Sleep Efficiency",value: "\(Int(efficiency))%",   progress: efficiency, color: efficiency >= 85 ? .success : efficiency >= 75 ? .warning : .danger, subtitle: efficiency >= 85 ? "Excellent" : "Needs work"),
-            Card(label: "Time Awake",      value: "\(latest.awakeMinutes)m", progress: nil, color: .danger, subtitle: latest.awakeMinutes <= 15 ? "Great" : "High"),
+            Card(label: "Time Awake",      value: "\(night.awakeMinutes)m", progress: nil, color: .danger, subtitle: night.awakeMinutes <= 15 ? "Great" : "High"),
         ]
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Breakdown").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ForEach(Array(cards.enumerated()), id: \.offset) { i, card in
-                    SleepBreakdownCard(item: card, index: i)
+            if night != nil {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(Array(cards.enumerated()), id: \.offset) { i, card in
+                        SleepBreakdownCard(item: card, index: i)
+                    }
                 }
+            } else {
+                Text("Breakdown will show once Apple Health is connected.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
             }
         }
     }
@@ -212,8 +234,11 @@ struct AISleepInsightView: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
 
+    // Dead code today -- see the identical note on SleepTimelineView above.
     var insight: String {
-        let d = store.sleepData[0]
+        guard let d = store.sleepData.first else {
+            return "Connect Apple Health and last night's insight will show here."
+        }
         let s = "\(d.deepMinutes >= 60 ? "\(d.deepMinutes/60)hr " : "")\(d.deepMinutes % 60)min"
         if d.score >= 85 { return "Excellent recovery. \(s) of deep sleep has fully topped up muscle repair. You're primed for a heavy session today." }
         else if d.score >= 70 { return "Good sleep — \(s) deep sleep. HRV reflects adequate recovery. Cut screens 45 min before bed to push this score higher." }

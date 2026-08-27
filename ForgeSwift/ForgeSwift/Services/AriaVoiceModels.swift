@@ -122,8 +122,21 @@ struct AriaSeededRNG {
         return range.lowerBound + Int(next() % span)
     }
 
+    /// `items` must be non-empty — every call site in this codebase passes a
+    /// literal or the result of an exhaustive `switch`, both always non-empty,
+    /// verified by hand across every bank in `AriaVoiceEngine`,
+    /// `AriaEmotionalSupportCoach` and `AriaRelationalCoach`.
+    ///
+    /// That is an invariant enforced by review, not by the type system, and
+    /// nothing stops a future bank from building its array dynamically and
+    /// landing here empty. Without this precondition, `int(in: 0..<0)`
+    /// degrades to `lowerBound` (0) and `items[0]` traps with a bare "index
+    /// out of range" — accurate, but it tells you nothing about which bank was
+    /// empty or why. The precondition fires at the exact same moment (so no
+    /// currently-safe call site changes behavior) but names the actual defect.
     mutating func pick<T>(_ items: [T]) -> T {
-        items[int(in: 0..<items.count)]
+        precondition(!items.isEmpty, "AriaSeededRNG.pick called with an empty array — every voice bank must return at least one line.")
+        return items[int(in: 0..<items.count)]
     }
 
     mutating func chance(_ p: Double) -> Bool {

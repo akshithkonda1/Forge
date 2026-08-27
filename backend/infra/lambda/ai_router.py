@@ -22,6 +22,10 @@ DEFAULT_BEDROCK_CONNECT_TIMEOUT_SECONDS = 3.0
 DEFAULT_BEDROCK_READ_TIMEOUT_SECONDS = max(10.0, DEFAULT_OVERALL_TIMEOUT_SECONDS * 2)
 MIN_CONSENSUS_BUDGET_SECONDS = 0.2
 CONSENSUS_TIMEOUT_BUFFER_SECONDS = 0.25
+# Upper bound for client-supplied model/overall timeouts. Must stay comfortably
+# under the Lambda's own platform timeout (15s, backend/infra/variables.tf) —
+# see the comment in RouteSettings.from_payload.
+MAX_CLIENT_TIMEOUT_SECONDS = 10.0
 
 
 class RoutingError(Exception):
@@ -46,6 +50,27 @@ class ModelConfig:
     responsibility: str
 
 
+def _coerce_float(value: Any, *, field: str, default: float) -> float:
+    """Same shape as `aria_engine._num`, but a client-supplied routing
+    setting that fails to parse is a bad request, not data to silently
+    drop — so this raises instead of returning None."""
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise RoutingError(400, f"'{field}' must be a number.")
+
+
+def _coerce_int(value: Any, *, field: str, default: int) -> int:
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise RoutingError(400, f"'{field}' must be a whole number.")
+
+
 @dataclass
 class RouteSettings:
     model_timeout_seconds: float = DEFAULT_MODEL_TIMEOUT_SECONDS
@@ -58,13 +83,27 @@ class RouteSettings:
     def from_payload(cls, payload: dict[str, Any] | None) -> "RouteSettings":
         payload = payload or {}
         return cls(
-            model_timeout_seconds=max(0.1, float(payload.get("modelTimeoutSeconds", DEFAULT_MODEL_TIMEOUT_SECONDS))),
-            overall_timeout_seconds=max(0.5, float(payload.get("overallTimeoutSeconds", DEFAULT_OVERALL_TIMEOUT_SECONDS))),
+            # Upper-clamped, not just lower-clamped: the Lambda's own platform
+            # timeout is 15s (backend/infra/variables.tf), and AIRouter.route's
+            # wait loop blocks for the full requested duration. An unclamped
+            # client-supplied overallTimeoutSeconds could ask this to outrun
+            # the Lambda's own hard timeout — a bare 502 with no body, instead
+            # of the RoutingError this code is otherwise designed to return.
+            # MAX_CLIENT_TIMEOUT_SECONDS leaves headroom under 15s for the
+            # consensus finalization call that can run after the wait loop.
+            model_timeout_seconds=min(MAX_CLIENT_TIMEOUT_SECONDS, max(
+                0.1, _coerce_float(payload.get("modelTimeoutSeconds"), field="modelTimeoutSeconds", default=DEFAULT_MODEL_TIMEOUT_SECONDS)
+            )),
+            overall_timeout_seconds=min(MAX_CLIENT_TIMEOUT_SECONDS, max(
+                0.5, _coerce_float(payload.get("overallTimeoutSeconds"), field="overallTimeoutSeconds", default=DEFAULT_OVERALL_TIMEOUT_SECONDS)
+            )),
             consensus_window_seconds=max(
-                0.0, float(payload.get("consensusWindowSeconds", DEFAULT_CONSENSUS_WINDOW_SECONDS))
+                0.0, _coerce_float(payload.get("consensusWindowSeconds"), field="consensusWindowSeconds", default=DEFAULT_CONSENSUS_WINDOW_SECONDS)
             ),
-            max_tokens=max(128, int(payload.get("maxTokens", DEFAULT_MAX_TOKENS))),
-            temperature=max(0.0, min(1.0, float(payload.get("temperature", DEFAULT_TEMPERATURE)))),
+            max_tokens=max(128, _coerce_int(payload.get("maxTokens"), field="maxTokens", default=DEFAULT_MAX_TOKENS)),
+            temperature=max(0.0, min(1.0, _coerce_float(
+                payload.get("temperature"), field="temperature", default=DEFAULT_TEMPERATURE
+            ))),
         )
 
 
@@ -79,7 +118,7 @@ class DataPackage:
     @classmethod
     def from_payload(cls, payload: dict[str, Any], index: int) -> "DataPackage":
         package_id = str(payload.get("id") or payload.get("name") or f"package-{index}")
-        size_bytes = int(payload.get("bytes") or payload.get("sizeBytes") or 0)
+        size_bytes = _coerce_int(payload.get("bytes") or payload.get("sizeBytes") or 0, field="bytes", default=0)
         return cls(
             package_id=package_id,
             size_bytes=max(0, size_bytes),
@@ -105,7 +144,7 @@ class RouteRequest:
 
         context = str(payload.get("context") or payload.get("background") or "").strip()
         packages = [DataPackage.from_payload(item, index) for index, item in enumerate(payload.get("packages", []), 1)]
-        declared_size = int(payload.get("packageSizeBytes") or 0)
+        declared_size = _coerce_int(payload.get("packageSizeBytes") or 0, field="packageSizeBytes", default=0)
         inferred_size = sum(package.size_bytes for package in packages)
         inline_size = len((question + context).encode("utf-8"))
         package_size_bytes = max(declared_size, inferred_size, inline_size)

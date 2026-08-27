@@ -4,18 +4,35 @@ import XCTest
 final class AriaCoachAgentRouterTests: XCTestCase {
 
     func testPinnedAgentWins() {
-        let ctx = AriaCoachAgentRouter.Context(pinned: .fuel, cycleAvailable: false)
+        let ctx = AriaCoachAgentRouter.Context(pinned: .life, cycleAvailable: false)
         XCTAssertEqual(
             AriaCoachAgentRouter.resolve(message: "what should I train today?", context: ctx),
-            .fuel
+            .life
         )
     }
 
-    func testSleepQuestionRoutesToRecover() {
+    func testSleepQuestionRoutesToSleep() {
         let ctx = AriaCoachAgentRouter.Context(pinned: nil, cycleAvailable: false)
         XCTAssertEqual(
             AriaCoachAgentRouter.resolve(message: "How did I sleep last night?", context: ctx),
-            .recover
+            .sleep
+        )
+    }
+
+    func testProgressQuestionRoutesToProgress() {
+        let ctx = AriaCoachAgentRouter.Context(pinned: nil, cycleAvailable: false)
+        XCTAssertEqual(
+            AriaCoachAgentRouter.resolve(message: "Am I making progress with my streak?", context: ctx),
+            .progress
+        )
+    }
+
+    func testNutritionQuestionRoutesToLife() {
+        // Fuel folded into Life -- nutrition vocabulary should route there now.
+        let ctx = AriaCoachAgentRouter.Context(pinned: nil, cycleAvailable: false)
+        XCTAssertEqual(
+            AriaCoachAgentRouter.resolve(message: "What should I eat for breakfast?", context: ctx),
+            .life
         )
     }
 
@@ -61,9 +78,11 @@ final class AriaCoachAgentRouterTests: XCTestCase {
             context: ctx
         )
         let kinds = Set(plan.workers.map(\.kind))
-        XCTAssertTrue(kinds.contains(.recover))
+        // "slept" now routes to the dedicated Sleep specialist rather than
+        // Recover, and "eat" routes to Life now that Fuel folded into it.
+        XCTAssertTrue(kinds.contains(.sleep))
         XCTAssertTrue(kinds.contains(.train))
-        XCTAssertTrue(kinds.contains(.fuel))
+        XCTAssertTrue(kinds.contains(.life))
         XCTAssertEqual(plan.workers.filter(\.isPrimary).count, 1)
     }
 
@@ -83,14 +102,15 @@ final class AriaCoachAgentRouterTests: XCTestCase {
     }
 
     func testPinLeadsButDoesNotBlockOthers() {
-        let ctx = AriaCoachAgentRouter.Context(pinned: .fuel, cycleAvailable: false)
+        let ctx = AriaCoachAgentRouter.Context(pinned: .progress, cycleAvailable: false)
         let plan = AriaCoachAgentRouter.plan(
             message: "what should I train after I eat",
             context: ctx
         )
-        XCTAssertEqual(plan.primary.kind, .fuel)
+        XCTAssertEqual(plan.primary.kind, .progress)
         XCTAssertTrue(plan.kinds.contains(.train))
-        XCTAssertTrue(plan.kinds.contains(.fuel))
+        XCTAssertTrue(plan.kinds.contains(.life))
+        XCTAssertTrue(plan.kinds.contains(.progress))
     }
 }
 

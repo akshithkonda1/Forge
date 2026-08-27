@@ -54,6 +54,15 @@ def handle_post_workout_log(user_id: str, body: dict) -> dict:
     if not started_at:
         raise RouteError(400, "'workout.startedAt' is required.")
 
+    # A malformed duration doesn't fail here — it fails later, in an
+    # unrelated read (scoring.py's training_load_trend does
+    # float(w.get("duration", 0))) once this log falls inside the trailing
+    # window. Reject it here instead of persisting something every future
+    # reader has to defend against.
+    duration = log.get("duration")
+    if duration is not None and (isinstance(duration, bool) or not isinstance(duration, (int, float))):
+        raise RouteError(400, "'workout.duration' must be a number.")
+
     item = {**keys.workout_log_key(user_id, started_at), **log}
     dynamodb.put_item(item)
     return ok({"workout": log})

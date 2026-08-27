@@ -57,7 +57,6 @@ struct ChatView: View {
     @State private var swipeReplyTarget:  ChatMessage? = nil
     @State private var showContextInspector = false
     @State private var proactiveInsight: String?
-    @State private var composerMode: AriaComposerMode = .chat
     @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
 
     // Cancellable timers for transient UI so nothing fires after teardown.
@@ -145,8 +144,8 @@ struct ChatView: View {
                 }
 
                 // ── Input ────────────────────────────────────────
-                if isTyping, composerMode == .research {
-                    AriaResearchProgress()
+                if isTyping, !store.lastCoachWorkers.isEmpty {
+                    AriaSpecialistActivityView(workers: store.lastCoachWorkers)
                         .padding(.horizontal, 16)
                         .padding(.bottom, 8)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -159,7 +158,6 @@ struct ChatView: View {
                     showQuickActions: $showQuickActions,
                     mood:             ariaMood,
                     replyTarget:      swipeReplyTarget,
-                    mode:             $composerMode,
                     onSend:           sendMessage,
                     onMicTap: {
                         choreographedHaptic(.voiceStart, mood: ariaMood)
@@ -297,14 +295,7 @@ struct ChatView: View {
         proactiveInsight = nil
 
         Task {
-            if composerMode == .research {
-                await store.sendMessage(
-                    "Research: \(trimmed)",
-                    ariaPayload: AriaComposerMode.researchPrompt(for: trimmed)
-                )
-            } else {
-                await store.sendMessage(trimmed)
-            }
+            await store.sendMessage(trimmed)
             isTyping = false
             if store.isInAriaFirstBond { showQuickActions = true }
             choreographedHaptic(.messageReceived, mood: ariaMood)

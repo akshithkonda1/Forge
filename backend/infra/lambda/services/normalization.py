@@ -44,8 +44,10 @@ def normalize_metric(metric: dict[str, Any]) -> dict[str, Any]:
     raw_unit = str(metric.get("unit", "")).lower().strip()
     value = metric.get("value", 0)
 
+    is_numeric = isinstance(value, (int, float)) and not isinstance(value, bool)
+
     canonical = _CANONICAL_UNIT.get(metric_type)
-    if canonical and metric_type in _CONVERSIONS:
+    if canonical and metric_type in _CONVERSIONS and is_numeric:
         factor = _CONVERSIONS[metric_type].get(raw_unit)
         if factor is not None and factor != 1.0:
             result["originalValue"] = value

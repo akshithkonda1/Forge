@@ -8,7 +8,14 @@ from pathlib import Path
 
 import _bootstrap  # noqa: F401
 
-from ai_router import AIRouter, BedrockGateway, MAX_PACKAGE_BYTES, RouteRequest  # noqa: E402
+from ai_router import (  # noqa: E402
+    AIRouter,
+    BedrockGateway,
+    MAX_CLIENT_TIMEOUT_SECONDS,
+    MAX_PACKAGE_BYTES,
+    RouteRequest,
+    RoutingError,
+)
 
 
 class FakeGateway:
@@ -142,6 +149,38 @@ class AIRouterTests(unittest.TestCase):
         self.assertEqual(response["finalAnswerSource"]["usedModelCount"], 3)
         self.assertEqual(len(gateway.calls), 4)
         self.assertEqual(response["selectedModel"]["slot"], 2)
+
+    def test_non_numeric_settings_raise_a_clean_400_not_a_bare_valueerror(self):
+        # float()/int() on a non-numeric client value used to raise
+        # ValueError/TypeError straight out of RouteSettings.from_payload,
+        # escaping to the handler's generic except-Exception -> 500 instead
+        # of this module's own RoutingError(400, ...) path.
+        for field in ("modelTimeoutSeconds", "overallTimeoutSeconds", "consensusWindowSeconds", "maxTokens", "temperature"):
+            with self.assertRaises(RoutingError, msg=field) as ctx:
+                RouteRequest.from_payload({"question": "hi", "settings": {field: "not-a-number"}})
+            self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_non_numeric_package_size_raises_a_clean_400(self):
+        with self.assertRaises(RoutingError) as ctx:
+            RouteRequest.from_payload({"question": "hi", "packageSizeBytes": "lots"})
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_non_numeric_package_bytes_field_raises_a_clean_400(self):
+        with self.assertRaises(RoutingError) as ctx:
+            RouteRequest.from_payload({"question": "hi", "packages": [{"id": "p1", "bytes": "lots"}]})
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_client_timeout_settings_are_clamped_to_an_upper_bound(self):
+        # AIRouter.route's wait loop blocks for the full requested duration,
+        # and the Lambda's own platform timeout is 15s -- an unclamped
+        # overallTimeoutSeconds could ask this to outrun that hard timeout
+        # (a bare 502, no body) instead of returning cleanly.
+        request = RouteRequest.from_payload({
+            "question": "hi",
+            "settings": {"modelTimeoutSeconds": 999, "overallTimeoutSeconds": 999},
+        })
+        self.assertLessEqual(request.settings.model_timeout_seconds, MAX_CLIENT_TIMEOUT_SECONDS)
+        self.assertLessEqual(request.settings.overall_timeout_seconds, MAX_CLIENT_TIMEOUT_SECONDS)
 
     def test_router_uses_s3_preview_when_inline_preview_is_missing(self):
         gateway = FakeGateway(

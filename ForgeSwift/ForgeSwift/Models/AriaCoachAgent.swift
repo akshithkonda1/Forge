@@ -12,53 +12,66 @@ enum AriaCoachAgent: String, Codable, CaseIterable, Identifiable {
     case aria
     case train
     case recover
-    case fuel
+    case sleep
     case life
+    case progress
     case cycle
 
     var id: String { rawValue }
 
+    /// The five modes ARIA tracks and, when pinned, focuses specifically on
+    /// — exactly what the user named. `.aria` is the generalist/no-pin
+    /// state (already covered by "Auto" in the pin UI) and `.cycle` stays a
+    /// full specialist while deliberately not one of the five: consent-
+    /// gated, reachable by name or by the settings picker, never a headline
+    /// mode.
+    static let trackedModes: [AriaCoachAgent] = [.train, .life, .recover, .progress, .sleep]
+
     var label: String {
         switch self {
-        case .aria:    return "ARIA"
-        case .train:   return "Train"
-        case .recover: return "Recover"
-        case .fuel:    return "Fuel"
-        case .life:    return "Life"
-        case .cycle:   return "Cycle"
+        case .aria:     return "ARIA"
+        case .train:    return "Train"
+        case .recover:  return "Recover"
+        case .sleep:    return "Sleep"
+        case .life:     return "Life"
+        case .progress: return "Progress"
+        case .cycle:    return "Cycle"
         }
     }
 
     var roleLine: String {
         switch self {
-        case .aria:    return "Your coach. Brings in a specialist when it helps."
-        case .train:   return "Today’s session from how you slept and how ready you are."
-        case .recover: return "Sleep, HRV, and when to keep it easy."
-        case .fuel:    return "Meals, protein, water — enough to train, not a diet plan."
-        case .life:    return "Work, travel, places, the rest of the day."
-        case .cycle:   return "How to train and show up around a cycle. Never a chart."
+        case .aria:     return "Your coach. Brings in a specialist when it helps."
+        case .train:    return "Today’s session from how you slept and how ready you are."
+        case .recover:  return "HRV, soreness, and whether today’s a push day or an easy one."
+        case .sleep:    return "Sleep debt, consistency, and what last night actually cost you."
+        case .life:     return "Work, travel, meals, water — training fits the day you already have."
+        case .progress: return "Trends over weeks, not today’s snapshot — streaks, PRs, what’s actually moving."
+        case .cycle:    return "How to train and show up around a cycle. Never a chart."
         }
     }
 
     var icon: String {
         switch self {
-        case .aria:    return "sparkles"
-        case .train:   return "figure.strengthtraining.traditional"
-        case .recover: return "moon.zzz.fill"
-        case .fuel:    return "fork.knife"
-        case .life:    return "leaf.fill"
-        case .cycle:   return "heart.text.square.fill"
+        case .aria:     return "sparkles"
+        case .train:    return "figure.strengthtraining.traditional"
+        case .recover:  return "moon.zzz.fill"
+        case .sleep:    return "bed.double.fill"
+        case .life:     return "leaf.fill"
+        case .progress: return "chart.line.uptrend.xyaxis"
+        case .cycle:    return "heart.text.square.fill"
         }
     }
 
     var accent: Color {
         switch self {
-        case .aria:    return .ember
-        case .train:   return Color(hex: "FF5A00")
-        case .recover: return Color(hex: "A855F7")
-        case .fuel:    return Color(hex: "22C55E")
-        case .life:    return Color(hex: "38BDF8")
-        case .cycle:   return Color(hex: "F43F5E")
+        case .aria:     return .ember
+        case .train:    return Color(hex: "FF5A00")
+        case .recover:  return Color(hex: "A855F7")
+        case .sleep:    return Color(hex: "6366F1")
+        case .life:     return Color(hex: "38BDF8")
+        case .progress: return Color(hex: "F59E0B")
+        case .cycle:    return Color(hex: "F43F5E")
         }
     }
 
@@ -73,11 +86,13 @@ enum AriaCoachAgent: String, Codable, CaseIterable, Identifiable {
         case .train:
             return "You are ARIA’s Train agent. Write today’s session from readiness. No XP, no quests."
         case .recover:
-            return "You are ARIA’s Recover agent. Sleep and HRV first. Protect recovery when the numbers are soft."
-        case .fuel:
-            return "You are ARIA’s Fuel agent. Protein, water, the next meal. Not a calorie cop."
+            return "You are ARIA’s Recover agent. HRV and soreness first. Protect recovery when the numbers are soft."
+        case .sleep:
+            return "You are ARIA’s Sleep agent. Debt, consistency, and bedtime — not just last night’s number."
         case .life:
-            return "You are ARIA’s Life agent. Training fits the day they already have."
+            return "You are ARIA’s Life agent. Training and meals both fit the day they already have. Not a calorie cop."
+        case .progress:
+            return "You are ARIA’s Progress agent. Zoom out — weeks, not today. Streaks, trends, what’s actually changing."
         case .cycle:
             return """
             You are ARIA’s Cycle agent. Lifestyle coaching only — not medical care, not contraception. \
@@ -151,8 +166,9 @@ enum AriaCoachAgentRouter {
 
         if matches(lower, Self.cycleNeedles) { add(.cycle) }
         if matches(lower, Self.recoverNeedles) { add(.recover) }
-        if matches(lower, Self.fuelNeedles) { add(.fuel) }
+        if matches(lower, Self.sleepNeedles) { add(.sleep) }
         if matches(lower, Self.lifeNeedles) { add(.life) }
+        if matches(lower, Self.progressNeedles) { add(.progress) }
         if matches(lower, Self.trainNeedles) { add(.train) }
 
         if let pinned = context.pinned, isAvailable(pinned, context: context) {
@@ -163,7 +179,7 @@ enum AriaCoachAgentRouter {
 
         let primaryKind: AriaCoachAgent = {
             if let pinned = context.pinned, kinds.contains(pinned) { return pinned }
-            for preferred in [AriaCoachAgent.train, .recover, .cycle, .fuel, .life, .aria] {
+            for preferred in [AriaCoachAgent.train, .recover, .sleep, .cycle, .progress, .life, .aria] {
                 if kinds.contains(preferred) { return preferred }
             }
             return kinds[0]
@@ -229,7 +245,7 @@ enum AriaCoachAgentRouter {
 
         var extras: [AriaCoachAgent] = []
         for domain in surfaced {
-            guard let kind = Self.agent(for: domain) else { continue }
+            let kind = Self.agent(for: domain)
             guard isAvailable(kind, context: context) else { continue }
             guard !keywordPlan.kinds.contains(kind) else { continue }
             extras.append(kind)
@@ -257,18 +273,19 @@ enum AriaCoachAgentRouter {
     }
 
     /// Intent domains are the resolver's vocabulary; coach agents are the
-    /// product's. Several domains map onto one specialist — `.sleep` and
-    /// `.readiness` are both Recover — and `.progress` has no specialist of its
-    /// own, which is why this returns an optional rather than inventing one.
-    static func agent(for domain: AriaIntentDomain) -> AriaCoachAgent? {
+    /// product's. `.sleep` and `.readiness` used to both collapse onto
+    /// Recover — now that Sleep is its own specialist, every domain maps
+    /// onto a real agent, so this is total rather than partial.
+    static func agent(for domain: AriaIntentDomain) -> AriaCoachAgent {
         switch domain {
-        case .training:            return .train
-        case .sleep, .readiness:   return .recover
-        case .nutrition:           return .fuel
-        case .lifestyle:           return .life
-        case .cycle:               return .cycle
-        case .body:                return .recover
-        case .progress:            return nil
+        case .training:  return .train
+        case .sleep:     return .sleep
+        case .readiness: return .recover
+        case .nutrition: return .life
+        case .lifestyle: return .life
+        case .cycle:     return .cycle
+        case .body:      return .recover
+        case .progress:  return .progress
         }
     }
 
@@ -330,9 +347,18 @@ enum AriaCoachAgentRouter {
         }
     }
 
+    /// A read first, then the numbers — and only sometimes the numbers. Same
+    /// discipline `AriaVoiceEngine.statusLine` was rewritten to this session:
+    /// a raw field dump ("HRV 48, sleep 6.8h") states nothing, it just
+    /// reports; a coach who has actually looked at the data says what it
+    /// means. Each specialist correlates two or more of its own signals into
+    /// one statement rather than listing them, and cites the underlying
+    /// numbers only some of the time (`rng.chance`), so a five-specialist
+    /// turn doesn't read as five parallel data dumps.
     @MainActor
     private static func brief(for worker: AriaCoachWorker, store: AppStore, alreadySaid: String) -> String? {
         let said = alreadySaid.lowercased()
+        var rng = AriaSeededRNG(seed: briefSeed(for: worker))
         switch worker.kind {
         case .train:
             guard let session = store.todayWorkout else { return nil }
@@ -340,17 +366,44 @@ enum AriaCoachAgentRouter {
             if said.contains(session.name.lowercased()) { return nil }
             return "Train · \(line)"
         case .recover:
-            let hours = store.dailyMetrics.totalSleep > 0
-                ? String(format: "%.1fh sleep", Double(store.dailyMetrics.totalSleep) / 60.0)
-                : nil
-            let hrv = store.dailyMetrics.hrv > 0 ? "HRV \(store.dailyMetrics.hrv)ms" : nil
-            let bits = [hours, hrv].compactMap { $0 }
-            guard !bits.isEmpty else { return nil }
-            return "Recover · \(bits.joined(separator: ", ")). You’re at \(store.readiness.overall)."
-        case .fuel:
-            return nil
+            let hrv = store.dailyMetrics.hrv
+            guard hrv > 0 else { return nil }
+            let r = store.readiness.overall
+            let read: String
+            switch r {
+            case ..<40:   read = "your nervous system needs the day off"
+            case 40..<55: read = "you're still catching up"
+            case 55..<70: read = "workable, not sharp"
+            default:      read = "you're clear to push"
+            }
+            let line = "Recover · \(read.prefix(1).uppercased() + read.dropFirst())."
+            return rng.chance(0.4) ? "\(line) HRV \(hrv)ms, readiness \(r)." : line
+        case .sleep:
+            // EnergySchedule already turns rolling sleep history into a
+            // plain-language debt headline ("Square on sleep" / "2.3 hours
+            // of sleep debt") — reused rather than reimplemented, same as
+            // the deleted AriaResearchBrief used to.
+            guard let debt = EnergySchedule.make(from: store.sleepData)?.debtHeadline else { return nil }
+            guard !said.contains(debt.lowercased()) else { return nil }
+            return "Sleep · \(debt)"
         case .life:
-            return nil
+            guard let tag = AriaContextStore.shared.context.lifestyleTags.first else { return nil }
+            guard !said.contains(tag.lowercased()) else { return nil }
+            return rng.pick([
+                "Life · \(tag) today — a fast protein hit beats skipping the next meal.",
+                "Life · \(tag) today. Water and the next meal still count, even on a day like this.",
+            ])
+        case .progress:
+            var bits: [String] = []
+            if store.currentStreak >= 3 {
+                bits.append("a \(store.currentStreak)-day streak")
+            }
+            if let recentPR = store.personalRecords.sorted(by: { $0.date > $1.date }).first {
+                bits.append("a PR on \(recentPR.exercise)")
+            }
+            guard !bits.isEmpty else { return nil }
+            let joined = bits.count > 1 ? bits.joined(separator: " and ") : bits[0]
+            return "Progress · You’ve got \(joined) going — that’s the trend that matters, not any one session."
         case .cycle:
             let cycle = MenstrualHealthStore.shared
             if let subject = worker.subject, !subject.isEmpty {
@@ -370,21 +423,43 @@ enum AriaCoachAgentRouter {
         }
     }
 
+    /// Seeded from the worker + today's date, not a session-scoped seed —
+    /// brief() runs identically on both the local and live-backend paths,
+    /// so it can't depend on LocalTestingOrchestrator's session state.
+    private static func briefSeed(for worker: AriaCoachWorker) -> UInt64 {
+        var hasher = Hasher()
+        hasher.combine(worker.id)
+        hasher.combine(Calendar.current.startOfDay(for: Date()))
+        return UInt64(bitPattern: Int64(hasher.finalize()))
+    }
+
     private static let trainNeedles = [
         "workout", "session", "lift", "squat", "train today", "today's plan",
         "todays plan", "exercise", "gym", "run today", "what should i train",
     ]
+    // Mirrors AriaIntentResolver.keywords[.readiness] — sleep-specific terms
+    // (below) moved out to their own needle list rather than staying here,
+    // once Sleep became its own specialist instead of sharing Recover.
     private static let recoverNeedles = [
-        "sleep", "slept", "tired", "hrv", "recover", "sore", "rest day", "wind down",
-        "can't sleep", "cant sleep", "insomnia",
+        "hrv", "recover", "sore", "rest day", "tired", "exhausted", "drained",
     ]
-    private static let fuelNeedles = [
+    // Mirrors AriaIntentResolver.keywords[.sleep].
+    private static let sleepNeedles = [
+        "sleep", "slept", "rest", "bed", "wind down", "can't sleep",
+        "cant sleep", "insomnia", "nap",
+    ]
+    // Fuel folded into Life: nutrition terms join the lifestyle ones rather
+    // than staying a separate specialist.
+    private static let lifeNeedles = [
         "eat", "food", "protein", "hungry", "meal", "water", "hydrat",
         "calories", "lunch", "dinner", "breakfast",
-    ]
-    private static let lifeNeedles = [
         "calendar", "busy", "travel", "workday", "restaurant", "free time",
         "places", "tonight's plan", "tonights plan",
+    ]
+    // Mirrors AriaIntentResolver's .progress phrases/keywords.
+    private static let progressNeedles = [
+        "progress", "gains", "stronger", "streak", "improving", "plateau",
+        "getting stronger", "how am i progressing", "is this working",
     ]
     private static let cycleNeedles = [
         "period", "luteal", "follicular", "pms", "cramp", "cycle",

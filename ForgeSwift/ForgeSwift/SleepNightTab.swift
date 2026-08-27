@@ -286,9 +286,14 @@ struct SleepScoreHeroCard: View {
     @State private var progress: CGFloat = 0
     @State private var appeared = false
 
-    var latest: SleepData { store.sleepData[0] }
-    var score: Int { min(100, max(0, latest.score)) }
+    // Dead code today (never instantiated -- see the identical note on
+    // SleepInsightCards.swift's SleepTimelineView). Kept in the same
+    // graceful-empty shape as the live SleepLastNightDetail rather than the
+    // unguarded sleepData[0] this used to trap on.
+    var latest: SleepData? { store.sleepData.first }
+    var score: Int { latest.map { min(100, max(0, $0.score)) } ?? 0 }
     var totalHrs: String {
+        guard let latest else { return "0h 0m" }
         let h = Int(latest.totalHours); let m = Int((latest.totalHours - Double(h)) * 60)
         return "\(h)h \(m)m"
     }
@@ -304,6 +309,24 @@ struct SleepScoreHeroCard: View {
     let stroke: CGFloat = 13
 
     var body: some View {
+        if let latest {
+            heroContent(latest)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("No night on file")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                Text("Connect Apple Health and last night's score will land here.")
+                    .font(.system(size: 14))
+                    .foregroundColor(.textSecondary)
+            }
+            .padding(24)
+            .background(Color.surface)
+            .cornerRadius(24)
+        }
+    }
+
+    private func heroContent(_ latest: SleepData) -> some View {
         VStack(spacing: 20) {
             // Ring
             ZStack {

@@ -31,6 +31,16 @@ def handle_post_sleep_sessions(user_id: str, body: dict) -> dict:
         from responses import RouteError
         raise RouteError(400, "'session.date' is required.")
 
+    # A malformed score doesn't fail here — it fails later, in an unrelated
+    # read (readiness.py, coach/*, progress/summary all do
+    # float(latest.get("score", 75))) once this record is the "latest" one.
+    # Reject it here instead of persisting something every future reader has
+    # to defend against.
+    score = session.get("score")
+    if score is not None and (isinstance(score, bool) or not isinstance(score, (int, float))):
+        from responses import RouteError
+        raise RouteError(400, "'session.score' must be a number.")
+
     item = {**keys.sleep_key(user_id, date, source), **session}
     dynamodb.put_item(item)
     return ok({"session": session})

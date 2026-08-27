@@ -186,17 +186,6 @@ final class AriaService: ObservableObject {
     ) async throws -> AriaResponse {
         let trainerContext = store.makeTrainerContext()
 
-        if text.hasPrefix("[DEEP RESEARCH]") {
-            return AriaResponse(
-                message: AriaResearchBrief.write(question: text, sleepHistory: store.sleepData, readiness: store.readiness.overall),
-                richCard: nil,
-                suggestedActions: ["What should I do tonight?", "Build today's plan", "How does this change training?"],
-                contextUpdates: ["relationship_level": min(10, rich.relationshipLevel + 1)],
-                confidence: 0.86,
-                memoryReference: contextStore.memoryReference(for: text)
-            )
-        }
-
         // Prefer the dynamic plan engine for any training / theme request so
         // Solo Leveling (and siblings) always get a real themed session.
         let local: TrainerResponse
@@ -331,38 +320,6 @@ enum AriaOnboardingGuide {
             message += "\n\nReminder: for any conditions you shared, I only provide lifestyle guidance — not diagnosis, treatment, or medical solutions."
         }
         return message
-    }
-}
-
-/// Local structured brief when the chat backend is offline. Remote ARIA
-/// still gets the same prompt and writes a fuller answer.
-enum AriaResearchBrief {
-    static func write(question: String, sleepHistory: [SleepData], readiness: Int) -> String {
-        let sleep = sleepHistory.first
-        let sleepLine = sleep.map {
-            "Last night was \(EnergySchedule.durationLabel($0.totalHours)), score \($0.score)."
-        } ?? "No last-night sleep is on file."
-        let debt = EnergySchedule.make(from: sleepHistory)?.debtHeadline ?? "Sleep need is still learning."
-        let asked = question
-            .replacingOccurrences(of: "[DEEP RESEARCH]", with: "")
-            .replacingOccurrences(of: "Question:", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        return """
-        What we know
-        Readiness is \(readiness). \(sleepLine) \(debt)
-
-        What the evidence says
-        Recovery, training load, and the next session should be read together — a single score is not a diagnosis. I will not invent studies you cannot check.
-
-        What to do this week
-        Keep the next hard session on a high-energy window. Protect the wind-down you already have. Ask me for a plan if you want the session written out.
-
-        What we should not claim
-        This brief is lifestyle coaching from your Forge data, not medical advice.
-
-        \(asked.isEmpty ? "" : "You asked: \(asked.prefix(180))")
-        """
     }
 }
 

@@ -1,26 +1,39 @@
 import SwiftUI
 
-struct AriaResearchProgress: View {
-    private let steps = [
-        "Reading your context",
-        "Checking the evidence",
-        "Writing the brief",
-    ]
-    @State private var step = 0
+/// Makes the multi-specialist routing visible while it's happening, not
+/// just afterward in ChatHeaderView's caption. This takes over the UI slot
+/// AriaResearchProgress used to occupy between send and reply.
+///
+/// All workers show "thinking" for the actual duration of the wait, rather
+/// than a staggered per-chip reveal: supportingBriefs() runs every
+/// non-primary brief() concurrently over synchronous, near-instant local
+/// computation, so real per-worker timing would flip every chip to "done"
+/// within microseconds of each other. Faking a staggered reveal would be
+/// less honest than showing "these specialists are being consulted" for
+/// the real wait and then simply resolving to the reply.
+struct AriaSpecialistActivityView: View {
+    let workers: [AriaCoachWorker]
+    @State private var pulse = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Deep research")
+            Text(workers.count > 1 ? "Consulting your specialists" : "Thinking")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(.aurora)
-            ForEach(Array(steps.enumerated()), id: \.offset) { i, label in
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(i <= step ? Color.aurora : Color.white.opacity(0.12))
-                        .frame(width: 7, height: 7)
-                    Text(label)
-                        .font(.system(size: 13, weight: i == step ? .semibold : .medium))
-                        .foregroundColor(i <= step ? .textPrimary : .textTertiary)
+            FlowLayout(spacing: 8) {
+                ForEach(workers) { worker in
+                    HStack(spacing: 6) {
+                        Image(systemName: worker.kind.icon)
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(worker.label)
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(worker.kind.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(worker.kind.accent.opacity(pulse ? 0.22 : 0.1))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(worker.kind.accent.opacity(0.3), lineWidth: 1))
                 }
             }
         }
@@ -30,11 +43,8 @@ struct AriaResearchProgress: View {
         .cornerRadius(16)
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.aurora.opacity(0.25), lineWidth: 1))
         .onAppear {
-            Task {
-                for i in 1..<steps.count {
-                    try? await Task.sleep(nanoseconds: 900_000_000)
-                    await MainActor.run { withAnimation { step = i } }
-                }
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                pulse = true
             }
         }
     }
@@ -51,7 +61,11 @@ private struct CoachAgentChipRow: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 pinChip(nil, title: "Auto", icon: "sparkles")
-                ForEach(AriaCoachAgent.allCases) { agent in
+                // The five modes ARIA tracks, plus Cycle -- reachable here
+                // too, still consent-gated, just not one of the five
+                // headline modes. Not .allCases: that would also surface a
+                // redundant direct pin to .aria, which "Auto" already covers.
+                ForEach(AriaCoachAgent.trackedModes + [.cycle]) { agent in
                     if AriaCoachAgentRouter.isAvailable(agent, context: context) {
                         pinChip(agent, title: agent.label, icon: agent.icon)
                     }
@@ -96,7 +110,6 @@ struct ChatInputAreaView: View {
     @Binding var showQuickActions:  Bool
     let mood:         ARIAMood
     let replyTarget:  ChatMessage?
-    @Binding var mode: AriaComposerMode
     let onSend:       (String) -> Void
     let onMicTap:     () -> Void
     @State private var charCount: Int = 0
@@ -108,33 +121,6 @@ struct ChatInputAreaView: View {
     var body: some View {
         VStack(spacing: 0) {
             Rectangle().fill(Color.borderColor.opacity(0.3)).frame(height: 0.5)
-
-            // Smart quick chips (mood-aware, scroll horizontal)
-            HStack(spacing: 8) {
-                ForEach(AriaComposerMode.allCases, id: \.self) { item in
-                    Button {
-                        withAnimation(.easeOut(duration: 0.18)) { mode = item }
-                        UISelectionFeedbackGenerator().selectionChanged()
-                    } label: {
-                        Text(item.title)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(mode == item ? .textPrimary : .textTertiary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(mode == item ? Color.white.opacity(0.10) : Color.clear)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-                Spacer()
-                if mode == .research {
-                    Text("Longer brief. Sources in your data.")
-                        .font(.system(size: 11))
-                        .foregroundColor(.textTertiary)
-                }
-            }
-            .padding(.horizontal, 18)
-            .padding(.top, 10)
 
             if !store.isInAriaFirstBond {
                 CoachAgentChipRow()
@@ -217,7 +203,7 @@ struct ChatInputAreaView: View {
                             radius: isInputFocused ? 12 : 3, y: isInputFocused ? 3 : 1
                         )
 
-                    TextField(mode.placeholder, text: $inputText, axis: .vertical)
+                    TextField("Ask ARIA anything…", text: $inputText, axis: .vertical)
                         .font(.system(size: 15.5))
                         .foregroundColor(.textPrimary)
                         .tint(mood.accentColor)

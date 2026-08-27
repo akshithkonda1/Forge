@@ -188,6 +188,32 @@ class WatchDebriefRouteTests(unittest.TestCase):
         )
         self.assertEqual(response["statusCode"], 200)
 
+    def test_non_numeric_inner_context_fields_degrade_gracefully(self):
+        # hoursSinceLastWorkout/readinessOverall/readinessConfidence feed
+        # numeric comparisons inside watch_debrief (<=, <) and used to raise
+        # TypeError on a non-numeric value -- unlike minutes/
+        # heartRateSettleBPM above, which already went through
+        # _optional_float at the top level.
+        response = handler(
+            event(
+                "POST",
+                "/watch/aria/suggest",
+                {
+                    "practice": "bodyScan",
+                    "minutes": 5.0,
+                    "context": {
+                        "hoursSinceLastWorkout": "not-a-number",
+                        "readinessOverall": "also-not-a-number",
+                        "readinessConfidence": "still-not-a-number",
+                    },
+                },
+            ),
+            None,
+        )
+        self.assertEqual(response["statusCode"], 200)
+        payload = response_body(response)
+        self.assertTrue(payload["message"])
+
 
 if __name__ == "__main__":
     unittest.main()
