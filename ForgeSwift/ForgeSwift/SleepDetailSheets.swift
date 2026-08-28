@@ -193,6 +193,42 @@ struct AISleepChatView: View {
     }
 }
 
+struct AISleepPredictionDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.background.ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Tonight's Recommendation").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text("10:15 PM").font(.system(size: 40, weight: .black, design: .rounded)).foregroundColor(.steel)
+                                Text("bedtime").font(.system(size: 16)).foregroundColor(.textSecondary)
+                            }
+                            Text("Wake at 6:15 AM for 8 hours of sleep").font(.system(size: 14)).foregroundColor(.textSecondary)
+                        }
+                        .padding(20).background(Color.surface).cornerRadius(20)
+
+    private func send() {
+        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !isSending else { return }
+        input = ""
+        turns.append(Turn(isUser: true, text: text))
+        isSending = true
+        Task {
+            let response = await store.ariaInsight(prompt: text, agent: .sleep)
+            let reply = response?.proseSummary ?? response?.message
+                ?? "I couldn't reach a sleep read just now — try again in a moment."
+            turns.append(Turn(isUser: false, text: reply))
+            AriaContextStore.shared.addInsight("Sleep chat: asked \"\(text)\" — \(reply)")
+            isSending = false
+        }
+    }
+}
+
 struct SleepPersonalizationSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var hkService: HealthKitSleepService

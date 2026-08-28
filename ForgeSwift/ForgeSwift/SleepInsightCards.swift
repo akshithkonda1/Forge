@@ -88,37 +88,11 @@ struct AISleepPredictionCard: View {
     }
 }
 
-/// Real last-night architecture (efficiency, awake time, deep sleep — all
-/// already on `SleepData`, no fabrication) plus an optional real photo read
-/// of the room via `/sleep/environment-check`. No room sensors exist in this
-/// app, so there is nothing to fake a temperature/humidity/light/noise
-/// reading from; a photo is the one real signal available for "the space."
-struct AISleepEnvironmentView: View {
+struct RecoveryTrendsView: View {
     @EnvironmentObject var store: AppStore
-    @EnvironmentObject var hkService: HealthKitSleepService
-    @State private var appeared = false
-    @State private var pickerItem: PhotosPickerItem?
-    @State private var pickedPreview: UIImage?
 
-    private var night: SleepData? { store.sleepData.first }
-
-    private var evaluation: (label: String, detail: String, tint: Color)? {
-        guard let night, night.totalHours > 0 else { return nil }
-        if night.efficiencyPercent >= 90 {
-            return ("This room is working", "\(night.efficiencyPercent)% efficiency and \(night.awakeMinutes)m awake last night — whatever the setup is, it's holding.", .success)
-        }
-        if night.awakeMinutes >= 30 {
-            return ("Something's interrupting the night", "\(night.awakeMinutes) minutes awake last night is the bigger signal here — often light, noise, or temperature rather than the mattress itself.", .warning)
-        }
-        return ("Room looks fine, sleep's still adjusting", "\(night.efficiencyPercent)% efficiency last night. Deep sleep and consistency usually move before efficiency does.", .steel)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                Image(systemName: "house.fill").font(.system(size: 14)).foregroundColor(.steel)
-                Text("Sleep Environment").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-            }
+    private let mockHRV: [Double] = [44, 46, 52, 48, 41, 55, 50]
+    private let mockRHR: [Double] = [62, 60, 58, 61, 64, 57, 59]
 
             if let evaluation {
                 VStack(alignment: .leading, spacing: 4) {
