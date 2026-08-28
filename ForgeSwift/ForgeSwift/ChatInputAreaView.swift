@@ -54,7 +54,7 @@ private struct CoachAgentChipRow: View {
     @EnvironmentObject var store: AppStore
 
     private var context: AriaCoachAgentRouter.Context {
-        AriaCoachAgentRouter.context(pinned: store.pinnedCoachAgent)
+        AriaCoachAgentRouter.context(pinned: store.pinnedCoachAgent, activeTab: store.activeTab)
     }
 
     var body: some View {

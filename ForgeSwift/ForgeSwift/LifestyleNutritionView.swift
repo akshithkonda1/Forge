@@ -132,6 +132,7 @@ struct MacroRingsCard: View {
 
 struct AINutritionCoachCard: View {
     @ObservedObject var vm: LifestyleViewModel
+    @EnvironmentObject var store: AppStore
     @State private var tipIndex = 0
     @State private var sparkleScale: Double = 1.0
     @State private var appeared = false
@@ -180,6 +181,7 @@ struct AINutritionCoachCard: View {
             }
             withAnimation(.easeOut(duration: 0.4)) { appeared = true }
         }
+        .task { await vm.refreshNutritionCoachNote(store: store) }
     }
 
     private var coachHeader: some View {
@@ -297,6 +299,7 @@ struct AINutritionCoachCard: View {
 
 struct AIMealSuggestionsCard: View {
     @ObservedObject var vm: LifestyleViewModel
+    @EnvironmentObject var store: AppStore
     @State private var setIndex = 0
 
     private var suggestions: [AIMealSuggestion] {
@@ -383,6 +386,7 @@ struct AIMealSuggestionsCard: View {
         .background(Color.surface)
         .cornerRadius(20)
         .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
+        .task { await vm.refreshMealNote(store: store) }
     }
 }
 

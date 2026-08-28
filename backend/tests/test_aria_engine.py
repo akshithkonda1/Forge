@@ -240,6 +240,11 @@ class SystemPromptTests(unittest.TestCase):
         self.assertIn("prose_summary", prompt)   # output contract
         self.assertIn(aria_engine.SCHEMA_VERSION, aria_engine.ARIA_SYSTEM_PROMPT)
 
+    def test_prompt_leads_with_answers_not_questions(self):
+        prompt = aria_engine.ARIA_SYSTEM_PROMPT.lower()
+        self.assertIn("lead every reply with the best answer", prompt)
+        self.assertIn("more questions than answers has failed", prompt)
+
     def test_user_prompt_injects_the_ground_truth_block(self):
         prompt = aria_engine.build_user_prompt("should I train?", full_context())
         self.assertIn("USER MODEL", prompt)
@@ -443,14 +448,14 @@ class CoachAgentTests(unittest.TestCase):
     def test_unknown_agent_falls_back_to_aria(self):
         self.assertEqual(aria_engine.normalize_coach_agent(None), "aria")
         self.assertEqual(aria_engine.normalize_coach_agent("wizard"), "aria")
-        self.assertEqual(aria_engine.normalize_coach_agent("Train"), "train")
+        self.assertEqual(aria_engine.normalize_coach_agent("Workout"), "workout")
 
     def test_agents_list_is_unbounded_and_deduped(self):
         roster = aria_engine.normalize_coach_agents(
-            ["train", "recover", "train", "fuel", "life", "cycle", "ghost"],
-            "train",
+            ["workout", "recovery", "workout", "sleep", "lifestyle", "cycle", "ghost"],
+            "workout",
         )
-        self.assertEqual(roster, ["train", "recover", "fuel", "life", "cycle"])
+        self.assertEqual(roster, ["workout", "recovery", "sleep", "lifestyle", "cycle"])
         self.assertEqual(aria_engine.normalize_coach_agents(None), ["aria"])
 
     def test_cycle_agent_prompt_forbids_fertility_and_diagnosis(self):
@@ -479,12 +484,12 @@ class CoachAgentTests(unittest.TestCase):
             "should I train today?",
             full_context(),
             converse=fake_converse,
-            agent="recover",
+            agent="recovery",
         )
-        self.assertEqual(resp["agent"], "recover")
-        self.assertEqual(resp["agents"], ["recover"])
-        self.assertIn("AGENT — Recover", captured["system"])
-        self.assertNotIn("AGENT — Train", captured["system"])
+        self.assertEqual(resp["agent"], "recovery")
+        self.assertEqual(resp["agents"], ["recovery"])
+        self.assertIn("AGENT — Recovery", captured["system"])
+        self.assertNotIn("AGENT — Workout", captured["system"])
 
     def test_multi_agent_turn_is_still_one_system_prompt(self):
         captured = {}
@@ -505,12 +510,12 @@ class CoachAgentTests(unittest.TestCase):
             "I slept badly — what should I train and eat?",
             full_context(),
             converse=fake_converse,
-            agents=["recover", "train", "fuel"],
+            agents=["sleep", "workout", "lifestyle"],
         )
-        self.assertEqual(resp["agents"], ["recover", "train", "fuel"])
-        self.assertIn("AGENT — Recover", captured["system"])
-        self.assertIn("AGENT — Train", captured["system"])
-        self.assertIn("AGENT — Fuel", captured["system"])
+        self.assertEqual(resp["agents"], ["sleep", "workout", "lifestyle"])
+        self.assertIn("AGENT — Sleep", captured["system"])
+        self.assertIn("AGENT — Workout", captured["system"])
+        self.assertIn("AGENT — Lifestyle", captured["system"])
         self.assertIn("several specialists in the room", captured["system"])
         self.assertIn("Do not call further models", captured["system"])
 

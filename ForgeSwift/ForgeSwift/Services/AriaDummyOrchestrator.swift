@@ -45,17 +45,17 @@ enum AriaDummyOrchestrator {
 
         let prose: String
         switch agent {
-        case .recover:
+        case .recovery:
             prose = "\(you) at \(r). \(sleepLine.prefix(1).uppercased() + sleepLine.dropFirst()). \(hrvLine). Keep today easy.\(packNote)"
-        case .train:
+        case .workout:
             if let session = store.todayWorkout {
-                prose = "\(you) at \(r). Train · \(displaySessionName(session.name)), \(session.duration) min · \(session.intensity.label).\(packNote)"
+                prose = "\(you) at \(r). Workout · \(displaySessionName(session.name)), \(session.duration) min · \(session.intensity.label).\(packNote)"
             } else {
                 prose = "\(you) at \(r). I’ll write a session from how you live — no production model on this Device Hub run."
             }
         case .sleep:
             prose = "\(you) at \(r). \(sleepLine.prefix(1).uppercased() + sleepLine.dropFirst()).\(packNote)"
-        case .life:
+        case .lifestyle:
             prose = "\(you) at \(r). Fit training into the day you already have — protein and water next, not a diet plan.\(packNote)"
         case .progress:
             prose = "\(you) at \(r). Zooming out on trend, not just today — no production model on this Device Hub run.\(packNote)"

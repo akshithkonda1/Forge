@@ -94,51 +94,74 @@ struct SleepStreakDetailView: View {
 struct AISleepChatView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var store: AppStore
-    @EnvironmentObject var hkService: HealthKitSleepService
-    @State private var input = ""
 
-    private var ariaContext: String {
-        hkService.buildARIAContext(sleepData: store.sleepData, store: store)
+    private struct Turn: Identifiable {
+        let id = UUID()
+        let isUser: Bool
+        let text: String
     }
+
+    @State private var input = ""
+    @State private var turns: [Turn] = []
+    @State private var isSending = false
 
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.background.ignoresSafeArea()
-                VStack {
-                    ScrollView {
-                        VStack(spacing: 16) {
-                            Text("Ask me anything about your sleep patterns, recovery, or how to optimize your rest for better performance.")
-                                .font(.system(size: 14)).foregroundColor(.textSecondary).multilineTextAlignment(.center).lineSpacing(5).padding(.horizontal, 24).padding(.top, 16)
-                            if !store.sleepData.isEmpty {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("ARIA Context (ready for backend)")
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(.steel)
-                                        .tracking(0.5)
-                                    Text(ariaContext)
-                                        .font(.system(size: 11, design: .monospaced))
-                                        .foregroundColor(.textTertiary)
-                                        .lineSpacing(4)
+                VStack(spacing: 0) {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 14) {
+                                if turns.isEmpty {
+                                    Text("Ask me anything about your sleep patterns, recovery, or how to optimize your rest for better performance.")
+                                        .font(.system(size: 14)).foregroundColor(.textSecondary)
+                                        .multilineTextAlignment(.center).lineSpacing(5)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.horizontal, 24).padding(.top, 16)
                                 }
-                                .padding(14)
-                                .background(Color.surface)
-                                .cornerRadius(12)
-                                .padding(.horizontal, 16)
+                                ForEach(turns) { turn in
+                                    HStack {
+                                        if turn.isUser { Spacer(minLength: 40) }
+                                        Text(turn.text)
+                                            .font(.system(size: 14))
+                                            .foregroundColor(turn.isUser ? .white : .textPrimary)
+                                            .padding(.horizontal, 14).padding(.vertical, 10)
+                                            .background(turn.isUser ? Color.steel : Color.surface)
+                                            .cornerRadius(16)
+                                        if !turn.isUser { Spacer(minLength: 40) }
+                                    }
+                                    .id(turn.id)
+                                }
+                                if isSending {
+                                    HStack {
+                                        ProgressView().tint(.steel)
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 16)
+                                }
                             }
+                            .padding(.horizontal, 16).padding(.bottom, 12)
+                        }
+                        .onChange(of: turns.count) { _, _ in
+                            guard let last = turns.last else { return }
+                            withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                         }
                     }
-                    Spacer()
+                    Spacer(minLength: 0)
                     HStack(spacing: 12) {
                         TextField("Ask about your sleep…", text: $input)
                             .font(.system(size: 15)).foregroundColor(.textPrimary).tint(.steel)
                             .padding(.horizontal, 16).padding(.vertical, 12)
                             .background(Color.surfaceElevated).cornerRadius(14)
-                        Button {} label: {
+                            .onSubmit(send)
+                        Button(action: send) {
                             Circle().fill(Color.steel).frame(width: 44, height: 44)
                                 .overlay(Image(systemName: "arrow.up").font(.system(size: 16, weight: .bold)).foregroundColor(.white))
                                 .shadow(color: Color.steel.opacity(0.35), radius: 8, y: 3)
                         }
+                        .opacity(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending ? 0.4 : 1)
+                        .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending)
                     }
                     .padding(.horizontal, 16).padding(.bottom, 20)
                 }
@@ -150,6 +173,22 @@ struct AISleepChatView: View {
                     Button("Done") { dismiss() }.foregroundColor(.steel).fontWeight(.semibold)
                 }
             }
+        }
+    }
+
+    private func send() {
+        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !isSending else { return }
+        input = ""
+        turns.append(Turn(isUser: true, text: text))
+        isSending = true
+        Task {
+            let response = await store.ariaInsight(prompt: text, agent: .sleep)
+            let reply = response?.proseSummary ?? response?.message
+                ?? "I couldn't reach a sleep read just now — try again in a moment."
+            turns.append(Turn(isUser: false, text: reply))
+            AriaContextStore.shared.addInsight("Sleep chat: asked \"\(text)\" — \(reply)")
+            isSending = false
         }
     }
 }

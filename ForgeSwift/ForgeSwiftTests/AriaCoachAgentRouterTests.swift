@@ -4,10 +4,21 @@ import XCTest
 final class AriaCoachAgentRouterTests: XCTestCase {
 
     func testPinnedAgentWins() {
-        let ctx = AriaCoachAgentRouter.Context(pinned: .life, cycleAvailable: false)
+        let ctx = AriaCoachAgentRouter.Context(pinned: .lifestyle, cycleAvailable: false)
         XCTAssertEqual(
             AriaCoachAgentRouter.resolve(message: "what should I train today?", context: ctx),
-            .life
+            .lifestyle
+        )
+    }
+
+    func testRecoveryQuestionRoutesToRecovery() {
+        // Recovery has no page of its own (folded into the Lifestyle tab's
+        // UI) but stays a full pinnable/tracked mode -- that's a UI-placement
+        // decision, not a routing demotion.
+        let ctx = AriaCoachAgentRouter.Context(pinned: nil, cycleAvailable: false)
+        XCTAssertEqual(
+            AriaCoachAgentRouter.resolve(message: "my HRV is tanked, I'm exhausted", context: ctx),
+            .recovery
         )
     }
 
@@ -27,20 +38,49 @@ final class AriaCoachAgentRouterTests: XCTestCase {
         )
     }
 
-    func testNutritionQuestionRoutesToLife() {
-        // Fuel folded into Life -- nutrition vocabulary should route there now.
+    func testNutritionQuestionRoutesToLifestyle() {
+        // Fuel folded into Lifestyle -- nutrition vocabulary should route there now.
         let ctx = AriaCoachAgentRouter.Context(pinned: nil, cycleAvailable: false)
         XCTAssertEqual(
             AriaCoachAgentRouter.resolve(message: "What should I eat for breakfast?", context: ctx),
-            .life
+            .lifestyle
         )
     }
 
-    func testWorkoutQuestionRoutesToTrain() {
+    func testWorkoutQuestionRoutesToWorkout() {
         let ctx = AriaCoachAgentRouter.Context(pinned: nil, cycleAvailable: false)
         XCTAssertEqual(
             AriaCoachAgentRouter.resolve(message: "What should I train today?", context: ctx),
-            .train
+            .workout
+        )
+    }
+
+    func testTabHintBiasesAmbiguousMessage() {
+        // No pin, no keyword match: an ambiguous "hey" should fall back to
+        // the tab the user is actually on rather than the bare generalist.
+        let ctx = AriaCoachAgentRouter.Context(pinned: nil, cycleAvailable: false, tabHint: .sleep)
+        XCTAssertEqual(
+            AriaCoachAgentRouter.resolve(message: "hey", context: ctx),
+            .sleep
+        )
+    }
+
+    func testExplicitPinBeatsTabHint() {
+        // Pinning stays sacrosanct: navigating to Sleep must not silently
+        // override a Progress pin.
+        let ctx = AriaCoachAgentRouter.Context(pinned: .progress, cycleAvailable: false, tabHint: .sleep)
+        XCTAssertEqual(
+            AriaCoachAgentRouter.resolve(message: "hey", context: ctx),
+            .progress
+        )
+    }
+
+    func testKeywordMatchBeatsTabHint() {
+        // A clear keyword hit stays authoritative over the soft tab fallback.
+        let ctx = AriaCoachAgentRouter.Context(pinned: nil, cycleAvailable: false, tabHint: .lifestyle)
+        XCTAssertEqual(
+            AriaCoachAgentRouter.resolve(message: "How did I sleep last night?", context: ctx),
+            .sleep
         )
     }
 
@@ -79,10 +119,10 @@ final class AriaCoachAgentRouterTests: XCTestCase {
         )
         let kinds = Set(plan.workers.map(\.kind))
         // "slept" now routes to the dedicated Sleep specialist rather than
-        // Recover, and "eat" routes to Life now that Fuel folded into it.
+        // Recovery, and "eat" routes to Lifestyle now that Fuel folded into it.
         XCTAssertTrue(kinds.contains(.sleep))
-        XCTAssertTrue(kinds.contains(.train))
-        XCTAssertTrue(kinds.contains(.life))
+        XCTAssertTrue(kinds.contains(.workout))
+        XCTAssertTrue(kinds.contains(.lifestyle))
         XCTAssertEqual(plan.workers.filter(\.isPrimary).count, 1)
     }
 
@@ -108,8 +148,8 @@ final class AriaCoachAgentRouterTests: XCTestCase {
             context: ctx
         )
         XCTAssertEqual(plan.primary.kind, .progress)
-        XCTAssertTrue(plan.kinds.contains(.train))
-        XCTAssertTrue(plan.kinds.contains(.life))
+        XCTAssertTrue(plan.kinds.contains(.workout))
+        XCTAssertTrue(plan.kinds.contains(.lifestyle))
         XCTAssertTrue(plan.kinds.contains(.progress))
     }
 }
@@ -143,8 +183,8 @@ final class AriaFirstHealthBriefingTests: XCTestCase {
         XCTAssertTrue(result.message.contains("Apple Health"))
         XCTAssertTrue(result.message.contains("7.2"))
         XCTAssertTrue(result.message.contains("HRV 52"))
-        XCTAssertTrue(result.message.contains("Train"))
-        XCTAssertTrue(result.message.contains("Recover"))
+        XCTAssertTrue(result.message.contains("Workout"))
+        XCTAssertTrue(result.message.contains("Recovery"))
         XCTAssertTrue(result.actions.contains("Who are you?"))
         XCTAssertTrue(result.actions.contains("What should I train?"))
     }

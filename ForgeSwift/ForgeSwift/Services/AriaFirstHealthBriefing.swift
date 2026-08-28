@@ -68,7 +68,7 @@ enum AriaFirstHealthBriefing {
     }
 
     static func identityShort() -> String {
-        "I’m ARIA, your lifestyle coach. I bring in Train, Recover, Fuel, and Life when a question needs them. Cycle only if you share that with me. I’m not a doctor."
+        "I’m ARIA, your lifestyle coach. I bring in Workout, Recovery, Sleep, Lifestyle, and Progress when a question needs them. Cycle only if you share that with me. I’m not a doctor."
     }
 
     static func welcome(name: String, healthConnected: Bool, snapshot: Snapshot) -> Result {
@@ -115,10 +115,11 @@ enum AriaFirstHealthBriefing {
         """
         I’m a lifestyle coach inside Forge, not a game and not a clinic. One of me, several specialists:
 
-        • Train — today’s session from how you slept and how ready you are
-        • Recover — sleep, HRV, when to keep it easy
-        • Fuel — protein and water, not a diet plan
-        • Life — work, travel, the day you already have
+        • Workout — today’s session from how you slept and how ready you are
+        • Recovery — HRV, sleep debt, when to keep it easy
+        • Sleep — last night, tonight’s setup, the trend behind it
+        • Lifestyle — work, travel, food and water, the day you already have
+        • Progress — the trend behind the numbers, not just today’s reading
         • Cycle — how to train or show up around a cycle, only if you share that with me
 
         I read Apple Health. I don’t invent fertility charts. I don’t diagnose.

@@ -40,25 +40,32 @@ _NEEDLES = {
         "period", "luteal", "follicular", "pms", "cramp", "cycle",
         "support her", "her period", "daughter", "how to show up", "show up",
     ),
-    "recover": (
-        "sleep", "slept", "tired", "hrv", "recover", "sore", "rest day",
-        "wind down", "can't sleep", "cant sleep", "insomnia",
+    "recovery": (
+        "hrv", "recover", "sore", "rest day", "tired", "exhausted", "drained",
     ),
-    "fuel": (
+    "sleep": (
+        "sleep", "slept", "rest", "bed", "wind down", "can't sleep",
+        "cant sleep", "insomnia", "nap",
+    ),
+    # Fuel folded into Lifestyle: nutrition terms join the lifestyle ones
+    # rather than staying a separate specialist.
+    "lifestyle": (
         "eat", "food", "protein", "hungry", "meal", "water", "hydrat",
         "calories", "lunch", "dinner", "breakfast",
-    ),
-    "life": (
         "calendar", "busy", "travel", "workday", "restaurant", "free time",
         "places", "tonight's plan", "tonights plan",
     ),
-    "train": (
+    "progress": (
+        "progress", "gains", "stronger", "streak", "improving", "plateau",
+        "getting stronger", "how am i progressing", "is this working",
+    ),
+    "workout": (
         "workout", "session", "lift", "squat", "train today", "today's plan",
         "todays plan", "exercise", "gym", "run today", "what should i train",
     ),
 }
 
-_KINDS = ("cycle", "recover", "fuel", "life", "train", "aria")
+_KINDS = ("cycle", "recovery", "sleep", "lifestyle", "progress", "workout", "aria")
 
 
 @dataclass(frozen=True)
@@ -160,7 +167,7 @@ def plan_workers(
         kinds = ["aria"]
 
     primary = pinned if pinned in kinds else next(
-        (k for k in ("train", "recover", "cycle", "fuel", "life", "aria") if k in kinds),
+        (k for k in ("workout", "recovery", "sleep", "cycle", "progress", "lifestyle", "aria") if k in kinds),
         kinds[0],
     )
 
@@ -193,19 +200,33 @@ def supporting_briefs(plan: Plan, context) -> list[str]:
     for worker in plan.workers:
         if worker.is_primary:
             continue
-        if worker.kind == "recover":
+        if worker.kind == "recovery":
             lines.append(
-                f"Recover · {today.total_sleep_hours:.1f}h sleep, HRV {today.hrv}ms, "
+                f"Recovery · {today.total_sleep_hours:.1f}h sleep, HRV {today.hrv}ms, "
                 f"readiness {today.readiness_score}."
             )
-        elif worker.kind == "train" and today.workout_logged:
+        elif worker.kind == "workout" and today.workout_logged:
             lines.append(
-                f"Train · last {today.workout_type} {today.workout_duration_minutes} min."
+                f"Workout · last {today.workout_type} {today.workout_duration_minutes} min."
+            )
+        elif worker.kind == "sleep":
+            debt = context.sleep_debt_7d_hours
+            if debt <= 0.5:
+                lines.append("Sleep · squared away over the last week.")
+            else:
+                lines.append(f"Sleep · {debt:.1f}h of debt over the last week.")
+        elif worker.kind == "lifestyle":
+            lines.append(
+                f"Lifestyle · {today.active_calories} active cal today — water and "
+                "the next meal still count."
+            )
+        elif worker.kind == "progress" and context.training_streak >= 2:
+            lines.append(
+                f"Progress · a {context.training_streak}-day training streak — "
+                "the trend that matters."
             )
         elif worker.kind == "cycle" and worker.subject:
             lines.append(f"Cycle · {worker.subject}: show up, don’t diagnose.")
-        elif worker.kind == "fuel":
-            lines.append(f"Fuel · {today.active_calories} active cal logged.")
     return lines
 
 

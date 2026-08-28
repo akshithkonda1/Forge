@@ -76,15 +76,26 @@ enum AriaModelTier: String {
     }
 }
 
-/// On-device ARIA for testing: stateful across a session, no network, no model.
+/// On-device ARIA for testing: stateful across a session, no network to
+/// Forge's own cloud.
 ///
-/// This wraps `RuleBasedResponseGenerator` and `AriaVoiceEngine` rather than
-/// reimplementing either. The keyword dispatch in `generateResponse` already is
-/// a domain agent per area ARIA covers; what it has never been is *stateful* —
+/// This wraps `RuleBasedResponseGenerator`/`FoundationModelsResponseGenerator`
+/// and `AriaVoiceEngine` rather than reimplementing any of them. The keyword
+/// dispatch in `RuleBasedResponseGenerator.generateResponse` already is a
+/// domain agent per area ARIA covers; what it has never been is *stateful* —
 /// every turn starts from nothing, so ARIA cannot notice you have asked about
 /// sleep four times, and cannot remember you told it about a bad knee. That
 /// memorylessness, not the phrasing, is what makes a local session feel canned.
-/// Everything here exists to fix that and nothing else.
+///
+/// The other half of "canned": until now this hardcoded `RuleBasedResponseGenerator`
+/// for the actual prose, even on a device where Apple Intelligence is available
+/// and `AppStore` was already correctly preferring `FoundationModelsResponseGenerator`
+/// for the exact same job. A template dispatcher was answering every real
+/// message in production (`AriaOperatingMode.current` never leaves
+/// `.localTesting` anywhere in this codebase) while a real on-device model sat
+/// unused two files away. Fixed below: same preference `AppStore` already
+/// applies, no network required either way — Foundation Models runs fully
+/// on-device.
 ///
 /// Deliberately holds no `URLSession`, no `baseURL`, and no reference to
 /// `AriaService`'s transport — this orchestrator itself never calls Forge's
@@ -127,7 +138,19 @@ final class LocalTestingOrchestrator {
         case equipment    // "no gym this week"
     }
 
-    private let generator = RuleBasedResponseGenerator()
+    /// Domain classification (`.domain(of:)`) is a `RuleBasedResponseGenerator`-
+    /// specific method, not part of `TrainerResponseGenerator` — every turn
+    /// needs it for affinity tracking/recall regardless of which generator
+    /// below actually writes the reply, so it stays a fixed, separate instance.
+    private let domainClassifier = RuleBasedResponseGenerator()
+
+    /// The actual prose generator. Prefers on-device Apple Intelligence via
+    /// `FoundationModelsResponseGenerator` — the same preference `AppStore`
+    /// already applies for every other ARIA surface — falling back to
+    /// `RuleBasedResponseGenerator` only where Foundation Models isn't
+    /// available. Neither call touches Forge's own network.
+    private let generator: TrainerResponseGenerator
+    private let usingFoundationModels: Bool
 
     /// Re-derived per session so a tester does not see identical phrasing every
     /// launch. `AriaSeededRNG` is the same generator the voice layer uses.
@@ -135,6 +158,19 @@ final class LocalTestingOrchestrator {
 
     private init() {
         seed = Self.freshSeed()
+        #if canImport(FoundationModels)
+        let foundationModelsGenerator = FoundationModelsResponseGenerator()
+        if foundationModelsGenerator.isAvailable {
+            generator = foundationModelsGenerator
+            usingFoundationModels = true
+        } else {
+            generator = domainClassifier
+            usingFoundationModels = false
+        }
+        #else
+        generator = domainClassifier
+        usingFoundationModels = false
+        #endif
     }
 
     /// Call on login / session start.
@@ -174,7 +210,7 @@ final class LocalTestingOrchestrator {
 
         await simulateThinking(tier: tier)
 
-        let domain = generator.domain(of: text)
+        let domain = domainClassifier.domain(of: text)
         affinity[domain, default: 0] += 1
         captureFacts(from: text)
         exchanges += 1
@@ -225,10 +261,11 @@ final class LocalTestingOrchestrator {
         let specialists = routed.count > 1
             ? "\(agent.label) + \(routed.count - 1) specialist\(routed.count - 1 == 1 ? "" : "s")"
             : agent.label
+        let engine = usingFoundationModels ? "on-device model" : "on-device rules"
 
         return AriaResponse(
-            confidenceReason: "Local testing — \(specialists) · would route to slot \(tier.slot) "
-                + "(\(tier.displayName)) · no cloud · familiarity \(familiarity)/10.",
+            confidenceReason: "Local testing — \(specialists) · \(engine) · would route to slot "
+                + "\(tier.slot) (\(tier.displayName)) · no cloud · familiarity \(familiarity)/10.",
             proseSummary: base.content,
             message: parts.joined(separator: "\n\n"),
             richCard: nil,
@@ -241,8 +278,13 @@ final class LocalTestingOrchestrator {
     // MARK: - Simulated thinking
 
     /// Instant replies are the single biggest tell that something is canned
-    /// rather than considered, so the wait is real even though the work is not.
+    /// rather than considered, so the wait is real even though the work is not
+    /// — *when* the work isn't real. `FoundationModelsResponseGenerator` runs
+    /// genuine on-device inference with its own real latency; stacking this
+    /// synthetic delay on top of that would just make an honest wait feel
+    /// sluggish for no reason, so it's skipped in that case.
     private func simulateThinking(tier: AriaModelTier) async {
+        guard !usingFoundationModels else { return }
         var rng = AriaSeededRNG(seed: seed &+ UInt64(exchanges &* 7 &+ 1))
         // Agentic turns fan out to several specialists before anything comes
         // back, so they take visibly longer. A local mode where the hard

@@ -371,7 +371,7 @@ extension AppStore {
 
             let plan = AriaCoachAgentRouter.plan(
                 message: outbound,
-                context: AriaCoachAgentRouter.context(pinned: pinnedCoachAgent),
+                context: AriaCoachAgentRouter.context(pinned: pinnedCoachAgent, activeTab: activeTab),
                 signals: intentSignals(for: outbound)
             )
             lastRoutedCoachAgent = plan.primary.kind
@@ -463,18 +463,24 @@ extension AppStore {
         }
     }
 
-    /// One-shot ARIA insight for non-chat surfaces (e.g. Lifestyle cards).
-    /// Uses the same remote-first path as `sendMessage` (with on-device fallback)
-    /// but does NOT append to the chat transcript. Returns nil only if both the
-    /// remote call and local generation throw — callers should fall back to their
-    /// existing local content in that case.
-    func ariaInsight(prompt: String, voiceMode: Bool = false) async -> AriaResponse? {
+    /// One-shot ARIA insight for non-chat surfaces (e.g. Lifestyle cards, a
+    /// tab's own focused "Ask ARIA" sheet). Uses the same remote-first path as
+    /// `sendMessage` (with on-device fallback) but does NOT append to the main
+    /// chat transcript. Returns nil only if both the remote call and local
+    /// generation throw — callers should fall back to their existing local
+    /// content in that case.
+    ///
+    /// `agent` defaults to the generalist; pass the tab's own specialist (e.g.
+    /// `.sleep` from the Sleep tab) for a genuinely focused conversation
+    /// instead of a generic one.
+    func ariaInsight(prompt: String, voiceMode: Bool = false, agent: AriaCoachAgent = .aria) async -> AriaResponse? {
         try? await AriaService.shared.sendMessage(
             prompt,
             store: self,
             localGenerator: responseGenerator,
             voiceMode: voiceMode,
-            mode: "insight"
+            mode: "insight",
+            agent: agent
         )
     }
 

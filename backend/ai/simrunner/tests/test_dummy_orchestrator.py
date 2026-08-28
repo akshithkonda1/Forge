@@ -37,7 +37,9 @@ class DummyOrchestratorTests(unittest.TestCase):
     def test_multi_intent_spawns_several_workers(self):
         plan = dummy.plan_workers("I slept badly — what should I train and eat?")
         kinds = {w.kind for w in plan.workers}
-        self.assertTrue({"recover", "train", "fuel"} <= kinds)
+        # "slept" routes to the dedicated Sleep specialist rather than
+        # Recovery, and "eat" routes to Lifestyle now that Fuel folded into it.
+        self.assertTrue({"sleep", "workout", "lifestyle"} <= kinds)
         self.assertEqual(sum(1 for w in plan.workers if w.is_primary), 1)
 
     def test_cycle_one_worker_per_person(self):
@@ -54,7 +56,7 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertEqual(row["reasoning_source"], dummy.REASONING_SOURCE)
         self.assertEqual(row["model"], dummy.STUB_MODEL)
         self.assertEqual(row["user_id"], "test-user-00000000")
-        self.assertIn("train", row["agents"])
+        self.assertIn("workout", row["agents"])
         self.assertTrue(row["prose_summary"].strip())
 
     def test_same_seed_is_deterministic(self):

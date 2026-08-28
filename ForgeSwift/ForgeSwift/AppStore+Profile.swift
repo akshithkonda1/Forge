@@ -60,6 +60,20 @@ extension AppStore {
         }
     }
 
+    /// Pushes the same training-pattern read `BehavioralInsightView` already
+    /// shows on the Progress tab into ARIA's shared context, so the main chat
+    /// can reference it instead of reasoning about the identical numbers from
+    /// scratch. Guards against re-pushing the same read every time the tab is
+    /// revisited — only a genuinely new insight (trend changed, more history)
+    /// is worth another line in `lastInsights`.
+    @MainActor
+    func shareProgressInsightIfNeeded() {
+        guard let insight = primaryTrainingInsight else { return }
+        let text = "Progress: \(insight.title) — \(insight.observation) \(insight.recommendation)"
+        guard AriaContextStore.shared.context.lastInsights.first != text else { return }
+        AriaContextStore.shared.addInsight(text)
+    }
+
     func updateNotificationSettings(_ settings: AppNotificationSettings) {
         notificationSettings = settings   // didSet persists + reschedules
     }
