@@ -23,6 +23,11 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         Theme the language when the user wants Solo Leveling / other narrative styles, but keep plans real and safe.
         Vary phrasing every turn — never sound like a script repeating itself.
         One next move. Never a new personality.
+        Lead every reply with the best answer the data supports — never open with
+        only a question. If something is genuinely missing, give your best answer
+        from what you have, then ask at most one focused follow-up in the same
+        reply. A reply with more questions than answers has failed. Have a full
+        conversation, not an interview.
         """
         
         self.session = LanguageModelSession(instructions: instructions)

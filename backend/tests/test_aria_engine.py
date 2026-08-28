@@ -240,6 +240,11 @@ class SystemPromptTests(unittest.TestCase):
         self.assertIn("prose_summary", prompt)   # output contract
         self.assertIn(aria_engine.SCHEMA_VERSION, aria_engine.ARIA_SYSTEM_PROMPT)
 
+    def test_prompt_leads_with_answers_not_questions(self):
+        prompt = aria_engine.ARIA_SYSTEM_PROMPT.lower()
+        self.assertIn("lead every reply with the best answer", prompt)
+        self.assertIn("more questions than answers has failed", prompt)
+
     def test_user_prompt_injects_the_ground_truth_block(self):
         prompt = aria_engine.build_user_prompt("should I train?", full_context())
         self.assertIn("USER MODEL", prompt)
