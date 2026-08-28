@@ -202,15 +202,23 @@ class BedrockGateway:
         max_tokens: int,
         temperature: float,
         request_timeout_seconds: float | None = None,
+        image_bytes: bytes | None = None,
+        image_format: str = "jpeg",
     ) -> dict[str, Any]:
         client = self._get_bedrock_client(request_timeout_seconds=request_timeout_seconds)
+        # Image block first, per Bedrock's own Converse examples — the model
+        # reads the attachment before the instruction that references it.
+        content: list[dict[str, Any]] = []
+        if image_bytes is not None:
+            content.append({"image": {"format": image_format, "source": {"bytes": image_bytes}}})
+        content.append({"text": user_prompt})
         response = client.converse(
             modelId=model_id,
             system=[{"text": system_prompt}],
             messages=[
                 {
                     "role": "user",
-                    "content": [{"text": user_prompt}],
+                    "content": content,
                 }
             ],
             inferenceConfig={

@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import UIKit
 import ForgeCore
 
 /// Chronotype-aware sleep intelligence: HealthKit ingestion, scoring, adaptive wake/sunrise, and ARIA context.
@@ -10,6 +11,22 @@ final class HealthKitSleepService: ObservableObject {
     @Published var userProfile: UserSleepProfile
     @Published var currentSunriseConfig: AdaptiveSunriseConfig
     @Published private(set) var isAuthorized = false
+
+    /// Lazy ARIA notes for the Sleep tab's cards — one per card, fired only
+    /// once that card actually appears, guarded on the note already being
+    /// set. Same pattern as `LifestyleViewModel`'s `refreshMealNote` family:
+    /// nil means "show the local heuristic," never a fake "LIVE" badge.
+    @Published var aiBedtimeNote: String?
+    @Published var aiGoalsNote: String?
+    @Published var aiRecommendationsNote: String?
+
+    /// Result of the last room-photo read from `/sleep/environment-check`.
+    /// nil after a call means the backend declined (Bedrock off, or the
+    /// call failed) — the card falls back to its local, data-driven read
+    /// rather than inventing an assessment of a photo nobody analyzed.
+    @Published var environmentAssessment: String?
+    @Published private(set) var isAnalyzingEnvironment = false
+    @Published var environmentCheckError: String?
 
     private let healthKit = HealthKitManager.shared
 
@@ -231,39 +248,12 @@ final class HealthKitSleepService: ObservableObject {
         ]
     }
 
-    // MARK: - Achievements
+    // MARK: - Streak
 
-    func computeAchievements(from sleepData: [SleepData]) -> [SleepAchievementState] {
-        let streak = sleepData.prefix(while: { $0.score >= 75 }).count
-        let avgDeep = sleepData.prefix(7).map(\.deepMinutes).reduce(0, +) / max(1, min(7, sleepData.count))
-        let perfectWeek = sleepData.prefix(7).count == 7 && sleepData.prefix(7).allSatisfy { $0.score >= 85 }
-
-        return [
-            SleepAchievementState(
-                id: "perfect-week",
-                title: "Perfect Week",
-                description: "7 days of 85+ scores",
-                unlocked: perfectWeek,
-                progress: Double(min(streak, 7)) / 7,
-                colorName: "ember"
-            ),
-            SleepAchievementState(
-                id: "deep-sleeper",
-                title: "Deep Sleeper",
-                description: "90+ min deep avg",
-                unlocked: avgDeep >= 90,
-                progress: min(1, Double(avgDeep) / 90),
-                colorName: "steel"
-            ),
-            SleepAchievementState(
-                id: "consistency",
-                title: "Consistency",
-                description: "7-day good-sleep streak",
-                unlocked: streak >= 7,
-                progress: Double(min(streak, 7)) / 7,
-                colorName: "success"
-            ),
-        ]
+    /// Consecutive most-recent nights scoring 75+. `sleepData` arrives
+    /// newest-first, so this is a straight prefix count, not a scan.
+    func computeGoodSleepStreak(from sleepData: [SleepData]) -> Int {
+        sleepData.prefix(while: { $0.score >= 75 }).count
     }
 
     // MARK: - Recommendations
@@ -346,6 +336,90 @@ final class HealthKitSleepService: ObservableObject {
         }
 
         return recs
+    }
+
+    // MARK: - ARIA notes
+
+    /// Lazy ARIA "why tonight" note for `AISleepPredictionCard` — the numeric
+    /// bedtime itself comes from `EnergySchedule` (real circadian modeling,
+    /// no LLM needed); this is the natural-language reasoning layered on top.
+    func refreshBedtimeNote(store: AppStore, schedule: EnergySchedule) async {
+        guard aiBedtimeNote == nil else { return }
+        let prompt = """
+        Tonight's bedtime works out to \(EnergySchedule.clockLabel(schedule.phase.onsetHour)), \
+        with \(String(format: "%.1f", schedule.debtHours))h of sleep debt over the last \
+        \(schedule.nightsUsed) nights. In one sentence, why does tonight specifically call for that time?
+        """
+        let resp = await store.ariaInsight(prompt: prompt, agent: .sleep)
+        aiBedtimeNote = resp.map { $0.proseSummary ?? $0.message }
+    }
+
+    /// Lazy ARIA coaching note for `AIPersonalizedGoalsView` — the goal
+    /// progress bars are already real (`computeAdaptiveGoals`); this adds
+    /// the "so what" ARIA would say about where they stand.
+    func refreshGoalsNote(store: AppStore, goals: [AdaptiveSleepGoal]) async {
+        guard aiGoalsNote == nil, let behind = goals.min(by: { ($0.current / max(0.01, $0.target)) < ($1.current / max(0.01, $1.target)) }) else { return }
+        let prompt = """
+        Of my sleep goals, \(behind.title) is furthest off — \(String(format: "%.1f", behind.current)) \
+        of \(String(format: "%.1f", behind.target)) \(behind.unit). In one sentence, what's the single \
+        highest-leverage change to close that gap?
+        """
+        let resp = await store.ariaInsight(prompt: prompt, agent: .sleep)
+        aiGoalsNote = resp.map { $0.proseSummary ?? $0.message }
+    }
+
+    /// Lazy ARIA note for `AISmartRecommendationsView` — layered on top of
+    /// the real chronotype-driven `chronotypeRecommendations(debt:)` list,
+    /// same "heuristic list + one ARIA sentence" shape as the goals note.
+    func refreshRecommendationsNote(store: AppStore, debt: Double) async {
+        guard aiRecommendationsNote == nil else { return }
+        let prompt = """
+        \(chronotypeInsightPrefix())and \(String(format: "%.1f", debt))h of sleep debt this week, \
+        what's the one thing I should actually change tonight? One sentence, specific, not generic advice.
+        """
+        let resp = await store.ariaInsight(prompt: prompt, agent: .sleep)
+        aiRecommendationsNote = resp.map { $0.proseSummary ?? $0.message }
+    }
+
+    // MARK: - Environment (vision)
+
+    /// Sends a real photo of the room to `/sleep/environment-check`, which
+    /// now actually reads it (`BedrockGateway.converse` carries an image
+    /// content block; see `ai_router.py`). No fabricated readings — a nil
+    /// `environmentAssessment` after this call means the backend declined
+    /// (Bedrock off, or the call failed), and the card shows its local,
+    /// data-driven read instead rather than inventing a description of the room.
+    func analyzeSleepEnvironment(image: UIImage) async {
+        isAnalyzingEnvironment = true
+        defer { isAnalyzingEnvironment = false }
+
+        guard let jpeg = image.downscaledJPEG(maxDimension: 1024, quality: 0.55) else {
+            environmentCheckError = "Couldn't read that photo — try another."
+            return
+        }
+
+        do {
+            guard let url = URL(string: "sleep/environment-check", relativeTo: AriaService.shared.baseURL) else {
+                throw ForgeAPI.Failure.notConfigured
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 30
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["image_base64": jpeg.base64EncodedString()])
+
+            let (data, _) = try await ForgeAPI.send(request)
+            let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+            guard (json["available"] as? Bool) == true, let text = json["assessment"] as? String else {
+                environmentAssessment = nil
+                environmentCheckError = nil
+                return
+            }
+            environmentAssessment = text
+            environmentCheckError = nil
+        } catch {
+            environmentCheckError = (error as? ForgeAPI.Failure)?.userMessage ?? error.localizedDescription
+        }
     }
 
     // MARK: - Profile

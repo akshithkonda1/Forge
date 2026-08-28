@@ -212,32 +212,19 @@ struct AISleepPredictionDetailView: View {
                         }
                         .padding(20).background(Color.surface).cornerRadius(20)
 
-                        VStack(alignment: .leading, spacing: 14) {
-                            Text("Why This Time?").font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
-                            VStack(spacing: 10) {
-                                ForEach([("figure.strengthtraining.traditional", "Heavy workout tomorrow — need optimal recovery"),
-                                         ("chart.line.uptrend.xyaxis", "Your 90-min sleep cycles align best with 10 PM"),
-                                         ("heart.fill", "HRV trends show earlier sleep improves your recovery by 18%")], id: \.0) { icon, text in
-                                    HStack(spacing: 12) {
-                                        Image(systemName: icon).font(.system(size: 14)).foregroundColor(.steel).frame(width: 20)
-                                        Text(text).font(.system(size: 13)).foregroundColor(.textPrimary)
-                                    }
-                                    .padding(14).background(Color.surfaceElevated).cornerRadius(12)
-                                }
-                            }
-                        }
-                        .padding(20).background(Color.surface).cornerRadius(20)
-                    }
-                    .padding(16)
-                }
-            }
-            .navigationTitle("Sleep Prediction")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.foregroundColor(.steel).fontWeight(.semibold)
-                }
-            }
+    private func send() {
+        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !isSending else { return }
+        input = ""
+        turns.append(Turn(isUser: true, text: text))
+        isSending = true
+        Task {
+            let response = await store.ariaInsight(prompt: text, agent: .sleep)
+            let reply = response?.proseSummary ?? response?.message
+                ?? "I couldn't reach a sleep read just now — try again in a moment."
+            turns.append(Turn(isUser: false, text: reply))
+            AriaContextStore.shared.addInsight("Sleep chat: asked \"\(text)\" — \(reply)")
+            isSending = false
         }
     }
 }

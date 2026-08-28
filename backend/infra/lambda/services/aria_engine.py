@@ -1439,6 +1439,33 @@ def _default_converse(model_id: str, system_prompt: str, user_prompt: str) -> st
     return str(result.get("answer") or "")
 
 
+def _default_converse_vision(
+    model_id: str, system_prompt: str, user_prompt: str, image_bytes: bytes, image_format: str
+) -> str:
+    """Same shared gateway as `_default_converse`, with an image content block
+    attached. Bedrock's Converse operation accepts image blocks on the same
+    models already selected via `LIVE_MODEL_IDS` — no separate vision model."""
+    global _gateway
+    gateway = _gateway
+    if gateway is None:
+        with _gateway_lock:
+            if _gateway is None:
+                from ai_router import BedrockGateway  # lazy: avoids boto3 at module load
+
+                _gateway = BedrockGateway()
+            gateway = _gateway
+    result = gateway.converse(
+        model_id=model_id,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        max_tokens=LIVE_MAX_TOKENS,
+        temperature=LIVE_TEMPERATURE,
+        image_bytes=image_bytes,
+        image_format=image_format,
+    )
+    return str(result.get("answer") or "")
+
+
 def live_system_prompt(agent: str | None = None, agents: list[str] | None = None) -> str:
     """ARIA's persona plus the security law, for any live model call.
 
@@ -1487,6 +1514,34 @@ def generate_coach_text(
     system = f"{live_system_prompt()}\n\n{task_prompt}".strip()
     try:
         text = caller(_bedrock_model_id(model_class), system, user_prompt)
+    except Exception:  # noqa: BLE001 — degrade, never raise
+        return None
+    text = (text or "").strip()
+    return text or None
+
+
+def generate_coach_vision(
+    task_prompt: str,
+    user_prompt: str,
+    image_bytes: bytes,
+    *,
+    image_format: str = "jpeg",
+    agent: str | None = None,
+    model_class: str = MODEL_FAST,
+    converse: Callable[[str, str, str, bytes, str], str] | None = None,
+) -> str | None:
+    """One-shot coaching text read from an attached photo — the vision sibling
+    of `generate_coach_text`. Same gateway, same security law, same
+    never-raise contract: a coaching nicety must never take down the request
+    that asked for it, and a caller with no live path must always have a
+    plain "not available" to fall back to rather than a guess.
+    """
+    if not bedrock_enabled():
+        return None
+    caller = converse or _default_converse_vision
+    system = f"{live_system_prompt(agent=agent)}\n\n{task_prompt}".strip()
+    try:
+        text = caller(_bedrock_model_id(model_class), system, user_prompt, image_bytes, image_format)
     except Exception:  # noqa: BLE001 — degrade, never raise
         return None
     text = (text or "").strip()

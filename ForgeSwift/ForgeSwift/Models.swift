@@ -593,15 +593,6 @@ struct AdaptiveSleepGoal: Identifiable, Equatable {
     var icon: String
 }
 
-struct SleepAchievementState: Identifiable, Equatable {
-    var id: String
-    var title: String
-    var description: String
-    var unlocked: Bool
-    var progress: Double
-    var colorName: String
-}
-
 struct SleepRecommendation: Identifiable, Equatable {
     var id: String
     var icon: String

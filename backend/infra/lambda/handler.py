@@ -196,6 +196,9 @@ def _route(event, _context):
         if method == "POST" and path == "/sleep/sessions":
             return sleep.handle_post_sleep_sessions(user_id, body)
 
+        if method == "POST" and path == "/sleep/environment-check":
+            return sleep.handle_post_sleep_environment_check(body, user_id=user_id)
+
         if method == "GET" and path == "/workouts/today":
             return workouts.handle_get_workouts_today(user_id)
 

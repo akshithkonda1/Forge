@@ -103,6 +103,25 @@ struct EnergySchedule {
         return m == 0 ? "\(h)h" : "\(h)h \(m)m"
     }
 
+    /// A schedule hour (may exceed 24, e.g. 25.5 for 1:30 AM the next day) as
+    /// a formatted clock time. Shared so any card quoting a real time from
+    /// this schedule — not just `EnergyScheduleCard`'s own chart — renders it
+    /// identically rather than reimplementing the wraparound.
+    static func clockLabel(_ hour: Double, calendar: Calendar = .current) -> String {
+        let normalized = CircadianRhythm.normalizedHour(hour)
+        var whole = Int(normalized)
+        var minute = Int(((normalized - Double(whole)) * 60).rounded())
+        // Rounding 7.996 gives 60 minutes, which is 08:00 and not 07:60.
+        if minute >= 60 {
+            minute = 0
+            whole = (whole + 1) % 24
+        }
+        guard let date = calendar.date(bySettingHour: whole, minute: minute, second: 0, of: Date()) else {
+            return String(format: "%02d:%02d", whole, minute)
+        }
+        return date.formatted(date: .omitted, time: .shortened)
+    }
+
     // ------------------------------------------------------------
     // MARK: Build
     // ------------------------------------------------------------
@@ -648,18 +667,7 @@ struct EnergyScheduleCard: View {
     // ------------------------------------------------------------
 
     private func clockLabel(_ hour: Double, calendar: Calendar = .current) -> String {
-        let normalized = CircadianRhythm.normalizedHour(hour)
-        var whole = Int(normalized)
-        var minute = Int(((normalized - Double(whole)) * 60).rounded())
-        // Rounding 7.996 gives 60 minutes, which is 08:00 and not 07:60.
-        if minute >= 60 {
-            minute = 0
-            whole = (whole + 1) % 24
-        }
-        guard let date = calendar.date(bySettingHour: whole, minute: minute, second: 0, of: Date()) else {
-            return String(format: "%02d:%02d", whole, minute)
-        }
-        return date.formatted(date: .omitted, time: .shortened)
+        EnergySchedule.clockLabel(hour, calendar: calendar)
     }
 
     private func relativeLabel(_ hours: Double) -> String {
