@@ -252,7 +252,8 @@ It stress-tests the entire prompt → context → response pipeline using:
 - Committed golden baselines + CI regression gates
 - Optional real Bedrock calls for live grading
 
-This level of rigor is uncommon in consumer AI health apps and is a major differentiator for safety and defensibility.
+
+We believe systems like SimRunner can help shape the next generation of AI assurance by making behavioral validation, regression control, and deployment gating first-class parts of the AI release process. It's the first true step to making AI more secure and more usable for all of us.
 
 Full documentation: [`backend/ai/simrunner/README.md`](backend/ai/simrunner/README.md)
 
