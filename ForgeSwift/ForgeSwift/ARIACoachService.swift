@@ -170,7 +170,7 @@ private extension String {
     var nilIfEmpty: String? { isEmpty ? nil : self }
 }
 
-private extension UIImage {
+extension UIImage {
     func downscaledJPEG(maxDimension: CGFloat, quality: CGFloat) -> Data? {
         let longest = max(size.width, size.height)
         let scale = longest > maxDimension ? maxDimension / longest : 1
