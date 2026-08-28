@@ -6,6 +6,9 @@ struct SleepDayTab: View {
             VStack(alignment: .leading, spacing: 28) {
                 EnergyScheduleCard()
                 SleepLastNightStrip()
+                AISleepPredictionCard()
+                AISmartRecommendationsView()
+                SleepStreakCard()
                 SleepWeekRhythm()
             }
             .padding(.horizontal, 20)
@@ -24,6 +27,8 @@ struct SleepNightTab: View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 28) {
                 SleepLastNightDetail()
+                AISleepEnvironmentView()
+                AIPersonalizedGoalsView()
                 SleepWeekRhythm()
                 ChronotypeBadge(onTap: { showPersonalization = true })
                 Button { showSounds = true } label: {

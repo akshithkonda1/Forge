@@ -193,55 +193,6 @@ struct AISleepChatView: View {
     }
 }
 
-struct AISleepPredictionDetailView: View {
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.background.ignoresSafeArea()
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 20) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Tonight's Recommendation").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                Text("10:15 PM").font(.system(size: 40, weight: .black, design: .rounded)).foregroundColor(.steel)
-                                Text("bedtime").font(.system(size: 16)).foregroundColor(.textSecondary)
-                            }
-                            Text("Wake at 6:15 AM for 8 hours of sleep").font(.system(size: 14)).foregroundColor(.textSecondary)
-                        }
-                        .padding(20).background(Color.surface).cornerRadius(20)
-
-                        VStack(alignment: .leading, spacing: 14) {
-                            Text("Why This Time?").font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
-                            VStack(spacing: 10) {
-                                ForEach([("figure.strengthtraining.traditional", "Heavy workout tomorrow — need optimal recovery"),
-                                         ("chart.line.uptrend.xyaxis", "Your 90-min sleep cycles align best with 10 PM"),
-                                         ("heart.fill", "HRV trends show earlier sleep improves your recovery by 18%")], id: \.0) { icon, text in
-                                    HStack(spacing: 12) {
-                                        Image(systemName: icon).font(.system(size: 14)).foregroundColor(.steel).frame(width: 20)
-                                        Text(text).font(.system(size: 13)).foregroundColor(.textPrimary)
-                                    }
-                                    .padding(14).background(Color.surfaceElevated).cornerRadius(12)
-                                }
-                            }
-                        }
-                        .padding(20).background(Color.surface).cornerRadius(20)
-                    }
-                    .padding(16)
-                }
-            }
-            .navigationTitle("Sleep Prediction")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.foregroundColor(.steel).fontWeight(.semibold)
-                }
-            }
-        }
-    }
-}
-
 struct SleepPersonalizationSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var hkService: HealthKitSleepService
