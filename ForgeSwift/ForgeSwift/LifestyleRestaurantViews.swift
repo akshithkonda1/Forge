@@ -438,6 +438,7 @@ struct MacroChip: View {
 
 struct AIBestPicksSection: View {
     @ObservedObject var vm: LifestyleViewModel
+    @EnvironmentObject var store: AppStore
 
     private var picks: [AIRestaurantPick] {
         let proteinGap = max(0, Int(180 - (vm.healthStats?.protein ?? 0)))
@@ -498,6 +499,7 @@ struct AIBestPicksSection: View {
         .background(LinearGradient(colors: [Color.ember.opacity(0.07), Color.surface], startPoint: .topLeading, endPoint: .bottomTrailing))
         .cornerRadius(18)
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.ember.opacity(0.18), lineWidth: 1))
+        .task { await vm.refreshBestPicksNote(store: store) }
     }
 }
 

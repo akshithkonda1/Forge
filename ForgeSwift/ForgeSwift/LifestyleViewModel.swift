@@ -195,6 +195,7 @@ final class LifestyleViewModel: ObservableObject {
     /// Lazy ARIA coaching note for the restaurant "Best Picks" — fired only when the
     /// Restaurants tab appears. Leaves the note nil (heuristic-only) on failure.
     func refreshBestPicksNote(store: AppStore) async {
+        guard aiBestPicksNote == nil else { return }
         let gap = max(0, Int(180 - (healthStats?.protein ?? 0)))
         let kcalLeft = max(0, 2600 - (healthStats?.totalCalories ?? 0))
         let prompt = """
@@ -209,6 +210,7 @@ final class LifestyleViewModel: ObservableObject {
     /// Lazy ARIA dish suggestion for the Nutrition tab's meal-suggestions card.
     /// Distinct from the macro coach tip; nil → heuristic rows only.
     func refreshMealNote(store: AppStore) async {
+        guard aiMealNote == nil else { return }
         let gap = max(0, Int(180 - (healthStats?.protein ?? 0)))
         let kcalLeft = max(0, 2600 - (healthStats?.totalCalories ?? 0))
         let prompt = """
@@ -217,6 +219,16 @@ final class LifestyleViewModel: ObservableObject {
         """
         let resp = await store.ariaInsight(prompt: prompt)
         aiMealNote = resp.map { $0.proseSummary ?? $0.message }
+    }
+
+    /// Lazy ARIA macro coaching tip for `AINutritionCoachCard` — fired only when
+    /// that card appears. Distinct from the meal-suggestion and best-picks notes
+    /// above; nil → the card's local heuristic tips render instead (never fake
+    /// "LIVE" badge, since the card only shows that badge once this is set).
+    func refreshNutritionCoachNote(store: AppStore) async {
+        guard aiNutritionInsight == nil else { return }
+        let resp = await store.ariaInsight(prompt: nutritionCoachPrompt())
+        aiNutritionInsight = resp.map { $0.proseSummary ?? $0.message }
     }
 
     func logMeal(name: String, calories: Double, protein: Double, carbs: Double, fat: Double) async {

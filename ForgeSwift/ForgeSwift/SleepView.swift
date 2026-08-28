@@ -41,7 +41,6 @@ struct SleepView: View {
         .sheet(isPresented: $showAIChat) {
             AISleepChatView()
                 .environmentObject(store)
-                .environmentObject(hkService)
         }
         .sheet(isPresented: $showSleepPersonalization) {
             SleepPersonalizationSheet()

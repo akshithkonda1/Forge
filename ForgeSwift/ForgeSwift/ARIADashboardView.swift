@@ -229,10 +229,12 @@ struct ARIADashboardView: View {
                 chartInsight: muscles.map { "\($0.0.label) \(Int($0.1*100))%" }.joined(separator: " · "),
                 chartColor: .ember
             )
+            let content = briefing.isEmpty ? snapshot.localBriefing : briefing
             let message = ChatMessage(id: UUID().uuidString, role: .trainer,
-                                      content: briefing.isEmpty ? snapshot.localBriefing : briefing,
+                                      content: content,
                                       timestamp: Date(), richCard: muscles.isEmpty ? nil : chart)
-            store.chatMessages.append(message)
+            store.addMessage(message)
+            AriaContextStore.shared.addInsight("Workout briefing (\(snapshot.title)): \(content)")
             withAnimation { sent = true }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         } else {

@@ -55,6 +55,35 @@ final class AriaCoachAgentRouterTests: XCTestCase {
         )
     }
 
+    func testTabHintBiasesAmbiguousMessage() {
+        // No pin, no keyword match: an ambiguous "hey" should fall back to
+        // the tab the user is actually on rather than the bare generalist.
+        let ctx = AriaCoachAgentRouter.Context(pinned: nil, cycleAvailable: false, tabHint: .sleep)
+        XCTAssertEqual(
+            AriaCoachAgentRouter.resolve(message: "hey", context: ctx),
+            .sleep
+        )
+    }
+
+    func testExplicitPinBeatsTabHint() {
+        // Pinning stays sacrosanct: navigating to Sleep must not silently
+        // override a Progress pin.
+        let ctx = AriaCoachAgentRouter.Context(pinned: .progress, cycleAvailable: false, tabHint: .sleep)
+        XCTAssertEqual(
+            AriaCoachAgentRouter.resolve(message: "hey", context: ctx),
+            .progress
+        )
+    }
+
+    func testKeywordMatchBeatsTabHint() {
+        // A clear keyword hit stays authoritative over the soft tab fallback.
+        let ctx = AriaCoachAgentRouter.Context(pinned: nil, cycleAvailable: false, tabHint: .lifestyle)
+        XCTAssertEqual(
+            AriaCoachAgentRouter.resolve(message: "How did I sleep last night?", context: ctx),
+            .sleep
+        )
+    }
+
     func testCycleRouteRequiresAvailability() {
         let hidden = AriaCoachAgentRouter.Context(pinned: nil, cycleAvailable: false)
         XCTAssertEqual(

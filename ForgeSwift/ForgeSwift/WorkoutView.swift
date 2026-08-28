@@ -584,6 +584,7 @@ struct WorkoutInsightsView: View {
         .padding(20).background(Color.surface).cornerRadius(22)
         .shadow(color: .black.opacity(0.05), radius: 12, y: 5)
         .onAppear { appeared = true }
+        .task { store.shareWorkoutInsightsIfNeeded(insights.map(\.text)) }
     }
 }
 

@@ -375,49 +375,6 @@ final class HealthKitSleepService: ObservableObject {
         return "As a \(chronotype.displayName) (\(chronotype.tagline)), "
     }
 
-    // MARK: - ARIA Context (local string for future backend)
-
-    func buildARIAContext(sleepData: [SleepData], store: AppStore) -> String {
-        let debt = computeSleepDebt(from: sleepData)
-        let latest = sleepData.first
-        let efficiency: String = {
-            guard let latest else { return "n/a" }
-            let total = latest.totalHours * 60
-            guard total > 0 else { return "n/a" }
-            return "\(Int(((total - Double(latest.awakeMinutes)) / total) * 100))%"
-        }()
-
-        let need = estimatedSleepNeed(from: sleepData)
-        var lines: [String] = [
-            "CHRONOTYPE: \(userProfile.chronotype.displayName)",
-            "SLEEP_NEED: \(String(format: "%.1f", need))h | DEBT_14D: \(String(format: "%.1f", debt))h",
-        ]
-
-        if let latest {
-            lines.append(
-                "LAST_NIGHT: score \(latest.score), deep \(latest.deepMinutes)m, REM \(latest.remMinutes)m, efficiency \(efficiency)"
-            )
-        }
-
-        if !userProfile.personality.isEmpty {
-            lines.append("PERSONALITY: \(userProfile.personality)")
-        }
-        if !userProfile.notes.isEmpty {
-            lines.append("LIFESTYLE_NOTES: \(userProfile.notes)")
-        }
-
-        lines.append("SUNRISE: \(currentSunriseConfig.durationMinutes)min, temp \(String(format: "%.2f", currentSunriseConfig.colorTemp)), intensity \(String(format: "%.2f", currentSunriseConfig.intensity))")
-        lines.append("READINESS: overall \(store.readiness.overall), sleep quality \(store.readiness.sleepQuality)")
-
-        let recs = chronotypeRecommendations(debt: debt).prefix(3).map { "- \($0.title): \($0.description)" }
-        if !recs.isEmpty {
-            lines.append("RECOMMENDATIONS:")
-            lines.append(contentsOf: recs)
-        }
-
-        return lines.joined(separator: "\n")
-    }
-
     private func formatHour(_ hour: Double) -> String {
         // Wrap into [0, 24) so a computed pre-midnight hour (e.g. 7 - 8 = -1) reads as 11 PM, not "-1 AM".
         let norm = (hour.truncatingRemainder(dividingBy: 24) + 24).truncatingRemainder(dividingBy: 24)

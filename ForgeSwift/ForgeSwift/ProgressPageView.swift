@@ -428,5 +428,6 @@ struct BehavioralInsightView: View {
         .background(Color.surface)
         .cornerRadius(16)
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor, lineWidth: 1))
+        .task { store.shareProgressInsightIfNeeded() }
     }
 }

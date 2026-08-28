@@ -8,6 +8,20 @@ import FoundationModels
 
 extension AppStore {
 
+    /// Pushes today's session read (readiness framing, muscle emphasis,
+    /// intensity flags, calorie projection — the same lines
+    /// `WorkoutInsightsView` already renders under "ARIA INSIGHTS") into
+    /// ARIA's shared context, so the main chat can reference this session
+    /// instead of reasoning about the plan from scratch. Guards against
+    /// re-pushing the same read every time the workout screen re-renders.
+    @MainActor
+    func shareWorkoutInsightsIfNeeded(_ lines: [String]) {
+        guard !lines.isEmpty else { return }
+        let text = "Workout: " + lines.joined(separator: " ")
+        guard AriaContextStore.shared.context.lastInsights.first != text else { return }
+        AriaContextStore.shared.addInsight(text)
+    }
+
     func startWorkout() {
         currentExerciseIndex = 0
         currentSet = 1

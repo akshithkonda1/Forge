@@ -158,6 +158,12 @@ enum AriaCoachAgentRouter {
         /// subject). One worker per name so supporting two people does not
         /// flatten them through one lens.
         var cycleSubjects: [String] = []
+        /// Soft fallback from the tab the user is actually on, used only when
+        /// nothing else matched — never overrides an explicit pin or a
+        /// keyword hit. Pinning stays sacrosanct: someone who pinned Recovery
+        /// and taps into Progress to check a number should not have their
+        /// pin silently reinterpreted by navigation alone.
+        var tabHint: AriaCoachAgent? = nil
     }
 
     /// Single-agent convenience. Prefer `plan` when a turn can use several.
@@ -186,7 +192,17 @@ enum AriaCoachAgentRouter {
             add(pinned)
         }
 
-        if kinds.isEmpty { kinds = [.aria] }
+        if kinds.isEmpty {
+            // Nothing pinned, nothing matched by keyword: fall back to the
+            // tab the user is actually on rather than the bare generalist,
+            // so an ambiguous "hey" on the Sleep tab gets a Sleep-flavored
+            // answer instead of a generic one.
+            if let hint = context.tabHint, isAvailable(hint, context: context) {
+                kinds = [hint]
+            } else {
+                kinds = [.aria]
+            }
+        }
 
         let primaryKind: AriaCoachAgent = {
             if let pinned = context.pinned, kinds.contains(pinned) { return pinned }
@@ -330,12 +346,26 @@ enum AriaCoachAgentRouter {
     }
 
     @MainActor
-    static func context(pinned: AriaCoachAgent?) -> Context {
+    static func context(pinned: AriaCoachAgent?, activeTab: TabItem? = nil) -> Context {
         Context(
             pinned: pinned,
             cycleAvailable: cycleAvailable(),
-            cycleSubjects: cycleSubjects()
+            cycleSubjects: cycleSubjects(),
+            tabHint: activeTab.flatMap(Self.tabHint(for:))
         )
+    }
+
+    /// The specialist a tab maps to for routing purposes, when it has one.
+    /// Home/ARIA/Profile have no natural specialist and stay nil so an
+    /// ambiguous message there still falls back to the generalist.
+    static func tabHint(for tab: TabItem) -> AriaCoachAgent? {
+        switch tab {
+        case .workout:   return .workout
+        case .lifestyle: return .lifestyle
+        case .sleep:     return .sleep
+        case .progress:  return .progress
+        case .home, .chat, .profile: return nil
+        }
     }
 
     /// Cheap on-device notes from supporting workers. Run in parallel so a
