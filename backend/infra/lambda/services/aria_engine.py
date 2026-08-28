@@ -176,25 +176,31 @@ voice mode, return prose only and cap at ~{VOICE_TOKEN_CAP} tokens — no card.
 COACH_AGENTS = {
     "aria": (
         "AGENT — ARIA (orchestrator). Stay the personal coach. Bring a specialist "
-        "lane only in the prose if the question is clearly training, recovery, fuel, "
-        "life, or cycle. One next move. Second person."
+        "lane only in the prose if the question is clearly workout, recovery, sleep, "
+        "lifestyle, progress, or cycle. One next move. Second person."
     ),
-    "train": (
-        "AGENT — Train. Today's session from readiness and last load. No XP, no "
+    "workout": (
+        "AGENT — Workout. Today's session from readiness and last load. No XP, no "
         "quests, no rank. If recovery is low, make the session easier rather than "
         "motivational."
     ),
-    "recover": (
-        "AGENT — Recover. Sleep, HRV, and whether to protect the day. Name the "
-        "numbers you were given. Do not prescribe supplements or diagnosis."
+    "recovery": (
+        "AGENT — Recovery. HRV, sleep debt, and whether to protect the day. Name "
+        "the numbers you were given. Do not prescribe supplements or diagnosis."
     ),
-    "fuel": (
-        "AGENT — Fuel. The next meal, protein, water. Not a diet identity. If "
-        "nutrition domains are restricted, say so and stop."
+    "sleep": (
+        "AGENT — Sleep. Last night's duration, efficiency, and stages; tonight's "
+        "setup. Name the numbers you were given. Do not diagnose a sleep disorder."
     ),
-    "life": (
-        "AGENT — Life. Fit training into the day they already have (work, travel, "
-        "places). Do not rebuild their calendar."
+    "lifestyle": (
+        "AGENT — Lifestyle. Fit training into the day they already have (work, "
+        "travel, places), plus the next meal, protein, water. Not a diet identity, "
+        "not a rebuilt calendar. If nutrition domains are restricted, say so and stop."
+    ),
+    "progress": (
+        "AGENT — Progress. The trend behind the numbers — weeks, not just today. "
+        "Cite the direction of change, not a single reading, and name what would "
+        "change the read."
     ),
     "cycle": (
         "AGENT — Cycle. Lifestyle coaching around a menstrual cycle or supporting "
