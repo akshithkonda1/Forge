@@ -58,6 +58,26 @@ final class AriaService: ObservableObject {
         }
         let domainContext = contextStore.buildARIAContext(from: store)
         let legacyMetrics = contextStore.buildRichContext(from: store).recentMetrics
+
+        // Device Hub / dev-override / loopback testers stay on the fast,
+        // deterministic dummy orchestra, checked before the general local-
+        // testing path below. This has to come first: `canUseDevOverride`
+        // (and therefore this whole branch) is hard-gated to DEBUG builds
+        // that are not production-like, so it can never fire for a real
+        // shipped build — but *within* that DEBUG/Xcode scope, checking
+        // `AriaOperatingMode.current.isLocalTesting` first would always win,
+        // since that mode is never anything but `.localTesting` today (no
+        // production ARIA instance is provisioned yet). That silently routed
+        // every Device Hub run through the on-device model instead of the
+        // fast, predictable dummy responses Device Hub automation actually
+        // needs, and made `AriaDummyOrchestrator` permanently unreachable.
+        if Self.shouldUseTestReadyDummy {
+            isTestReady = true
+            isLocalFallback = true
+            lastRemoteError = nil
+            return AriaDummyOrchestrator.reply(text: text, store: store, agent: agent)
+        }
+
         // The one place `AriaOperatingMode` is consulted. Nothing below this
         // line runs in local testing: no request is built, `postChat` is never
         // called, and `isLocalFallback` puts the offline badge on screen so a
@@ -77,13 +97,6 @@ final class AriaService: ObservableObject {
                 agent: agent,
                 agents: agents
             )
-        }
-
-        if Self.shouldUseTestReadyDummy {
-            isTestReady = true
-            isLocalFallback = true
-            lastRemoteError = nil
-            return AriaDummyOrchestrator.reply(text: text, store: store, agent: agent)
         }
         isTestReady = false
 
