@@ -364,6 +364,37 @@ def _run_test_ready(args) -> int:
     return 0 if not failed else 2
 
 
+def _run_voice_check(args) -> int:
+    """Test ARIA's actual voice: for each curated turn, does the reply the
+    dummy orchestrator generates from real synthetic data read as human or
+    as data-driven?"""
+    from .aria_simrunner.dummy_orchestrator import refuse_if_cloud, run_voice_diagnostics
+
+    try:
+        refuse_if_cloud()
+    except RuntimeError as exc:
+        print(f"error: {exc}")
+        return 2
+
+    print("ARIA voice check — human vs. data-driven (dummy orchestrator, real synthetic data)")
+    print("-" * 70)
+    report = run_voice_diagnostics(args.message)
+    for turn in report["turns"]:
+        print(f"  [{turn['verdict']}] {turn['agent']}: {turn['message']!r}")
+        print(f"         {turn['reply']}")
+        for line in turn["evidence"]:
+            print(f"         - {line}")
+    summary = report["summary"]
+    print(
+        f"voice check: {summary['human']} human, {summary['data_driven']} data_driven, "
+        f"{summary['mixed']} mixed (of {summary['total']})"
+    )
+    if args.gate and summary["data_driven"]:
+        print(f"gate: {summary['data_driven']} turn(s) read as data-driven")
+        return 2
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="backend.simrunner",
@@ -414,12 +445,19 @@ def main(argv: list[str] | None = None) -> int:
         "--message",
         action="append",
         default=None,
-        help="with --test-ready, a prompt to orchestrate (repeatable)",
+        help="with --test-ready or --voice-check, a prompt to orchestrate (repeatable)",
+    )
+    parser.add_argument(
+        "--voice-check",
+        action="store_true",
+        help="test whether the dummy orchestrator's replies read as human or data-driven",
     )
     args = parser.parse_args(argv)
 
     if args.test_ready:
         return _run_test_ready(args)
+    if args.voice_check:
+        return _run_voice_check(args)
 
     if args.list:
         _print_catalog()
