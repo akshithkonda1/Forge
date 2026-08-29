@@ -8,6 +8,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy  # noqa: E402
+from backend.ai.simrunner.aria_simrunner import voice_diagnostics  # noqa: E402
 from backend.ai.simrunner.aria_simrunner import web_research  # noqa: E402
 from backend.ai.simrunner import lifetime_suite  # noqa: E402
 
@@ -141,3 +142,102 @@ class DummyOrchestratorTests(unittest.TestCase):
             row = dummy.respond("how do I improve my workout routine?", seed=1)
         self.assertTrue(row["prose_summary"])
         self.assertEqual(row["message"], row["prose_summary"])
+
+    def test_respond_includes_a_voice_diagnosis(self):
+        row = dummy.respond("How did I sleep last night?", seed=42)
+        diag = row["voice_diagnosis"]
+        self.assertIn(diag["verdict"], ("human", "data_driven", "mixed"))
+        self.assertIn("evidence", diag)
+
+    def test_respond_voice_diagnosis_matches_diagnosing_the_prose_directly(self):
+        row = dummy.respond("How did I sleep last night?", seed=42)
+        expected = voice_diagnostics.diagnose(row["prose_summary"]).as_dict()
+        self.assertEqual(row["voice_diagnosis"], expected)
+
+    def test_voice_diagnosis_is_based_on_the_primary_reply_not_appended_extras(self):
+        # `message` gets the web-research note appended after `prose_summary`
+        # (see the two tests above this one); the diagnosis must still track
+        # only the primary reply, not the note's own sentence shape.
+        with patch.object(
+            web_research, "look_up",
+            return_value="From Some Source: unrelated filler with its own shape.",
+        ):
+            row = dummy.respond("how do I improve my workout routine?", seed=1)
+        self.assertNotEqual(row["prose_summary"], row["message"])
+        expected = voice_diagnostics.diagnose(row["prose_summary"]).as_dict()
+        self.assertEqual(row["voice_diagnosis"], expected)
+
+    def test_run_voice_diagnostics_shape_and_determinism(self):
+        report_a = dummy.run_voice_diagnostics(seed=42)
+        report_b = dummy.run_voice_diagnostics(seed=42)
+        self.assertEqual(report_a, report_b)
+        self.assertEqual(len(report_a["turns"]), 5)
+        for turn in report_a["turns"]:
+            self.assertIn(turn["verdict"], ("human", "data_driven", "mixed"))
+            self.assertTrue(turn["reply"])
+            self.assertIsInstance(turn["evidence"], list)
+        summary = report_a["summary"]
+        self.assertEqual(summary["total"], 5)
+        self.assertEqual(
+            summary["human"] + summary["data_driven"] + summary["mixed"],
+            summary["total"],
+        )
+
+    def test_run_voice_diagnostics_respects_custom_messages(self):
+        report = dummy.run_voice_diagnostics(messages=["What should I train today?"], seed=1)
+        self.assertEqual(len(report["turns"]), 1)
+        self.assertEqual(report["turns"][0]["message"], "What should I train today?")
+
+    def test_run_voice_diagnostics_refuses_production(self):
+        os.environ["ENVIRONMENT"] = "production"
+        with self.assertRaises(RuntimeError):
+            dummy.run_voice_diagnostics()
+
+    def test_cli_voice_check_exits_zero(self):
+        old = sys.stdout
+        sys.stdout = io.StringIO()
+        try:
+            self.assertEqual(lifetime_suite.main(["--voice-check"]), 0)
+        finally:
+            sys.stdout = old
+
+    def test_cli_voice_check_refuses_prod(self):
+        os.environ["ENVIRONMENT"] = "prod"
+        old = sys.stdout
+        sys.stdout = io.StringIO()
+        try:
+            self.assertEqual(lifetime_suite.main(["--voice-check"]), 2)
+        finally:
+            sys.stdout = old
+
+    def test_cli_voice_check_gate_fails_when_data_driven_turns_exist(self):
+        fake_report = {
+            "turns": [{
+                "message": "m", "agent": "workout", "reply": "r",
+                "verdict": "data_driven", "evidence": [],
+            }],
+            "summary": {"human": 0, "data_driven": 1, "mixed": 0, "total": 1},
+        }
+        old = sys.stdout
+        sys.stdout = io.StringIO()
+        try:
+            with patch.object(dummy, "run_voice_diagnostics", return_value=fake_report):
+                self.assertEqual(lifetime_suite.main(["--voice-check", "--gate"]), 2)
+        finally:
+            sys.stdout = old
+
+    def test_cli_voice_check_gate_passes_when_no_turn_is_data_driven(self):
+        fake_report = {
+            "turns": [{
+                "message": "m", "agent": "workout", "reply": "r",
+                "verdict": "mixed", "evidence": [],
+            }],
+            "summary": {"human": 0, "data_driven": 0, "mixed": 1, "total": 1},
+        }
+        old = sys.stdout
+        sys.stdout = io.StringIO()
+        try:
+            with patch.object(dummy, "run_voice_diagnostics", return_value=fake_report):
+                self.assertEqual(lifetime_suite.main(["--voice-check", "--gate"]), 0)
+        finally:
+            sys.stdout = old

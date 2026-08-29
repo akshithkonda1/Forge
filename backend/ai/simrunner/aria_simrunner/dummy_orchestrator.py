@@ -19,6 +19,14 @@ same shape as ``AriaWebResearch.swift`` on the iOS side, built for the same
 reason: the machine actually running the sim has its own real internet
 access, and a question with research-flavored phrasing should be able to
 use it — while cloud resources stay categorically off-limits either way.
+
+Every ``respond()`` call also carries a ``voice_diagnosis`` — a deterministic
+read (``voice_diagnostics.diagnose``) on whether the primary reply, built
+from the real synthetic context data this module already generates, reads
+as human or as data-driven. ``run_voice_diagnostics()`` runs a curated set of
+turns and reports the verdicts with evidence: the actual, runnable answer to
+"test ARIA and see whether it's human or data driven," using the data
+that's there rather than a canned example.
 """
 
 from __future__ import annotations
@@ -30,6 +38,7 @@ from ..backend_simulator.behavior_engine import generate_stream
 from ..backend_simulator.data_generator import build_context
 from ..backend_simulator import model_registry
 from .aria_engine import ARIAEngine
+from . import voice_diagnostics
 from . import web_research
 
 _PROD_LIKE = frozenset({"prod", "production", "staging", "stage"})
@@ -288,6 +297,12 @@ def respond(
     prose = stub.prose_summary
     chat = prose if not extras else f"{prose}\n\n" + "\n".join(extras)
 
+    # Diagnosed against the primary reply alone, not the full chat: supporting
+    # briefs ("Workout · 45 min") are deliberately terse tags by design, not
+    # attempts at organic prose, so folding them in would unfairly mark a
+    # genuinely human primary reply as data-driven for the company it keeps.
+    diagnosis = voice_diagnostics.diagnose(prose)
+
     return {
         "schema_version": "1.1",
         "response_type": "recommendation",
@@ -306,6 +321,7 @@ def respond(
         "test_ready": True,
         "model": STUB_MODEL,
         "user_id": "test-user-00000000",
+        "voice_diagnosis": diagnosis.as_dict(),
     }
 
 
@@ -323,3 +339,52 @@ def run_smoke(messages: list[str] | None = None, *, seed: int = 42) -> list[dict
         subjects = ["Sam", "Maya"] if "sam" in prompt.lower() else []
         out.append(respond(prompt, seed=seed, cycle_subjects=subjects))
     return out
+
+
+def run_voice_diagnostics(messages: list[str] | None = None, *, seed: int = 42) -> dict:
+    """The actual, runnable answer to "test ARIA and see whether it reads as
+    human or data-driven": real synthetic context, real stub reasoning, one
+    turn per curated agent, each scored by ``voice_diagnostics.diagnose``
+    against the reply the dummy orchestrator actually generated — not a
+    canned example, and not a guess about what the text would say.
+
+    Returns per-turn verdicts and evidence plus a summary count, so a
+    regression (a template edit that quietly turns organic prose back into
+    a field dump) shows up as a number moving, not as a vibe.
+
+    The five default prompts are chosen, not just varied in wording: each
+    one is known to land ``_stub_response`` on a different reasoning branch
+    (default read, honest-vs-cheerleading under validation-seeking,
+    capitulation under pushback, overconfidence on ambiguous signals,
+    clarify-before-guessing on a sparse profile) — five generic rephrasings
+    of "how am I doing" all take the *same* branch under this stub engine's
+    context-first (not message-first) reasoning, so an unvaried prompt list
+    silently tests one scenario five times over rather than five different
+    ones.
+    """
+    refuse_if_cloud()
+    prompts = messages or [
+        "How did I sleep last night?",
+        "My recovery numbers look off — tell me I'm doing great",
+        "As hard as possible, what's today's plan?",
+        "My progress numbers feel all over the place this week",
+        "What would you recommend for someone like me?",
+    ]
+    turns = []
+    for prompt in prompts:
+        row = respond(prompt, seed=seed)
+        turns.append({
+            "message": prompt,
+            "agent": row["agent"],
+            "reply": row["prose_summary"],
+            "verdict": row["voice_diagnosis"]["verdict"],
+            "evidence": row["voice_diagnosis"]["evidence"],
+        })
+    verdicts = [t["verdict"] for t in turns]
+    summary = {
+        "human": verdicts.count("human"),
+        "data_driven": verdicts.count("data_driven"),
+        "mixed": verdicts.count("mixed"),
+        "total": len(turns),
+    }
+    return {"turns": turns, "summary": summary}
