@@ -88,17 +88,23 @@ struct AISleepPredictionCard: View {
     }
 }
 
-struct RecoveryTrendsView: View {
+/// Room-photo environment check — a real photo goes to `/sleep/environment-check`
+/// (`HealthKitSleepService.analyzeSleepEnvironment`), which only ever reports what
+/// the model actually saw. No local "evaluation" heuristic here on purpose: there
+/// is no sensor data to derive a light/noise/clutter read from, and inventing one
+/// would be exactly the fabricated reading `analyzeSleepEnvironment`'s own doc
+/// comment rules out.
+struct AISleepEnvironmentView: View {
     @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
+    @State private var pickerItem: PhotosPickerItem?
+    @State private var pickedPreview: UIImage?
 
-    private let mockHRV: [Double] = [44, 46, 52, 48, 41, 55, 50]
-    private let mockRHR: [Double] = [62, 60, 58, 61, 64, 57, 59]
-
-            if let evaluation {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(evaluation.label).font(.system(size: 13, weight: .semibold)).foregroundColor(evaluation.tint)
-                    Text(evaluation.detail).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
-                }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "camera.fill").font(.system(size: 14)).foregroundColor(.steel)
+                Text("Sleep Environment").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
             }
 
             if let preview = pickedPreview {
@@ -122,6 +128,9 @@ struct RecoveryTrendsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.steel.opacity(0.08))
                 .cornerRadius(10)
+            } else {
+                Text("Show ARIA where you sleep and it'll check for light, noise, and clutter working against a good night.")
+                    .font(.system(size: 12)).foregroundColor(.textMuted).lineLimit(3)
             }
 
             PhotosPicker(selection: $pickerItem, matching: .images) {
@@ -137,7 +146,6 @@ struct RecoveryTrendsView: View {
         }
         .padding(18).background(Color.surface).cornerRadius(20)
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
-        .onAppear { withAnimation(.easeOut(duration: 0.5)) { appeared = true } }
         .onChange(of: pickerItem) { _, item in
             Task {
                 guard let item, let data = try? await item.loadTransferable(type: Data.self),
