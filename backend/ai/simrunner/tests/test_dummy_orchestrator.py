@@ -3,10 +3,12 @@ import os
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy  # noqa: E402
+from backend.ai.simrunner.aria_simrunner import web_research  # noqa: E402
 from backend.ai.simrunner import lifetime_suite  # noqa: E402
 
 
@@ -122,3 +124,20 @@ class DummyOrchestratorTests(unittest.TestCase):
             self.assertEqual(row["reasoning_source"], dummy.REASONING_SOURCE)
         finally:
             bedrock_client.converse = original
+
+    def test_research_worthy_message_appends_a_cited_web_note(self):
+        with patch.object(web_research, "look_up", return_value="From Some Source: real info.") as mock_look_up:
+            row = dummy.respond("how do I improve my workout routine?", seed=1)
+        mock_look_up.assert_called_once_with("workout")
+        self.assertIn("From Some Source: real info.", row["message"])
+
+    def test_non_research_message_never_calls_web_research(self):
+        with patch.object(web_research, "look_up") as mock_look_up:
+            dummy.respond("What should I train today?", seed=1)
+        mock_look_up.assert_not_called()
+
+    def test_a_failed_lookup_leaves_the_reply_unchanged(self):
+        with patch.object(web_research, "look_up", return_value=None):
+            row = dummy.respond("how do I improve my workout routine?", seed=1)
+        self.assertTrue(row["prose_summary"])
+        self.assertEqual(row["message"], row["prose_summary"])

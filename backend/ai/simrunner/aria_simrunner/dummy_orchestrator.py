@@ -1,13 +1,24 @@
 """Test-ready dummy ARIA orchestrator.
 
 Same system as SimRunner: synthetic 30-day streams, the deterministic stub
-engine, no Bedrock, no tokens, no network. It stands up as many coach agents
-as a turn needs so AI features can be exercised without a production instance.
+engine, no Bedrock, no tokens, no Forge backend, no AWS. It stands up as
+many coach agents as a turn needs so AI features can be exercised without a
+production instance.
 
 This module is local-only. It refuses production-like ``ENVIRONMENT`` values
 and any cloud runtime (Lambda, Cloud Run, Azure, GCP). It never imports a
 cloud SDK and never calls ``ARIAEngine.respond`` (that method can leave the
 machine). ``use_real_api`` is hard-off.
+
+The one intentional exception: ``respond()`` can call out to
+``web_research``, a separate, clearly-named collaborator whose entire job is
+a curated, keyless fetch from a handful of general (non-Forge) reference
+URLs — gated to non-cloud execution, isolated in its own module so this
+module's "no network to Forge/AWS" claim stays literally true. This is the
+same shape as ``AriaWebResearch.swift`` on the iOS side, built for the same
+reason: the machine actually running the sim has its own real internet
+access, and a question with research-flavored phrasing should be able to
+use it — while cloud resources stay categorically off-limits either way.
 """
 
 from __future__ import annotations
@@ -19,6 +30,7 @@ from ..backend_simulator.behavior_engine import generate_stream
 from ..backend_simulator.data_generator import build_context
 from ..backend_simulator import model_registry
 from .aria_engine import ARIAEngine
+from . import web_research
 
 _PROD_LIKE = frozenset({"prod", "production", "staging", "stage"})
 # Presence of any of these means we are on a cloud host, not a laptop.
@@ -268,6 +280,11 @@ def respond(
     stub = _offline_stub(message, ctx, seed)
 
     extras = supporting_briefs(plan, ctx)
+    if web_research.is_research_worthy(message, plan.primary.kind):
+        web_note = web_research.look_up(plan.primary.kind)
+        if web_note:
+            extras = [*extras, web_note]
+
     prose = stub.prose_summary
     chat = prose if not extras else f"{prose}\n\n" + "\n".join(extras)
 
