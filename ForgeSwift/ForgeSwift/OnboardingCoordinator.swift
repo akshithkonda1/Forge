@@ -49,12 +49,14 @@ final class OnboardingCoordinator {
         guard let idx = activeSteps.firstIndex(of: step) else { return Double(step.rawValue) / Double(max(1, AriaInterviewStep.allCases.count - 1)) }
         return Double(idx) / Double(max(1, activeSteps.count - 1))
     }
+    var hasAgreedToTerms: Bool = false
     var isUnderage: Bool { profile.ageYears < 13 }
     var canFinish: Bool {
         profile.isPreferredNameValid
             && profile.hasConfirmedDetails
             && !profile.fitnessGoals.isEmpty
             && !profile.preferredWorkouts.isEmpty
+            && hasAgreedToTerms
             && !isCompleting
     }
 

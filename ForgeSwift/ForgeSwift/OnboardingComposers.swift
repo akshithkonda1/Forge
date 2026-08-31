@@ -763,12 +763,46 @@ struct ReadyComposer: View {
                     .foregroundColor(.textTertiary)
                     .multilineTextAlignment(.center)
             }
+            // Liability disclaimer — must be agreed at the very end
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    coordinator.hasAgreedToTerms.toggle()
+                    if coordinator.hasAgreedToTerms { FDS.haptic(.light) }
+                }
+            } label: {
+                HStack(alignment: .top, spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 6).stroke(coordinator.hasAgreedToTerms ? Color.ember : Color.borderColor, lineWidth: 1.5)
+                            .frame(width: 22, height: 22)
+                            .background(coordinator.hasAgreedToTerms ? Color.ember : Color.clear)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        if coordinator.hasAgreedToTerms {
+                            Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
+                        }
+                    }
+                    Text("By agreeing to our Terms of Use, you acknowledge that Forge is an assistive coaching tool, not medical care. You are responsible for your own health. Any actions taken or injuries sustained are not the liability of Forge. Forge is designed to assist and advise, not to compel. By checking this box you waive all liability towards Forge.")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                }
+                .padding(12)
+                .background(Color.surfaceElevated.opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(coordinator.hasAgreedToTerms ? Color.ember.opacity(0.4) : Color.white.opacity(0.06), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+
             PrimaryCTA(
                 title: coordinator.isCompleting ? "Starting…" : "Start with ARIA",
                 icon: "arrow.right",
                 enabled: !coordinator.isCompleting && coordinator.canFinish,
                 action: onFinish
             )
+            if !coordinator.hasAgreedToTerms {
+                Text("Please agree to the Terms to continue.")
+                    .font(.caption.weight(.semibold)).foregroundColor(.warning)
+            }
         }
     }
 }
