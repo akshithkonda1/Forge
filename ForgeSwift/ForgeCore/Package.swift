@@ -37,6 +37,7 @@ let package = Package(
                 "Intelligence/CircadianRhythm.swift",
                 "Intelligence/HydrationEngine.swift",
                 "Intelligence/ContextRules.swift",
+                "Intelligence/HabitEngine.swift",
                 "Intelligence/MindfulnessSuggestionEngine.swift",
                 "Intelligence/SessionClock.swift",
                 "Intelligence/SleepStoryEngine.swift",

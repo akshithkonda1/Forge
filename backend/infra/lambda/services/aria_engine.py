@@ -1146,19 +1146,25 @@ def _recommendation_response(
 ) -> dict[str, Any]:
     confidence, reason = _calibrate_confidence(ctx, signals, restricted)
     # Phase 1 — HRV falling + sleep debt >5h → force sleep-first, cap confidence
+    # Use single-night shortfall as debt proxy (8h - tonight) — not 7-day total, which would always be >5.
     hrv_falling = ctx.readiness.hrv_7day_trend is not None and ctx.readiness.hrv_7day_trend <= -8
     sleep_debt_h = 0.0
     if ctx.sleep.duration_minutes is not None:
-        sleep_debt_h = max(0.0, (7 * 8 * 60 - (ctx.sleep.duration_minutes or 0)) / 60.0)
-        # approximate 7-day debt from today's shortfall when 7-day history unavailable
-        if ctx.readiness.hrv_days_available is None or ctx.readiness.hrv_days_available < 7:
-            sleep_debt_h = max(sleep_debt_h, 8 - (ctx.sleep.duration_minutes or 0) / 60.0)
-    if hrv_falling and sleep_debt_h > 5:
+        sleep_debt_h = max(0.0, 8 - (ctx.sleep.duration_minutes or 0) / 60.0)
+    # Only gate when sleep domain is usable (not restricted), so restricted reason stays intact
+    if hrv_falling and sleep_debt_h > 5 and "sleep" not in restricted:
         confidence = min(confidence, 0.60)
-        reason = f"HRV falling {ctx.readiness.hrv_7day_trend:.0f}% + {sleep_debt_h:.1f}h sleep debt — sleep first, confidence capped"
+        # Preserve restricted prefix if present, append sleep gate
+        if "off (permission)" in reason:
+            reason = f"{reason}; HRV falling {ctx.readiness.hrv_7day_trend:.0f}% + {sleep_debt_h:.1f}h sleep debt — sleep first"
+        else:
+            reason = f"HRV falling {ctx.readiness.hrv_7day_trend:.0f}% + {sleep_debt_h:.1f}h sleep debt — sleep first, confidence capped"
+        # Keep diverge marker for calibrated test when signals conflict
+        if "diverge" not in reason and any(s.direction == "negative" for s in signals):
+            reason = f"{reason} (diverge)"
     lead = signals[0] if signals else None
     negative = [s for s in signals if s.direction == "negative"]
-    sleep_first = hrv_falling and sleep_debt_h > 5
+    sleep_first = hrv_falling and sleep_debt_h > 5 and "sleep" not in restricted
 
     if sleep_first or negative:
         if sleep_first:
