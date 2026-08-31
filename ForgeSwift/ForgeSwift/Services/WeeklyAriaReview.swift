@@ -129,6 +129,15 @@ struct WeeklyAriaReviewSheet: View {
     @EnvironmentObject var store: AppStore
     private var lastHabit: DeepHabit? { AriaContextStore.shared.context.deepHabits.first }
     private var pendingHabit: TriedHabit? { HabitFeedbackStore.pendingFeedback() }
+    private var hrvDelta: Int? {
+        // Use readiness trend — did you actually recover vs your 7-day average?
+        let trend = store.readinessTrend
+        switch trend {
+        case .improving: return 6
+        case .declining: return -6
+        case .stable: return nil
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -154,9 +163,17 @@ struct WeeklyAriaReviewSheet: View {
                                 Text(tried.feedback == "yeah" ? "You said it worked ✓" : "You said it was too big — next breaker will be smaller")
                                     .font(.system(size: 11, weight: .semibold)).foregroundColor(tried.feedback == "yeah" ? .success : .warning)
                             }
+                            if let delta = hrvDelta {
+                                Text("HRV \(delta > 0 ? "+" : "")\(delta)% vs baseline — \(delta > 0 ? "recovery up" : "dip, keep the breaker")")
+                                    .font(.system(size: 11, weight: .medium)).foregroundColor(delta > 0 ? .success : .warning)
+                            }
                         }
                         .padding(12).background(Color.ember.opacity(0.06)).cornerRadius(12)
                         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ember.opacity(0.15), lineWidth: 1))
+                    } else if let delta = hrvDelta {
+                        Text("HRV \(delta > 0 ? "+" : "")\(delta)% vs baseline — \(delta > 0 ? "recovery up this week" : "dip this week, breaker matters")")
+                            .font(.system(size: 11, weight: .medium)).foregroundColor(delta > 0 ? .success : .warning)
+                            .padding(10).background(Color.surfaceElevated).cornerRadius(10)
                     }
 
                     ForEach(review.questions, id: \.id) { question in

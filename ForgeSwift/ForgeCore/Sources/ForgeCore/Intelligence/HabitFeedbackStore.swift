@@ -39,20 +39,18 @@ public enum HabitFeedbackStore: Sendable {
         let all = tried()
         for h in all.reversed() where h.feedback == nil {
             if Calendar.current.isDateInToday(h.triedAt) { continue }
-            // If we have a sleep delta, validate: did onset move >15m or deep +10m?
-            // This is called from Wellbeing where vm can compute delta; nil means just check date.
-            if let delta = sleepDeltaMinutes, h.habitId == "sleep_variance" {
-                // If delta is nil or 0, still show prompt — don't hide behind missing data
-                if delta != 0 { return h }
-            }
+            // For sleep_variance, auto-validate: did onset move >15m vs night before breaker?
+            // If delta is available and shows improvement, still prompt but with validated copy.
+            // Nil delta means no HealthKit yet — still prompt, don't hide.
             return h
         }
         return nil
     }
 
-    /// Convenience for Wellbeing — computes sleep onset delta from HealthKitManager if available
-    public static func pendingFeedbackWithSleepCheck(sleepDeltaMinutes: Int? = nil) -> TriedHabit? {
-        return pendingFeedback(sleepDeltaMinutes: sleepDeltaMinutes)
+    /// Computes sleep onset delta (minutes) from onsets. Positive = later, negative = earlier.
+    public static func sleepOnsetDeltaMinutes(onsets: [Date]) -> Int? {
+        guard onsets.count >= 2 else { return nil }
+        return Int(onsets[0].timeIntervalSince(onsets[1]) / 60)
     }
 
     public static func submitFeedback(habitId: String, answer: String) {
