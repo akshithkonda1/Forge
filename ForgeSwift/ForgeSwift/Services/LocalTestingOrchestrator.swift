@@ -253,9 +253,24 @@ final class LocalTestingOrchestrator {
         if let crossover = affinityBeat(excluding: domain, rng: &rng) {
             parts.append(crossover)
         }
+        // Wired: when the human is asking for outside knowledge, reach the
+        // Mac's internet and blend the note humanly — feels connected, not cited.
+        var usedWeb = false
         if AriaWebResearch.isResearchWorthy(text: text, leadingDomain: domain),
            let webNote = await AriaWebResearch.lookUp(domain: domain) {
-            parts.append(webNote)
+            // Human blend, not a footnote dump
+            let bridge = rng.pick([
+                "Pulled this live so it's not just me:",
+                "Checked against the outside so you get more than my take:",
+                "Quick live pull — here's the outside line:",
+            ])
+            let landing = rng.pick([
+                "Now, for you specifically —",
+                "Here's how that lands with your numbers —",
+                "For your context —",
+            ])
+            parts.append("\(bridge)\n\(webNote)\n\(landing)")
+            usedWeb = true
         }
 
         let specialists = routed.count > 1
@@ -263,9 +278,10 @@ final class LocalTestingOrchestrator {
             : agent.label
         let engine = usingFoundationModels ? "on-device model" : "on-device rules"
 
+        let wiredTag = usedWeb ? " · live web (Mac) ✓" : ""
         return AriaResponse(
-            confidenceReason: "Local testing — \(specialists) · \(engine) · would route to slot "
-                + "\(tier.slot) (\(tier.displayName)) · no cloud · familiarity \(familiarity)/10.",
+            confidenceReason: "Local testing — \(specialists) · \(engine) · slot "
+                + "\(tier.slot) (\(tier.displayName)) · no cloud\(wiredTag) · familiarity \(familiarity)/10.",
             proseSummary: base.content,
             message: parts.joined(separator: "\n\n"),
             richCard: nil,
