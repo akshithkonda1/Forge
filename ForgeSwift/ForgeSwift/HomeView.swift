@@ -197,6 +197,18 @@ struct HomeHeaderView: View {
                     isLive: store.healthKitLive,
                     updatedAt: store.lastMetricsRefresh
                 )
+                if store.usingTestReadyHealthPack {
+                    let personaName = AriaContextStore.shared.context.deepHabits.first?.title.lowercased() ?? "balanced"
+                    Text("Synthetic · \(personaName) · baseline HRV \(store.dailyMetrics.hrv > 0 ? Int(store.dailyMetrics.hrv) : 52)ms")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.textTertiary)
+                        .padding(.top, 2)
+                } else if let habit = AriaContextStore.shared.context.deepHabits.first {
+                    Text("\(habit.category.rawValue.capitalized) · \(habit.evidence)")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer(minLength: 12)
