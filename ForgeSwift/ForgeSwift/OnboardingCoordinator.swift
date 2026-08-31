@@ -30,6 +30,9 @@ final class OnboardingCoordinator {
     var healthSnapshot: HealthDataSnapshot?
     var healthPrefillNote: String?
 
+    var calendarState: HealthKitState = .unknown
+    var calendarBusyToday: Int = 0
+
     // MARK: Presence
 
     var ariaOrbState: AROrbState = .speaking
@@ -120,7 +123,7 @@ final class OnboardingCoordinator {
             ariaOrbState = .listening
         case .health:
             await ariaSay(
-                "This is the first time Forge will read Apple Health on this phone. Sleep, HRV, and activity — I coach from those, I don’t guess. Connect and I’ll tell you what I see.",
+                "First Health, then your calendar — so I can fit training around your day, not the other way around. Health first: sleep, HRV, and activity.",
                 mood: .energized
             )
             ariaOrbState = .listening
@@ -250,7 +253,12 @@ final class OnboardingCoordinator {
         FDS.haptic(.medium)
         Task {
             await requestHealthKit()
+            // After Health, offer calendar so ARIA can see time, not just HRV
+            await ariaSay("Health connected. Now your calendar — I only read busy windows, never titles — so I can place sessions where your day allows. Want to connect?", mood: .focused)
+            // Stay on .health step but swap copy to calendar; advance still goes to details
             await advanceTo(.details)
+            // Fire calendar request in background, don't block details
+            Task { await requestCalendar() }
         }
     }
 
@@ -263,11 +271,19 @@ final class OnboardingCoordinator {
         FDS.haptic(.light)
         Task {
             await ariaSay(
-                "No problem — enter your details next. Connect Apple Health anytime and I'll fold recovery in.",
+                "No problem — enter your details next. Connect Apple Health anytime and I'll fold recovery in. Same for Calendar — I can fit training around busy windows whenever you connect it.",
                 mood: .calm
             )
             await advanceTo(.details)
         }
+    }
+
+    func connectCalendar() async {
+        await requestCalendar()
+    }
+
+    func skipCalendar() {
+        calendarState = .denied
     }
 
     func toggleGoal(_ goal: OnboardingFitnessGoal) {
@@ -555,6 +571,31 @@ final class OnboardingCoordinator {
                 mood: .calm
             )
         }
+    }
+
+    func requestCalendar() async {
+        calendarState = .requesting
+        ariaOrbState = .processing
+        do {
+            try await CalendarManager.shared.requestAccess()
+            calendarState = .authorized
+            await CalendarManager.shared.fetchUpcoming()
+            calendarBusyToday = CalendarManager.shared.busyWindowsToday
+            // ARIA sees busy windows, not titles
+            let tags = CalendarManager.shared.calendarTags
+            AriaContextStore.shared.updateProfile(lifestyleTags: tags)
+            await ariaSay(
+                "Calendar connected — I see \(calendarBusyToday) busy windows today. I'll fit training around them, not on top of them. Titles stay on your phone.",
+                mood: .energized
+            )
+        } catch {
+            calendarState = .denied
+            await ariaSay(
+                "Calendar not connected — no problem. You can add it later in Settings → Privacy → Calendars and I'll use it then.",
+                mood: .calm
+            )
+        }
+        ariaOrbState = .idle
     }
 
     /// System Health sheet first, then (on the sim) write the Test-Ready pack
