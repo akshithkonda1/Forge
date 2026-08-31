@@ -83,8 +83,9 @@ struct HabitLoopCard: View {
         }
         .padding(16)
         .background(Color.surface)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.06), radius: 14, y: 6)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.borderColor.opacity(0.08), lineWidth: 1))
+        .shadow(color: .black.opacity(0.04), radius: 10, y: 4)
     }
 }
 
@@ -183,8 +184,9 @@ struct HabitLoopListCard: View {
         }
         .padding(20)
         .background(Color.surface)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.borderColor.opacity(0.06), lineWidth: 1))
+        .shadow(color: .black.opacity(0.03), radius: 8, y: 4)
         .onAppear {
             Task { await vm.syncIfNeeded() }
             pendingFeedback = HabitFeedbackStore.pendingFeedback()

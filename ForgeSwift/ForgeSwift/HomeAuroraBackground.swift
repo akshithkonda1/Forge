@@ -105,36 +105,21 @@ private struct AuroraLayerSpec: Identifiable {
     /// and never gets clamped by `.opacity`.
     static let maxCoolScale: Double = 1.5
 
-    // ---- Ember + cool shells. Stable identity across band changes, so their
-    //      drift animations are never restarted.
+    // Subtle, not slop — one ember wash, one cool shell. No stack of glows.
     static let constant: [AuroraLayerSpec] = [
         AuroraLayerSpec(
             id: 0, role: .ember, color: .ember,
             center: UnitPoint(x: 0.16, y: 0.78), radius: 0.78,
-            stretch: CGSize(width: 1.30, height: 0.92), alpha: 0.150,
-            swirl: 1, driftAmount: 0.070, driftPeriod: 37,
-            shimmerDepth: 0.20, shimmerPeriod: 61, startDelay: 0.00
+            stretch: CGSize(width: 1.30, height: 0.92), alpha: 0.070,
+            swirl: 1, driftAmount: 0.050, driftPeriod: 37,
+            shimmerDepth: 0.10, shimmerPeriod: 61, startDelay: 0.00
         ),
         AuroraLayerSpec(
-            id: 1, role: .ember, color: .emberLight,
-            center: UnitPoint(x: 0.88, y: 0.14), radius: 0.52,
-            stretch: CGSize(width: 1.10, height: 0.85), alpha: 0.065,
-            swirl: -1, driftAmount: 0.085, driftPeriod: 29,
-            shimmerDepth: 0.28, shimmerPeriod: 47, startDelay: 0.22
-        ),
-        AuroraLayerSpec(
-            id: 4, role: .cool, color: .aurora,
+            id: 4, role: .cool, color: .steel,
             center: UnitPoint(x: 0.52, y: 0.66), radius: 0.82,
-            stretch: CGSize(width: 1.45, height: 0.80), alpha: 0.090,
-            swirl: -1, driftAmount: 0.060, driftPeriod: 19,
-            shimmerDepth: 0.45, shimmerPeriod: 59, startDelay: 0.44
-        ),
-        AuroraLayerSpec(
-            id: 5, role: .cool, color: .steel,
-            center: UnitPoint(x: 0.90, y: 0.86), radius: 0.50,
-            stretch: CGSize(width: 1.15, height: 0.90), alpha: 0.0825,
-            swirl: 1, driftAmount: 0.080, driftPeriod: 43,
-            shimmerDepth: 0.45, shimmerPeriod: 67, startDelay: 0.66
+            stretch: CGSize(width: 1.45, height: 0.80), alpha: 0.045,
+            swirl: -1, driftAmount: 0.040, driftPeriod: 19,
+            shimmerDepth: 0.20, shimmerPeriod: 59, startDelay: 0.44
         )
     ]
 
