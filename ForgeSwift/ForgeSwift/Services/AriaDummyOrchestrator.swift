@@ -34,7 +34,6 @@ enum AriaDummyOrchestrator {
         if let reading = AriaEmotionalSupportCoach.detect(in: text, context: context),
            AriaEmotionalSupportCoach.isEmotionalSupportQuery(text, context: context) {
             let resp = AriaEmotionalSupportCoach.respond(reading: reading, context: context, input: text)
-            // Strip any clinical disclaimer footers that feel institutional in dummy — keep warm core.
             return AriaResponse(
                 confidenceReason: "Listening first",
                 proseSummary: resp.content,
@@ -42,6 +41,22 @@ enum AriaDummyOrchestrator {
                 suggestedActions: resp.suggestedActions,
                 confidence: resp.confidence
             )
+        }
+
+        // 2b) Deep habit companion — if ARIA already knows your loop, break it here, not with a generic plan.
+        if let habit = AriaContextStore.shared.context.deepHabits.first {
+            let lower = text.lowercased()
+            let isLifestyleAsk = lower.contains("habit") || lower.contains("why") || lower.contains("tired") || lower.contains("sleep") || lower.contains("always") || lower.contains("pattern") || lower.contains("life") || lower.contains("routine")
+            if isLifestyleAsk || text.count < 30 {
+                let prose = "\(you.isEmpty ? "Hey —" : you) I see a loop: \(habit.cue) → \(habit.routine). \(habit.cost). \(habit.evidence). \(habit.breaker)"
+                return AriaResponse(
+                    confidenceReason: "Grounded in your daily loop",
+                    proseSummary: prose,
+                    message: prose,
+                    suggestedActions: [habit.breakerAction, "Tell me more", "Not now"],
+                    confidence: 0.84
+                )
+            }
         }
 
         // 3) Build facts without ever naming the source — numbers are just known.
