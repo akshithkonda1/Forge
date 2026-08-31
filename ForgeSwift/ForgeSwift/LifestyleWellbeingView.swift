@@ -9,6 +9,7 @@ struct WellbeingView: View {
 
     var body: some View {
         VStack(spacing: 20) {
+            HabitLoopListCard(vm: vm)
             DailyHabitsCard()
             MindfulnessCard(vm: vm)
             MindfulTrendCard(trend: vm.mindfulTrend)
