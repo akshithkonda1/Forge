@@ -29,6 +29,7 @@ final class OnboardingCoordinator {
     var healthProfile: UserHealthProfile?
     var healthSnapshot: HealthDataSnapshot?
     var healthPrefillNote: String?
+    var showHealthSourceBadge = false // optional — user taps "Show where this came from" if they want it
 
     var calendarState: HealthKitState = .unknown
     var calendarBusyToday: Int = 0
@@ -40,8 +41,13 @@ final class OnboardingCoordinator {
 
     // MARK: Derived
 
+    // Progress over the active flow only (legacy steps not counted)
+    private var activeSteps: [AriaInterviewStep] {
+        [.intro, .name, .health, .details, .goals, .experience, .workouts, .sleep, .freeTime, .coaching, .conditions, .ready]
+    }
     var progress: Double {
-        Double(step.rawValue) / Double(max(1, AriaInterviewStep.allCases.count - 1))
+        guard let idx = activeSteps.firstIndex(of: step) else { return Double(step.rawValue) / Double(max(1, AriaInterviewStep.allCases.count - 1)) }
+        return Double(idx) / Double(max(1, activeSteps.count - 1))
     }
     var isUnderage: Bool { profile.ageYears < 13 }
     var canFinish: Bool {
@@ -247,19 +253,17 @@ final class OnboardingCoordinator {
         }
     }
 
+    func continueFromHealth() {
+        guard step == .health else { return }
+        appendUser(healthKitState == .authorized && calendarState == .authorized ? "Connected both" : healthKitState == .authorized ? "Health connected" : calendarState == .authorized ? "Calendar connected" : "Continue")
+        Task { await advanceTo(.details) }
+    }
+
     func connectHealthKit() {
         guard step == .health else { return }
         appendUser("Connect Apple Health")
         FDS.haptic(.medium)
-        Task {
-            await requestHealthKit()
-            // After Health, offer calendar so ARIA can see time, not just HRV
-            await ariaSay("Health connected. Now your calendar — I only read busy windows, never titles — so I can place sessions where your day allows. Want to connect?", mood: .focused)
-            // Stay on .health step but swap copy to calendar; advance still goes to details
-            await advanceTo(.details)
-            // Fire calendar request in background, don't block details
-            Task { await requestCalendar() }
-        }
+        Task { await requestHealthKit() }
     }
 
     func skipHealthKit() {
@@ -269,13 +273,6 @@ final class OnboardingCoordinator {
             healthKitState = healthKitState == .unavailable ? .unavailable : .denied
         }
         FDS.haptic(.light)
-        Task {
-            await ariaSay(
-                "No problem — enter your details next. Connect Apple Health anytime and I'll fold recovery in. Same for Calendar — I can fit training around busy windows whenever you connect it.",
-                mood: .calm
-            )
-            await advanceTo(.details)
-        }
     }
 
     func connectCalendar() async {
@@ -370,6 +367,19 @@ final class OnboardingCoordinator {
         appendUser(band.label)
         FDS.haptic(.light)
         syncPartialContext()
+        // Habit seed — first loop from sleep rhythm so day-one Lifestyle isn't empty
+        if band == .nightOwl || band == .inconsistent {
+            let habit = DeepHabit(
+                id: "sleep_variance", title: "Wobbly wind-down",
+                cue: "Evening at home after 22:00", routine: "Phone stays with you → late scroll",
+                payoff: "Felt productive", cost: "Deep sleep cut",
+                category: .sleep, confidence: 0.72,
+                evidence: "Sleep rhythm \(band.label) — first habit seeded",
+                breaker: "Tonight, leave phone charging in the kitchen at 22:00.",
+                breakerAction: "Try kitchen-phone"
+            )
+            AriaContextStore.shared.context.deepHabits = [habit]
+        }
         Task {
             await ariaSay(
                 "Sleep rhythm noted: \(band.detail). I'll schedule hard work and recovery around that.",
@@ -397,16 +407,21 @@ final class OnboardingCoordinator {
             appendUser(profile.freeTimeInterests.map(\.label).joined(separator: ", "))
         }
         FDS.haptic(.light)
+        // Collapse: trainingTheme + lifeContext are now answered here — default to classic / preferNot
+        // so we can skip two screens and keep the interview feeling like one human ask.
+        if profile.trainingTheme == nil { profile.trainingTheme = .classic }
+        if profile.lifeContext == .preferNot || profile.lifeContext.rawValue.isEmpty {
+            // keep preferNot as default — user can change in the same step if we show the chips
+        }
         syncPartialContext()
         Task {
             if profile.freeTimeInterests.isEmpty {
-                await ariaSay("All good — we can learn your lifestyle as we go.", mood: .calm)
+                await ariaSay("All good — we can learn your lifestyle as we go. Classic coaching unless you tell me otherwise.", mood: .calm)
             } else {
                 let labels = profile.freeTimeInterests.prefix(3).map(\.label).joined(separator: ", ")
-                await ariaSay("I'll keep \(labels) in mind so training doesn't fight your life.", mood: .focused)
+                await ariaSay("I'll keep \(labels) in mind — classic coaching unless you want a world like Solo Leveling.", mood: .focused)
             }
-            profile.trainingTheme = .classic
-            await advanceTo(.lifeContext)
+            await advanceTo(.coaching)
         }
     }
 
@@ -534,8 +549,8 @@ final class OnboardingCoordinator {
         appendUser(style.label)
         FDS.haptic(.medium)
         Task {
-            await ariaSay("Voice locked: \(style.label).", mood: AriaOnboardingGuide.mood(for: style))
-            await advanceTo(.ready)
+            await ariaSay("Voice locked: \(style.label). One last optional thing — any conditions I should respect? Skip is fine.", mood: .calm)
+            await advanceTo(.conditions)
         }
     }
 

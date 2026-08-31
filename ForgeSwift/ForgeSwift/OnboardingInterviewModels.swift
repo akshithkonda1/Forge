@@ -26,12 +26,13 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
     case experience
     case workouts
     case sleep
-    case freeTime
+    case freeTime // now covers interests + training theme + life context in one ask
+    case coaching
+    case conditions // now optional at the very end, before ready
+    case ready
+    // Legacy steps kept for migration but no longer in flow
     case trainingTheme
     case lifeContext
-    case conditions
-    case coaching
-    case ready
 
     var progressLabel: String {
         switch self {
