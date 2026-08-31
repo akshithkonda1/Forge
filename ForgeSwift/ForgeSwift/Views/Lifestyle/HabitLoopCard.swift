@@ -109,7 +109,7 @@ private struct LoopRow: View {
 struct HabitLoopListCard: View {
     @ObservedObject var vm: LifestyleViewModel
     @EnvironmentObject var store: AppStore
-    @State private var triedIds: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "forge.habits.tried") ?? [])
+    @State private var pendingFeedback: TriedHabit? = HabitFeedbackStore.pendingFeedback()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -128,6 +128,42 @@ struct HabitLoopListCard: View {
                 }
             }
 
+            // Morning feedback — did it work? (appears day after you try)
+            if let pending = pendingFeedback {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Did it work?")
+                        .font(.system(size: 13, weight: .bold)).foregroundColor(.ember)
+                    Text("You tried \(pending.breaker) yesterday.")
+                        .font(.system(size: 13)).foregroundColor(.textSecondary)
+                    HStack(spacing: 10) {
+                        Button {
+                            HabitFeedbackStore.submitFeedback(habitId: pending.habitId, answer: "yeah")
+                            if let habit = vm.deepHabits.first(where: { $0.id == pending.habitId }) {
+                                AriaContextStore.shared.addInsight(HabitFeedbackStore.feedbackInsight(for: habit, answer: "yeah"))
+                            }
+                            pendingFeedback = nil
+                            FeedbackGenerator.light()
+                        } label: {
+                            Text("Yeah ✓").font(.system(size: 13, weight: .bold)).foregroundColor(.white)
+                                .frame(maxWidth: .infinity).padding(.vertical, 9).background(Color.success).cornerRadius(9)
+                        }
+                        Button {
+                            HabitFeedbackStore.submitFeedback(habitId: pending.habitId, answer: "nah")
+                            if let habit = vm.deepHabits.first(where: { $0.id == pending.habitId }) {
+                                AriaContextStore.shared.addInsight(HabitFeedbackStore.feedbackInsight(for: habit, answer: "nah"))
+                            }
+                            pendingFeedback = nil
+                            FeedbackGenerator.light()
+                        } label: {
+                            Text("Nah — too big").font(.system(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
+                                .frame(maxWidth: .infinity).padding(.vertical, 9).background(Color.surfaceElevated).cornerRadius(9)
+                        }
+                    }
+                }
+                .padding(12).background(Color.success.opacity(0.06)).cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.success.opacity(0.15), lineWidth: 1))
+            }
+
             if vm.deepHabits.isEmpty {
                 Text("No strong loop detected — your signals look balanced today. One small habit still compounds.")
                     .font(.system(size: 13))
@@ -136,14 +172,8 @@ struct HabitLoopListCard: View {
             } else {
                 ForEach(vm.deepHabits) { habit in
                     HabitLoopCard(habit: habit, onTry: {
-                        var tried = UserDefaults.standard.stringArray(forKey: "forge.habits.tried") ?? []
-                        if !tried.contains(habit.id) { tried.append(habit.id) }
-                        UserDefaults.standard.set(tried, forKey: "forge.habits.tried")
-                        triedIds.insert(habit.id)
-                        // Feedback into ARIA context
-                        Task {
-                            AriaContextStore.shared.addInsight("Tried habit breaker: \(habit.id) — \(habit.breaker)")
-                        }
+                        HabitFeedbackStore.markTried(habit)
+                        AriaContextStore.shared.addInsight("Tried habit breaker: \(habit.id) — \(habit.breaker)")
                         FeedbackGenerator.light()
                     }, onSnooze: {
                         FeedbackGenerator.light()
@@ -157,6 +187,7 @@ struct HabitLoopListCard: View {
         .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
         .onAppear {
             Task { await vm.syncIfNeeded() }
+            pendingFeedback = HabitFeedbackStore.pendingFeedback()
         }
     }
 }

@@ -172,7 +172,12 @@ def _score_directional(text: str, rec: str, ctx: ARIAContext, mult: float,
     t = ctx.today
     recommends_high = _advocates(text, _HIGH_INTENSITY)
     surfaces_overtraining = _has(text, "overtrain", "acwr", "workload", "load is high", "back off", "too much", "rest", "deload")
-    prioritizes_sleep = "sleep" in text and _has(text, "priorit", "before", "more sleep", "protect", "first", "over training")
+    # Phase 3: widen sleep gate — "Recovery needs priority" counts even without literal "sleep",
+    # and "protect tonight" / "hold intensity back" also satisfies honest sleep-first.
+    prioritizes_sleep = (
+        ("sleep" in text and _has(text, "priorit", "before", "more sleep", "protect", "first", "over training"))
+        or _has(text, "recovery needs priority", "sleep first", "protect tonight", "protect sleep", "hold intensity back")
+    )
     recommends_increase = _advocates(text, _INCREASE_LOAD)
 
     if t.readiness_score < 50 and recommends_high:
