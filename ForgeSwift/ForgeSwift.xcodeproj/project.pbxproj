@@ -277,8 +277,6 @@
 		1TEST01200000000000000A /* MenstrualCycleEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */; };
 		1TEST01400000000000000A /* PartnerCycleDigestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01300000000000000A /* PartnerCycleDigestTests.swift */; };
 		CF71AF40391648AC87F73400 /* ContextInspectorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34EBFCC451EC42798BEAF8AB /* ContextInspectorSheet.swift */; };
-		EEF8ECC8FEED4900A7133631 /* HabitLoopCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E38AEAB0C45A49109A7C8484 /* HabitLoopCard.swift */; };
-		467BF9D723C7442A809AA9A4 /* HabitProactiveCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5BCFE92F0BB45F98AF4D6DC /* HabitProactiveCard.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -631,9 +629,7 @@
 		1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngineTests.swift; sourceTree = "<group>"; };
 		1TEST01300000000000000A /* PartnerCycleDigestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleDigestTests.swift; sourceTree = "<group>"; };
 		1TEST00700000000000000A /* ForgeSwiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForgeSwiftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		34EBFCC451EC42798BEAF8AB /* ContextInspectorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSwift/ContextInspectorSheet.swift; sourceTree = "<group>"; };
-		E38AEAB0C45A49109A7C8484 /* HabitLoopCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HabitLoopCard.swift; sourceTree = "<group>"; };
-		E5BCFE92F0BB45F98AF4D6DC /* HabitProactiveCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HabitProactiveCard.swift; sourceTree = "<group>"; };
+		34EBFCC451EC42798BEAF8AB /* ContextInspectorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextInspectorSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
