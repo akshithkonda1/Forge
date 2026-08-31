@@ -800,6 +800,8 @@
 		AA0004000000000000000001 /* ForgeSwift */ = {
 			isa = PBXGroup;
 			children = (
+				E5BCFE92F0BB45F98AF4D6DC /* HabitProactiveCard.swift */,
+				E38AEAB0C45A49109A7C8484 /* HabitLoopCard.swift */,
 				AA000200000000000000F1A0 /* PrivacyInfo.xcprivacy */,
 				1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */,
 				AA00020000000000000000B5 /* Info-Add.plist */,
