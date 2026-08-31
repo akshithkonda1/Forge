@@ -140,6 +140,7 @@ final class AppStore: ObservableObject {
     @Published var isInAriaFirstBond: Bool = false
     var ariaFirstBondBeat: AriaFirstBond.Beat = .opening
     var ariaFirstBondForceReplay: Bool = false
+    @Published var showContextInspector: Bool = false
 
     func completeAriaUseOnboarding() {
         isInAriaFirstBond = false

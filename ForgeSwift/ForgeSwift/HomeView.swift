@@ -30,7 +30,13 @@ struct HomeView: View {
 
                         HomeTodayHero(action: primaryAction)
 
-                        if !store.quietMode,
+                        // Habit breaker is the proactive companion — most human, most specific.
+                        if let habit = AriaContextStore.shared.context.deepHabits.first,
+                           !store.quietMode {
+                            HabitProactiveCard(habit: habit) {
+                                store.openChat(with: "Help me with: \(habit.breaker)", voice: false)
+                            }
+                        } else if !store.quietMode,
                            let insight = proactiveInsight,
                            AriaContextStore.shared.shouldBeProactive() {
                             ProactiveCardView(
@@ -132,6 +138,9 @@ struct HomeView: View {
             store.pendingCycleHealthOpen = false
             store.pendingCyclePane = nil
         }
+        .sheet(isPresented: $store.showContextInspector) {
+            ContextInspectorSheet()
+        }
         .onAppear {
             if store.pendingCycleHealthOpen {
                 if store.pendingCyclePane == "partner" {
@@ -218,6 +227,11 @@ struct HomeHeaderView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Profile")
+            .contextMenu {
+                Button { store.showContextInspector = true } label: {
+                    Label("What ARIA sees", systemImage: "eye.fill")
+                }
+            }
         }
         .homeEntrance(delay: 0.05)
     }
