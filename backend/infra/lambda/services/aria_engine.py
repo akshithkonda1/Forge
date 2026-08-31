@@ -1145,20 +1145,43 @@ def _recommendation_response(
     message: str, ctx: ARIAContext, signals: list[Signal], restricted: list[str], voice_mode: bool
 ) -> dict[str, Any]:
     confidence, reason = _calibrate_confidence(ctx, signals, restricted)
+    # Phase 1 — HRV falling + sleep debt >5h → force sleep-first, cap confidence
+    hrv_falling = ctx.readiness.hrv_7day_trend is not None and ctx.readiness.hrv_7day_trend <= -8
+    sleep_debt_h = 0.0
+    if ctx.sleep.duration_minutes is not None:
+        sleep_debt_h = max(0.0, (7 * 8 * 60 - (ctx.sleep.duration_minutes or 0)) / 60.0)
+        # approximate 7-day debt from today's shortfall when 7-day history unavailable
+        if ctx.readiness.hrv_days_available is None or ctx.readiness.hrv_days_available < 7:
+            sleep_debt_h = max(sleep_debt_h, 8 - (ctx.sleep.duration_minutes or 0) / 60.0)
+    if hrv_falling and sleep_debt_h > 5:
+        confidence = min(confidence, 0.60)
+        reason = f"HRV falling {ctx.readiness.hrv_7day_trend:.0f}% + {sleep_debt_h:.1f}h sleep debt — sleep first, confidence capped"
     lead = signals[0] if signals else None
     negative = [s for s in signals if s.direction == "negative"]
+    sleep_first = hrv_falling and sleep_debt_h > 5
 
-    if negative:
-        driver = negative[0]
-        action = "Keep today low-intensity — Zone 2 cardio or mobility, not a hard session"
-        timing = "Reassess tomorrow once HRV and deep sleep recover"
-        if ctx.chronotype.typical_sleep_onset:
-            timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
-        rationale = f"{driver.metric.lower()}: {driver.interpretation}"
-        expected = "Protecting today should pull HRV back toward baseline within 24-48 h"
-        chat = f"Hold back today. {_cap(driver.interpretation)}. Keep it low-intensity, and we reassess tomorrow."
-        prose = f"{_cap(driver.interpretation)} — keep today easy and let recovery catch up."
-        actions = ["Show recovery plan", "Swap to Zone 2", "Protect tonight's sleep"]
+    if sleep_first or negative:
+        if sleep_first:
+            action = "Sleep first — protect tonight's wind-down before training volume"
+            timing = "Protect sleep tonight; reassess training after HRV recovers"
+            if ctx.chronotype.typical_sleep_onset:
+                timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
+            rationale = f"HRV {ctx.readiness.hrv_7day_trend:.0f}% + {sleep_debt_h:.1f}h sleep debt — sleep before load"
+            expected = "Prioritizing sleep should pull HRV back toward baseline within 24-48 h"
+            chat = f"Sleep needs priority tonight. HRV is {abs(ctx.readiness.hrv_7day_trend):.0f}% below baseline and you're carrying {sleep_debt_h:.1f}h debt. Hold training easy, protect your wind-down, and we reassess tomorrow."
+            prose = f"HRV {abs(ctx.readiness.hrv_7day_trend):.0f}% below baseline with {sleep_debt_h:.1f}h sleep debt — sleep first tonight, then training."
+            actions = ["Protect tonight's sleep", "Show recovery plan", "Swap to Zone 2"]
+        else:
+            driver = negative[0]
+            action = "Keep today low-intensity — Zone 2 cardio or mobility, not a hard session"
+            timing = "Reassess tomorrow once HRV and deep sleep recover"
+            if ctx.chronotype.typical_sleep_onset:
+                timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
+            rationale = f"{driver.metric.lower()}: {driver.interpretation}"
+            expected = "Protecting today should pull HRV back toward baseline within 24-48 h"
+            chat = f"Hold back today. {_cap(driver.interpretation)}. Keep it low-intensity, and we reassess tomorrow."
+            prose = f"{_cap(driver.interpretation)} — keep today easy and let recovery catch up."
+            actions = ["Show recovery plan", "Swap to Zone 2", "Protect tonight's sleep"]
     elif lead and lead.direction == "positive":
         action = "Green light for intensity — this is a day to push"
         timing = "Train in your usual window while readiness is high"

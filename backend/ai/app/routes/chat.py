@@ -9,7 +9,45 @@ _context = CoachContextEngine()
 
 
 async def chat_with_aria(payload: dict[str, Any]) -> dict[str, Any]:
-    """Layer 4 — structured ARIA chat response."""
+    """DEPRECATED — Phase 1: legacy recent_metrics path.
+
+    Kept for backward compat only; all new clients use
+    backend.infra.lambda.services.aria_engine + ARIAContext (structured domains).
+    This now delegates to the canonical engine and logs a deprecation warning.
+    Do not add new logic here.
+    """
+    import warnings
+
+    warnings.warn(
+        "backend.ai.app.routes.chat.chat_with_aria is deprecated — use backend.infra.lambda.services.aria_engine.generate_response",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+    # If payload already carries structured ARIAContext, delegate directly
+    if any(k in payload for k in ("sleep", "readiness", "lifestyle", "nutrition", "activity")):
+        try:
+            from backend.infra.lambda.services import aria_engine as _canonical
+
+            ctx = _canonical.ARIAContext.from_payload(payload)
+            perms = _canonical.DataPermissions.from_payload(payload.get("permissions"))
+            resp = _canonical.generate_response(
+                str(payload.get("message") or ""),
+                ctx,
+                permissions=perms,
+                voice_mode=str(payload.get("mode") or "").strip().lower() == "voice",
+            )
+            # Map canonical envelope to legacy shape
+            return {
+                "message": resp.get("prose_summary") or resp.get("message") or "",
+                "suggested_actions": resp.get("suggested_actions") or [],
+                "context_updates": resp.get("context_updates") or {},
+                "confidence": resp.get("confidence") or 0.82,
+                "reasoning_source": resp.get("reasoning_source") or "deterministic",
+                "deprecation": "recent_metrics path is deprecated",
+            }
+        except Exception:
+            pass
     request = AriaChatRequest.from_payload(payload)
     if not request.user_id or not request.message:
         return {"error": "user_id and message are required", "status": 400}

@@ -92,12 +92,29 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         response["agents"] = roster
 
     memory = _context.memory_reference(uid, message) if permissions.allows("lifestyle") else None
-    legacy_metrics = {
-        "readiness": context.readiness.recovery_score or 0,
-    }
-    rich = _context.build_rich_context(uid, legacy_metrics)
-    updated_level = min(10, int(rich.get("relationship_level", 1)) + 1)
-    _context.update_context(uid, {"relationship_level": updated_level})
+    # Phase 1: relationship only grows on non-clarification + >24h since last promotion
+    # (prevents chat spam inflating trust). Uses dedicated last_promoted_at, not last_updated.
+    response_type = str(response.get("response_type") or "")
+    should_promote = response_type != "clarification"
+    if should_promote:
+        ctx_before = _context.get_or_create_context(uid)
+        last_promoted = ctx_before.last_promoted_at
+        if last_promoted is not None:
+            from datetime import timezone
+            import datetime as _dt
+            now = _dt.datetime.now(timezone.utc)
+            hours_since = (now - last_promoted).total_seconds() / 3600
+            if hours_since < 24:
+                should_promote = False
+    rich = _context.build_rich_context(uid, {"readiness": context.readiness.recovery_score or 0})
+    if should_promote:
+        updated_level = min(10, int(rich.get("relationship_level", 1)) + 1)
+        from datetime import timezone
+        import datetime as _dt
+        now = _dt.datetime.now(timezone.utc)
+        _context.update_context(uid, {"relationship_level": updated_level, "last_promoted_at": now.isoformat()})
+    else:
+        updated_level = int(rich.get("relationship_level", 1))
 
     if memory and not voice_mode:
         response["message"] = f"{memory}\n\n{response['message']}"
