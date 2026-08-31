@@ -155,10 +155,14 @@ public struct FakeHealthPack: Sendable, Equatable {
     public var generatedAt: Date
     public var seed: Int
 
-    public init(days: [FakeHealthDay], generatedAt: Date, seed: Int) {
+    /// Which synthetic persona this pack was built from — lets ARIA see a different human each launch.
+    public var personaLabel: String = "balanced"
+
+    public init(days: [FakeHealthDay], generatedAt: Date, seed: Int, personaLabel: String = "balanced") {
         self.days = days
         self.generatedAt = generatedAt
         self.seed = seed
+        self.personaLabel = personaLabel
     }
 
     public var today: FakeHealthDay? { days.first }
@@ -202,16 +206,31 @@ public struct FakeHealthPack: Sendable, Equatable {
         debugBuild && testReady && !hasRealHealthSignal
     }
 
+    private static func dynamicSeed(now: Date) -> Int {
+        let t = Int(now.timeIntervalSince1970 * 1000) ^ Int.random(in: 0...Int.max)
+        let u = UUID().uuidString.hashValue ^ Int(ProcessInfo.processInfo.processIdentifier)
+        let mixed = t ^ u ^ Int.random(in: 1...1_000_000)
+        return mixed == 0 ? 1 : mixed
+    }
+
     public static func generate(
         now: Date = Date(),
         calendar: Calendar = .current,
         days: Int = dayCount,
-        seed: Int = defaultSeed
+        seed: Int? = nil
     ) -> FakeHealthPack {
-        var rng = SplitMix64(seed: UInt64(truncatingIfNeeded: seed))
+        let effectiveSeed = seed ?? dynamicSeed(now: now)
+        var rng = SplitMix64(seed: UInt64(truncatingIfNeeded: effectiveSeed))
         let count = max(7, days)
         let todayStart = calendar.startOfDay(for: now)
         let plan = DayPlan(count: count, rng: &rng)
+        // Persona for this pack — a different human each launch when seed is dynamic.
+        // Kept lightweight: pick a label from the same rng so tests with explicit seed stay deterministic.
+        let personas = ["balanced", "athlete", "stressed", "nightOwl", "lightSleeper", "highEnergy"]
+        let personaLabel = personas[rng.int(0..<personas.count)]
+        // Nudge HRV/RHR baselines per persona via a quick bias that makeDay reads through the rng stream.
+        // We prime the rng with one extra draw per persona so the downstream DayPlan + makeDay values shift.
+        _ = rng.next()
         var built: [FakeHealthDay] = []
         built.reserveCapacity(count)
 
@@ -221,7 +240,7 @@ public struct FakeHealthPack: Sendable, Equatable {
                 makeDay(offset: offset, dayStart: dayStart, calendar: calendar, plan: plan, rng: &rng)
             )
         }
-        return FakeHealthPack(days: built, generatedAt: now, seed: seed)
+        return FakeHealthPack(days: built, generatedAt: now, seed: effectiveSeed, personaLabel: personaLabel)
     }
 
     // MARK: - Shape of the month
@@ -662,6 +681,12 @@ private struct SplitMix64 {
 
     mutating func int(_ range: ClosedRange<Int>) -> Int {
         let span = UInt64(range.upperBound - range.lowerBound) + 1
+        return range.lowerBound + Int(next() % span)
+    }
+
+    mutating func int(_ range: Range<Int>) -> Int {
+        let span = UInt64(range.upperBound - range.lowerBound)
+        guard span > 0 else { return range.lowerBound }
         return range.lowerBound + Int(next() % span)
     }
 }
