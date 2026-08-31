@@ -25,50 +25,48 @@ struct MindfulTrendCard: View {
     private var total: Int { Int(trend.reduce(0) { $0 + $1.minutes }) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                HStack(spacing: 8) {
-                    Image(systemName: "brain.head.profile")
-                        .font(.system(size: 16)).foregroundColor(Color(hex: "A855F7"))
-                    Text("This week").font(.system(size: 18, weight: .semibold)).foregroundColor(.textPrimary)
-                }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("This week")
+                    .font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundColor(.textPrimary)
                 Spacer()
-                Text("\(total) min this week")
-                    .font(.system(size: 12, weight: .semibold)).foregroundColor(.textTertiary)
+                Text("\(total) min")
+                    .font(.system(size: 11, weight: .medium)).foregroundColor(.textTertiary).monospacedDigit()
             }
 
             if trend.isEmpty || trend.allSatisfy({ $0.minutes == 0 }) {
-                Text("No mindful sessions logged this week. Even 5 minutes a day supports recovery.")
-                    .font(.system(size: 13)).foregroundColor(.textSecondary)
+                Text("No sessions yet — 5 minutes still counts.")
+                    .font(.system(size: 12)).foregroundColor(.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 6)
             } else {
                 Chart(trend) { day in
                     BarMark(
                         x: .value("Day", day.date, unit: .day),
                         y: .value("Minutes", day.minutes)
                     )
-                    .foregroundStyle(Color(hex: "A855F7").gradient)
-                    .cornerRadius(4)
+                    .foregroundStyle(Color.textPrimary.opacity(0.85))
+                    .cornerRadius(3)
                 }
                 .chartXAxis {
                     AxisMarks(values: .stride(by: .day)) { _ in
-                        AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.system(size: 9))
+                        AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.system(size: 9)).foregroundStyle(.textTertiary)
                     }
                 }
                 .chartYAxis {
                     AxisMarks(position: .leading) { _ in
-                        AxisGridLine()
-                        AxisValueLabel().font(.system(size: 9))
+                        AxisGridLine().foregroundStyle(Color.borderColor.opacity(0.12))
+                        AxisValueLabel().font(.system(size: 9)).foregroundStyle(.textTertiary)
                     }
                 }
-                .frame(height: 120)
+                .frame(height: 96)
             }
         }
-        .padding(20)
+        .padding(18)
         .background(Color.surface)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.07), lineWidth: 1))
+        .shadow(color: .black.opacity(0.02), radius: 6, y: 3)
     }
 }
 
@@ -283,56 +281,65 @@ struct MindfulnessCard: View {
     private let lengths = [3, 5, 10, 15]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header — editorial, not slop
+            HStack(alignment: .firstTextBaseline) {
                 Text("Mindfulness")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)
                 Spacer()
-                Text("\(max(vm.mindfulMinutesToday, 0)) min today  ·  \(max(vm.mindfulMinutesWeek, 0)) this week")
+                Text("\(max(vm.mindfulMinutesToday, 0)) min · \(max(vm.mindfulMinutesWeek, 0)) this week")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.textTertiary)
+                    .monospacedDigit()
             }
 
-            HStack(spacing: 8) {
+            // Practice picker — segmented, not 4 colored pills
+            HStack(spacing: 0) {
                 ForEach(MindfulPractice.allCases) { item in
                     Button {
                         practice = item
                         UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
-                        VStack(spacing: 6) {
-                            Image(systemName: item.symbol)
-                                .font(.system(size: 14, weight: .semibold))
+                        VStack(spacing: 4) {
                             Text(item.title)
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.system(size: 12, weight: practice == item ? .semibold : .medium))
+                                .foregroundColor(practice == item ? .textPrimary : .textTertiary)
+                            // underline, not filled pill
+                            Rectangle()
+                                .fill(practice == item ? Color.textPrimary : Color.clear)
+                                .frame(height: 1.5)
+                                .padding(.horizontal, 8)
                         }
-                        .foregroundColor(practice == item ? practice.tint : .textTertiary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(practice == item ? practice.tint.opacity(0.12) : Color.white.opacity(0.04))
-                        .cornerRadius(12)
                     }
                     .buttonStyle(.plain)
                     .disabled(isRunning)
                 }
             }
+            .background(Color.surfaceElevated)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             Text(practice.line)
-                .font(.system(size: 13))
+                .font(.system(size: 12.5, weight: .regular))
                 .foregroundColor(.textSecondary)
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
 
             if !isRunning {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     ForEach(lengths, id: \.self) { n in
                         Button {
                             minutes = n
                         } label: {
                             Text("\(n)m")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.system(size: 12, weight: minutes == n ? .semibold : .medium))
                                 .foregroundColor(minutes == n ? .textPrimary : .textTertiary)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(minutes == n ? Color.white.opacity(0.10) : Color.clear)
+                                .padding(.vertical, 7)
+                                .background(minutes == n ? Color.surfaceElevated : Color.clear)
+                                .overlay(RoundedRectangle(cornerRadius: 999).stroke(minutes == n ? Color.borderColor : Color.clear, lineWidth: 1))
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
@@ -340,38 +347,43 @@ struct MindfulnessCard: View {
                 }
             }
 
+            // Breathing orb — neutral, not tint-per-practice
             ZStack {
                 Circle()
-                    .stroke(practice.tint.opacity(0.18), lineWidth: 10)
-                    .frame(width: 148, height: 148)
+                    .stroke(Color.borderColor.opacity(0.12), lineWidth: 8)
+                    .frame(width: 132, height: 132)
                 Circle()
-                    .fill(practice.tint.opacity(inhale ? 0.28 : 0.12))
-                    .frame(width: inhale ? 118 : 86, height: inhale ? 118 : 86)
+                    .fill(Color.textPrimary.opacity(inhale ? 0.06 : 0.03))
+                    .frame(width: inhale ? 104 : 78, height: inhale ? 104 : 78)
                     .animation(
                         isRunning
                             ? .easeInOut(duration: 4).repeatForever(autoreverses: true)
-                            : .easeOut(duration: 0.4),
+                            : .easeOut(duration: 0.35),
                         value: inhale
                     )
-                VStack(spacing: 4) {
+                VStack(spacing: 3) {
                     if isRunning {
                         Text(timeString(remainingSeconds))
-                            .font(.system(size: 28, weight: .semibold, design: .rounded))
+                            .font(.system(size: 26, weight: .light, design: .rounded))
                             .foregroundColor(.textPrimary)
                             .monospacedDigit()
-                        Text(inhale ? "In" : "Out")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(practice.tint)
+                        Text(inhale ? "in" : "out")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.textTertiary)
+                            .textCase(.uppercase).tracking(0.8)
                     } else {
                         Text("\(minutes):00")
-                            .font(.system(size: 26, weight: .semibold, design: .rounded))
+                            .font(.system(size: 24, weight: .light, design: .rounded))
                             .foregroundColor(.textPrimary)
                             .monospacedDigit()
+                        Text(practice.title.lowercased())
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.textTertiary)
                     }
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
+            .padding(.vertical, 4)
 
             Button {
                 if isRunning {
@@ -380,25 +392,22 @@ struct MindfulnessCard: View {
                     startSession()
                 }
             } label: {
-                Text(isRunning ? "End" : "Begin")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
+                Text(isRunning ? "End" : "Begin \(practice.title.lowercased())")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(isRunning ? .textPrimary : .white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(practice.tint.opacity(0.9))
-                    .cornerRadius(14)
+                    .padding(.vertical, 13)
+                    .background(isRunning ? Color.surfaceElevated : Color.textPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor.opacity(isRunning ? 0.12 : 0), lineWidth: 1))
             }
             .buttonStyle(.plain)
         }
-        .padding(20)
-        .background(
-            ZStack {
-                Color.surface
-                RadialGradient(colors: [practice.tint.opacity(0.10), .clear], center: .center, startRadius: 20, endRadius: 220)
-            }
-        )
-        .cornerRadius(22)
-        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.borderColor.opacity(0.35), lineWidth: 1))
+        .padding(18)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.borderColor.opacity(0.07), lineWidth: 1))
+        .shadow(color: .black.opacity(0.03), radius: 8, y: 4)
         .onDisappear { timer?.invalidate() }
     }
 
@@ -438,61 +447,60 @@ struct StressManagementCard: View {
     let stats: DailyHealthStats?
     @State private var selectedLevel = LifestyleWellbeingStore.loadStressLevel()
 
-    private let levels: [(emoji: String, label: String, color: Color)] = [
-        ("😌", "Low",    .success),
-        ("😐", "Medium", .warning),
-        ("😰", "High",   .danger),
+    private let levels: [(label: String, sub: String, color: Color)] = [
+        ("Low", "steady", .textTertiary),
+        ("Balanced", "okay", .textTertiary),
+        ("High", "tense", .textTertiary),
     ]
 
     private var stressTip: String {
         if let stats, stats.hrv > 0, stats.hrv < 40 {
-            return "HRV is \(Int(stats.hrv))ms — try 5-minute box breathing or a 10-minute walk."
+            return "HRV \(Int(stats.hrv))ms — a short breathe or walk helps."
         }
         switch selectedLevel {
-        case 0: return "Great baseline — maintain with light movement and consistent sleep."
-        case 2: return "High stress detected — prioritize recovery, hydration, and an earlier bedtime."
-        default: return "Try: 5-minute box breathing or a short walk to reset your nervous system."
+        case 0: return "Steady — keep sleep and movement consistent."
+        case 2: return "Tense — easier day, water, earlier wind-down."
+        default: return "A 5-min breathe or walk resets more than you'd think."
         }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Stress Management").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Stress").font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundColor(.textPrimary)
+                Spacer()
+                Text(["low","balanced","high"][selectedLevel]).font(.system(size: 11, weight: .medium)).foregroundColor(.textTertiary)
+            }
 
-            HStack(spacing: 12) {
+            HStack(spacing: 6) {
                 ForEach(Array(levels.enumerated()), id: \.offset) { i, level in
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selectedLevel = i }
                         LifestyleWellbeingStore.saveStressLevel(i)
                     } label: {
-                        VStack(spacing: 8) {
-                            Text(level.emoji).font(.system(size: 30))
-                            Text(level.label)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(selectedLevel == i ? level.color : .textSecondary)
-                        }
-                        .frame(maxWidth: .infinity).padding(.vertical, 14)
-                        .background(selectedLevel == i ? level.color.opacity(0.12) : Color.surfaceElevated)
-                        .cornerRadius(14)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .stroke(selectedLevel == i ? level.color : Color.borderColor.opacity(0.4), lineWidth: selectedLevel == i ? 1.5 : 1)
-                        )
+                        Text(level.label)
+                            .font(.system(size: 12, weight: selectedLevel == i ? .semibold : .medium))
+                            .foregroundColor(selectedLevel == i ? .textPrimary : .textTertiary)
+                            .frame(maxWidth: .infinity).padding(.vertical, 9)
+                            .background(selectedLevel == i ? Color.surfaceElevated : Color.clear)
+                            .overlay(RoundedRectangle(cornerRadius: 999).stroke(selectedLevel == i ? Color.borderColor : Color.clear, lineWidth: 1))
+                            .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
                 }
             }
 
-            HStack(spacing: 8) {
-                Image(systemName: "lightbulb.fill").font(.system(size: 12)).foregroundColor(.warning)
-                Text(stressTip)
-                    .font(.system(size: 13)).foregroundColor(.textSecondary).italic()
-            }
+            Text(stressTip)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundColor(.textSecondary)
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(20)
+        .padding(18)
         .background(Color.surface)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.07), lineWidth: 1))
+        .shadow(color: .black.opacity(0.02), radius: 6, y: 3)
         .onAppear {
             if let stats, stats.hrv > 0 {
                 selectedLevel = stats.hrv < 35 ? 2 : stats.hrv < 50 ? 1 : 0
