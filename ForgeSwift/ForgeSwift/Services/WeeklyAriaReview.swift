@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import ForgeCore
 
 /// Weekly ARIA evaluation. The chat tab is for conversation; this is the
 /// interview that actually collects standing context — energy, sleep, body,
@@ -126,6 +127,8 @@ final class WeeklyAriaReviewStore: ObservableObject {
 struct WeeklyAriaReviewSheet: View {
     @ObservedObject var review = WeeklyAriaReviewStore.shared
     @EnvironmentObject var store: AppStore
+    private var lastHabit: DeepHabit? { AriaContextStore.shared.context.deepHabits.first }
+    private var pendingHabit: TriedHabit? { HabitFeedbackStore.pendingFeedback() }
 
     var body: some View {
         NavigationStack {
@@ -134,6 +137,27 @@ struct WeeklyAriaReviewSheet: View {
                     Text("Once a week ARIA sits down and actually asks — not a score, a conversation. Answers stay in your context on this device and, when the backend is up, on your account.")
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
+
+                    // Last habit breaker + outcome — closes the loop you asked for
+                    if let habit = lastHabit {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 6) {
+                                Image(systemName: habit.category.icon).font(.system(size: 11, weight: .semibold)).foregroundColor(.ember)
+                                Text("Last habit: \(habit.title)").font(.system(size: 12, weight: .bold)).foregroundColor(.ember)
+                            }
+                            Text(habit.breaker).font(.system(size: 13)).foregroundColor(.textPrimary)
+                            Text(habit.evidence).font(.system(size: 11)).foregroundColor(.textTertiary)
+                            if let pending = pendingHabit, pending.habitId == habit.id {
+                                Text("You tried this — did it work? Answer in Wellbeing → Today's Loop.")
+                                    .font(.system(size: 11, weight: .semibold)).foregroundColor(.success)
+                            } else if let tried = HabitFeedbackStore.tried().first(where: { $0.habitId == habit.id && $0.feedback != nil }) {
+                                Text(tried.feedback == "yeah" ? "You said it worked ✓" : "You said it was too big — next breaker will be smaller")
+                                    .font(.system(size: 11, weight: .semibold)).foregroundColor(tried.feedback == "yeah" ? .success : .warning)
+                            }
+                        }
+                        .padding(12).background(Color.ember.opacity(0.06)).cornerRadius(12)
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ember.opacity(0.15), lineWidth: 1))
+                    }
 
                     ForEach(review.questions, id: \.id) { question in
                         VStack(alignment: .leading, spacing: 6) {

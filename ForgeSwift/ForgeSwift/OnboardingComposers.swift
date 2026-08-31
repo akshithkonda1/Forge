@@ -502,46 +502,66 @@ struct HealthComposer: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            HStack(alignment: .top, spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.vitality.opacity(0.14))
-                        .frame(width: 48, height: 48)
-                    Image(systemName: "heart.text.square.fill")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundColor(.vitality)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Apple Health")
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundColor(.textPrimary)
-                    Text("Sleep, heart, and activity stay on this iPhone. ARIA coaches from what you already have.")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
+            // Health + Calendar — one permission moment, two toggles
+            VStack(spacing: 12) {
+                ConnectionRow(
+                    icon: "heart.text.square.fill", color: .vitality,
+                    title: "Apple Health", subtitle: "Sleep, heart, activity — on this iPhone",
+                    state: coordinator.healthKitState, action: coordinator.connectHealthKit
+                )
+                ConnectionRow(
+                    icon: "calendar", color: .steel,
+                    title: "Apple Calendar", subtitle: "Busy windows only — never titles. Fits training around your day.",
+                    state: coordinator.calendarState, action: { Task { await coordinator.connectCalendar() } }
+                )
+            }
+
+            Text("Both optional. One tap each, or skip — you can add them later in Settings.")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.textMuted)
+                .multilineTextAlignment(.center)
+
+            Button("Continue") { Task { await coordinator.continueFromHealth() } }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.textPrimary)
+                .frame(maxWidth: .infinity).frame(height: 44)
+                .background(Color.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
+        }
+    }
+}
+
+private struct ConnectionRow: View {
+    let icon: String; let color: Color; let title: String; let subtitle: String
+    let state: HealthKitState; let action: () -> Void
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12).fill(color.opacity(0.12)).frame(width: 48, height: 48)
+                if state == .requesting {
+                    ProgressView().tint(color)
+                } else {
+                    Image(systemName: state == .authorized ? "checkmark.seal.fill" : icon)
+                        .font(.system(size: 22, weight: .semibold)).foregroundColor(state == .authorized ? .success : color)
                 }
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.surfaceElevated.opacity(0.7))
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.white.opacity(0.06), lineWidth: 1)
-            )
-
-            PrimaryCTA(
-                title: coordinator.healthKitState == .requesting ? "Connecting…" : "Connect Apple Health",
-                icon: "heart.text.square.fill",
-                enabled: coordinator.healthKitState != .requesting && coordinator.healthKitState != .unavailable,
-                action: coordinator.connectHealthKit
-            )
-            Button("Skip for now") { coordinator.skipHealthKit() }
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.textSecondary)
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: 40)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundColor(.textPrimary)
+                Text(state == .authorized ? "Connected" : subtitle).font(.system(size: 12, weight: .medium)).foregroundColor(state == .authorized ? .success : .textTertiary).lineLimit(2)
+            }
+            Spacer()
+            if state != .authorized {
+                Button(action: action) {
+                    Text("Connect").font(.system(size: 13, weight: .bold)).foregroundColor(.white)
+                        .padding(.horizontal, 14).padding(.vertical, 8).background(color).cornerRadius(9)
+                }.disabled(state == .requesting)
+            } else {
+                Image(systemName: "checkmark.circle.fill").foregroundColor(.success)
+            }
         }
+        .padding(14).background(Color.surfaceElevated.opacity(0.7)).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.06), lineWidth: 1))
     }
 }
 
@@ -743,12 +763,46 @@ struct ReadyComposer: View {
                     .foregroundColor(.textTertiary)
                     .multilineTextAlignment(.center)
             }
+            // Liability disclaimer — must be agreed at the very end
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    coordinator.hasAgreedToTerms.toggle()
+                    if coordinator.hasAgreedToTerms { FDS.haptic(.light) }
+                }
+            } label: {
+                HStack(alignment: .top, spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 6).stroke(coordinator.hasAgreedToTerms ? Color.ember : Color.borderColor, lineWidth: 1.5)
+                            .frame(width: 22, height: 22)
+                            .background(coordinator.hasAgreedToTerms ? Color.ember : Color.clear)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        if coordinator.hasAgreedToTerms {
+                            Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
+                        }
+                    }
+                    Text("By agreeing to our Terms of Use, you acknowledge that Forge is an assistive coaching tool, not medical care. You are responsible for your own health. Any actions taken or injuries sustained are not the liability of Forge. Forge is designed to assist and advise, not to compel. By checking this box you waive all liability towards Forge.")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                }
+                .padding(12)
+                .background(Color.surfaceElevated.opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(coordinator.hasAgreedToTerms ? Color.ember.opacity(0.4) : Color.white.opacity(0.06), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+
             PrimaryCTA(
                 title: coordinator.isCompleting ? "Starting…" : "Start with ARIA",
                 icon: "arrow.right",
                 enabled: !coordinator.isCompleting && coordinator.canFinish,
                 action: onFinish
             )
+            if !coordinator.hasAgreedToTerms {
+                Text("Please agree to the Terms to continue.")
+                    .font(.caption.weight(.semibold)).foregroundColor(.warning)
+            }
         }
     }
 }

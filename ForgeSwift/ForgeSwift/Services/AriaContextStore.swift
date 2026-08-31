@@ -623,12 +623,16 @@ final class AriaContextStore: ObservableObject {
         persist()
     }
 
-    /// Pushes live Lifestyle tab signals into ARIA's living context for Bedrock prompts.
+    /// Pushes live Lifestyle tab signals + deep habits into ARIA's living context.
+    /// DeepHabits are the companion layer: cue → routine → cost, derived from
+    /// the same signals Lifestyle renders, so ARIA and the page tell one story.
     func syncLifestyleSignals(
         metrics: LifestyleMetrics,
         stats: DailyHealthStats?,
         recommendations: [AIRecommendation],
-        loggedMeals: [MealLog]
+        loggedMeals: [MealLog],
+        markers: [FakeLifestyleMarker] = [],
+        social: [FakeSocialEvent] = []
     ) {
         var tags: [String] = [
             "qol:\(metrics.qualityOfLifeScore)",
@@ -658,7 +662,43 @@ final class AriaContextStore: ObservableObject {
         for rec in recommendations.prefix(3) {
             patterns.append("lifestyle:\(rec.title)")
         }
-        context.recentPatterns = Array(patterns.suffix(10))
+        // Deep habit → ARIA: keep the top habit's loop in tags/patterns so Bedrock sees it,
+        // and store the full structs for the local human companion path.
+        let sleepVariance: Int? = {
+            let s = HealthKitManager.shared.sleepData
+            guard s.count >= 3 else { return nil }
+            let hours = s.prefix(7).map { $0.totalHours }
+            guard let maxH = hours.max(), let minH = hours.min() else { return nil }
+            return Int((maxH - minH) * 60)
+        }()
+        let habitSignals = HabitSignals(
+            sleepAverage: metrics.sleepAverage,
+            sleepVarianceMinutes: sleepVariance,
+            hrv: stats?.hrv,
+            hrvBaseline: lastObservedContext?.readiness.hrv30DayBaseline,
+            steps: stats?.steps ?? metrics.dailySteps,
+            protein: stats?.protein ?? 0,
+            waterGlasses: stats?.water ?? 0,
+            totalCalories: stats?.totalCalories ?? 0,
+            markers: markers,
+            social: social,
+            nightsAvailable: HealthKitManager.shared.sleepData.count,
+            qualityOfLifeScore: metrics.qualityOfLifeScore
+        )
+        let habits = HabitEngine.analyze(habitSignals)
+        context.deepHabits = habits
+        tags.append(contentsOf: HabitEngine.lifestyleTags(for: habits))
+        patterns.append(contentsOf: habits.map { "habit_loop:\($0.id):\($0.cue) → \($0.cost)" })
+        if let line = HabitEngine.companionLine(for: habits) {
+            context.lastInsights.insert(line, at: 0)
+            if context.lastInsights.count > 15 { context.lastInsights = Array(context.lastInsights.prefix(15)) }
+        }
+        // Constraints ARIA reasons over
+        let habitConstraints = HabitEngine.constraints(for: habits)
+        for hc in habitConstraints where !context.constraints.contains(hc) {
+            context.constraints.append(hc)
+        }
+        context.recentPatterns = Array(patterns.suffix(12))
         context.lifestyleTags = Array(Set(tags)).sorted()
         context.lastUpdated = Date()
         persist()

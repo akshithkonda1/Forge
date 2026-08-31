@@ -21,6 +21,7 @@ class UserContext:
     last_insights: list[str] = field(default_factory=list)
     relationship_level: int = 1
     last_updated: datetime = field(default_factory=_utcnow)
+    last_promoted_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -41,6 +42,14 @@ class UserContext:
             parsed = datetime.fromisoformat(last_updated.replace("Z", "+00:00"))
         else:
             parsed = _utcnow()
+        promoted = data.get("last_promoted_at")
+        if isinstance(promoted, str):
+            try:
+                promoted_at = datetime.fromisoformat(promoted.replace("Z", "+00:00"))
+            except ValueError:
+                promoted_at = None
+        else:
+            promoted_at = None
         return cls(
             user_id=str(data.get("user_id", "")),
             lifestyle_tags=list(data.get("lifestyle_tags") or []),
@@ -50,6 +59,7 @@ class UserContext:
             last_insights=list(data.get("last_insights") or []),
             relationship_level=int(data.get("relationship_level") or 1),
             last_updated=parsed,
+            last_promoted_at=promoted_at,
         )
 
 

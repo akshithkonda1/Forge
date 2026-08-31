@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 /// Living user model ARIA reasons over — mirrors backend `UserContext`.
 struct AriaContext: Codable, Equatable {
@@ -10,6 +11,7 @@ struct AriaContext: Codable, Equatable {
     var lastInsights: [String]
     var relationshipLevel: Int
     var lastUpdated: Date
+    var deepHabits: [DeepHabit] = []
 
     init(
         userId: String,
@@ -19,7 +21,8 @@ struct AriaContext: Codable, Equatable {
         recentPatterns: [String] = [],
         lastInsights: [String] = [],
         relationshipLevel: Int = 1,
-        lastUpdated: Date = Date()
+        lastUpdated: Date = Date(),
+        deepHabits: [DeepHabit] = []
     ) {
         self.userId = userId
         self.lifestyleTags = lifestyleTags
@@ -29,6 +32,7 @@ struct AriaContext: Codable, Equatable {
         self.lastInsights = lastInsights
         self.relationshipLevel = relationshipLevel
         self.lastUpdated = lastUpdated
+        self.deepHabits = deepHabits
     }
 
     var relationshipLabel: String {

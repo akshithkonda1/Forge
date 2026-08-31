@@ -18,6 +18,7 @@ final class LifestyleViewModel: ObservableObject {
     @Published var loggedMeals: [MealLog] = []
     @Published var mindfulMinutesToday: Int = 0
     @Published var mindfulMinutesWeek: Int = 0
+    @Published var deepHabits: [DeepHabit] = []
 
     // Live ARIA insights — overlay real Claude/Bedrock reasoning onto the cards.
     // When nil, the cards render their existing local heuristic content (fallback).
@@ -115,12 +116,15 @@ final class LifestyleViewModel: ObservableObject {
     }
 
     func syncAriaContext() {
+        // Deep habit companion: markers/social are carried via FakeHealthPack when HealthKit is seeded;
+        // until HealthKitManager exposes them, HabitEngine works from sleep variance + steps + macros.
         AriaContextStore.shared.syncLifestyleSignals(
             metrics: metrics,
             stats: healthStats,
             recommendations: recommendations,
             loggedMeals: loggedMeals
         )
+        deepHabits = AriaContextStore.shared.context.deepHabits
         LifestyleWidgetBridge.update(metrics: metrics, recommendations: recommendations)
     }
 

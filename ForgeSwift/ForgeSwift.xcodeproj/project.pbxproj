@@ -52,6 +52,7 @@
 		1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0032F9FF867004091AA /* AriaResponse.swift */; };
 		1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0052F9FF867004091AA /* AriaService.swift */; };
 		1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */; };
+		1CAL0812F9FF867004091AA /* CalendarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAL0802F9FF867004091AA /* CalendarManager.swift */; };
 		1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */; };
 		1ARIA0962F9FF867004091AA /* AriaOperatingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */; };
 		1ARIA0982F9FF867004091AA /* LocalTestingOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0972F9FF867004091AA /* LocalTestingOrchestrator.swift */; };
@@ -275,6 +276,7 @@
 		AA000100000000000000F4A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */; };
 		1TEST01200000000000000A /* MenstrualCycleEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */; };
 		1TEST01400000000000000A /* PartnerCycleDigestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01300000000000000A /* PartnerCycleDigestTests.swift */; };
+		CF71AF40391648AC87F73400 /* ContextInspectorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34EBFCC451EC42798BEAF8AB /* ContextInspectorSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -401,6 +403,7 @@
 		1ARIA0032F9FF867004091AA /* AriaResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaResponse.swift; sourceTree = "<group>"; };
 		1ARIA0052F9FF867004091AA /* AriaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaService.swift; sourceTree = "<group>"; };
 		1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgent.swift; sourceTree = "<group>"; };
+		1CAL0802F9FF867004091AA /* CalendarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarManager.swift; sourceTree = "<group>"; };
 		1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestrator.swift; sourceTree = "<group>"; };
 		1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaOperatingMode.swift; sourceTree = "<group>"; };
 		1ARIA0972F9FF867004091AA /* LocalTestingOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTestingOrchestrator.swift; sourceTree = "<group>"; };
@@ -626,6 +629,7 @@
 		1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngineTests.swift; sourceTree = "<group>"; };
 		1TEST01300000000000000A /* PartnerCycleDigestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleDigestTests.swift; sourceTree = "<group>"; };
 		1TEST00700000000000000A /* ForgeSwiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForgeSwiftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		34EBFCC451EC42798BEAF8AB /* ContextInspectorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextInspectorSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -748,6 +752,7 @@
 				1PAS0012F9FF867004091AA /* ProfileAvatarStore.swift */,
 				1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */,
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
+				1CAL0802F9FF867004091AA /* CalendarManager.swift */,
 				1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */,
 				1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */,
 				1ARIA0972F9FF867004091AA /* LocalTestingOrchestrator.swift */,
@@ -1350,6 +1355,7 @@
 				1ARIA0042F9FF867004091AA /* AriaResponse.swift in Sources */,
 				1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */,
 				1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */,
+				1CAL0812F9FF867004091AA /* CalendarManager.swift in Sources */,
 				1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */,
 				1ARIA0962F9FF867004091AA /* AriaOperatingMode.swift in Sources */,
 				1ARIA0982F9FF867004091AA /* LocalTestingOrchestrator.swift in Sources */,
@@ -1830,6 +1836,7 @@
 				INFOPLIST_KEY_NSContactsUsageDescription = "Forge looks for contacts who already use Forge so you can train together. Contacts stay on this iPhone — Forge never uploads your address book.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows (not titles) so ARIA can fit training around your day. Event details stay on this iPhone — Forge never uploads your calendar.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses the microphone so you can talk to your coach and log workouts hands-free. Audio is transcribed on this iPhone and is never stored or uploaded.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Forge turns what you say into text so you can ask your coach questions and log meals and sets by voice.";
@@ -1872,6 +1879,7 @@
 				INFOPLIST_KEY_NSContactsUsageDescription = "Forge looks for contacts who already use Forge so you can train together. Contacts stay on this iPhone — Forge never uploads your address book.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows (not titles) so ARIA can fit training around your day. Event details stay on this iPhone — Forge never uploads your calendar.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses the microphone so you can talk to your coach and log workouts hands-free. Audio is transcribed on this iPhone and is never stored or uploaded.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Forge turns what you say into text so you can ask your coach questions and log meals and sets by voice.";
@@ -1910,6 +1918,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Forge;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads sleep, heart rate, HRV, activity, and workouts on your watch to compute readiness and tailor mindfulness and training to your day.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves Mindful Minutes and workouts from your watch so your Health history stays complete.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows (not titles) so ARIA can fit training around your day. Event details stay on this iPhone — Forge never uploads your calendar.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets Forge notice arriving at familiar places, like your gym, to adapt suggestions. Location never leaves your device.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to recognize places like your gym or office and suggest context-aware micro-habits. Location never leaves your device.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Forge notices when you have been sitting for a long stretch so it can offer a short reset. Motion stays on this watch.";
@@ -1947,6 +1956,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Forge;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads sleep, heart rate, HRV, activity, and workouts on your watch to compute readiness and tailor mindfulness and training to your day.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves Mindful Minutes and workouts from your watch so your Health history stays complete.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows (not titles) so ARIA can fit training around your day. Event details stay on this iPhone — Forge never uploads your calendar.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets Forge notice arriving at familiar places, like your gym, to adapt suggestions. Location never leaves your device.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to recognize places like your gym or office and suggest context-aware micro-habits. Location never leaves your device.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Forge notices when you have been sitting for a long stretch so it can offer a short reset. Motion stays on this watch.";

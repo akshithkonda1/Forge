@@ -30,7 +30,13 @@ struct HomeView: View {
 
                         HomeTodayHero(action: primaryAction)
 
-                        if !store.quietMode,
+                        // Habit breaker is the proactive companion — most human, most specific.
+                        if let habit = AriaContextStore.shared.context.deepHabits.first,
+                           !store.quietMode {
+                            HabitProactiveCard(habit: habit) {
+                                store.openChat(with: "Help me with: \(habit.breaker)", voice: false)
+                            }
+                        } else if !store.quietMode,
                            let insight = proactiveInsight,
                            AriaContextStore.shared.shouldBeProactive() {
                             ProactiveCardView(
@@ -132,6 +138,9 @@ struct HomeView: View {
             store.pendingCycleHealthOpen = false
             store.pendingCyclePane = nil
         }
+        .sheet(isPresented: $store.showContextInspector) {
+            ContextInspectorSheet()
+        }
         .onAppear {
             if store.pendingCycleHealthOpen {
                 if store.pendingCyclePane == "partner" {
@@ -188,6 +197,18 @@ struct HomeHeaderView: View {
                     isLive: store.healthKitLive,
                     updatedAt: store.lastMetricsRefresh
                 )
+                if store.usingTestReadyHealthPack {
+                    let personaName = AriaContextStore.shared.context.deepHabits.first?.title.lowercased() ?? "balanced"
+                    Text("Synthetic · \(personaName) · baseline HRV \(store.dailyMetrics.hrv > 0 ? Int(store.dailyMetrics.hrv) : 52)ms")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.textTertiary)
+                        .padding(.top, 2)
+                } else if let habit = AriaContextStore.shared.context.deepHabits.first {
+                    Text("\(habit.category.rawValue.capitalized) · \(habit.evidence)")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer(minLength: 12)
@@ -218,6 +239,11 @@ struct HomeHeaderView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Profile")
+            .contextMenu {
+                Button { store.showContextInspector = true } label: {
+                    Label("What ARIA sees", systemImage: "eye.fill")
+                }
+            }
         }
         .homeEntrance(delay: 0.05)
     }

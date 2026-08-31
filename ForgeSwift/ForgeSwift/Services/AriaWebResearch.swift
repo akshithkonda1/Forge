@@ -41,15 +41,17 @@ enum AriaWebResearch {
 
     // MARK: - Trigger
 
-    /// Research-flavored phrasing — "how do I", "is it true", "the science
-    /// on" — not every message that happens to touch training or food.
-    /// Same shape as `AriaIntentResolver`'s own phrase tables: literal
-    /// substrings, not a classifier.
+    /// Research-flavored phrasing — triggers when the human is asking for
+    /// outside knowledge, not just reflecting their pack. Wired feel comes from
+    /// actually reaching out here, not just templating.
     private static let researchPhrases = [
         "how do i", "how to", "best way to", "is it true", "what does the science say",
         "what does research say", "research shows", "studies show", "recomp",
         "lose fat and gain muscle", "gain muscle and lose fat", "how much protein should",
         "is it possible to", "how long does it take to", "evidence for", "evidence on",
+        "should i", "do i need", "what should i eat", "what should i do",
+        "is it safe to", "can i", "will it help", "does it work",
+        "benefits of", "side effects", "how much sleep", "how often should",
     ]
 
     /// `leadingDomain` is `LocalTestingOrchestrator`'s own domain
@@ -57,7 +59,10 @@ enum AriaWebResearch {
     /// deliberately narrow: only the domains where an outside reference
     /// actually helps, not every message that happens to mention food.
     static func isResearchWorthy(text: String, leadingDomain: AriaLocalDomain) -> Bool {
-        guard leadingDomain == .training || leadingDomain == .nutrition || leadingDomain == .progress else {
+        // Wired to every life-relevant domain — training, nutrition, progress,
+        // plus sleep/recovery/lifestyle where the web actually helps a companion
+        // sound connected, not just the gym domains.
+        guard [.training, .nutrition, .progress, .sleep, .readiness, .lifestyle, .activity].contains(leadingDomain) else {
             return false
         }
         let lower = text.lowercased()
@@ -76,24 +81,37 @@ enum AriaWebResearch {
     /// never a crash — but this table should be spot-checked from a real
     /// Mac the first time this feature is exercised, and kept small and
     /// boring on purpose so that check stays cheap.
+    /// Wired but boring on purpose — stable .gov references, not JS-heavy blogs.
+    /// Each domain has a primary + fallback so a single moved page doesn't
+    /// make ARIA feel offline. The "wired up" feel comes from trying, not
+    /// from needing to succeed — miss degrades to local generation.
     private static let sources: [AriaLocalDomain: [(title: String, url: URL)]] = [
         .training: [
-            (
-                "MedlinePlus: Exercise and Physical Fitness",
-                URL(string: "https://medlineplus.gov/exerciseandphysicalfitness.html")!
-            ),
+            ("MedlinePlus: Exercise and Physical Fitness", URL(string: "https://medlineplus.gov/exerciseandphysicalfitness.html")!),
+            ("CDC: Adult Physical Activity Guidelines", URL(string: "https://www.cdc.gov/physical-activity-basics/guidelines/adults.html")!),
         ],
         .nutrition: [
-            (
-                "NIH Office of Dietary Supplements: Protein",
-                URL(string: "https://ods.od.nih.gov/factsheets/Protein-Consumer/")!
-            ),
+            ("NIH: Protein Fact Sheet", URL(string: "https://ods.od.nih.gov/factsheets/Protein-Consumer/")!),
+            ("MedlinePlus: Healthy Diet", URL(string: "https://medlineplus.gov/healthyeating.html")!),
         ],
         .progress: [
-            (
-                "CDC: Physical Activity Guidelines for Adults",
-                URL(string: "https://www.cdc.gov/physical-activity-basics/guidelines/adults.html")!
-            ),
+            ("CDC: Physical Activity Guidelines", URL(string: "https://www.cdc.gov/physical-activity-basics/guidelines/adults.html")!),
+            ("NIH: Benefits of Exercise", URL(string: "https://www.nih.gov/health-information/benefits-exercise")!),
+        ],
+        .sleep: [
+            ("CDC: Sleep and Health", URL(string: "https://www.cdc.gov/sleep/about/index.html")!),
+            ("MedlinePlus: Healthy Sleep", URL(string: "https://medlineplus.gov/healthysleep.html")!),
+        ],
+        .readiness: [
+            ("MedlinePlus: Exercise and Physical Fitness", URL(string: "https://medlineplus.gov/exerciseandphysicalfitness.html")!),
+            ("CDC: Sleep and Health", URL(string: "https://www.cdc.gov/sleep/about/index.html")!),
+        ],
+        .lifestyle: [
+            ("CDC: Healthy Eating & Activity", URL(string: "https://www.cdc.gov/nutrition/index.html")!),
+            ("MedlinePlus: Healthy Living", URL(string: "https://medlineplus.gov/healthy-living.html")!),
+        ],
+        .activity: [
+            ("CDC: Adult Activity Guidelines", URL(string: "https://www.cdc.gov/physical-activity-basics/guidelines/adults.html")!),
         ],
     ]
 
@@ -104,24 +122,35 @@ enum AriaWebResearch {
     /// existing local generation, exactly like `AppStore.ariaInsight`'s
     /// established contract: "Returns nil only if... callers should fall
     /// back to their existing local content."
+    /// Human, wired feel: tries primary then fallback, returns a snippet that
+    /// reads like a companion who checked, not a citation dump. Still keyless,
+    /// still Mac-only, still local-testing-gated.
     static func lookUp(domain: AriaLocalDomain) async -> String? {
-        // Structurally redundant today — the only call site already sits
-        // inside `LocalTestingOrchestrator`, itself only ever reached when
-        // `AriaOperatingMode.current.isLocalTesting` (see AriaService.swift)
-        // — but kept as a hard gate here anyway: a future call site added
-        // anywhere else must not silently turn this into a live-backend
-        // network-egress surface.
         guard AriaOperatingMode.current.isLocalTesting else { return nil }
-        guard let candidates = sources[domain], let source = candidates.first else { return nil }
+        guard let candidates = sources[domain] else { return nil }
 
-        do {
-            let (data, response) = try await session.data(from: source.url)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
-            guard let text = extractText(from: data), !text.isEmpty else { return nil }
-            return "From \(source.title): \(text)"
-        } catch {
-            return nil
+        for source in candidates {
+            do {
+                let (data, response) = try await session.data(from: source.url)
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { continue }
+                guard var text = extractText(from: data), !text.isEmpty else { continue }
+                // Keep it companion-sized: first useful ~700 chars, not 2000
+                if text.count > 750 {
+                    let idx = text.index(text.startIndex, offsetBy: 750)
+                    let cut = text[..<idx]
+                    if let lastPeriod = cut.lastIndex(of: ".") {
+                        text = String(cut[..<lastPeriod]) + "."
+                    } else {
+                        text = String(cut) + "…"
+                    }
+                }
+                // Human-wired voice, blended later by the orchestrator — still cites source
+                return "I checked — \(source.title) notes: \(text) — here's how that lands for you:"
+            } catch {
+                continue
+            }
         }
+        return nil
     }
 
     /// Plain regex tag-stripping, not `NSAttributedString`'s HTML importer:
@@ -146,11 +175,21 @@ enum AriaWebResearch {
             .replacingOccurrences(of: "&#39;", with: "'")
             .replacingOccurrences(of: "&quot;", with: "\"")
 
+        // Catch a few more entities that .gov pages actually use
+        stripped = stripped
+            .replacingOccurrences(of: "&rsquo;", with: "'")
+            .replacingOccurrences(of: "&ldquo;", with: "\"")
+            .replacingOccurrences(of: "&rdquo;", with: "\"")
+            .replacingOccurrences(of: "&mdash;", with: " — ")
+            .replacingOccurrences(of: "&#8212;", with: " — ")
+            .replacingOccurrences(of: "&hellip;", with: "…")
+
         let collapsed = stripped
             .components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }
             .joined(separator: " ")
         guard !collapsed.isEmpty else { return nil }
-        return String(collapsed.prefix(2000))
+        // Return first ~900 chars of readable prose — orchestrator caps to 750
+        return String(collapsed.prefix(1800))
     }
 }
