@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 /// Living user model ARIA reasons over — mirrors backend `UserContext`.
 struct AriaContext: Codable, Equatable {

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import ForgeCore
 
 /// Weekly ARIA evaluation. The chat tab is for conversation; this is the
 /// interview that actually collects standing context — energy, sleep, body,
