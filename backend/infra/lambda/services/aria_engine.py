@@ -1145,14 +1145,14 @@ def _recommendation_response(
     message: str, ctx: ARIAContext, signals: list[Signal], restricted: list[str], voice_mode: bool
 ) -> dict[str, Any]:
     confidence, reason = _calibrate_confidence(ctx, signals, restricted)
-    # Phase 1 — HRV falling + sleep debt >5h → force sleep-first, cap confidence
-    # Use single-night shortfall as debt proxy (8h - tonight) — not 7-day total, which would always be >5.
+    # Phase 1 — HRV falling + sleep debt >2h → force sleep-first, cap confidence
+    # Single-night shortfall (8h - tonight); 7-day gate would be >5h total, here >2h tonight is same signal.
     hrv_falling = ctx.readiness.hrv_7day_trend is not None and ctx.readiness.hrv_7day_trend <= -8
     sleep_debt_h = 0.0
     if ctx.sleep.duration_minutes is not None:
         sleep_debt_h = max(0.0, 8 - (ctx.sleep.duration_minutes or 0) / 60.0)
     # Only gate when sleep domain is usable (not restricted), so restricted reason stays intact
-    if hrv_falling and sleep_debt_h > 5 and "sleep" not in restricted:
+    if hrv_falling and sleep_debt_h > 2 and "sleep" not in restricted:
         confidence = min(confidence, 0.60)
         # Preserve restricted prefix if present, append sleep gate
         if "off (permission)" in reason:
@@ -1164,7 +1164,7 @@ def _recommendation_response(
             reason = f"{reason} (diverge)"
     lead = signals[0] if signals else None
     negative = [s for s in signals if s.direction == "negative"]
-    sleep_first = hrv_falling and sleep_debt_h > 5 and "sleep" not in restricted
+    sleep_first = hrv_falling and sleep_debt_h > 2 and "sleep" not in restricted
 
     if sleep_first or negative:
         if sleep_first:
