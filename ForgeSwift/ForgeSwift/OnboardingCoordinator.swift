@@ -541,7 +541,7 @@ final class OnboardingCoordinator {
             } else {
                 await ariaSay("Noted. Privacy respected.", mood: .calm)
             }
-            await advanceTo(.coaching)
+            await advanceTo(.ready)
         }
     }
 
