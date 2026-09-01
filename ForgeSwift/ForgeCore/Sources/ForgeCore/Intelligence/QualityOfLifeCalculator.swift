@@ -1,28 +1,31 @@
+import Foundation
 import SwiftUI
 
 // MARK: - Quality of Life (holistic, multi-aspect score)
 //
-// The first QoL score averaged five sub-scores that were not independent —
-// sleep, nutrition and activity each fed *multiple* of them, so a plain mean
-// silently triple-counted sleep and under-counted everything else. Worse, with
-// no HealthKit data the app returned a fabricated 82 (a fixed "looks healthy"
-// number) or refused with a placeholder, which is exactly the kind of invented
-// data ARIA's own engine is built to avoid.
+// Grades life across seven independent pillars — sleep, activity, nutrition,
+// hydration, body/vitals, mind, and connection — each counted exactly once.
+// A missing pillar redistributes its weight and lowers confidence instead of
+// being invented, so the score is always graded on whatever aspects are known.
 //
-// This calculator replaces both mistakes:
-//
-//  1. Life is graded across *independent* pillars — sleep, activity, nutrition,
-//     hydration, body/vitals, mind, and connection — each backed by its own
-//     signals and counted exactly once. "All aspects of life", not one wearing
-//     several hats.
-//  2. It degrades gracefully instead of fabricating. A missing pillar
-//     redistributes its weight over the pillars that *do* have data and lowers
-//     `confidence`; it never invents a number and never blocks the score. As
-//     more of life is measured, coverage (and honesty) rises — the score is
-//     always graded on whatever aspects are actually known.
-//  3. Targets are personalized from the profile (body mass, age, sex) when
-//     available, with population defaults as the fallback — so a 55 kg user and
-//     a 95 kg user are not held to the same protein or calorie bar.
+// Accuracy model (v2):
+//   • Non-linear response curves. Each signal maps through a curve that reflects
+//     how the underlying variable actually relates to wellbeing: diminishing
+//     returns for "more is better" signals (steps, protein), and an inverted-U
+//     for signals with a real optimum (sleep duration, calories, respiration).
+//     Crude linear ramps over/under-credited the mid-range and the top.
+//   • Physiological plausibility. Values outside human range (e.g. HRV 400 ms,
+//     500k steps) are treated as unmeasured, not as a perfect score — bad data
+//     lowers confidence rather than inflating the grade.
+//   • Depth-aware confidence. Confidence reflects not just which pillars have
+//     data but how completely each is measured (a vitals pillar backed by 1 of
+//     5 signals is less certain than one backed by all 5).
+//   • Weighted sub-signals. Within a pillar the more predictive signals carry
+//     more weight (protein/calories over fibre; HRV/resting-HR over SpO2).
+//   • Personal baselines. HRV and resting HR are scored against the person's own
+//     recent baseline when known; targets personalize from body mass, age, sex.
+//   • Day-to-day smoothing. `smoothed(previousOverall:)` blends yesterday's score
+//     so one noisy night doesn't swing a measure that is meant to be stable.
 
 public enum QualityOfLifePillar: String, Codable, CaseIterable, Sendable {
     case sleep
@@ -33,9 +36,8 @@ public enum QualityOfLifePillar: String, Codable, CaseIterable, Sendable {
     case mind
     case social
 
-    /// Weight in a fully-populated blend. These sum to 1.0; when a pillar has no
-    /// backing signal its weight is redistributed across the pillars that do, so
-    /// a missing aspect lowers *confidence*, never the score.
+    /// Weight in a fully-populated blend. These sum to 1.0; a pillar with no
+    /// data redistributes its weight over the pillars that do.
     public var weight: Double {
         switch self {
         case .sleep:     return 0.22
@@ -45,6 +47,20 @@ public enum QualityOfLifePillar: String, Codable, CaseIterable, Sendable {
         case .mind:      return 0.12
         case .social:    return 0.10
         case .hydration: return 0.08
+        }
+    }
+
+    /// Number of distinct signals the pillar can be measured from. Used to
+    /// express how deeply a pillar was covered (present signals / this).
+    public var maxSignals: Int {
+        switch self {
+        case .sleep:     return 3   // duration, deep, REM
+        case .activity:  return 3   // steps, active calories, exercise minutes
+        case .nutrition: return 4   // protein, calories, fibre, added sugar
+        case .vitals:    return 5   // HRV, resting HR, VO2max, SpO2, respiration
+        case .mind:      return 3   // mindful minutes, stress, mood
+        case .social:    return 2   // felt connection, meaningful interactions
+        case .hydration: return 1   // intake vs need
         }
     }
 
@@ -85,7 +101,6 @@ public enum QualityOfLifeBand: String, Codable, CaseIterable, Sendable {
         }
     }
 
-    /// Supportive, non-judgemental framing — a low score is a signal, not a grade card.
     public var supportiveDescriptor: String {
         switch self {
         case .thriving: return "Life is in a good rhythm right now — protect what's working."
@@ -106,8 +121,8 @@ public enum QualityOfLifeBand: String, Codable, CaseIterable, Sendable {
 }
 
 /// Every signal is optional. The calculator scores whatever is present and
-/// reports how much of life that covered. Personalization fields (body mass,
-/// age, sex) tune the targets; when absent, population defaults are used.
+/// reports how much of life that covered. Personalization fields tune targets
+/// and baselines; population defaults are used when they are absent.
 public struct QualityOfLifeInputs: Sendable, Equatable {
     // Sleep
     public var sleepHours: Double?
@@ -203,15 +218,20 @@ public struct QualityOfLifeInputs: Sendable, Equatable {
 }
 
 public struct QualityOfLifeScore: Codable, Sendable, Equatable {
+    /// The reported score (smoothed against prior days when available).
     public var overall: Int
-    /// 0...1 — the share of life's weighted pillars that had data. Below ~0.5
-    /// the UI should present the number as an estimate, never as fact.
+    /// Today's score before any day-to-day smoothing.
+    public var rawOverall: Int
+    /// 0...1 — coverage × depth: how much of life's weighted pillars had data,
+    /// and how completely each was measured. Below ~0.5 the UI should present
+    /// the number as an estimate, never as fact.
     public var confidence: Double
     /// Per-pillar 0...100 scores, only for pillars that had a backing signal.
     public var pillarScores: [QualityOfLifePillar: Int]
 
-    public init(overall: Int, confidence: Double, pillarScores: [QualityOfLifePillar: Int]) {
+    public init(overall: Int, rawOverall: Int, confidence: Double, pillarScores: [QualityOfLifePillar: Int]) {
         self.overall = overall
+        self.rawOverall = rawOverall
         self.confidence = confidence
         self.pillarScores = pillarScores
     }
@@ -221,148 +241,229 @@ public struct QualityOfLifeScore: Codable, Sendable, Equatable {
     public var gradedAspects: Int { pillarScores.count }
 
     public func score(for pillar: QualityOfLifePillar) -> Int? { pillarScores[pillar] }
+
+    /// Blend with a previous day's overall so a single noisy day doesn't swing
+    /// the score. `alpha` is the weight on today (0.6 → 60% today / 40% history).
+    /// Smoothing is scaled by confidence: a low-confidence day moves the trend
+    /// less. No previous value → returned unchanged.
+    public func smoothed(previousOverall: Int?, alpha: Double = 0.6) -> QualityOfLifeScore {
+        guard let previous = previousOverall else { return self }
+        let effectiveAlpha = min(1, max(0, alpha)) * max(0.35, confidence)
+        let blended = Double(rawOverall) * effectiveAlpha + Double(previous) * (1 - effectiveAlpha)
+        var copy = self
+        copy.overall = Int(blended.rounded())
+        return copy
+    }
 }
 
 public enum QualityOfLifeCalculator {
 
     /// Blend every pillar that has data, weighting each by its share and
-    /// renormalizing over what is present. Absence of a signal is never treated
-    /// as evidence of a low score — it lowers confidence and the remaining
-    /// pillars carry the grade.
+    /// renormalizing over what is present. Absence of a signal lowers confidence,
+    /// never the score.
     public static func score(from inputs: QualityOfLifeInputs) -> QualityOfLifeScore {
-        var pillars: [QualityOfLifePillar: Double] = [:]
+        var scores: [QualityOfLifePillar: Double] = [:]
+        var depths: [QualityOfLifePillar: Double] = [:]
 
-        if let v = sleepScore(inputs)      { pillars[.sleep] = v }
-        if let v = activityScore(inputs)   { pillars[.activity] = v }
-        if let v = nutritionScore(inputs)  { pillars[.nutrition] = v }
-        if let v = hydrationScore(inputs)  { pillars[.hydration] = v }
-        if let v = vitalsScore(inputs)     { pillars[.vitals] = v }
-        if let v = mindScore(inputs)       { pillars[.mind] = v }
-        if let v = socialScore(inputs)     { pillars[.social] = v }
-
-        let totalWeight = pillars.keys.reduce(0.0) { $0 + $1.weight }
-        guard totalWeight > 0 else {
-            // Nothing is measured yet — say so honestly (confidence 0) rather
-            // than inventing a number. This is the only zero-coverage case.
-            return QualityOfLifeScore(overall: 0, confidence: 0, pillarScores: [:])
+        func add(_ pillar: QualityOfLifePillar, _ result: PillarResult?) {
+            guard let result else { return }
+            scores[pillar] = clamp(result.score, 0, 100)
+            depths[pillar] = clamp(result.depth, 0, 1)
         }
 
-        let blended = pillars.reduce(0.0) { $0 + $1.value * $1.key.weight } / totalWeight
+        add(.sleep, sleepPillar(inputs))
+        add(.activity, activityPillar(inputs))
+        add(.nutrition, nutritionPillar(inputs))
+        add(.hydration, hydrationPillar(inputs))
+        add(.vitals, vitalsPillar(inputs))
+        add(.mind, mindPillar(inputs))
+        add(.social, socialPillar(inputs))
+
+        let coverage = scores.keys.reduce(0.0) { $0 + $1.weight }
+        guard coverage > 0 else {
+            // Nothing measured yet — reported honestly, never fabricated.
+            return QualityOfLifeScore(overall: 0, rawOverall: 0, confidence: 0, pillarScores: [:])
+        }
+
+        let blended = scores.reduce(0.0) { $0 + $1.value * $1.key.weight } / coverage
+        // Confidence rewards both breadth (which pillars) and depth (how fully
+        // each was measured). A pillar with any signal is already informative,
+        // so presence earns 60% of its weight and full depth earns the rest —
+        // shallow coverage still reads as an estimate without being punitive.
+        let confidence = scores.keys.reduce(0.0) { total, pillar in
+            total + pillar.weight * (0.6 + 0.4 * (depths[pillar] ?? 0))
+        }
 
         var rounded: [QualityOfLifePillar: Int] = [:]
-        for (pillar, value) in pillars {
-            rounded[pillar] = Int(clamp(value, 0, 100).rounded())
-        }
+        for (pillar, value) in scores { rounded[pillar] = Int(value.rounded()) }
 
+        let overall = Int(clamp(blended, 0, 100).rounded())
         return QualityOfLifeScore(
-            overall: Int(clamp(blended, 0, 100).rounded()),
-            confidence: clamp(totalWeight, 0, 1),
+            overall: overall,
+            rawOverall: overall,
+            confidence: clamp(confidence, 0, 1),
             pillarScores: rounded
         )
     }
 
-    // MARK: - Pillars (each independent, counted once)
+    // MARK: - Pillars (independent; each counted once)
 
-    private static func sleepScore(_ i: QualityOfLifeInputs) -> Double? {
-        guard let hours = i.sleepHours, hours > 0 else { return nil }
+    private static func sleepPillar(_ i: QualityOfLifeInputs) -> PillarResult? {
+        guard let hours = i.sleepHours, hours > 0, hours <= 16 else { return nil }
         let need = sleepNeedHours(age: i.age)
-        let ratio = hours / need
-        // Under-sleep scales linearly; modest over-sleep is fine, large
-        // over-sleep dips (oversleeping is a signal too, not a bonus).
-        var base = ratio <= 1.0 ? ratio * 100 : max(100 - (ratio - 1.0) * 60, 55)
-
-        // Architecture is a light adjustment, only when stages are known.
-        var arch: [Double] = []
-        if let deep = i.deepSleepMinutes { arch.append(clamp(deep / 60.0, 0, 1) * 100) }
-        if let rem = i.remSleepMinutes { arch.append(clamp(rem / 90.0, 0, 1) * 100) }
-        if let archScore = average(arch) {
-            base = base * 0.85 + archScore * 0.15
+        var signals = [Signal(optimum(hours / need, sigma: 0.16), 0.70)]  // duration has a real optimum
+        if let deep = i.deepSleepMinutes, deep >= 0, deep <= 360 {
+            signals.append(Signal(rising(deep / 60.0), 0.15))
         }
-        return clamp(base, 0, 100)
+        if let rem = i.remSleepMinutes, rem >= 0, rem <= 360 {
+            signals.append(Signal(rising(rem / 90.0), 0.15))
+        }
+        return combine(signals, maxSignals: QualityOfLifePillar.sleep.maxSignals)
     }
 
-    private static func activityScore(_ i: QualityOfLifeInputs) -> Double? {
-        var parts: [Double] = []
-        if let steps = i.steps { parts.append(clamp(Double(steps) / 8_000.0, 0, 1) * 100) }
-        if let active = i.activeCalories { parts.append(clamp(Double(active) / 500.0, 0, 1) * 100) }
-        if let minutes = i.exerciseMinutes { parts.append(clamp(minutes / 30.0, 0, 1) * 100) }
-        return average(parts)
+    private static func activityPillar(_ i: QualityOfLifeInputs) -> PillarResult? {
+        var signals: [Signal] = []
+        if let steps = i.steps, steps >= 0, steps <= 80_000 {
+            signals.append(Signal(rising(Double(steps) / 8_000.0), 1))
+        }
+        if let active = i.activeCalories, active >= 0, active <= 5_000 {
+            signals.append(Signal(rising(Double(active) / 500.0), 1))
+        }
+        if let minutes = i.exerciseMinutes, minutes >= 0, minutes <= 600 {
+            signals.append(Signal(rising(minutes / 30.0), 1))
+        }
+        return combine(signals, maxSignals: QualityOfLifePillar.activity.maxSignals)
     }
 
-    private static func nutritionScore(_ i: QualityOfLifeInputs) -> Double? {
-        var parts: [Double] = []
-        if let protein = i.proteinGrams {
-            let target = proteinTargetGrams(bodyMassKg: i.bodyMassKg)
-            parts.append(clamp(protein / target, 0, 1) * 100)
+    private static func nutritionPillar(_ i: QualityOfLifeInputs) -> PillarResult? {
+        var signals: [Signal] = []
+        if let protein = i.proteinGrams, protein >= 0, protein <= 500 {
+            signals.append(Signal(rising(protein / proteinTargetGrams(bodyMassKg: i.bodyMassKg)), 0.35))
         }
-        if let calories = i.totalCalories, calories > 0 {
+        if let calories = i.totalCalories, calories > 0, calories <= 12_000 {
             let target = calorieTarget(bodyMassKg: i.bodyMassKg, sexFemale: i.biologicalSexFemale)
-            // Adequacy, not "more is better": both under- and over-eating cost.
-            let deviation = abs(Double(calories) - target) / target
-            parts.append(clamp(100 - deviation * 100, 0, 100))
+            signals.append(Signal(optimum(Double(calories) / target, sigma: 0.22), 0.35))  // adequacy, not "more"
         }
-        if let fiber = i.fiberGrams { parts.append(clamp(fiber / 30.0, 0, 1) * 100) }
-        if let sugar = i.addedSugarGrams {
-            // 0 g added sugar → 100; 50 g+ → 0.
-            parts.append(clamp(100 - (sugar / 50.0) * 100, 0, 100))
+        if let fiber = i.fiberGrams, fiber >= 0, fiber <= 150 {
+            signals.append(Signal(rising(fiber / 30.0), 0.15))
         }
-        return average(parts)
+        if let sugar = i.addedSugarGrams, sugar >= 0, sugar <= 500 {
+            signals.append(Signal(descending(sugar, zeroAt: 60), 0.15))  // less is better
+        }
+        return combine(signals, maxSignals: QualityOfLifePillar.nutrition.maxSignals)
     }
 
-    private static func hydrationScore(_ i: QualityOfLifeInputs) -> Double? {
-        guard let glasses = i.waterGlasses else { return nil }
+    private static func hydrationPillar(_ i: QualityOfLifeInputs) -> PillarResult? {
+        guard let glasses = i.waterGlasses, glasses >= 0, glasses <= 40 else { return nil }
         let needGlasses = max(1.0, HydrationEngine.glasses(
             fromMilliliters: HydrationEngine.targetMilliliters(weightKilograms: i.bodyMassKg)
         ))
-        return clamp(glasses / needGlasses, 0, 1) * 100
+        return combine([Signal(rising(glasses / needGlasses), 1)],
+                       maxSignals: QualityOfLifePillar.hydration.maxSignals)
     }
 
-    private static func vitalsScore(_ i: QualityOfLifeInputs) -> Double? {
-        var parts: [Double] = []
-        if let hrv = i.hrvMs, hrv > 0 {
+    private static func vitalsPillar(_ i: QualityOfLifeInputs) -> PillarResult? {
+        var signals: [Signal] = []
+        if let hrv = i.hrvMs, hrv > 0, hrv <= 250 {
             if let base = i.hrvBaselineMs, base > 0 {
-                let ratio = hrv / base
-                parts.append(clamp(75 + (ratio - 1.0) / 0.30 * 25, 0, 100))
+                // Scored against the person's own baseline: ±30% → 50...100.
+                signals.append(Signal(clamp(75 + (hrv / base - 1.0) / 0.30 * 25, 0, 100), 0.30))
             } else {
-                parts.append(clamp(hrv / 60.0, 0, 1) * 100)
+                signals.append(Signal(rising(hrv / 55.0), 0.30))
             }
         }
-        if let rhr = i.restingHR, rhr > 0 {
+        if let rhr = i.restingHR, rhr >= 25, rhr <= 150 {
             if let base = i.restingHRBaseline, base > 0 {
-                let delta = (rhr - base) / base
-                parts.append(clamp(80 - delta / 0.15 * 30, 0, 100))
+                signals.append(Signal(clamp(80 - (rhr - base) / base / 0.15 * 30, 0, 100), 0.30))
             } else {
-                parts.append(clamp(100 - (rhr - 50) * 2, 0, 100))
+                // Age-graded expectation: a resting HR near ~55 is excellent.
+                signals.append(Signal(descending(max(0, rhr - 45), zeroAt: 55), 0.30))
             }
         }
-        if let vo2 = i.vo2Max, vo2 > 0 { parts.append(clamp((vo2 - 20) / (55 - 20), 0, 1) * 100) }
-        if let spo2 = i.oxygenSaturationPercent, spo2 > 0 {
-            parts.append(clamp((spo2 - 90) / (99 - 90), 0, 1) * 100)
+        if let vo2 = i.vo2Max, vo2 > 0, vo2 <= 90 {
+            signals.append(Signal(rising((vo2 - 20) / (55 - 20)), 0.18))
         }
-        if let rr = i.respiratoryRate, rr > 0 {
-            // 12–18 breaths/min is the calm resting band; deviation reduces.
-            let deviation = abs(rr - 15) / 15
-            parts.append(clamp(100 - deviation * 120, 0, 100))
+        if let spo2 = i.oxygenSaturationPercent, spo2 >= 50, spo2 <= 100 {
+            signals.append(Signal(clamp((spo2 - 90) / (99 - 90), 0, 1) * 100, 0.12))
         }
-        return average(parts)
+        if let rr = i.respiratoryRate, rr >= 4, rr <= 40 {
+            signals.append(Signal(optimum(rr / 15.0, sigma: 0.20), 0.10))  // ~15 breaths/min optimum
+        }
+        return combine(signals, maxSignals: QualityOfLifePillar.vitals.maxSignals)
     }
 
-    private static func mindScore(_ i: QualityOfLifeInputs) -> Double? {
-        var parts: [Double] = []
-        if let minutes = i.mindfulMinutes { parts.append(clamp(minutes / 10.0, 0, 1) * 100) }
-        if let stress = i.stressLevel0to1 { parts.append(clamp(1 - stress, 0, 1) * 100) }
-        if let mood = i.selfReportedMood0to10 { parts.append(clamp(mood / 10.0, 0, 1) * 100) }
-        return average(parts)
+    private static func mindPillar(_ i: QualityOfLifeInputs) -> PillarResult? {
+        var signals: [Signal] = []
+        if let minutes = i.mindfulMinutes, minutes >= 0, minutes <= 600 {
+            signals.append(Signal(rising(minutes / 10.0), 1))
+        }
+        if let stress = i.stressLevel0to1 {
+            signals.append(Signal(clamp(1 - stress, 0, 1) * 100, 1))
+        }
+        if let mood = i.selfReportedMood0to10 {
+            signals.append(Signal(rising(mood / 10.0), 1))
+        }
+        return combine(signals, maxSignals: QualityOfLifePillar.mind.maxSignals)
     }
 
-    private static func socialScore(_ i: QualityOfLifeInputs) -> Double? {
-        var parts: [Double] = []
-        if let connection = i.socialConnection0to10 { parts.append(clamp(connection / 10.0, 0, 1) * 100) }
-        if let interactions = i.meaningfulSocialInteractions {
-            // 0 → 25 (isolating), 2 → ~65, 4+ → 100.
-            parts.append(clamp(25 + Double(interactions) * 20, 0, 100))
+    private static func socialPillar(_ i: QualityOfLifeInputs) -> PillarResult? {
+        var signals: [Signal] = []
+        if let connection = i.socialConnection0to10 {
+            signals.append(Signal(rising(connection / 10.0), 1))
         }
-        return average(parts)
+        if let interactions = i.meaningfulSocialInteractions, interactions >= 0 {
+            signals.append(Signal(clamp(25 + Double(interactions) * 20, 0, 100), 1))
+        }
+        return combine(signals, maxSignals: QualityOfLifePillar.social.maxSignals)
+    }
+
+    // MARK: - Signal combination
+
+    private struct Signal {
+        let value: Double
+        let weight: Double
+        init(_ value: Double, _ weight: Double) {
+            self.value = value
+            self.weight = weight
+        }
+    }
+
+    private struct PillarResult {
+        let score: Double
+        let depth: Double
+    }
+
+    private static func combine(_ signals: [Signal], maxSignals: Int) -> PillarResult? {
+        guard !signals.isEmpty else { return nil }
+        let totalWeight = signals.reduce(0) { $0 + $1.weight }
+        guard totalWeight > 0 else { return nil }
+        let score = signals.reduce(0) { $0 + $1.value * $1.weight } / totalWeight
+        let depth = Double(signals.count) / Double(max(1, maxSignals))
+        return PillarResult(score: score, depth: depth)
+    }
+
+    // MARK: - Response curves
+
+    /// "More is better" with diminishing returns and a soft cap. Concave up to
+    /// the target (r = 1 → 100), then a gentle penalty for gross overshoot so a
+    /// data glitch or over-training does not read as perfect.
+    static func rising(_ ratio: Double) -> Double {
+        if ratio <= 0 { return 0 }
+        if ratio <= 1 { return 100 * (1 - (1 - ratio) * (1 - ratio)) }
+        return max(100 - (ratio - 1) * 20, 60)
+    }
+
+    /// Inverted-U for signals with a real optimum (sleep duration, calories,
+    /// respiration): best at the target, worse on either side. Gaussian falloff.
+    static func optimum(_ ratio: Double, sigma: Double) -> Double {
+        let d = ratio - 1
+        return clamp(100 * exp(-(d * d) / (2 * sigma * sigma)), 0, 100)
+    }
+
+    /// "Less is better": full marks at 0, zero at `zeroAt`, linear between.
+    static func descending(_ value: Double, zeroAt: Double) -> Double {
+        guard zeroAt > 0 else { return 0 }
+        return clamp(100 * (1 - value / zeroAt), 0, 100)
     }
 
     // MARK: - Personalized targets
@@ -382,13 +483,6 @@ public enum QualityOfLifeCalculator {
     private static func calorieTarget(bodyMassKg: Double?, sexFemale: Bool?) -> Double {
         if let kg = bodyMassKg, kg > 0 { return max(1_400, kg * 31) }
         return (sexFemale == true) ? 2_000 : 2_400
-    }
-
-    // MARK: - Helpers
-
-    private static func average(_ values: [Double]) -> Double? {
-        guard !values.isEmpty else { return nil }
-        return values.reduce(0, +) / Double(values.count)
     }
 
     private static func clamp(_ value: Double, _ lower: Double, _ upper: Double) -> Double {

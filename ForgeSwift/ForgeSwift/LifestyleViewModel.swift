@@ -344,7 +344,11 @@ final class LifestyleViewModel: ObservableObject {
         // how much of life that covered via `confidence`.
         let stats = healthStats
         let inputs = qualityOfLifeInputs(from: stats)
-        let qol = QualityOfLifeCalculator.score(from: inputs)
+        // Smooth against yesterday so one noisy night doesn't swing a measure
+        // that is meant to be stable; scaled by today's confidence internally.
+        let previousOverall = LifestyleWellbeingStore.loadQOLHistory()
+            .last { !Calendar.current.isDateInToday($0.date) }?.score
+        let qol = QualityOfLifeCalculator.score(from: inputs).smoothed(previousOverall: previousOverall)
         qolConfidence = qol.confidence
 
         let sleepQuality = qol.score(for: .sleep) ?? 0
@@ -390,6 +394,13 @@ final class LifestyleViewModel: ObservableObject {
         inputs.age = personalAge
         inputs.biologicalSexFemale = personalSexFemale
         inputs.mindfulMinutes = mindfulMinutesToday > 0 ? Double(mindfulMinutesToday) : nil
+
+        // Personal HRV baseline from the trailing week, so recovery is scored
+        // against the individual's own norm rather than a population constant.
+        let recentHRV = weeklyTrends.map(\.avgHRV).filter { $0 > 0 }
+        if !recentHRV.isEmpty {
+            inputs.hrvBaselineMs = recentHRV.reduce(0, +) / Double(recentHRV.count)
+        }
 
         guard let stats else { return inputs }
         inputs.sleepHours = stats.sleepHours > 0 ? stats.sleepHours : nil

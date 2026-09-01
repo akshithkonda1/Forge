@@ -3,8 +3,10 @@ import XCTest
 
 final class QualityOfLifeCalculatorTests: XCTestCase {
 
-    // No signal at all is the only case that yields no grade — and it reports
-    // that honestly (confidence 0) instead of the old fabricated 82.
+    // MARK: - Core behavior
+
+    // No signal at all is the only case that yields no grade — reported honestly
+    // (confidence 0) instead of the old fabricated 82.
     func testNoSignalsProducesZeroConfidenceNotAFabricatedDefault() {
         let score = QualityOfLifeCalculator.score(from: QualityOfLifeInputs())
         XCTAssertEqual(score.confidence, 0)
@@ -13,50 +15,47 @@ final class QualityOfLifeCalculatorTests: XCTestCase {
         XCTAssertNotEqual(score.overall, 82, "must never fall back to the old invented 82")
     }
 
-    // A single available aspect still produces a grade — it does not refuse
-    // with "insufficient data".
+    // A single available aspect still produces a grade — it does not refuse.
     func testSingleAspectStillGrades() {
         let score = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(steps: 8_000))
         XCTAssertEqual(score.gradedAspects, 1)
         XCTAssertEqual(score.score(for: .activity), 100)
         XCTAssertEqual(score.overall, 100)
-        // Confidence reflects that only one pillar (activity, weight 0.18) was covered.
-        XCTAssertEqual(score.confidence, QualityOfLifePillar.activity.weight, accuracy: 0.0001)
+        // One of activity's three signals: weight * (0.6 + 0.4 * 1/3).
+        XCTAssertEqual(score.confidence, 0.132, accuracy: 0.001)
     }
 
-    // Every pillar present → full confidence and all seven aspects graded.
-    func testAllAspectsProduceFullConfidence() {
+    // Full depth across every pillar → full confidence.
+    func testFullDepthAcrossAllPillarsGivesFullConfidence() {
         let inputs = QualityOfLifeInputs(
-            sleepHours: 8,
-            steps: 9_000,
-            proteinGrams: 150, totalCalories: 2_400,
-            waterGlasses: 8,
-            hrvMs: 55, hrvBaselineMs: 50,
-            mindfulMinutes: 12,
-            socialConnection0to10: 8
+            sleepHours: 8, deepSleepMinutes: 70, remSleepMinutes: 95,
+            steps: 11_000, activeCalories: 600, exerciseMinutes: 40,
+            proteinGrams: 150, totalCalories: 2_400, fiberGrams: 32, addedSugarGrams: 10,
+            waterGlasses: 9,
+            hrvMs: 60, hrvBaselineMs: 50, restingHR: 52, restingHRBaseline: 55,
+            vo2Max: 48, oxygenSaturationPercent: 98, respiratoryRate: 14,
+            mindfulMinutes: 15, stressLevel0to1: 0.2, selfReportedMood0to10: 8,
+            socialConnection0to10: 9, meaningfulSocialInteractions: 3,
+            bodyMassKg: 75
         )
         let score = QualityOfLifeCalculator.score(from: inputs)
         XCTAssertEqual(score.confidence, 1.0, accuracy: 0.0001)
         XCTAssertEqual(score.gradedAspects, QualityOfLifePillar.allCases.count)
-        XCTAssertTrue((0...100).contains(score.overall))
+        XCTAssertEqual(score.band, .thriving)
     }
 
-    // The blend is an independent, renormalized weighting — not a naive /5 with
-    // overlapping inputs. Two clean pillars must combine by their weights.
+    // The blend is an independent, renormalized weighting — not a naive average.
     func testHolisticBlendIsWeightedAndRenormalized() {
-        // activity: steps 4000 → 50 (weight 0.18); mind: stress 0 → 100 (weight 0.12)
-        let inputs = QualityOfLifeInputs(steps: 4_000, stressLevel0to1: 0)
-        let score = QualityOfLifeCalculator.score(from: inputs)
-        XCTAssertEqual(score.score(for: .activity), 50)
+        // activity: steps 4000 → rising(0.5)=75 (w 0.18); mind: stress 0 → 100 (w 0.12)
+        let score = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(steps: 4_000, stressLevel0to1: 0))
+        XCTAssertEqual(score.score(for: .activity), 75)
         XCTAssertEqual(score.score(for: .mind), 100)
-        // (50*0.18 + 100*0.12) / (0.18 + 0.12) = 21 / 0.30 = 70
-        XCTAssertEqual(score.overall, 70)
-        XCTAssertEqual(score.confidence, 0.30, accuracy: 0.0001)
-        XCTAssertEqual(score.gradedAspects, 2)
+        // (75*0.18 + 100*0.12) / (0.18 + 0.12) = 25.5 / 0.30 = 85
+        XCTAssertEqual(score.overall, 85)
+        XCTAssertEqual(score.confidence, 0.22, accuracy: 0.001)
     }
 
-    // Missing aspects lower confidence, not the score: great sleep alone is not
-    // punished for the absence of other pillars.
+    // Missing aspects lower confidence, not the score.
     func testMissingAspectsLowerConfidenceNotScore() {
         let full = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(
             sleepHours: 8, steps: 9_000, proteinGrams: 150, totalCalories: 2_400,
@@ -69,28 +68,103 @@ final class QualityOfLifeCalculatorTests: XCTestCase {
         XCTAssertEqual(sleepOnly.overall, sleepOnly.score(for: .sleep) ?? -1)
     }
 
-    // Personalized targets: the same protein intake grades higher for a lighter
-    // person than for a heavier one (1.6 g/kg target).
+    // MARK: - Accuracy: response curves
+
+    // "More is better" credits the mid-range more than the top (diminishing returns).
+    func testRisingCurveHasDiminishingReturns() {
+        let lowGain = QualityOfLifeCalculator.rising(0.75) - QualityOfLifeCalculator.rising(0.50)
+        let highGain = QualityOfLifeCalculator.rising(1.15) - QualityOfLifeCalculator.rising(0.90)
+        XCTAssertGreaterThan(lowGain, highGain)
+        XCTAssertEqual(QualityOfLifeCalculator.rising(1.0), 100, accuracy: 0.0001)
+    }
+
+    // Gross overshoot (a data glitch or over-training) is not scored as perfect.
+    func testRisingCurvePenalizesGrossOvershoot() {
+        XCTAssertLessThan(QualityOfLifeCalculator.rising(3.0), 100)
+        XCTAssertGreaterThanOrEqual(QualityOfLifeCalculator.rising(3.0), 60)
+    }
+
+    // Signals with a real optimum score lower on both sides of the target.
+    func testOptimumCurveIsInvertedU() {
+        let peak = QualityOfLifeCalculator.optimum(1.0, sigma: 0.16)
+        XCTAssertEqual(peak, 100, accuracy: 0.0001)
+        XCTAssertLessThan(QualityOfLifeCalculator.optimum(0.8, sigma: 0.16), peak)
+        XCTAssertLessThan(QualityOfLifeCalculator.optimum(1.2, sigma: 0.16), peak)
+    }
+
+    // Oversleeping is not rewarded like hitting the need (uses the optimum curve).
+    func testOversleepScoresBelowMeetingNeed() {
+        let onTarget = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(sleepHours: 8))
+        let oversleep = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(sleepHours: 11))
+        XCTAssertLessThan(oversleep.score(for: .sleep) ?? 100, onTarget.score(for: .sleep) ?? 0)
+    }
+
+    // MARK: - Accuracy: plausibility
+
+    func testImplausibleValuesAreTreatedAsUnmeasured() {
+        // HRV 400 ms and 500k steps are data errors, not perfect scores.
+        XCTAssertNil(QualityOfLifeCalculator.score(from: QualityOfLifeInputs(steps: 500_000)).score(for: .activity))
+        XCTAssertNil(QualityOfLifeCalculator.score(from: QualityOfLifeInputs(hrvMs: 400)).score(for: .vitals))
+        // A whole day of only-implausible signals grades nothing rather than 100.
+        let garbage = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(steps: 500_000, hrvMs: 400))
+        XCTAssertEqual(garbage.gradedAspects, 0)
+        XCTAssertEqual(garbage.overall, 0)
+    }
+
+    // MARK: - Accuracy: depth-aware confidence
+
+    func testDeeperMeasurementRaisesConfidence() {
+        let shallow = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(hrvMs: 55, hrvBaselineMs: 50))
+        let deep = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(
+            hrvMs: 55, hrvBaselineMs: 50, restingHR: 55, vo2Max: 45,
+            oxygenSaturationPercent: 98, respiratoryRate: 15
+        ))
+        XCTAssertGreaterThan(deep.confidence, shallow.confidence)
+    }
+
+    // MARK: - Accuracy: personalization
+
     func testPersonalizationTunesNutritionTarget() {
         let light = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(proteinGrams: 100, bodyMassKg: 50))
         let heavy = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(proteinGrams: 100, bodyMassKg: 100))
-        XCTAssertEqual(light.score(for: .nutrition), 100)          // target 80 g, capped
-        XCTAssertEqual(heavy.score(for: .nutrition), 63)           // target 160 g → 62.5 → 63
+        XCTAssertEqual(light.score(for: .nutrition), 95)   // target 80 g → rising(1.25) → 95
+        XCTAssertEqual(heavy.score(for: .nutrition), 86)   // target 160 g → rising(0.625) → 86
         XCTAssertGreaterThan(light.overall, heavy.overall)
     }
 
-    // Oversleeping is not rewarded past the need; scores stay clamped.
+    // MARK: - Accuracy: day-to-day smoothing
+
+    func testSmoothingPullsNoisyDayTowardHistoryAndScalesWithConfidence() {
+        let priorGoodDay = 80
+
+        // A single low-confidence bad signal should barely move a good trend.
+        let noisy = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(sleepHours: 4))
+        let smoothedNoisy = noisy.smoothed(previousOverall: priorGoodDay)
+        XCTAssertGreaterThan(smoothedNoisy.overall, noisy.rawOverall)
+        XCTAssertLessThanOrEqual(smoothedNoisy.overall, priorGoodDay)
+
+        // A high-confidence bad day should move the trend more than the noisy one.
+        let richBad = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(
+            sleepHours: 4, steps: 800, proteinGrams: 20, totalCalories: 900, addedSugarGrams: 120,
+            waterGlasses: 1, hrvMs: 20, hrvBaselineMs: 55, stressLevel0to1: 0.9,
+            meaningfulSocialInteractions: 0
+        ))
+        let smoothedRichBad = richBad.smoothed(previousOverall: priorGoodDay)
+        XCTAssertGreaterThan(priorGoodDay - smoothedRichBad.overall, priorGoodDay - smoothedNoisy.overall)
+
+        // No history → unchanged.
+        XCTAssertEqual(noisy.smoothed(previousOverall: nil).overall, noisy.overall)
+    }
+
+    // MARK: - Range, bands, independence
+
     func testExtremeInputsClampTo0Through100() {
         let extreme = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(
-            sleepHours: 14,
-            steps: 500_000,
-            proteinGrams: 900, totalCalories: 12_000,
-            waterGlasses: 40,
-            hrvMs: 400, hrvBaselineMs: 20,
-            restingHR: 20, restingHRBaseline: 90,
-            vo2Max: 120, oxygenSaturationPercent: 100, respiratoryRate: 12,
-            mindfulMinutes: 600, stressLevel0to1: 0, selfReportedMood0to10: 10,
-            socialConnection0to10: 10, meaningfulSocialInteractions: 40
+            sleepHours: 14, steps: 79_000, proteinGrams: 480, totalCalories: 11_000,
+            waterGlasses: 39, hrvMs: 240, hrvBaselineMs: 50, restingHR: 26,
+            vo2Max: 88, oxygenSaturationPercent: 100, respiratoryRate: 39,
+            mindfulMinutes: 590, stressLevel0to1: 0, selfReportedMood0to10: 10,
+            socialConnection0to10: 10, meaningfulSocialInteractions: 39
         ))
         XCTAssertTrue((0...100).contains(extreme.overall))
         for pillar in QualityOfLifePillar.allCases {
@@ -100,21 +174,15 @@ final class QualityOfLifeCalculatorTests: XCTestCase {
         }
     }
 
-    // A day that is genuinely poor across aspects grades low — the score has
-    // real range, it does not float near a flattering constant.
     func testDepletedDayGradesLow() {
         let score = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(
-            sleepHours: 4,
-            steps: 800,
-            proteinGrams: 20, totalCalories: 900, addedSugarGrams: 120,
-            waterGlasses: 1,
-            hrvMs: 20, hrvBaselineMs: 55,
-            mindfulMinutes: 0, stressLevel0to1: 0.9,
+            sleepHours: 4, steps: 800, proteinGrams: 20, totalCalories: 900, addedSugarGrams: 120,
+            waterGlasses: 1, hrvMs: 20, hrvBaselineMs: 55, mindfulMinutes: 0, stressLevel0to1: 0.9,
             meaningfulSocialInteractions: 0
         ))
         XCTAssertLessThan(score.overall, 50)
         XCTAssertEqual(score.band, .depleted)
-        XCTAssertGreaterThan(score.confidence, 0.8, "a data-rich day should be high confidence even when the score is low")
+        XCTAssertGreaterThan(score.confidence, 0.7, "a data-rich day is high confidence even when the score is low")
     }
 
     func testBandBoundaries() {
@@ -126,7 +194,6 @@ final class QualityOfLifeCalculatorTests: XCTestCase {
         XCTAssertEqual(QualityOfLifeBand(score: 49), .depleted)
     }
 
-    // Mind and connection are real, independent aspects — not proxies of HRV.
     func testMindAndSocialAreIndependentAspects() {
         let biometricOnly = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(
             sleepHours: 8, steps: 9_000, hrvMs: 55, hrvBaselineMs: 50
