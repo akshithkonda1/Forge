@@ -648,6 +648,14 @@ class ARIAContext:
     def user_model_block(self, restricted: list[str] | None = None) -> str:
         """Structured ground-truth block for prompt injection (Section 2b)."""
         restricted = restricted or []
+        # A denied domain must never reach the prompt, even when a caller passes
+        # the raw context plus the restricted list instead of the sanitized copy
+        # apply_permissions returns. Blank the lifestyle surface (tags/patterns/
+        # life_rhythm) when lifestyle is restricted; the normal path already sees
+        # an empty lifestyle here, so this only closes the un-sanitized case.
+        lifestyle_ok = "lifestyle" not in restricted
+        lifestyle_tags = ", ".join(self.lifestyle.tags) if lifestyle_ok else ""
+        lifestyle_patterns = ", ".join(self.lifestyle.recent_patterns) if lifestyle_ok else ""
         lines = [
             "[USER MODEL — ground truth]",
             f"- timestamp: {self.timestamp}",
@@ -668,8 +676,8 @@ class ARIAContext:
             f"- profile.coaching_style: {self.profile.coaching_style or 'null'}",
             f"- profile.constraints: {', '.join(self.profile.constraints) or 'none'}",
             f"- chronotype.consistency_score: {_fmt(self.chronotype.consistency_score)}",
-            f"- lifestyle.tags: {', '.join(self.lifestyle.tags) or 'none'}",
-            f"- lifestyle.patterns: {', '.join(self.lifestyle.recent_patterns) or 'none'}",
+            f"- lifestyle.tags: {lifestyle_tags or 'none'}",
+            f"- lifestyle.patterns: {lifestyle_patterns or 'none'}",
             f"- clinical_data.allergies: {', '.join(self.clinical_data.allergies) or 'none'}",
             f"- clinical_data.medications: {', '.join(self.clinical_data.medications) or 'none'}",
             f"- clinical_data.conditions: {', '.join(self.clinical_data.conditions) or 'none'}",
@@ -1247,19 +1255,19 @@ _GOAL_FOCUS = {
 }
 
 
-def _apply_profile(chat: str, expected: str, ctx: ARIAContext) -> tuple[str, str]:
-    """Fold goals, constraints, and experience into a recommendation."""
-    goal = ctx.profile.primary_goal
-    if goal in _GOAL_FOCUS:
-        expected = f"{expected} — {_GOAL_FOCUS[goal]}"
-    if ctx.profile.constraints:
-        chat = f"{chat} Work around your {ctx.profile.constraints[0]}."
-    if ctx.profile.experience_level == "beginner":
-        chat = f"{chat} Keep it simple — consistency beats intensity right now."
-    return chat, expected
-
-
 # --- Response assembly (Section 3) -------------------------------------------
+
+
+def _structured_message(notice: str, next_step: str, why: str | None = None) -> str:
+    """Shape the chat reply like a good assistant answer: two or three short
+    labeled sections instead of a metric dump. ARIA is a lifestyle coach, not a
+    clinician — this states what it notices and one concrete next step, with an
+    optional brief why. The card still carries the precise numbers for clients
+    that render it. Voice mode bypasses this (``_envelope`` speaks the prose)."""
+    sections = [f"What I notice\n{notice.strip()}", f"One next step\n{next_step.strip()}"]
+    if why and why.strip():
+        sections.append(f"Why\n{why.strip()}")
+    return "\n\n".join(sections)
 
 
 def _clarification_response(ctx: ARIAContext, restricted: list[str], voice_mode: bool) -> dict[str, Any]:
@@ -1276,13 +1284,17 @@ def _clarification_response(ctx: ARIAContext, restricted: list[str], voice_mode:
         actions = ["Sync HealthKit", "Log last night's sleep", "Tell ARIA about today"]
     prose = f"I won't guess without data. {question}"
     card = None if voice_mode else {"question": question, "why": why}
+    message = _structured_message(
+        "I don't have enough to read your day yet — I'd rather ask than guess.",
+        question,
+    )
     return _envelope(
         response_type="clarification",
         confidence=0.2,
         confidence_reason=why,
         prose_summary=prose,
         card=card,
-        message=prose,
+        message=message,
         suggested_actions=actions,
         voice_mode=voice_mode,
     )
@@ -1321,7 +1333,6 @@ def _recommendation_response(
                 timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
             rationale = f"HRV {ctx.readiness.hrv_7day_trend:.0f}% + {sleep_debt_h:.1f}h sleep debt — sleep before load"
             expected = "Prioritizing sleep should pull HRV back toward baseline within 24-48 h"
-            chat = f"Sleep needs priority tonight. HRV is {abs(ctx.readiness.hrv_7day_trend):.0f}% below baseline and you're carrying {sleep_debt_h:.1f}h debt. Hold training easy, protect your wind-down, and we reassess tomorrow."
             prose = f"HRV {abs(ctx.readiness.hrv_7day_trend):.0f}% below baseline with {sleep_debt_h:.1f}h sleep debt — sleep first tonight, then training."
             actions = ["Protect tonight's sleep", "Show recovery plan", "Swap to Zone 2"]
         else:
@@ -1332,7 +1343,6 @@ def _recommendation_response(
                 timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
             rationale = f"{driver.metric.lower()}: {driver.interpretation}"
             expected = "Protecting today should pull HRV back toward baseline within 24-48 h"
-            chat = f"Hold back today. {_cap(driver.interpretation)}. Keep it low-intensity, and we reassess tomorrow."
             prose = f"{_cap(driver.interpretation)} — keep today easy and let recovery catch up."
             actions = ["Show recovery plan", "Swap to Zone 2", "Protect tonight's sleep"]
     elif lead and lead.direction == "positive":
@@ -1340,8 +1350,7 @@ def _recommendation_response(
         timing = "Train in your usual window while readiness is high"
         rationale = f"{lead.metric.lower()}: {lead.interpretation}"
         expected = "You can absorb a hard stimulus today without digging a recovery hole"
-        chat = f"You're primed. {_cap(lead.interpretation)}. Good day to go after a hard session or a PR attempt."
-        prose = f"{_cap(lead.interpretation)} — you're clear to push hard today."
+        prose = f"You're primed — {lead.interpretation}. Clear to push hard today."
         actions = ["Build a hard session", "Set a PR target", "Review readiness"]
     else:
         detail = lead.interpretation if lead else "your signals are mid-band"
@@ -1349,15 +1358,24 @@ def _recommendation_response(
         timing = "Your normal training window works today"
         rationale = detail
         expected = "Steady stimulus keeps adaptation moving without overreaching"
-        chat = f"Solid middle ground today. {_cap(detail)}. Match the session to that and keep overload controlled."
         prose = f"{_cap(detail)} — train moderate and keep overload controlled."
         actions = ["Today's workout", "Tune intensity", "Check sleep trend"]
 
-    chat, expected = _apply_profile(chat, expected, ctx)
+    # Goal shaping stays on the card's expected effect (kept precise there).
+    goal = ctx.profile.primary_goal
+    if goal in _GOAL_FOCUS:
+        expected = f"{expected} — {_GOAL_FOCUS[goal]}"
 
+    # "What I notice" is plain-language; constraints, experience and a missing
+    # training history ride along as coaching notes rather than a metric dump.
+    notice_bits = [prose]
+    if ctx.profile.constraints:
+        notice_bits.append(f"Work around your {ctx.profile.constraints[0]}.")
+    if ctx.profile.experience_level == "beginner":
+        notice_bits.append("Keep it simple — consistency beats intensity right now.")
     if not ctx.has_training_history and "training" not in restricted:
         actions = actions[:2] + ["Tell ARIA your last workout"]
-        chat = f"{chat} I don't have your recent training load yet — what and when was your last real session?"
+        notice_bits.append("I don't have your recent training load yet — what and when was your last real session?")
 
     card = None if voice_mode else {
         "action": action,
@@ -1371,7 +1389,7 @@ def _recommendation_response(
         confidence_reason=reason,
         prose_summary=prose,
         card=card,
-        message=chat,
+        message=_structured_message(" ".join(notice_bits), action, timing),
         suggested_actions=actions,
         voice_mode=voice_mode,
     )
@@ -1405,7 +1423,6 @@ def _insight_response(
     if lead is None:
         return _clarification_response(ctx, restricted, voice_mode)
 
-    chat = f"{lead.metric}: {lead.current_value} ({lead.vs_baseline}). {_cap(lead.interpretation)}."
     prose = f"{lead.metric}: {lead.current_value}. {_cap(lead.interpretation)}."
     card = None if voice_mode else {
         "metric": lead.metric,
@@ -1414,13 +1431,19 @@ def _insight_response(
         "interpretation": lead.interpretation,
         "priority": lead.priority,
     }
+    # Plain-language read for the chat; the exact numbers live on the card.
+    message = _structured_message(
+        _cap(lead.interpretation),
+        "Ask me what to do about it and I'll turn it into today's plan.",
+        f"Reading {lead.metric.lower()} — {lead.current_value} {lead.vs_baseline}.",
+    )
     return _envelope(
         response_type="insight",
         confidence=confidence,
         confidence_reason=reason,
         prose_summary=prose,
         card=card,
-        message=chat,
+        message=message,
         suggested_actions=["What should I do about it?", "Show the trend", "Compare to last week"],
         voice_mode=voice_mode,
     )
@@ -1464,7 +1487,6 @@ def _summary_response(
         rec = f"Next block: bias toward your {goal} goal — {_GOAL_FOCUS[goal]}."
 
     prose = f"Last 30 days: {headline}. {win}"
-    chat = f"{prose} {risk}"
     card = None if voice_mode else {
         "period_days": 30,
         "headline": headline,
@@ -1472,13 +1494,14 @@ def _summary_response(
         "risk": risk,
         "recommendation": rec,
     }
+    message = _structured_message(f"Last 30 days: {headline}. {win}", risk, rec)
     return _envelope(
         response_type="summary",
         confidence=confidence,
         confidence_reason=reason,
         prose_summary=prose,
         card=card,
-        message=chat,
+        message=message,
         suggested_actions=["Plan next block", "Show load chart", "Review PRs"],
         voice_mode=voice_mode,
     )
