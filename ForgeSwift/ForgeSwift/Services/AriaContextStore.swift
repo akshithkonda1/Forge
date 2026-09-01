@@ -632,7 +632,8 @@ final class AriaContextStore: ObservableObject {
         recommendations: [AIRecommendation],
         loggedMeals: [MealLog],
         markers: [FakeLifestyleMarker] = [],
-        social: [FakeSocialEvent] = []
+        social: [FakeSocialEvent] = [],
+        sleepNights: [SleepData] = []
     ) {
         var tags: [String] = [
             "qol:\(metrics.qualityOfLifeScore)",
@@ -664,10 +665,11 @@ final class AriaContextStore: ObservableObject {
         }
         // Deep habit → ARIA: keep the top habit's loop in tags/patterns so Bedrock sees it,
         // and store the full structs for the local human companion path.
+        // Sleep nights live on AppStore, not HealthKitManager. Callers that have
+        // them pass `sleepNights`; otherwise HabitEngine still has sleepAverage.
         let sleepVariance: Int? = {
-            let s = HealthKitManager.shared.sleepData
-            guard s.count >= 3 else { return nil }
-            let hours = s.prefix(7).map { $0.totalHours }
+            guard sleepNights.count >= 3 else { return nil }
+            let hours = sleepNights.prefix(7).map { $0.totalHours }
             guard let maxH = hours.max(), let minH = hours.min() else { return nil }
             return Int((maxH - minH) * 60)
         }()
@@ -682,7 +684,7 @@ final class AriaContextStore: ObservableObject {
             totalCalories: stats?.totalCalories ?? 0,
             markers: markers,
             social: social,
-            nightsAvailable: HealthKitManager.shared.sleepData.count,
+            nightsAvailable: sleepNights.count,
             qualityOfLifeScore: metrics.qualityOfLifeScore
         )
         let habits = HabitEngine.analyze(habitSignals)
