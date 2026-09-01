@@ -410,10 +410,9 @@ final class OnboardingCoordinator {
         FDS.haptic(.light)
         // Collapse: trainingTheme + lifeContext are now answered here — default to classic / preferNot
         // so we can skip two screens and keep the interview feeling like one human ask.
-        if profile.trainingTheme == nil { profile.trainingTheme = .classic }
-        if profile.lifeContext == .preferNot || profile.lifeContext.rawValue.isEmpty {
-            // keep preferNot as default — user can change in the same step if we show the chips
-        }
+        // trainingTheme is already `.classic`; lifeContext is optional and must not
+        // be force-read via `.rawValue` (that is what blocked the #168 compile).
+        if profile.lifeContext == nil { profile.lifeContext = .preferNot }
         syncPartialContext()
         Task {
             if profile.freeTimeInterests.isEmpty {
