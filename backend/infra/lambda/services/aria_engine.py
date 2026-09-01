@@ -61,6 +61,14 @@ EFFICIENCY_REF = 0.85        # below this we flag fragmented sleep
 # Minimum nights of sleep history required to speak about a personal baseline.
 MIN_SLEEP_BASELINE_NIGHTS = 3
 
+# Habit tags (`habit:<id>:<domain>:<score>`) can flag multi-night variance even
+# when last night looks fine. Cap so the live overlay treats them as uncertain.
+# Distinct from the sleep-first gate (0.60), which needs short sleep + falling HRV.
+SLEEP_VARIANCE_HABIT_CONFIDENCE_CAP = 0.65
+
+# habit:<id>:<domain>:<score> — e.g. habit:sleep_variance:sleep:85 from HabitEngine.
+_HABIT_TAG_RE = re.compile(r"^habit:([^:]+):([^:]+):(\d+)$")
+
 # Every data domain ARIA can reason over, in signal-priority order. This is also
 # the permission surface — each is independently grantable.
 ALL_DOMAINS = (
@@ -581,6 +589,7 @@ class ARIAContext:
             f"- profile.coaching_style: {self.profile.coaching_style or 'null'}",
             f"- profile.constraints: {', '.join(self.profile.constraints) or 'none'}",
             f"- chronotype.consistency_score: {_fmt(self.chronotype.consistency_score)}",
+            f"- lifestyle.tags: {', '.join(self.lifestyle.tags) or 'none'}",
             f"- lifestyle.patterns: {', '.join(self.lifestyle.recent_patterns) or 'none'}",
             f"- clinical_data.allergies: {', '.join(self.clinical_data.allergies) or 'none'}",
             f"- clinical_data.medications: {', '.join(self.clinical_data.medications) or 'none'}",
@@ -1003,6 +1012,48 @@ def _interpret_nutrition(ctx: ARIAContext) -> Signal | None:
     )
 
 
+def _parse_habit_tags(tags: list[str]) -> list[tuple[str, str, int]]:
+    """Parse `habit:<id>:<domain>:<score>` tags. Non-matching tags are ignored."""
+    parsed: list[tuple[str, str, int]] = []
+    for tag in tags:
+        match = _HABIT_TAG_RE.match((tag or "").strip())
+        if match:
+            parsed.append((match.group(1), match.group(2), int(match.group(3))))
+    return parsed
+
+
+def _sleep_variance_habit(ctx: ARIAContext) -> tuple[str, str, int] | None:
+    for habit_id, domain, score in _parse_habit_tags(ctx.lifestyle.tags):
+        if habit_id == "sleep_variance":
+            return habit_id, domain, score
+    return None
+
+
+def _interpret_lifestyle(ctx: ARIAContext) -> Signal | None:
+    """Turn lifestyle habit tags into a Signal the rest of the engine can use.
+
+    Last-night sleep and HRV can look fine while weekday timing still wobbles.
+    ``habit:sleep_variance:sleep:<score>`` is that case: emit a negative lifestyle
+    signal so prose can name variance/irregular sleep without the sleep-first gate.
+    """
+    habit = _sleep_variance_habit(ctx)
+    if habit is None:
+        return None
+    habit_id, domain, score = habit
+    return Signal(
+        "lifestyle",
+        "Sleep habit",
+        f"habit:{habit_id}:{domain}:{score}",
+        "vs weekday-to-weekday sleep timing",
+        (
+            f"sleep timing is irregular — variance habit at {score}/100; "
+            "last night can look fine while the week still wobbles"
+        ),
+        "high",
+        "negative",
+    )
+
+
 _PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}
 
 _INTERPRETERS = (
@@ -1012,6 +1063,7 @@ _INTERPRETERS = (
     _interpret_activity,
     _interpret_body,
     _interpret_nutrition,
+    _interpret_lifestyle,
 )
 
 
@@ -1076,6 +1128,10 @@ def _calibrate_confidence(
     if not ctx.has_training_history:
         ceiling = min(ceiling, 0.7)
         reasons.append(_why("training", "no recent workout history"))
+
+    if _sleep_variance_habit(ctx) is not None:
+        ceiling = min(ceiling, SLEEP_VARIANCE_HABIT_CONFIDENCE_CAP)
+        reasons.append("sleep-variance habit — timing is irregular, confidence capped")
 
     directions = {s.direction for s in signals if s.direction in ("negative", "positive")}
     if "negative" in directions and "positive" in directions:
