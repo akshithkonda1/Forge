@@ -277,6 +277,9 @@
 		1TEST01200000000000000A /* MenstrualCycleEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */; };
 		1TEST01400000000000000A /* PartnerCycleDigestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01300000000000000A /* PartnerCycleDigestTests.swift */; };
 		CF71AF40391648AC87F73400 /* ContextInspectorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34EBFCC451EC42798BEAF8AB /* ContextInspectorSheet.swift */; };
+		E5BCFE93F0BB45F98AF4D6DC /* HabitProactiveCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5BCFE92F0BB45F98AF4D6DC /* HabitProactiveCard.swift */; };
+		E38AEAB1C45A49109A7C8484 /* HabitLoopCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E38AEAB0C45A49109A7C8484 /* HabitLoopCard.swift */; };
+		1TEST01800000000000000A /* OnboardingGraphLockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01700000000000000A /* OnboardingGraphLockTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -412,6 +415,7 @@
 		1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaUseOnboarding.swift; sourceTree = "<group>"; };
 
 		1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgentRouterTests.swift; sourceTree = "<group>"; };
+		1TEST01700000000000000A /* OnboardingGraphLockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGraphLockTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
@@ -630,6 +634,8 @@
 		1TEST01300000000000000A /* PartnerCycleDigestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleDigestTests.swift; sourceTree = "<group>"; };
 		1TEST00700000000000000A /* ForgeSwiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForgeSwiftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		34EBFCC451EC42798BEAF8AB /* ContextInspectorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextInspectorSheet.swift; sourceTree = "<group>"; };
+		E5BCFE92F0BB45F98AF4D6DC /* HabitProactiveCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HabitProactiveCard.swift; sourceTree = "<group>"; };
+		E38AEAB0C45A49109A7C8484 /* HabitLoopCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HabitLoopCard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -802,6 +808,7 @@
 			children = (
 				E5BCFE92F0BB45F98AF4D6DC /* HabitProactiveCard.swift */,
 				E38AEAB0C45A49109A7C8484 /* HabitLoopCard.swift */,
+				34EBFCC451EC42798BEAF8AB /* ContextInspectorSheet.swift */,
 				AA000200000000000000F1A0 /* PrivacyInfo.xcprivacy */,
 				1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */,
 				AA00020000000000000000B5 /* Info-Add.plist */,
@@ -1088,6 +1095,7 @@
 				1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */,
 				1TEST01300000000000000A /* PartnerCycleDigestTests.swift */,
 				1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */,
+				1TEST01700000000000000A /* OnboardingGraphLockTests.swift */,
 			);
 			path = ForgeSwiftTests;
 			sourceTree = "<group>";
@@ -1527,6 +1535,9 @@
 				F0B10000000000000000001E /* ForgeWorkoutActivityAttributes.swift in Sources */,
 				F0B100000000000000000030 /* WorkoutActivityCoordinator.swift in Sources */,
 				F0B100000000000000000039 /* WatchAriaConfigBridge.swift in Sources */,
+				E5BCFE93F0BB45F98AF4D6DC /* HabitProactiveCard.swift in Sources */,
+				E38AEAB1C45A49109A7C8484 /* HabitLoopCard.swift in Sources */,
+				CF71AF40391648AC87F73400 /* ContextInspectorSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1606,6 +1617,7 @@
 				1TEST01200000000000000A /* MenstrualCycleEngineTests.swift in Sources */,
 				1TEST01400000000000000A /* PartnerCycleDigestTests.swift in Sources */,
 				1TEST01600000000000000A /* AriaCoachAgentRouterTests.swift in Sources */,
+				1TEST01800000000000000A /* OnboardingGraphLockTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import ForgeCore
 
 enum HealthKitState: Equatable {
     case unknown, requesting, authorized, denied, unavailable
@@ -50,6 +51,44 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
         case .conditions:     return "Boundaries"
         case .coaching:       return "Voice"
         case .ready:          return "Ready"
+        }
+    }
+
+    var graph: OnboardingGraph.Step {
+        switch self {
+        case .intro: return .intro
+        case .name: return .name
+        case .health: return .health
+        case .details: return .details
+        case .goals: return .goals
+        case .experience: return .experience
+        case .workouts: return .workouts
+        case .sleep: return .sleep
+        case .freeTime: return .freeTime
+        case .coaching: return .coaching
+        case .conditions: return .conditions
+        case .ready: return .ready
+        case .trainingTheme: return .trainingTheme
+        case .lifeContext: return .lifeContext
+        }
+    }
+
+    init(_ graph: OnboardingGraph.Step) {
+        switch graph {
+        case .intro: self = .intro
+        case .name: self = .name
+        case .health: self = .health
+        case .details: self = .details
+        case .goals: self = .goals
+        case .experience: self = .experience
+        case .workouts: self = .workouts
+        case .sleep: self = .sleep
+        case .freeTime: self = .freeTime
+        case .coaching: self = .coaching
+        case .conditions: self = .conditions
+        case .ready: self = .ready
+        case .trainingTheme: self = .trainingTheme
+        case .lifeContext: self = .lifeContext
         }
     }
 }

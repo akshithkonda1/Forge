@@ -41,14 +41,12 @@ final class OnboardingCoordinator {
 
     // MARK: Derived
 
-    // Progress over the active flow only (legacy steps not counted)
-    private var activeSteps: [AriaInterviewStep] {
-        [.intro, .name, .health, .details, .goals, .experience, .workouts, .sleep, .freeTime, .coaching, .conditions, .ready]
-    }
-    var progress: Double {
-        guard let idx = activeSteps.firstIndex(of: step) else { return Double(step.rawValue) / Double(max(1, AriaInterviewStep.allCases.count - 1)) }
-        return Double(idx) / Double(max(1, activeSteps.count - 1))
-    }
+    // Progress over the active flow only (legacy steps not counted).
+    // Count and fraction come from OnboardingGraph so the header cannot
+    // drift back to AriaInterviewStep.allCases (theme + lifeContext).
+    var progress: Double { OnboardingGraph.progress(at: step.graph) }
+    var progressStepIndex: Int { OnboardingGraph.displayIndex(for: step.graph) }
+    var progressStepCount: Int { OnboardingGraph.displayCount }
     var hasAgreedToTerms: Bool = false
     var isUnderage: Bool { profile.ageYears < 13 }
     var canFinish: Bool {
@@ -369,10 +367,11 @@ final class OnboardingCoordinator {
         appendUser(band.label)
         FDS.haptic(.light)
         syncPartialContext()
-        // Habit seed — first loop from sleep rhythm so day-one Lifestyle isn't empty
-        if band == .nightOwl || band == .inconsistent {
+        // Habit seed — first loop from sleep rhythm so day-one Lifestyle isn't empty.
+        // SleepRhythmBand is `.irregular`, not `.inconsistent` (that case does not exist).
+        if OnboardingGraph.seedsSleepVariance(bandRawValue: band.rawValue) {
             let habit = DeepHabit(
-                id: "sleep_variance", title: "Wobbly wind-down",
+                id: OnboardingGraph.sleepVarianceHabitId, title: "Wobbly wind-down",
                 cue: "Evening at home after 22:00", routine: "Phone stays with you → late scroll",
                 payoff: "Felt productive", cost: "Deep sleep cut",
                 category: .sleep, confidence: 0.72,
@@ -423,7 +422,7 @@ final class OnboardingCoordinator {
                 let labels = profile.freeTimeInterests.prefix(3).map(\.label).joined(separator: ", ")
                 await ariaSay("I'll keep \(labels) in mind — classic coaching unless you want a world like Solo Leveling.", mood: .focused)
             }
-            await advanceTo(.coaching)
+            await advanceTo(AriaInterviewStep(OnboardingGraph.next(after: .confirmInterests)))
         }
     }
 
@@ -541,7 +540,7 @@ final class OnboardingCoordinator {
             } else {
                 await ariaSay("Noted. Privacy respected.", mood: .calm)
             }
-            await advanceTo(.ready)
+            await advanceTo(AriaInterviewStep(OnboardingGraph.next(after: .confirmConditions)))
         }
     }
 
@@ -552,7 +551,7 @@ final class OnboardingCoordinator {
         FDS.haptic(.medium)
         Task {
             await ariaSay("Voice locked: \(style.label). One last optional thing — any conditions I should respect? Skip is fine.", mood: .calm)
-            await advanceTo(.conditions)
+            await advanceTo(AriaInterviewStep(OnboardingGraph.next(after: .selectCoachingStyle)))
         }
     }
 
@@ -729,6 +728,7 @@ final class OnboardingCoordinator {
     }
 
     func complete(in store: AppStore) {
+        guard OnboardingGraph.allowsFinish(canFinish: canFinish, hasAgreedToTerms: hasAgreedToTerms) else { return }
         guard !isCompleting else { return }
         isCompleting = true
         ariaOrbState = .processing
@@ -794,6 +794,7 @@ final class OnboardingCoordinator {
         profile.lifeContext = .preferNot
         profile.reportedConditions = [.none]
         profile.guidanceOnlyMode = false
+        hasAgreedToTerms = true
         step = .ready
         complete(in: store)
     }
