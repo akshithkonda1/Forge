@@ -11,6 +11,9 @@ __pycache__/
 # next.js
 /.next/
 /out/
+# Next.js auto-generates these AI agent rule files on `next dev` (agentRules).
+/AGENTS.md
+/CLAUDE.md
 
 # production
 /build
