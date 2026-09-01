@@ -50,13 +50,13 @@ struct MindfulTrendCard: View {
                 }
                 .chartXAxis {
                     AxisMarks(values: .stride(by: .day)) { _ in
-                        AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.system(size: 9)).foregroundStyle(.textTertiary)
+                        AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.system(size: 9)).foregroundStyle(Color.textTertiary)
                     }
                 }
                 .chartYAxis {
                     AxisMarks(position: .leading) { _ in
                         AxisGridLine().foregroundStyle(Color.borderColor.opacity(0.12))
-                        AxisValueLabel().font(.system(size: 9)).foregroundStyle(.textTertiary)
+                        AxisValueLabel().font(.system(size: 9)).foregroundStyle(Color.textTertiary)
                     }
                 }
                 .frame(height: 96)

@@ -80,7 +80,7 @@ struct AriaInterviewLayout: View {
 
                 Spacer(minLength: 8)
 
-                Text("\(min(coordinator.step.rawValue + 1, AriaInterviewStep.allCases.count)) / \(AriaInterviewStep.allCases.count)")
+                Text("\(coordinator.progressStepIndex) / \(coordinator.progressStepCount)")
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundColor(.textTertiary)
                     .monospacedDigit()
