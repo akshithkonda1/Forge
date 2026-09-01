@@ -11,5 +11,8 @@
       "command": "ENVIRONMENT=development FORGE_TEST_USER_ID=test-user-00000000 python3 backend/dev_server.py"
     }
   ],
-  "ports": [3000, 3001]
+  "ports": [
+    { "name": "web", "port": 3000 },
+    { "name": "backend", "port": 3001 }
+  ]
 }
