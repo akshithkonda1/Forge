@@ -6,7 +6,14 @@ import uuid
 from base64 import b64decode
 from datetime import datetime, timezone
 
-from ai_router import AIRouter, RouteRequest, RoutingError, default_models, humanize_bytes
+from ai_router import (
+    AIRouter,
+    RouteRequest,
+    RoutingError,
+    bedrock_enabled,
+    default_models,
+    humanize_bytes,
+)
 from auth import extract_user_id
 from responses import RouteError, error_response, not_found, ok
 from routes import (
@@ -147,6 +154,15 @@ def _route(event, _context):
         try:
             # Require auth so the multi-model path cannot be used anonymously for cost abuse.
             extract_user_id(event, required=True)
+            # Gate Bedrock the same way /ai/chat is gated: with the flag off, this
+            # route never constructs the router or reaches Amazon Bedrock. The
+            # gateway enforces the same rule as defense-in-depth.
+            if not bedrock_enabled():
+                raise RouteError(
+                    503,
+                    "Live AI routing is disabled. Set ARIA_BEDROCK_ENABLED to enable Amazon Bedrock.",
+                    code="bedrock_disabled",
+                )
             payload = _parse_json_body(event)
             request = RouteRequest.from_payload(payload)
             router = AIRouter()
