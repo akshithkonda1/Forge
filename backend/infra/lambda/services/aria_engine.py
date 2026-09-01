@@ -674,8 +674,10 @@ class ARIAContext:
         ]
         # Life rhythm (holistic Quality of Life), only when the client sent it and
         # lifestyle is not redacted. Framed as a lifestyle signal, never medical.
+        # Gate on `restricted` too: callers may pass an un-sanitized context with
+        # the restricted list, and a denied domain must never reach the prompt.
         qol = self.lifestyle.quality_of_life_score
-        if qol is not None:
+        if "lifestyle" not in restricted and qol is not None:
             conf = self.lifestyle.quality_of_life_confidence
             conf_str = f", confidence {conf:.2f}" if isinstance(conf, (int, float)) else ""
             lines.append(

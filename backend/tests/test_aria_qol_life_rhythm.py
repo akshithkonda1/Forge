@@ -60,6 +60,15 @@ class QoLContextTests(unittest.TestCase):
         self.assertIsNone(sanitized.lifestyle.quality_of_life_score)
         self.assertNotIn("life_rhythm", sanitized.user_model_block(restricted))
 
+    def test_restricted_lifestyle_suppresses_qol_even_on_unsanitized_context(self):
+        # Defense-in-depth: a caller may pass the raw context plus the restricted
+        # list (not the redacted copy). A denied domain must never reach the prompt.
+        ctx = _ctx({"tags": ["qol:40"]})
+        self.assertEqual(ctx.lifestyle.quality_of_life_score, 40)  # still present on the object
+        block = ctx.user_model_block(restricted=["lifestyle"])
+        self.assertNotIn("life_rhythm", block)
+        self.assertNotIn("qol:", block)
+
     def test_life_rhythm_reaches_the_live_prompt(self):
         ctx = _ctx({"tags": ["qol:58"]})
         prompt = aria_engine.build_user_prompt("how am I doing overall?", ctx)
