@@ -98,6 +98,7 @@ struct LifestyleView: View {
         }
         .animation(.easeInOut(duration: 0.3), value: showInsights)
         .task {
+            vm.applyPersonalization(store.userProfile)
             await vm.load()
             await vm.refreshAIInsights(store: store, allowNetwork: false)
         }

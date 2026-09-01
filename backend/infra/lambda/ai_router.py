@@ -27,6 +27,17 @@ CONSENSUS_TIMEOUT_BUFFER_SECONDS = 0.25
 # see the comment in RouteSettings.from_payload.
 MAX_CLIENT_TIMEOUT_SECONDS = 10.0
 
+# Bedrock is opt-in. Mirrors services.aria_engine.bedrock_enabled() so the router
+# shares one flag with /ai/chat, but kept local so importing this module (early,
+# from handler) never pulls in the full ARIA engine. When the flag is off the
+# router must never reach Amazon Bedrock, even on a deployed Lambda with JWT+IAM.
+_BEDROCK_TRUE_FLAGS = {"1", "true", "yes", "on"}
+
+
+def bedrock_enabled() -> bool:
+    """True when the live Bedrock path is enabled via ARIA_BEDROCK_ENABLED."""
+    return os.getenv("ARIA_BEDROCK_ENABLED", "").strip().lower() in _BEDROCK_TRUE_FLAGS
+
 
 class RoutingError(Exception):
     def __init__(self, status_code: int, message: str, *, details: dict[str, Any] | None = None) -> None:
@@ -205,6 +216,14 @@ class BedrockGateway:
         image_bytes: bytes | None = None,
         image_format: str = "jpeg",
     ) -> dict[str, Any]:
+        # Hard gate at the one place that actually talks to Bedrock: even if a
+        # caller reaches the real gateway, it cannot Converse while the flag is
+        # off. (Test fakes override converse() and are unaffected.)
+        if not bedrock_enabled():
+            raise RoutingError(
+                503,
+                "Live model routing is disabled. Set ARIA_BEDROCK_ENABLED to enable Amazon Bedrock.",
+            )
         client = self._get_bedrock_client(request_timeout_seconds=request_timeout_seconds)
         # Image block first, per Bedrock's own Converse examples — the model
         # reads the attachment before the instruction that references it.

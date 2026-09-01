@@ -14,6 +14,9 @@ final class LifestyleViewModel: ObservableObject {
     @Published var weeklyTrends: [WeeklyHealthTrend] = []
     @Published var mindfulTrend: [MindfulDay] = []
     @Published var qolHistory: [QOLDay] = []
+    /// 0...1 — share of life's pillars that had data behind the latest QoL score.
+    /// The UI presents the number as an estimate when this is low.
+    @Published private(set) var qolConfidence: Double = 0
     @Published var aiWorkouts: [AIWorkoutSuggestion] = []
     @Published var loggedMeals: [MealLog] = []
     @Published var mindfulMinutesToday: Int = 0
@@ -42,6 +45,22 @@ final class LifestyleViewModel: ObservableObject {
     private static let insightTTL: TimeInterval = 15 * 60
 
     init() {}
+
+    // Personalization for QoL targets (protein/calorie/hydration/sleep-need).
+    // Optional: population defaults are used when the profile has not set them.
+    private var personalWeightKg: Double?
+    private var personalAge: Int?
+    private var personalSexFemale: Bool?
+
+    /// Feed the signed-in profile so QoL targets are personal, not one-size-fits-all.
+    /// Safe to call repeatedly; it only copies the fields QoL uses.
+    func applyPersonalization(_ profile: UserProfile?) {
+        personalWeightKg = profile?.weight
+        personalAge = profile?.age
+        if let sex = profile?.biologicalSex {
+            personalSexFemale = (sex == .female)
+        }
+    }
 
     func load(force: Bool = false) async {
         guard !isLoading else { return }
@@ -319,25 +338,45 @@ final class LifestyleViewModel: ObservableObject {
     }
 
     private func fetchMetrics() async throws -> LifestyleMetrics {
-        guard let stats = healthStats else {
-            return .default
-        }
-        
-        let sleepQuality = Int((stats.sleepHours / 8.0) * 100)
-        let nutritionScore = calculateNutritionScore(stats: stats)
-        let physicalHealth = calculatePhysicalHealth(stats: stats)
-        let mentalWellbeing = calculateMentalWellbeing(stats: stats)
-        let energyLevels = calculateEnergyLevels(stats: stats)
-        
-        let qol = (sleepQuality + nutritionScore + physicalHealth + mentalWellbeing + energyLevels) / 5
-        
+        // Grade every aspect of life we actually have data for, personalized to
+        // the profile. No fabricated "82" when data is thin and no "insufficient
+        // data" refusal — the calculator scores whatever is present and reports
+        // how much of life that covered via `confidence`.
+        let stats = healthStats
+        let inputs = qualityOfLifeInputs(from: stats)
+        // Smooth against yesterday so one noisy night doesn't swing a measure
+        // that is meant to be stable; scaled by today's confidence internally.
+        let previousOverall = LifestyleWellbeingStore.loadQOLHistory()
+            .last { !Calendar.current.isDateInToday($0.date) }?.score
+        let qol = QualityOfLifeCalculator.score(from: inputs).smoothed(previousOverall: previousOverall)
+        qolConfidence = qol.confidence
+
+        let sleepQuality = qol.score(for: .sleep) ?? 0
+        let nutritionScore = qol.score(for: .nutrition) ?? 0
+
+        // Legacy display fields are projections of the independent pillars so the
+        // existing cards keep rendering; `qualityOfLifeScore` is the authority.
+        let physicalHealth = average(of: [qol.score(for: .activity),
+                                          qol.score(for: .vitals),
+                                          qol.score(for: .hydration)])
+        let mentalWellbeing = qol.score(for: .mind) ?? qol.score(for: .vitals) ?? 0
+        let energyLevels = average(of: [qol.score(for: .sleep),
+                                        qol.score(for: .activity),
+                                        qol.score(for: .vitals)])
+
+        let sleepNeed = personalAge.map { $0 < 18 ? 9.0 : ($0 >= 65 ? 7.5 : 8.0) } ?? 8.0
+        let stress: StressLevel = {
+            guard let hrv = stats?.hrv, hrv > 0 else { return .medium }
+            return hrv < 30 ? .high : hrv < 50 ? .medium : .low
+        }()
+
         return LifestyleMetrics(
-            sleepAverage: stats.sleepHours,
-            sleepTarget: 8.0,
+            sleepAverage: stats?.sleepHours ?? 0,
+            sleepTarget: sleepNeed,
             nutritionQuality: Double(nutritionScore) / 100.0,
-            dailySteps: stats.steps,
-            stressLevel: stats.hrv < 30 ? .high : stats.hrv < 50 ? .medium : .low,
-            qualityOfLifeScore: qol,
+            dailySteps: stats?.steps ?? 0,
+            stressLevel: stress,
+            qualityOfLifeScore: qol.overall,
             physicalHealth: physicalHealth,
             mentalWellbeing: mentalWellbeing,
             energyLevels: energyLevels,
@@ -345,78 +384,51 @@ final class LifestyleViewModel: ObservableObject {
             nutritionScore: nutritionScore
         )
     }
-    
-    private func calculateNutritionScore(stats: DailyHealthStats) -> Int {
-        var score = 0
-        
-        // Protein (target 180g)
-        let proteinScore = min(Int((stats.protein / 180.0) * 100), 100)
-        score += proteinScore
-        
-        // Calorie balance (target 2600)
-        let calorieScore = stats.totalCalories > 0 ? min(Int((Double(stats.totalCalories) / 2600.0) * 100), 100) : 50
-        score += calorieScore
-        
-        // Hydration against a mass-derived need, not a fixed eight glasses.
-        let need = max(1, HydrationEngine.glasses(
-            fromMilliliters: HydrationEngine.targetMilliliters(weightKilograms: nil)
-        ))
-        let hydrationScore = min(Int((stats.water / need) * 100), 100)
-        score += hydrationScore
-        
-        return score / 3
-    }
-    
-    private func calculatePhysicalHealth(stats: DailyHealthStats) -> Int {
-        var score = 0
-        
-        // Steps (target 10000)
-        let stepScore = min(Int((Double(stats.steps) / 10000.0) * 100), 100)
-        score += stepScore
-        
-        // Active calories (target 600)
-        let calorieScore = min(Int((Double(stats.activeCalories) / 600.0) * 100), 100)
-        score += calorieScore
-        
-        // Resting HR (lower is better, 60 is optimal)
-        let hrScore = stats.restingHeartRate > 0 ? max(100 - Int((stats.restingHeartRate - 60) * 2), 0) : 70
-        score += hrScore
-        
-        return score / 3
-    }
-    
-    private func calculateMentalWellbeing(stats: DailyHealthStats) -> Int {
-        var score = 70 // Base score
-        
-        // HRV (higher is better, 50+ is good)
-        if stats.hrv > 0 {
-            score = min(Int(stats.hrv * 1.5), 100)
+
+    /// Map today's HealthKit stats + profile + mindful minutes into the holistic
+    /// QoL inputs. Zeros are treated as "not measured" so an absent signal lowers
+    /// confidence rather than dragging a pillar to zero.
+    private func qualityOfLifeInputs(from stats: DailyHealthStats?) -> QualityOfLifeInputs {
+        var inputs = QualityOfLifeInputs()
+        inputs.bodyMassKg = personalWeightKg
+        inputs.age = personalAge
+        inputs.biologicalSexFemale = personalSexFemale
+        inputs.mindfulMinutes = mindfulMinutesToday > 0 ? Double(mindfulMinutesToday) : nil
+
+        // Personal HRV baseline from the trailing week, so recovery is scored
+        // against the individual's own norm rather than a population constant.
+        let recentHRV = weeklyTrends.map(\.avgHRV).filter { $0 > 0 }
+        if !recentHRV.isEmpty {
+            inputs.hrvBaselineMs = recentHRV.reduce(0, +) / Double(recentHRV.count)
         }
-        
-        // Sleep quality bonus
-        if stats.sleepHours >= 7.5 {
-            score = min(score + 10, 100)
+
+        guard let stats else { return inputs }
+        inputs.sleepHours = stats.sleepHours > 0 ? stats.sleepHours : nil
+        inputs.steps = stats.steps > 0 ? stats.steps : nil
+        inputs.activeCalories = stats.activeCalories > 0 ? stats.activeCalories : nil
+        inputs.exerciseMinutes = stats.exerciseMinutes > 0 ? stats.exerciseMinutes : nil
+        inputs.proteinGrams = stats.protein > 0 ? stats.protein : nil
+        inputs.totalCalories = stats.totalCalories > 0 ? stats.totalCalories : nil
+        inputs.fiberGrams = stats.fiber > 0 ? stats.fiber : nil
+        inputs.addedSugarGrams = stats.sugar > 0 ? stats.sugar : nil
+        inputs.waterGlasses = stats.water > 0 ? stats.water : nil
+        inputs.hrvMs = stats.hrv > 0 ? stats.hrv : nil
+        inputs.restingHR = stats.restingHeartRate > 0 ? stats.restingHeartRate : nil
+        inputs.vo2Max = stats.vo2Max > 0 ? stats.vo2Max : nil
+        if stats.oxygenSaturation > 0 {
+            // HealthKit reports SpO2 as a 0...1 fraction; the scorer wants percent.
+            inputs.oxygenSaturationPercent = stats.oxygenSaturation <= 1
+                ? stats.oxygenSaturation * 100
+                : stats.oxygenSaturation
         }
-        
-        return score
+        inputs.respiratoryRate = stats.respiratoryRate > 0 ? stats.respiratoryRate : nil
+        return inputs
     }
-    
-    private func calculateEnergyLevels(stats: DailyHealthStats) -> Int {
-        var score = 0
-        
-        // Sleep impact (40% weight)
-        let sleepScore = Int((stats.sleepHours / 8.0) * 100)
-        score += Int(Double(sleepScore) * 0.4)
-        
-        // Nutrition impact (30% weight)
-        let nutritionScore = calculateNutritionScore(stats: stats)
-        score += Int(Double(nutritionScore) * 0.3)
-        
-        // Activity impact (30% weight)
-        let activityScore = min(Int((Double(stats.steps) / 10000.0) * 100), 100)
-        score += Int(Double(activityScore) * 0.3)
-        
-        return min(score, 100)
+
+    private func average(of values: [Int?]) -> Int {
+        let present = values.compactMap { $0 }
+        guard !present.isEmpty else { return 0 }
+        return present.reduce(0, +) / present.count
     }
 
     private func fetchRecommendations() async throws -> [AIRecommendation] {

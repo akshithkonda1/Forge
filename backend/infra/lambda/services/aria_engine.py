@@ -331,6 +331,10 @@ class LifestyleContext:
     tags: list[str] = field(default_factory=list)
     recent_patterns: list[str] = field(default_factory=list)
     goals: list[str] = field(default_factory=list)
+    # Holistic Quality of Life, surfaced to ARIA as "life rhythm" (lifestyle
+    # framing, never a diagnosis). None means unmeasured — ARIA never invents it.
+    quality_of_life_score: int | None = None
+    quality_of_life_confidence: float | None = None
 
 
 @dataclass
@@ -343,6 +347,81 @@ class ClinicalDataContext:
     immunizations: list[str] = field(default_factory=list)
     lab_results: list[str] = field(default_factory=list)
     procedures: list[str] = field(default_factory=list)
+
+
+# --- Quality of Life → "life rhythm" ----------------------------------------
+#
+# The client computes a holistic Quality of Life score (ForgeCore
+# QualityOfLifeCalculator). ARIA may reflect it back as *life rhythm* — a
+# lifestyle rhythm signal, never a medical or diagnostic assessment. Bands mirror
+# the client's QualityOfLifeBand thresholds so the two stay in sync. ARIA never
+# fabricates this: it is surfaced only when the client actually sends a score.
+
+def _clamp_score(value: int) -> int:
+    return max(0, min(100, value))
+
+
+def life_rhythm_band(score: int) -> str:
+    """Map a 0–100 Quality of Life score to a life-rhythm band (mirrors the
+    client's QualityOfLifeBand: thriving/steady/strained/depleted)."""
+    if score >= 85:
+        return "thriving"
+    if score >= 70:
+        return "steady"
+    if score >= 50:
+        return "strained"
+    return "depleted"
+
+
+def life_rhythm_descriptor(score: int) -> str:
+    """A supportive, non-clinical phrase for a life-rhythm band."""
+    return {
+        "thriving": "life is in a good rhythm — protect what's working",
+        "steady": "a steady, balanced stretch",
+        "strained": "a few areas are asking for attention",
+        "depleted": "several signals are low — recovery-first, and be gentle",
+    }[life_rhythm_band(score)]
+
+
+def _parse_qol_score(lifestyle: dict) -> int | None:
+    """Read a Quality of Life score from explicit fields or a ``qol:<n>`` tag.
+
+    Returns None when absent — ARIA must never invent a score (no fabricated 82)."""
+    for key in ("qualityOfLifeScore", "qualityOfLife", "qolScore"):
+        val = lifestyle.get(key)
+        if isinstance(val, bool):
+            continue
+        if isinstance(val, (int, float)):
+            return _clamp_score(int(round(val)))
+        if isinstance(val, dict) and isinstance(val.get("score"), (int, float)):
+            return _clamp_score(int(round(val["score"])))
+    for tag in _str_list(lifestyle.get("tags")):
+        t = str(tag).strip().lower()
+        if t.startswith("qol:"):
+            try:
+                return _clamp_score(int(float(t.split(":", 1)[1])))
+            except (ValueError, IndexError):
+                continue
+    return None
+
+
+def _parse_qol_confidence(lifestyle: dict) -> float | None:
+    for key in ("qualityOfLifeConfidence", "qolConfidence"):
+        val = lifestyle.get(key)
+        if isinstance(val, bool):
+            continue
+        if isinstance(val, (int, float)):
+            return max(0.0, min(1.0, float(val)))
+        if isinstance(val, dict) and isinstance(val.get("confidence"), (int, float)):
+            return max(0.0, min(1.0, float(val["confidence"])))
+    for tag in _str_list(lifestyle.get("tags")):
+        t = str(tag).strip().lower()
+        if t.startswith("qolconf:"):
+            try:
+                return max(0.0, min(1.0, float(t.split(":", 1)[1])))
+            except (ValueError, IndexError):
+                continue
+    return None
 
 
 # Scalar leaves surfaced in ``missing_fields``. List-valued domains (profile
@@ -391,15 +470,13 @@ class ARIAContext:
     clinical_data: ClinicalDataContext = field(default_factory=ClinicalDataContext)
 
     @property
-    def _groups(self) -> dict[str, Any]:
-        return {name: getattr(self, name) for name in ALL_DOMAINS}
-
-    @property
     def missing_fields(self) -> list[str]:
-        groups = self._groups
+        # Walk _FIELD_MAP directly against each domain object. The old version
+        # first built a dict of all ten domains (including lifestyle/clinical,
+        # which _FIELD_MAP never inspects); getattr per group is enough.
         missing: list[str] = []
         for group_name, attrs in _FIELD_MAP.items():
-            obj = groups[group_name]
+            obj = getattr(self, group_name)
             for attr in attrs:
                 if getattr(obj, attr) is None:
                     missing.append(f"{group_name}.{attr}")
@@ -523,6 +600,8 @@ class ARIAContext:
                 tags=_str_list(lifestyle.get("tags")),
                 recent_patterns=_str_list(lifestyle.get("recentPatterns")),
                 goals=_str_list(lifestyle.get("goals")),
+                quality_of_life_score=_parse_qol_score(lifestyle),
+                quality_of_life_confidence=_parse_qol_confidence(lifestyle),
             ),
             clinical_data=ClinicalDataContext(
                 allergies=_str_list(clinical.get("allergies")),
@@ -600,6 +679,18 @@ class ARIAContext:
             f"- missing_fields: {', '.join(self.missing_fields) or 'none'}",
             f"- restricted_domains: {', '.join(restricted) or 'none'}",
         ]
+        # Life rhythm (holistic Quality of Life), only when the client sent it and
+        # lifestyle is not redacted. Framed as a lifestyle signal, never medical.
+        # Gate on `restricted` too: callers may pass an un-sanitized context with
+        # the restricted list, and a denied domain must never reach the prompt.
+        qol = self.lifestyle.quality_of_life_score
+        if "lifestyle" not in restricted and qol is not None:
+            conf = self.lifestyle.quality_of_life_confidence
+            conf_str = f", confidence {conf:.2f}" if isinstance(conf, (int, float)) else ""
+            lines.append(
+                f"- lifestyle.life_rhythm: {life_rhythm_band(qol)} ({qol}/100{conf_str}) "
+                "[lifestyle rhythm signal — reflect it as life rhythm, never a medical or diagnostic claim]"
+            )
         return "\n".join(lines)
 
 
@@ -1405,16 +1496,19 @@ def generate_response(
     ctx, restricted = apply_permissions(ctx, perms)
 
     response_type = classify_request(message, ctx)
-    signals = _gather_signals(ctx)
 
+    # A clarification never reads the interpreted signals, so gather them only on
+    # the paths that use them (summary/recommendation/insight).
     if response_type == "clarification":
         envelope = _clarification_response(ctx, restricted, voice_mode)
-    elif response_type == "summary":
-        envelope = _summary_response(ctx, signals, restricted, voice_mode)
-    elif response_type == "recommendation":
-        envelope = _recommendation_response(message, ctx, signals, restricted, voice_mode)
     else:
-        envelope = _insight_response(message, ctx, signals, restricted, voice_mode)
+        signals = _gather_signals(ctx)
+        if response_type == "summary":
+            envelope = _summary_response(ctx, signals, restricted, voice_mode)
+        elif response_type == "recommendation":
+            envelope = _recommendation_response(message, ctx, signals, restricted, voice_mode)
+        else:
+            envelope = _insight_response(message, ctx, signals, restricted, voice_mode)
 
     envelope["restricted_domains"] = restricted
     return envelope
@@ -1652,6 +1746,14 @@ def generate_response_live(
     coach = roster[0]
     base["agent"] = coach
     base["agents"] = roster
+
+    # Real Bedrock is opt-in. With no injected converse and the flag off, never
+    # call out — return the deterministic envelope. This closes the aria_cli
+    # --live bypass (it passes converse=None) while keeping the live path fully
+    # unit-testable: tests inject `converse`, which is always honored.
+    if converse is None and not bedrock_enabled():
+        base["reasoning_source"] = "deterministic"
+        return base
 
     perms = permissions if isinstance(permissions, DataPermissions) else DataPermissions.allow_all()
     sanitized, restricted = apply_permissions(ctx, perms)
