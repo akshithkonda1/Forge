@@ -462,15 +462,13 @@ class ARIAContext:
     clinical_data: ClinicalDataContext = field(default_factory=ClinicalDataContext)
 
     @property
-    def _groups(self) -> dict[str, Any]:
-        return {name: getattr(self, name) for name in ALL_DOMAINS}
-
-    @property
     def missing_fields(self) -> list[str]:
-        groups = self._groups
+        # Walk _FIELD_MAP directly against each domain object. The old version
+        # first built a dict of all ten domains (including lifestyle/clinical,
+        # which _FIELD_MAP never inspects); getattr per group is enough.
         missing: list[str] = []
         for group_name, attrs in _FIELD_MAP.items():
-            obj = groups[group_name]
+            obj = getattr(self, group_name)
             for attr in attrs:
                 if getattr(obj, attr) is None:
                     missing.append(f"{group_name}.{attr}")
@@ -1442,16 +1440,19 @@ def generate_response(
     ctx, restricted = apply_permissions(ctx, perms)
 
     response_type = classify_request(message, ctx)
-    signals = _gather_signals(ctx)
 
+    # A clarification never reads the interpreted signals, so gather them only on
+    # the paths that use them (summary/recommendation/insight).
     if response_type == "clarification":
         envelope = _clarification_response(ctx, restricted, voice_mode)
-    elif response_type == "summary":
-        envelope = _summary_response(ctx, signals, restricted, voice_mode)
-    elif response_type == "recommendation":
-        envelope = _recommendation_response(message, ctx, signals, restricted, voice_mode)
     else:
-        envelope = _insight_response(message, ctx, signals, restricted, voice_mode)
+        signals = _gather_signals(ctx)
+        if response_type == "summary":
+            envelope = _summary_response(ctx, signals, restricted, voice_mode)
+        elif response_type == "recommendation":
+            envelope = _recommendation_response(message, ctx, signals, restricted, voice_mode)
+        else:
+            envelope = _insight_response(message, ctx, signals, restricted, voice_mode)
 
     envelope["restricted_domains"] = restricted
     return envelope
