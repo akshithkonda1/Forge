@@ -100,6 +100,18 @@ enum FDS {
             startPoint: .top,
             endPoint: .bottom
         )
+
+        static let neon = LinearGradient(
+            colors: [Color(hex: "00D2FF"), Color(hex: "7B61FF"), Color(hex: "FF2D55")],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
+        static let glass = LinearGradient(
+            colors: [Color.white.opacity(0.12), Color.white.opacity(0.02)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
     
     // MARK: - Haptics

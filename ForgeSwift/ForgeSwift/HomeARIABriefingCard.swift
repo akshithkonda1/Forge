@@ -22,12 +22,19 @@ struct HomeARIABriefingCard: View {
             HStack(spacing: 10) {
                 ZStack {
                     Circle()
-                        .fill(Color.ember.opacity(0.22))
-                        .frame(width: 48, height: 48)
-                        .blur(radius: 8)
-                        .scaleEffect(pulseRing ? 1.35 : 1)
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.ember.opacity(0.2), Color(hex: "00D2FF").opacity(0.06), .clear],
+                                center: .center,
+                                startRadius: 8,
+                                endRadius: 32
+                            )
+                        )
+                        .frame(width: 52, height: 52)
+                        .blur(radius: 10)
+                        .scaleEffect(pulseRing ? 1.4 : 1)
                         .opacity(pulseRing ? 0 : 0.7)
-                    ARIAIdentityMark(state: .idle, mood: .energized, size: 40, amplitude: 0.22)
+                    ARIAIdentityMark(state: .idle, mood: .energized, size: 42, amplitude: 0.24)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {

@@ -20,8 +20,7 @@ struct VoiceOrbOverlay: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Scrim — dims but never hides the transcript behind it.
-            Color.black.opacity(0.32)
+            Color.black.opacity(0.38)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture { onCancel() }
@@ -52,13 +51,12 @@ struct VoiceOrbOverlay: View {
                         state:     speech.voiceState.orbState,
                         amplitude: speech.amplitude,
                         mood:      mood,
-                        // Noticeable hero — not a full-screen takeover.
-                        size:      132
+                        size:      140
                     )
                     .scaleEffect(orbRevealed ? 1.0 : 0.62)
                     .opacity(orbRevealed ? 1 : 0)
                 }
-                .frame(height: 148)
+                .frame(height: 164)
 
                 // State labels
                 VStack(spacing: 6) {

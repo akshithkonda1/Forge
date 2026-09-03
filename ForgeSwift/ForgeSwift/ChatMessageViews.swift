@@ -111,19 +111,13 @@ struct MessageBubbleView: View {
             HStack(alignment: .bottom, spacing: 8) {
                 if !isTrainer { Spacer(minLength: 52) }
 
-                // ARIA mini-avatar
                 if isTrainer {
-                    ZStack {
-                        Circle()
-                            .fill(LinearGradient(
-                                colors: [mood.accentColor.opacity(0.18), mood.accentColor.opacity(0.06)],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            ))
-                            .frame(width: 28, height: 28)
-                        Image(systemName: AriaCoachAgent(rawValue: message.coachAgent ?? "")?.icon ?? "sparkles")
-                            .font(.system(size: 12))
-                            .foregroundColor(mood.accentColor)
-                    }
+                    ARIAIdentityMark(
+                        state: .idle,
+                        mood: mood,
+                        size: 28,
+                        amplitude: 0.15
+                    )
                     .offset(y: -3)
                 }
 

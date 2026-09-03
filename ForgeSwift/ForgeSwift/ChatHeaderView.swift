@@ -90,35 +90,53 @@ struct ChatHeaderView: View {
 
             Spacer()
 
-            // Readiness chip
             VStack(spacing: 2) {
-                HStack(spacing: 5) {
+                ZStack {
                     Circle()
-                        .fill(scoreColor)
-                        .frame(width: 6, height: 6)
-                        .shadow(color: scoreColor.opacity(0.55), radius: 3)
+                        .trim(from: 0, to: CGFloat(store.readiness.overall) / 100.0)
+                        .stroke(
+                            AngularGradient(
+                                colors: [scoreColor, scoreColor.opacity(0.3)],
+                                center: .center,
+                                startAngle: .degrees(-90),
+                                endAngle: .degrees(270)
+                            ),
+                            style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 38, height: 38)
+                    Circle()
+                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .frame(width: 38, height: 38)
                     Text("\(store.readiness.overall)")
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .font(.system(size: 14, weight: .black, design: .rounded))
                         .foregroundColor(.textPrimary)
                 }
-                Text("ready")
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
-                    .tracking(1.2)
-                    .foregroundColor(.textMuted)
-                    .textCase(.uppercase)
+                .shadow(color: scoreColor.opacity(0.3), radius: 6)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.white.opacity(0.05))
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(scoreColor.opacity(0.28), lineWidth: 1))
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
+        .background {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                Rectangle().fill(Color.background.opacity(0.3))
+                LinearGradient(
+                    colors: [mood.accentColor.opacity(0.04), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            }
+        }
         .overlay(
             Rectangle()
-                .fill(Color.white.opacity(0.10))
+                .fill(
+                    LinearGradient(
+                        colors: [mood.accentColor.opacity(0.2), Color.white.opacity(0.06), .clear],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
                 .frame(height: 0.5),
             alignment: .bottom
         )

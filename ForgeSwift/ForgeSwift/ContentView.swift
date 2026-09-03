@@ -40,81 +40,67 @@ struct ContentView: View {
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
-    @State private var logoScale: CGFloat = 0.5
+    @State private var logoScale: CGFloat = 0.4
     @State private var logoOpacity: Double = 0
     @State private var glowIntensity: Double = 0
-    @State private var ringPulse = false
-    
+    @State private var textOffset: CGFloat = 16
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ZStack {
             Color.background.ignoresSafeArea()
+
             RadialGradient(
-                colors: [Color.ember.opacity(0.16 * glowIntensity), Color.aurora.opacity(0.06 * glowIntensity), .clear],
+                colors: [
+                    Color.ember.opacity(0.14 * glowIntensity),
+                    Color(hex: "00D2FF").opacity(0.05 * glowIntensity),
+                    Color.aurora.opacity(0.04 * glowIntensity),
+                    .clear
+                ],
                 center: .center,
                 startRadius: 20,
-                endRadius: 320
+                endRadius: 360
             )
             .ignoresSafeArea()
-            
-            VStack(spacing: 18) {
-                ZStack {
-                    Circle()
-                        .stroke(Color.ember.opacity(0.2), lineWidth: 1)
-                        .frame(width: ringPulse ? 168 : 140, height: ringPulse ? 168 : 140)
-                        .opacity(ringPulse ? 0 : 0.8)
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [
-                                    Color.ember.opacity(glowIntensity * 0.45),
-                                    Color.ember.opacity(glowIntensity * 0.12),
-                                    Color.clear
-                                ],
-                                center: .center,
-                                startRadius: 24,
-                                endRadius: 130
+
+            VStack(spacing: 24) {
+                AuroraOrbView(state: .idle, amplitude: 0.28, mood: .energized, size: 120)
+                    .scaleEffect(logoScale)
+                    .opacity(logoOpacity)
+                    .shadow(color: Color.ember.opacity(0.4 * glowIntensity), radius: 40, y: 10)
+
+                VStack(spacing: 10) {
+                    Text("FORGE")
+                        .font(.system(size: 32, weight: .black, design: .rounded))
+                        .tracking(8)
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.white, Color.white.opacity(0.65)],
+                                startPoint: .top,
+                                endPoint: .bottom
                             )
                         )
-                        .frame(width: 240, height: 240)
-                        .blur(radius: 28)
-                    
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 68, weight: .bold))
-                        .foregroundStyle(FDS.Gradient.ember)
-                        .shadow(color: Color.ember.opacity(0.75), radius: 22, y: 8)
+
+                    Text("ARIA · Intelligence Layer")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .tracking(2.0)
+                        .foregroundColor(.textTertiary)
                 }
-                .scaleEffect(logoScale)
                 .opacity(logoOpacity)
-                
-                Text("FORGE")
-                    .font(.system(size: 30, weight: .black, design: .rounded))
-                    .tracking(6)
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.white, Color.white.opacity(0.72)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .opacity(logoOpacity)
-                
-                Text("ARIA · Intelligence Layer")
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .tracking(1.6)
-                    .foregroundColor(.textTertiary)
-                    .opacity(logoOpacity * 0.9)
+                .offset(y: textOffset)
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.8, dampingFraction: 0.62)) {
+            let base: Animation = reduceMotion
+                ? .easeOut(duration: 0.3)
+                : .spring(response: 0.9, dampingFraction: 0.6)
+            withAnimation(base) {
                 logoScale = 1.0
                 logoOpacity = 1.0
+                textOffset = 0
             }
-            withAnimation(.easeInOut(duration: 1.4).delay(0.15)) {
+            withAnimation(.easeInOut(duration: 1.6).delay(0.2)) {
                 glowIntensity = 1.0
-            }
-            withAnimation(.easeOut(duration: 1.8).repeatForever(autoreverses: false)) {
-                ringPulse = true
             }
         }
     }
@@ -371,27 +357,39 @@ struct ARIATabButton: View {
             VStack(spacing: 2) {
                 ZStack {
                     Circle()
-                        .fill((isVoiceMode ? Color.steel : Color.ember).opacity(0.18))
-                        .frame(width: 52, height: 52)
-                        .shadow(color: (isVoiceMode ? Color.steel : Color.ember).opacity(isActive ? 0.5 : 0.28), radius: 12, y: 4)
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    (isVoiceMode ? Color.steel : Color.ember).opacity(isActive ? 0.3 : 0.14),
+                                    (isVoiceMode ? Color(hex: "00D2FF") : Color.ember).opacity(0.04),
+                                    .clear
+                                ],
+                                center: .center,
+                                startRadius: 10,
+                                endRadius: 32
+                            )
+                        )
+                        .frame(width: 56, height: 56)
+                        .shadow(color: (isVoiceMode ? Color.steel : Color.ember).opacity(isActive ? 0.55 : 0.22), radius: 14, y: 4)
                     Circle()
                         .stroke(
-                            LinearGradient(
+                            AngularGradient(
                                 colors: [
-                                    (isVoiceMode ? Color.steelLight : Color.emberLight).opacity(0.7),
-                                    (isVoiceMode ? Color.steel : Color.ember).opacity(0.2)
+                                    (isVoiceMode ? Color.steelLight : Color.emberLight).opacity(0.6),
+                                    (isVoiceMode ? Color(hex: "00D2FF") : Color(hex: "FF2D55")).opacity(0.2),
+                                    (isVoiceMode ? Color.steel : Color.ember).opacity(0.4),
+                                    .clear
                                 ],
-                                startPoint: .top,
-                                endPoint: .bottom
+                                center: .center
                             ),
-                            lineWidth: 1.4
+                            lineWidth: 1.2
                         )
-                        .frame(width: 52, height: 52)
+                        .frame(width: 56, height: 56)
                     ARIAIdentityMark(
-                        state: isVoiceMode ? .listening : (isActive ? .idle : .idle),
+                        state: isVoiceMode ? .listening : .idle,
                         mood: isVoiceMode ? .focused : .energized,
-                        size: 42,
-                        amplitude: isVoiceMode ? 0.4 : 0.18
+                        size: 44,
+                        amplitude: isVoiceMode ? 0.4 : 0.2
                     )
                 }
 

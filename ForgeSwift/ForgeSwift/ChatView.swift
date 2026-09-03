@@ -326,39 +326,47 @@ struct ChatBackground: View {
         ZStack {
             Color.background
             RadialGradient(
-                colors: [mood.accentColor.opacity(0.12), Color.aurora.opacity(0.04), .clear],
-                center: UnitPoint(x: 0.2, y: 0.05),
+                colors: [mood.accentColor.opacity(0.10), Color(hex: "00D2FF").opacity(0.03), .clear],
+                center: UnitPoint(x: 0.15, y: 0.03),
                 startRadius: 10,
-                endRadius: 380
+                endRadius: 400
             )
             RadialGradient(
-                colors: [Color.ember.opacity(0.06), .clear],
-                center: UnitPoint(x: 0.9, y: 0.9),
+                colors: [Color(hex: "7B61FF").opacity(0.04), .clear],
+                center: UnitPoint(x: 0.85, y: 0.15),
+                startRadius: 8,
+                endRadius: 280
+            )
+            RadialGradient(
+                colors: [Color.ember.opacity(0.05), .clear],
+                center: UnitPoint(x: 0.9, y: 0.92),
                 startRadius: 8,
                 endRadius: 300
             )
             if !reduceMotion {
-                TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { timeline in
+                TimelineView(.animation(minimumInterval: 1.0 / 16.0)) { timeline in
                     Canvas { context, size in
                         let time = timeline.date.timeIntervalSinceReferenceDate
                         let colors = [
-                            Color(hex: "00FFF0").opacity(0.035),
-                            Color(hex: "0080FF").opacity(0.03),
-                            Color.aurora.opacity(0.025),
-                            mood.accentColor.opacity(0.02)
+                            Color(hex: "00D2FF").opacity(0.028),
+                            Color(hex: "7B61FF").opacity(0.022),
+                            Color.aurora.opacity(0.02),
+                            mood.accentColor.opacity(0.018),
+                            Color(hex: "FF2D55").opacity(0.012)
                         ]
-                        for i in 0..<4 {
-                            let x = size.width * CGFloat(i) / 4 + CGFloat(sin(time * 0.3 + Double(i))) * 36
-                            let y = size.height / 2 + CGFloat(cos(time * 0.4 + Double(i))) * 50
-                            let rect = CGRect(x: x, y: y, width: size.width / 2.2, height: size.height / 2.2)
+                        for i in 0..<5 {
+                            let x = size.width * CGFloat(i) / 5 + CGFloat(sin(time * 0.22 + Double(i) * 1.3)) * 42
+                            let y = size.height * 0.45 + CGFloat(cos(time * 0.28 + Double(i) * 0.9)) * 55
+                            let w = size.width / 2.0 + CGFloat(sin(time * 0.15 + Double(i))) * 20
+                            let rect = CGRect(x: x - w / 2, y: y - w / 2, width: w, height: w)
                             context.fill(Path(ellipseIn: rect), with: .color(colors[i]))
                         }
                     }
                 }
-                .blur(radius: 70)
-                .opacity(0.22)
+                .blur(radius: 80)
+                .opacity(0.28)
             }
         }
-        .animation(.easeInOut(duration: 1.4), value: mood)
+        .animation(.easeInOut(duration: 1.6), value: mood)
     }
 }
