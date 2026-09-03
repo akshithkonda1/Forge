@@ -14,10 +14,10 @@ struct ChatEmptyStateView: View {
         let first = store.userProfile.name.components(separatedBy: " ").first ?? ""
         let who = first.isEmpty ? "" : ", \(first)"
         switch mood {
-        case .energized: return "You look ready today\(who).\nWant a session that uses that?"
-        case .focused:   return "I’m here\(who).\nTrain, recover, eat, live — pick a coach or just talk."
-        case .calm:      return "Easy does it\(who).\nHow are you feeling?"
-        case .pushed:    return "Rough day? That’s okay.\nI’m here for whatever you need."
+        case .energized: return "The window's open\(who).\nWant to step through it?"
+        case .focused:   return "I'm already listening\(who).\nYou don't have to know what to ask."
+        case .calm:      return "Quiet has a shape tonight\(who).\nWe can stay inside it."
+        case .pushed:    return "I felt that.\nWe don't have to name it yet."
         }
     }
 
@@ -38,35 +38,35 @@ struct ChatEmptyStateView: View {
 
             ZStack {
                 ForEach(0..<3, id: \.self) { i in
-                    let ringSize = CGFloat(160 + i * 44)
-                    let ringAnimation = Animation.easeOut(duration: 2.4 + Double(i) * 0.5)
+                    let ringSize = CGFloat(168 + i * 52)
+                    let ringAnimation = Animation.easeOut(duration: 3.6 + Double(i) * 0.8)
                         .repeatForever(autoreverses: false)
-                        .delay(Double(i) * 0.6)
+                        .delay(Double(i) * 0.9)
 
                     Circle()
-                        .stroke(mood.accentColor.opacity(0.06 - Double(i) * 0.015), lineWidth: 0.8)
+                        .stroke(mood.accentColor.opacity(0.07 - Double(i) * 0.018), lineWidth: 0.6)
                         .frame(width: ringSize, height: ringSize)
-                        .scaleEffect(orbPulse ? 1.18 : 1.0)
-                        .opacity(orbPulse ? 0 : 0.8)
+                        .scaleEffect(orbPulse ? 1.22 : 1.0)
+                        .opacity(orbPulse ? 0 : 0.85)
                         .animation(ringAnimation, value: orbPulse)
                 }
 
                 Circle()
                     .fill(RadialGradient(
                         colors: [
-                            mood.accentColor.opacity(orbGlow ? 0.24 : 0.08),
-                            Color(hex: "00D2FF").opacity(orbGlow ? 0.08 : 0.02),
+                            mood.accentColor.opacity(orbGlow ? 0.18 : 0.05),
+                            Color(hex: "7B61FF").opacity(orbGlow ? 0.06 : 0.015),
                             .clear
                         ],
-                        center: .center, startRadius: 0, endRadius: 90
+                        center: .center, startRadius: 8, endRadius: 110
                     ))
-                    .frame(width: 180, height: 180).blur(radius: 28)
+                    .frame(width: 220, height: 220).blur(radius: 36)
 
-                AuroraOrbView(state: .idle, amplitude: 0.3, mood: mood, size: 120)
+                AuroraOrbView(state: .idle, amplitude: 0.32, mood: mood, size: 128)
             }
-            .scaleEffect(appeared ? 1 : 0.6)
+            .scaleEffect(appeared ? 1 : 0.72)
             .opacity(appeared ? 1 : 0)
-            .animation(FDS.Spring.floaty.delay(0.08), value: appeared)
+            .animation(FDS.Spring.fluid.delay(0.06), value: appeared)
             .padding(.bottom, 28)
 
             VStack(spacing: 10) {
@@ -91,24 +91,36 @@ struct ChatEmptyStateView: View {
             }
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 14)
-            .animation(FDS.Spring.hero.delay(0.18), value: appeared)
+            .animation(FDS.Spring.fluid.delay(0.18), value: appeared)
             .padding(.horizontal, FDS.Spacing.lg)
             .padding(.bottom, 16)
 
             if let onVoiceTap {
                 Button(action: onVoiceTap) {
                     HStack(spacing: 8) {
-                        Image(systemName: "mic.fill")
+                        Image(systemName: "waveform")
                             .font(.system(size: 13, weight: .semibold))
-                        Text("Talk to ARIA")
+                        Text("I'm listening")
                             .font(.system(size: 14, weight: .semibold, design: .rounded))
                     }
                     .foregroundColor(.white)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 11)
-                    .background(FDS.Gradient.emberDeep)
-                    .clipShape(Capsule())
-                    .shadow(color: Color.ember.opacity(0.4), radius: 10, y: 4)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(
+                        Capsule()
+                            .fill(Color.white.opacity(0.06))
+                            .overlay(
+                                Capsule().stroke(
+                                    LinearGradient(
+                                        colors: [Color.ember.opacity(0.7), Color(hex: "7B61FF").opacity(0.35)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    ),
+                                    lineWidth: 1
+                                )
+                            )
+                    )
+                    .shadow(color: Color.ember.opacity(0.28), radius: 14, y: 4)
                 }
                 .buttonStyle(ScaleButtonStyle())
                 .accessibilityLabel("Talk to ARIA")
@@ -123,7 +135,7 @@ struct ChatEmptyStateView: View {
             // Smart suggested prompts
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("ARIA SUGGESTS")
+                    Text("OR BEGIN HERE")
                         .forgeSectionLabel()
                     Spacer()
                     Text(mood.displayName.lowercased())
@@ -183,8 +195,8 @@ struct ChatEmptyStateView: View {
         }
         .onAppear {
             appeared = true
-            withAnimation(.easeOut(duration: 2.0).repeatForever(autoreverses: false)) { orbPulse = true }
-            withAnimation(.easeInOut(duration: FDS.Duration.breathe).repeatForever(autoreverses: true)) { orbGlow = true }
+            withAnimation(.easeOut(duration: 3.4).repeatForever(autoreverses: false)) { orbPulse = true }
+            withAnimation(.easeInOut(duration: 4.2).repeatForever(autoreverses: true)) { orbGlow = true }
         }
     }
 }

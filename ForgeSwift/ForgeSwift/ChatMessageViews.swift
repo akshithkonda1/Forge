@@ -368,32 +368,23 @@ struct ReplyPreviewBar: View {
 struct TypingIndicatorView: View {
     let mood: ARIAMood
     @State private var dotAnimate = false
-    @State private var stateLabel = "Analyzing…"
-    @State private var stateIcon  = "brain.head.profile"
+    @State private var stateLabel = "Reading you…"
+    @State private var stateIcon  = "sparkles"
     @State private var stateColor: Color = .ember
     @State private var showLabel  = false
     @State private var cycleTask: Task<Void, Never>? = nil
 
     private var steps: [(String, String, Color, Double)] {[
-        ("Analyzing…",       "brain.head.profile",  mood.accentColor,         0.9),
-        ("Checking data…",   "gearshape.2.fill",    Color.steel,              0.85),
-        ("Formulating…",     "text.bubble.fill",    Color(hex: "22C55E"),     0.75),
-        ("Almost there…",    "sparkles",            Color(hex: "A855F7"),     0.6),
+        ("Reading you…",     "sparkles",            mood.accentColor,         1.1),
+        ("Holding the night…","moon.fill",          Color(hex: "7B61FF"),     1.0),
+        ("Finding the thread…","waveform",          Color.ember,              0.9),
+        ("Almost.",          "sparkles",            Color(hex: "A855F7"),     0.7),
     ]}
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            ZStack {
-                Circle()
-                    .fill(LinearGradient(
-                        colors: [mood.accentColor.opacity(0.18), mood.accentColor.opacity(0.06)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    ))
-                    .frame(width: 28, height: 28)
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 12)).foregroundColor(mood.accentColor)
-            }
-            .offset(y: -3)
+            ARIAIdentityMark(state: .processing, mood: mood, size: 28, amplitude: 0.4)
+                .offset(y: -3)
 
             VStack(alignment: .leading, spacing: 8) {
                 if showLabel {

@@ -20,7 +20,7 @@ struct VoiceOrbOverlay: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Color.black.opacity(0.38)
+            Color.black.opacity(0.52)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture { onCancel() }
@@ -36,27 +36,30 @@ struct VoiceOrbOverlay: View {
                     .padding(.bottom, 18)
 
                 ZStack {
-                    // Mood halo behind the orb — the only ambient effect left.
                     if !reduceMotion {
                         RadialGradient(
-                            colors: [mood.accentColor.opacity(0.22), .clear],
-                            center: .center, startRadius: 20, endRadius: 150
+                            colors: [
+                                mood.accentColor.opacity(0.28),
+                                Color(hex: "7B61FF").opacity(0.08),
+                                .clear
+                            ],
+                            center: .center, startRadius: 16, endRadius: 170
                         )
-                        .frame(width: 300, height: 300)
-                        .blur(radius: 16)
-                        .animation(.easeInOut(duration: 0.8), value: speech.voiceState.label)
+                        .frame(width: 340, height: 340)
+                        .blur(radius: 22)
+                        .animation(.easeInOut(duration: 1.1), value: speech.voiceState.label)
                     }
 
                     AuroraOrbView(
                         state:     speech.voiceState.orbState,
-                        amplitude: speech.amplitude,
+                        amplitude: max(speech.amplitude, 0.35),
                         mood:      mood,
-                        size:      140
+                        size:      148
                     )
-                    .scaleEffect(orbRevealed ? 1.0 : 0.62)
+                    .scaleEffect(orbRevealed ? 1.0 : 0.7)
                     .opacity(orbRevealed ? 1 : 0)
                 }
-                .frame(height: 164)
+                .frame(height: 176)
 
                 // State labels
                 VStack(spacing: 6) {
@@ -162,7 +165,7 @@ struct VoiceOrbOverlay: View {
             }
         }
         .onAppear {
-            withAnimation(reduceMotion ? .easeOut(duration: 0.2) : FDS.Spring.hero) {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.2) : FDS.Spring.fluid) {
                 orbRevealed = true
                 contentOpacity = 1
             }

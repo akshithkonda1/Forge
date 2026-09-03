@@ -17,8 +17,8 @@ struct RoundedCorner: Shape {
 struct ScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.93 : 1.0)
-            .animation(FDS.Spring.snap, value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(FDS.Spring.fluid, value: configuration.isPressed)
     }
 }
 
@@ -326,47 +326,49 @@ struct ChatBackground: View {
         ZStack {
             Color.background
             RadialGradient(
-                colors: [mood.accentColor.opacity(0.10), Color(hex: "00D2FF").opacity(0.03), .clear],
-                center: UnitPoint(x: 0.15, y: 0.03),
+                colors: [mood.accentColor.opacity(0.08), Color(hex: "1A0A24").opacity(0.5), .clear],
+                center: UnitPoint(x: 0.18, y: 0.02),
                 startRadius: 10,
-                endRadius: 400
+                endRadius: 420
             )
             RadialGradient(
-                colors: [Color(hex: "7B61FF").opacity(0.04), .clear],
-                center: UnitPoint(x: 0.85, y: 0.15),
-                startRadius: 8,
-                endRadius: 280
-            )
-            RadialGradient(
-                colors: [Color.ember.opacity(0.05), .clear],
-                center: UnitPoint(x: 0.9, y: 0.92),
+                colors: [Color(hex: "7B61FF").opacity(0.05), .clear],
+                center: UnitPoint(x: 0.88, y: 0.12),
                 startRadius: 8,
                 endRadius: 300
             )
+            RadialGradient(
+                colors: [Color.ember.opacity(0.06), .clear],
+                center: UnitPoint(x: 0.72, y: 0.94),
+                startRadius: 8,
+                endRadius: 320
+            )
             if !reduceMotion {
-                TimelineView(.animation(minimumInterval: 1.0 / 16.0)) { timeline in
+                TimelineView(.animation(minimumInterval: 1.0 / 12.0)) { timeline in
                     Canvas { context, size in
                         let time = timeline.date.timeIntervalSinceReferenceDate
                         let colors = [
-                            Color(hex: "00D2FF").opacity(0.028),
-                            Color(hex: "7B61FF").opacity(0.022),
-                            Color.aurora.opacity(0.02),
-                            mood.accentColor.opacity(0.018),
-                            Color(hex: "FF2D55").opacity(0.012)
+                            Color.ember.opacity(0.022),
+                            Color(hex: "7B61FF").opacity(0.018),
+                            Color(hex: "1B3A4B").opacity(0.03),
+                            mood.accentColor.opacity(0.016),
+                            Color(hex: "FFC14A").opacity(0.01)
                         ]
                         for i in 0..<5 {
-                            let x = size.width * CGFloat(i) / 5 + CGFloat(sin(time * 0.22 + Double(i) * 1.3)) * 42
-                            let y = size.height * 0.45 + CGFloat(cos(time * 0.28 + Double(i) * 0.9)) * 55
-                            let w = size.width / 2.0 + CGFloat(sin(time * 0.15 + Double(i))) * 20
-                            let rect = CGRect(x: x - w / 2, y: y - w / 2, width: w, height: w)
+                            let x = size.width * (0.15 + CGFloat(i) * 0.18)
+                                + CGFloat(sin(time * 0.11 + Double(i) * 1.4)) * 56
+                            let y = size.height * 0.42
+                                + CGFloat(cos(time * 0.09 + Double(i) * 0.8)) * 70
+                            let w = size.width / 1.7 + CGFloat(sin(time * 0.08 + Double(i))) * 28
+                            let rect = CGRect(x: x - w / 2, y: y - w * 0.4, width: w, height: w * 0.72)
                             context.fill(Path(ellipseIn: rect), with: .color(colors[i]))
                         }
                     }
                 }
-                .blur(radius: 80)
-                .opacity(0.28)
+                .blur(radius: 90)
+                .opacity(0.34)
             }
         }
-        .animation(.easeInOut(duration: 1.6), value: mood)
+        .animation(.easeInOut(duration: 2.2), value: mood)
     }
 }

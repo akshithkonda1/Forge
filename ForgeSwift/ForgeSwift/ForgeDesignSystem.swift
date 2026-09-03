@@ -66,6 +66,8 @@ enum FDS {
         static let hero     = Animation.spring(response: 0.45, dampingFraction: 0.70)
         static let floaty   = Animation.spring(response: 0.55, dampingFraction: 0.65)
         static let page     = Animation.spring(response: 0.40, dampingFraction: 0.80)
+        /// Slow inhale — used for ARIA reveals and orb breath.
+        static let fluid    = Animation.spring(response: 0.82, dampingFraction: 0.78)
     }
     
     // MARK: - Gradients
