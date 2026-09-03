@@ -109,7 +109,7 @@ struct WorkoutIdleView: View {
 
     private var quickActions: some View {
         HStack(spacing: 10) {
-            idleActionTile(icon: "books.vertical.fill", title: "Library", subtitle: "\(ExerciseLibrary.all.count) moves", accent: Color(hex: "38BDF8")) { showLibrary = true }
+            idleActionTile(icon: "figure.stand", title: "Library", subtitle: "Tap a muscle", accent: Color(hex: "38BDF8")) { showLibrary = true }
             idleActionTile(icon: "brain.head.profile", title: "ARIA Brief", subtitle: "Plan readout", accent: .ember) { showDashboard = true }
         }
     }
@@ -632,8 +632,8 @@ struct WorkoutEmptyState: View {
                 }
                 Button { showLibrary = true } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "books.vertical.fill").font(.system(size: 14))
-                        Text("Browse Exercise Library").font(.system(size: 15, weight: .semibold))
+                        Image(systemName: "figure.stand").font(.system(size: 14))
+                        Text("Browse by muscle").font(.system(size: 15, weight: .semibold))
                     }
                     .foregroundColor(.steel).padding(.horizontal, 24).padding(.vertical, 13)
                     .background(Color.steel.opacity(0.1)).cornerRadius(16)

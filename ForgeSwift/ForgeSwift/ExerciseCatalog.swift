@@ -595,6 +595,74 @@ enum ExerciseLibrary {
             && (pattern == nil || def.pattern == pattern!)
         }
     }
+
+    static func count(matching muscle: TargetMuscle) -> Int {
+        all.filter { $0.primary.contains(muscle) || $0.secondary.contains(muscle) }.count
+    }
+}
+
+/// Tappable regions on the Train library body map. Coordinates are
+/// normalized (0…1) inside the figure canvas — left/right copies of the
+/// same muscle share one `TargetMuscle` so a bicep tap is just biceps.
+struct BodyMapHotspot: Identifiable, Equatable {
+    let id: String
+    let muscle: TargetMuscle
+    let face: BodyMapFace
+    /// Center X in unit space of the figure.
+    let x: CGFloat
+    let y: CGFloat
+    let w: CGFloat
+    let h: CGFloat
+
+    enum BodyMapFace: String, CaseIterable, Hashable {
+        case front, back
+        var label: String { rawValue.capitalized }
+    }
+
+    static func spots(on face: BodyMapFace) -> [BodyMapHotspot] {
+        all.filter { $0.face == face }
+    }
+
+    static let extraChips: [TargetMuscle] = [.fullBody, .cardio]
+
+    private static func pair(
+        _ muscle: TargetMuscle,
+        face: BodyMapFace,
+        lx: CGFloat, rx: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat
+    ) -> [BodyMapHotspot] {
+        [
+            BodyMapHotspot(id: "\(muscle.rawValue)-L-\(face.rawValue)", muscle: muscle, face: face, x: lx, y: y, w: w, h: h),
+            BodyMapHotspot(id: "\(muscle.rawValue)-R-\(face.rawValue)", muscle: muscle, face: face, x: rx, y: y, w: w, h: h),
+        ]
+    }
+
+    static let all: [BodyMapHotspot] = {
+        var spots: [BodyMapHotspot] = []
+        // Front — torso
+        spots.append(BodyMapHotspot(id: "chest-front", muscle: .chest, face: .front, x: 0.50, y: 0.26, w: 0.30, h: 0.11))
+        spots.append(BodyMapHotspot(id: "abs-front", muscle: .abs, face: .front, x: 0.50, y: 0.38, w: 0.20, h: 0.11))
+        spots.append(contentsOf: pair(.obliques, face: .front, lx: 0.32, rx: 0.68, y: 0.38, w: 0.10, h: 0.12))
+        spots.append(contentsOf: pair(.frontDelts, face: .front, lx: 0.30, rx: 0.70, y: 0.20, w: 0.13, h: 0.07))
+        spots.append(contentsOf: pair(.sideDelts, face: .front, lx: 0.20, rx: 0.80, y: 0.22, w: 0.10, h: 0.07))
+        spots.append(contentsOf: pair(.biceps, face: .front, lx: 0.18, rx: 0.82, y: 0.31, w: 0.11, h: 0.09))
+        spots.append(contentsOf: pair(.forearms, face: .front, lx: 0.12, rx: 0.88, y: 0.42, w: 0.11, h: 0.09))
+        spots.append(BodyMapHotspot(id: "hipflex-front", muscle: .hipFlexors, face: .front, x: 0.50, y: 0.48, w: 0.26, h: 0.06))
+        spots.append(contentsOf: pair(.adductors, face: .front, lx: 0.42, rx: 0.58, y: 0.56, w: 0.10, h: 0.10))
+        spots.append(contentsOf: pair(.quads, face: .front, lx: 0.38, rx: 0.62, y: 0.62, w: 0.14, h: 0.16))
+        spots.append(contentsOf: pair(.calves, face: .front, lx: 0.38, rx: 0.62, y: 0.84, w: 0.12, h: 0.12))
+        // Back
+        spots.append(BodyMapHotspot(id: "traps-back", muscle: .traps, face: .back, x: 0.50, y: 0.18, w: 0.28, h: 0.07))
+        spots.append(BodyMapHotspot(id: "upperback-back", muscle: .upperBack, face: .back, x: 0.50, y: 0.26, w: 0.28, h: 0.08))
+        spots.append(contentsOf: pair(.lats, face: .back, lx: 0.32, rx: 0.68, y: 0.32, w: 0.14, h: 0.12))
+        spots.append(contentsOf: pair(.rearDelts, face: .back, lx: 0.28, rx: 0.72, y: 0.20, w: 0.12, h: 0.07))
+        spots.append(contentsOf: pair(.triceps, face: .back, lx: 0.16, rx: 0.84, y: 0.32, w: 0.11, h: 0.10))
+        spots.append(BodyMapHotspot(id: "lowback-back", muscle: .lowerBack, face: .back, x: 0.50, y: 0.42, w: 0.22, h: 0.08))
+        spots.append(BodyMapHotspot(id: "glutes-back", muscle: .glutes, face: .back, x: 0.50, y: 0.52, w: 0.28, h: 0.09))
+        spots.append(contentsOf: pair(.abductors, face: .back, lx: 0.28, rx: 0.72, y: 0.52, w: 0.10, h: 0.08))
+        spots.append(contentsOf: pair(.hamstrings, face: .back, lx: 0.38, rx: 0.62, y: 0.66, w: 0.14, h: 0.14))
+        spots.append(contentsOf: pair(.calves, face: .back, lx: 0.38, rx: 0.62, y: 0.84, w: 0.12, h: 0.12))
+        return spots
+    }()
 }
 
 extension String {
