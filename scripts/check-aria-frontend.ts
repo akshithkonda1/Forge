@@ -61,4 +61,8 @@ assert(dataTrain.content.includes("HRV"), "data-driven voice can cite HRV");
 const sleep = coachReply("Explain my sleep data", profile, readiness, metrics, []);
 assert(sleep.content.includes("rebuilt") || sleep.content.includes("thinner"), "sleep reply is a story");
 
+const biceps = coachReply("hit my biceps today", profile, readiness, metrics, []);
+assert(biceps.richCard?.type === "workout-plan", "biceps ask ships a plan");
+assert(String((biceps.richCard?.data as { name?: string })?.name ?? "").toLowerCase().includes("bicep"), "biceps plan is named for the muscle");
+
 console.log("aria frontend checks passed");

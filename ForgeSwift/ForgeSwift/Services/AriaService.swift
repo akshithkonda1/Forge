@@ -407,8 +407,32 @@ extension AriaService {
                     confidence: store.readiness.overall > 0 ? 0.82 : 0.4,
                     observationCount: samples.count,
                     sources: ["apple-health"],
-                    systems: [:],
-                    derived: [:],
+                    systems: [
+                        "recovery": SystemStateDTO(
+                            system: "recovery",
+                            status: store.readiness.overall >= 70 ? "ready" : "protect",
+                            summary: "Readiness \(store.readiness.overall)",
+                            confidence: 0.8
+                        )
+                    ],
+                    derived: [
+                        "hrv": BiometricEstimate(
+                            name: "hrv",
+                            value: Double(store.dailyMetrics.hrv),
+                            state: store.dailyMetrics.hrv >= 50 ? "ok" : "low",
+                            confidence: 0.8,
+                            method: "local-day",
+                            detail: "Today's HRV on this phone"
+                        ),
+                        "steps": BiometricEstimate(
+                            name: "steps",
+                            value: Double(store.dailyMetrics.steps),
+                            state: "ok",
+                            confidence: 0.8,
+                            method: "local-day",
+                            detail: "Today's steps"
+                        )
+                    ],
                     anomalies: []
                 ),
                 restrictedDomains: DataPermissionsStore.shared.restrictedDomains.isEmpty

@@ -388,9 +388,14 @@ struct WakeGreetingCard: View {
                             .foregroundColor(.white.opacity(0.8))
                             .multilineTextAlignment(.center)
                         HStack(spacing: 16) {
-                            if showSleepScore { Label("Sleep 82", systemImage: "moon.stars.fill").foregroundColor(.steel) }
-                            if showWeather   { Label("72°F", systemImage: "sun.max.fill").foregroundColor(Color(hex: "F59E0B")) }
-                            if showWorkout   { Label("Upper Body", systemImage: "dumbbell.fill").foregroundColor(.ember) }
+                            if showSleepScore {
+                                let score = store.sleepData.first.map { "Sleep \($0.score)" } ?? "Sleep"
+                                Label(score, systemImage: "moon.stars.fill").foregroundColor(.steel)
+                            }
+                            if showWeather   { Label("Local weather", systemImage: "sun.max.fill").foregroundColor(Color(hex: "F59E0B")) }
+                            if showWorkout   {
+                                Label(store.todayWorkout?.name ?? "Rest day", systemImage: "dumbbell.fill").foregroundColor(.ember)
+                            }
                         }
                         .font(.system(size: 11, weight: .semibold))
                     }

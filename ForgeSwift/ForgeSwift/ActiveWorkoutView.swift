@@ -43,6 +43,7 @@ struct ActiveWorkoutView: View {
 
     // Adaptive / ARIA
     @StateObject private var aria = ARIACoachService()
+    @State private var voiceCoach = VoiceCoachManager()
     @State private var autoRegLog:     [String] = []
     @State private var muscleVolume:   [TargetMuscle: Double] = [:]
     @State private var pendingSwap:    ExerciseDefinition? = nil
@@ -103,7 +104,7 @@ struct ActiveWorkoutView: View {
                     MusicControlBar(controller: music, compact: true)
                         .padding(.horizontal, 16).padding(.vertical, 6)
                     mainContent(exercise: exercise)
-                    coachBar
+                    voiceCoachBar
                 }
             } else {
                 ForgeEmptyStateCard(
@@ -161,6 +162,11 @@ struct ActiveWorkoutView: View {
             }
             startTasks()
             setupCurrentWeight()
+            if store.dailyMetrics.restingHR > 0 {
+                simulatedHR = max(simulatedHR, store.dailyMetrics.restingHR)
+            }
+            syncVoiceCoach()
+            voiceCoach.announceWorkoutStart()
         }
         .onDisappear { cancelTasks() }
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: showPRBanner)
@@ -639,55 +645,32 @@ struct ActiveWorkoutView: View {
         return cues
     }
 
-    private var coachBar: some View {
-        Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.easeInOut(duration: 0.4)) { coachIndex += 1 }
-        } label: {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle().fill(Color.ember.opacity(0.12)).frame(width: 36, height: 36)
-                    Image(systemName: "brain.head.profile").font(.system(size: 14, weight: .semibold)).foregroundColor(.ember)
-                }
-                ZStack {
-                    Text(liveCoachCues[coachIndex % liveCoachCues.count])
-                        .font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(3)
-                        .multilineTextAlignment(.leading).lineLimit(3)
-                        .frame(maxWidth: .infinity, alignment: .leading).id(coachIndex)
-                        .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .move(edge: .top).combined(with: .opacity)))
-                }
-                .animation(.easeInOut(duration: 0.4), value: coachIndex)
+    private func syncVoiceCoach() {
+        voiceCoach.updateContext(WorkoutContext(
+            workoutName: store.todayWorkout?.name ?? "",
+            exerciseName: currentExercise?.name ?? "",
+            currentSet: store.currentSet,
+            sets: currentExercise?.sets ?? 1,
+            reps: currentExercise?.reps ?? "",
+            weight: currentWeight > 0 ? "\(currentWeight)" : "",
+            elapsedTime: formatTime(elapsedSecs, flashColon: false),
+            heartRate: simulatedHR,
+            hrZone: currentZone.index,
+            calories: Int(estimatedCals),
+            restSeconds: currentExercise?.restSeconds ?? 90,
+            notes: currentDef?.cues.first ?? liveCoachCues.first ?? ""
+        ))
+    }
+
+    private var voiceCoachBar: some View {
+        VoiceCoachBar(coach: voiceCoach)
+            .padding(.horizontal, 16).padding(.bottom, 20).padding(.top, 6)
+            .onChange(of: store.currentExerciseIndex) { _, _ in
+                syncVoiceCoach()
             }
-            .padding(.leading, 17).padding(.trailing, 14).padding(.vertical, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            // The bar hugs its text. Without this the pulse rail below — a shape with
-            // no intrinsic height — makes the whole bar greedy and the parent VStack
-            // hands it half the screen, squeezing the exercise card.
-            .fixedSize(horizontal: false, vertical: true)
-            .background(ZStack { Color.surfaceElevated; LinearGradient(colors: [Color.ember.opacity(0.04), .clear], startPoint: .leading, endPoint: .trailing) })
-            .overlay(alignment: .leading) {
-                Group {
-                    if reduceMotion {
-                        RoundedRectangle(cornerRadius: 2).fill(Color.ember.opacity(0.85))
-                    } else {
-                        TimelineView(.animation(minimumInterval: 0.05)) { tl in
-                            let p = (sin(tl.date.timeIntervalSinceReferenceDate * 1.8) + 1) / 2
-                            RoundedRectangle(cornerRadius: 2).fill(Color.ember.opacity(0.5 + p * 0.5))
-                                .shadow(color: Color.ember.opacity(0.4 + p * 0.4), radius: 4 + p * 4)
-                        }
-                    }
-                }
-                .frame(width: 3)
-                .allowsHitTesting(false)
+            .onChange(of: store.currentSet) { _, _ in
+                syncVoiceCoach()
             }
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.ember.opacity(0.12), lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("ARIA coaching cue")
-        .accessibilityValue(liveCoachCues[coachIndex % liveCoachCues.count])
-        .accessibilityHint("Shows the next cue")
-        .padding(.horizontal, 16).padding(.bottom, 20).padding(.top, 6)
     }
 
     // MARK: Logic
@@ -697,6 +680,12 @@ struct ActiveWorkoutView: View {
 
     private func confirmSet(exercise: Exercise) {
         withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) { showSetLogger = false }
+        voiceCoach.announceSetComplete(
+            setNumber: store.currentSet,
+            totalSets: exercise.sets,
+            restSeconds: exercise.restSeconds
+        )
+        syncVoiceCoach()
         let prev = setLog.filter { $0.exerciseName == exercise.name }
         let existingMax = prev.map { $0.weightUsed }.max() ?? 0
         let isPR = currentWeight > existingMax && currentWeight > 0

@@ -1,6 +1,7 @@
 import Foundation
 import HealthKit
 import UIKit
+import CoreGraphics
 import ForgeCore
 
 /// Chronotype-aware sleep intelligence: HealthKit ingestion, scoring, adaptive wake/sunrise, and ARIA context.
@@ -411,14 +412,15 @@ final class HealthKitSleepService: ObservableObject {
             let (data, _) = try await ForgeAPI.send(request)
             let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
             guard (json["available"] as? Bool) == true, let text = json["assessment"] as? String else {
-                environmentAssessment = nil
+                environmentAssessment = Self.localEnvironmentRead(image: image)
                 environmentCheckError = nil
                 return
             }
             environmentAssessment = text
             environmentCheckError = nil
         } catch {
-            environmentCheckError = (error as? ForgeAPI.Failure)?.userMessage ?? error.localizedDescription
+            environmentAssessment = Self.localEnvironmentRead(image: image)
+            environmentCheckError = nil
         }
     }
 
@@ -447,6 +449,43 @@ final class HealthKitSleepService: ObservableObject {
     func chronotypeInsightPrefix() -> String {
         let chronotype = userProfile.chronotype
         return "As a \(chronotype.displayName) (\(chronotype.tagline)), "
+    }
+
+    /// On-device room read when Bedrock is off — brightness + clock, labeled as local.
+    private static func localEnvironmentRead(image: UIImage) -> String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let dark = averageBrightness(image) < 0.30
+        if hour >= 22 || hour < 5 {
+            return dark
+                ? "On this phone: the frame looks dim and it's late — that's a real wind-down window. Keep it that way."
+                : "On this phone: it's late but the frame looks bright. Dim the space if you can."
+        }
+        return dark
+            ? "On this phone: the room already looks dim. Protect that last hour — cooler, quieter."
+            : "On this phone: I read the photo locally. Darker and quieter in the last hour helps the night land."
+    }
+
+    private static func averageBrightness(_ image: UIImage) -> CGFloat {
+        guard let cg = image.cgImage else { return 0.5 }
+        let width = 16, height = 16
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        guard let ctx = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return 0.5 }
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
+        var total: CGFloat = 0
+        let count = width * height
+        for i in 0..<count {
+            let o = i * 4
+            total += (CGFloat(pixels[o]) + CGFloat(pixels[o + 1]) + CGFloat(pixels[o + 2])) / (3 * 255)
+        }
+        return total / CGFloat(count)
     }
 
     private func formatHour(_ hour: Double) -> String {

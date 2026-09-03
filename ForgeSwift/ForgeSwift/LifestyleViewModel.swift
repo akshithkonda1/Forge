@@ -147,15 +147,15 @@ final class LifestyleViewModel: ObservableObject {
         LifestyleWidgetBridge.update(metrics: metrics, recommendations: recommendations)
     }
 
-    /// Overlay ARIA onto the cards. Default is local + cache. Network is
-    /// opt-in (insights sheet or pull-to-refresh) so opening Lifestyle
-    /// does not fire two Bedrock rounds.
+    /// Overlay ARIA onto the cards. Local orchestrators always run (testers
+    /// and on-device mode). Remote Bedrock stays opt-in via pull-to-refresh.
     func refreshAIInsights(store: AppStore, allowNetwork: Bool = false) async {
         guard !aiInsightsLoading else { return }
         if aiLifeAnalysis == nil {
             aiLifeAnalysis = localLifestyleSummary()
         }
-        guard allowNetwork else { return }
+        let localCoach = AriaService.shouldUseTestReadyDummy || AriaOperatingMode.current.isLocalTesting
+        guard allowNetwork || localCoach else { return }
 
         let key = insightCacheKey
         if let lastInsightAt,
@@ -168,8 +168,7 @@ final class LifestyleViewModel: ObservableObject {
         defer { aiInsightsLoading = false }
 
         syncAriaContext()
-        // One short insight, not two sequential chat rounds.
-        let analysisResp = await store.ariaInsight(prompt: lifestyleAnalysisPrompt())
+        let analysisResp = await store.ariaInsight(prompt: lifestyleAnalysisPrompt(store: store))
         if let prose = analysisResp.map({ $0.proseSummary ?? $0.message }) {
             aiLifeAnalysis = prose
         }
@@ -199,21 +198,26 @@ final class LifestyleViewModel: ObservableObject {
         return "One small change today beats a perfect plan. Pick water, a walk, or protein at the next meal."
     }
 
-    private func lifestyleAnalysisPrompt() -> String {
+    private func lifestyleAnalysisPrompt(store: AppStore) -> String {
         let s = healthStats
+        let t = store.lifestyleTargets
         return """
         Analyze my lifestyle today in 2-3 sentences. QOL \(metrics.qualityOfLifeScore)/100, \
-        sleep \(String(format: "%.1f", metrics.sleepAverage))h, \(metrics.dailySteps) steps, \
-        stress \(metrics.stressLevel.rawValue), protein \(Int(s?.protein ?? 0))g, HRV \(Int(s?.hrv ?? 0))ms. \
+        sleep \(String(format: "%.1f", metrics.sleepAverage))h (target \(String(format: "%.1f", t.sleepHoursTarget))), \
+        \(metrics.dailySteps) steps (target \(t.stepTarget)), \
+        stress \(metrics.stressLevel.rawValue), protein \(Int(s?.protein ?? 0))g (target \(t.proteinGrams)), \
+        HRV \(Int(s?.hrv ?? 0))ms. \
         What is the single highest-impact change I should make right now?
         """
     }
 
-    private func nutritionCoachPrompt() -> String {
+    private func nutritionCoachPrompt(store: AppStore) -> String {
         let s = healthStats
+        let t = store.lifestyleTargets
         return """
-        Coach my nutrition in 2-3 sentences. Today: \(Int(s?.protein ?? 0))g protein (target 180), \
-        \(s?.totalCalories ?? 0) kcal (target 2600), \(Int(s?.water ?? 0)) glasses water today. \
+        Coach my nutrition in 2-3 sentences. Today: \(Int(s?.protein ?? 0))g protein (target \(t.proteinGrams)), \
+        \(s?.totalCalories ?? 0) kcal (target \(t.calorieTarget)), \(Int(s?.water ?? 0)) glasses water today \
+        (target \(t.waterGlassesTarget)). \
         Give one specific, actionable tip for my next meal.
         """
     }
@@ -222,8 +226,9 @@ final class LifestyleViewModel: ObservableObject {
     /// Restaurants tab appears. Leaves the note nil (heuristic-only) on failure.
     func refreshBestPicksNote(store: AppStore) async {
         guard aiBestPicksNote == nil else { return }
-        let gap = max(0, Int(180 - (healthStats?.protein ?? 0)))
-        let kcalLeft = max(0, 2600 - (healthStats?.totalCalories ?? 0))
+        let t = store.lifestyleTargets
+        let gap = max(0, t.proteinGrams - Int(healthStats?.protein ?? 0))
+        let kcalLeft = max(0, t.calorieTarget - (healthStats?.totalCalories ?? 0))
         let prompt = """
         I'm picking a restaurant meal. I have about \(gap)g protein and \(kcalLeft) kcal left today. \
         In 1-2 sentences, what should I prioritize ordering to close my protein gap without \
@@ -237,8 +242,9 @@ final class LifestyleViewModel: ObservableObject {
     /// Distinct from the macro coach tip; nil → heuristic rows only.
     func refreshMealNote(store: AppStore) async {
         guard aiMealNote == nil else { return }
-        let gap = max(0, Int(180 - (healthStats?.protein ?? 0)))
-        let kcalLeft = max(0, 2600 - (healthStats?.totalCalories ?? 0))
+        let t = store.lifestyleTargets
+        let gap = max(0, t.proteinGrams - Int(healthStats?.protein ?? 0))
+        let kcalLeft = max(0, t.calorieTarget - (healthStats?.totalCalories ?? 0))
         let prompt = """
         Suggest one specific dish or meal to eat next, in a single sentence, to help me close \
         a \(gap)g protein gap within \(kcalLeft) kcal remaining today.
@@ -253,7 +259,7 @@ final class LifestyleViewModel: ObservableObject {
     /// "LIVE" badge, since the card only shows that badge once this is set).
     func refreshNutritionCoachNote(store: AppStore) async {
         guard aiNutritionInsight == nil else { return }
-        let resp = await store.ariaInsight(prompt: nutritionCoachPrompt())
+        let resp = await store.ariaInsight(prompt: nutritionCoachPrompt(store: store))
         aiNutritionInsight = resp.map { $0.proseSummary ?? $0.message }
     }
 
@@ -441,10 +447,11 @@ final class LifestyleViewModel: ObservableObject {
         if let stats = healthStats {
             // Protein recommendation
             if stats.protein < 150 {
-                let deficit = Int(180 - stats.protein)
+                let target = max(100, Int((personalWeightKg ?? 75) * 1.6))
+                let deficit = max(0, target - Int(stats.protein))
                 recommendations.append(AIRecommendation(
                     title: "Increase protein by \(deficit)g",
-                    description: "You've consumed \(Int(stats.protein))g today. Add \(deficit)g to hit your 180g target — try Greek yogurt or chicken.",
+                    description: "You've consumed \(Int(stats.protein))g today. Add \(deficit)g to hit your \(target)g target — try Greek yogurt or chicken.",
                     impact: .high,
                     category: .nutrition
                 ))

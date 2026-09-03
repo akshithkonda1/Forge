@@ -60,6 +60,12 @@ final class ExerciseLibraryFilterTests: XCTestCase {
         XCTAssertEqual(plan.richCard.type, .workoutPlan)
     }
 
+    func testLibraryBuildSessionUsesTheTappedMuscle() {
+        let plan = AriaPlanEngine.evaluate(input: "Biceps workout", context: Self.fixtureContext())
+        XCTAssertTrue(plan.workoutPlan.exercises.contains { $0.name.localizedCaseInsensitiveContains("curl") })
+        XCTAssertTrue(plan.workoutPlan.name.localizedCaseInsensitiveContains("bicep"))
+    }
+
     func testPlanEngineCalfAskUsesLibraryMoves() {
         let plan = AriaPlanEngine.evaluate(input: "give me a calf workout", context: Self.fixtureContext())
         XCTAssertTrue(plan.workoutPlan.name.localizedCaseInsensitiveContains("calf"))

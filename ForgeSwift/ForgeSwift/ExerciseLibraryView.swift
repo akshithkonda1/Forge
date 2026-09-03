@@ -61,13 +61,20 @@ struct ExerciseLibraryView: View {
             Text(muscle.map { "\($0.label.uppercased()) · \(results.count)" } ?? "\(results.count) MOVEMENTS")
                 .forgeSectionLabel()
             Spacer()
-            if muscle != nil {
-                Button("All muscles") {
-                    FDS.haptic(.light)
-                    muscle = nil
+            if let muscle {
+                Button("Build session") {
+                    FDS.haptic(.medium)
+                    store.adoptLibrarySession(for: muscle)
+                    dismiss()
                 }
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundColor(.ember)
+                Button("All muscles") {
+                    FDS.haptic(.light)
+                    self.muscle = nil
+                }
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundColor(.textTertiary)
             }
         }
         .padding(.horizontal, 4)
@@ -432,8 +439,13 @@ struct ExerciseDetailSheet: View {
                           reps: def.repRangeLabel.replacingOccurrences(of: "–", with: "-"),
                           weight: def.mechanic == .compound && def.equipment != .bodyweight ? 95 : (def.equipment == .bodyweight ? nil : 25),
                           restSeconds: def.restSeconds, notes: def.cues.first, videoURL: nil, has3DModel: false)
-        if store.todayWorkout == nil {
-            store.todayWorkout = WorkoutPlan(id: UUID().uuidString, name: "Custom Session", type: .strength,
+        if store.todayWorkout == nil, let muscle = def.primary.first {
+            store.adoptLibrarySession(for: muscle)
+            if store.todayWorkout?.exercises.contains(where: { $0.name == def.name }) != true {
+                store.todayWorkout?.exercises.insert(ex, at: 0)
+            }
+        } else if store.todayWorkout == nil {
+            store.todayWorkout = WorkoutPlan(id: UUID().uuidString, name: def.name, type: .strength,
                                              duration: 45, intensity: .moderate, exercises: [ex])
         } else {
             store.todayWorkout?.exercises.append(ex)

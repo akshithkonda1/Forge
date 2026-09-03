@@ -549,6 +549,7 @@ struct WorkoutInsightsView: View {
 
     private var insights: [(icon: String, text: String, color: Color)] {
         var r: [(String, String, Color)] = []
+        r.append(("brain.head.profile", "ARIA wrote \(workout.name) from how you showed up today.", .ember))
         if store.readiness.overall >= 80 { r.append(("bolt.fill", "Readiness \(store.readiness.overall)% — primed for heavy top sets today.", .ember)) }
         else if store.readiness.overall < 65 { r.append(("bed.double.fill", "Recovery \(store.readiness.overall)% — ARIA trimmed volume to protect tomorrow.", .steel)) }
         // Balance read across the plan
