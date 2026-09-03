@@ -90,12 +90,40 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
     }
 }
 
+/// Resolves My cycle vs Support so Home, Settings, and deep links open the
+/// same pane the entry tile is describing — instead of always forcing `.me`.
+enum CycleHealthLaunch {
+    enum Pane: String, Equatable {
+        case me
+        case partner
+    }
+
+    static func pane(
+        requested: String?,
+        selfTrackingEnabled: Bool,
+        hasConsentedPeople: Bool,
+        defaultToSupport: Bool
+    ) -> Pane {
+        switch requested?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "partner", "support":
+            return .partner
+        case "me", "self":
+            return .me
+        default:
+            if !selfTrackingEnabled && (defaultToSupport || hasConsentedPeople) {
+                return .partner
+            }
+            return .me
+        }
+    }
+}
+
 extension AppStore {
     /// Routes to any primary surface. Cycle Health is hosted on the main shell.
     func openDestination(_ destination: ForgePrimaryDestination, lifestyleSegment: String? = nil) {
         switch destination {
         case .cycleHealth:
-            openCycleHealth(pane: "me")
+            openCycleHealth()
         case .hydration:
             openHydration()
         case .lifestyle:

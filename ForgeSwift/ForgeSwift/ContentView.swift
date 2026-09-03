@@ -126,8 +126,8 @@ struct MainTabView: View {
     @EnvironmentObject var store: AppStore
     @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
     @Namespace private var namespace
-    /// Cycle Health is hosted on the shell so Profile/Settings deep links always work
-    /// even when Home is not the active tab content.
+    /// Sole Cycle Health host. Home used to present a second cover on the same
+    /// `pendingCycleHealthOpen` flag, which blanked or stuck the page.
     @State private var showCycleHealth = false
     @State private var showHydration = false
     @State private var cycleInitialPane: MenstrualHealthView.Pane = .me
@@ -189,6 +189,7 @@ struct MainTabView: View {
         .fullScreenCover(isPresented: $showCycleHealth) {
             NavigationStack {
                 MenstrualHealthView(initialPane: cycleInitialPane)
+                    .environmentObject(store)
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
                             Button {
@@ -203,6 +204,8 @@ struct MainTabView: View {
                         }
                     }
             }
+            .preferredColorScheme(.dark)
+            .environmentObject(store)
         }
         .fullScreenCover(isPresented: $showHydration) {
             NavigationStack {

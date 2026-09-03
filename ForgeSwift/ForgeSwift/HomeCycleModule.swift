@@ -1,13 +1,16 @@
 import SwiftUI
 
-/// Primary entry into Cycle Health. Not a bottom tab — opens full-screen from Home.
+/// Primary entry into Cycle Health. Not a bottom tab — the shell presents the page.
 struct HomeCycleModule: View {
     @ObservedObject private var cycleStore = MenstrualHealthStore.shared
     @EnvironmentObject private var store: AppStore
     var onOpen: () -> Void
 
+    /// Same rule `CycleHealthLaunch` uses so the tile and the opened pane match.
     private var preferPartner: Bool {
-        store.userProfile.gender == .male && !cycleStore.settings.enabled
+        !cycleStore.settings.enabled
+            && store.userProfile.gender != .female
+            && store.userProfile.biologicalSex?.cycleAutoEnabled != true
     }
 
     private var phase: MenstrualPhase {
