@@ -3,9 +3,21 @@ import SwiftUI
 struct SleepView: View {
     @EnvironmentObject var store: AppStore
     @StateObject private var hkService = HealthKitSleepService.shared
-    @State private var selectedTab: SleepTab = .day
-    @State private var showAIChat = false
+    @State private var selectedTab: SleepTab = SleepTab.suggested(
+        hour: Calendar.current.component(.hour, from: Date())
+    )
     @State private var showSleepPersonalization = false
+
+    private var tonightCoach: SleepBedtimeCoach {
+        let nights = store.sleepData.prefix(14)
+        let schedule = EnergySchedule.make(from: store.sleepData)
+        return SleepBedtimeCoach.make(
+            onsets: nights.compactMap(\.onset),
+            sleepMinutes: nights.map { $0.totalHours * 60 },
+            needMinutes: (schedule?.needHours ?? 8) * 60,
+            fallbackOnsetHour: schedule?.phase.onsetHour
+        )
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -14,7 +26,12 @@ struct SleepView: View {
             VStack(spacing: 0) {
                 SleepHeaderView(
                     selectedTab: selectedTab,
-                    onAskAria: { showAIChat = true },
+                    subtitle: tonightCoach.phase == .dayplan
+                        ? "Energy first. Night second."
+                        : tonightCoach.headline,
+                    onAskAria: {
+                        store.openChat(with: tonightCoach.ariaPrompt, voice: false)
+                    },
                     onPersonalize: { showSleepPersonalization = true },
                     onTabSelect: { selectedTab = $0 }
                 )
@@ -37,10 +54,6 @@ struct SleepView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .animation(.easeInOut(duration: 0.22), value: selectedTab)
             }
-        }
-        .sheet(isPresented: $showAIChat) {
-            AISleepChatView()
-                .environmentObject(store)
         }
         .sheet(isPresented: $showSleepPersonalization) {
             SleepPersonalizationSheet()
@@ -91,6 +104,7 @@ struct SleepBackground: View {
 
 struct SleepHeaderView: View {
     let selectedTab: SleepTab
+    var subtitle: String = "Energy first. Night second."
     let onAskAria: () -> Void
     let onPersonalize: () -> Void
     let onTabSelect: (SleepTab) -> Void
@@ -102,9 +116,10 @@ struct SleepHeaderView: View {
                     Text("Sleep")
                         .font(.system(size: 28, weight: .semibold, design: .rounded))
                         .foregroundColor(.textPrimary)
-                    Text("Energy first. Night second.")
+                    Text(subtitle)
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundColor(.textTertiary)
+                        .lineLimit(2)
                 }
                 Spacer()
                 Button(action: onPersonalize) {

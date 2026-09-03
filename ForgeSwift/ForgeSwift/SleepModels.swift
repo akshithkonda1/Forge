@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 enum Weekday: Int, CaseIterable, Codable, Identifiable {
     case sun = 1, mon, tue, wed, thu, fri, sat
@@ -91,8 +92,182 @@ enum SleepTab: Int, CaseIterable {
     var title: String {
         switch self {
         case .day: return "Day"
-        case .night: return "Night"
+        case .night: return "Tonight"
         case .alarms: return "Alarms"
+        }
+    }
+
+    /// Evening and the small hours open on Tonight — that's when the page has a job.
+    static func suggested(hour: Int) -> SleepTab {
+        (hour >= 19 || hour < 5) ? .night : .day
+    }
+}
+
+enum SleepBedtimePhase: String, Equatable {
+    case dayplan, approaching, windDown, lightsOut, overdue
+}
+
+/// Clock + `WindDownPredictor` → what Sleep should say and do right now.
+struct SleepBedtimeCoach: Equatable {
+    var phase: SleepBedtimePhase
+    var bedtime: Date
+    var windDownStart: Date
+    var minutesUntilBed: Int
+    var minutesUntilWindDown: Int
+    var headline: String
+    var cue: String
+    var ariaPrompt: String
+
+    var bedtimeLabel: String {
+        bedtime.formatted(date: .omitted, time: .shortened)
+    }
+
+    var countdownLabel: String {
+        if phase == .overdue || phase == .lightsOut { return "now" }
+        if minutesUntilBed <= 0 { return "now" }
+        if minutesUntilBed < 60 { return "\(minutesUntilBed) min" }
+        let hours = minutesUntilBed / 60
+        let mins = minutesUntilBed % 60
+        return mins == 0 ? "\(hours)h" : "\(hours)h \(mins)m"
+    }
+
+    /// Same bedtime, fresh phase/copy from the clock — used by the Tonight hero tick.
+    func advancing(now: Date = Date()) -> SleepBedtimeCoach {
+        let windowEnd = bedtime.addingTimeInterval(WindDownPredictor.windowLengthMinutes * 60)
+        let untilBed = Int((bedtime.timeIntervalSince(now) / 60).rounded())
+        let untilWind = Int((windDownStart.timeIntervalSince(now) / 60).rounded())
+        let next: SleepBedtimePhase
+        if now >= windowEnd {
+            next = .overdue
+        } else if now >= bedtime {
+            next = .lightsOut
+        } else if now >= windDownStart {
+            next = .windDown
+        } else if untilWind <= 90 {
+            next = .approaching
+        } else {
+            next = .dayplan
+        }
+        let bedLabel = bedtime.formatted(date: .omitted, time: .shortened)
+        let (headline, cue, prompt) = Self.copy(phase: next, bedLabel: bedLabel, untilBed: max(0, untilBed))
+        return SleepBedtimeCoach(
+            phase: next,
+            bedtime: bedtime,
+            windDownStart: windDownStart,
+            minutesUntilBed: untilBed,
+            minutesUntilWindDown: untilWind,
+            headline: headline,
+            cue: cue,
+            ariaPrompt: prompt
+        )
+    }
+
+    static func make(
+        onsets: [Date],
+        sleepMinutes: [Double],
+        needMinutes: Double = 8 * 60,
+        fallbackOnsetHour: Double? = nil,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> SleepBedtimeCoach {
+        let plan = WindDownPredictor.plan(
+            recentOnsets: onsets,
+            recentSleepMinutes: sleepMinutes,
+            sleepNeedMinutes: needMinutes,
+            now: now,
+            calendar: calendar
+        ) ?? fallbackPlan(onsetHour: fallbackOnsetHour, now: now, calendar: calendar)
+
+        let untilBed = Int((plan.bedtimeWindowStart.timeIntervalSince(now) / 60).rounded())
+        let untilWind = Int((plan.windDownStart.timeIntervalSince(now) / 60).rounded())
+        let phase: SleepBedtimePhase
+        if now >= plan.bedtimeWindowEnd {
+            phase = .overdue
+        } else if now >= plan.bedtimeWindowStart {
+            phase = .lightsOut
+        } else if now >= plan.windDownStart {
+            phase = .windDown
+        } else if untilWind <= 90 {
+            phase = .approaching
+        } else {
+            phase = .dayplan
+        }
+
+        let bedLabel = plan.bedtimeWindowStart.formatted(date: .omitted, time: .shortened)
+        let (headline, cue, prompt) = copy(phase: phase, bedLabel: bedLabel, untilBed: max(0, untilBed))
+        return SleepBedtimeCoach(
+            phase: phase,
+            bedtime: plan.bedtimeWindowStart,
+            windDownStart: plan.windDownStart,
+            minutesUntilBed: untilBed,
+            minutesUntilWindDown: untilWind,
+            headline: headline,
+            cue: cue,
+            ariaPrompt: prompt
+        )
+    }
+
+    static func fallbackPlan(onsetHour: Double?, now: Date, calendar: Calendar) -> WindDownPlan {
+        let hour = onsetHour ?? 22.5
+        let bed = dateTonight(hour: hour, now: now, calendar: calendar)
+        return WindDownPlan(
+            windDownStart: bed.addingTimeInterval(-WindDownPredictor.windDownLeadMinutes * 60),
+            bedtimeWindowStart: bed,
+            bedtimeWindowEnd: bed.addingTimeInterval(WindDownPredictor.windowLengthMinutes * 60)
+        )
+    }
+
+    static func dateTonight(hour: Double, now: Date, calendar: Calendar) -> Date {
+        let wrapped = ((hour.truncatingRemainder(dividingBy: 24)) + 24).truncatingRemainder(dividingBy: 24)
+        var whole = Int(wrapped)
+        var minute = Int(((wrapped - Double(whole)) * 60).rounded())
+        if minute >= 60 {
+            minute = 0
+            whole = (whole + 1) % 24
+        }
+        var comps = calendar.dateComponents([.year, .month, .day], from: now)
+        comps.hour = whole
+        comps.minute = minute
+        comps.second = 0
+        var date = calendar.date(from: comps) ?? now
+        if date < now.addingTimeInterval(-4 * 3600) {
+            date = calendar.date(byAdding: .day, value: 1, to: date) ?? date
+        }
+        return date
+    }
+
+    private static func copy(phase: SleepBedtimePhase, bedLabel: String, untilBed: Int) -> (String, String, String) {
+        switch phase {
+        case .dayplan:
+            return (
+                "Tonight, lights out at \(bedLabel)",
+                "Protect the last hour. Screens dim, caffeine done, room cooling.",
+                "Help me land in bed at \(bedLabel). What should I drop between now and then?"
+            )
+        case .approaching:
+            return (
+                "Wind-down in \(untilBed) min",
+                "Dim the room. Start a sound. Leave the day in another room.",
+                "Wind-down starts soon and bedtime is \(bedLabel). Walk me through the next twenty minutes."
+            )
+        case .windDown:
+            return (
+                "Start winding down",
+                "Lights low. Phone on the table. One sound, then you are done.",
+                "It is wind-down. Get me into bed at \(bedLabel) without a lecture."
+            )
+        case .lightsOut:
+            return (
+                "It's bedtime",
+                "Stop negotiating. Brown noise on, screen down, lights out.",
+                "It is bedtime. Help me actually get into bed right now."
+            )
+        case .overdue:
+            return (
+                "You're still up",
+                "The window already opened. Go now — tomorrow's training is already paying for this.",
+                "I am past bedtime. Get me to sleep in the next ten minutes."
+            )
         }
     }
 }

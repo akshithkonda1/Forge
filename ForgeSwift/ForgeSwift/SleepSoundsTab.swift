@@ -1,4 +1,87 @@
 import SwiftUI
+import AVFoundation
+
+/// Generated brown noise + a fade-out timer. No bundled files, no network.
+@MainActor
+final class SleepWindDownPlayer: ObservableObject {
+    static let shared = SleepWindDownPlayer()
+
+    @Published private(set) var isPlaying = false
+    @Published private(set) var remainingSeconds = 0
+
+    var remainingLabel: String {
+        let m = remainingSeconds / 60
+        let s = remainingSeconds % 60
+        return String(format: "%d:%02d left", m, s)
+    }
+
+    private var engine: AVAudioEngine?
+    private var tick: Timer?
+    private let brown = BrownNoiseState()
+
+    func start(minutes: Int = 30) {
+        stop(deactivateSession: false)
+        brown.reset()
+        let engine = AVAudioEngine()
+        let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1)!
+        let state = brown
+        let source = AVAudioSourceNode { _, _, frameCount, audioBufferList -> OSStatus in
+            let buffers = UnsafeMutableAudioBufferListPointer(audioBufferList)
+            for buffer in buffers {
+                guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
+                for i in 0..<Int(frameCount) {
+                    data[i] = state.nextSample()
+                }
+            }
+            return noErr
+        }
+        engine.attach(source)
+        engine.connect(source, to: engine.mainMixerNode, format: format)
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try AVAudioSession.sharedInstance().setActive(true)
+            try engine.start()
+        } catch {
+            return
+        }
+        self.engine = engine
+        remainingSeconds = max(1, minutes) * 60
+        isPlaying = true
+        tick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.remainingSeconds -= 1
+                if self.remainingSeconds <= 0 { self.stop() }
+            }
+        }
+    }
+
+    func stop(deactivateSession: Bool = true) {
+        tick?.invalidate()
+        tick = nil
+        engine?.stop()
+        engine = nil
+        isPlaying = false
+        remainingSeconds = 0
+        brown.reset()
+        if deactivateSession {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
+    }
+}
+
+/// Audio-thread integrator. Isolated from UI so the render callback stays off MainActor.
+private final class BrownNoiseState: @unchecked Sendable {
+    private var last: Float = 0
+
+    func reset() { last = 0 }
+
+    func nextSample() -> Float {
+        let white = Float.random(in: -1...1)
+        last = (last + (0.02 * white)) * 0.98
+        return max(-1, min(1, last * 0.45))
+    }
+}
 
 struct SleepSoundsTab: View {
     @State private var activeSounds: [(sound: SleepSoundItem, volume: Double)] = []

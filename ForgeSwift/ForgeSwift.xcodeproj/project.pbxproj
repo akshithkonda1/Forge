@@ -281,6 +281,7 @@
 		E38AEAB1C45A49109A7C8484 /* HabitLoopCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E38AEAB0C45A49109A7C8484 /* HabitLoopCard.swift */; };
 		1TEST01800000000000000A /* OnboardingGraphLockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01700000000000000A /* OnboardingGraphLockTests.swift */; };
 		1TEST01A00000000000000A /* ExerciseLibraryFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */; };
+		1TEST01C00000000000000A /* SleepBedtimeCoachTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01B00000000000000A /* SleepBedtimeCoachTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -418,6 +419,7 @@
 		1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgentRouterTests.swift; sourceTree = "<group>"; };
 		1TEST01700000000000000A /* OnboardingGraphLockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGraphLockTests.swift; sourceTree = "<group>"; };
 		1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseLibraryFilterTests.swift; sourceTree = "<group>"; };
+		1TEST01B00000000000000A /* SleepBedtimeCoachTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepBedtimeCoachTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
@@ -1099,6 +1101,7 @@
 				1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */,
 				1TEST01700000000000000A /* OnboardingGraphLockTests.swift */,
 				1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */,
+				1TEST01B00000000000000A /* SleepBedtimeCoachTests.swift */,
 			);
 			path = ForgeSwiftTests;
 			sourceTree = "<group>";
@@ -1622,6 +1625,7 @@
 				1TEST01600000000000000A /* AriaCoachAgentRouterTests.swift in Sources */,
 				1TEST01800000000000000A /* OnboardingGraphLockTests.swift in Sources */,
 				1TEST01A00000000000000A /* ExerciseLibraryFilterTests.swift in Sources */,
+				1TEST01C00000000000000A /* SleepBedtimeCoachTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
