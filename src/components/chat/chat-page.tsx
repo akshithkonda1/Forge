@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import { WorkoutCard } from "@/components/chat/workout-card";
 import { DataInsightCard } from "@/components/chat/data-insight-card";
+import { AriaOrb } from "@/components/onboarding/aria-companion";
+import { useToast } from "@/stores/useToast";
 import { Send, Mic, ArrowDown } from "lucide-react";
 import type { ChatMessage, RichCard } from "@/types";
 
@@ -219,7 +221,13 @@ function formatTime(date: Date): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({
+  message,
+  onStartWorkout,
+}: {
+  message: ChatMessage;
+  onStartWorkout?: () => void;
+}) {
   const isTrainer = message.role === "trainer";
 
   const richCardNode = React.useMemo(() => {
@@ -236,6 +244,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           name={d.name}
           duration={d.duration}
           exercises={d.exercises}
+          onStart={onStartWorkout}
         />
       );
     }
@@ -279,7 +288,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             "px-4 py-3 text-sm leading-relaxed",
             isTrainer
               ? "rounded-2xl rounded-bl-sm bg-surface-elevated text-white"
-              : "rounded-2xl rounded-br-sm bg-ember/90 text-white"
+              : "rounded-2xl rounded-br-sm bg-ember text-white"
           )}
         >
           <p className="whitespace-pre-wrap">{message.content}</p>
@@ -313,7 +322,10 @@ export function ChatPage() {
     readiness,
     dailyMetrics,
     sleepData,
+    startWorkout,
+    setActiveTab,
   } = useAppStore();
+  const showToast = useToast((s) => s.show);
 
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -332,8 +344,10 @@ export function ChatPage() {
   }, []);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [chatMessages, isTyping, scrollToBottom]);
+    if (!showScrollButton) {
+      scrollToBottom();
+    }
+  }, [chatMessages, isTyping, scrollToBottom, showScrollButton]);
 
   // -----------------------------------------------------------------------
   // Show / hide scroll-to-bottom button
@@ -415,42 +429,31 @@ export function ChatPage() {
   // Render
   // -----------------------------------------------------------------------
 
+  const handleStartWorkout = () => {
+    startWorkout();
+    setActiveTab("workout");
+  };
+
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="flex h-full min-h-0 flex-col bg-background">
       {/* ---- Header ---- */}
-      <header className="glass sticky top-0 z-30 border-b border-border px-4 py-3">
+      <header className="glass z-30 shrink-0 border-b border-border px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* AI Avatar */}
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-ember/15">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                className="text-ember"
-              >
-                <path
-                  d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              {/* Online indicator */}
+            <div className="relative">
+              <AriaOrb mood="focused" size={36} speaking={isTyping} />
               <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full border-2 border-background bg-success">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
               </span>
             </div>
 
             <div>
-              <h1 className="text-base font-semibold text-text-primary">
-                Forge AI
-              </h1>
+              <h1 className="text-base font-semibold text-text-primary">ARIA</h1>
               <div className="flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-ember" />
-                <span className="text-xs text-text-tertiary">Online</span>
+                <span className="text-xs text-text-tertiary">
+                  {isTyping ? "Reading your signals…" : "Online · recovery-first"}
+                </span>
               </div>
             </div>
           </div>
@@ -466,7 +469,11 @@ export function ChatPage() {
         <div className="flex flex-col gap-4">
           <AnimatePresence initial={false}>
             {chatMessages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                onStartWorkout={handleStartWorkout}
+              />
             ))}
           </AnimatePresence>
 
@@ -480,7 +487,9 @@ export function ChatPage() {
         <AnimatePresence>
           {showScrollButton && (
             <motion.button
-              className="absolute bottom-4 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-surface-elevated shadow-lg shadow-black/30 border border-border"
+              type="button"
+              aria-label="Scroll to latest message"
+              className="absolute bottom-4 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-surface-elevated shadow-lg shadow-black/30"
               onClick={() => scrollToBottom()}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -495,7 +504,7 @@ export function ChatPage() {
       </div>
 
       {/* ---- Bottom input area ---- */}
-      <div className="glass border-t border-border pb-[env(safe-area-inset-bottom,0px)]">
+      <div className="glass shrink-0 border-t border-border">
         {/* Quick actions - horizontally scrollable */}
         <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 pt-3 pb-2">
           {QUICK_ACTIONS.map((action) => (
@@ -520,6 +529,11 @@ export function ChatPage() {
         <div className="flex items-end gap-2 px-4 pb-4 pt-1">
           {/* Mic button */}
           <motion.button
+            type="button"
+            aria-label="Voice input coming soon"
+            onClick={() =>
+              showToast("Voice is on the way — type ARIA for now.")
+            }
             className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-surface-elevated text-text-tertiary transition-colors hover:text-text-secondary"
             whileTap={{ scale: 0.92 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
@@ -535,8 +549,10 @@ export function ChatPage() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Message your trainer..."
+              placeholder="Message ARIA…"
+              aria-label="Message ARIA"
               disabled={isTyping}
+              autoComplete="off"
               className={cn(
                 "h-11 w-full rounded-2xl border border-border bg-surface-elevated px-4 pr-12 text-sm text-text-primary placeholder:text-text-muted",
                 "outline-none transition-colors",

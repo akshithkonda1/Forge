@@ -6,6 +6,7 @@ import { MessageCircle } from "lucide-react";
 import { useAppStore } from "@/stores/useAppStore";
 import { cn } from "@/lib/utils";
 import { getReadinessLabel } from "@/lib/utils";
+import { AriaOrb } from "@/components/onboarding/aria-companion";
 
 function formatDeepSleep(minutes: number): string {
   const hrs = Math.floor(minutes / 60);
@@ -113,14 +114,13 @@ export function AiGreeting() {
       transition={{ duration: 0.5, ease: "easeOut" }}
     >
       <div className="flex items-start gap-3">
-        {/* Trainer avatar */}
         <motion.div
-          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-ember"
+          className="flex-shrink-0"
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.1 }}
         >
-          <span className="text-sm font-bold text-white">F</span>
+          <AriaOrb mood="focused" size={36} />
         </motion.div>
 
         {/* Greeting text */}
@@ -131,7 +131,7 @@ export function AiGreeting() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1 }}
           >
-            Forge AI Trainer
+            ARIA
           </motion.p>
 
           <motion.p
@@ -166,7 +166,7 @@ export function AiGreeting() {
             whileTap={{ scale: 0.97 }}
           >
             <MessageCircle size={14} />
-            Chat with Forge
+            Talk with ARIA
           </motion.button>
         </div>
       </div>

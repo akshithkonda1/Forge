@@ -19,7 +19,7 @@ export function HomePage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 pt-12 px-4 pb-4">
+    <div className="flex flex-col gap-6 px-4 pb-8 pt-12">
       <AiGreeting />
       <ReadinessSection />
       {todayWorkout && (

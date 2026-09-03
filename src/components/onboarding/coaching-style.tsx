@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { Flame, Scale, Heart, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
+import { whisperForStep } from "@/lib/aria-onboarding";
+import AriaCompanion from "./aria-companion";
 import type { CoachingStyle as CoachingStyleType } from "@/types";
 
 interface CoachingStyleProps {
@@ -74,12 +76,15 @@ export default function CoachingStyleScreen({
 }: CoachingStyleProps) {
   const updateProfile = useAppStore((s) => s.updateProfile);
   const setOnboarded = useAppStore((s) => s.setOnboarded);
+  const seedAriaWelcome = useAppStore((s) => s.seedAriaWelcome);
+  const userProfile = useAppStore((s) => s.userProfile);
   const [selected, setSelected] = useState<CoachingStyleType | null>(null);
 
   const handleComplete = () => {
     if (!selected) return;
     updateProfile({ coachingStyle: selected });
     setOnboarded(true);
+    seedAriaWelcome();
     onComplete();
   };
 
@@ -96,9 +101,23 @@ export default function CoachingStyleScreen({
           How do you like to be coached?
         </h2>
         <p className="text-text-tertiary">
-          This shapes your AI trainer&apos;s personality and approach.
+          This shapes ARIA&apos;s voice — every check-in, plan, and recovery nudge.
         </p>
       </motion.div>
+
+      <div className="mb-5">
+        <AriaCompanion
+          compact
+          whisper={whisperForStep("coaching", {
+            name: userProfile.name,
+            goals: userProfile.fitnessGoals,
+            experience: userProfile.experienceLevel,
+            workouts: userProfile.preferredWorkouts,
+            coachingStyle: selected,
+            devicesConnected: userProfile.connectedDevices.length,
+          })}
+        />
+      </div>
 
       {/* Style cards */}
       <motion.div
@@ -192,7 +211,7 @@ export default function CoachingStyleScreen({
         whileHover={selected ? { scale: 1.02, boxShadow: "0 0 30px rgba(255,77,0,0.4)" } : {}}
         whileTap={selected ? { scale: 0.98 } : {}}
       >
-        Start Training
+        Start with ARIA
       </motion.button>
     </div>
   );

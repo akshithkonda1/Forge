@@ -10,6 +10,7 @@ import AriaCompanion from "./aria-companion";
 
 interface ProfileSetupProps {
   onNext: () => void;
+  onBack?: () => void;
 }
 
 const fitnessGoals: { value: FitnessGoal; label: string }[] = [
@@ -53,6 +54,7 @@ const workoutTypes: { value: WorkoutType; label: string }[] = [
   { value: "hiit", label: "HIIT" },
   { value: "yoga", label: "Yoga" },
   { value: "mobility", label: "Mobility" },
+  { value: "sport-specific", label: "Sport-Specific" },
 ];
 
 const sectionVariants = {
@@ -69,7 +71,7 @@ const sectionVariants = {
   },
 };
 
-export default function ProfileSetup({ onNext }: ProfileSetupProps) {
+export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
   const updateProfile = useAppStore((s) => s.updateProfile);
 
   const [section, setSection] = useState(0);
@@ -323,12 +325,24 @@ export default function ProfileSetup({ onNext }: ProfileSetupProps) {
         </AnimatePresence>
       </div>
 
-      {/* Continue button */}
+      <div className="mt-8 flex gap-2">
+        {(section > 0 || onBack) && (
+          <button
+            type="button"
+            onClick={() => {
+              if (section > 0) setSection((s) => s - 1);
+              else onBack?.();
+            }}
+            className="rounded-xl border border-border px-5 py-4 text-sm font-semibold text-text-secondary"
+          >
+            Back
+          </button>
+        )}
       <motion.button
         onClick={handleContinue}
         disabled={!canProceed()}
         className={cn(
-          "mt-8 w-full rounded-xl px-8 py-4 text-lg font-semibold text-white",
+          "w-full flex-1 rounded-xl px-8 py-4 text-lg font-semibold text-white",
           "transition-all duration-300",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-ember focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           "disabled:cursor-not-allowed disabled:opacity-40"
@@ -343,6 +357,7 @@ export default function ProfileSetup({ onNext }: ProfileSetupProps) {
       >
         Continue
       </motion.button>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Watch, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -143,9 +143,18 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
           Connect Your Devices
         </h2>
         <p className="text-text-tertiary">
-          Forge uses your wearable data to personalize every workout
+          Forge uses your wearable data so ARIA can personalize every workout
         </p>
       </motion.div>
+
+      <div className="mb-5">
+        <AriaCompanion
+          compact
+          whisper={whisperForStep("devices", {
+            devicesConnected: connectedDevices.size,
+          })}
+        />
+      </div>
 
       {/* Device grid */}
       <motion.div
