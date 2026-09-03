@@ -59,6 +59,21 @@ final class SpeechManager: ObservableObject {
 
     var isListening: Bool { voiceState == .listening }
 
+    private let synthesizer = AVSpeechSynthesizer()
+
+    /// Speak an ARIA reply when the chat orb is in voice mode.
+    func speak(_ text: String) {
+        let clipped = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clipped.isEmpty else { return }
+        if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .word) }
+        let utterance = AVSpeechUtterance(string: String(clipped.prefix(420)))
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = 0.52
+        utterance.pitchMultiplier = 0.95
+        try? AVAudioSession.sharedInstance().setCategory(.playback, options: [.duckOthers])
+        synthesizer.speak(utterance)
+    }
+
     func startListening() {
         guard speechRecognizer?.isAvailable != false else {
             voiceState = .error("Speech unavailable")

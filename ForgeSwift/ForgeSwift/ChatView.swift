@@ -310,6 +310,10 @@ struct ChatView: View {
             isTyping = false
             if store.isInAriaFirstBond { showQuickActions = true }
             choreographedHaptic(.messageReceived, mood: ariaMood)
+            if store.ariaVoiceMode || showVoiceOrb,
+               let reply = store.chatMessages.last(where: { $0.role == .trainer }) {
+                speech.speak(reply.content)
+            }
         }
     }
 }

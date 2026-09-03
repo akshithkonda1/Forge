@@ -20,27 +20,31 @@ struct ExerciseLibraryView: View {
                 VStack(spacing: 0) {
                     searchBar
                     filterRow
-                    if results.isEmpty {
-                        VStack(spacing: 10) {
-                            Spacer()
-                            Image(systemName: "magnifyingglass").font(.system(size: 34)).foregroundColor(.textMuted)
-                            Text("No movements match").font(.system(size: 15)).foregroundColor(.textTertiary)
-                            Spacer()
-                        }
-                    } else {
-                        ScrollView(showsIndicators: false) {
-                            LazyVStack(spacing: 8) {
-                                HStack {
-                                    Text("\(results.count) MOVEMENTS").font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.textTertiary)
-                                    Spacer()
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 16) {
+                            ExerciseBodyMapView(selected: $muscle)
+                            movementsHeader
+                            if results.isEmpty {
+                                VStack(spacing: 10) {
+                                    Image(systemName: "magnifyingglass")
+                                        .font(.system(size: 28))
+                                        .foregroundColor(.textMuted)
+                                    Text("No movements match")
+                                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                                        .foregroundColor(.textTertiary)
                                 }
-                                .padding(.horizontal, 4).padding(.top, 4)
-                                ForEach(results) { def in
-                                    libraryCard(def)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 36)
+                            } else {
+                                LazyVStack(spacing: 8) {
+                                    ForEach(results) { def in
+                                        libraryCard(def)
+                                    }
                                 }
                             }
-                            .padding(.horizontal, 16).padding(.bottom, 40)
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 40)
                     }
                 }
             }
@@ -52,10 +56,35 @@ struct ExerciseLibraryView: View {
         }
     }
 
+    private var movementsHeader: some View {
+        HStack {
+            Text(muscle.map { "\($0.label.uppercased()) · \(results.count)" } ?? "\(results.count) MOVEMENTS")
+                .forgeSectionLabel()
+            Spacer()
+            if let muscle {
+                Button("Build session") {
+                    FDS.haptic(.medium)
+                    store.adoptLibrarySession(for: muscle)
+                    dismiss()
+                }
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundColor(.ember)
+                Button("All muscles") {
+                    FDS.haptic(.light)
+                    self.muscle = nil
+                }
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundColor(.textTertiary)
+            }
+        }
+        .padding(.horizontal, 4)
+        .padding(.top, 4)
+    }
+
     private var searchBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass").font(.system(size: 15)).foregroundColor(.textMuted)
-            TextField("Search 90+ movements…", text: $query)
+            TextField("Search or tap a muscle…", text: $query)
                 .font(.system(size: 15)).foregroundColor(.textPrimary).tint(.ember)
             if !query.isEmpty {
                 Button { query = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 15)).foregroundColor(.textMuted) }
@@ -71,23 +100,26 @@ struct ExerciseLibraryView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 Menu {
-                    Button("All muscles") { muscle = nil }
-                    ForEach(TargetMuscle.allCases) { m in Button(m.label) { muscle = m } }
-                } label: { filterChip(muscle?.label ?? "Muscle", active: muscle != nil, color: muscle?.accent ?? .steel) }
-                Menu {
                     Button("All equipment") { equipment = nil }
                     ForEach(GearType.allCases) { e in Button(e.label) { equipment = e } }
                 } label: { filterChip(equipment?.label ?? "Equipment", active: equipment != nil, color: .ember) }
                 if muscle != nil || equipment != nil {
-                    Button { muscle = nil; equipment = nil } label: {
+                    Button {
+                        muscle = nil
+                        equipment = nil
+                    } label: {
                         HStack(spacing: 4) { Image(systemName: "xmark"); Text("Clear") }
-                            .font(.system(size: 12, weight: .semibold)).foregroundColor(.danger)
-                            .padding(.horizontal, 12).padding(.vertical, 8)
-                            .background(Color.danger.opacity(0.1)).cornerRadius(100)
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundColor(.danger)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.danger.opacity(0.1))
+                            .clipShape(Capsule())
                     }
                 }
             }
-            .padding(.horizontal, 16).padding(.bottom, 10)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
         }
     }
 
@@ -121,10 +153,200 @@ struct ExerciseLibraryView: View {
                     Text(def.equipment.label).font(.system(size: 10, weight: .semibold)).foregroundColor(.textMuted)
                 }
             }
-            .padding(12).background(Color.surface).cornerRadius(16)
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+            .padding(12)
+            .background(Color.white.opacity(0.045))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Body map
+
+struct ExerciseBodyMapView: View {
+    @Binding var selected: TargetMuscle?
+    @State private var face: BodyMapHotspot.BodyMapFace = .front
+
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("BODY MAP")
+                        .forgeSectionLabel()
+                    Text(selected?.label ?? "Tap a muscle")
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundColor(selected?.accent ?? .textPrimary)
+                }
+                Spacer()
+                facePicker
+            }
+
+            ZStack {
+                BodySilhouette(face: face)
+                GeometryReader { geo in
+                    ForEach(BodyMapHotspot.spots(on: face)) { spot in
+                        hotspot(spot, in: geo.size)
+                    }
+                }
+            }
+            .frame(height: 340)
+            .frame(maxWidth: .infinity)
+            .animation(FDS.Spring.standard, value: face)
+            .animation(FDS.Spring.snap, value: selected)
+
+            extraChips
+        }
+        .padding(16)
+        .forgeGlassCard(accent: selected?.accent)
+    }
+
+    private var facePicker: some View {
+        HStack(spacing: 0) {
+            ForEach(BodyMapHotspot.BodyMapFace.allCases, id: \.self) { side in
+                Button {
+                    FDS.selectionHaptic()
+                    face = side
+                } label: {
+                    Text(side.label)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundColor(face == side ? .white : .textTertiary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background {
+                            if face == side {
+                                Capsule().fill(FDS.Gradient.ember)
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(Color.white.opacity(0.05))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1))
+    }
+
+    /// One button per hotspot, sized to the capsule so a bicep tap cannot
+    /// steal the calf hit target (a wrapping GeometryReader would).
+    private func hotspot(_ spot: BodyMapHotspot, in size: CGSize) -> some View {
+        let box = CGRect(
+            x: (spot.x - spot.w / 2) * size.width,
+            y: (spot.y - spot.h / 2) * size.height,
+            width: spot.w * size.width,
+            height: spot.h * size.height
+        )
+        let w = max(36, box.width)
+        let h = max(28, box.height)
+        return Button {
+            FDS.haptic(.light)
+            selected = selected == spot.muscle ? nil : spot.muscle
+        } label: {
+            Capsule()
+                .fill(spot.muscle.accent.opacity(selected == spot.muscle ? 0.72 : 0.22))
+                .overlay(
+                    Capsule()
+                        .stroke(
+                            spot.muscle.accent.opacity(selected == spot.muscle ? 0.95 : 0.35),
+                            lineWidth: selected == spot.muscle ? 1.6 : 1
+                        )
+                )
+                .shadow(
+                    color: selected == spot.muscle ? spot.muscle.accent.opacity(0.45) : .clear,
+                    radius: 8,
+                    y: 2
+                )
+        }
+        .buttonStyle(.plain)
+        .frame(width: w, height: h)
+        .contentShape(Capsule())
+        .position(x: box.midX, y: box.midY)
+        .accessibilityLabel(spot.muscle.label)
+        .accessibilityValue("\(ExerciseLibrary.count(matching: spot.muscle)) movements")
+        .accessibilityAddTraits(selected == spot.muscle ? .isSelected : [])
+        .accessibilityHint("Filters the library to this muscle")
+    }
+
+    private var extraChips: some View {
+        HStack(spacing: 8) {
+            ForEach(BodyMapHotspot.extraChips) { muscle in
+                Button {
+                    FDS.haptic(.light)
+                    selected = selected == muscle ? nil : muscle
+                } label: {
+                    Text(muscle.label)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundColor(selected == muscle ? .white : .textSecondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(selected == muscle ? muscle.accent : Color.white.opacity(0.05))
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(muscle.accent.opacity(selected == muscle ? 0.0 : 0.28), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+private struct BodySilhouette: View {
+    let face: BodyMapHotspot.BodyMapFace
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let cx = w * 0.5
+            let fill = Color.white.opacity(0.06)
+            let line = Color.white.opacity(0.10)
+
+            ZStack {
+                Capsule()
+                    .fill(fill)
+                    .overlay(Capsule().stroke(line, lineWidth: 1))
+                    .frame(width: w * 0.16, height: h * 0.10)
+                    .position(x: cx, y: h * 0.07)
+
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(fill)
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(line, lineWidth: 1))
+                    .frame(width: w * 0.34, height: h * 0.30)
+                    .position(x: cx, y: h * 0.30)
+
+                Capsule()
+                    .fill(fill)
+                    .frame(width: w * 0.12, height: h * 0.28)
+                    .rotationEffect(.degrees(-18))
+                    .position(x: w * 0.22, y: h * 0.32)
+                Capsule()
+                    .fill(fill)
+                    .frame(width: w * 0.12, height: h * 0.28)
+                    .rotationEffect(.degrees(18))
+                    .position(x: w * 0.78, y: h * 0.32)
+
+                Capsule()
+                    .fill(fill)
+                    .frame(width: w * 0.14, height: h * 0.36)
+                    .position(x: w * 0.40, y: h * 0.68)
+                Capsule()
+                    .fill(fill)
+                    .frame(width: w * 0.14, height: h * 0.36)
+                    .position(x: w * 0.60, y: h * 0.68)
+
+                if face == .back {
+                    Capsule()
+                        .fill(Color.white.opacity(0.04))
+                        .frame(width: 3, height: h * 0.22)
+                        .position(x: cx, y: h * 0.32)
+                }
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 
@@ -217,8 +439,13 @@ struct ExerciseDetailSheet: View {
                           reps: def.repRangeLabel.replacingOccurrences(of: "–", with: "-"),
                           weight: def.mechanic == .compound && def.equipment != .bodyweight ? 95 : (def.equipment == .bodyweight ? nil : 25),
                           restSeconds: def.restSeconds, notes: def.cues.first, videoURL: nil, has3DModel: false)
-        if store.todayWorkout == nil {
-            store.todayWorkout = WorkoutPlan(id: UUID().uuidString, name: "Custom Session", type: .strength,
+        if store.todayWorkout == nil, let muscle = def.primary.first {
+            store.adoptLibrarySession(for: muscle)
+            if store.todayWorkout?.exercises.contains(where: { $0.name == def.name }) != true {
+                store.todayWorkout?.exercises.insert(ex, at: 0)
+            }
+        } else if store.todayWorkout == nil {
+            store.todayWorkout = WorkoutPlan(id: UUID().uuidString, name: def.name, type: .strength,
                                              duration: 45, intensity: .moderate, exercises: [ex])
         } else {
             store.todayWorkout?.exercises.append(ex)

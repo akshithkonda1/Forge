@@ -109,7 +109,7 @@ struct WorkoutIdleView: View {
 
     private var quickActions: some View {
         HStack(spacing: 10) {
-            idleActionTile(icon: "books.vertical.fill", title: "Library", subtitle: "\(ExerciseLibrary.all.count) moves", accent: Color(hex: "38BDF8")) { showLibrary = true }
+            idleActionTile(icon: "figure.stand", title: "Library", subtitle: "Tap a muscle", accent: Color(hex: "38BDF8")) { showLibrary = true }
             idleActionTile(icon: "brain.head.profile", title: "ARIA Brief", subtitle: "Plan readout", accent: .ember) { showDashboard = true }
         }
     }
@@ -549,6 +549,7 @@ struct WorkoutInsightsView: View {
 
     private var insights: [(icon: String, text: String, color: Color)] {
         var r: [(String, String, Color)] = []
+        r.append(("brain.head.profile", "ARIA wrote \(workout.name) from how you showed up today.", .ember))
         if store.readiness.overall >= 80 { r.append(("bolt.fill", "Readiness \(store.readiness.overall)% — primed for heavy top sets today.", .ember)) }
         else if store.readiness.overall < 65 { r.append(("bed.double.fill", "Recovery \(store.readiness.overall)% — ARIA trimmed volume to protect tomorrow.", .steel)) }
         // Balance read across the plan
@@ -632,8 +633,8 @@ struct WorkoutEmptyState: View {
                 }
                 Button { showLibrary = true } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "books.vertical.fill").font(.system(size: 14))
-                        Text("Browse Exercise Library").font(.system(size: 15, weight: .semibold))
+                        Image(systemName: "figure.stand").font(.system(size: 14))
+                        Text("Browse by muscle").font(.system(size: 15, weight: .semibold))
                     }
                     .foregroundColor(.steel).padding(.horizontal, 24).padding(.vertical, 13)
                     .background(Color.steel.opacity(0.1)).cornerRadius(16)

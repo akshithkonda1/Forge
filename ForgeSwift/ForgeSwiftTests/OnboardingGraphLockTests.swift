@@ -117,4 +117,9 @@ final class OnboardingGraphLockTests: XCTestCase {
         XCTAssertEqual(done.messages.count, 1)
         XCTAssertTrue(done.messages[0].contains("tight"))
     }
+
+    func testWelcomeHookSaysLearningNotListening() {
+        XCTAssertEqual(AriaOnboardingGuide.welcomeTitle, "ARIA is already learning.")
+        XCTAssertFalse(AriaOnboardingGuide.welcomeTitle.localizedCaseInsensitiveContains("listening"))
+    }
 }

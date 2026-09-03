@@ -536,6 +536,18 @@ extension AppStore {
         )
     }
 
+    /// Train library → today's plan. Uses the same muscle overlay as chat.
+    func adoptLibrarySession(for muscle: TargetMuscle) {
+        let plan = AriaPlanEngine.evaluate(
+            input: "\(muscle.label) workout",
+            context: makeTrainerContext()
+        )
+        if plan.shouldPersistTheme {
+            setTrainingTheme(plan.theme, source: "library")
+        }
+        todayWorkout = plan.workoutPlan
+    }
+
     /// Legacy method for backward compatibility - converts to async
     /// Builds a full `TrainerContext` including living ARIA tags/constraints + cycle.
     func makeTrainerContext() -> TrainerContext {

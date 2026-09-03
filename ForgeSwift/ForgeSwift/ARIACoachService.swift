@@ -89,14 +89,17 @@ final class ARIACoachService: ObservableObject {
 
     // ── Text: turn a session snapshot into a coaching briefing ────────────────
     func briefing(for snapshot: ARIASessionSnapshot) async -> String? {
+        if AriaService.shouldUseTestReadyDummy || AriaOperatingMode.current.isLocalTesting {
+            return snapshot.localBriefing
+        }
         do {
             let json = try await post(["mode": "briefing", "snapshot": snapshot.promptPayload])
             guard (json["available"] as? Bool) == true,
-                  let text = json["briefing"] as? String else { return nil }
-            return text.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+                  let text = json["briefing"] as? String else { return snapshot.localBriefing }
+            return text.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? snapshot.localBriefing
         } catch {
             lastError = (error as? ForgeAPI.Failure)?.userMessage ?? error.localizedDescription
-            return nil
+            return snapshot.localBriefing
         }
     }
 

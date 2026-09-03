@@ -1,8 +1,8 @@
 import Foundation
 
 /// On-device ARIA for previews, simulators and Device Hub.
-/// Sounds like a companion, not a data dump — the user never needs to know
-/// where a number came from. No HealthKit / simulator / "Test-Ready" / cloud mentions.
+/// Full local coach (plans, library muscles, specialists) with a companion
+/// voice — testers get the same functionality as live ARIA, no cloud.
 @MainActor
 enum AriaDummyOrchestrator {
 
@@ -10,7 +10,7 @@ enum AriaDummyOrchestrator {
         text: String,
         store: AppStore,
         agent: AriaCoachAgent
-    ) -> AriaResponse {
+    ) async -> AriaResponse {
         let context = store.makeTrainerContext()
         let life = context.lifeRead
         let trimmedName = store.userProfile.name.split(separator: " ").first.map(String.init) ?? ""
@@ -37,7 +37,7 @@ enum AriaDummyOrchestrator {
             let resp = AriaEmotionalSupportCoach.respond(reading: reading, context: context, input: text)
             // Strip any clinical disclaimer footers that feel institutional in dummy — keep warm core.
             return AriaResponse(
-                confidenceReason: "Listening first",
+                confidenceReason: "Learning first",
                 proseSummary: resp.content,
                 message: resp.content,
                 suggestedActions: resp.suggestedActions,
@@ -60,10 +60,12 @@ enum AriaDummyOrchestrator {
         let readiness = store.readiness.overall
         let intent = intentFor(agent: agent, text: text)
 
-        // 4) Training plans — use the real plan engine, but voice it like a companion.
-        if agent == .workout || AriaThemeResolver.isPlanRequest(text) {
+        // 4) Training plans + body-map muscle asks — same plan engine as live ARIA.
+        if agent == .workout || AriaThemeResolver.isPlanRequest(text) || TargetMuscle.mentioned(in: text) != nil {
             let plan = AriaPlanEngine.evaluate(input: text, context: context)
-            // Keep the workout for the UI, but don't announce it as a system artifact.
+            if plan.shouldPersistTheme {
+                store.setTrainingTheme(plan.theme, source: "chat")
+            }
             store.todayWorkout = plan.workoutPlan
             facts.sessionTitle = plan.workoutPlan.name
             facts.sessionDuration = plan.workoutPlan.duration
@@ -71,85 +73,64 @@ enum AriaDummyOrchestrator {
             facts.themeJustLocked = plan.shouldPersistTheme
             facts.themeLabel = plan.theme.label
 
-            // Let the voice engine wrap the plan fact in human speech (seeded, style-aware).
             var voiceFacts = facts
             voiceFacts.sessionFlavor = plan.richCard.workoutName
             let voice = AriaVoiceEngine.speak(intent: .trainingPlan, context: context, input: text, facts: voiceFacts)
 
-            // Prefer voice when it feels human; fall back to plan narrative without source notes.
             let woven = weaveStory(voice.count > 40 ? voice : plan.narrative, life: life)
-            let prose = woven
             return AriaResponse(
                 confidenceReason: companionReason(readiness: readiness, hasSleep: facts.sleepHours != nil),
-                proseSummary: prose,
-                message: prose,
+                proseSummary: woven,
+                message: woven,
+                richCard: AriaService.payload(from: plan.richCard),
                 suggestedActions: plan.suggestedActions,
                 confidence: 0.88
             )
         }
 
-        // 5) Warm, human-first per lane — maps to current AriaCoachAgent cases.
+        // 5) Sleep / recovery keep the companion voice. Every other specialist
+        // falls through to the full local coach so testers get real cycle,
+        // lifestyle, progress, and archetype answers — not a one-liner.
         switch agent {
-        case .recovery:
+        case .recovery, .sleep:
             let raw = AriaVoiceEngine.speak(intent: .sleep, context: context, input: text, facts: facts)
             let prose = humanizeRecover(raw, you: you, facts: facts, readiness: readiness, coaching: context.userProfile.coachingStyle, life: life)
             return AriaResponse(
                 confidenceReason: companionReason(readiness: readiness, hasSleep: facts.sleepHours != nil),
                 proseSummary: prose,
                 message: prose,
-                suggestedActions: ["How did I sleep?", "What should I train today?", "Keep it light today"],
+                suggestedActions: agent == .sleep
+                    ? ["How did I sleep?", "Tell me about last night", "Keep it light"]
+                    : ["How did I sleep?", "What should I train today?", "Keep it light today"],
                 confidence: 0.84
             )
-        case .sleep:
-            let raw = AriaVoiceEngine.speak(intent: .sleep, context: context, input: text, facts: facts)
-            let prose = humanizeRecover(raw, you: you, facts: facts, readiness: readiness, coaching: context.userProfile.coachingStyle, life: life)
-            return AriaResponse(
-                confidenceReason: companionReason(readiness: readiness, hasSleep: facts.sleepHours != nil),
-                proseSummary: prose,
-                message: prose,
-                suggestedActions: ["How did I sleep?", "Tell me about last night", "Keep it light"],
-                confidence: 0.84
-            )
-        case .lifestyle:
-            // Lifestyle covers fuel + life — keep it warm and practical, not a diet plan.
-            let raw = AriaVoiceEngine.speak(intent: .checkIn, context: context, input: text, facts: facts)
-            // If the question is explicitly about food, use fuel humanizer; otherwise life.
-            let lower = text.lowercased()
-            let isFood = lower.contains("eat") || lower.contains("food") || lower.contains("protein") || lower.contains("meal") || lower.contains("water") || lower.contains("hydrat")
-            let prose = isFood ? humanizeFuel(raw, you: you) : humanizeLife(raw, you: you)
-            return AriaResponse(
-                confidenceReason: isFood ? "Grounded in your recent patterns" : "Fitting training into the life you already have",
-                proseSummary: prose,
-                message: prose,
-                suggestedActions: isFood ? ["What should I eat next?", "How's my recovery?", "Make it simple"] : ["Fit this into today", "What should I train?", "Keep it light"],
-                confidence: 0.84
-            )
-        case .progress:
-            let raw = AriaVoiceEngine.speak(intent: .progress, context: context, input: text, facts: facts)
-            return AriaResponse(
-                confidenceReason: "Grounded in your trends",
-                proseSummary: raw,
-                message: raw,
-                suggestedActions: ["Show my trends", "Any new PRs?", "What should I train?"],
-                confidence: 0.82
-            )
-        case .cycle:
-            let raw = AriaVoiceEngine.speak(intent: .checkIn, context: context, input: text, facts: facts)
-            let prose = humanizeCycle(raw, you: you)
-            return AriaResponse(
-                confidenceReason: "Private coaching — only what you shared",
-                proseSummary: prose,
-                message: prose,
-                suggestedActions: ["How to show up today?", "What helps for recovery?", "Keep it simple"],
-                confidence: 0.82
-            )
-        case .aria, .workout:
+        case .lifestyle, .progress, .cycle, .aria, .workout:
             break
         }
 
-        // 6) General ARIA — companion-first check-in grounded in readiness + sleep, no source.
+        // 6) Full local coach — testers get the same rule-based specialists as
+        // live ARIA (cycle, progress, archetypes, pain, nutrition). Voice stays
+        // human: soften HUD leftovers and weave the pack story.
+        if let local = try? await RuleBasedResponseGenerator().generateResponse(for: text, context: context) {
+            if let card = local.richCard, card.type == .workoutPlan {
+                let plan = AriaPlanEngine.evaluate(input: text, context: context)
+                if plan.shouldPersistTheme {
+                    store.setTrainingTheme(plan.theme, source: "chat")
+                }
+                store.todayWorkout = plan.workoutPlan
+            }
+            let prose = weaveStory(softenMetrics(local.content), life: life)
+            return AriaResponse(
+                confidenceReason: companionReason(readiness: readiness, hasSleep: facts.sleepHours != nil),
+                proseSummary: prose,
+                message: prose,
+                richCard: local.richCard.flatMap(AriaService.payload(from:)),
+                suggestedActions: local.suggestedActions ?? AriaFirstHealthBriefing.suggestedActions,
+                confidence: local.confidence
+            )
+        }
+
         let generalProse: String = {
-            // Use the voice engine's greeting/briefing beats — they already vary by coaching style, hour, relationship.
             if intent == .sleep {
                 return AriaVoiceEngine.speak(intent: .sleep, context: context, input: text, facts: facts)
             }
@@ -159,12 +140,10 @@ enum AriaDummyOrchestrator {
             if intent == .greeting || text.lowercased().contains("how are you") || text.count < 20 {
                 return AriaVoiceEngine.speak(intent: .greeting, context: context, input: text, facts: facts)
             }
-            // Default: warm, grounded check-in — not a metric table.
             let fallback = AriaVoiceEngine.speak(intent: intent, context: context, input: text, facts: facts)
             if fallback.trimmingCharacters(in: .whitespacesAndNewlines).count > 30 {
                 return fallback
             }
-            // Last-resort human line — still no source, one metric at most, plus choice.
             return humanFallback(you: you, readiness: readiness, facts: facts, coaching: context.userProfile.coachingStyle, life: life)
         }()
 
@@ -238,32 +217,6 @@ enum AriaDummyOrchestrator {
             ? rng.pick(["Want a gentle reset or just a check-in? Your call.", "Want breathing + light movement, or just rest?"])
             : rng.pick(["Want a light, honest session or full rest? You choose.", "Want me to map something light, or keep it to a walk?"])
         return "\(opener)\(empathy) \(body) \(invite)".replacingOccurrences(of: "  ", with: " ")
-    }
-
-    private static func humanizeFuel(_ raw: String, you: String) -> String {
-        let lower = raw.lowercased()
-        if lower.contains("protein") && lower.contains("water") && lower.contains("not a diet") { return raw }
-        let name = you.replacingOccurrences(of: " — ", with: "").trimmingCharacters(in: .whitespaces)
-        var rng = AriaSeededRNG(seed: UInt64(abs(name.hashValue &+ 7)))
-        let opener = name.isEmpty ? "" : rng.pick(["\(name) — ", "Hey \(name) — "])
-        return "\(opener)\(rng.pick(["For fuel — just protein and water with your next meal is enough.", "Next meal: protein, water, something you actually like. That's it.", "No diet math. Just eat enough to support the work, then move on."])) \(rng.pick(["Not a diet, just care.", "Simple beats perfect here.", "Keep it kind, not precise."]))"
-    }
-
-    private static func humanizeLife(_ raw: String, you: String) -> String {
-        let lower = raw.lowercased()
-        if lower.contains("life you already have") || lower.contains("fit training into") { return softenMetrics(raw) }
-        let name = you.replacingOccurrences(of: " — ", with: "").trimmingCharacters(in: .whitespaces)
-        var rng = AriaSeededRNG(seed: UInt64(abs(name.hashValue &+ 13)))
-        let opener = name.isEmpty ? "" : "\(name) — "
-        return "\(opener)\(rng.pick(["Training should fit your day, not replace it.", "We build inside the life you already have — work, people, rest.", "Your day comes first. Training just finds its corner."])) \(rng.pick(["What does today actually allow?", "Want me to shape something around what you've got?", "Tell me the window and I'll make it count."]))"
-    }
-
-    private static func humanizeCycle(_ raw: String, you: String) -> String {
-        if !raw.isEmpty && !raw.lowercased().contains("no chart") { return softenMetrics(raw) }
-        let name = you.replacingOccurrences(of: " — ", with: "").trimmingCharacters(in: .whitespaces)
-        var rng = AriaSeededRNG(seed: UInt64(abs(name.hashValue &+ 21)))
-        let opener = name.isEmpty ? "" : "\(name) — "
-        return "\(opener)\(rng.pick(["Cycle support stays private here — just training, recovery, or how to show up as a human.", "This stays between you and who you support — no chart, no diagnosis, just care.", "Private by design. How you show up matters more than any calendar."])) \(rng.pick(["What would feel most helpful right now?", "Want a soft way to check in, or a plan that respects today?", "Tell me what they need and I'll keep it human."]))"
     }
 
     private static func softenMetrics(_ s: String) -> String {

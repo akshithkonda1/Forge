@@ -457,11 +457,18 @@ enum AriaCoachAgentRouter {
                 }
                 return "Cycle · \(subject): show up, don’t diagnose."
             }
-            guard cycle.settings.enabled, cycle.settings.shareWithAria,
-                  let day = cycle.snapshot.dayInCycle else { return nil }
-            let line = "Day \(day)"
-            if said.contains("day \(day)") { return nil }
-            return "Cycle · \(line)."
+            guard cycle.settings.enabled, cycle.settings.shareWithAria else { return nil }
+            if let teach = cycle.lastAriaBrief?.teaching, !teach.isEmpty {
+                let clip = String(teach.prefix(140))
+                if !said.contains(clip.lowercased()) {
+                    return "Cycle · \(clip)"
+                }
+            }
+            if let day = cycle.snapshot.dayInCycle {
+                if said.contains("day \(day)") { return nil }
+                return "Cycle · Day \(day) — \(cycle.snapshot.trainingNote)"
+            }
+            return nil
         case .aria:
             return nil
         }

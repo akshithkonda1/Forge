@@ -193,8 +193,16 @@ export function ChatPage() {
   // Send a message
   // -----------------------------------------------------------------------
 
+  const speakReply = useCallback((text: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text.slice(0, 420));
+    utter.rate = 1.02;
+    window.speechSynthesis.speak(utter);
+  }, []);
+
   const sendMessage = useCallback(
-    (text: string) => {
+    (text: string, speak = false) => {
       const trimmed = text.trim();
       if (!trimmed || isTyping) return;
 
@@ -229,10 +237,46 @@ export function ChatPage() {
         };
         addMessage(trainerMsg);
         setIsTyping(false);
+        if (speak) speakReply(content);
       }, 280);
     },
-    [addMessage, isTyping, userProfile, readiness, dailyMetrics, sleepData]
+    [addMessage, isTyping, userProfile, readiness, dailyMetrics, sleepData, speakReply]
   );
+
+  const startVoice = useCallback(() => {
+    const w = window as unknown as {
+      SpeechRecognition?: new () => {
+        lang: string;
+        interimResults: boolean;
+        onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+        onerror: (() => void) | null;
+        start: () => void;
+      };
+      webkitSpeechRecognition?: new () => {
+        lang: string;
+        interimResults: boolean;
+        onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+        onerror: (() => void) | null;
+        start: () => void;
+      };
+    };
+    const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!Ctor) {
+      showToast("This browser can't hear you — type ARIA instead.");
+      return;
+    }
+    const rec = new Ctor();
+    rec.lang = "en-US";
+    rec.interimResults = false;
+    rec.onresult = (event) => {
+      const said = event.results[0]?.[0]?.transcript ?? "";
+      if (said.trim()) sendMessage(said, true);
+    };
+    rec.onerror = () => {
+      showToast("Couldn't catch that — try again or type.");
+    };
+    rec.start();
+  }, [sendMessage, showToast]);
 
   // -----------------------------------------------------------------------
   // Handlers
@@ -363,10 +407,8 @@ export function ChatPage() {
           {/* Mic button */}
           <motion.button
             type="button"
-            aria-label="Voice input coming soon"
-            onClick={() =>
-              showToast("Voice is on the way — type ARIA for now.")
-            }
+            aria-label="Speak to ARIA"
+            onClick={startVoice}
             className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-surface-elevated text-text-tertiary transition-colors hover:text-text-secondary"
             whileTap={{ scale: 0.92 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}

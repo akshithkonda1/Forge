@@ -275,13 +275,37 @@ final class VoiceCoachManager: NSObject {
             "context": ["workout": workoutContext.contextLine],
         ])
 
-        let (data, _) = try await ForgeAPI.send(request)
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw CoachError.parseError
+        if AriaService.shouldUseTestReadyDummy || AriaOperatingMode.current.isLocalTesting {
+            return localWorkoutReply(message)
         }
-        let text = (json["message"] as? String) ?? (json["prose_summary"] as? String) ?? ""
-        guard !text.isEmpty else { throw CoachError.parseError }
-        return text
+        do {
+            let (data, _) = try await ForgeAPI.send(request)
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return localWorkoutReply(message)
+            }
+            let text = (json["message"] as? String) ?? (json["prose_summary"] as? String) ?? ""
+            return text.isEmpty ? localWorkoutReply(message) : text
+        } catch {
+            return localWorkoutReply(message)
+        }
+    }
+
+    /// On-device set coach so the mic always has a job, even without a server.
+    private func localWorkoutReply(_ message: String) -> String {
+        let lower = message.lowercased()
+        let lift = workoutContext.exerciseName.isEmpty ? "this lift" : workoutContext.exerciseName
+        if lower.contains("tired") || lower.contains("hard") || lower.contains("heavy") {
+            return "Stay with \(lift). Set \(workoutContext.currentSet) of \(workoutContext.sets) — quality over ego. Rest \(workoutContext.restSeconds)s if you need it."
+        }
+        if lower.contains("form") || lower.contains("how") {
+            return workoutContext.notes.isEmpty
+                ? "Own \(lift). Brace, full range, no bounce. Set \(workoutContext.currentSet) of \(workoutContext.sets)."
+                : workoutContext.notes
+        }
+        if lower.contains("rest") || lower.contains("how long") {
+            return "\(workoutContext.restSeconds) seconds, then \(lift). Breathe down."
+        }
+        return "You're on \(lift), set \(workoutContext.currentSet) of \(workoutContext.sets). \(workoutContext.contextLine). Ask me about the next set, rest, or form."
     }
 
     

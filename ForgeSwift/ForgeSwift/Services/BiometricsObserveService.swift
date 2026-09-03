@@ -24,6 +24,14 @@ final class BiometricsObserveService {
             voiceMode: store.ariaVoiceMode
         )
 
+        if AriaService.shouldUseTestReadyDummy {
+            return ObserveResponsePayload(
+                ariaContext: contextStore.lastObservedContext,
+                restrictedDomains: nil,
+                missingFields: nil
+            )
+        }
+
         guard let url = URL(string: "ai/observe", relativeTo: AriaService.shared.baseURL) else { return nil }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
