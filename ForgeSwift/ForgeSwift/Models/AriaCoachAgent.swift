@@ -428,11 +428,17 @@ enum AriaCoachAgentRouter {
             guard !said.contains(debt.lowercased()) else { return nil }
             return "Sleep · \(debt)"
         case .lifestyle:
-            guard let tag = AriaContextStore.shared.context.lifestyleTags.first else { return nil }
-            guard !said.contains(tag.lowercased()) else { return nil }
+            let life = AriaLifeRead.from(tags: AriaContextStore.shared.context.lifestyleTags)
+            if let story = life.story, !story.isEmpty {
+                guard !said.contains(story.lowercased()) else { return nil }
+                return rng.pick([
+                    "Lifestyle · \(story) Protein and water with the next meal still count.",
+                    "Lifestyle · the day you already have comes first. \(story)",
+                ])
+            }
             return rng.pick([
-                "Lifestyle · \(tag) today — a fast protein hit beats skipping the next meal.",
-                "Lifestyle · \(tag) today. Water and the next meal still count, even on a day like this.",
+                "Lifestyle · a fast protein hit beats skipping the next meal.",
+                "Lifestyle · water and the next meal still count, even on a day like this.",
             ])
         case .progress:
             var bits: [String] = []

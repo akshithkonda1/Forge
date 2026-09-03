@@ -12,18 +12,21 @@ struct ChatEmptyStateView: View {
     // Greeting message varies by mood
     private var greeting: String {
         let first = store.userProfile.name.components(separatedBy: " ").first ?? ""
+        let who = first.isEmpty ? "" : ", \(first)"
         switch mood {
-        case .energized: return "You look ready today\(first.isEmpty ? "" : ", \(first)").\nWant a session that uses that?"
-        case .focused:   return "I’m here\(first.isEmpty ? "" : ", \(first)").\nTrain, recover, eat, live — pick a coach or just talk."
-        case .calm:      return "Easy does it\(first.isEmpty ? "" : ", \(first)").\nHow are you feeling?"
+        case .energized: return "You look ready today\(who).\nWant a session that uses that?"
+        case .focused:   return "I’m here\(who).\nTrain, recover, eat, live — pick a coach or just talk."
+        case .calm:      return "Easy does it\(who).\nHow are you feeling?"
         case .pushed:    return "Rough day? That’s okay.\nI’m here for whatever you need."
         }
     }
 
     private var subtext: String {
+        let life = AriaLifeRead.from(tags: AriaContextStore.shared.context.lifestyleTags)
+        if let story = life.story, !story.isEmpty { return story }
         switch mood {
-        case .energized: return "Readiness is high — we can train if you want."
-        case .focused:   return "I’ll use last night’s sleep and today’s load."
+        case .energized: return "You've got a window. We can train if you want."
+        case .focused:   return "I'll use last night and today's load — just talk."
         case .calm:      return "Recovery is part of training. We can keep it light."
         case .pushed:    return "We go at your pace. No pressure."
         }

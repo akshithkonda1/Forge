@@ -347,7 +347,9 @@ enum AriaVoiceEngine {
         let invite = rng.pick(inviteBank(profile))
 
         var beats = [time.isEmpty ? "\(who)." : "\(time), \(who).", invite]
-        if let metric, profile.length != .tight {
+        if let story = context.lifeRead.spokenLine(rng: &rng), profile.length != .tight {
+            beats.insert(story, at: 1)
+        } else if let metric, profile.length != .tight {
             beats.insert(metric, at: 1)
         }
         if profile.humor != .none, rng.chance(0.3) {
@@ -467,6 +469,9 @@ enum AriaVoiceEngine {
             || rng.chance(0.45)
 
         var beats: [String] = []
+        if let story = context.lifeRead.spokenLine(rng: &rng) {
+            beats.append(story)
+        }
 
         switch facts.sleepBand {
         case .strong:
@@ -642,6 +647,9 @@ enum AriaVoiceEngine {
         let who = profile.firstName.isEmpty ? "" : profile.firstName
         let time = timeFlavor(profile, rng: &rng)
         beats.append(who.isEmpty ? "\(time)." : "\(time), \(who).")
+        if let story = context.lifeRead.spokenLine(rng: &rng) {
+            beats.append(story)
+        }
         beats.append(statusLine(profile, context: context, facts: facts, rng: &rng))
         if let title = facts.sessionTitle {
             beats.append(profile.readiness >= 70
@@ -658,7 +666,9 @@ enum AriaVoiceEngine {
     ) -> [String] {
         [
             rng.pick(inviteBank(profile)),
-            lightMetricHook(profile, context: context, rng: &rng) ?? statusLine(profile, context: context, facts: .init(), rng: &rng),
+            context.lifeRead.spokenLine(rng: &rng)
+                ?? lightMetricHook(profile, context: context, rng: &rng)
+                ?? statusLine(profile, context: context, facts: .init(), rng: &rng),
         ]
     }
 
@@ -743,6 +753,13 @@ enum AriaVoiceEngine {
         case 55..<70: read = "workable, not sharp"
         case 70..<85: read = "in good shape"
         default:      read = "primed"
+        }
+
+        // A living month beats a HUD. If the pack (or a real evening) already
+        // wrote the plot, lead with that and only then name the capacity band.
+        if let story = context.lifeRead.story, !story.isEmpty {
+            let because = rng.pick(["That's why you're", "So today you're", "Which means you're"])
+            return "\(story) \(because) \(read)."
         }
 
         let citesNumbers: Bool = rng.chance(0.4)

@@ -12,6 +12,7 @@ enum AriaDummyOrchestrator {
         agent: AriaCoachAgent
     ) -> AriaResponse {
         let context = store.makeTrainerContext()
+        let life = context.lifeRead
         let trimmedName = store.userProfile.name.split(separator: " ").first.map(String.init) ?? ""
         let you = trimmedName.isEmpty ? "" : "\(trimmedName) — "
 
@@ -76,7 +77,8 @@ enum AriaDummyOrchestrator {
             let voice = AriaVoiceEngine.speak(intent: .trainingPlan, context: context, input: text, facts: voiceFacts)
 
             // Prefer voice when it feels human; fall back to plan narrative without source notes.
-            let prose = voice.count > 40 ? voice : plan.narrative
+            let woven = weaveStory(voice.count > 40 ? voice : plan.narrative, life: life)
+            let prose = woven
             return AriaResponse(
                 confidenceReason: companionReason(readiness: readiness, hasSleep: facts.sleepHours != nil),
                 proseSummary: prose,
@@ -90,7 +92,7 @@ enum AriaDummyOrchestrator {
         switch agent {
         case .recovery:
             let raw = AriaVoiceEngine.speak(intent: .sleep, context: context, input: text, facts: facts)
-            let prose = humanizeRecover(raw, you: you, facts: facts, readiness: readiness, coaching: context.userProfile.coachingStyle)
+            let prose = humanizeRecover(raw, you: you, facts: facts, readiness: readiness, coaching: context.userProfile.coachingStyle, life: life)
             return AriaResponse(
                 confidenceReason: companionReason(readiness: readiness, hasSleep: facts.sleepHours != nil),
                 proseSummary: prose,
@@ -100,7 +102,7 @@ enum AriaDummyOrchestrator {
             )
         case .sleep:
             let raw = AriaVoiceEngine.speak(intent: .sleep, context: context, input: text, facts: facts)
-            let prose = humanizeRecover(raw, you: you, facts: facts, readiness: readiness, coaching: context.userProfile.coachingStyle)
+            let prose = humanizeRecover(raw, you: you, facts: facts, readiness: readiness, coaching: context.userProfile.coachingStyle, life: life)
             return AriaResponse(
                 confidenceReason: companionReason(readiness: readiness, hasSleep: facts.sleepHours != nil),
                 proseSummary: prose,
@@ -163,7 +165,7 @@ enum AriaDummyOrchestrator {
                 return fallback
             }
             // Last-resort human line — still no source, one metric at most, plus choice.
-            return humanFallback(you: you, readiness: readiness, facts: facts, coaching: context.userProfile.coachingStyle)
+            return humanFallback(you: you, readiness: readiness, facts: facts, coaching: context.userProfile.coachingStyle, life: life)
         }()
 
         return AriaResponse(
@@ -207,20 +209,20 @@ enum AriaDummyOrchestrator {
 
     // MARK: - Lane humanizers — strip DIE metric tables into companion speech
 
-    private static func humanizeRecover(_ raw: String, you: String, facts: AriaSpeechFacts, readiness: Int, coaching: CoachingStyle) -> String {
+    private static func humanizeRecover(_ raw: String, you: String, facts: AriaSpeechFacts, readiness: Int, coaching: CoachingStyle, life: AriaLifeRead) -> String {
         // If voice engine already sounds human (contains "I hear" or contraction + empathy), keep it.
         let lower = raw.lowercased()
         let alreadyHuman = lower.contains("i hear") || lower.contains("makes sense") || lower.contains("of course")
-        if alreadyHuman && raw.count > 40 { return softenMetrics(raw) }
+        if alreadyHuman && raw.count > 40 { return weaveStory(softenMetrics(raw), life: life) }
 
         let name = you.replacingOccurrences(of: " — ", with: "").trimmingCharacters(in: .whitespaces)
-        var rng = AriaSeededRNG(seed: UInt64(abs((name + "\(readiness)").hashValue)))
-        let sleep = facts.sleepHours.map { String(format: "%.1f", $0) } ?? ""
-        let weak = facts.sleepBand == .weak
+        var rng = AriaSeededRNG(seed: UInt64(abs((name + "\(readiness)" + (life.story ?? "")).hashValue)))
+        let weak = facts.sleepBand == .weak || life.felt == "thin" || life.felt == "spent" || life.lastNightLate
         let opener = name.isEmpty ? "" : rng.pick(["Hey \(name) — ", "\(name), ", "Hey \(name), "])
-        let empathy = weak
-            ? rng.pick(["I see last night was light on deep sleep —", "Last night was on the short side —", "Sleep was thin last night —"])
-            : rng.pick(["You got some solid sleep —", "Nice — you actually got to rebuild last night —", "Last night gave you something to work with —"])
+        let plot = life.spokenLine(rng: &rng)
+        let empathy = plot ?? (weak
+            ? rng.pick(["Last night was on the short side —", "Sleep was thin last night —", "The rebuild didn't quite land —"])
+            : rng.pick(["You actually got to rebuild last night —", "Last night gave you something to work with —", "Sleep did its job —"]))
         let body = weak
             ? rng.pick([
                 "so if today feels a little heavier, that makes sense. Let's not chase a hero day.",
@@ -235,8 +237,7 @@ enum AriaDummyOrchestrator {
         let invite = readiness < 55
             ? rng.pick(["Want a gentle reset or just a check-in? Your call.", "Want breathing + light movement, or just rest?"])
             : rng.pick(["Want a light, honest session or full rest? You choose.", "Want me to map something light, or keep it to a walk?"])
-        let sleepPart = sleep.isEmpty ? "" : "\(sleep)h. "
-        return "\(opener)\(empathy) \(sleepPart)\(body) \(invite)".replacingOccurrences(of: "  ", with: " ")
+        return "\(opener)\(empathy) \(body) \(invite)".replacingOccurrences(of: "  ", with: " ")
     }
 
     private static func humanizeFuel(_ raw: String, you: String) -> String {
@@ -279,12 +280,19 @@ enum AriaDummyOrchestrator {
         return out.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private static func humanFallback(you: String, readiness: Int, facts: AriaSpeechFacts, coaching: CoachingStyle) -> String {
+    private static func weaveStory(_ raw: String, life: AriaLifeRead) -> String {
+        guard let story = life.story, !story.isEmpty else { return raw }
+        if raw.localizedCaseInsensitiveContains(story) { return raw }
+        return "\(story) \(raw)"
+    }
+
+    private static func humanFallback(you: String, readiness: Int, facts: AriaSpeechFacts, coaching: CoachingStyle, life: AriaLifeRead) -> String {
         let name = you.replacingOccurrences(of: " — ", with: "").trimmingCharacters(in: .whitespaces)
-        var rng = AriaSeededRNG(seed: UInt64(abs((name + "\(readiness)" + "\(facts.sleepHours ?? 0)").hashValue)))
+        var rng = AriaSeededRNG(seed: UInt64(abs((name + "\(readiness)" + "\(facts.sleepHours ?? 0)" + (life.story ?? "")).hashValue)))
 
         // Sleep — spoken like a friend who noticed, not a sensor
         let sleepBit: String = {
+            if let plot = life.spokenLine(rng: &rng) { return plot }
             guard let h = facts.sleepHours else { return "" }
             let hrs = String(format: "%.1f", h)
             switch facts.sleepBand {

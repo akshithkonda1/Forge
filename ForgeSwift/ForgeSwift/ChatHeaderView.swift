@@ -68,7 +68,7 @@ struct ChatHeaderView: View {
                         Image(systemName: "checkmark.seal")
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(Color.steel)
-                        Text("Test-ready · not production")
+                        Text("On this phone · reading your month")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(Color.steel.opacity(0.9))
                     } else if ariaService.isLocalFallback {

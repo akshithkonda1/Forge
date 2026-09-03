@@ -198,10 +198,11 @@ struct HomeHeaderView: View {
                     updatedAt: store.lastMetricsRefresh
                 )
                 if store.usingTestReadyHealthPack {
-                    let personaName = AriaContextStore.shared.context.deepHabits.first?.title.lowercased() ?? "balanced"
-                    Text("Synthetic · \(personaName) · baseline HRV \(store.dailyMetrics.hrv > 0 ? Int(store.dailyMetrics.hrv) : 52)ms")
-                        .font(.system(size: 10, weight: .semibold))
+                    let life = AriaLifeRead.from(tags: AriaContextStore.shared.context.lifestyleTags)
+                    Text(life.story ?? "ARIA already has this month.")
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.textTertiary)
+                        .lineLimit(2)
                         .padding(.top, 2)
                 } else if let habit = AriaContextStore.shared.context.deepHabits.first {
                     Text("\(habit.category.rawValue.capitalized) · \(habit.evidence)")

@@ -205,19 +205,25 @@ enum HomeARIABriefingBuilder {
         // could lose a coin flip to filler ("Still aligned to strength"). It also
         // reshuffled the whole briefing whenever readiness moved a single point.
         var beats: [BriefingBeat] = []
+        let life = context.lifeRead
+        if let story = life.story, !story.isEmpty {
+            let heavy = life.felt == "spent" || life.felt == "thin" || life.lastNightLate || life.lastNightDrinks >= 3
+            beats.append(.init(text: story, priority: heavy ? .urgent : .timely))
+        }
 
         // --- Recovery signals. A deficit outranks a confirmation: being told
         //     something is wrong is more actionable than being told it is fine.
+        //     Spoken as a read, not a HUD — the number lives in Sleep if they want it.
         if store.readiness.sleepQuality < 60 {
-            beats.append(.init(text: "Deep sleep was only \(deepStr) — recovery may lag.", priority: .urgent))
-        } else if store.readiness.sleepQuality >= 80 {
+            beats.append(.init(text: "Last night didn't fully pay you back — I'd keep today kind.", priority: .urgent))
+        } else if store.readiness.sleepQuality >= 80, life.story == nil {
             beats.append(.init(text: "Deep sleep looked solid (\(deepStr)).", priority: .confirming))
         }
-        if store.dailyMetrics.hrv > 0 {
+        if store.dailyMetrics.hrv > 0, life.story == nil {
             if store.dailyMetrics.hrv < 40 {
-                beats.append(.init(text: "HRV is low at \(store.dailyMetrics.hrv)ms.", priority: .urgent))
+                beats.append(.init(text: "Your system's still catching up — don't add a hero day on top.", priority: .urgent))
             } else if store.dailyMetrics.hrv >= 50 {
-                beats.append(.init(text: "HRV holding at \(store.dailyMetrics.hrv)ms.", priority: .confirming))
+                beats.append(.init(text: "Recovery is holding. You've got something to spend if you want it.", priority: .confirming))
             }
         }
 
