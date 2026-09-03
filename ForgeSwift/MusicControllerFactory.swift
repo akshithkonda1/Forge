@@ -1,5 +1,6 @@
 import SwiftUI
 import MediaPlayer
+import MusicKit
 import Combine
 
 // MARK: - Music Service
@@ -27,6 +28,14 @@ struct NowPlayingTrack: Equatable {
     let artist: String
     let bpm: Int?
     let isPlaying: Bool
+    let artworkURL: URL?
+
+    static func == (lhs: NowPlayingTrack, rhs: NowPlayingTrack) -> Bool {
+        lhs.title == rhs.title &&
+        lhs.artist == rhs.artist &&
+        lhs.bpm == rhs.bpm &&
+        lhs.isPlaying == rhs.isPlaying
+    }
 }
 
 // MARK: - Protocol & Type Erasure
@@ -60,20 +69,16 @@ struct NowPlayingTrack: Equatable {
 
     init<C>(_ base: C) where C: MusicControlling {
         self.service = base.service
-        
-        // Set initial values
+
         self.nowPlaying = base.nowPlaying
         self.isAuthorized = base.isAuthorized
 
-        // Initialize closures
         self._refresh = { base.refresh() }
         self._requestAccess = { await base.requestAccess() }
         self._togglePlayPause = { base.togglePlayPause() }
         self._skipForward = { base.skipForward() }
         self._skipBack = { base.skipBack() }
-        
-        // Mirror base's publishers into our own @Published vars
-        // (Now that all stored properties are initialized)
+
         base.objectWillChange
             .sink { [weak self] _ in
                 self?.nowPlaying = base.nowPlaying
@@ -87,20 +92,6 @@ struct NowPlayingTrack: Equatable {
     func togglePlayPause() { _togglePlayPause() }
     func skipForward() { _skipForward() }
     func skipBack() { _skipBack() }
-}
-
-// Convenience to expose KeyPath publisher from any ObservableObject
-private extension ObservableObject {
-    func publisher<Value>(for keyPath: KeyPath<Self, Value>) -> AnyPublisher<Value, Never> {
-        // This uses Combine's mirror to emit values when objectWillChange fires
-        // and then map to the latest value at subscription time and on each change.
-        let initial = Just(self[keyPath: keyPath]).eraseToAnyPublisher()
-        let changes = objectWillChange
-            .map { [weak self] _ in self?[keyPath: keyPath] }
-            .compactMap { $0 }
-            .eraseToAnyPublisher()
-        return initial.merge(with: changes).eraseToAnyPublisher()
-    }
 }
 
 // MARK: - Concrete Apple Music Controller
@@ -118,32 +109,51 @@ final class AppleMusicController: ObservableObject, MusicControlling {
     }
 
     func refresh() {
-        isAuthorized = MPMediaLibrary.authorizationStatus() == .authorized
-        if isAuthorized { updateNowPlaying() }
+        let mpOK = MPMediaLibrary.authorizationStatus() == .authorized
+        let mkOK = MusicAuthorization.currentStatus == .authorized
+        isAuthorized = mpOK && mkOK
+        if mpOK { Task { await updateNowPlaying() } }
     }
 
     func requestAccess() async {
-        let status = await MPMediaLibrary.requestAuthorization()
-        isAuthorized = status == .authorized
-        if isAuthorized { updateNowPlaying() }
+        async let mpStatus = MPMediaLibrary.requestAuthorization()
+        async let mkStatus = MusicAuthorization.request()
+        let (mp, mk) = await (mpStatus, mkStatus)
+        isAuthorized = (mp == .authorized) && (mk == .authorized)
+        if mp == .authorized { await updateNowPlaying() }
     }
 
     func togglePlayPause() {
         player.playbackState == .playing ? player.pause() : player.play()
-        updateNowPlaying()
+        Task { await updateNowPlaying() }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
-    func skipForward() { player.skipToNextItem(); updateNowPlaying() }
-    func skipBack()    { player.skipToPreviousItem(); updateNowPlaying() }
+    func skipForward() { player.skipToNextItem(); Task { await updateNowPlaying() } }
+    func skipBack()    { player.skipToPreviousItem(); Task { await updateNowPlaying() } }
 
-    private func updateNowPlaying() {
+    private func updateNowPlaying() async {
         guard let item = player.nowPlayingItem else { nowPlaying = nil; return }
+
+        var artworkURL: URL? = nil
+        let storeID = item.playbackStoreID
+        if !storeID.isEmpty, MusicAuthorization.currentStatus == .authorized {
+            do {
+                let request = MusicCatalogResourceRequest<Song>(
+                    matching: \.id,
+                    equalTo: MusicItemID(storeID)
+                )
+                let response = try await request.response()
+                artworkURL = response.items.first?.artwork?.url(width: 88, height: 88)
+            } catch { }
+        }
+
         nowPlaying = NowPlayingTrack(
-            title:     item.title  ?? "Unknown",
-            artist:    item.artist ?? "Unknown Artist",
-            bpm:       item.beatsPerMinute > 0 ? item.beatsPerMinute : nil,
-            isPlaying: player.playbackState == .playing
+            title:      item.title  ?? "Unknown",
+            artist:     item.artist ?? "Unknown Artist",
+            bpm:        item.beatsPerMinute > 0 ? item.beatsPerMinute : nil,
+            isPlaying:  player.playbackState == .playing,
+            artworkURL: artworkURL
         )
     }
 }
@@ -159,4 +169,3 @@ enum MusicControllerFactory {
         }
     }
 }
-
