@@ -98,9 +98,13 @@ struct ChatView: View {
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(.textTertiary)
                         }
-                        .padding(12)
-                        .background(Color.ember.opacity(0.12))
-                        .cornerRadius(14)
+                        .padding(14)
+                        .background(Color.ember.opacity(0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                                .stroke(Color.ember.opacity(0.22), lineWidth: 1)
+                        )
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 16)

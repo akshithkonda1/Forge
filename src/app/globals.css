@@ -158,6 +158,38 @@
   }
 }
 
+@keyframes aria-orb-glow {
+  0%,
+  100% {
+    opacity: 0.16;
+  }
+  50% {
+    opacity: 0.36;
+  }
+}
+
+@keyframes aria-orb-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+.aria-orb-glow {
+  animation: aria-orb-glow 2.8s ease-in-out infinite;
+}
+
+.aria-orb-breathe {
+  animation: aria-orb-breathe 3s ease-in-out infinite;
+}
+
+.aria-orb-breathe-speak {
+  animation: aria-orb-breathe 1.15s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -59,8 +59,9 @@ struct AriaInterviewLayout: View {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.textSecondary)
-                            .frame(width: 32, height: 32)
+                            .frame(width: 36, height: 36)
                             .background(Circle().fill(Color.white.opacity(0.06)))
+                            .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Back")
@@ -105,19 +106,24 @@ struct AriaInterviewLayout: View {
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.08)).frame(height: 3)
+                    Capsule().fill(Color.white.opacity(0.08)).frame(height: 4)
                     Capsule()
                         .fill(FDS.Gradient.ember)
-                        .frame(width: max(8, geo.size.width * coordinator.progress), height: 3)
-                        .shadow(color: Color.ember.opacity(0.4), radius: 4, y: 0)
+                        .frame(width: max(10, geo.size.width * coordinator.progress), height: 4)
+                        .shadow(color: Color.ember.opacity(0.45), radius: 5, y: 0)
                         .animation(FDS.Spring.standard, value: coordinator.progress)
                 }
             }
-            .frame(height: 3)
+            .frame(height: 4)
         }
         .padding(.horizontal, FDS.Spacing.xl)
         .padding(.top, 8)
-        .padding(.bottom, 6)
+        .padding(.bottom, 10)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.white.opacity(0.08))
+                .frame(height: 0.5)
+        }
     }
 
     private var transcript: some View {
@@ -183,8 +189,8 @@ struct AriaInterviewLayout: View {
                 topTrailingRadius: 28,
                 style: .continuous
             )
-            .fill(Color.surface.opacity(0.94))
-            .overlay(alignment: .top) {
+            .fill(Color.surface.opacity(0.96))
+            .overlay {
                 UnevenRoundedRectangle(
                     topLeadingRadius: 28,
                     bottomLeadingRadius: 0,
@@ -192,7 +198,14 @@ struct AriaInterviewLayout: View {
                     topTrailingRadius: 28,
                     style: .continuous
                 )
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.14), Color.white.opacity(0.04)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
             }
             .shadow(color: .black.opacity(0.45), radius: 28, y: -12)
         }

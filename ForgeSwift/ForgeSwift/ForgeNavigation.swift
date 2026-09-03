@@ -140,7 +140,7 @@ struct ForgePageHeader: View {
                     .foregroundColor(.textPrimary)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundColor(.textSecondary)
                 }
             }
@@ -172,18 +172,18 @@ struct ForgeEmptyStateCard: View {
                     .foregroundStyle(accent)
             }
             Text(title)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(.textPrimary)
                 .multilineTextAlignment(.center)
             Text(message)
-                .font(.system(size: 14))
+                .font(.system(size: 14, weight: .regular, design: .rounded))
                 .foregroundColor(.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
             if let cta, let action {
                 Button(action: action) {
                     Text(cta)
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .padding(.horizontal, 22)
                         .padding(.vertical, 14)
@@ -195,6 +195,8 @@ struct ForgeEmptyStateCard: View {
                             )
                         )
                         .clipShape(Capsule())
+                        .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 1))
+                        .shadow(color: accent.opacity(0.32), radius: 10, y: 4)
                 }
                 .buttonStyle(.plain)
             }

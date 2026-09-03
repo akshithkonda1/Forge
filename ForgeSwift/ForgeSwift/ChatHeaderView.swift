@@ -44,9 +44,9 @@ struct ChatHeaderView: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text("ARIA")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
                         .foregroundColor(.textPrimary)
-                        .tracking(0.3)
+                        .tracking(0.8)
                     if store.lastCoachWorkers.count > 1 {
                         Text("· " + store.lastCoachWorkers.map(\.kind.label).joined(separator: " + "))
                             .font(.system(size: 13, weight: .medium))
@@ -68,7 +68,7 @@ struct ChatHeaderView: View {
                         Image(systemName: "checkmark.seal")
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(Color.steel)
-                        Text("Test-ready · not production")
+                        Text("On this phone · reading your month")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(Color.steel.opacity(0.9))
                     } else if ariaService.isLocalFallback {
@@ -95,31 +95,33 @@ struct ChatHeaderView: View {
                 HStack(spacing: 5) {
                     Circle()
                         .fill(scoreColor)
-                        .frame(width: 7, height: 7)
-                        .shadow(color: scoreColor.opacity(0.7), radius: 4)
+                        .frame(width: 6, height: 6)
+                        .shadow(color: scoreColor.opacity(0.55), radius: 3)
                     Text("\(store.readiness.overall)")
-                        .font(.system(size: 15, weight: .black, design: .rounded))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(.textPrimary)
                 }
                 Text("ready")
-                    .font(.system(size: 9, weight: .bold))
-                    .tracking(1)
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .tracking(1.2)
                     .foregroundColor(.textMuted)
                     .textCase(.uppercase)
             }
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .background {
-                ZStack {
-                    Capsule().fill(Color.surfaceElevated.opacity(0.95))
-                    Capsule().stroke(Color.borderHairline, lineWidth: 1)
-                }
-            }
-            .overlay(Capsule().stroke(scoreColor.opacity(0.35), lineWidth: 1))
-            .shadow(color: scoreColor.opacity(0.2), radius: 8, y: 3)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.05))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(scoreColor.opacity(0.28), lineWidth: 1))
         }
-        .padding(.horizontal, 18).padding(.vertical, 12)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
         .background(.ultraThinMaterial)
-        .overlay(Rectangle().fill(Color.borderColor.opacity(0.3)).frame(height: 0.5), alignment: .bottom)
+        .overlay(
+            Rectangle()
+                .fill(Color.white.opacity(0.10))
+                .frame(height: 0.5),
+            alignment: .bottom
+        )
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : -10)
         .onAppear { withAnimation(FDS.Spring.hero.delay(0.05)) { appeared = true } }

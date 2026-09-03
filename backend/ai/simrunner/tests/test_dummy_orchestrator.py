@@ -143,6 +143,37 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertTrue(row["prose_summary"])
         self.assertEqual(row["message"], row["prose_summary"])
 
+    def test_humanized_prose_does_not_dump_fields(self):
+        # The stub used to splice `_context_phrase` ("Readiness is 96, HRV 52ms")
+        # into the chat. The dummy orchestra must rewrite that before a person
+        # (or voice-check) sees it.
+        row = dummy.respond("How did I sleep last night?", seed=42)
+        prose = row["prose_summary"]
+        self.assertNotRegex(prose, r"Readiness is \d")
+        self.assertNotRegex(prose, r"\bHRV \d")
+        self.assertNotRegex(prose, r"\bACWR ")
+        self.assertNotIn("sleep debt", prose.lower())
+        self.assertTrue(prose.strip())
+        self.assertIn(row["voice_diagnosis"]["verdict"], ("human", "mixed"))
+        self.assertNotEqual(row["voice_diagnosis"]["verdict"], "data_driven")
+
+    def test_default_voice_check_turns_are_not_data_driven(self):
+        report = dummy.run_voice_diagnostics(seed=42)
+        for turn in report["turns"]:
+            self.assertNotEqual(
+                turn["verdict"],
+                "data_driven",
+                f"{turn['message']!r} still reads as a field dump: {turn['reply']!r}",
+            )
+        self.assertEqual(report["summary"]["data_driven"], 0)
+
+    def test_supporting_briefs_are_sentences_not_huds(self):
+        row = dummy.respond("I slept badly — what should I train and eat?", seed=1)
+        self.assertNotRegex(row["message"], r"Recovery · ")
+        self.assertNotRegex(row["message"], r"HRV \d+ms")
+        self.assertIn("thinking", row)
+        self.assertTrue(row["thinking"])
+
     def test_respond_includes_a_voice_diagnosis(self):
         row = dummy.respond("How did I sleep last night?", seed=42)
         diag = row["voice_diagnosis"]

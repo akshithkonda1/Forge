@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import type { FitnessGoal, ExperienceLevel, WorkoutType } from "@/types";
@@ -56,20 +55,6 @@ const workoutTypes: { value: WorkoutType; label: string }[] = [
   { value: "mobility", label: "Mobility" },
   { value: "sport-specific", label: "Sport-Specific" },
 ];
-
-const sectionVariants = {
-  enter: { opacity: 0, x: 30 },
-  center: {
-    opacity: 1,
-    x: 0,
-    transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const },
-  },
-  exit: {
-    opacity: 0,
-    x: -30,
-    transition: { duration: 0.3, ease: "easeIn" as const },
-  },
-};
 
 export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
   const updateProfile = useAppStore((s) => s.updateProfile);
@@ -158,16 +143,8 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
 
       {/* Content area */}
       <div className="flex flex-1 flex-col">
-        <AnimatePresence mode="wait">
           {section === 0 && (
-            <motion.div
-              key="name"
-              variants={sectionVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="flex flex-1 flex-col pt-4"
-            >
+            <div className="flex flex-1 flex-col pt-4">
               <h2 className="mb-2 text-3xl font-bold text-text-primary">
                 What should ARIA call you?
               </h2>
@@ -190,18 +167,11 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                   if (e.key === "Enter" && canProceed()) handleContinue();
                 }}
               />
-            </motion.div>
+            </div>
           )}
 
           {section === 1 && (
-            <motion.div
-              key="goals"
-              variants={sectionVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="flex flex-1 flex-col pt-12"
-            >
+            <div className="flex flex-1 flex-col pt-12">
               <h2 className="mb-2 text-3xl font-bold text-text-primary">
                 What are your fitness goals?
               </h2>
@@ -212,36 +182,28 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                 {fitnessGoals.map((goal) => {
                   const selected = selectedGoals.includes(goal.value);
                   return (
-                    <motion.button
+                    <button
                       key={goal.value}
+                      type="button"
                       onClick={() => toggleGoal(goal.value)}
                       className={cn(
                         "rounded-full border px-5 py-2.5 text-sm font-medium",
-                        "transition-all duration-200",
+                        "transition-colors duration-150",
                         selected
                           ? "border-ember bg-ember/15 text-ember"
                           : "border-border bg-surface text-text-secondary hover:border-border-light hover:text-text-primary"
                       )}
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
                     >
                       {goal.label}
-                    </motion.button>
+                    </button>
                   );
                 })}
               </div>
-            </motion.div>
+            </div>
           )}
 
           {section === 2 && (
-            <motion.div
-              key="experience"
-              variants={sectionVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="flex flex-1 flex-col pt-12"
-            >
+            <div className="flex flex-1 flex-col pt-12">
               <h2 className="mb-2 text-3xl font-bold text-text-primary">
                 Experience level?
               </h2>
@@ -252,18 +214,17 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                 {experienceLevels.map((level) => {
                   const selected = experienceLevel === level.value;
                   return (
-                    <motion.button
+                    <button
                       key={level.value}
+                      type="button"
                       onClick={() => setExperienceLevel(level.value)}
                       className={cn(
                         "flex flex-col items-start rounded-xl border p-4 text-left",
-                        "transition-all duration-200",
+                        "transition-colors duration-150",
                         selected
-                          ? "border-ember bg-ember/10 shadow-[0_0_20px_rgba(255,77,0,0.1)]"
+                          ? "border-ember bg-ember/10"
                           : "border-border bg-surface hover:border-border-light"
                       )}
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
                     >
                       <span
                         className={cn(
@@ -276,22 +237,15 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                       <span className="mt-1 text-sm text-text-tertiary">
                         {level.description}
                       </span>
-                    </motion.button>
+                    </button>
                   );
                 })}
               </div>
-            </motion.div>
+            </div>
           )}
 
           {section === 3 && (
-            <motion.div
-              key="workouts"
-              variants={sectionVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="flex flex-1 flex-col pt-12"
-            >
+            <div className="flex flex-1 flex-col pt-12">
               <h2 className="mb-2 text-3xl font-bold text-text-primary">
                 Preferred workout types?
               </h2>
@@ -302,27 +256,25 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                 {workoutTypes.map((type) => {
                   const selected = selectedWorkouts.includes(type.value);
                   return (
-                    <motion.button
+                    <button
                       key={type.value}
+                      type="button"
                       onClick={() => toggleWorkout(type.value)}
                       className={cn(
                         "rounded-full border px-5 py-2.5 text-sm font-medium",
-                        "transition-all duration-200",
+                        "transition-colors duration-150",
                         selected
                           ? "border-ember bg-ember/15 text-ember"
                           : "border-border bg-surface text-text-secondary hover:border-border-light hover:text-text-primary"
                       )}
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
                     >
                       {type.label}
-                    </motion.button>
+                    </button>
                   );
                 })}
               </div>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
       </div>
 
       <div className="mt-8 flex gap-2">
@@ -338,12 +290,12 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
             Back
           </button>
         )}
-      <motion.button
+      <button
+        type="button"
         onClick={handleContinue}
         disabled={!canProceed()}
         className={cn(
           "w-full flex-1 rounded-xl px-8 py-4 text-lg font-semibold text-white",
-          "transition-all duration-300",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-ember focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           "disabled:cursor-not-allowed disabled:opacity-40"
         )}
@@ -352,11 +304,9 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
             ? "linear-gradient(135deg, #FF4D00, #FF6B2B)"
             : "#2A2A2A",
         }}
-        whileHover={canProceed() ? { scale: 1.02, boxShadow: "0 0 30px rgba(255,77,0,0.4)" } : {}}
-        whileTap={canProceed() ? { scale: 0.98 } : {}}
       >
         Continue
-      </motion.button>
+      </button>
       </div>
     </div>
   );

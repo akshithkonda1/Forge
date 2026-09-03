@@ -126,7 +126,6 @@ struct MainTabView: View {
     @EnvironmentObject var store: AppStore
     @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
     @Namespace private var namespace
-    @State private var previousTab: TabItem = .home
     /// Cycle Health is hosted on the shell so Profile/Settings deep links always work
     /// even when Home is not the active tab content.
     @State private var showCycleHealth = false
@@ -165,19 +164,11 @@ struct MainTabView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .transition(.asymmetric(
-                insertion: .move(edge: tabTransitionEdge(from: previousTab, to: store.activeTab))
-                    .combined(with: .opacity),
-                removal: .move(edge: tabTransitionEdge(from: store.activeTab, to: previousTab))
-                    .combined(with: .opacity)
-            ))
-            .animation(FDS.Spring.page, value: store.activeTab)
+            .transition(.opacity)
+            .animation(.easeOut(duration: 0.12), value: store.activeTab)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 ForgeBottomNav(namespace: namespace)
             }
-        }
-        .onChange(of: store.activeTab) { old, new in
-            previousTab = old
         }
         .onChange(of: store.pendingCycleHealthOpen) { _, open in
             guard open else { return }
@@ -253,15 +244,6 @@ struct MainTabView: View {
         store.pendingCyclePane = nil
     }
     
-    private func tabTransitionEdge(from: TabItem, to: TabItem) -> Edge {
-        // ARIA is the true center tab (index 3 of 7).
-        let tabs: [TabItem] = [.home, .workout, .lifestyle, .chat, .sleep, .progress, .profile]
-        guard let fromIndex = tabs.firstIndex(of: from),
-              let toIndex = tabs.firstIndex(of: to) else {
-            return .trailing
-        }
-        return toIndex > fromIndex ? .trailing : .leading
-    }
 }
 
 // MARK: - Bottom Navigation
@@ -284,16 +266,34 @@ struct ForgeBottomNav: View {
                 }
             }
         }
-        .padding(.top, 6)
-        .padding(.bottom, 4)
-        .padding(.horizontal, 2)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
+        .padding(.horizontal, 4)
         .background {
             ZStack(alignment: .top) {
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 22,
+                    bottomLeadingRadius: 0,
+                    bottomTrailingRadius: 0,
+                    topTrailingRadius: 22,
+                    style: .continuous
+                )
+                .fill(.ultraThinMaterial)
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 22,
+                    bottomLeadingRadius: 0,
+                    bottomTrailingRadius: 0,
+                    topTrailingRadius: 22,
+                    style: .continuous
+                )
+                .fill(Color.background.opacity(0.52))
+                LinearGradient(
+                    colors: [Color.white.opacity(0.08), Color.clear],
+                    startPoint: .top,
+                    endPoint: .center
+                )
                 Rectangle()
-                    .fill(.ultraThinMaterial)
-                Color.background.opacity(0.55)
-                Rectangle()
-                    .fill(Color.white.opacity(0.08))
+                    .fill(Color.white.opacity(0.12))
                     .frame(height: 0.5)
                     .frame(maxHeight: .infinity, alignment: .top)
             }
@@ -322,13 +322,14 @@ struct RegularForgeTab: View {
                 ZStack(alignment: .bottom) {
                     Image(systemName: isActive ? tab.systemImageFilled : tab.systemImage)
                         .font(.system(size: 18, weight: isActive ? .semibold : .regular))
-                        .foregroundStyle(isActive ? Color.ember : Color.white.opacity(0.42))
+                        .foregroundStyle(isActive ? Color.ember : Color.white.opacity(0.38))
+                        .shadow(color: isActive ? Color.ember.opacity(0.45) : .clear, radius: 6, y: 0)
                         .frame(height: 22)
                         .symbolRenderingMode(.hierarchical)
                     if isActive {
                         Capsule()
-                            .fill(Color.ember)
-                            .frame(width: 12, height: 2)
+                            .fill(FDS.Gradient.ember)
+                            .frame(width: 14, height: 2.5)
                             .offset(y: 4)
                             .matchedGeometryEffect(id: "tab-dot", in: namespace)
                     }
@@ -339,7 +340,7 @@ struct RegularForgeTab: View {
                     .tracking(0.2)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                    .foregroundStyle(isActive ? Color.ember : Color.white.opacity(0.42))
+                    .foregroundStyle(isActive ? Color.ember : Color.white.opacity(0.38))
             }
             .frame(maxWidth: .infinity)
             .frame(height: 48)
@@ -370,13 +371,26 @@ struct ARIATabButton: View {
             VStack(spacing: 2) {
                 ZStack {
                     Circle()
-                        .fill((isVoiceMode ? Color.steel : Color.ember).opacity(0.22))
-                        .frame(width: 48, height: 48)
-                        .shadow(color: (isVoiceMode ? Color.steel : Color.ember).opacity(0.4), radius: 10, y: 3)
+                        .fill((isVoiceMode ? Color.steel : Color.ember).opacity(0.18))
+                        .frame(width: 52, height: 52)
+                        .shadow(color: (isVoiceMode ? Color.steel : Color.ember).opacity(isActive ? 0.5 : 0.28), radius: 12, y: 4)
+                    Circle()
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    (isVoiceMode ? Color.steelLight : Color.emberLight).opacity(0.7),
+                                    (isVoiceMode ? Color.steel : Color.ember).opacity(0.2)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 1.4
+                        )
+                        .frame(width: 52, height: 52)
                     ARIAIdentityMark(
-                        state: isVoiceMode ? .listening : .idle,
+                        state: isVoiceMode ? .listening : (isActive ? .idle : .idle),
                         mood: isVoiceMode ? .focused : .energized,
-                        size: 40,
+                        size: 42,
                         amplitude: isVoiceMode ? 0.4 : 0.18
                     )
                 }

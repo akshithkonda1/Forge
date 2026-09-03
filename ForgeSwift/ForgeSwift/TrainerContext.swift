@@ -93,6 +93,63 @@ struct TrainerContext {
     }
 }
 
+/// The human plot the Test-Ready pack (or a real month) already wrote —
+/// persona, how the morning felt, the sentence that ties last night to
+/// today's body. Tags carry it; this is what ARIA actually says.
+struct AriaLifeRead: Equatable {
+    var persona: String?
+    var felt: String?
+    var story: String?
+    var lastNightKind: String?
+    var lastNightDrinks: Int = 0
+    var lastNightLate: Bool = false
+
+    var hasEvening: Bool { lastNightKind != nil || lastNightLate || lastNightDrinks > 0 }
+
+    static func from(tags: [String]) -> AriaLifeRead {
+        var read = AriaLifeRead()
+        for tag in tags {
+            if tag.hasPrefix("persona:") {
+                read.persona = String(tag.dropFirst("persona:".count))
+            } else if tag.hasPrefix("felt:") {
+                read.felt = String(tag.dropFirst("felt:".count))
+            } else if tag.hasPrefix("story:") {
+                read.story = String(tag.dropFirst("story:".count))
+            } else if tag.hasPrefix("lastnight:drinks:") {
+                read.lastNightDrinks = Int(tag.dropFirst("lastnight:drinks:".count)) ?? 0
+            } else if tag == "lastnight:late" {
+                read.lastNightLate = true
+            } else if tag.hasPrefix("lastnight:"), !tag.hasPrefix("lastnight:drinks:") {
+                read.lastNightKind = String(tag.dropFirst("lastnight:".count))
+            }
+        }
+        return read
+    }
+
+    /// A companion sentence. Prefers the pack's own story so ARIA never
+    /// invents an evening the numbers contradict.
+    func spokenLine(rng: inout AriaSeededRNG) -> String? {
+        if let story, !story.isEmpty { return story }
+        if lastNightLate || lastNightDrinks >= 3 {
+            return rng.pick([
+                "Last night ran late — the morning is still paying for it.",
+                "The evening went long, so if today feels heavier, that tracks.",
+            ])
+        }
+        if let felt, felt == "thin" || felt == "spent" || felt == "groggy" {
+            return rng.pick([
+                "The morning feels \(felt) — we'll work with that, not against it.",
+                "You're coming in \(felt). That's information, not a verdict.",
+            ])
+        }
+        return nil
+    }
+}
+
+extension TrainerContext {
+    var lifeRead: AriaLifeRead { AriaLifeRead.from(tags: lifestyleTags) }
+}
+
 struct TrainerResponse {
     let content: String
     let richCard: RichCardData?

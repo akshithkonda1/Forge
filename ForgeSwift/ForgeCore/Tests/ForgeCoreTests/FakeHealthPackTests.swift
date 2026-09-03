@@ -206,4 +206,40 @@ final class FakeHealthPackTests: XCTestCase {
         let allMarkers: [FakeLifestyleMarker] = pack.days.flatMap(\.markers)
         XCTAssertTrue(allMarkers.contains { $0.kind == .gym })
     }
+
+    func testPersonaIsAKnownHumanShape() {
+        let pack = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
+        XCTAssertTrue(FakeHealthPack.personaLabels.contains(pack.personaLabel))
+        XCTAssertTrue(pack.days.allSatisfy { !$0.storyLine.isEmpty }, "every day needs a sentence ARIA can say")
+        XCTAssertTrue(pack.days.allSatisfy { !$0.felt.isEmpty })
+    }
+
+    func testPinnedPersonaActuallyMovesTheBody() {
+        // Same seed, same month-shape, different humans. If athlete and
+        // stressed produce the same HRV curve the label is still a sticker.
+        let athlete = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 41, persona: "athlete")
+        let stressed = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 41, persona: "stressed")
+        XCTAssertEqual(athlete.personaLabel, "athlete")
+        XCTAssertEqual(stressed.personaLabel, "stressed")
+        let athleteHRV = athlete.days.map(\.hrvMs).reduce(0, +)
+        let stressedHRV = stressed.days.map(\.hrvMs).reduce(0, +)
+        XCTAssertGreaterThan(athleteHRV, stressedHRV, "athlete baseline must sit above a stressed month")
+        let athleteSteps = athlete.days.map(\.steps).reduce(0, +)
+        let stressedSteps = stressed.days.map(\.steps).reduce(0, +)
+        XCTAssertGreaterThan(athleteSteps, stressedSteps)
+    }
+
+    func testStoryFollowsTheNightItDescribes() {
+        let pack = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 41, persona: "balanced")
+        for day in pack.days {
+            if let event = day.social.first, event.drinks >= 3 || event.ranLate {
+                XCTAssertTrue(
+                    day.storyLine.localizedCaseInsensitiveContains(event.title)
+                        || day.felt == "spent",
+                    "a late/drinking night must show up in the story, not as a quiet rebuild"
+                )
+                XCTAssertFalse(day.storyLine.localizedCaseInsensitiveContains("actual rebuild"))
+            }
+        }
+    }
 }

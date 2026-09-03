@@ -116,6 +116,10 @@ public struct FakeHealthDay: Sendable, Equatable {
     public var markers: [FakeLifestyleMarker]
     /// What was on the evening that precedes this day's night. Usually empty.
     public var social: [FakeSocialEvent]
+    /// How the morning felt — a word ARIA can say without citing a sensor.
+    public var felt: String
+    /// One human sentence that ties the evening, the night, and the body together.
+    public var storyLine: String
 
     public init(
         dayStart: Date,
@@ -129,7 +133,9 @@ public struct FakeHealthDay: Sendable, Equatable {
         hydrationMl: Double,
         workout: FakeHealthWorkout?,
         markers: [FakeLifestyleMarker] = [],
-        social: [FakeSocialEvent] = []
+        social: [FakeSocialEvent] = [],
+        felt: String = "steady",
+        storyLine: String = ""
     ) {
         self.dayStart = dayStart
         self.isoDate = isoDate
@@ -143,6 +149,8 @@ public struct FakeHealthDay: Sendable, Equatable {
         self.workout = workout
         self.markers = markers
         self.social = social
+        self.felt = felt
+        self.storyLine = storyLine
     }
 }
 
@@ -157,6 +165,11 @@ public struct FakeHealthPack: Sendable, Equatable {
 
     /// Which synthetic persona this pack was built from — lets ARIA see a different human each launch.
     public var personaLabel: String = "balanced"
+
+    /// Personas the generator can actually embody — not just label.
+    public static let personaLabels = [
+        "balanced", "athlete", "stressed", "nightOwl", "lightSleeper", "highEnergy",
+    ]
 
     public init(days: [FakeHealthDay], generatedAt: Date, seed: Int, personaLabel: String = "balanced") {
         self.days = days
@@ -217,30 +230,73 @@ public struct FakeHealthPack: Sendable, Equatable {
         now: Date = Date(),
         calendar: Calendar = .current,
         days: Int = dayCount,
-        seed: Int? = nil
+        seed: Int? = nil,
+        persona: String? = nil
     ) -> FakeHealthPack {
         let effectiveSeed = seed ?? dynamicSeed(now: now)
         var rng = SplitMix64(seed: UInt64(truncatingIfNeeded: effectiveSeed))
         let count = max(7, days)
         let todayStart = calendar.startOfDay(for: now)
         let plan = DayPlan(count: count, rng: &rng)
-        // Persona for this pack — a different human each launch when seed is dynamic.
-        // Kept lightweight: pick a label from the same rng so tests with explicit seed stay deterministic.
-        let personas = ["balanced", "athlete", "stressed", "nightOwl", "lightSleeper", "highEnergy"]
-        let personaLabel = personas[rng.int(0..<personas.count)]
-        // Nudge HRV/RHR baselines per persona via a quick bias that makeDay reads through the rng stream.
-        // We prime the rng with one extra draw per persona so the downstream DayPlan + makeDay values shift.
-        _ = rng.next()
+        // Persona is a real human shape, not a sticker. An explicit pin is
+        // for tests; otherwise the seed picks one so each launch can be a
+        // different body without breaking determinism.
+        let personaLabel: String = {
+            if let persona, personaLabels.contains(persona) { return persona }
+            return personaLabels[rng.int(0..<personaLabels.count)]
+        }()
+        let bias = PersonaBias.forLabel(personaLabel)
         var built: [FakeHealthDay] = []
         built.reserveCapacity(count)
 
         for offset in 0..<count {
             let dayStart = calendar.date(byAdding: .day, value: -offset, to: todayStart) ?? todayStart
             built.append(
-                makeDay(offset: offset, dayStart: dayStart, calendar: calendar, plan: plan, rng: &rng)
+                makeDay(
+                    offset: offset,
+                    dayStart: dayStart,
+                    calendar: calendar,
+                    plan: plan,
+                    bias: bias,
+                    rng: &rng
+                )
             )
         }
         return FakeHealthPack(days: built, generatedAt: now, seed: effectiveSeed, personaLabel: personaLabel)
+    }
+
+    // MARK: - Persona (the body, not the sticker)
+
+    /// Constant offsets a persona applies *after* the month's story is
+    /// planned. No extra rng here — short nights, late nights, and the
+    /// training week stay seed-shaped so the structural guarantees hold
+    /// for every persona. Athlete does not get to erase a planned short
+    /// night; stressed does not invent extra sessions.
+    fileprivate struct PersonaBias: Sendable {
+        var hrv: Int
+        var rhr: Int
+        var steps: Int
+        var calories: Int
+        var onsetHourShift: Int
+        var extraWake: Bool
+        var hydration: Double
+
+        static func forLabel(_ label: String) -> PersonaBias {
+            switch label {
+            case "athlete":
+                return PersonaBias(hrv: 10, rhr: -4, steps: 1_800, calories: 80, onsetHourShift: 0, extraWake: false, hydration: 200)
+            case "stressed":
+                return PersonaBias(hrv: -8, rhr: 5, steps: -400, calories: -20, onsetHourShift: 0, extraWake: true, hydration: -80)
+            case "nightOwl":
+                return PersonaBias(hrv: 0, rhr: 1, steps: 0, calories: 0, onsetHourShift: 1, extraWake: false, hydration: 0)
+            case "lightSleeper":
+                return PersonaBias(hrv: -3, rhr: 2, steps: 0, calories: 0, onsetHourShift: 0, extraWake: true, hydration: 0)
+            case "highEnergy":
+                return PersonaBias(hrv: 4, rhr: -1, steps: 2_200, calories: 90, onsetHourShift: 0, extraWake: false, hydration: 150)
+            default:
+                return PersonaBias(hrv: 0, rhr: 0, steps: 0, calories: 0, onsetHourShift: 0, extraWake: false, hydration: 0)
+            }
+        }
     }
 
     // MARK: - Shape of the month
@@ -302,6 +358,7 @@ public struct FakeHealthPack: Sendable, Equatable {
         dayStart: Date,
         calendar: Calendar,
         plan: DayPlan,
+        bias: PersonaBias,
         rng: inout SplitMix64
     ) -> FakeHealthDay {
         let weekday = calendar.component(.weekday, from: dayStart)   // 1 = Sunday
@@ -351,6 +408,10 @@ public struct FakeHealthPack: Sendable, Equatable {
         } else if isWeekend {
             onsetMinute = rng.int(20...55)
         }
+        // Night-owl later clock — never used to *invent* a short night.
+        if bias.onsetHourShift != 0, !shortNight, !lateNight {
+            onsetHour = (onsetHour + bias.onsetHourShift) % 24
+        }
 
         let onsetDay = (onsetHour >= 18)
             ? (calendar.date(byAdding: .day, value: -1, to: dayStart) ?? dayStart)
@@ -360,11 +421,16 @@ public struct FakeHealthPack: Sendable, Equatable {
         onsetParts.minute = onsetMinute
         let onset = calendar.date(from: onsetParts) ?? dayStart.addingTimeInterval(-8 * 3600)
 
-        let night = SleepNight(segments: nightSegments(onset: onset, asleepMinutes: asleepMinutes, rng: &rng))
+        let night = SleepNight(segments: nightSegments(
+            onset: onset,
+            asleepMinutes: asleepMinutes,
+            extraWake: bias.extraWake,
+            rng: &rng
+        ))
         let sleepScore = scoreNight(night)
 
-        var hrv = 52 + rng.int(-6...8)
-        var rhr = 58 + rng.int(-4...5)
+        var hrv = 52 + rng.int(-6...8) + bias.hrv
+        var rhr = 58 + rng.int(-4...5) + bias.rhr
         if shortNight || hardSessionYesterday {
             hrv -= rng.int(8...14)
             rhr += rng.int(3...7)
@@ -379,8 +445,8 @@ public struct FakeHealthPack: Sendable, Equatable {
         hrv = min(95, max(28, hrv))
         rhr = min(78, max(48, rhr))
 
-        var steps = 7_400 + rng.int(-1_800...2_600)
-        var calories = 380 + rng.int(-80...140)
+        var steps = 7_400 + rng.int(-1_800...2_600) + bias.steps
+        var calories = 380 + rng.int(-80...140) + bias.calories
         if let workout {
             steps += workout.type == .cardio || workout.type == .hiit ? 2_400 : 900
             calories += workout.durationMinutes * 6
@@ -392,7 +458,7 @@ public struct FakeHealthPack: Sendable, Equatable {
             steps = min(steps, 8_600)
         }
 
-        var hydration = Double(1_180 + rng.int(0...900))
+        var hydration = Double(1_180 + rng.int(0...900)) + bias.hydration
         if let social, social.drinks >= 2 { hydration -= Double(rng.int(80...260)) }
 
         let markers = dayMarkers(
@@ -403,6 +469,16 @@ public struct FakeHealthPack: Sendable, Equatable {
             workout: workout,
             social: social,
             rng: &rng
+        )
+
+        let (felt, storyLine) = feltAndStory(
+            offset: offset,
+            shortNight: shortNight,
+            lateNight: lateNight,
+            social: social,
+            workout: workout,
+            hrv: hrv,
+            sleepScore: sleepScore
         )
 
         return FakeHealthDay(
@@ -417,8 +493,45 @@ public struct FakeHealthPack: Sendable, Equatable {
             hydrationMl: max(600, hydration),
             workout: workout,
             markers: markers,
-            social: social.map { [$0] } ?? []
+            social: social.map { [$0] } ?? [],
+            felt: felt,
+            storyLine: storyLine
         )
+    }
+
+    /// A sentence a companion could say. Derived from the day's own facts so
+    /// it can never contradict the numbers ARIA is about to cite.
+    private static func feltAndStory(
+        offset: Int,
+        shortNight: Bool,
+        lateNight: Bool,
+        social: FakeSocialEvent?,
+        workout: FakeHealthWorkout?,
+        hrv: Int,
+        sleepScore: Int
+    ) -> (String, String) {
+        if let social {
+            if social.drinks >= 3 || social.ranLate {
+                return ("spent", "\(social.title) ran late — the night after is still paying for it.")
+            }
+            return ("social", "\(social.title) sat on the evening, and the night followed that shape.")
+        }
+        if shortNight {
+            return ("thin", "Sleep came up short, so the morning feels heavier than the calendar.")
+        }
+        if lateNight {
+            return ("groggy", "Bedtime drifted, which is why the morning feels a half-step behind.")
+        }
+        if let workout, workout.intensity == "high" {
+            return ("sore", "\(workout.name) was a real session — the body is still absorbing it.")
+        }
+        if sleepScore >= 85 && hrv >= 55 {
+            return ("rebuilt", "Quiet night, actual rebuild. This is the version of you that can train.")
+        }
+        if offset == 0 {
+            return ("steady", "Today is still being written — sleep is in, the rest is in motion.")
+        }
+        return ("steady", "An ordinary day — useful, not dramatic.")
     }
 
     // MARK: - Evenings
@@ -602,6 +715,7 @@ public struct FakeHealthPack: Sendable, Equatable {
     private static func nightSegments(
         onset: Date,
         asleepMinutes: Int,
+        extraWake: Bool = false,
         rng: inout SplitMix64
     ) -> [SleepStageSegment] {
         var cursor = onset
@@ -623,7 +737,7 @@ public struct FakeHealthPack: Sendable, Equatable {
             segments.append(segment(&cursor, minutes: rem, .rem))
             remaining -= rem
 
-            if cycle % 2 == 1, remaining > 20 {
+            if (cycle % 2 == 1 || extraWake), remaining > 20 {
                 let wake = Double(rng.int(4...8))
                 segments.append(segment(&cursor, minutes: wake, .awake))
             }

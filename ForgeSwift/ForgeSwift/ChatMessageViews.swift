@@ -71,7 +71,7 @@ struct DateSeparatorView: View {
         HStack(spacing: 10) {
             Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5)
             Text(label)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .foregroundColor(.textMuted)
                 .tracking(0.5)
                 .fixedSize()
@@ -161,15 +161,16 @@ struct MessageBubbleView: View {
                             UISelectionFeedbackGenerator().selectionChanged()
                         } label: {
                             Text(bodyText)
-                                .font(.system(size: 15.5, weight: .regular))
+                                .font(.system(size: 15.5, weight: .regular, design: .rounded))
                                 .foregroundColor(isTrainer ? .textPrimary : .white)
                                 .lineSpacing(4.5)
                                 .padding(.horizontal, 16).padding(.vertical, 13)
                                 .background(Group {
                                     if isTrainer {
                                         Color.surfaceElevated
+                                            .overlay(LinearGradient.premiumSurface)
                                             .overlay(ChatBubbleShape(isTrainer: true)
-                                                .stroke(Color.borderColor.opacity(0.3), lineWidth: 0.5))
+                                                .stroke(Color.white.opacity(0.10), lineWidth: 1))
                                     } else {
                                         FDS.Gradient.emberDeep
                                     }
@@ -433,7 +434,7 @@ struct TypingIndicatorView: View {
                 .padding(.horizontal, 18).padding(.vertical, 14)
                 .background(Color.surfaceElevated)
                 .clipShape(ChatBubbleShape(isTrainer: true))
-                .overlay(ChatBubbleShape(isTrainer: true).stroke(Color.borderColor.opacity(0.3), lineWidth: 0.5))
+                .overlay(ChatBubbleShape(isTrainer: true).stroke(Color.white.opacity(0.10), lineWidth: 1))
                 .shadow(color: stateColor.opacity(0.1), radius: 6, y: 2)
             }
             Spacer(minLength: 52)

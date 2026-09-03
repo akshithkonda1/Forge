@@ -12,6 +12,7 @@ enum AriaDummyOrchestrator {
         agent: AriaCoachAgent
     ) -> AriaResponse {
         let context = store.makeTrainerContext()
+        let life = context.lifeRead
         let trimmedName = store.userProfile.name.split(separator: " ").first.map(String.init) ?? ""
         let you = trimmedName.isEmpty ? "" : "\(trimmedName) — "
 
@@ -76,7 +77,8 @@ enum AriaDummyOrchestrator {
             let voice = AriaVoiceEngine.speak(intent: .trainingPlan, context: context, input: text, facts: voiceFacts)
 
             // Prefer voice when it feels human; fall back to plan narrative without source notes.
-            let prose = voice.count > 40 ? voice : plan.narrative
+            let woven = weaveStory(voice.count > 40 ? voice : plan.narrative, life: life)
+            let prose = woven
             return AriaResponse(
                 confidenceReason: companionReason(readiness: readiness, hasSleep: facts.sleepHours != nil),
                 proseSummary: prose,
@@ -90,7 +92,7 @@ enum AriaDummyOrchestrator {
         switch agent {
         case .recovery:
             let raw = AriaVoiceEngine.speak(intent: .sleep, context: context, input: text, facts: facts)
-            let prose = humanizeRecover(raw, you: you, facts: facts, readiness: readiness, coaching: context.userProfile.coachingStyle)
+            let prose = humanizeRecover(raw, you: you, facts: facts, readiness: readiness, coaching: context.userProfile.coachingStyle, life: life)
             return AriaResponse(
                 confidenceReason: companionReason(readiness: readiness, hasSleep: facts.sleepHours != nil),
                 proseSummary: prose,
@@ -100,7 +102,7 @@ enum AriaDummyOrchestrator {
             )
         case .sleep:
             let raw = AriaVoiceEngine.speak(intent: .sleep, context: context, input: text, facts: facts)
-            let prose = humanizeRecover(raw, you: you, facts: facts, readiness: readiness, coaching: context.userProfile.coachingStyle)
+            let prose = humanizeRecover(raw, you: you, facts: facts, readiness: readiness, coaching: context.userProfile.coachingStyle, life: life)
             return AriaResponse(
                 confidenceReason: companionReason(readiness: readiness, hasSleep: facts.sleepHours != nil),
                 proseSummary: prose,
@@ -163,7 +165,7 @@ enum AriaDummyOrchestrator {
                 return fallback
             }
             // Last-resort human line — still no source, one metric at most, plus choice.
-            return humanFallback(you: you, readiness: readiness, facts: facts, coaching: context.userProfile.coachingStyle)
+            return humanFallback(you: you, readiness: readiness, facts: facts, coaching: context.userProfile.coachingStyle, life: life)
         }()
 
         return AriaResponse(
@@ -207,20 +209,20 @@ enum AriaDummyOrchestrator {
 
     // MARK: - Lane humanizers — strip DIE metric tables into companion speech
 
-    private static func humanizeRecover(_ raw: String, you: String, facts: AriaSpeechFacts, readiness: Int, coaching: CoachingStyle) -> String {
+    private static func humanizeRecover(_ raw: String, you: String, facts: AriaSpeechFacts, readiness: Int, coaching: CoachingStyle, life: AriaLifeRead) -> String {
         // If voice engine already sounds human (contains "I hear" or contraction + empathy), keep it.
         let lower = raw.lowercased()
         let alreadyHuman = lower.contains("i hear") || lower.contains("makes sense") || lower.contains("of course")
-        if alreadyHuman && raw.count > 40 { return softenMetrics(raw) }
+        if alreadyHuman && raw.count > 40 { return weaveStory(softenMetrics(raw), life: life) }
 
         let name = you.replacingOccurrences(of: " — ", with: "").trimmingCharacters(in: .whitespaces)
-        var rng = AriaSeededRNG(seed: UInt64(abs((name + "\(readiness)").hashValue)))
-        let sleep = facts.sleepHours.map { String(format: "%.1f", $0) } ?? ""
-        let weak = facts.sleepBand == .weak
+        var rng = AriaSeededRNG(seed: UInt64(abs((name + "\(readiness)" + (life.story ?? "")).hashValue)))
+        let weak = facts.sleepBand == .weak || life.felt == "thin" || life.felt == "spent" || life.lastNightLate
         let opener = name.isEmpty ? "" : rng.pick(["Hey \(name) — ", "\(name), ", "Hey \(name), "])
-        let empathy = weak
-            ? rng.pick(["I see last night was light on deep sleep —", "Last night was on the short side —", "Sleep was thin last night —"])
-            : rng.pick(["You got some solid sleep —", "Nice — you actually got to rebuild last night —", "Last night gave you something to work with —"])
+        let plot = life.spokenLine(rng: &rng)
+        let empathy = plot ?? (weak
+            ? rng.pick(["Last night was on the short side —", "Sleep was thin last night —", "The rebuild didn't quite land —"])
+            : rng.pick(["You actually got to rebuild last night —", "Last night gave you something to work with —", "Sleep did its job —"]))
         let body = weak
             ? rng.pick([
                 "so if today feels a little heavier, that makes sense. Let's not chase a hero day.",
@@ -235,8 +237,7 @@ enum AriaDummyOrchestrator {
         let invite = readiness < 55
             ? rng.pick(["Want a gentle reset or just a check-in? Your call.", "Want breathing + light movement, or just rest?"])
             : rng.pick(["Want a light, honest session or full rest? You choose.", "Want me to map something light, or keep it to a walk?"])
-        let sleepPart = sleep.isEmpty ? "" : "\(sleep)h. "
-        return "\(opener)\(empathy) \(sleepPart)\(body) \(invite)".replacingOccurrences(of: "  ", with: " ")
+        return "\(opener)\(empathy) \(body) \(invite)".replacingOccurrences(of: "  ", with: " ")
     }
 
     private static func humanizeFuel(_ raw: String, you: String) -> String {
@@ -266,50 +267,59 @@ enum AriaDummyOrchestrator {
     }
 
     private static func softenMetrics(_ s: String) -> String {
-        // Replace DIE-like "Readiness 72/100 · HRV 52 ms · RHR 58 bpm — band: ..." with human.
         var out = s
-        out = out.replacingOccurrences(of: "Readiness ", with: "readiness ")
-        // Collapse metric dumps that start a sentence — keep the empathy, not the table.
-        if out.contains("HRV") && out.contains("RHR") && out.contains("Readiness") {
-            // Move metric to a gentle parenthetical or drop it — human first.
-            out = out.replacingOccurrences(of: " — band:", with: " —")
+        // Drop the clinical HUD sentence if the voice engine still emitted one.
+        if let range = out.range(of: #"Readiness \d+/100 · HRV \d+ ms · RHR \d+ bpm[^.]*\."#, options: .regularExpression) {
+            out.replaceSubrange(range, with: "I already looked — here's the read.")
         }
-        // Remove markdown bold that feels system-y in dummy if it dominates
-        // Keep it for session titles only — voice's "**Title**" is fine.
-        return out.trimmingCharacters(in: .whitespacesAndNewlines)
+        out = out.replacingOccurrences(
+            of: #"Readiness \d+, HRV \d+, resting heart \d+\."#,
+            with: "",
+            options: .regularExpression
+        )
+        return out
+            .replacingOccurrences(of: "  ", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private static func humanFallback(you: String, readiness: Int, facts: AriaSpeechFacts, coaching: CoachingStyle) -> String {
+    private static func weaveStory(_ raw: String, life: AriaLifeRead) -> String {
+        guard let story = life.story, !story.isEmpty else { return raw }
+        if raw.localizedCaseInsensitiveContains(story) { return raw }
+        return "\(story) \(raw)"
+    }
+
+    private static func humanFallback(you: String, readiness: Int, facts: AriaSpeechFacts, coaching: CoachingStyle, life: AriaLifeRead) -> String {
         let name = you.replacingOccurrences(of: " — ", with: "").trimmingCharacters(in: .whitespaces)
-        var rng = AriaSeededRNG(seed: UInt64(abs((name + "\(readiness)" + "\(facts.sleepHours ?? 0)").hashValue)))
+        var rng = AriaSeededRNG(seed: UInt64(abs((name + "\(readiness)" + "\(facts.sleepHours ?? 0)" + (life.story ?? "")).hashValue)))
 
         // Sleep — spoken like a friend who noticed, not a sensor
+        let cite = coaching == .dataDriven
         let sleepBit: String = {
-            guard let h = facts.sleepHours else { return "" }
-            let hrs = String(format: "%.1f", h)
+            if let plot = life.spokenLine(rng: &rng) { return plot }
+            guard facts.sleepHours != nil else { return "" }
             switch facts.sleepBand {
             case .weak:
                 return rng.pick([
-                    "Last night was just \(hrs)h — and deep sleep was light, so if today feels heavy, that tracks.",
-                    "You got about \(hrs) hours — deep sleep came up short, so your body didn't get its full reset.",
-                    "\(hrs)h last night, but not much of that deep, restorative kind. Makes sense you're feeling it.",
+                    "Last night was on the short side — if today feels heavy, that tracks.",
+                    "Sleep came up short, so your body didn't get its full reset.",
+                    "The rebuild didn't quite land. Makes sense you're feeling it.",
                 ])
             case .strong:
                 return rng.pick([
-                    "You got a solid \(hrs)h last night — that's real fuel.",
-                    "\(hrs)h and you actually caught some deep sleep. Nice — that's your rebuild.",
-                    "Last night was \(hrs)h of good sleep. You earned that.",
+                    "You actually got a night you can spend — that's real fuel.",
+                    "Last night did its job. Nice — that's your rebuild.",
+                    "You earned that sleep. Let's not waste it.",
                 ])
             case .ok:
                 return rng.pick([
-                    "Slept about \(hrs)h — not perfect, not empty. We'll work with it.",
-                    "\(hrs)h last night — decent. Enough to build on if we're smart about today.",
-                    "About \(hrs) hours. Middle ground — nothing broken, nothing extra to spend.",
+                    "Sleep was decent — not perfect, not empty. We'll work with it.",
+                    "Last night was middle-ground. Enough to build on if we're smart.",
+                    "Nothing broken, nothing extra to spend. That's still a day.",
                 ])
             case .unknown:
                 return rng.pick([
-                    "About \(hrs)h last night — we'll roll with it.",
-                    "Roughly \(hrs)h. Good enough to make today count.",
+                    "Last night is in — we'll roll with it.",
+                    "We've got enough of a night to make today count.",
                 ])
             }
         }()
@@ -322,30 +332,34 @@ enum AriaDummyOrchestrator {
                     "No pressure to have it figured out — one gentle move is enough.",
                 ])
             case 1..<50:
-                return rng.pick([
-                    "That \(readiness) I'm seeing? It just means you're running on fumes — not that you're failing. Let's keep today soft.",
-                    "Around \(readiness) today — yeah, that's your body asking for care, not a lecture. We protect tomorrow.",
-                    "Low tank today. Of course everything feels heavier — let's not add weight.",
-                ])
+                return cite
+                    ? rng.pick([
+                        "Around \(readiness) today — that's your body asking for care, not a lecture. We protect tomorrow.",
+                        "Low tank today. Of course everything feels heavier — let's not add weight.",
+                    ])
+                    : rng.pick([
+                        "You're running on fumes — not failing. Let's keep today soft.",
+                        "Low tank today. Of course everything feels heavier — let's not add weight.",
+                    ])
             case 50..<60:
                 return rng.pick([
-                    "Sitting around \(readiness) — in that tender middle where you could push, but you shouldn't have to.",
-                    "About \(readiness). Not your strongest day, not your emptiest. Perfect for something light and honest.",
+                    "Tender middle — you could push, but you shouldn't have to.",
+                    "Not your strongest day, not your emptiest. Perfect for something light and honest.",
                 ])
             case 60..<75:
                 return rng.pick([
-                    "Around \(readiness) — steady, workable ground. One honest effort will count.",
-                    "Mid-\(readiness)s — you've got enough to move, not enough to burn. That's actually a sweet spot.",
+                    "Steady, workable ground. One honest effort will count.",
+                    "You've got enough to move, not enough to burn. That's actually a sweet spot.",
                 ])
             case 75..<85:
                 return rng.pick([
-                    "High \(readiness)s — you've got good energy to use. Not to waste, to use.",
-                    "Around \(readiness). Body's willing today — let's give it something worth doing.",
+                    "You've got good energy to use. Not to waste, to use.",
+                    "Body's willing today — let's give it something worth doing.",
                 ])
             case 85...:
                 return rng.pick([
-                    "\(readiness) — you're lit today. Big window, but we still go clean, not reckless.",
-                    "High \(readiness)s. Rare air — let's spend it on something that matters.",
+                    "You're lit today. Big window, but we still go clean, not reckless.",
+                    "Rare air — let's spend it on something that matters.",
                 ])
             default:
                 return rng.pick(["Steady ground today. One good choice is enough.", "We're good — one next move, together."])

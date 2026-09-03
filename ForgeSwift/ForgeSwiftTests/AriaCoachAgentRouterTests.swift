@@ -1,4 +1,5 @@
 import XCTest
+import ForgeCore
 @testable import ForgeSwift
 
 final class AriaCoachAgentRouterTests: XCTestCase {
@@ -181,8 +182,9 @@ final class AriaFirstHealthBriefingTests: XCTestCase {
         )
         XCTAssertTrue(result.message.contains("Ada"))
         XCTAssertTrue(result.message.contains("Apple Health"))
-        XCTAssertTrue(result.message.contains("7.2"))
-        XCTAssertTrue(result.message.contains("HRV 52"))
+        XCTAssertTrue(result.message.contains("Last night"))
+        XCTAssertFalse(result.message.contains("HRV 52"))
+        XCTAssertFalse(result.message.contains("readiness 78"))
         XCTAssertTrue(result.message.contains("Workout"))
         XCTAssertTrue(result.message.contains("Recovery"))
         XCTAssertTrue(result.actions.contains("Who are you?"))
@@ -197,7 +199,8 @@ final class AriaFirstHealthBriefingTests: XCTestCase {
         )
         let line = AriaFirstHealthBriefing.onboardingConnectedLine(snapshot: snap)
         XCTAssertTrue(line.contains("first time"))
-        XCTAssertTrue(line.contains("7.2"))
+        XCTAssertTrue(line.contains("Last night"))
+        XCTAssertFalse(line.contains("HRV"))
     }
 
     func testLearnInsightsComeFromHealthKit() {
@@ -215,7 +218,8 @@ final class AriaFirstHealthBriefingTests: XCTestCase {
         )
         let insights = AriaFirstHealthBriefing.learnInsights(snapshot: live)
         XCTAssertTrue(insights.contains { $0.contains("first connect") })
-        XCTAssertTrue(insights.contains { $0.contains("HRV 52") })
+        XCTAssertTrue(insights.contains { $0.contains("Last night") })
+        XCTAssertFalse(insights.contains { $0.contains("HRV 52") })
     }
 }
 
@@ -237,7 +241,8 @@ final class AriaFirstBondTests: XCTestCase {
         let turn = AriaFirstBond.start(ctx())
         XCTAssertTrue(turn.message.contains("Ada"))
         XCTAssertTrue(turn.message.contains("ARIA"))
-        XCTAssertTrue(turn.message.contains("7.2"))
+        XCTAssertTrue(turn.message.contains("Last night"))
+        XCTAssertFalse(turn.message.contains("HRV"))
         XCTAssertTrue(turn.message.contains("Build muscle") || turn.message.contains("build muscle"))
         XCTAssertTrue(turn.replies.contains("I’m here."))
         XCTAssertEqual(turn.next, .opening)
@@ -324,5 +329,44 @@ final class ARIAChatHandoffTests: XCTestCase {
         XCTAssertNil(result.prompt)
         XCTAssertFalse(result.startVoice)
         XCTAssertFalse(result.autoSend)
+    }
+
+    @MainActor
+    func testLifeReadParsesPackTagsWithoutAFieldDump() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        var parts = DateComponents()
+        parts.year = 2026
+        parts.month = 8
+        parts.day = 25
+        parts.hour = 15
+        let now = calendar.date(from: parts)!
+        let pack = FakeHealthPack.generate(now: now, calendar: calendar, seed: 41, persona: "stressed")
+        let tags = AppStore.lifestyleTags(from: pack)
+        XCTAssertTrue(tags.contains("persona:stressed"))
+        XCTAssertTrue(tags.contains { $0.hasPrefix("felt:") })
+        XCTAssertTrue(tags.contains { $0.hasPrefix("story:") })
+
+        let read = AriaLifeRead.from(tags: tags)
+        XCTAssertEqual(read.persona, "stressed")
+        XCTAssertEqual(read.felt, pack.today?.felt)
+        XCTAssertEqual(read.story, pack.today?.storyLine)
+        XCTAssertFalse(read.story?.contains("HRV") ?? true)
+        var rng = AriaSeededRNG(seed: 7)
+        XCTAssertEqual(read.spokenLine(rng: &rng), pack.today?.storyLine)
+    }
+
+    func testLifeReadLastNightFlags() {
+        let read = AriaLifeRead.from(tags: [
+            "lastnight:drinks",
+            "lastnight:drinks:4",
+            "lastnight:late",
+            "story:Drinks with mates ran late — the night after is still paying for it.",
+        ])
+        XCTAssertEqual(read.lastNightKind, "drinks")
+        XCTAssertEqual(read.lastNightDrinks, 4)
+        XCTAssertTrue(read.lastNightLate)
+        XCTAssertTrue(read.hasEvening)
+        XCTAssertTrue(read.story?.contains("Drinks with mates") ?? false)
     }
 }

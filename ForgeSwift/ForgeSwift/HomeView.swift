@@ -183,14 +183,16 @@ struct HomeHeaderView: View {
     }
 
     var body: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 5) {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(dateString)
                     .forgeSectionLabel()
 
                 Text(greeting + (firstName.isEmpty ? "" : ", \(firstName)"))
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .font(.system(size: 28, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
                     .accessibilityAddTraits(.isHeader)
 
                 HomeDataStatusPill(
@@ -198,31 +200,33 @@ struct HomeHeaderView: View {
                     updatedAt: store.lastMetricsRefresh
                 )
                 if store.usingTestReadyHealthPack {
-                    let personaName = AriaContextStore.shared.context.deepHabits.first?.title.lowercased() ?? "balanced"
-                    Text("Synthetic · \(personaName) · baseline HRV \(store.dailyMetrics.hrv > 0 ? Int(store.dailyMetrics.hrv) : 52)ms")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(.textTertiary)
+                    let life = AriaLifeRead.from(tags: AriaContextStore.shared.context.lifestyleTags)
+                    Text(life.story ?? "ARIA already has this month.")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(.textSecondary)
+                        .lineLimit(2)
                         .padding(.top, 2)
                 } else if let habit = AriaContextStore.shared.context.deepHabits.first {
                     Text("\(habit.category.rawValue.capitalized) · \(habit.evidence)")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundColor(.textTertiary)
                         .lineLimit(1)
                 }
             }
 
-            Spacer(minLength: 12)
+            Spacer(minLength: 8)
 
             Button {
                 FDS.haptic(.light)
                 store.setQuietMode(!store.quietMode)
             } label: {
                 Image(systemName: store.quietMode ? "moon.fill" : "moon")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(store.quietMode ? Color.steel : Color.textTertiary)
-                    .frame(width: 36, height: 36)
-                    .background(Color.white.opacity(0.05))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(store.quietMode ? Color.steel : Color.textSecondary)
+                    .frame(width: 40, height: 40)
+                    .background(Color.white.opacity(0.06))
                     .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(store.quietMode ? "Quiet mode on" : "Quiet mode off")
@@ -233,8 +237,13 @@ struct HomeHeaderView: View {
                 ProfileAvatarView(
                     fileName: store.userProfile.avatarFileName,
                     initials: String(firstName.prefix(1)).uppercased(),
-                    size: 40,
+                    size: 42,
                     showsRing: false
+                )
+                .overlay(
+                    Circle()
+                        .stroke(HomeReadiness.color(store.readiness.overall).opacity(0.55), lineWidth: 1.5)
+                        .padding(-2)
                 )
             }
             .buttonStyle(.plain)
@@ -271,13 +280,18 @@ private struct HomeDataStatusPill: View {
                 } else {
                     Circle()
                         .fill(isLive ? Color.vitality : Color.warning)
-                        .frame(width: 5, height: 5)
-                        .shadow(color: isLive ? Color.vitality.opacity(0.8) : .clear, radius: 3)
+                        .frame(width: 6, height: 6)
+                        .shadow(color: isLive ? Color.vitality.opacity(0.7) : .clear, radius: 3)
                 }
                 Text(statusText)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundColor(isLive ? Color.vitality : .warning)
             }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Color.white.opacity(0.05))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .disabled(isLive || reconnecting)
@@ -323,12 +337,13 @@ private struct HomeScrollMiniHeader: View {
                 store.startLifeShapedSession()
             } label: {
                 Text(store.isWorkoutActive ? "Continue" : "Start")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(store.readiness.overall < 55 ? Color.steel : Color.ember)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(store.readiness.overall < 55 ? AnyShapeStyle(FDS.Gradient.steel) : AnyShapeStyle(FDS.Gradient.ember))
                     .clipShape(Capsule())
+                    .overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
             }
             .buttonStyle(.plain)
         }

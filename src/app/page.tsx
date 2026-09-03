@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore, type TabId } from "@/stores/useAppStore";
 import { BottomNav } from "@/components/shared/bottom-nav";
 import { HomePage } from "@/components/home/home-page";
@@ -13,30 +12,41 @@ import { ProfileTab } from "@/components/profile/profile-tab";
 import { AriaOrb } from "@/components/onboarding/aria-companion";
 import { cn } from "@/lib/utils";
 
-function TabRenderer({ activeTab }: { activeTab: TabId }) {
-  switch (activeTab) {
-    case "home":
-      return <HomePage />;
-    case "chat":
-      return <ChatPage />;
-    case "workout":
-      return <WorkoutPage />;
-    case "sleep":
-      return <SleepPage />;
-    case "profile":
-      return <ProfileTab />;
-    default:
-      return <HomePage />;
-  }
-}
+const TABS: TabId[] = ["home", "chat", "workout", "sleep", "profile"];
 
 function BootSplash() {
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background">
-      <AriaOrb mood="focused" size={88} speaking />
+      <AriaOrb mood="focused" size={88} />
       <p className="mt-5 text-[11px] font-black uppercase tracking-[0.28em] text-ember">
         FORGE × ARIA
       </p>
+    </div>
+  );
+}
+
+function TabPane({
+  id,
+  active,
+  lock,
+  children,
+}: {
+  id: TabId;
+  active: boolean;
+  lock: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      role="tabpanel"
+      id={`tab-${id}`}
+      hidden={!active}
+      className={cn(
+        "flex min-h-0 flex-1 flex-col",
+        active && lock && "h-full overflow-hidden"
+      )}
+    >
+      {children}
     </div>
   );
 }
@@ -50,6 +60,7 @@ export default function Page() {
   const setActiveTab = useAppStore((s) => s.setActiveTab);
   const workoutActive = useAppStore((s) => s.activeWorkout.isActive);
   const mainRef = useRef<HTMLElement>(null);
+  const [visited, setVisited] = useState<TabId[]>([activeTab]);
 
   useEffect(() => {
     const finish = () => setHasHydrated(true);
@@ -66,6 +77,7 @@ export default function Page() {
   }, [hasHydrated, isOnboarded, router]);
 
   useEffect(() => {
+    setVisited((prev) => (prev.includes(activeTab) ? prev : [...prev, activeTab]));
     mainRef.current?.scrollTo({ top: 0 });
     window.scrollTo(0, 0);
   }, [activeTab]);
@@ -96,18 +108,20 @@ export default function Page() {
           lockViewport ? "overflow-hidden" : "overflow-y-auto"
         )}
       >
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.22, ease: "easeInOut" }}
-            className={cn("flex min-h-0 flex-1 flex-col", lockViewport && "h-full overflow-hidden")}
+        {TABS.filter((id) => visited.includes(id)).map((id) => (
+          <TabPane
+            key={id}
+            id={id}
+            active={activeTab === id}
+            lock={id === "chat" || (id === "workout" && workoutActive)}
           >
-            <TabRenderer activeTab={activeTab} />
-          </motion.div>
-        </AnimatePresence>
+            {id === "home" && <HomePage />}
+            {id === "chat" && <ChatPage />}
+            {id === "workout" && <WorkoutPage />}
+            {id === "sleep" && <SleepPage />}
+            {id === "profile" && <ProfileTab />}
+          </TabPane>
+        ))}
       </main>
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>

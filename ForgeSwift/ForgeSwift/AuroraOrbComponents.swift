@@ -60,25 +60,30 @@ struct AuroraOrbView: View {
     }
 
     var body: some View {
-        ZStack {
-            AuroraWaveCanvas(
-                accent: mood.accentColor,
-                amplitude: effectiveAmplitude
-            )
+        // Header / avatar orbs stay static. The 30 fps wave canvas plus eight
+        // particle timelines was the interview's biggest continuous cost.
+        if reduceMotion || size < 64 {
+            ZStack {
+                coreOrb
+                pulsingRing
+            }
+            .frame(width: size, height: size)
+        } else {
+            ZStack {
+                AuroraWaveCanvas(
+                    accent: mood.accentColor,
+                    amplitude: effectiveAmplitude
+                )
 
-            coreOrb
-
-            pulsingRing
-
-            outerHalo
-
-            shimmerCore
-
-            particles
+                coreOrb
+                pulsingRing
+                shimmerCore
+                particles
+            }
+            .frame(width: size, height: size)
+            .rotationEffect(.degrees(state == .processing ? rotation : 0))
+            .onAppear(perform: startAnimations)
         }
-        .frame(width: size, height: size)
-        .rotationEffect(.degrees(state == .processing && !reduceMotion ? rotation : 0))
-        .onAppear(perform: startAnimations)
     }
 
     private var coreOrb: some View {
@@ -128,7 +133,7 @@ struct AuroraOrbView: View {
     }
 
     private var particles: some View {
-        ForEach(0..<8, id: \.self) { index in
+        ForEach(0..<3, id: \.self) { index in
             ForgeOrbitalParticle(
                 index: index,
                 size: size,
@@ -157,12 +162,11 @@ private struct AuroraWaveCanvas: View {
     let amplitude: Double
 
     private static let configs: [(phase: Double, speed: Double, opacity: Double)] = [
-        (0.0, 0.8, 0.15), (0.9, 1.0, 0.22), (1.8, 1.1, 0.28),
-        (2.6, 1.2, 0.34), (3.4, 1.3, 0.40), (4.2, 1.4, 0.45)
+        (0.0, 0.8, 0.22), (2.2, 1.1, 0.34)
     ]
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 12.0)) { timeline in
             Canvas { context, canvasSize in
                 drawWaves(context: context, size: canvasSize, time: timeline.date.timeIntervalSinceReferenceDate)
             }
@@ -176,7 +180,7 @@ private struct AuroraWaveCanvas: View {
         for (index, config) in Self.configs.enumerated() {
             let waveAmp = radius * 0.08 * (1.0 + amplitude * 1.5) * (1.0 + Double(index) * 0.05)
             var path = Path()
-            let steps = 32
+            let steps = 20
             for step in 0...steps {
                 let angle = Double(step) / Double(steps) * .pi * 2
                 let wobble = sin(angle * 3 + time * config.speed + config.phase) * waveAmp
@@ -207,7 +211,7 @@ private struct ForgeOrbitalParticle: View {
     let reduceMotion: Bool
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 12.0)) { timeline in
             particle(at: timeline.date.timeIntervalSinceReferenceDate)
         }
     }

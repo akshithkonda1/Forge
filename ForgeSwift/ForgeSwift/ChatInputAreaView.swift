@@ -18,7 +18,7 @@ struct AriaSpecialistActivityView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(workers.count > 1 ? "Consulting your specialists" : "Thinking")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundColor(.aurora)
             FlowLayout(spacing: 8) {
                 ForEach(workers) { worker in
@@ -39,9 +39,12 @@ struct AriaSpecialistActivityView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.surface)
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.aurora.opacity(0.25), lineWidth: 1))
+        .background(Color.white.opacity(0.045))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                .stroke(Color.aurora.opacity(0.28), lineWidth: 1)
+        )
         .onAppear {
             withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
                 pulse = true
@@ -88,13 +91,14 @@ private struct CoachAgentChipRow: View {
                 Image(systemName: icon)
                     .font(.system(size: 11, weight: .semibold))
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
             }
             .foregroundColor(selected ? .textPrimary : .textTertiary)
             .padding(.horizontal, 11)
             .padding(.vertical, 6)
-            .background(selected ? Color.white.opacity(0.10) : Color.clear)
+            .background(selected ? Color.white.opacity(0.10) : Color.white.opacity(0.03))
             .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(selected ? 0.16 : 0.06), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
@@ -120,7 +124,7 @@ struct ChatInputAreaView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Rectangle().fill(Color.borderColor.opacity(0.3)).frame(height: 0.5)
+            Rectangle().fill(Color.white.opacity(0.10)).frame(height: 0.5)
 
             if !store.isInAriaFirstBond {
                 CoachAgentChipRow()
@@ -190,21 +194,33 @@ struct ChatInputAreaView: View {
 
                 // Text field
                 ZStack(alignment: .trailing) {
-                    RoundedRectangle(cornerRadius: 26)
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
                         .fill(Color.surfaceElevated)
-                        .overlay(RoundedRectangle(cornerRadius: 26).stroke(
-                            isInputFocused
-                                ? LinearGradient(colors: [mood.accentColor.opacity(0.65), mood.accentColor.opacity(0.32)], startPoint: .leading, endPoint: .trailing)
-                                : LinearGradient(colors: [Color.borderColor.opacity(0.55), Color.borderColor.opacity(0.3)], startPoint: .leading, endPoint: .trailing),
-                            lineWidth: 1.5
-                        ))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .stroke(
+                                    isInputFocused
+                                        ? LinearGradient(
+                                            colors: [mood.accentColor.opacity(0.65), mood.accentColor.opacity(0.22)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                          )
+                                        : LinearGradient(
+                                            colors: [Color.white.opacity(0.14), Color.white.opacity(0.04)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                          ),
+                                    lineWidth: 1
+                                )
+                        )
                         .shadow(
-                            color: isInputFocused ? mood.accentColor.opacity(0.16) : .black.opacity(0.04),
-                            radius: isInputFocused ? 12 : 3, y: isInputFocused ? 3 : 1
+                            color: isInputFocused ? mood.accentColor.opacity(0.18) : .black.opacity(0.12),
+                            radius: isInputFocused ? 12 : 6,
+                            y: isInputFocused ? 4 : 2
                         )
 
                     TextField("Ask ARIA anything…", text: $inputText, axis: .vertical)
-                        .font(.system(size: 15.5))
+                        .font(.system(size: 15, weight: .regular, design: .rounded))
                         .foregroundColor(.textPrimary)
                         .tint(mood.accentColor)
                         .focused($isInputFocused)
@@ -252,9 +268,19 @@ struct ChatInputAreaView: View {
                 }
                 .animation(.easeInOut(duration: 0.18), value: isInputFocused)
             }
-            .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 24)
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+            .padding(.bottom, 24)
         }
-        .background(.ultraThinMaterial)
+        .background {
+            ZStack(alignment: .top) {
+                Rectangle().fill(.ultraThinMaterial)
+                Rectangle().fill(Color.background.opacity(0.42))
+                Rectangle()
+                    .fill(Color.white.opacity(0.10))
+                    .frame(height: 0.5)
+            }
+        }
     }
 }
 
@@ -272,13 +298,14 @@ struct SmartChip: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(color)
                 Text(label)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundColor(.textSecondary)
             }
-            .padding(.horizontal, 14).padding(.vertical, 9)
-            .background(color.opacity(0.08))
-            .cornerRadius(FDS.Radius.pill)
-            .overlay(Capsule().stroke(color.opacity(0.28), lineWidth: 0.5))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(color.opacity(0.10))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(color.opacity(0.28), lineWidth: 1))
         }
         .disabled(disabled)
         .opacity(disabled ? 0.42 : 1)

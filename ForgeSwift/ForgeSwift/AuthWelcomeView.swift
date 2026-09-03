@@ -47,12 +47,13 @@ struct AuthWelcomeView: View {
                         showSignIn = true
                     } label: {
                         Text("Sign in")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
                             .foregroundColor(.ember)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
                             .background(Color.ember.opacity(0.12))
                             .clipShape(Capsule())
+                            .overlay(Capsule().stroke(Color.ember.opacity(0.28), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -86,9 +87,7 @@ struct AuthWelcomeView: View {
                     }
 
                     Text("CHAPTER \(page + 1) OF \(pages.count)")
-                        .font(.system(size: 11, weight: .bold))
-                        .tracking(1.6)
-                        .foregroundColor(.textTertiary)
+                        .forgeSectionLabel()
                 }
                 .padding(.bottom, 18)
 
@@ -100,7 +99,7 @@ struct AuthWelcomeView: View {
                     } label: {
                         HStack(spacing: 10) {
                             Text("Get started")
-                                .font(.system(size: 17, weight: .bold))
+                                .font(.system(size: 17, weight: .bold, design: .rounded))
                             Spacer(minLength: 0)
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 14, weight: .bold))
@@ -288,8 +287,7 @@ private struct AuthHookPageView: View {
 
             VStack(spacing: 12) {
                 Text(page.kicker)
-                    .font(.system(size: 11, weight: .bold))
-                    .tracking(2.2)
+                    .forgeSectionLabel()
                     .foregroundStyle(accent)
 
                 Text(page.title)
@@ -324,6 +322,7 @@ private struct AuthHookPageView: View {
                 .padding(.vertical, 8)
                 .background(accent.opacity(0.12))
                 .clipShape(Capsule())
+                .overlay(Capsule().stroke(accent.opacity(0.28), lineWidth: 1))
                 .padding(.top, 4)
             }
             .padding(.horizontal, 28)

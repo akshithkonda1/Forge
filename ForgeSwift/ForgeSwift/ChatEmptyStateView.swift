@@ -12,18 +12,21 @@ struct ChatEmptyStateView: View {
     // Greeting message varies by mood
     private var greeting: String {
         let first = store.userProfile.name.components(separatedBy: " ").first ?? ""
+        let who = first.isEmpty ? "" : ", \(first)"
         switch mood {
-        case .energized: return "You look ready today\(first.isEmpty ? "" : ", \(first)").\nWant a session that uses that?"
-        case .focused:   return "I’m here\(first.isEmpty ? "" : ", \(first)").\nTrain, recover, eat, live — pick a coach or just talk."
-        case .calm:      return "Easy does it\(first.isEmpty ? "" : ", \(first)").\nHow are you feeling?"
+        case .energized: return "You look ready today\(who).\nWant a session that uses that?"
+        case .focused:   return "I’m here\(who).\nTrain, recover, eat, live — pick a coach or just talk."
+        case .calm:      return "Easy does it\(who).\nHow are you feeling?"
         case .pushed:    return "Rough day? That’s okay.\nI’m here for whatever you need."
         }
     }
 
     private var subtext: String {
+        let life = AriaLifeRead.from(tags: AriaContextStore.shared.context.lifestyleTags)
+        if let story = life.story, !story.isEmpty { return story }
         switch mood {
-        case .energized: return "Readiness is high — we can train if you want."
-        case .focused:   return "I’ll use last night’s sleep and today’s load."
+        case .energized: return "You've got a window. We can train if you want."
+        case .focused:   return "I'll use last night and today's load — just talk."
         case .calm:      return "Recovery is part of training. We can keep it light."
         case .pushed:    return "We go at your pace. No pressure."
         }
@@ -65,15 +68,16 @@ struct ChatEmptyStateView: View {
             .padding(.bottom, 28)
 
             // Greeting
-            VStack(spacing: 8) {
+            VStack(spacing: 10) {
                 Text(greeting)
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)
                     .multilineTextAlignment(.center)
-                    .lineSpacing(4)
+                    .lineSpacing(3)
+                    .minimumScaleFactor(0.85)
 
                 Text(subtext)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.system(size: 15, weight: .regular, design: .rounded))
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
@@ -90,7 +94,7 @@ struct ChatEmptyStateView: View {
                         Image(systemName: "mic.fill")
                             .font(.system(size: 13, weight: .semibold))
                         Text("Talk to ARIA")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, 18)
@@ -113,13 +117,11 @@ struct ChatEmptyStateView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("ARIA SUGGESTS")
-                        .font(.system(size: 9, weight: .black))
-                        .tracking(2.8)
-                        .foregroundColor(.textMuted)
+                        .forgeSectionLabel()
                     Spacer()
-                    Text("based on \(mood.displayName.lowercased()) mode")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(mood.accentColor.opacity(0.7))
+                    Text(mood.displayName.lowercased())
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundColor(mood.accentColor.opacity(0.85))
                 }
                 .padding(.horizontal, 4)
 
@@ -135,25 +137,32 @@ struct ChatEmptyStateView: View {
                         HStack(spacing: 14) {
                             ZStack {
                                 Circle()
-                                    .fill(mood.accentColor.opacity(0.14))
-                                    .frame(width: 32, height: 32)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                mood.accentColor.opacity(0.28),
+                                                mood.accentColor.opacity(0.10)
+                                            ],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                                    .frame(width: 34, height: 34)
                                 Image(systemName: prompt.1)
-                                    .font(.system(size: 13))
+                                    .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(mood.accentColor)
                             }
                             Text(prompt.0)
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.system(size: 15, weight: .medium, design: .rounded))
                                 .foregroundColor(.textPrimary)
                             Spacer()
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundColor(.textMuted)
                         }
-                        .padding(.horizontal, 16).padding(.vertical, 14)
-                        .background(Color.surfaceElevated)
-                        .cornerRadius(FDS.Radius.md)
-                        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md)
-                            .stroke(Color.borderColor.opacity(0.5), lineWidth: 0.5))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .forgeInnerWell(cornerRadius: FDS.Radius.lg)
                     }
                     .buttonStyle(ScaleButtonStyle())
                     .opacity(appeared ? 1 : 0)

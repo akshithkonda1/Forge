@@ -229,7 +229,7 @@ struct LifestyleHeaderView: View {
                     .font(.system(size: 28, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)
                 Text("How you eat, move, and live")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundColor(.textSecondary)
             }
 
@@ -242,14 +242,18 @@ struct LifestyleHeaderView: View {
                         .font(.system(size: 20, weight: .black, design: .rounded))
                         .foregroundColor(.textPrimary)
                     Text("QOL")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
                         .foregroundColor(.textTertiary)
                         .tracking(1.5)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 7)
+                .padding(.vertical, 8)
                 .background(Color.white.opacity(0.05))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                )
 
                 Button {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) { showInsights = true }
@@ -261,6 +265,7 @@ struct LifestyleHeaderView: View {
                         .frame(width: 40, height: 40)
                         .background(Color.ember.opacity(0.14))
                         .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.ember.opacity(0.28), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("ARIA insights")
@@ -288,7 +293,7 @@ struct SegmentedPillControl: View {
                             Image(systemName: seg.icon)
                                 .font(.system(size: 12, weight: .semibold))
                             Text(seg.title)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
                         }
                         .foregroundColor(selected == seg ? .white : .textTertiary)
                         .padding(.horizontal, 16)
@@ -296,11 +301,13 @@ struct SegmentedPillControl: View {
                         .background {
                             if selected == seg {
                                 Capsule()
-                                    .fill(Color.ember)
+                                    .fill(FDS.Gradient.ember)
                                     .matchedGeometryEffect(id: "pill", in: namespace)
                                     .shadow(color: Color.ember.opacity(0.45), radius: 10, y: 4)
                             } else {
-                                Capsule().fill(Color.surface.opacity(0.6))
+                                Capsule()
+                                    .fill(Color.white.opacity(0.04))
+                                    .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
                             }
                         }
                     }
