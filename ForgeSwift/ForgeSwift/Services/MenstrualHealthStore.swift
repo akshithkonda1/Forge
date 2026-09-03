@@ -76,6 +76,8 @@ final class MenstrualHealthStore: ObservableObject {
     let periodEndFeedbackKey = "forge.menstrual.period.end.feedback.v1"
     let coachingPrefsKey = "forge.menstrual.coaching.prefs.v1"
     let cycleRelevantKey = "forge.menstrual.surface.relevant.v1"
+    /// Stops a wipe from being immediately overwritten by the tester seed.
+    let testReadySeededKey = "forge.menstrual.testReady.seeded.v1"
 
     private init() {
         if let data = defaults.data(forKey: settingsKey),

@@ -282,6 +282,7 @@
 		1TEST01800000000000000A /* OnboardingGraphLockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01700000000000000A /* OnboardingGraphLockTests.swift */; };
 		1TEST01A00000000000000A /* ExerciseLibraryFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */; };
 		1TEST01C00000000000000A /* CycleHealthLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01B00000000000000A /* CycleHealthLaunchTests.swift */; };
+		1TEST01E00000000000000A /* FakeCyclePackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01D00000000000000A /* FakeCyclePackTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -420,6 +421,7 @@
 		1TEST01700000000000000A /* OnboardingGraphLockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGraphLockTests.swift; sourceTree = "<group>"; };
 		1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseLibraryFilterTests.swift; sourceTree = "<group>"; };
 		1TEST01B00000000000000A /* CycleHealthLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleHealthLaunchTests.swift; sourceTree = "<group>"; };
+		1TEST01D00000000000000A /* FakeCyclePackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeCyclePackTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
@@ -1102,6 +1104,7 @@
 				1TEST01700000000000000A /* OnboardingGraphLockTests.swift */,
 				1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */,
 				1TEST01B00000000000000A /* CycleHealthLaunchTests.swift */,
+				1TEST01D00000000000000A /* FakeCyclePackTests.swift */,
 			);
 			path = ForgeSwiftTests;
 			sourceTree = "<group>";
@@ -1626,6 +1629,7 @@
 				1TEST01800000000000000A /* OnboardingGraphLockTests.swift in Sources */,
 				1TEST01A00000000000000A /* ExerciseLibraryFilterTests.swift in Sources */,
 				1TEST01C00000000000000A /* CycleHealthLaunchTests.swift in Sources */,
+				1TEST01E00000000000000A /* FakeCyclePackTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

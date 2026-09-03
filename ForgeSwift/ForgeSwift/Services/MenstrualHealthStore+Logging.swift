@@ -287,6 +287,22 @@ extension MenstrualHealthStore {
         pushAriaTags()
     }
 
+    /// Local tester history only. Never HealthKit, never a physical-phone pack.
+    func seedTestReadyCycleIfNeeded(testReady: Bool) {
+        guard FakeCyclePack.shouldSeed(
+            testReady: testReady,
+            trackingEnabled: settings.enabled,
+            logsEmpty: logs.isEmpty,
+            alreadySeeded: defaults.bool(forKey: testReadySeededKey)
+        ) else { return }
+        logs = FakeCyclePack.generate(seed: AppStore.testReadySessionSeed)
+        defaults.set(true, forKey: testReadySeededKey)
+        persistLogs()
+        recompute()
+        refreshAnalyst(lastAction: "test_ready_seed")
+        lastModelUpdateMessage = "Tester cycle loaded · local only"
+    }
+
     /// Wipe self cycle logs (and optionally settings). Keeps partner logs by design.
     func wipeSelfCycleData(includingSettings: Bool = false) {
         logs = []
@@ -309,6 +325,7 @@ extension MenstrualHealthStore {
         defaults.removeObject(forKey: periodEndFeedbackKey)
         defaults.removeObject(forKey: coachingPrefsKey)
         persistLogs()
+        defaults.set(true, forKey: testReadySeededKey)
         // A wipe must also reset the learned bias — it was derived from the deleted data.
         var s = settings
         s.calibrationOffsetDays = 0
