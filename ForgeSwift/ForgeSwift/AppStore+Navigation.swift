@@ -6,6 +6,31 @@ import ForgeCore
 import FoundationModels
 #endif
 
+/// Pure consume of a Home / tab → chat handoff. Lives next to `openChat`
+/// so the one-shot voice launch cannot drift from how ChatView reads it.
+enum ARIAChatHandoff {
+    struct Intake: Equatable {
+        var pendingPrompt: String?
+        var voiceLaunch: Bool
+    }
+
+    struct Result: Equatable {
+        var prompt: String?
+        var startVoice: Bool
+        var autoSend: Bool
+    }
+
+    static func consume(_ intake: Intake) -> Result {
+        let trimmed = intake.pendingPrompt?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prompt = (trimmed?.isEmpty == false) ? trimmed : nil
+        return Result(
+            prompt: prompt,
+            startVoice: intake.voiceLaunch,
+            autoSend: prompt != nil && !intake.voiceLaunch
+        )
+    }
+}
+
 extension AppStore {
 
     /// Widget taps enqueue milliliters. Write them to HealthKit now that we
@@ -64,6 +89,7 @@ extension AppStore {
         if quietMode, !voice, isProactive { return }
         ariaPendingChatPrompt = prompt
         ariaVoiceMode = voice
+        ariaVoiceLaunch = voice
         activeTab = .chat
     }
 

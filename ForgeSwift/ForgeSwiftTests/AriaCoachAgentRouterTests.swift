@@ -291,3 +291,38 @@ final class AriaFirstBondTests: XCTestCase {
         XCTAssertTrue(turn.message.isEmpty)
     }
 }
+
+final class ARIAChatHandoffTests: XCTestCase {
+
+    func testTextPromptAutoSendsWithoutVoice() {
+        let result = ARIAChatHandoff.consume(
+            .init(pendingPrompt: "  How did I sleep?  ", voiceLaunch: false)
+        )
+        XCTAssertEqual(result.prompt, "How did I sleep?")
+        XCTAssertFalse(result.startVoice)
+        XCTAssertTrue(result.autoSend)
+    }
+
+    func testVoiceLaunchDoesNotAutoSend() {
+        let result = ARIAChatHandoff.consume(
+            .init(pendingPrompt: "Continue from today's briefing.", voiceLaunch: true)
+        )
+        XCTAssertEqual(result.prompt, "Continue from today's briefing.")
+        XCTAssertTrue(result.startVoice)
+        XCTAssertFalse(result.autoSend)
+    }
+
+    func testVoiceOnlyLaunchHasNoPrompt() {
+        let result = ARIAChatHandoff.consume(.init(pendingPrompt: nil, voiceLaunch: true))
+        XCTAssertNil(result.prompt)
+        XCTAssertTrue(result.startVoice)
+        XCTAssertFalse(result.autoSend)
+    }
+
+    func testBlankPromptIsIgnored() {
+        let result = ARIAChatHandoff.consume(.init(pendingPrompt: "   ", voiceLaunch: false))
+        XCTAssertNil(result.prompt)
+        XCTAssertFalse(result.startVoice)
+        XCTAssertFalse(result.autoSend)
+    }
+}

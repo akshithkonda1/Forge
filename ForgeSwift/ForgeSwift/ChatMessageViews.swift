@@ -7,6 +7,7 @@ struct MessageListView: View {
     let ariaMood:      ARIAMood
     @Binding var swipeReply: ChatMessage?
     let onQuickAction:    (String) -> Void
+    var onVoiceTap: (() -> Void)? = nil
     var onReaction: ((String, String) -> Void)? = nil
     let onReactionBurst:  (CGPoint) -> Void
 
@@ -14,7 +15,7 @@ struct MessageListView: View {
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
                 if store.chatMessages.isEmpty {
-                    ChatEmptyStateView(mood: ariaMood, onQuickActionTap: onQuickAction)
+                    ChatEmptyStateView(mood: ariaMood, onQuickActionTap: onQuickAction, onVoiceTap: onVoiceTap)
                 } else {
                     LazyVStack(spacing: 16) {
                         Color.clear.frame(height: 8)

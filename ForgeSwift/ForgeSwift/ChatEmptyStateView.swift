@@ -3,11 +3,11 @@ import SwiftUI
 struct ChatEmptyStateView: View {
     let mood: ARIAMood
     let onQuickActionTap: (String) -> Void
+    var onVoiceTap: (() -> Void)? = nil
     @EnvironmentObject var store: AppStore
     @State private var appeared  = false
     @State private var orbPulse  = false
     @State private var orbGlow   = false
-    @State private var wavePhase: Double = 0
 
     // Greeting message varies by mood
     private var greeting: String {
@@ -33,9 +33,8 @@ struct ChatEmptyStateView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 36)
 
-            // Animated ARIA orb
+            // Shared ARIA orb — same mark as the header, tab, and briefing.
             ZStack {
-                // Outer breathing rings
                 ForEach(0..<3, id: \.self) { i in
                     let ringOpacity = 0.05 - Double(i) * 0.015
                     let ringSize = CGFloat(170 + i * 48)
@@ -51,7 +50,6 @@ struct ChatEmptyStateView: View {
                         .animation(ringAnimation, value: orbPulse)
                 }
 
-                // Bloom
                 Circle()
                     .fill(RadialGradient(
                         colors: [mood.accentColor.opacity(orbGlow ? 0.28 : 0.12), .clear],
@@ -59,52 +57,7 @@ struct ChatEmptyStateView: View {
                     ))
                     .frame(width: 150, height: 150).blur(radius: 22)
 
-                // Core orb
-                Circle()
-                    .fill(LinearGradient(
-                        colors: [mood.accentColor.opacity(0.24), mood.accentColor.opacity(0.08)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    ))
-                    .frame(width: 96, height: 96)
-                    .overlay(Circle().stroke(
-                        LinearGradient(colors: [mood.accentColor.opacity(0.55), mood.accentColor.opacity(0.1)],
-                                       startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.5
-                    ))
-                    .shadow(color: mood.accentColor.opacity(orbGlow ? 0.55 : 0.2), radius: orbGlow ? 28 : 12)
-
-                // Screen-blend bloom
-                Circle()
-                    .fill(RadialGradient(
-                        colors: [Color.white.opacity(orbGlow ? 0.12 : 0.04), .clear],
-                        center: .center, startRadius: 0, endRadius: 48
-                    ))
-                    .frame(width: 96, height: 96).blendMode(.screen)
-
-                // Waveform inside orb
-                TimelineView(.animation(minimumInterval: 1.0/30.0)) { tl in
-                    let t = tl.date.timeIntervalSinceReferenceDate
-                    Canvas { ctx, size in
-                        let mid = size.height / 2
-                        var path = Path()
-                        for xi in 0...Int(size.width) {
-                            let x = CGFloat(xi)
-                            let y = mid + 14 * CGFloat(sin(Double(x/size.width) * .pi * 4 + t * 1.8))
-                            if xi == 0 { path.move(to: CGPoint(x: x, y: y)) }
-                            else { path.addLine(to: CGPoint(x: x, y: y)) }
-                        }
-                        ctx.stroke(path, with: .color(Color.white.opacity(0.35)), lineWidth: 1.5)
-                    }
-                }
-                .frame(width: 60, height: 30)
-                .clipShape(Circle().scale(0.58))
-
-                Image(systemName: "brain.head.profile")
-                    .font(.system(size: 38, weight: .medium))
-                    .foregroundStyle(LinearGradient(
-                        colors: [mood.accentColor, mood.accentColor.opacity(0.7)],
-                        startPoint: .top, endPoint: .bottom
-                    ))
-                    .shadow(color: mood.accentColor.opacity(0.5), radius: 10)
+                AuroraOrbView(state: .idle, amplitude: 0.28, mood: mood, size: 110)
             }
             .scaleEffect(appeared ? 1 : 0.6)
             .opacity(appeared ? 1 : 0)
@@ -129,7 +82,32 @@ struct ChatEmptyStateView: View {
             .offset(y: appeared ? 0 : 14)
             .animation(FDS.Spring.hero.delay(0.18), value: appeared)
             .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.bottom, 32)
+            .padding(.bottom, 16)
+
+            if let onVoiceTap {
+                Button(action: onVoiceTap) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "mic.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Talk to ARIA")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 11)
+                    .background(FDS.Gradient.emberDeep)
+                    .clipShape(Capsule())
+                    .shadow(color: Color.ember.opacity(0.4), radius: 10, y: 4)
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .accessibilityLabel("Talk to ARIA")
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 10)
+                .animation(FDS.Spring.hero.delay(0.22), value: appeared)
+                .padding(.bottom, 24)
+            } else {
+                Color.clear.frame(height: 16)
+            }
 
             // Smart suggested prompts
             VStack(alignment: .leading, spacing: 10) {

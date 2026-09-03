@@ -63,4 +63,16 @@ final class OnboardingGraphTests: XCTestCase {
             / Double(OnboardingGraph.Step.allCases.count - 1)
         XCTAssertNotEqual(OnboardingGraph.progress(at: .ready), allCasesReady)
     }
+
+    func testPreviousWalksActiveStepsAndSkipsIntro() {
+        XCTAssertNil(OnboardingGraph.previous(of: .intro))
+        XCTAssertNil(OnboardingGraph.previous(of: .name))
+        XCTAssertEqual(OnboardingGraph.previous(of: .health), .name)
+        XCTAssertEqual(OnboardingGraph.previous(of: .freeTime), .sleep)
+        XCTAssertEqual(OnboardingGraph.previous(of: .coaching), .freeTime)
+        XCTAssertEqual(OnboardingGraph.previous(of: .conditions), .coaching)
+        XCTAssertEqual(OnboardingGraph.previous(of: .ready), .conditions)
+        XCTAssertEqual(OnboardingGraph.previous(of: .trainingTheme), .sleep)
+        XCTAssertEqual(OnboardingGraph.previous(of: .lifeContext), .sleep)
+    }
 }

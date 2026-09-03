@@ -53,8 +53,7 @@ struct SettingsPageView: View {
                 .padding(.top, 8)
                 .padding(.bottom, FDS.Spacing.sm)
 
-                // AI Trainer
-                sectionHeader("AI Trainer")
+                sectionHeader("ARIA")
                 SectionCard {
                     Button(action: { showCoachingStylePicker = true }) {
                         SettingsRow(icon: "person.fill", iconColor: .ember, label: "Coaching Style",

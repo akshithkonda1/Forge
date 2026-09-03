@@ -356,9 +356,9 @@ struct RegularForgeTab: View {
 struct ARIATabButton: View {
     var namespace: Namespace.ID
     @EnvironmentObject var store: AppStore
-    @State private var isVoiceMode = false
 
     private var isActive: Bool { store.activeTab == .chat }
+    private var isVoiceMode: Bool { store.ariaVoiceMode }
 
     var body: some View {
         Button {
@@ -370,12 +370,15 @@ struct ARIATabButton: View {
             VStack(spacing: 2) {
                 ZStack {
                     Circle()
-                        .fill(isVoiceMode ? Color.steel : Color.ember)
-                        .frame(width: 44, height: 44)
-                        .shadow(color: (isVoiceMode ? Color.steel : Color.ember).opacity(0.45), radius: 10, y: 3)
-                    Image(systemName: isVoiceMode ? "waveform" : "sparkles")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .fill((isVoiceMode ? Color.steel : Color.ember).opacity(0.22))
+                        .frame(width: 48, height: 48)
+                        .shadow(color: (isVoiceMode ? Color.steel : Color.ember).opacity(0.4), radius: 10, y: 3)
+                    ARIAIdentityMark(
+                        state: isVoiceMode ? .listening : .idle,
+                        mood: isVoiceMode ? .focused : .energized,
+                        size: 40,
+                        amplitude: isVoiceMode ? 0.4 : 0.18
+                    )
                 }
 
                 Text(isVoiceMode ? "Voice" : "ARIA")
@@ -386,15 +389,16 @@ struct ARIATabButton: View {
             .frame(height: 48)
             .contentShape(Rectangle())
             .accessibilityLabel(isVoiceMode ? "ARIA Voice" : "ARIA")
+            .accessibilityHint("Long-press to switch voice mode")
             .accessibilityAddTraits(isActive ? .isSelected : [])
         }
         .buttonStyle(.plain)
         .onLongPressGesture(minimumDuration: 0.55) {
             FDS.haptic(.medium)
             withAnimation(FDS.Spring.snap) {
-                isVoiceMode.toggle()
-                store.ariaVoiceMode = isVoiceMode
+                store.ariaVoiceMode.toggle()
                 store.activeTab = .chat
+                store.ariaVoiceLaunch = store.ariaVoiceMode
             }
         }
     }

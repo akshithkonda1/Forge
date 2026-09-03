@@ -124,6 +124,9 @@ final class AppStore: ObservableObject {
 
     // ARIA bridge
     @Published var ariaVoiceMode: Bool = false
+    /// One-shot: open the voice orb on the next chat appear / handoff. Cleared
+    /// after consume so a sticky Voice tab does not re-listen on every visit.
+    @Published var ariaVoiceLaunch: Bool = false
     @Published var ariaPendingChatPrompt: String? = nil
     @Published var lastSuggestedActions: [String] = []
     @Published var healthKitLive: Bool = false

@@ -21,15 +21,10 @@ struct AILifeAnalysisCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(spacing: 14) {
-                ZStack {
-                    Circle().fill(Color.ember.opacity(0.15)).frame(width: 46, height: 46)
-                    Image(systemName: "brain.head.profile")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(LinearGradient.ember)
-                }
+                ARIAIdentityMark(state: .idle, mood: .energized, size: 46, amplitude: 0.2)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
-                        Text("AI Life Analysis")
+                        Text("ARIA Life Analysis")
                             .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.textPrimary)
                         if analysis != nil { liveBadge }
@@ -202,7 +197,7 @@ struct AIRecommendationsCard: View {
                 Image(systemName: "lightbulb.fill")
                     .font(.system(size: 18))
                     .foregroundColor(.ember)
-                Text("AI Recommendations")
+                Text("ARIA Recommendations")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.textPrimary)
                 Spacer()

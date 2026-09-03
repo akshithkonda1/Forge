@@ -45,6 +45,25 @@ public enum OnboardingGraph {
         }
     }
 
+    /// Walks `activeSteps` backward. Intro has no predecessor. Name is the
+    /// first answerable screen, so back from Name is also nil — leaving the
+    /// interview is sign-out, not a silent return to the auto-played intro.
+    /// Collapsed legacy screens (`trainingTheme`, `lifeContext`) resolve to
+    /// `freeTime` before the walk so a migration landing cannot get stuck.
+    public static func previous(of step: Step) -> Step? {
+        let normalized: Step
+        switch step {
+        case .trainingTheme, .lifeContext:
+            normalized = .freeTime
+        default:
+            normalized = step
+        }
+        guard let idx = activeSteps.firstIndex(of: normalized), idx > 1 else {
+            return nil
+        }
+        return activeSteps[idx - 1]
+    }
+
     public static func seedsSleepVariance(_ band: SleepBand) -> Bool {
         switch band {
         case .nightOwl, .irregular: return true

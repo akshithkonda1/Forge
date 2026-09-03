@@ -27,14 +27,7 @@ struct HomeARIABriefingCard: View {
                         .blur(radius: 8)
                         .scaleEffect(pulseRing ? 1.35 : 1)
                         .opacity(pulseRing ? 0 : 0.7)
-                    Circle()
-                        .fill(FDS.Gradient.ember)
-                        .frame(width: 40, height: 40)
-                        .overlay(
-                            Text("A")
-                                .font(.system(size: 18, weight: .black))
-                                .foregroundColor(.white)
-                        )
+                    ARIAIdentityMark(state: .idle, mood: .energized, size: 40, amplitude: 0.22)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {

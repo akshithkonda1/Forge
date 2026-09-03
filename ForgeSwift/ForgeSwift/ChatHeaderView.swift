@@ -20,29 +20,9 @@ struct ChatHeaderView: View {
     var body: some View {
         HStack(spacing: 12) {
             ZStack(alignment: .bottomTrailing) {
-                ZStack {
-                    Circle()
-                        .fill(LinearGradient(
-                            colors: [mood.accentColor.opacity(0.22), mood.accentColor.opacity(0.08)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        ))
-                        .frame(width: 44, height: 44)
-                        .overlay(Circle().stroke(
-                            LinearGradient(
-                                colors: [mood.accentColor.opacity(0.6), mood.accentColor.opacity(0.18)],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            ), lineWidth: 1.5
-                        ))
+                ARIAIdentityMark(state: .idle, mood: mood, size: 44, amplitude: 0.2)
 
-                    Image(systemName: "brain.head.profile")
-                        .font(.system(size: 19, weight: .medium))
-                        .foregroundStyle(LinearGradient(
-                            colors: [mood.accentColor, mood.accentColor.opacity(0.7)],
-                            startPoint: .top, endPoint: .bottom
-                        ))
-                }
-
-                // Presence dot
+                // Presence pulse around the live orb
                 ZStack {
                     Circle().fill(Color(hex: "080808")).frame(width: 14, height: 14)
                     Circle().fill(Color(hex: "22C55E")).frame(width: 9, height: 9)
