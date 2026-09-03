@@ -846,10 +846,14 @@ struct MessageBubble: View {
                         .font(.system(size: 16, weight: .regular, design: .rounded))
                         .foregroundColor(.textPrimary)
                         .lineSpacing(4)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(Color.white.opacity(0.05))
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 13)
+                        .background(Color.surfaceElevated)
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        )
                     Spacer(minLength: 36)
                 }
             case .user:
@@ -858,10 +862,15 @@ struct MessageBubble: View {
                     Text(message.text)
                         .font(.system(size: 15, weight: .medium, design: .rounded))
                         .foregroundColor(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(Color.ember.opacity(0.82))
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(FDS.Gradient.ember)
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                                .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                        )
+                        .shadow(color: Color.ember.opacity(0.28), radius: 10, y: 4)
                 }
             case .system:
                 HStack {
@@ -893,15 +902,19 @@ struct TypingIndicator: View {
             HStack(spacing: 5) {
                 ForEach(0..<3, id: \.self) { i in
                     Circle()
-                        .fill(Color.textMuted)
+                        .fill(Color.ember.opacity(0.85))
                         .frame(width: 6, height: 6)
                         .offset(y: sin(phase + Double(i)) * 3)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(Color.white.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+            .background(Color.surfaceElevated)
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
             Spacer()
         }
         .onAppear {

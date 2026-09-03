@@ -165,9 +165,10 @@ struct WorkoutIdleView: View {
 
             VStack(spacing: 6) {
                 Text(workout.name)
-                    .font(.system(size: 32, weight: .bold)).foregroundColor(.textPrimary).multilineTextAlignment(.center)
+                    .font(.system(size: 32, weight: .bold, design: .rounded)).foregroundColor(.textPrimary).multilineTextAlignment(.center)
                 Text(workout.type.label.uppercased())
-                    .font(.system(size: 11, weight: .black)).tracking(2.5).foregroundColor(.ember)
+                    .forgeSectionLabel()
+                    .foregroundColor(.ember)
             }
             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 16)
             .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.18), value: appeared)
@@ -197,9 +198,9 @@ struct WorkoutIdleView: View {
     private func exerciseList(workout: WorkoutPlan) -> some View {
         VStack(spacing: 0) {
             HStack {
-                Text("EXERCISES").font(.system(size: 10, weight: .black)).foregroundColor(.textTertiary).tracking(2.5)
+                Text("EXERCISES").forgeSectionLabel()
                 Spacer()
-                Text("\(workout.exercises.count) total").font(.system(size: 12, weight: .medium)).foregroundColor(.textMuted)
+                Text("\(workout.exercises.count) total").font(.system(size: 12, weight: .medium, design: .rounded)).foregroundColor(.textMuted)
             }
             .padding(.horizontal, 20).padding(.bottom, 18)
             ForEach(Array(workout.exercises.enumerated()), id: \.element.id) { idx, ex in
@@ -216,8 +217,8 @@ struct WorkoutIdleView: View {
                 }
             }
         }
-        .padding(.vertical, 20).background(Color.surface).cornerRadius(24)
-        .shadow(color: .black.opacity(0.06), radius: 18, y: 8)
+        .padding(.vertical, 20)
+        .forgeGlassCard(accent: .ember)
     }
 
     private func startButton(workout: WorkoutPlan) -> some View {
@@ -231,15 +232,24 @@ struct WorkoutIdleView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "play.fill").font(.system(size: 20, weight: .black))
-                Text("Start Workout").font(.system(size: 20, weight: .black))
+                Text("Start Workout").font(.system(size: 20, weight: .bold, design: .rounded))
                 Spacer()
                 Image(systemName: "arrow.right").font(.system(size: 18, weight: .bold))
             }
             .foregroundColor(.white)
             .padding(.horizontal, 28).padding(.vertical, 22)
-            .background(LinearGradient(colors: [Color.ember, Color.ember.opacity(0.82)],
-                                       startPoint: .leading, endPoint: .trailing))
-            .cornerRadius(22).shadow(color: Color.ember.opacity(0.55), radius: 24, y: 10)
+            .background {
+                ZStack {
+                    FDS.Gradient.ember
+                    LinearGradient.premiumChrome
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
+                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
+            )
+            .shadow(color: Color.ember.opacity(0.4), radius: 20, y: 8)
         }
         .opacity(appeared ? 1 : 0).scaleEffect(appeared ? 1 : 0.92)
         .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.52), value: appeared)
@@ -429,14 +439,14 @@ struct WorkoutStatPill: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon).font(.system(size: 11)).foregroundColor(color)
-            Text(value).font(.system(size: 13, weight: .bold)).foregroundColor(.textPrimary)
-            Text(label).font(.system(size: 11)).foregroundColor(.textSecondary).lineLimit(1)
+            Text(value).font(.system(size: 13, weight: .bold, design: .rounded)).foregroundColor(.textPrimary)
+            Text(label).font(.system(size: 11, weight: .medium, design: .rounded)).foregroundColor(.textSecondary).lineLimit(1)
 
         }
         .padding(.horizontal, 12).padding(.vertical, 9)
-        .background(Color.surface).cornerRadius(100)
-        .overlay(Capsule().stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
-        .shadow(color: .black.opacity(0.04), radius: 5, y: 2)
+        .background(Color.white.opacity(0.05))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1))
     }
 }
 

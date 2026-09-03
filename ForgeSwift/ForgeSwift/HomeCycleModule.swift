@@ -163,6 +163,7 @@ struct HomeCycleModule: View {
             .padding(.vertical, 5)
             .background(color.opacity(0.12))
             .clipShape(Capsule())
+            .overlay(Capsule().stroke(color.opacity(0.28), lineWidth: 1))
     }
 
     private func shortDate(_ key: String) -> String {

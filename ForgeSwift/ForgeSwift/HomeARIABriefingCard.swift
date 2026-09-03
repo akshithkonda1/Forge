@@ -33,11 +33,11 @@ struct HomeARIABriefingCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text("ARIA")
-                            .font(.system(size: 13, weight: .black))
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
                             .foregroundColor(.ember)
                             .tracking(1.4)
                         Text("Briefing")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
                             .foregroundColor(.textMuted)
                     }
                     Text(briefingKicker)
@@ -59,7 +59,8 @@ struct HomeARIABriefingCard: View {
                             .font(.system(size: 15))
                             .foregroundColor(.ember)
                     }
-                    .overlay(Circle().stroke(Color.ember.opacity(0.3), lineWidth: 1))
+                    .overlay(Circle().stroke(Color.ember.opacity(0.35), lineWidth: 1))
+                    .shadow(color: Color.ember.opacity(0.22), radius: 6, y: 2)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Talk to ARIA")
@@ -70,34 +71,37 @@ struct HomeARIABriefingCard: View {
                 FDS.haptic(.light)
                 store.openChat(with: "Continue from today's briefing.", voice: false)
             } label: {
-                Text(displayedText.isEmpty && !isTyping ? fullBriefing : displayedText)
-                    .font(.system(size: 15))
-                    .foregroundColor(.textPrimary)
-                    .lineSpacing(5)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
-                    .background(Color.surfaceElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
-                            .stroke(Color.ember.opacity(0.12), lineWidth: 1)
-                    )
+                HStack(alignment: .top, spacing: 12) {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(Color.ember)
+                        .frame(width: 3)
+                    Text(displayedText.isEmpty && !isTyping ? fullBriefing : displayedText)
+                        .font(.system(size: 16, weight: .regular, design: .rounded))
+                        .foregroundColor(.textPrimary)
+                        .lineSpacing(5)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(14)
+                .background(Color.white.opacity(0.045))
+                .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
             }
             .buttonStyle(.plain)
             .accessibilityLabel("ARIA briefing: \(fullBriefing)")
             .padding(.bottom, 14)
 
-            HStack(spacing: 0) {
-                briefingChip(icon: "message.fill", label: "Reply") {
+            HStack(spacing: 8) {
+                briefingChip(icon: "message.fill", label: "Reply", emphasized: true) {
                     store.openChat(with: "Let's talk about my day.", voice: false)
                 }
-                Spacer()
                 briefingChip(icon: themedPlanIcon, label: themedPlanLabel) {
                     store.openChat(with: themedPlanPrompt, voice: false)
                 }
-                Spacer()
                 briefingChip(icon: "calendar", label: "Plan week") {
                     store.openChat(with: "Help me plan this week around recovery and training.", voice: false)
                 }
@@ -132,16 +136,23 @@ struct HomeARIABriefingCard: View {
         "What should I train today based on my readiness?"
     }
 
-    private func briefingChip(icon: String, label: String, action: @escaping () -> Void) -> some View {
+    private func briefingChip(icon: String, label: String, emphasized: Bool = false, action: @escaping () -> Void) -> some View {
         Button {
             FDS.haptic(.light)
             action()
         } label: {
             HStack(spacing: 5) {
-                Image(systemName: icon).font(.system(size: 12))
-                Text(label).font(.system(size: 12, weight: .medium))
+                Image(systemName: icon).font(.system(size: 11, weight: .semibold))
+                Text(label).font(.system(size: 12, weight: .semibold, design: .rounded))
             }
-            .foregroundColor(label == "Reply" ? .ember : .textSecondary)
+            .foregroundColor(emphasized ? .ember : .textSecondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 9)
+            .background(emphasized ? Color.ember.opacity(0.12) : Color.white.opacity(0.05))
+            .clipShape(Capsule())
+            .overlay(
+                Capsule().stroke(emphasized ? Color.ember.opacity(0.28) : Color.white.opacity(0.08), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
     }

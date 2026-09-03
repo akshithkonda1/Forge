@@ -267,6 +267,10 @@ private struct HomeReadinessDetailStrip: View {
         .padding(12)
         .background(Color.white.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
     }
 
     private func readinessFact(_ label: String, _ value: Int, unit: String = "") -> some View {
@@ -300,6 +304,7 @@ private struct HomeLifeChipRow: View {
                 .padding(.vertical, 6)
                 .background(Color.white.opacity(0.06))
                 .clipShape(Capsule())
+                .overlay(Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1))
             }
         }
     }
@@ -321,7 +326,7 @@ private struct HomePrimaryCTA: View {
                         .font(.system(size: 16, weight: .semibold))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(action.title)
-                            .font(.system(size: 17, weight: .bold))
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                         if let subtitle = action.subtitle(store: store) {
@@ -349,10 +354,15 @@ private struct HomePrimaryCTA: View {
                         LinearGradient.premiumChrome
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                        .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                )
+                .shadow(
+                    color: (action.usesRecoveryChrome(store: store) ? Color.steel : Color.ember).opacity(0.32),
+                    radius: 12,
+                    y: 5
                 )
             }
             .buttonStyle(.plain)
@@ -384,11 +394,11 @@ private struct HomePrimaryCTA: View {
                     .foregroundColor(.textSecondary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color.surfaceElevated)
+                    .background(Color.white.opacity(0.05))
                     .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
-                            .stroke(Color.borderColor, lineWidth: 1)
+                            .stroke(Color.white.opacity(0.10), lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -406,11 +416,11 @@ private struct HomePrimaryCTA: View {
                     .foregroundColor(Color.vitality)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color.vitality.opacity(0.12))
+                    .background(Color.white.opacity(0.05))
                     .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
-                            .stroke(Color.vitality.opacity(0.25), lineWidth: 1)
+                            .stroke(Color.vitality.opacity(0.28), lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)

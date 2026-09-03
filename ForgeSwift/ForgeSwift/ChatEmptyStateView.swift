@@ -68,15 +68,16 @@ struct ChatEmptyStateView: View {
             .padding(.bottom, 28)
 
             // Greeting
-            VStack(spacing: 8) {
+            VStack(spacing: 10) {
                 Text(greeting)
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)
                     .multilineTextAlignment(.center)
-                    .lineSpacing(4)
+                    .lineSpacing(3)
+                    .minimumScaleFactor(0.85)
 
                 Text(subtext)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.system(size: 15, weight: .regular, design: .rounded))
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
@@ -93,7 +94,7 @@ struct ChatEmptyStateView: View {
                         Image(systemName: "mic.fill")
                             .font(.system(size: 13, weight: .semibold))
                         Text("Talk to ARIA")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, 18)
@@ -116,13 +117,11 @@ struct ChatEmptyStateView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("ARIA SUGGESTS")
-                        .font(.system(size: 9, weight: .black))
-                        .tracking(2.8)
-                        .foregroundColor(.textMuted)
+                        .forgeSectionLabel()
                     Spacer()
-                    Text("based on \(mood.displayName.lowercased()) mode")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(mood.accentColor.opacity(0.7))
+                    Text(mood.displayName.lowercased())
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundColor(mood.accentColor.opacity(0.85))
                 }
                 .padding(.horizontal, 4)
 
@@ -138,25 +137,32 @@ struct ChatEmptyStateView: View {
                         HStack(spacing: 14) {
                             ZStack {
                                 Circle()
-                                    .fill(mood.accentColor.opacity(0.14))
-                                    .frame(width: 32, height: 32)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                mood.accentColor.opacity(0.28),
+                                                mood.accentColor.opacity(0.10)
+                                            ],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                                    .frame(width: 34, height: 34)
                                 Image(systemName: prompt.1)
-                                    .font(.system(size: 13))
+                                    .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(mood.accentColor)
                             }
                             Text(prompt.0)
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.system(size: 15, weight: .medium, design: .rounded))
                                 .foregroundColor(.textPrimary)
                             Spacer()
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundColor(.textMuted)
                         }
-                        .padding(.horizontal, 16).padding(.vertical, 14)
-                        .background(Color.surfaceElevated)
-                        .cornerRadius(FDS.Radius.md)
-                        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md)
-                            .stroke(Color.borderColor.opacity(0.5), lineWidth: 0.5))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .forgeInnerWell(cornerRadius: FDS.Radius.lg)
                     }
                     .buttonStyle(ScaleButtonStyle())
                     .opacity(appeared ? 1 : 0)

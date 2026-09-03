@@ -264,8 +264,12 @@ struct HomeLifestylePreviewCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color.surfaceElevated.opacity(0.9))
+        .background(Color.white.opacity(0.045))
         .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
     }
 }
 
@@ -347,11 +351,11 @@ private struct HomeMetricTile: View {
                 Image(systemName: icon).font(.system(size: 16)).foregroundColor(iconColor)
             }
             Text(value)
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundColor(.textPrimary)
                 .contentTransition(.numericText())
             Text(label)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundColor(.textTertiary)
         }
         .padding(14)
