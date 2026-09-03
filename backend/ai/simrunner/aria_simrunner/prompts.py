@@ -52,12 +52,25 @@ def system_prompt(variant: str = "v1") -> str:
 
 def build_user_prompt(query: str, context: ARIAContext) -> str:
     t = context.today
+    # Every field below can be None on a sparse/incomplete day — rendered as
+    # an explicit "not available" rather than an unguarded {t.hrv}, which
+    # would otherwise send the real model under test literal prose like
+    # "HRV Nonems": indistinguishable from a real value, and it would never
+    # structurally signal sparseness even though the system prompt above
+    # already instructs the model to say so when data is thin.
+    hrv_bit = f"{t.hrv}ms" if t.hrv is not None else "not available"
+    rhr_bit = str(t.resting_hr) if t.resting_hr is not None else "not available"
+    if t.total_sleep_hours is not None:
+        deep_bit = f"{t.deep_sleep_minutes}m" if t.deep_sleep_minutes is not None else "n/a"
+        sleep_bit = f"{t.total_sleep_hours}h (deep {deep_bit})"
+    else:
+        sleep_bit = "not available"
     block = "\n".join([
         "[USER MODEL — ground truth]",
         f"- name/occupation: {context.user_name} ({context.occupation}); season: {context.life_season}",
         f"- chronotype: {context.chronotype}; target sleep {context.target_sleep_hours}h, wake {context.target_wake_hour}:00",
-        f"- today: readiness {t.readiness_score}/100, HRV {t.hrv}ms, RHR {t.resting_hr}, "
-        f"sleep {t.total_sleep_hours}h (deep {t.deep_sleep_minutes}m), ACWR {context.acwr}",
+        f"- today: readiness {t.readiness_score}/100, HRV {hrv_bit}, RHR {rhr_bit}, "
+        f"sleep {sleep_bit}, ACWR {context.acwr}",
         f"- 7-day: HRV avg {context.hrv_7d_avg} ({context.hrv_7d_trend}); readiness avg "
         f"{context.readiness_7d_avg} ({context.readiness_trend}); sleep debt {context.sleep_debt_7d_hours}h",
         f"- training: streak {context.training_streak}d, {context.days_since_last_workout}d since last workout",

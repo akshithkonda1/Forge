@@ -8,12 +8,12 @@ from backend.ai.simrunner.backend_simulator import model_registry as reg  # noqa
 
 
 class RegistryIntegrityTests(unittest.TestCase):
-    def test_exactly_20_archetypes(self):
-        self.assertEqual(len(reg.BEDROCK_MODEL_REGISTRY), 20)
+    def test_exactly_total_archetypes(self):
+        self.assertEqual(len(reg.BEDROCK_MODEL_REGISTRY), reg.TOTAL_ARCHETYPES)
 
-    def test_four_per_tier(self):
+    def test_expected_count_per_tier(self):
         for tier in range(1, 6):
-            self.assertEqual(len(reg.get_models_by_tier(tier)), 4, f"tier {tier}")
+            self.assertEqual(len(reg.get_models_by_tier(tier)), reg._TIER_COUNTS[tier], f"tier {tier}")
 
     def test_model_ids_unique(self):
         ids = reg.all_model_ids()
@@ -45,7 +45,7 @@ class RegistryIntegrityTests(unittest.TestCase):
 
     def test_validate_registry_catches_wrong_count(self):
         with self.assertRaises(ValueError):
-            reg.validate_registry(reg.BEDROCK_MODEL_REGISTRY[:19])
+            reg.validate_registry(reg.BEDROCK_MODEL_REGISTRY[:20])
 
     def test_validate_registry_catches_duplicate_id(self):
         bad = list(reg.BEDROCK_MODEL_REGISTRY)
@@ -63,7 +63,7 @@ class RegistryIntegrityTests(unittest.TestCase):
 
     def test_validate_registry_catches_bad_tier_distribution(self):
         bad = [dict(m) for m in reg.BEDROCK_MODEL_REGISTRY]
-        bad[0] = {**bad[0], "difficulty_tier": 5}  # now 3 in tier 1, 5 in tier 5
+        bad[0] = {**bad[0], "difficulty_tier": 5}  # now 3 in tier 1, 6 in tier 5
         with self.assertRaises(ValueError):
             reg.validate_registry(bad)
 

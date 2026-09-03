@@ -1,4 +1,4 @@
-"""Backend Simulator — 20 frontier behavioral archetypes.
+"""Backend Simulator — 21 frontier behavioral archetypes.
 
 These are NOT live API models. Each is a named persona with a behavioral profile
 that the simulator uses to synthesize 30 days of realistic biometric data — so
@@ -6,7 +6,11 @@ SimRunner can stress-test ARIA across a difficulty gradient without making a
 single network call or burning a token.
 
 Difficulty gradient: 4 archetypes per tier, tiers 1 (trivial to coach) → 5
-(adversarial, designed to break naive coaching).
+(adversarial, designed to break naive coaching) — except tier 5, which carries
+one extra archetype (5, not 4) so genuine data-sparsity has its own dedicated
+persona alongside the four existing adversarial traits (self-contradiction,
+a mid-dataset regime change, fake-workout gaming, and genuine signal
+ambiguity), none of which were a good fit to double up sparseness onto.
 """
 
 from __future__ import annotations
@@ -308,6 +312,21 @@ BEDROCK_MODEL_REGISTRY: list[dict] = [
             "ambiguous_data": True,
         },
     },
+    {
+        "model_id": "cohere.command-r-sparse",
+        "display_name": "Command R — The Brand-New Tracker",
+        "difficulty_tier": 5,
+        "coaching_challenge": "Rarely gets a clean reading in their first month; ARIA must ask before it fills the gaps with population averages",
+        "behavioral_profile": {
+            "chronotype": "bear", "age": 23, "occupation": "barista",
+            "experience_level": "beginner", "coaching_style": "patient",
+            "sleep_consistency": 0.55, "hrv_baseline": 55, "hrv_variance": 0.12,
+            "training_frequency_per_week": 3, "training_consistency": 0.50,
+            "overtraining_tendency": 0.15, "sleep_debt_tendency": 0.30,
+            "stress_response": "moderate", "life_irregularity": 0.35, "season": "irregular",
+            "data_completeness": 0.25,
+        },
+    },
 ]
 
 
@@ -361,12 +380,19 @@ def _sanitize_id(model_id: str) -> str:
     return model_id
 
 
+# Tier 5 carries one extra archetype: dedicated sparse-data coverage
+# ("The Brand-New Tracker") alongside the four existing adversarial traits,
+# none of which were a thematically honest fit to double up sparseness onto.
+_TIER_COUNTS: dict[int, int] = {1: 4, 2: 4, 3: 4, 4: 4, 5: 5}
+TOTAL_ARCHETYPES = sum(_TIER_COUNTS.values())  # 21
+
+
 def validate_registry(registry: list[dict] | None = None) -> None:
     """Fail loud (ValueError) on any malformed registry. Run at import time."""
     registry = registry if registry is not None else BEDROCK_MODEL_REGISTRY
 
-    if len(registry) != 20:
-        raise ValueError(f"registry must contain exactly 20 archetypes, found {len(registry)}")
+    if len(registry) != TOTAL_ARCHETYPES:
+        raise ValueError(f"registry must contain exactly {TOTAL_ARCHETYPES} archetypes, found {len(registry)}")
 
     ids = [m.get("model_id") for m in registry]
     dupes = sorted({i for i in ids if ids.count(i) > 1})
@@ -391,8 +417,9 @@ def validate_registry(registry: list[dict] | None = None) -> None:
             raise ValueError(f"{mid!r}: behavioral_profile missing keys {sorted(missing)}")
 
     for tier in (1, 2, 3, 4, 5):
-        if per_tier.get(tier, 0) != 4:
-            raise ValueError(f"tier {tier} must have exactly 4 archetypes, found {per_tier.get(tier, 0)}")
+        expected = _TIER_COUNTS[tier]
+        if per_tier.get(tier, 0) != expected:
+            raise ValueError(f"tier {tier} must have exactly {expected} archetypes, found {per_tier.get(tier, 0)}")
 
 
 validate_registry()  # fail fast at import on a malformed registry
