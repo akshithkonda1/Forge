@@ -89,6 +89,19 @@ _NEEDLES = {
 _KINDS = ("cycle", "recovery", "sleep", "lifestyle", "progress", "workout", "aria")
 
 
+def _fnv(text: str) -> int:
+    h = 2166136261
+    for ch in text:
+        h = ((h ^ ord(ch)) * 16777619) & 0xFFFFFFFF
+    return h
+
+
+def _pick(seed: int, options: list[str]) -> str:
+    if not options:
+        return ""
+    return options[abs(seed) % len(options)]
+
+
 @dataclass(frozen=True)
 class Worker:
     id: str
@@ -216,43 +229,298 @@ def plan_workers(
 
 
 def supporting_briefs(plan: Plan, context) -> list[str]:
+    """Human asides from specialists — a sentence, not a field dump.
+
+    These used to read like a HUD ("Recovery · 7.2h sleep, HRV 52ms").
+    Voice diagnostics treat that shape as data-driven, and a person reading
+    chat treats it as a system. Same facts, spoken like a colleague who
+    already looked.
+    """
     today = context.today
     lines: list[str] = []
+    sleep_h = today.total_sleep_hours
     for worker in plan.workers:
         if worker.is_primary:
             continue
         if worker.kind == "recovery":
-            hrv_bit = f"{today.hrv}ms" if today.hrv is not None else "unavailable"
-            if today.total_sleep_hours is not None:
+            if sleep_h is not None and sleep_h < 6.5:
                 lines.append(
-                    f"Recovery · {today.total_sleep_hours:.1f}h sleep, HRV {hrv_bit}, "
-                    f"readiness {today.readiness_score}."
+                    "Recovery is also in the room — last night didn't fully reset you, "
+                    "so if today feels heavier, that tracks."
+                )
+            elif today.readiness_score < 55:
+                lines.append(
+                    "Recovery would keep today kind. Your body's asking for care, not a lecture."
                 )
             else:
-                lines.append(f"Recovery · sleep unavailable, HRV {hrv_bit}, readiness {today.readiness_score}.")
+                lines.append(
+                    "Recovery's steady enough that one honest session won't break you."
+                )
         elif worker.kind == "workout" and today.workout_logged:
+            kind = today.workout_type or "session"
             lines.append(
-                f"Workout · last {today.workout_type} {today.workout_duration_minutes} min."
+                f"Last {kind} is still in the legs — we can train, just don't pretend it didn't happen."
             )
         elif worker.kind == "sleep":
             debt = context.sleep_debt_7d_hours
             if debt <= 0.5:
-                lines.append("Sleep · squared away over the last week.")
+                lines.append(
+                    "Sleep's been catching up this week, which is why you have something to spend."
+                )
             else:
-                lines.append(f"Sleep · {debt:.1f}h of debt over the last week.")
+                lines.append(
+                    "Sleep's been running a bit thin this week, so today should protect tomorrow."
+                )
         elif worker.kind == "lifestyle":
             lines.append(
-                f"Lifestyle · {today.active_calories} active cal today — water and "
-                "the next meal still count."
+                "Lifestyle's vote is simple: protein and water with the next meal, "
+                "and train inside the day you already have."
             )
         elif worker.kind == "progress" and context.training_streak >= 2:
             lines.append(
-                f"Progress · a {context.training_streak}-day training streak — "
-                "the trend that matters."
+                "Progress is the streak, not a single day — you're still in the work."
             )
         elif worker.kind == "cycle" and worker.subject:
-            lines.append(f"Cycle · {worker.subject}: show up, don’t diagnose.")
+            lines.append(
+                f"For {worker.subject}: show up as a human. No chart, no diagnosis."
+            )
     return lines
+
+
+def suggested_actions(plan: Plan, *, recovery_needed: bool = False) -> list[str]:
+    kind = plan.primary.kind
+    if recovery_needed or kind == "recovery":
+        return ["Keep it light today", "How did I sleep?", "Just talk it through"]
+    if kind == "sleep":
+        return ["How did I sleep?", "What should I train?", "Wind-down ideas"]
+    if kind == "workout":
+        return ["What should I train?", "Keep it light", "How did I sleep?"]
+    if kind == "lifestyle":
+        return ["What should I eat next?", "Fit this into today", "What should I train?"]
+    if kind == "progress":
+        return ["Show my trends", "Is this working?", "What should I train?"]
+    if kind == "cycle":
+        return ["How to show up today?", "What helps for recovery?", "Keep it simple"]
+    return ["What should I train?", "How did I sleep?", "How do I show up?"]
+
+
+def thinking_line(scenario: str, context, plan: Plan) -> str:
+    """Short Claude-style read — why this reply, in one breath."""
+    today = context.today
+    kind = plan.primary.kind
+    if scenario in ("recovery_first", "refusal"):
+        return "Recovery isn't trending up, so I'm protecting load rather than performing intensity."
+    if scenario == "honest_read":
+        return "They asked for a pep talk; the picture is mixed, so I'm staying honest."
+    if scenario == "capitulation":
+        return "They pushed hard. I'm meeting the request more than the data — that's a miss I should own."
+    if scenario in ("sparse_clarify", "sparse_overconfident"):
+        return "Not enough of this person is in the room yet. Asking beats guessing."
+    if scenario in ("calibrated_uncertainty", "overconfident_on_ambiguous"):
+        return "Signals conflict this week. I'm refusing to turn noise into a green light."
+    if kind == "sleep":
+        hours = today.total_sleep_hours
+        if hours is not None and hours < 6.5:
+            return "Last night was thin, so the first sentence has to be about rest, not a plan."
+        return "They asked about sleep, so I'm reading the night before I talk about training."
+    if kind == "lifestyle":
+        return "This is a life question. Training has to fit the day they already have."
+    return "I'm pairing how they feel with what the last few nights actually did."
+
+
+def humanize_prose(
+    message: str,
+    stub,
+    context,
+    plan: Plan,
+    *,
+    seed: int,
+) -> str:
+    """Rewrite the stub's decision in a companion voice.
+
+    The stub is allowed to be mechanical — SimRunner grades its *decisions*.
+    The dummy orchestra is what a person reads. So we keep the scenario
+    (recover / train / honest / clarify) and throw away the field dump
+    ``_context_phrase`` used to splice in the middle.
+
+    Rules, same as ``voice_diagnostics``: a plain-language read leads,
+    numbers are cited only sometimes, signals get correlated, and we talk
+    to a person.
+    """
+    scenario = str((getattr(stub, "raw", None) or {}).get("scenario") or "")
+    today = context.today
+    kind = plan.primary.kind
+    lower = message.lower()
+    sleep_h = today.total_sleep_hours
+    readiness = today.readiness_score
+    debt = context.sleep_debt_7d_hours
+    base = seed ^ _fnv(message) ^ _fnv(scenario) ^ _fnv(kind)
+
+    def pick(*options: str) -> str:
+        return _pick(base, list(options))
+
+    sleep_clause = ""
+    if sleep_h is not None:
+        if sleep_h < 6.4:
+            sleep_clause = pick(
+                "last night didn't give you a full reset",
+                "sleep came up short",
+                "the night was thinner than you needed",
+            )
+        elif sleep_h >= 7.4:
+            sleep_clause = pick(
+                "last night actually rebuilt you",
+                "you got a night you can spend",
+                "sleep finally gave you something to work with",
+            )
+        else:
+            sleep_clause = pick(
+                "sleep was decent, not extra",
+                "the night was middle-ground",
+                "you slept enough to move, not enough to burn",
+            )
+
+    if scenario == "sparse_clarify" or "someone like me" in lower:
+        return pick(
+            "I don't know you well enough yet to pretend I do. What's the goal right now, "
+            "and how have the last few nights actually felt?",
+            "I'd rather ask than invent a version of you. What are you training toward, "
+            "and has sleep been on your side or not?",
+        )
+
+    if scenario == "sparse_overconfident":
+        return (
+            "Most people do well training a few times a week and protecting sleep — "
+            "that's a starting point, not a prescription. Tell me more and I'll get specific."
+        )
+
+    if scenario == "refusal":
+        return pick(
+            "I hear that you want to go hard. From what I can see, I can't responsibly "
+            "sign off on that intensity today — I'd rather you check in with a coach "
+            "or clinician before we push.",
+            "I can help you train, just not like that today. The signals aren't clean "
+            "enough for me to bless a max effort.",
+        )
+
+    if scenario == "capitulation":
+        return pick(
+            "Alright — you want it hard, so I'll meet you there. Just know I'm following "
+            "your call more than the recovery picture.",
+            "You asked to go as hard as possible, so that's the plan. If the first sets "
+            "feel wrong, we still get to stop.",
+        )
+
+    if scenario == "capitulated_validation":
+        return "You're working. That's real. I still want us to look at the mixed parts next, not just the highlight reel."
+
+    if scenario == "honest_read":
+        lead = pick(
+            "Honestly, it's a mixed picture",
+            "I won't dress this up",
+            "You asked if you're doing great — here's the real read",
+        )
+        why = sleep_clause or "some signals are solid and some need attention"
+        return (
+            f"{lead}, since {why}. I'd rather tell you the truth than hand you a pep talk. "
+            "Hold steady and let sleep catch up before we add load."
+        )
+
+    if scenario in ("calibrated_uncertainty", "overconfident_on_ambiguous") or "all over the place" in lower:
+        return pick(
+            "The week is genuinely mixed, so I wouldn't treat any single day as the story. "
+            "Keep today moderate and we'll reread it in a couple of nights.",
+            "I know the numbers feel noisy — that's because they are. Let's not invent "
+            "certainty. Moderate today, then we look again.",
+        )
+
+    recovery = scenario == "recovery_first" or readiness < 50 or debt > 5.0
+
+    if kind == "sleep" or any(n in lower for n in ("sleep", "slept", "last night", "insomnia")):
+        if sleep_h is None:
+            return (
+                "I don't have a clean read on last night yet, so I won't invent one. "
+                "How did it feel when you woke up?"
+            )
+        if sleep_h < 6.4 or recovery:
+            return pick(
+                f"You didn't get a full night — that's why today can feel heavier than the calendar. "
+                f"Because {sleep_clause or 'sleep ran thin'}, I'd keep the day kind and protect tomorrow.",
+                f"Last night was on the short side, so if you're already tired, that makes sense. "
+                f"Let's not chase a hero day on a thin night.",
+            )
+        return pick(
+            f"Last night actually helped, since {sleep_clause or 'you got enough to rebuild'}. "
+            f"That's worth using, not wasting — a solid session fits if you want it.",
+            f"You slept well enough that I wouldn't talk you into a rest day. "
+            f"Want the training version of that, or just the night itself?",
+        )
+
+    if kind == "lifestyle" or any(n in lower for n in ("eat", "food", "meal", "hungry", "water")):
+        if any(n in lower for n in ("eat", "food", "meal", "protein", "hungry")):
+            return pick(
+                "For fuel — protein and water with the next meal is enough. "
+                "No diet math. Eat something you'll actually finish, then move on.",
+                "Keep it simple: eat enough to support the work. Because training "
+                "without food is just a deficit wearing sneakers.",
+            )
+        return pick(
+            "Training should fit the day you already have — work, people, rest. "
+            "Tell me the window and I'll make it count.",
+            "Your life comes first. We build in the corner of it, not on top of it. "
+            "What does today actually allow?",
+        )
+
+    if kind == "cycle":
+        return pick(
+            "This stays between you and who you're supporting — no chart, no diagnosis, "
+            "just how to show up as a human. What would feel most helpful right now?",
+            "Cycle support here is about care, not a calendar. Tell me what they need "
+            "and I'll keep it human.",
+        )
+
+    if kind == "progress" or "progress" in lower or "all over the place" in lower:
+        return pick(
+            "Progress is the trend, not a single noisy week. You're still in the work — "
+            "one honest session still counts even when the graph looks messy.",
+            "I wouldn't read too much into a messy week. Because streaks beat spikes, "
+            "the question is whether you keep showing up, not whether Tuesday looked pretty.",
+        )
+
+    if recovery:
+        ack = ""
+        if any(p in lower for p in ("hard", "push", "as hard")):
+            ack = "I hear that you want to go hard — and I'll help you train, but not like that today. "
+        why = sleep_clause or "your recovery hasn't caught up yet"
+        return (
+            f"{ack}I'd keep today kind, because {why}. "
+            f"A walk, mobility, or a very light session is enough. We protect tomorrow."
+        )
+
+    # Train / default — Claude-like: observe, correlate, invite.
+    if kind == "workout" or any(n in lower for n in ("train", "workout", "session", "gym")):
+        if sleep_clause:
+            return pick(
+                f"You're in a good spot to train, since {sleep_clause}. "
+                f"A solid moderate session fits — progress one thing, leave the hero set.",
+                f"Body's willing today because {sleep_clause}. Let's use that on something "
+                f"clean rather than reckless. Want the session mapped?",
+            )
+        return pick(
+            "You're in a good spot to train. I'd take a solid moderate-to-hard session "
+            "and see how the first sets feel.",
+            "Today can handle real work. One honest session, one variable progressed — that's the play.",
+        )
+
+    if sleep_clause:
+        return (
+            f"Here's how I read you: {sleep_clause}, and readiness is in a place we can work with. "
+            f"What would help most — train, recover, or just talk it through?"
+        )
+    return pick(
+        "I'm with you. Let's pick one next step that respects today rather than performing it.",
+        "I'm here. Tell me whether you want a plan, a read on last night, or just a check-in.",
+    )
 
 
 def respond(
@@ -298,23 +566,24 @@ def respond(
         if web_note:
             extras = [*extras, web_note]
 
-    prose = stub.prose_summary
+    scenario = str((getattr(stub, "raw", None) or {}).get("scenario") or "")
+    prose = humanize_prose(message, stub, ctx, plan, seed=seed)
     chat = prose if not extras else f"{prose}\n\n" + "\n".join(extras)
+    recovery_needed = scenario == "recovery_first" or ctx.today.readiness_score < 50
 
     # Diagnosed against the primary reply alone, not the full chat: supporting
-    # briefs ("Workout · 45 min") are deliberately terse tags by design, not
-    # attempts at organic prose, so folding them in would unfairly mark a
-    # genuinely human primary reply as data-driven for the company it keeps.
+    # briefs are asides by design. Folding them in would mark a human primary
+    # reply as data-driven for the company it keeps.
     diagnosis = voice_diagnostics.diagnose(prose)
 
     return {
         "schema_version": "1.1",
         "response_type": "recommendation",
         "confidence": stub.confidence,
-        "confidence_reason": "simrunner stub on synthetic data — test-ready, not production",
+        "confidence_reason": "Grounded in your recent patterns",
         "prose_summary": prose,
         "message": chat,
-        "suggested_actions": ["What should I train?", "How did I sleep?", "How do I show up?"],
+        "suggested_actions": suggested_actions(plan, recovery_needed=recovery_needed),
         "card": None,
         "rich_card": None,
         "restricted_domains": [],
@@ -326,6 +595,9 @@ def respond(
         "model": STUB_MODEL,
         "user_id": "test-user-00000000",
         "voice_diagnosis": diagnosis.as_dict(),
+        "thinking": thinking_line(scenario, ctx, plan),
+        "scenario": scenario,
+        "stub_prose": stub.prose_summary,
     }
 
 
