@@ -5,6 +5,16 @@ how that persona actually lives: consistency drives sleep variance, training
 load suppresses HRV, ACWR spikes when workouts cluster, and the ``season`` shapes
 the 30-day arc. Everything is seeded, so a given profile + seed is reproducible
 to the byte.
+
+Two optional profile keys model real wearable imperfection, both off by default
+so every existing archetype's output stays byte-identical: ``data_completeness``
+(0-1, the per-field odds a day's sleep/HRV/resting-HR actually got captured —
+real devices miss nights and skip staging far more than they miss steps) and
+``source_conflict`` (a same-metric divergence on resting HR, mirroring the real
+backend's own observation that HRV and resting HR are the only two metrics it
+blends across sources today). Every new RNG draw these introduce is gated behind
+the profile opting in, never rolled-and-discarded, so a profile that never sets
+either key consumes the RNG stream identically to before this existed.
 """
 
 from __future__ import annotations
@@ -19,13 +29,13 @@ from dataclasses import dataclass
 @dataclass
 class DailyRecord:
     date: str                       # ISO, Day 1 = today - 29 days
-    total_sleep_hours: float
-    deep_sleep_minutes: int
-    rem_sleep_minutes: int
-    sleep_score: int                # 0-100
-    hrv: int                        # ms
-    resting_hr: int
-    readiness_score: int            # 0-100, computed from sleep + hrv + recovery
+    total_sleep_hours: float | None
+    deep_sleep_minutes: int | None
+    rem_sleep_minutes: int | None
+    sleep_score: int | None         # 0-100
+    hrv: int | None                 # ms
+    resting_hr: int | None
+    readiness_score: int            # 0-100, computed from sleep + hrv + recovery — always present
     steps: int
     active_calories: int
     workout_logged: bool
@@ -33,13 +43,20 @@ class DailyRecord:
     workout_duration_minutes: int | None
     workout_intensity: str | None   # "low" | "moderate" | "high" | "max"
     training_load: float
-    acwr: float                     # acute:chronic workload ratio (7d:28d)
+    acwr: float                     # acute:chronic workload ratio (7d:28d) — always present
     notes: str | None
 
 
 _CHRONOTYPE_SLEEP_TARGET = {"bear": 8.0, "lion": 7.5, "wolf": 7.5, "dolphin": 6.5}
 _INTENSITY_LOAD = {"low": 0.6, "moderate": 1.0, "high": 1.5, "max": 2.0}
 _DAYS = 30
+
+# Sleep staging (deep/REM) fails to capture more often than gross duration does
+# on real wearables — a device can log "you slept 7h" while missing the stage
+# breakdown far more easily than it can miss the night's sleep entirely.
+_STAGE_CAPTURE_FACTOR = 0.75
+_SOURCE_CONFLICT_PROBABILITY = 0.35
+_SOURCE_CONFLICT_MAGNITUDE = (6, 14)  # bpm swing applied to resting_hr on a conflict day
 
 
 def _reference_today(reference_date: "datetime.date | None" = None) -> datetime.date:
@@ -208,8 +225,44 @@ def generate_stream(
             hrv *= rng.choice([0.82, 1.18])  # signal that conflicts with sleep
         hrv_val = int(_clamp(hrv, 15, hrv_baseline * 1.4))
         resting_hr = int(_clamp(42 + (hrv_baseline - hrv_val) * 0.35 + rng.gauss(0, 2), 38, 90))
+        # Two devices disagreeing on the same instantaneous metric — the real
+        # backend's own ingestion pipeline treats HRV and resting HR as its
+        # only two "blend across sources" metrics (services/daily_metrics.py),
+        # so that's exactly where a source conflict would actually surface.
+        # `ambiguous_data` already owns HRV-vs-sleep divergence thematically;
+        # this targets resting_hr instead so the two traits stay distinct.
+        if profile.get("source_conflict") and rng.random() < _SOURCE_CONFLICT_PROBABILITY:
+            resting_hr = int(_clamp(
+                resting_hr + rng.choice([-1, 1]) * rng.uniform(*_SOURCE_CONFLICT_MAGNITUDE), 38, 90))
 
-        readiness = _readiness(sleep_score, hrv_val, hrv_baseline, acwr)
+        # --- Sparse/incomplete data: independent per-field presence rolls,
+        # entirely skipped (no rng draw at all) when the profile doesn't opt
+        # in, so a profile that never sets data_completeness consumes the RNG
+        # stream identically to before this feature existed — every existing
+        # archetype's output stays byte-for-byte unchanged.
+        completeness = float(profile.get("data_completeness", 1.0))
+        if completeness < 1.0:
+            sleep_present = rng.random() < completeness
+            total_sleep_hours_out = round(sleep_hours, 1) if sleep_present else None
+            if sleep_present:
+                stages_present = rng.random() < completeness * _STAGE_CAPTURE_FACTOR
+                deep_out = deep if stages_present else None
+                rem_out = rem if stages_present else None
+                sleep_score_out = sleep_score
+            else:
+                deep_out = rem_out = sleep_score_out = None
+            hrv_out = hrv_val if rng.random() < completeness else None
+            resting_hr_out = resting_hr if rng.random() < completeness else None
+        else:
+            total_sleep_hours_out = round(sleep_hours, 1)
+            deep_out, rem_out, sleep_score_out = deep, rem, sleep_score
+            hrv_out, resting_hr_out = hrv_val, resting_hr
+
+        # Readiness is computed from what actually reached the record, not
+        # the true underlying physiology — this is what makes it genuinely
+        # degrade on a sparse day instead of secretly staying fully-informed
+        # while just not showing the user.
+        readiness = _readiness(sleep_score_out, hrv_out, hrv_baseline, acwr)
 
         steps = int(_clamp(rng.gauss(8500 if not do_workout else 11000, 2500), 1500, 22000))
         active_cal = int(_clamp(load * 220 + rng.gauss(320, 90), 80, 1600))
@@ -228,9 +281,9 @@ def generate_stream(
             notes_added += 1
 
         records.append(DailyRecord(
-            date=date, total_sleep_hours=round(sleep_hours, 1),
-            deep_sleep_minutes=deep, rem_sleep_minutes=rem, sleep_score=sleep_score,
-            hrv=hrv_val, resting_hr=resting_hr, readiness_score=readiness,
+            date=date, total_sleep_hours=total_sleep_hours_out,
+            deep_sleep_minutes=deep_out, rem_sleep_minutes=rem_out, sleep_score=sleep_score_out,
+            hrv=hrv_out, resting_hr=resting_hr_out, readiness_score=readiness,
             steps=steps, active_calories=active_cal,
             workout_logged=do_workout, workout_type=workout_type,
             workout_duration_minutes=duration, workout_intensity=workout_intensity,
@@ -250,10 +303,30 @@ def _acwr(loads: list[float]) -> float:
     return _clamp(acute / chronic, 0.0, 2.5)
 
 
-def _readiness(sleep_score: int, hrv: int, hrv_baseline: float, acwr: float) -> int:
-    hrv_ratio = min(hrv / hrv_baseline, 1.2) if hrv_baseline > 0 else 1.0
+def _readiness(sleep_score: int | None, hrv: int | None, hrv_baseline: float, acwr: float) -> int:
+    """Weighted blend of sleep, HRV, and training load — always returns a real
+    0-100 int, never None. When sleep_score and hrv are both present, this
+    executes the exact original fixed-weight expression, unchanged (float
+    addition isn't perfectly associative, so the fully-populated case is kept
+    as its own branch rather than trusted to fall out of a general formula).
+    When either is missing, its weight is dropped and the remaining weights
+    renormalize — mirrors the real backend's "no HRV -> readiness scoring
+    disabled, using sleep proxies" philosophy instead of crashing or ever
+    propagating None. Worst case (both missing): degrades to acwr_penalty
+    alone — "all we know is training load," never a fabricated number."""
     acwr_penalty = 100 - max(0.0, (acwr - 1.0) * 100)
-    base = sleep_score * 0.4 + hrv_ratio * 100 * 0.35 + acwr_penalty * 0.25
+    hrv_ratio = (min(hrv / hrv_baseline, 1.2) if hrv_baseline > 0 else 1.0) if hrv is not None else None
+
+    if sleep_score is not None and hrv_ratio is not None:
+        base = sleep_score * 0.4 + hrv_ratio * 100 * 0.35 + acwr_penalty * 0.25
+    else:
+        components: list[tuple[float, float]] = [(acwr_penalty, 0.25)]
+        if sleep_score is not None:
+            components.append((float(sleep_score), 0.40))
+        if hrv_ratio is not None:
+            components.append((hrv_ratio * 100, 0.35))
+        weight = sum(w for _, w in components)
+        base = sum(v * w for v, w in components) / weight
     return int(round(_clamp(base, 0, 100)))
 
 

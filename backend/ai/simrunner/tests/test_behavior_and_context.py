@@ -42,13 +42,19 @@ class BehaviorEngineTests(unittest.TestCase):
             baseline = model["behavioral_profile"]["hrv_baseline"]
             for r in generate_stream(model["behavioral_profile"]):
                 self.assertTrue(0 <= r.readiness_score <= 100, (model["model_id"], r.readiness_score))
-                self.assertTrue(0 <= r.sleep_score <= 100)
-                self.assertTrue(15 <= r.hrv <= baseline * 1.4 + 1)
-                self.assertTrue(38 <= r.resting_hr <= 90)
+                if r.sleep_score is not None:
+                    self.assertTrue(0 <= r.sleep_score <= 100)
+                if r.hrv is not None:
+                    self.assertTrue(15 <= r.hrv <= baseline * 1.4 + 1)
+                if r.resting_hr is not None:
+                    self.assertTrue(38 <= r.resting_hr <= 90)
                 self.assertTrue(0.0 <= r.acwr <= 2.5)
-                self.assertTrue(3.0 <= r.total_sleep_hours <= 10.5)
-                self.assertGreaterEqual(r.deep_sleep_minutes, 0)
-                self.assertGreaterEqual(r.rem_sleep_minutes, 0)
+                if r.total_sleep_hours is not None:
+                    self.assertTrue(3.0 <= r.total_sleep_hours <= 10.5)
+                if r.deep_sleep_minutes is not None:
+                    self.assertGreaterEqual(r.deep_sleep_minutes, 0)
+                if r.rem_sleep_minutes is not None:
+                    self.assertGreaterEqual(r.rem_sleep_minutes, 0)
                 self.assertGreaterEqual(r.steps, 0)
                 if r.workout_logged:
                     self.assertIn(r.workout_intensity, ("low", "moderate", "high", "max"))

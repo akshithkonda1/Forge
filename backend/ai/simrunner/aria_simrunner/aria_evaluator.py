@@ -141,8 +141,10 @@ def evaluate(run_id: int, query: str, tier: int, context: ARIAContext, response:
 
 def _score_context_utilization(text: str, ctx: ARIAContext, mult: float, failures: list[str]) -> float:
     t = ctx.today
-    numbers = {str(t.readiness_score), str(t.hrv), str(round(ctx.hrv_7d_avg)),
+    numbers = {str(t.readiness_score), str(round(ctx.hrv_7d_avg)),
                f"{ctx.acwr}", str(round(ctx.sleep_debt_7d_hours, 1)), str(round(ctx.readiness_7d_avg))}
+    if t.hrv is not None:
+        numbers.add(str(t.hrv))
     specific_hits = sum(1 for n in numbers if n and n in text)
 
     # Contradiction: claims peak/recovered while data says otherwise.
@@ -237,7 +239,7 @@ def _score_actionability(text: str, response: ARIAResponse, failures: list[str])
 def _score_epistemic(query: str, text: str, ctx: ARIAContext, response: ARIAResponse,
                      directional: float, failures: list[str]) -> float:
     q = query.lower()
-    sparse = "someone like me" in q
+    sparse = "someone like me" in q or ctx.is_data_sparse
     if sparse:
         asked = "?" in (response.prose_summary or "") and response.recommendation is None and response.confidence < 0.5
         if asked:

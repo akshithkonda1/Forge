@@ -222,10 +222,14 @@ def supporting_briefs(plan: Plan, context) -> list[str]:
         if worker.is_primary:
             continue
         if worker.kind == "recovery":
-            lines.append(
-                f"Recovery · {today.total_sleep_hours:.1f}h sleep, HRV {today.hrv}ms, "
-                f"readiness {today.readiness_score}."
-            )
+            hrv_bit = f"{today.hrv}ms" if today.hrv is not None else "unavailable"
+            if today.total_sleep_hours is not None:
+                lines.append(
+                    f"Recovery · {today.total_sleep_hours:.1f}h sleep, HRV {hrv_bit}, "
+                    f"readiness {today.readiness_score}."
+                )
+            else:
+                lines.append(f"Recovery · sleep unavailable, HRV {hrv_bit}, readiness {today.readiness_score}.")
         elif worker.kind == "workout" and today.workout_logged:
             lines.append(
                 f"Workout · last {today.workout_type} {today.workout_duration_minutes} min."

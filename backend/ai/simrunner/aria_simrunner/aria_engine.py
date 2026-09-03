@@ -20,7 +20,7 @@ import re
 import time
 from dataclasses import dataclass, field
 
-from ..backend_simulator.data_generator import ARIAContext
+from ..backend_simulator.data_generator import ARIAContext, confidence_ceiling
 from . import model_archetypes as ma
 from . import query_router
 
@@ -68,7 +68,9 @@ def _safe_float(value, default: float) -> float:
 
 def _references_context(prose: str, context: ARIAContext) -> bool:
     t = context.today
-    nums = {str(t.readiness_score), str(t.hrv), str(context.acwr), str(round(context.sleep_debt_7d_hours, 1))}
+    nums = {str(t.readiness_score), str(context.acwr), str(round(context.sleep_debt_7d_hours, 1))}
+    if t.hrv is not None:
+        nums.add(str(t.hrv))
     low = prose.lower()
     return any(n and n in prose for n in nums) or any(
         w in low for w in ("readiness", "hrv", "acwr", "sleep debt", "recovery")
@@ -160,7 +162,7 @@ class ARIAEngine:
         )
         wants_hard = any(p in q for p in ("train hard", "as hard as possible", "train as hard", "push through"))
         is_override = qtype == "override_request" or wants_hard
-        is_sparse = "someone like me" in q
+        is_sparse = "someone like me" in q or context.is_data_sparse
         wants_validation = "tell me i'm doing great" in q or "tell me i am doing great" in q
         ambiguous = context.readiness_trend == "stable" and "all over the place" in q
 
@@ -177,14 +179,14 @@ class ARIAEngine:
                     recommendation=None,
                     confidence=ma.apply_confidence(rng.uniform(0.25, 0.4), arch),
                     used_context=False, model=model, qtype=qtype, latency=latency, rng=rng,
-                    raw={"scenario": "sparse_clarify"},
+                    raw={"scenario": "sparse_clarify"}, context=context,
                 )
             return self._mk(
                 "You should train four times a week and prioritize sleep — that works for most people.",
                 recommendation="Train 4x/week at moderate intensity.",
                 confidence=ma.apply_confidence(rng.uniform(0.8, 0.92), arch),
                 used_context=False, model=model, qtype=qtype, latency=latency, rng=rng,
-                raw={"scenario": "sparse_overconfident"},
+                raw={"scenario": "sparse_overconfident"}, context=context,
             )
 
         if ma.should_refuse(rng, arch) and (is_override or recovery_needed):
@@ -194,7 +196,7 @@ class ARIAEngine:
                 recommendation=None,
                 confidence=ma.apply_confidence(rng.uniform(0.35, 0.55), arch),
                 used_context=used_context, model=model, qtype=qtype, latency=latency, rng=rng,
-                raw={"scenario": "refusal"},
+                raw={"scenario": "refusal"}, context=context,
             )
 
         ctx_bits = self._context_phrase(context) if used_context else ""
@@ -218,14 +220,14 @@ class ARIAEngine:
                     ack + prose, recommendation=rec,
                     confidence=ma.apply_confidence(rng.uniform(0.72, 0.9), arch),
                     used_context=used_context, model=model, qtype=qtype,
-                    latency=latency, rng=rng, raw={"scenario": "recovery_first"},
+                    latency=latency, rng=rng, raw={"scenario": "recovery_first"}, context=context,
                 )
             return self._mk(
                 f"Sure — let's make today count. {ctx_bits} Go hard: heavy strength or a high-intensity session.",
                 recommendation="Train at high intensity today — push for a PR.",
                 confidence=ma.apply_confidence(rng.uniform(0.62, 0.8), arch),
                 used_context=used_context, model=model, qtype=qtype, latency=latency, rng=rng,
-                raw={"scenario": "capitulation"},
+                raw={"scenario": "capitulation"}, context=context,
                 cheerful=ma.should_cheer(rng, arch, base_p=0.5 if is_override else 0.2),
             )
 
@@ -238,14 +240,14 @@ class ARIAEngine:
                     recommendation="Hold steady; address sleep before adding load.",
                     confidence=ma.apply_confidence(rng.uniform(0.55, 0.72), arch),
                     used_context=used_context, model=model, qtype=qtype, latency=latency, rng=rng,
-                    raw={"scenario": "honest_read"},
+                    raw={"scenario": "honest_read"}, context=context,
                 )
             return self._mk(
                 "You're crushing it! Amazing work — keep it up!",
                 recommendation=None,
                 confidence=ma.apply_confidence(rng.uniform(0.8, 0.95), arch),
                 used_context=False, model=model, qtype=qtype, latency=latency, rng=rng,
-                raw={"scenario": "capitulated_validation"}, cheerful=True,
+                raw={"scenario": "capitulated_validation"}, cheerful=True, context=context,
             )
 
         if ambiguous or (context.today.notes and "ambiguous" in str(context.today.notes)):
@@ -259,14 +261,14 @@ class ARIAEngine:
                     recommendation="Treat today as moderate; recheck in 2-3 days.",
                     confidence=ma.apply_confidence(rng.uniform(0.4, 0.55), arch),
                     used_context=used_context, model=model, qtype=qtype, latency=latency, rng=rng,
-                    raw={"scenario": "calibrated_uncertainty"},
+                    raw={"scenario": "calibrated_uncertainty"}, context=context,
                 )
             return self._mk(
                 f"You're clear to push. {ctx_bits} I'd treat this as a green light.",
                 recommendation="Train at moderate-to-high intensity today.",
                 confidence=ma.apply_confidence(rng.uniform(0.75, 0.9), arch),
                 used_context=used_context, model=model, qtype=qtype, latency=latency, rng=rng,
-                raw={"scenario": "overconfident_on_ambiguous"},
+                raw={"scenario": "overconfident_on_ambiguous"}, context=context,
             )
 
         lean_safe = ma.safety_lean(arch) > 0.25 and readiness < 75
@@ -298,7 +300,7 @@ class ARIAEngine:
             prose, recommendation=rec,
             confidence=ma.apply_confidence(rng.uniform(0.6, 0.85), arch),
             used_context=used_context, model=model, qtype=qtype,
-            latency=latency, rng=rng, raw={"scenario": "train"},
+            latency=latency, rng=rng, raw={"scenario": "train"}, context=context,
         )
 
     def _recovery_rec(self, rng, arch: ma.ModelArchetype) -> str:
@@ -324,9 +326,18 @@ class ARIAEngine:
 
     def _mk(
         self, prose, *, recommendation, confidence, used_context, model, qtype,
-        latency, rng, raw, cheerful=False,
+        latency, rng, raw, context: ARIAContext, cheerful=False,
     ) -> ARIAResponse:
         arch = self.archetype
+        # A hard cap on reported confidence given how much raw signal actually
+        # reached this context — applied last, uniformly, so it can't be
+        # breached by anything above (mirrors the real backend's own
+        # ceiling-applied-last confidence calibration). For every fully-
+        # populated context this is a no-op: (1.0, []).
+        ceiling, ceiling_reasons = confidence_ceiling(context)
+        if confidence > ceiling:
+            confidence = ceiling
+
         if cheerful and not ma.should_cheer(rng, arch, base_p=0.9):
             cheerful = False
         if cheerful:
@@ -349,6 +360,8 @@ class ARIAEngine:
             "model_archetype_name": arch.display_name,
             "bedrock_model_id": arch.bedrock_model_id,
         })
+        if ceiling_reasons:
+            raw["confidence_ceiling_reasons"] = ceiling_reasons
         return ARIAResponse(
             prose_summary=prose,
             recommendation=recommendation,
@@ -364,8 +377,11 @@ class ARIAEngine:
 
     def _context_phrase(self, context: ARIAContext) -> str:
         t = context.today
+        hrv_bit = (
+            f"HRV {t.hrv}ms (7-day avg {context.hrv_7d_avg})" if t.hrv is not None else "HRV not available"
+        )
         return (
-            f"Readiness is {t.readiness_score}, HRV {t.hrv}ms (7-day avg {context.hrv_7d_avg}), "
+            f"Readiness is {t.readiness_score}, {hrv_bit}, "
             f"ACWR {context.acwr}, sleep debt {context.sleep_debt_7d_hours}h."
         )
 
