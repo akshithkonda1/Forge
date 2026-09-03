@@ -131,13 +131,13 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col px-6 pb-8 pt-12">
+    <div className="flex min-h-[100dvh] flex-col overflow-y-auto px-6 pb-8 pt-16">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="mb-10"
+        className="mb-5"
       >
         <h2 className="mb-2 text-3xl font-bold text-text-primary">
           Connect Your Devices

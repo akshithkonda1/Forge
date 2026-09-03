@@ -56,8 +56,8 @@ const containerVariants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2,
+      staggerChildren: 0.06,
+      delayChildren: 0.05,
     },
   },
 };
@@ -89,13 +89,13 @@ export default function CoachingStyleScreen({
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col px-6 pb-8 pt-12">
+    <div className="flex min-h-[100dvh] flex-col overflow-y-auto px-6 pb-8 pt-16">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="mb-10"
+        className="mb-4"
       >
         <h2 className="mb-2 text-3xl font-bold text-text-primary">
           How do you like to be coached?
@@ -121,7 +121,7 @@ export default function CoachingStyleScreen({
 
       {/* Style cards */}
       <motion.div
-        className="flex flex-1 flex-col gap-3"
+        className="flex flex-col gap-3"
         variants={containerVariants}
         initial="hidden"
         animate="visible"

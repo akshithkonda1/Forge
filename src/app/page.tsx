@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore, type TabId } from "@/stores/useAppStore";
@@ -49,6 +49,7 @@ export default function Page() {
   const activeTab = useAppStore((s) => s.activeTab);
   const setActiveTab = useAppStore((s) => s.setActiveTab);
   const workoutActive = useAppStore((s) => s.activeWorkout.isActive);
+  const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const finish = () => setHasHydrated(true);
@@ -63,6 +64,11 @@ export default function Page() {
       router.replace("/onboarding");
     }
   }, [hasHydrated, isOnboarded, router]);
+
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+    window.scrollTo(0, 0);
+  }, [activeTab]);
 
   if (!hasHydrated) {
     return <BootSplash />;
@@ -84,6 +90,7 @@ export default function Page() {
       </a>
       <main
         id="main"
+        ref={mainRef}
         className={cn(
           "flex min-h-0 flex-1 flex-col",
           lockViewport ? "overflow-hidden" : "overflow-y-auto"
