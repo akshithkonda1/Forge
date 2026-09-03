@@ -369,7 +369,7 @@ def humanize_prose(
             )
         elif sleep_h >= 7.4:
             sleep_clause = pick(
-                "last night actually rebuilt you",
+                "you actually rebuilt",
                 "you got a night you can spend",
                 "sleep finally gave you something to work with",
             )
@@ -450,10 +450,10 @@ def humanize_prose(
                 f"Let's not chase a hero day on a thin night.",
             )
         return pick(
-            f"Last night actually helped, since {sleep_clause or 'you got enough to rebuild'}. "
-            f"That's worth using, not wasting — a solid session fits if you want it.",
-            f"You slept well enough that I wouldn't talk you into a rest day. "
-            f"Want the training version of that, or just the night itself?",
+            "Last night actually helped, which means you've got something to spend. "
+            "A solid session fits if you want it — or we can just sit with the night.",
+            "You slept well enough that I wouldn't talk you into a rest day. "
+            "Want the training version of that, or just the night itself?",
         )
 
     if kind == "lifestyle" or any(n in lower for n in ("eat", "food", "meal", "hungry", "water")):
