@@ -327,6 +327,7 @@ final class ARIAChatHandoffTests: XCTestCase {
         XCTAssertFalse(result.autoSend)
     }
 
+    @MainActor
     func testLifeReadParsesPackTagsWithoutAFieldDump() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!

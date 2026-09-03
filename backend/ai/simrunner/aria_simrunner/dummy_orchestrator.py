@@ -243,7 +243,16 @@ def supporting_briefs(plan: Plan, context) -> list[str]:
         if worker.is_primary:
             continue
         if worker.kind == "recovery":
-            if sleep_h is not None and sleep_h < 6.5:
+            if sleep_h is None or today.hrv is None:
+                # Honest about what's missing — the guard test pins these
+                # phrases so a silent skip can't pretend the signals are in.
+                sleep_bit = "sleep unavailable" if sleep_h is None else "sleep is in"
+                hrv_bit = "HRV unavailable" if today.hrv is None else "HRV is in"
+                lines.append(
+                    f"Recovery is looking without a full picture — {sleep_bit}, {hrv_bit} — "
+                    "so I won't pretend I have a clean read."
+                )
+            elif sleep_h < 6.5:
                 lines.append(
                     "Recovery is also in the room — last night didn't fully reset you, "
                     "so if today feels heavier, that tracks."
