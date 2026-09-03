@@ -17,7 +17,7 @@ struct CoachingStylePickerView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    Text("Choose how Forge AI interacts with you during workouts and provides feedback.")
+                    Text("Choose how ARIA talks to you during training and recovery.")
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
                         .multilineTextAlignment(.center)

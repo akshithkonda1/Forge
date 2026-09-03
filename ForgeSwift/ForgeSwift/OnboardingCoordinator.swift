@@ -58,6 +58,21 @@ final class OnboardingCoordinator {
             && !isCompleting
     }
 
+    /// Back walks the active graph. Intro and Name have no predecessor —
+    /// leaving the interview is sign-out, not a silent return to the splash.
+    var canGoBack: Bool {
+        !isCompleting && OnboardingGraph.previous(of: step.graph) != nil
+    }
+
+    func goBack() {
+        guard canGoBack, let prev = OnboardingGraph.previous(of: step.graph) else { return }
+        FDS.haptic(.light)
+        step = AriaInterviewStep(prev)
+        freeText = ""
+        isTyping = false
+        ariaOrbState = .listening
+    }
+
     // MARK: - Start
 
     func startIfNeeded() {

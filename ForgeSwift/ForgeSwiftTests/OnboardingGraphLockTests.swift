@@ -64,4 +64,30 @@ final class OnboardingGraphLockTests: XCTestCase {
             "terms alone are not enough — name, details, goals, workouts still required"
         )
     }
+
+    @MainActor
+    func testGoBackWalksActiveStepsWithoutReenteringIntro() {
+        let coordinator = OnboardingCoordinator()
+        coordinator.step = .name
+        XCTAssertFalse(coordinator.canGoBack)
+
+        coordinator.step = .health
+        XCTAssertTrue(coordinator.canGoBack)
+        coordinator.goBack()
+        XCTAssertEqual(coordinator.step, .name)
+
+        coordinator.step = .ready
+        coordinator.goBack()
+        XCTAssertEqual(coordinator.step, .conditions)
+
+        coordinator.step = .coaching
+        coordinator.goBack()
+        XCTAssertEqual(coordinator.step, .freeTime)
+
+        coordinator.isCompleting = true
+        coordinator.step = .ready
+        XCTAssertFalse(coordinator.canGoBack)
+        coordinator.goBack()
+        XCTAssertEqual(coordinator.step, .ready)
+    }
 }

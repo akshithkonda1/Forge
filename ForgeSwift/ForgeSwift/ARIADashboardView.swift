@@ -43,11 +43,8 @@ struct ARIADashboardView: View {
     private var header: some View {
         VStack(spacing: 12) {
             HStack(spacing: 14) {
-                ZStack {
-                    Circle().fill(LinearGradient(colors: [.ember, Color(hex: "FF5A00")], startPoint: .topLeading, endPoint: .bottomTrailing)).frame(width: 50, height: 50)
-                        .shadow(color: .ember.opacity(0.5), radius: 12, y: 4)
-                    Image(systemName: "brain.head.profile").font(.system(size: 22, weight: .bold)).foregroundColor(.white)
-                }
+                ARIAIdentityMark(state: .idle, mood: .energized, size: 50, amplitude: 0.24)
+                    .shadow(color: .ember.opacity(0.5), radius: 12, y: 4)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(isPreWorkout ? "ARIA · PRE-FLIGHT" : "ARIA · DEBRIEF").font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.ember)
                     Text(snapshot.title).font(.system(size: 20, weight: .bold)).foregroundColor(.white)

@@ -51,6 +51,21 @@ struct AriaInterviewLayout: View {
     private var header: some View {
         VStack(spacing: 14) {
             HStack(spacing: 14) {
+                if coordinator.canGoBack {
+                    Button {
+                        dictation.cancel()
+                        coordinator.goBack()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.textSecondary)
+                            .frame(width: 32, height: 32)
+                            .background(Circle().fill(Color.white.opacity(0.06)))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Back")
+                }
+
                 ZStack {
                     if dictation.isListening || coordinator.ariaOrbState == .speaking {
                         Circle()

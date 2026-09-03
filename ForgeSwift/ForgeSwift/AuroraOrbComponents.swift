@@ -4,6 +4,33 @@ enum AROrbState: Equatable {
     case idle, listening, processing, speaking
 }
 
+/// Compact circular crop of `AuroraOrbView` for avatars, tabs, and cards.
+/// The full orb draws a 1.8× halo; this clips to `size` so it sits in chrome.
+struct ARIAIdentityMark: View {
+    var state: AROrbState = .idle
+    var mood: ARIAMood = .focused
+    var size: CGFloat = 40
+    var amplitude: Float = 0.22
+    var showsPresence: Bool = false
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            AuroraOrbView(state: state, amplitude: amplitude, mood: mood, size: size)
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+            if showsPresence {
+                Circle()
+                    .fill(Color(hex: "22C55E"))
+                    .frame(width: max(7, size * 0.2), height: max(7, size * 0.2))
+                    .overlay(Circle().stroke(Color(hex: "080808"), lineWidth: 2))
+                    .offset(x: 2, y: 2)
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
 struct AuroraOrbView: View {
     let state: AROrbState
     let amplitude: Float

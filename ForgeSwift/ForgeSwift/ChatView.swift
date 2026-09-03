@@ -124,6 +124,7 @@ struct ChatView: View {
                     ariaMood:         ariaMood,
                     swipeReply:       $swipeReplyTarget,
                     onQuickAction:    sendMessage,
+                    onVoiceTap:       startVoiceCapture,
                     onReaction:       { messageId, emoji in
                         Task {
                             await FeedbackService.shared.processReaction(
@@ -159,12 +160,7 @@ struct ChatView: View {
                     mood:             ariaMood,
                     replyTarget:      swipeReplyTarget,
                     onSend:           sendMessage,
-                    onMicTap: {
-                        choreographedHaptic(.voiceStart, mood: ariaMood)
-                        speech.conversationalMood = ariaMood
-                        withAnimation(FDS.Spring.hero) { showVoiceOrb = true }
-                        speech.startListening()
-                    }
+                    onMicTap: startVoiceCapture
                 )
             }
 
@@ -221,9 +217,11 @@ struct ChatView: View {
                 showQuickActions = true
             }
         }
-        .onChange(of: store.ariaPendingChatPrompt) { _, prompt in
-            guard prompt != nil else { return }
-            consumePendingHomeHandoff()
+        .onChange(of: store.ariaPendingChatPrompt) { _, _ in
+            tryConsumeHandoff()
+        }
+        .onChange(of: store.ariaVoiceLaunch) { _, _ in
+            tryConsumeHandoff()
         }
         .onChange(of: store.readiness.overall) { _, val in
             withAnimation(FDS.Spring.standard) {
@@ -251,29 +249,38 @@ struct ChatView: View {
         }
     }
 
-    /// Home control-center → chat bridge (prompt + optional voice orb).
-    private func consumePendingHomeHandoff() {
-        let prompt = store.ariaPendingChatPrompt?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let wantsVoice = store.ariaVoiceMode
-        store.ariaPendingChatPrompt = nil
+    /// Home / tab → chat bridge (prompt + optional one-shot voice orb).
+    private func tryConsumeHandoff() {
+        guard store.ariaPendingChatPrompt != nil || store.ariaVoiceLaunch else { return }
+        consumePendingHomeHandoff()
+    }
 
-        if wantsVoice {
-            store.ariaVoiceMode = true
-            choreographedHaptic(.voiceStart, mood: ariaMood)
-            speech.conversationalMood = ariaMood
-            withAnimation(FDS.Spring.hero) { showVoiceOrb = true }
-            speech.startListening()
+    private func consumePendingHomeHandoff() {
+        let result = ARIAChatHandoff.consume(
+            .init(pendingPrompt: store.ariaPendingChatPrompt, voiceLaunch: store.ariaVoiceLaunch)
+        )
+        store.ariaPendingChatPrompt = nil
+        store.ariaVoiceLaunch = false
+
+        if result.startVoice {
+            startVoiceCapture()
         }
 
-        if let prompt, !prompt.isEmpty {
-            // Prefill input so user sees context; auto-send after a beat for seamless handoff.
+        if let prompt = result.prompt {
             inputText = prompt
-            if !wantsVoice {
+            if result.autoSend {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                     sendMessage(prompt)
                 }
             }
         }
+    }
+
+    private func startVoiceCapture() {
+        choreographedHaptic(.voiceStart, mood: ariaMood)
+        speech.conversationalMood = ariaMood
+        withAnimation(FDS.Spring.hero) { showVoiceOrb = true }
+        speech.startListening()
     }
 
     // ── Send ──────────────────────────────────────────────────────
