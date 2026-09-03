@@ -29,7 +29,7 @@ export function WorkoutPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.35 }}
-          className="flex min-h-full flex-col items-center justify-center bg-background px-6 py-10"
+          className="flex min-h-full flex-col items-center bg-background px-6 py-10"
         >
           {todayWorkout ? (
             <div className="flex flex-col items-center w-full max-w-sm">
