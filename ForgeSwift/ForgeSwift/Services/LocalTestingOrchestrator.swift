@@ -279,12 +279,20 @@ final class LocalTestingOrchestrator {
         let engine = usingFoundationModels ? "on-device model" : "on-device rules"
 
         let wiredTag = usedWeb ? " · live web (Mac) ✓" : ""
+        if let card = base.richCard, card.type == .workoutPlan {
+            let plan = AriaPlanEngine.evaluate(input: text, context: context)
+            if plan.shouldPersistTheme {
+                store.setTrainingTheme(plan.theme, source: "plan_engine")
+            }
+            store.todayWorkout = plan.workoutPlan
+        }
+
         return AriaResponse(
             confidenceReason: "Local testing — \(specialists) · \(engine) · slot "
                 + "\(tier.slot) (\(tier.displayName)) · no cloud\(wiredTag) · familiarity \(familiarity)/10.",
             proseSummary: base.content,
             message: parts.joined(separator: "\n\n"),
-            richCard: nil,
+            richCard: base.richCard.flatMap(AriaService.payload(from:)),
             suggestedActions: base.suggestedActions,
             contextUpdates: ["relationship_level": familiarity],
             confidence: base.confidence

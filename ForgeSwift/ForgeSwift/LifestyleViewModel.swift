@@ -173,7 +173,10 @@ final class LifestyleViewModel: ObservableObject {
         if let prose = analysisResp.map({ $0.proseSummary ?? $0.message }) {
             aiLifeAnalysis = prose
         }
-        aiInsightsLive = !AriaService.shared.isLocalFallback && analysisResp != nil
+        // Testers run the full local coach — treat that as live ARIA, not a dead badge.
+        aiInsightsLive = analysisResp != nil && (
+            !AriaService.shared.isLocalFallback || AriaService.shared.isTestReady
+        )
         lastInsightAt = Date()
         lastInsightKey = key
     }

@@ -72,6 +72,12 @@ enum AriaPlanEngine {
             )
         }
 
+        // Library body-map: “bicep day” / “calf work” swaps in catalog moves
+        // for that muscle instead of a generic theme template.
+        if let muscle = TargetMuscle.mentioned(in: input) {
+            session = overlayLibraryMuscle(muscle, onto: session, equipment: equipment)
+        }
+
         let narrative = buildNarrative(
             theme: theme,
             context: context,
@@ -196,6 +202,45 @@ enum AriaPlanEngine {
         case .classic:
             return classicSession(band: effectiveBand, goals: goals, equipment: equipment)
         }
+    }
+
+    /// Prefer library rows that actually train the tapped / named muscle.
+    private static func overlayLibraryMuscle(
+        _ muscle: TargetMuscle,
+        onto session: SessionBlueprint,
+        equipment: TrainingEquipment
+    ) -> SessionBlueprint {
+        let gear: GearType? = {
+            switch equipment {
+            case .bodyweight: return .bodyweight
+            case .hotelGym: return .dumbbell
+            case .homeGym, .commercialGym, .crossfitBox: return nil
+            }
+        }()
+        var rows = ExerciseLibrary.filter(query: "", muscle: muscle, equipment: gear, pattern: nil)
+        if rows.isEmpty {
+            rows = ExerciseLibrary.filter(query: "", muscle: muscle, equipment: nil, pattern: nil)
+        }
+        let primary = rows.filter { $0.primary.contains(muscle) }
+        let picks = Array((primary.isEmpty ? rows : primary).prefix(6))
+        guard !picks.isEmpty else { return session }
+        let moves = picks.map { def in
+            Move(
+                name: def.name,
+                sets: def.defaultSets,
+                reps: def.repRangeLabel,
+                restSeconds: def.restSeconds,
+                note: def.muscleSummary
+            )
+        }
+        return SessionBlueprint(
+            title: "\(muscle.label) · \(session.title)",
+            duration: session.duration,
+            intensity: session.intensity,
+            workoutType: session.workoutType,
+            moves: moves,
+            flavorLine: "Built from the library around \(muscle.label.lowercased()). \(session.flavorLine)"
+        )
     }
 
     // MARK: - Solo Leveling

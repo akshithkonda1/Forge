@@ -75,7 +75,7 @@ final class AriaService: ObservableObject {
             isTestReady = true
             isLocalFallback = true
             lastRemoteError = nil
-            return AriaDummyOrchestrator.reply(text: text, store: store, agent: agent)
+            return await AriaDummyOrchestrator.reply(text: text, store: store, agent: agent)
         }
 
         // The one place `AriaOperatingMode` is consulted. Nothing below this
@@ -253,7 +253,7 @@ final class AriaService: ObservableObject {
         )
     }
 
-    private static func payload(from card: RichCardData) -> RichCardPayload? {
+    static func payload(from card: RichCardData) -> RichCardPayload? {
         switch card.type {
         case .workoutPlan:
             return RichCardPayload(
@@ -281,6 +281,9 @@ enum AriaServiceError: Error {
 
 /// Local scripts for ARIA-led onboarding handoff into live chat.
 enum AriaOnboardingGuide {
+
+    /// First hook on the welcome carousel — learning, not eavesdropping.
+    static let welcomeTitle = "ARIA is already learning."
 
     static func firstSessionScript(profile: OnboardingProfile, healthConnected: Bool) -> String {
         let name = profile.trimmedName.isEmpty ? "there" : profile.firstName
@@ -396,6 +399,25 @@ extension AriaService {
     }
 
     func observe(store: AppStore, message: String? = nil) async throws -> ObserveResponse {
+        if Self.shouldUseTestReadyDummy {
+            let samples = observationSamples(from: store)
+            return ObserveResponse(
+                classification: ClassificationSummary(accepted: samples.count, rejected: 0),
+                snapshot: BodySnapshot(
+                    confidence: store.readiness.overall > 0 ? 0.82 : 0.4,
+                    observationCount: samples.count,
+                    sources: ["apple-health"],
+                    systems: [:],
+                    derived: [:],
+                    anomalies: []
+                ),
+                restrictedDomains: DataPermissionsStore.shared.restrictedDomains.isEmpty
+                    ? nil
+                    : DataPermissionsStore.shared.restrictedDomains,
+                ariaResponse: nil
+            )
+        }
+
         let request = ObserveRequest(
             userId: contextStore.context.userId,
             samples: observationSamples(from: store),

@@ -58,6 +58,43 @@ enum TargetMuscle: String, CaseIterable, Identifiable, Hashable {
         case .conditioning: return .warning
         }
     }
+
+    /// Spoken aliases so “hit my calves” / “bicep day” resolve to a catalog muscle.
+    /// Longer phrases win so “hip flexor” does not collapse into “hip”.
+    static func mentioned(in text: String) -> TargetMuscle? {
+        let lower = text.lowercased()
+        let aliases: [(String, TargetMuscle)] = [
+            ("hip flexor", .hipFlexors),
+            ("upper back", .upperBack),
+            ("lower back", .lowerBack),
+            ("rear delt", .rearDelts),
+            ("front delt", .frontDelts),
+            ("side delt", .sideDelts),
+            ("full body", .fullBody),
+            ("abductor", .abductors),
+            ("adductor", .adductors),
+            ("hamstring", .hamstrings),
+            ("forearm", .forearms),
+            ("oblique", .obliques),
+            ("shoulder", .sideDelts),
+            ("glute", .glutes),
+            ("bicep", .biceps),
+            ("tricep", .triceps),
+            ("calves", .calves),
+            ("calf", .calves),
+            ("quad", .quads),
+            ("chest", .chest),
+            ("pec", .chest),
+            ("lats", .lats),
+            ("lat ", .lats),
+            ("trap", .traps),
+            ("core", .abs),
+            ("abs", .abs),
+            ("ab ", .abs),
+            ("cardio", .cardio),
+        ]
+        return aliases.first(where: { lower.contains($0.0) })?.1
+    }
 }
 
 /// Fundamental human movement patterns (kinesiology classification).
