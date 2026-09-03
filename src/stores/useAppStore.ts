@@ -88,12 +88,12 @@ interface AppState {
 }
 
 const mockProfile: UserProfile = {
-  name: "Akshith",
+  name: "",
   fitnessGoals: ["build-muscle"],
   experienceLevel: "intermediate",
-  preferredWorkouts: ["strength", "hiit"],
-  coachingStyle: "push-hard",
-  connectedDevices: ["Apple Watch", "Oura Ring"],
+  preferredWorkouts: ["strength"],
+  coachingStyle: "balanced",
+  connectedDevices: [],
   weeklySchedule: [1, 3, 5],
 };
 
