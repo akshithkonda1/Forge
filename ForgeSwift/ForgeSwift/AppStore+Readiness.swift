@@ -176,6 +176,11 @@ extension AppStore {
     /// history travels the same way every other lifestyle signal does.
     static func lifestyleTags(from pack: FakeHealthPack) -> [String] {
         var tags: [String] = []
+        tags.append("persona:\(pack.personaLabel)")
+        if let today = pack.today {
+            if !today.felt.isEmpty { tags.append("felt:\(today.felt)") }
+            if !today.storyLine.isEmpty { tags.append("story:\(today.storyLine)") }
+        }
 
         // Last night is the one the user is living in right now, so it gets to
         // be specific rather than aggregate.

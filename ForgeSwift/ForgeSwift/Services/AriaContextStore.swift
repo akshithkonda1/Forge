@@ -717,7 +717,7 @@ final class AriaContextStore: ObservableObject {
     /// a single owner per prefix these accumulate — a month of `place:` tags
     /// from every refresh, and ARIA reading a history that never forgets.
     func applyLifestyleHistoryTags(_ incoming: [String]) {
-        let owned = ["place:", "social:", "lastnight:", "routine:"]
+        let owned = ["place:", "social:", "lastnight:", "routine:", "persona:", "felt:", "story:"]
         var tags = context.lifestyleTags.filter { tag in
             !owned.contains { tag.hasPrefix($0) }
         }

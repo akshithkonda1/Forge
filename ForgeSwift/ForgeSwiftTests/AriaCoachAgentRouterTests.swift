@@ -1,4 +1,5 @@
 import XCTest
+import ForgeCore
 @testable import ForgeSwift
 
 final class AriaCoachAgentRouterTests: XCTestCase {
@@ -324,5 +325,43 @@ final class ARIAChatHandoffTests: XCTestCase {
         XCTAssertNil(result.prompt)
         XCTAssertFalse(result.startVoice)
         XCTAssertFalse(result.autoSend)
+    }
+
+    func testLifeReadParsesPackTagsWithoutAFieldDump() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        var parts = DateComponents()
+        parts.year = 2026
+        parts.month = 8
+        parts.day = 25
+        parts.hour = 15
+        let now = calendar.date(from: parts)!
+        let pack = FakeHealthPack.generate(now: now, calendar: calendar, seed: 41, persona: "stressed")
+        let tags = AppStore.lifestyleTags(from: pack)
+        XCTAssertTrue(tags.contains("persona:stressed"))
+        XCTAssertTrue(tags.contains { $0.hasPrefix("felt:") })
+        XCTAssertTrue(tags.contains { $0.hasPrefix("story:") })
+
+        let read = AriaLifeRead.from(tags: tags)
+        XCTAssertEqual(read.persona, "stressed")
+        XCTAssertEqual(read.felt, pack.today?.felt)
+        XCTAssertEqual(read.story, pack.today?.storyLine)
+        XCTAssertFalse(read.story?.contains("HRV") ?? true)
+        var rng = AriaSeededRNG(seed: 7)
+        XCTAssertEqual(read.spokenLine(rng: &rng), pack.today?.storyLine)
+    }
+
+    func testLifeReadLastNightFlags() {
+        let read = AriaLifeRead.from(tags: [
+            "lastnight:drinks",
+            "lastnight:drinks:4",
+            "lastnight:late",
+            "story:Drinks with mates ran late — the night after is still paying for it.",
+        ])
+        XCTAssertEqual(read.lastNightKind, "drinks")
+        XCTAssertEqual(read.lastNightDrinks, 4)
+        XCTAssertTrue(read.lastNightLate)
+        XCTAssertTrue(read.hasEvening)
+        XCTAssertTrue(read.story?.contains("Drinks with mates") ?? false)
     }
 }
