@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ForgeAmbientBackground: View {
     let step: Int
-    @State private var phase: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -13,26 +12,23 @@ struct ForgeAmbientBackground: View {
                 endPoint: .bottomTrailing
             )
             RadialGradient(
-                colors: [routeColor.opacity(0.18), routeColor.opacity(0.05), .clear],
+                colors: [routeColor.opacity(0.16), routeColor.opacity(0.04), .clear],
                 center: UnitPoint(x: 0.32, y: 0.18),
                 startRadius: 10,
-                endRadius: 520
+                endRadius: 420
             )
-            .blur(radius: 44)
+            .blur(radius: reduceMotion ? 0 : 22)
 
             if !reduceMotion {
+                // Static wash — an infinite phase loop was rasterizing two
+                // full-screen blurs for the entire interview.
                 RadialGradient(
-                    colors: [Color.ember.opacity(0.09), .clear],
-                    center: UnitPoint(x: 0.5 + 0.24 * cos(phase), y: 0.48 + 0.18 * sin(phase)),
+                    colors: [Color.ember.opacity(0.08), .clear],
+                    center: UnitPoint(x: 0.72, y: 0.52),
                     startRadius: 0,
-                    endRadius: 360
+                    endRadius: 280
                 )
-                .blur(radius: 60)
-                .onAppear {
-                    withAnimation(.linear(duration: FDS.Duration.ambient).repeatForever(autoreverses: false)) {
-                        phase = .pi * 2
-                    }
-                }
+                .blur(radius: 24)
             }
         }
     }

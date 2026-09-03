@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
 import { useAppStore } from "@/stores/useAppStore";
 import { cn } from "@/lib/utils";
@@ -12,20 +11,6 @@ import DeviceConnection from "@/components/onboarding/device-connection";
 import CoachingStyleScreen from "@/components/onboarding/coaching-style";
 
 const FLOW_STEPS = 3;
-
-const pageVariants = {
-  enter: { opacity: 0, x: 60 },
-  center: {
-    opacity: 1,
-    x: 0,
-    transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const },
-  },
-  exit: {
-    opacity: 0,
-    x: -60,
-    transition: { duration: 0.3, ease: "easeIn" as const },
-  },
-};
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -63,9 +48,7 @@ export default function OnboardingPage() {
   return (
     <div className="relative mx-auto min-h-[100dvh] max-w-lg bg-background">
       {onboardingStep > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
+        <div
           className="fixed left-0 right-0 top-0 z-50 mx-auto flex max-w-lg items-center justify-center gap-2 pb-2 pt-4"
           style={{
             background: "linear-gradient(180deg, #0A0A0A 60%, transparent 100%)",
@@ -85,7 +68,7 @@ export default function OnboardingPage() {
               <div
                 key={i}
                 className={cn(
-                  "h-1.5 rounded-full transition-all duration-500",
+                  "h-1.5 rounded-full transition-all duration-200",
                   step === onboardingStep
                     ? "w-8 bg-ember"
                     : step < onboardingStep
@@ -95,58 +78,13 @@ export default function OnboardingPage() {
               />
             );
           })}
-        </motion.div>
+        </div>
       )}
 
-      <AnimatePresence mode="wait">
-        {onboardingStep === 0 && (
-          <motion.div
-            key="welcome"
-            variants={pageVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-          >
-            <WelcomeScreen onNext={handleNext} />
-          </motion.div>
-        )}
-
-        {onboardingStep === 1 && (
-          <motion.div
-            key="profile"
-            variants={pageVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-          >
-            <ProfileSetup onNext={handleNext} onBack={handleBack} />
-          </motion.div>
-        )}
-
-        {onboardingStep === 2 && (
-          <motion.div
-            key="devices"
-            variants={pageVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-          >
-            <DeviceConnection onNext={handleNext} />
-          </motion.div>
-        )}
-
-        {onboardingStep === 3 && (
-          <motion.div
-            key="coaching"
-            variants={pageVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-          >
-            <CoachingStyleScreen onComplete={handleComplete} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {onboardingStep === 0 && <WelcomeScreen onNext={handleNext} />}
+      {onboardingStep === 1 && <ProfileSetup onNext={handleNext} onBack={handleBack} />}
+      {onboardingStep === 2 && <DeviceConnection onNext={handleNext} />}
+      {onboardingStep === 3 && <CoachingStyleScreen onComplete={handleComplete} />}
     </div>
   );
 }

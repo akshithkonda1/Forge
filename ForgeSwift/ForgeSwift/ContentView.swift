@@ -126,7 +126,6 @@ struct MainTabView: View {
     @EnvironmentObject var store: AppStore
     @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
     @Namespace private var namespace
-    @State private var previousTab: TabItem = .home
     /// Cycle Health is hosted on the shell so Profile/Settings deep links always work
     /// even when Home is not the active tab content.
     @State private var showCycleHealth = false
@@ -165,19 +164,11 @@ struct MainTabView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .transition(.asymmetric(
-                insertion: .move(edge: tabTransitionEdge(from: previousTab, to: store.activeTab))
-                    .combined(with: .opacity),
-                removal: .move(edge: tabTransitionEdge(from: store.activeTab, to: previousTab))
-                    .combined(with: .opacity)
-            ))
-            .animation(FDS.Spring.page, value: store.activeTab)
+            .transition(.opacity)
+            .animation(.easeOut(duration: 0.12), value: store.activeTab)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 ForgeBottomNav(namespace: namespace)
             }
-        }
-        .onChange(of: store.activeTab) { old, new in
-            previousTab = old
         }
         .onChange(of: store.pendingCycleHealthOpen) { _, open in
             guard open else { return }
@@ -253,15 +244,6 @@ struct MainTabView: View {
         store.pendingCyclePane = nil
     }
     
-    private func tabTransitionEdge(from: TabItem, to: TabItem) -> Edge {
-        // ARIA is the true center tab (index 3 of 7).
-        let tabs: [TabItem] = [.home, .workout, .lifestyle, .chat, .sleep, .progress, .profile]
-        guard let fromIndex = tabs.firstIndex(of: from),
-              let toIndex = tabs.firstIndex(of: to) else {
-            return .trailing
-        }
-        return toIndex > fromIndex ? .trailing : .leading
-    }
 }
 
 // MARK: - Bottom Navigation

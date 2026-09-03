@@ -9,7 +9,7 @@ struct OnboardingChatMessage: Identifiable {
     var timestamp: Date = Date()
 }
 
-/// One conversational turn: the lines ARIA should say, the quick-reply chips to
+/// One conversational turn: the line ARIA should say, the quick-reply chips to
 /// offer next, whether the intake is finished, and any data captured from the
 /// user's answer (fed into ARIA's living context on completion).
 struct AriaTurn {
@@ -25,14 +25,17 @@ struct AriaTurn {
 /// network on first launch. When the live coach is ready, replace the bodies with
 /// calls to `AriaService.shared.sendMessage(...)` — the coordinator contract
 /// (opening + reply → AriaTurn) stays identical.
+///
+/// One message per turn. Stacked intros cost layout, delay, and attention
+/// without adding signal the chips don't already carry.
 struct OnboardingAriaBot {
 
     func opening(profile: OnboardingProfile, health: UserHealthProfile?, healthConnected: Bool) -> AriaTurn {
-        let intro = "Hey \(name(profile)) — I'm ARIA, your coach. I've been reading your setup while you filled it out."
-        let context = "You're training at a \(profile.experienceLevel.label.lowercased()) level, aiming for \(goalPhrase(profile)). \(healthLine(health, connected: healthConnected))"
-        let question = "To tailor day one — how many days a week can you realistically train?"
-        return AriaTurn(messages: [intro, context, question],
-                        suggestions: ["2–3 days", "4–5 days", "6+ days"])
+        let line = "Hey \(name(profile)) — \(profile.experienceLevel.label.lowercased()) toward \(goalPhrase(profile)). \(healthLine(health, connected: healthConnected)) How many days a week can you actually train?"
+        return AriaTurn(
+            messages: [line],
+            suggestions: ["2–3 days", "4–5 days", "6+ days"]
+        )
     }
 
     // `step` is a 0-indexed conversation turn counter (0, 1, 2…), NOT OnboardingRoute.rawValue.
@@ -41,15 +44,13 @@ struct OnboardingAriaBot {
         switch step {
         case 0:
             return AriaTurn(
-                messages: ["\(input) is a strong, sustainable base.",
-                           "When do you usually have the most energy to move?"],
+                messages: ["\(input) is a sustainable base. When do you usually have the most energy to move?"],
                 suggestions: ["Mornings", "Evenings", "It varies"],
                 tags: ["weekly_days:\(slug(input))"]
             )
         case 1:
             return AriaTurn(
-                messages: ["Good — I'll bias your harder sessions toward \(input.lowercased()).",
-                           "Last thing: what's usually gotten in the way before?"],
+                messages: ["I'll bias harder sessions toward \(input.lowercased()). What's usually gotten in the way before?"],
                 suggestions: ["Time", "Motivation", "Past injuries", "Nothing major"],
                 tags: ["energy:\(slug(input))"]
             )
@@ -67,7 +68,7 @@ struct OnboardingAriaBot {
     // MARK: helpers
 
     private func name(_ p: OnboardingProfile) -> String {
-        p.trimmedName.isEmpty ? "there" : p.trimmedName
+        p.trimmedName.isEmpty ? "there" : p.firstName
     }
 
     private func goalPhrase(_ p: OnboardingProfile) -> String {
@@ -82,28 +83,26 @@ struct OnboardingAriaBot {
 
     private func healthLine(_ health: UserHealthProfile?, connected: Bool) -> String {
         guard connected else {
-            return "Once you connect Apple Health, I'll tune everything to your recovery."
+            return "Connect Apple Health anytime and recovery will shape the load."
         }
-        var facts: [String] = []
-        if let weight = health?.weightKg { facts.append("\(Int(weight)) kg") }
-        if let height = health?.heightCm { facts.append("\(Int(height)) cm") }
-        if let vo2 = health?.vo2Max { facts.append("VO₂max ~\(Int(vo2))") }
-        if facts.isEmpty {
-            return "I can see your Apple Health data too, so recovery will shape your load."
+        if health?.vo2Max != nil || health?.weightKg != nil {
+            return "Apple Health is already in — recovery will shape the load."
         }
-        return "I can already see \(facts.joined(separator: ", ")) from Apple Health — that anchors your baseline."
+        return "I can see Apple Health, so recovery will shape the load."
     }
 
     private func synthesis(profile p: OnboardingProfile, answers: [String], obstacle: String) -> String {
         let days = answers.first ?? "a few days"
+        let energy = answers.dropFirst().first.map { " Energy peaks \($0.lowercased())." } ?? ""
+        let sleep = p.sleepBand.map { " Sleep: \($0.label.lowercased())." } ?? ""
         let obstacleLine: String
         switch obstacle.lowercased() {
-        case let s where s.contains("time"):   obstacleLine = "I'll keep sessions tight so time is never the reason you skip."
-        case let s where s.contains("motiv"):  obstacleLine = "I'll keep the wins visible so momentum carries you on the low days."
-        case let s where s.contains("injur"):  obstacleLine = "I'll ramp load carefully and program around anything that flares up."
-        default:                                obstacleLine = "I'll keep it adaptive so it fits whatever the week throws at you."
+        case let s where s.contains("time"):   obstacleLine = "Sessions stay tight so time isn't why you skip."
+        case let s where s.contains("motiv"):  obstacleLine = "Wins stay visible so low days still move."
+        case let s where s.contains("injur"):  obstacleLine = "Load ramps carefully around anything that flares."
+        default:                                obstacleLine = "It stays adaptive for whatever the week throws."
         }
-        return "Here's the plan I'm forming, \(name(p)): a \(p.coachingStyle.label.lowercased()) approach built around \(goalPhrase(p)), \(days.lowercased()) a week, starting at \(p.experienceLevel.label.lowercased()) intensity. \(obstacleLine) Ready when you are."
+        return "Plan forming, \(name(p)): \(p.coachingStyle.label.lowercased()) around \(goalPhrase(p)), \(days.lowercased()) a week, \(p.experienceLevel.label.lowercased()) intensity.\(energy)\(sleep) \(obstacleLine)"
     }
 
     private func slug(_ s: String) -> String {

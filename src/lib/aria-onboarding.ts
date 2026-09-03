@@ -8,11 +8,9 @@ export interface AriaWhisper {
   mood: "energized" | "focused" | "calm" | "supportive";
 }
 
+/** One beat. A four-line typewriter was four re-renders per character. */
 export const ARIA_CINEMATIC_LINES = [
-  "I'm Aria — your adaptive recovery and intelligence coach.",
-  "I learn how you move, sleep, stress, and recover.",
-  "Then I build plans that respect your body and your ambition.",
-  "Let's start with the signals that make coaching personal.",
+  "I learn how you move, sleep, and live — then build plans that fit.",
 ] as const;
 
 export function whisperForStep(
@@ -32,52 +30,46 @@ export function whisperForStep(
     case "welcome":
       return {
         title: "ARIA online",
-        message:
-          "Welcome. I'm here to unify your health signals and coach you like someone who actually knows you.",
+        message: "Welcome. I'll coach the life you already have — not a spreadsheet of you.",
         mood: "focused",
       };
     case "profile":
       if (first) {
         return {
-          title: `Calibrating ${first}`,
-          message:
-            "Goals, experience, and the training you enjoy let me size intensity and speak your language.",
+          title: `Got you, ${first}`,
+          message: "Goals and the training you enjoy let me size the week without guessing.",
           mood: "focused",
         };
       }
       return {
         title: "Who am I coaching?",
-        message:
-          "Tell me your name first — everything from here will feel more human.",
+        message: "Your name first — everything from here gets personal.",
         mood: "focused",
       };
     case "devices":
       if ((ctx.devicesConnected ?? 0) > 0) {
         return {
           title: "Signal lock",
-          message: `Nice — ${ctx.devicesConnected} source${(ctx.devicesConnected ?? 0) > 1 ? "s" : ""} connected. Recovery and load will shape every plan.`,
+          message: "Nice — recovery can shape the load from day one.",
           mood: "energized",
         };
       }
       return {
         title: "Recovery channel",
-        message:
-          "Optional but powerful. Connect devices so I can protect you on low-readiness days and push when you're primed.",
+        message: "Optional. Connect later and I'll fold recovery in the moment it arrives.",
         mood: "calm",
       };
     case "coaching": {
       const style = ctx.coachingStyle;
-      const goal = ctx.goals?.[0]?.replace(/-/g, " ") ?? "general fitness";
       if (!style) {
         return {
           title: "Choose my voice",
-          message:
-            "This shapes every check-in, plan adjustment, and recovery nudge.",
+          message: "This shapes every check-in and recovery nudge.",
           mood: "focused",
         };
       }
       return {
-        title: `Voice locked`,
+        title: "Voice locked",
         message: firstSessionScript({
           name: ctx.name,
           goals: ctx.goals,
@@ -92,9 +84,7 @@ export function whisperForStep(
   }
 }
 
-export function moodForStyle(
-  style: CoachingStyle
-): AriaWhisper["mood"] {
+export function moodForStyle(style: CoachingStyle): AriaWhisper["mood"] {
   switch (style) {
     case "push-hard":
       return "energized";
@@ -116,7 +106,7 @@ export function firstSessionScript(ctx: {
   coachingStyle: CoachingStyle;
   devicesConnected?: number;
 }): string {
-  const name = ctx.name?.trim() || "there";
+  const name = ctx.name?.trim().split(/\s+/)[0] || "there";
   const goal = (ctx.goals?.[0] ?? "general-fitness").replace(/-/g, " ");
   const workouts = (ctx.workouts ?? [])
     .slice(0, 2)
@@ -124,19 +114,19 @@ export function firstSessionScript(ctx: {
     .join(" & ");
   const healthLine =
     (ctx.devicesConnected ?? 0) > 0
-      ? "Recovery signals are already in the loop."
-      : "Connect devices anytime and I'll fold recovery into every call.";
+      ? " Recovery is already in the loop."
+      : " Connect devices anytime and I'll fold recovery in.";
 
   switch (ctx.coachingStyle) {
     case "push-hard":
-      return `${name} — standards first. Week one targets ${goal}${workouts ? ` through ${workouts}` : ""}. Show up. Execute. Earn progression. ${healthLine}`;
+      return `${name} — week one targets ${goal}${workouts ? ` through ${workouts}` : ""}.${healthLine}`;
     case "patient":
-      return `${name}, we make this doable from day one. Small wins toward ${goal}, clear next steps, zero shame spirals. ${healthLine}`;
+      return `${name}, we make this doable — small wins toward ${goal}.${healthLine}`;
     case "data-driven":
-      return `${name} — intensity, volume, and recovery will all map back to ${goal}. I'll explain the why so every session compounds. ${healthLine}`;
+      return `${name} — load and recovery map back to ${goal}. I'll show the why.${healthLine}`;
     case "balanced":
     default:
-      return `${name}, your first block balances progressive work with recovery around ${goal}${workouts ? `, favoring ${workouts}` : ""}. Clear sessions, room to breathe. ${healthLine}`;
+      return `${name}, first block balances work and recovery around ${goal}${workouts ? `, favoring ${workouts}` : ""}.${healthLine}`;
   }
 }
 
@@ -148,8 +138,5 @@ export function welcomeChatMessage(ctx: {
   coachingStyle: CoachingStyle;
   devicesConnected?: number;
 }): string {
-  return (
-    firstSessionScript(ctx) +
-    "\n\nOpen chat anytime — I'm already tracking the context we built together."
-  );
+  return `${firstSessionScript(ctx)} Open chat anytime — I'm already tracking what we built.`;
 }

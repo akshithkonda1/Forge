@@ -287,32 +287,27 @@ enum AriaOnboardingGuide {
         let goal = profile.fitnessGoals.first?.label.lowercased() ?? "general fitness"
         let workouts = profile.preferredWorkouts.prefix(2).map(\.label).joined(separator: " & ")
         let style = profile.coachingStyle
-        let sleep = profile.sleepBand.map { " Sleep rhythm: \($0.label.lowercased())." } ?? ""
-        let interests = profile.freeTimeInterests.prefix(2).map(\.label).joined(separator: " & ")
-        let lifeLine = interests.isEmpty ? "" : " Outside training you lean into \(interests)."
+        let sleep = profile.sleepBand.map { " Sleep: \($0.label.lowercased())." } ?? ""
         let theme = profile.trainingTheme
         let themeLine: String = {
             guard theme != .classic else { return "" }
-            return " Training lens: \(theme.label) — \(theme.tagline)"
+            return " Lens: \(theme.label)."
         }()
         let healthLine = healthConnected
-            ? " Recovery signals are already in the loop."
-            : " Connect Apple Health anytime and I'll fold recovery into every call."
-        let guidanceLine = profile.guidanceOnlyMode
-            ? " Guidance mode is on for the conditions you shared — structure and pacing only, never medical advice."
-            : " I'm your lifestyle coach, not a doctor."
+            ? " Recovery is already in the loop."
+            : " Connect Apple Health anytime and I'll fold recovery in."
 
         switch style {
         case .driven:
-            return "\(name) — standards first. Week one targets \(goal)\(workouts.isEmpty ? "" : " through \(workouts)"). Show up. Execute. Earn progression.\(sleep)\(lifeLine)\(themeLine)\(healthLine)\(guidanceLine)"
+            return "\(name) — standards first. Week one targets \(goal)\(workouts.isEmpty ? "" : " through \(workouts)").\(sleep)\(themeLine)\(healthLine)"
         case .balanced:
-            return "\(name), your first block balances progressive work with recovery around \(goal)\(workouts.isEmpty ? "" : ", favoring \(workouts)"). Clear sessions, room to breathe.\(sleep)\(lifeLine)\(themeLine)\(healthLine)\(guidanceLine)"
+            return "\(name), first block balances work and recovery around \(goal)\(workouts.isEmpty ? "" : ", favoring \(workouts)").\(sleep)\(themeLine)\(healthLine)"
         case .supportive:
-            return "\(name), we make this doable from day one. Small wins toward \(goal), clear next steps.\(sleep)\(lifeLine)\(themeLine)\(healthLine)\(guidanceLine)"
+            return "\(name), we make this doable from day one — small wins toward \(goal).\(sleep)\(themeLine)\(healthLine)"
         case .scientist:
-            return "\(name) — intensity, volume, and recovery will map back to \(goal). I'll explain the why.\(sleep)\(lifeLine)\(themeLine)\(healthLine)\(guidanceLine)"
+            return "\(name) — load and recovery will map back to \(goal). I'll explain the why.\(sleep)\(themeLine)\(healthLine)"
         case .elite:
-            return "\(name), performance is a system: readiness, output, recovery, adaptation — pointed at \(goal).\(sleep)\(lifeLine)\(themeLine)\(healthLine)\(guidanceLine)"
+            return "\(name), readiness and output pointed at \(goal).\(sleep)\(themeLine)\(healthLine)"
         }
     }
 
