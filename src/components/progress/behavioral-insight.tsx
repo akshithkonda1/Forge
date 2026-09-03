@@ -18,7 +18,7 @@ export function BehavioralInsight() {
         <div className="flex items-center gap-2 mb-3">
           <span className="inline-block h-2 w-2 rounded-full bg-[#3B82F6]" />
           <span className="text-xs font-semibold uppercase tracking-wider text-[#3B82F6]">
-            Forge AI
+            ARIA
           </span>
         </div>
 

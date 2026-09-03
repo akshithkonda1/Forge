@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   UserProfile,
   ReadinessData,
@@ -9,13 +10,35 @@ import type {
   WorkoutHistory,
   PersonalRecord,
 } from "@/types";
+import { welcomeChatMessage } from "@/lib/aria-onboarding";
+
+export type TabId = "home" | "chat" | "workout" | "sleep" | "profile";
+
+export interface NotificationPrefs {
+  workoutReminders: boolean;
+  aiInsights: boolean;
+  recoveryAlerts: boolean;
+  weeklySummary: boolean;
+}
+
+const defaultNotificationPrefs: NotificationPrefs = {
+  workoutReminders: true,
+  aiInsights: true,
+  recoveryAlerts: true,
+  weeklySummary: false,
+};
 
 interface AppState {
+  hasHydrated: boolean;
+  setHasHydrated: (val: boolean) => void;
+
   // Onboarding
   isOnboarded: boolean;
   onboardingStep: number;
   setOnboarded: (val: boolean) => void;
   setOnboardingStep: (step: number) => void;
+  resetSession: () => void;
+  seedAriaWelcome: () => void;
 
   // User Profile
   userProfile: UserProfile;
@@ -57,8 +80,11 @@ interface AppState {
   personalRecords: PersonalRecord[];
 
   // Navigation
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
+  activeTab: TabId;
+  setActiveTab: (tab: TabId) => void;
+
+  notificationPrefs: NotificationPrefs;
+  setNotificationPref: (key: keyof NotificationPrefs, value: boolean) => void;
 }
 
 const mockProfile: UserProfile = {
@@ -253,11 +279,41 @@ const mockPRs: PersonalRecord[] = [
   { exercise: "Pull-Ups", value: 18, unit: "reps", date: "2026-02-08" },
 ];
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+  hasHydrated: false,
+  setHasHydrated: (val) => set({ hasHydrated: val }),
+
   isOnboarded: false,
   onboardingStep: 0,
   setOnboarded: (val) => set({ isOnboarded: val }),
-  setOnboardingStep: (step) => set({ onboardingStep: step }),
+  setOnboardingStep: (step) => set({ onboardingStep: Math.max(0, step) }),
+  resetSession: () =>
+    set({
+      isOnboarded: false,
+      onboardingStep: 0,
+      activeTab: "home",
+      chatMessages: mockChatMessages,
+    }),
+  seedAriaWelcome: () => {
+    const profile = get().userProfile;
+    const content = welcomeChatMessage({
+      name: profile.name,
+      goals: profile.fitnessGoals,
+      experience: profile.experienceLevel,
+      workouts: profile.preferredWorkouts,
+      coachingStyle: profile.coachingStyle,
+      devicesConnected: profile.connectedDevices.length,
+    });
+    const welcome: ChatMessage = {
+      id: `aria-welcome-${Date.now()}`,
+      role: "trainer",
+      content,
+      timestamp: new Date(),
+    };
+    set((state) => ({ chatMessages: [...state.chatMessages, welcome] }));
+  },
 
   userProfile: mockProfile,
   updateProfile: (profile) =>
@@ -324,4 +380,26 @@ export const useAppStore = create<AppState>((set) => ({
 
   activeTab: "home",
   setActiveTab: (tab) => set({ activeTab: tab }),
-}));
+
+  notificationPrefs: defaultNotificationPrefs,
+  setNotificationPref: (key, value) =>
+    set((state) => ({
+      notificationPrefs: { ...state.notificationPrefs, [key]: value },
+    })),
+}),
+    {
+      name: "forge-web",
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        isOnboarded: state.isOnboarded,
+        onboardingStep: state.onboardingStep,
+        userProfile: state.userProfile,
+        activeTab: state.activeTab,
+        notificationPrefs: state.notificationPrefs,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+    }
+  )
+);

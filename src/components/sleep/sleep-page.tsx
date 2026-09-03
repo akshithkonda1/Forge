@@ -8,8 +8,8 @@ import { AiSleepInsight } from "@/components/sleep/ai-sleep-insight";
 
 export function SleepPage() {
   return (
-    <div className="min-h-[100dvh] bg-background">
-      <div className="px-4 pt-12">
+    <div className="bg-background">
+      <div className="px-4 pb-6 pt-12">
         {/* Page title */}
         <h1 className="mb-6 text-2xl font-bold text-white">Sleep & Recovery</h1>
 

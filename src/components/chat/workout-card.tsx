@@ -16,9 +16,10 @@ interface WorkoutCardProps {
   name: string;
   duration: number;
   exercises: WorkoutExercise[];
+  onStart?: () => void;
 }
 
-export function WorkoutCard({ name, duration, exercises }: WorkoutCardProps) {
+export function WorkoutCard({ name, duration, exercises, onStart }: WorkoutCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -103,6 +104,8 @@ export function WorkoutCard({ name, duration, exercises }: WorkoutCardProps) {
       {/* Start workout button */}
       <div className="border-t border-border p-3">
         <motion.button
+          type="button"
+          onClick={onStart}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-ember py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(255,77,0,0.25)]"
           whileTap={{ scale: 0.97 }}
           whileHover={{ scale: 1.01 }}
