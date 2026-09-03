@@ -190,8 +190,6 @@ struct HomeARIABriefingCard: View {
 @MainActor
 enum HomeARIABriefingBuilder {
     static func build(store: AppStore) -> String {
-        let deep = store.dailyMetrics.deepSleep
-        let deepStr = deep >= 60 ? "\(deep / 60)h \(deep % 60)m" : "\(deep)m"
         let context = store.makeTrainerContext()
         let theme = store.userProfile.trainingTheme
 
@@ -228,7 +226,7 @@ enum HomeARIABriefingBuilder {
         if store.readiness.sleepQuality < 60 {
             beats.append(.init(text: "Last night didn't fully pay you back — I'd keep today kind.", priority: .urgent))
         } else if store.readiness.sleepQuality >= 80, life.story == nil {
-            beats.append(.init(text: "Deep sleep looked solid (\(deepStr)).", priority: .confirming))
+            beats.append(.init(text: "Deep sleep looked solid.", priority: .confirming))
         }
         if store.dailyMetrics.hrv > 0, life.story == nil {
             if store.dailyMetrics.hrv < 40 {

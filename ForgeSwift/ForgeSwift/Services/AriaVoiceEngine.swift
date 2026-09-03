@@ -466,7 +466,6 @@ enum AriaVoiceEngine {
         // than wallpaper.
         let citesNumber = profile.register == .clinical
             || profile.coaching == .dataDriven
-            || rng.chance(0.45)
 
         var beats: [String] = []
         if let story = context.lifeRead.spokenLine(rng: &rng) {
@@ -583,7 +582,6 @@ enum AriaVoiceEngine {
         // asked for the tally, so they keep it every time.
         let citesTally = profile.coaching == .dataDriven
             || profile.register == .clinical
-            || rng.chance(0.5)
         if sessions > 0, citesTally {
             beats.append("Recent log: \(sessions) sessions on record" + (streak.map { ", streak \($0)" } ?? "") + ".")
         }
@@ -762,40 +760,34 @@ enum AriaVoiceEngine {
             return "\(story) \(because) \(read)."
         }
 
-        let citesNumbers: Bool = rng.chance(0.4)
-        let figures: String = "Readiness \(r), HRV \(hrv), resting heart \(rhr)."
-
         if profile.metaphor != .none {
             let who: String = address(profile, rng: &rng)
-            let opener: String = rng.pick([
+            return rng.pick([
                 "\(who) — \(read). Status: \(rank).",
                 "\(read) today. \(rank).",
                 lexicon(profile, key: "status", rng: &rng, vars: [
                     "r": "\(r)", "hrv": "\(hrv)", "rank": rank,
                 ]),
             ])
-            return citesNumbers ? "\(opener) \(figures)" : opener
         }
 
-        let opener: String
         switch profile.energy {
         case .hype:
-            opener = rng.pick([
+            return rng.pick([
                 "You're \(read) — \(rank). Let's use it.",
                 "\(rank). You're \(read).",
             ])
         case .soft, .warm:
-            opener = rng.pick([
+            return rng.pick([
                 "You're \(read) today. \(rank).",
                 "Reading you as \(read). \(rank).",
             ])
         case .razor:
-            opener = "\(read.prefix(1).uppercased() + read.dropFirst()). \(rank)."
+            return "\(read.prefix(1).uppercased() + read.dropFirst()). \(rank)."
         case .steady:
             let who: String = address(profile, rng: &rng)
-            opener = "\(who) — \(read). \(rank)."
+            return "\(who) — \(read). \(rank)."
         }
-        return citesNumbers ? "\(opener) \(figures)" : opener
     }
 
     private static func lightMetricHook(
@@ -807,20 +799,30 @@ enum AriaVoiceEngine {
         // The number-free variants are not filler — they are the point. A hook
         // that always cites readiness trains the reader to skim for the digit
         // and ignore the sentence around it.
+        let cite = profile.coaching == .dataDriven || profile.register == .clinical
         if r < 55 {
+            if cite {
+                return rng.pick([
+                    "Body's asking for care more than glory right now.",
+                    "Numbers are soft today at \(r) — how do you actually feel?",
+                ])
+            }
             return rng.pick([
                 "Body's asking for care more than glory right now.",
                 "Recovery looks thin. Checking in before we load anything.",
                 "Something's still owed from the last few days — how do you actually feel?",
-                "Numbers are soft today at \(r) — how do you actually feel?",
             ])
         }
         if r >= 85 {
+            if cite {
+                return rng.pick([
+                    "You're in a high window at \(r). Don't waste it on junk volume.",
+                    lexicon(profile, key: "highReady", rng: &rng, vars: ["r": "\(r)"]),
+                ])
+            }
             return rng.pick([
                 "You're in a high window. Don't waste it on junk volume.",
                 "Green lights everywhere — this is a day to spend, not save.",
-                "You're in a high window at \(r). Don't waste it on junk volume.",
-                lexicon(profile, key: "highReady", rng: &rng, vars: ["r": "\(r)"]),
             ])
         }
         if context.isLateNight {

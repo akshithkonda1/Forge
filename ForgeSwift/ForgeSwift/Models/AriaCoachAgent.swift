@@ -403,9 +403,8 @@ enum AriaCoachAgentRouter {
         switch worker.kind {
         case .workout:
             guard let session = store.todayWorkout else { return nil }
-            let line = "\(session.name) · \(session.duration) min"
             if said.contains(session.name.lowercased()) { return nil }
-            return "Workout · \(line)"
+            return "You've got \(session.name) waiting — about \(session.duration) minutes if you want it."
         case .recovery:
             let hrv = store.dailyMetrics.hrv
             guard hrv > 0 else { return nil }
@@ -417,16 +416,14 @@ enum AriaCoachAgentRouter {
             case 55..<70: read = "workable, not sharp"
             default:      read = "you're clear to push"
             }
-            let line = "Recovery · \(read.prefix(1).uppercased() + read.dropFirst())."
-            return rng.chance(0.4) ? "\(line) HRV \(hrv)ms, readiness \(r)." : line
+            return "Recovery · \(read.prefix(1).uppercased() + read.dropFirst())."
         case .sleep:
-            // EnergySchedule already turns rolling sleep history into a
-            // plain-language debt headline ("Square on sleep" / "2.3 hours
-            // of sleep debt") — reused rather than reimplemented, same as
-            // the deleted AriaResearchBrief used to.
-            guard let debt = EnergySchedule.make(from: store.sleepData)?.debtHeadline else { return nil }
-            guard !said.contains(debt.lowercased()) else { return nil }
-            return "Sleep · \(debt)"
+            guard let schedule = EnergySchedule.make(from: store.sleepData) else { return nil }
+            let line = schedule.debtLevel == .clear
+                ? "you've been catching up this week"
+                : "the week's been running a bit thin — protect tomorrow"
+            guard !said.contains(line.lowercased()) else { return nil }
+            return "Sleep · \(line)."
         case .lifestyle:
             let life = AriaLifeRead.from(tags: AriaContextStore.shared.context.lifestyleTags)
             if let story = life.story, !story.isEmpty {

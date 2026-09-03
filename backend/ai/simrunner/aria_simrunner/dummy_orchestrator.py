@@ -439,8 +439,8 @@ def humanize_prose(
         return pick(
             "The week is genuinely mixed, so I wouldn't treat any single day as the story. "
             "Keep today moderate and we'll reread it in a couple of nights.",
-            "I know the numbers feel noisy — that's because they are. Let's not invent "
-            "certainty. Moderate today, then we look again.",
+            "I know your week feels noisy — that's because it is. Let's not invent "
+            "certainty. Keep today moderate, then we look again.",
         )
 
     recovery = scenario == "recovery_first" or readiness < 50 or debt > 5.0
@@ -523,7 +523,7 @@ def humanize_prose(
 
     if sleep_clause:
         return (
-            f"Here's how I read you: {sleep_clause}, and readiness is in a place we can work with. "
+            f"Here's how I read you: {sleep_clause}. "
             f"What would help most — train, recover, or just talk it through?"
         )
     return pick(

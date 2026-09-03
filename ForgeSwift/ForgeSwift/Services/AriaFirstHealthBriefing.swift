@@ -83,7 +83,7 @@ enum AriaFirstHealthBriefing {
             }
             lines.append("That’s me learning you from Health — not a made-up profile.")
         } else {
-            lines.append("Connect Apple Health anytime and I’ll fold sleep, HRV, and activity into every call.")
+            lines.append("Connect Apple Health anytime and I’ll fold sleep, heart, and activity into every call.")
         }
 
         lines.append("")
@@ -116,7 +116,7 @@ enum AriaFirstHealthBriefing {
         I’m a lifestyle coach inside Forge, not a game and not a clinic. One of me, several specialists:
 
         • Workout — today’s session from how you slept and how ready you are
-        • Recovery — HRV, sleep debt, when to keep it easy
+        • Recovery — when to keep it easy, and whether last night paid you back
         • Sleep — last night, tonight’s setup, the trend behind it
         • Lifestyle — work, travel, food and water, the day you already have
         • Progress — the trend behind the numbers, not just today’s reading
@@ -126,21 +126,41 @@ enum AriaFirstHealthBriefing {
         """
     }
 
+    /// A companion sentence from the first Health read — never a field dump.
+    /// Numbers stay in Sleep / Stats. This is what a friend would say after
+    /// looking at last night, not what a HUD would print.
     static func learnedLine(_ snapshot: Snapshot) -> String? {
         var bits: [String] = []
-        if let hours = snapshot.sleepHours {
-            var sleep = String(format: "last night %.1fh", hours)
-            if let score = snapshot.sleepScore { sleep += ", score \(score)" }
-            bits.append(sleep)
+
+        if let hours = snapshot.sleepHours, hours > 0 {
+            let score = snapshot.sleepScore ?? 0
+            if hours >= 7.0 && score >= 80 {
+                bits.append("Last night actually rebuilt you")
+            } else if hours >= 6.5 && (score == 0 || score >= 60) {
+                bits.append("Last night was decent — not extra, not empty")
+            } else {
+                bits.append("Last night ran thinner than I'd like")
+            }
         }
-        if let hrv = snapshot.hrvMs { bits.append("HRV \(hrv)ms") }
-        if let rhr = snapshot.restingHR { bits.append("resting HR \(rhr)") }
-        if let ready = snapshot.readiness { bits.append("readiness \(ready)") }
-        if let steps = snapshot.steps { bits.append("\(steps) steps so far") }
-        if let workout = snapshot.lastWorkoutName { bits.append("last session \(workout)") }
+
+        if let ready = snapshot.readiness, ready > 0 {
+            switch ready {
+            case 80...: bits.append("you're in a place you can spend")
+            case 55..<80: bits.append("you're in a workable place")
+            default: bits.append("your system's still catching up")
+            }
+        } else if let hrv = snapshot.hrvMs, hrv > 0 {
+            if hrv < 40 { bits.append("your system's still catching up") }
+            else if hrv >= 55 { bits.append("recovery is holding") }
+        }
+
+        if let workout = snapshot.lastWorkoutName, !workout.isEmpty {
+            bits.append("last session was \(workout)")
+        }
+
         guard !bits.isEmpty else { return nil }
-        let joined = bits.joined(separator: ". ")
-        return joined.hasSuffix(".") ? joined : joined + "."
+        if bits.count == 1 { return bits[0] + "." }
+        return bits[0] + " — " + bits.dropFirst().joined(separator: ", ") + "."
     }
 
     static func learnInsights(snapshot: Snapshot) -> [String] {
@@ -149,7 +169,7 @@ enum AriaFirstHealthBriefing {
             insights.append("Apple Health first connect — Forge is reading this phone.")
         }
         if let learned = learnedLine(snapshot) {
-            insights.append("HealthKit: \(learned)")
+            insights.append(learned)
         }
         return insights
     }

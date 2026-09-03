@@ -134,7 +134,7 @@ final class OnboardingCoordinator {
             ariaOrbState = .listening
         case .health:
             await ariaSay(
-                "First Health, then your calendar — so I can fit training around your day, not the other way around. Health first: sleep, HRV, and activity.",
+                "First Health, then your calendar — so I can fit training around your day, not the other way around. Health first: sleep, heart, and activity.",
                 mood: .energized
             )
             ariaOrbState = .listening
@@ -643,7 +643,7 @@ final class OnboardingCoordinator {
         if !messages.contains(where: { $0.role == .system && ($0.text.contains("HealthKit") || $0.text.contains("Apple Health")) }) {
             messages.append(AriaOnboardingMessage(
                 role: .system,
-                text: "Apple Health loaded: \(healthPrefillNote!)"
+                text: "Apple Health is in — I already have a night and a morning to coach from."
             ))
         }
     }

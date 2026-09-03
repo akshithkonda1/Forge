@@ -182,8 +182,9 @@ final class AriaFirstHealthBriefingTests: XCTestCase {
         )
         XCTAssertTrue(result.message.contains("Ada"))
         XCTAssertTrue(result.message.contains("Apple Health"))
-        XCTAssertTrue(result.message.contains("7.2"))
-        XCTAssertTrue(result.message.contains("HRV 52"))
+        XCTAssertTrue(result.message.contains("Last night"))
+        XCTAssertFalse(result.message.contains("HRV 52"))
+        XCTAssertFalse(result.message.contains("readiness 78"))
         XCTAssertTrue(result.message.contains("Workout"))
         XCTAssertTrue(result.message.contains("Recovery"))
         XCTAssertTrue(result.actions.contains("Who are you?"))
@@ -198,7 +199,8 @@ final class AriaFirstHealthBriefingTests: XCTestCase {
         )
         let line = AriaFirstHealthBriefing.onboardingConnectedLine(snapshot: snap)
         XCTAssertTrue(line.contains("first time"))
-        XCTAssertTrue(line.contains("7.2"))
+        XCTAssertTrue(line.contains("Last night"))
+        XCTAssertFalse(line.contains("HRV"))
     }
 
     func testLearnInsightsComeFromHealthKit() {
@@ -216,7 +218,8 @@ final class AriaFirstHealthBriefingTests: XCTestCase {
         )
         let insights = AriaFirstHealthBriefing.learnInsights(snapshot: live)
         XCTAssertTrue(insights.contains { $0.contains("first connect") })
-        XCTAssertTrue(insights.contains { $0.contains("HRV 52") })
+        XCTAssertTrue(insights.contains { $0.contains("Last night") })
+        XCTAssertFalse(insights.contains { $0.contains("HRV 52") })
     }
 }
 
@@ -238,7 +241,8 @@ final class AriaFirstBondTests: XCTestCase {
         let turn = AriaFirstBond.start(ctx())
         XCTAssertTrue(turn.message.contains("Ada"))
         XCTAssertTrue(turn.message.contains("ARIA"))
-        XCTAssertTrue(turn.message.contains("7.2"))
+        XCTAssertTrue(turn.message.contains("Last night"))
+        XCTAssertFalse(turn.message.contains("HRV"))
         XCTAssertTrue(turn.message.contains("Build muscle") || turn.message.contains("build muscle"))
         XCTAssertTrue(turn.replies.contains("I’m here."))
         XCTAssertEqual(turn.next, .opening)
