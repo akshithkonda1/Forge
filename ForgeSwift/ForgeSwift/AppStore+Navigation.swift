@@ -93,11 +93,19 @@ extension AppStore {
         activeTab = .chat
     }
 
-    /// Deep-link into Home Cycle Health full-screen (optional Support pane).
+    /// Deep-link into the shell Cycle Health cover (optional Support pane).
+    /// Home no longer hosts its own cover — two full-screen presenters on the
+    /// same published flag blanked or stuck the page when opened from Home.
     func openCycleHealth(pane: String? = nil, sharing: Bool = false) {
-        pendingCyclePane = pane
+        let resolved = CycleHealthLaunch.pane(
+            requested: pane,
+            selfTrackingEnabled: MenstrualHealthStore.shared.settings.enabled,
+            hasConsentedPeople: !MenstrualHealthStore.shared.consentedPeople.isEmpty,
+            defaultToSupport: userProfile.gender != .female
+                && userProfile.biologicalSex?.cycleAutoEnabled != true
+        )
+        pendingCyclePane = resolved.rawValue
         pendingCycleSharingOpen = sharing
-        // Shell-level fullScreenCover hosts Cycle Health — no need to switch tabs.
         pendingCycleHealthOpen = true
     }
 
@@ -126,12 +134,14 @@ extension AppStore {
             let leaf = segments.dropFirst().first
             if leaf == "period-finished" || leaf == "finished" {
                 Task { await MenstrualHealthStore.shared.syncSharedPeriodFinished() }
-                openCycleHealth(pane: MenstrualHealthStore.shared.settings.enabled ? "me" : "partner",
-                                sharing: false)
+                openCycleHealth()
                 return true
             }
-            openCycleHealth(pane: leaf == "support" ? "partner" : "me",
-                            sharing: leaf == "sharing")
+            if leaf == "support" {
+                openCycleHealth(pane: "partner")
+                return true
+            }
+            openCycleHealth(pane: leaf == "sharing" ? "me" : nil, sharing: leaf == "sharing")
             return true
         case "hydration", "water":
             if segments.dropFirst().first == "log" {

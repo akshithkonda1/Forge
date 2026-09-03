@@ -64,6 +64,9 @@ struct MenstrualHealthView: View {
     @State private var saveError: String?
     @State private var showAddPerson = false
     @State private var confirmRemovePerson = false
+    /// `handleAppear` used to re-apply `initialPane` on every appear, which
+    /// snapped Support back to My cycle after a sheet dismissed.
+    @State private var didApplyLaunchPane = false
 
     private var accent: Color {
         let phase = pane == .me ? cycleStore.snapshot.phase : cycleStore.partnerSnapshot.phase
@@ -91,6 +94,9 @@ struct MenstrualHealthView: View {
                 cycleStore.lastModelUpdateMessage = nil
             }
             .onAppear(perform: handleAppear)
+            .onChange(of: initialPane) { _, newPane in
+                if let newPane { pane = newPane }
+            }
     }
 
     /// Navigation chrome + presentation (sheets / dialogs / alert) broken out of `body`
@@ -376,12 +382,15 @@ struct MenstrualHealthView: View {
         if let sex = store.userProfile.biologicalSex {
             cycleStore.enableForBiologicalSexIfNeeded(sex)
         }
-        if let initialPane {
-            pane = initialPane
-        } else if store.userProfile.gender != .female,
-                  store.userProfile.biologicalSex?.cycleAutoEnabled != true,
-                  !cycleStore.settings.enabled {
-            pane = .partner
+        if !didApplyLaunchPane {
+            if let initialPane {
+                pane = initialPane
+            } else if store.userProfile.gender != .female,
+                      store.userProfile.biologicalSex?.cycleAutoEnabled != true,
+                      !cycleStore.settings.enabled {
+                pane = .partner
+            }
+            didApplyLaunchPane = true
         }
         partnerNameDraft = cycleStore.partnerSettings.partnerName
         partnerRelDraft = cycleStore.partnerSettings.relationshipLabel
