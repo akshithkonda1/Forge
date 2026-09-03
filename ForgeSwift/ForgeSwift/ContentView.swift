@@ -52,22 +52,22 @@ struct ForgeSplashScreen: View {
 
             RadialGradient(
                 colors: [
-                    Color.ember.opacity(0.14 * glowIntensity),
-                    Color(hex: "00D2FF").opacity(0.05 * glowIntensity),
-                    Color.aurora.opacity(0.04 * glowIntensity),
+                    Color.ember.opacity(0.10 * glowIntensity),
+                    Color(hex: "7B61FF").opacity(0.06 * glowIntensity),
+                    Color.aurora.opacity(0.03 * glowIntensity),
                     .clear
                 ],
                 center: .center,
                 startRadius: 20,
-                endRadius: 360
+                endRadius: 380
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 24) {
-                AuroraOrbView(state: .idle, amplitude: 0.28, mood: .energized, size: 120)
+            VStack(spacing: 28) {
+                AuroraOrbView(state: .idle, amplitude: 0.34, mood: .energized, size: 132)
                     .scaleEffect(logoScale)
                     .opacity(logoOpacity)
-                    .shadow(color: Color.ember.opacity(0.4 * glowIntensity), radius: 40, y: 10)
+                    .shadow(color: Color.ember.opacity(0.35 * glowIntensity), radius: 48, y: 8)
 
                 VStack(spacing: 10) {
                     Text("FORGE")
@@ -75,15 +75,15 @@ struct ForgeSplashScreen: View {
                         .tracking(8)
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [.white, Color.white.opacity(0.65)],
+                                colors: [.white, Color.white.opacity(0.55)],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
                         )
 
-                    Text("ARIA · Intelligence Layer")
+                    Text("ARIA · already listening")
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .tracking(2.0)
+                        .tracking(2.2)
                         .foregroundColor(.textTertiary)
                 }
                 .opacity(logoOpacity)
@@ -93,13 +93,15 @@ struct ForgeSplashScreen: View {
         .onAppear {
             let base: Animation = reduceMotion
                 ? .easeOut(duration: 0.3)
-                : .spring(response: 0.9, dampingFraction: 0.6)
+                : .spring(response: 1.15, dampingFraction: 0.72)
             withAnimation(base) {
                 logoScale = 1.0
                 logoOpacity = 1.0
+            }
+            withAnimation((reduceMotion ? .easeOut(duration: 0.3) : FDS.Spring.fluid).delay(0.18)) {
                 textOffset = 0
             }
-            withAnimation(.easeInOut(duration: 1.6).delay(0.2)) {
+            withAnimation(.easeInOut(duration: 2.2).delay(0.25)) {
                 glowIntensity = 1.0
             }
         }
