@@ -36,42 +36,49 @@ struct ChatEmptyStateView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 36)
 
-            // Shared ARIA orb — same mark as the header, tab, and briefing.
             ZStack {
                 ForEach(0..<3, id: \.self) { i in
-                    let ringOpacity = 0.05 - Double(i) * 0.015
-                    let ringSize = CGFloat(170 + i * 48)
-                    let ringAnimation = Animation.easeOut(duration: 2.2 + Double(i) * 0.4)
+                    let ringSize = CGFloat(160 + i * 44)
+                    let ringAnimation = Animation.easeOut(duration: 2.4 + Double(i) * 0.5)
                         .repeatForever(autoreverses: false)
-                        .delay(Double(i) * 0.55)
+                        .delay(Double(i) * 0.6)
 
                     Circle()
-                        .fill(mood.accentColor.opacity(ringOpacity))
+                        .stroke(mood.accentColor.opacity(0.06 - Double(i) * 0.015), lineWidth: 0.8)
                         .frame(width: ringSize, height: ringSize)
-                        .scaleEffect(orbPulse ? 1.15 : 1.0)
+                        .scaleEffect(orbPulse ? 1.18 : 1.0)
                         .opacity(orbPulse ? 0 : 0.8)
                         .animation(ringAnimation, value: orbPulse)
                 }
 
                 Circle()
                     .fill(RadialGradient(
-                        colors: [mood.accentColor.opacity(orbGlow ? 0.28 : 0.12), .clear],
-                        center: .center, startRadius: 0, endRadius: 75
+                        colors: [
+                            mood.accentColor.opacity(orbGlow ? 0.24 : 0.08),
+                            Color(hex: "00D2FF").opacity(orbGlow ? 0.08 : 0.02),
+                            .clear
+                        ],
+                        center: .center, startRadius: 0, endRadius: 90
                     ))
-                    .frame(width: 150, height: 150).blur(radius: 22)
+                    .frame(width: 180, height: 180).blur(radius: 28)
 
-                AuroraOrbView(state: .idle, amplitude: 0.28, mood: mood, size: 110)
+                AuroraOrbView(state: .idle, amplitude: 0.3, mood: mood, size: 120)
             }
             .scaleEffect(appeared ? 1 : 0.6)
             .opacity(appeared ? 1 : 0)
             .animation(FDS.Spring.floaty.delay(0.08), value: appeared)
             .padding(.bottom, 28)
 
-            // Greeting
             VStack(spacing: 10) {
                 Text(greeting)
-                    .font(.system(size: 24, weight: .semibold, design: .rounded))
-                    .foregroundColor(.textPrimary)
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.white, .white.opacity(0.7)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
                     .minimumScaleFactor(0.85)

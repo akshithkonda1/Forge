@@ -40,14 +40,15 @@ struct AuroraOrbView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shimmerPhase: Double = 0
     @State private var rotation: Double = 0
+    @State private var glassRotation: Double = 0
 
     private var effectiveAmplitude: Double {
         let amp = Double(amplitude)
         switch state {
-        case .idle: return 0.1
-        case .listening: return max(0.35, amp)
-        case .processing: return 0.55
-        case .speaking: return max(0.65, amp)
+        case .idle: return 0.12
+        case .listening: return max(0.38, amp)
+        case .processing: return 0.6
+        case .speaking: return max(0.68, amp)
         }
     }
 
@@ -59,12 +60,20 @@ struct AuroraOrbView: View {
         }
     }
 
+    private var secondaryColor: Color {
+        switch mood {
+        case .energized: return Color(hex: "00D2FF")
+        case .pushed: return Color(hex: "FF2D55")
+        case .focused: return Color(hex: "00D2FF")
+        case .calm: return Color(hex: "7B61FF")
+        }
+    }
+
     var body: some View {
-        // Header / avatar orbs stay static. The 30 fps wave canvas plus eight
-        // particle timelines was the interview's biggest continuous cost.
         if reduceMotion || size < 64 {
             ZStack {
                 coreOrb
+                innerGlow
                 pulsingRing
             }
             .frame(width: size, height: size)
@@ -72,12 +81,15 @@ struct AuroraOrbView: View {
             ZStack {
                 AuroraWaveCanvas(
                     accent: mood.accentColor,
+                    secondary: secondaryColor,
                     amplitude: effectiveAmplitude
                 )
 
                 coreOrb
+                glassRefraction
+                innerGlow
                 pulsingRing
-                shimmerCore
+                shimmerArc
                 particles
             }
             .frame(width: size, height: size)
@@ -87,59 +99,128 @@ struct AuroraOrbView: View {
     }
 
     private var coreOrb: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color(hex: "0A0A0F"),
+                            mood.accentColor.opacity(0.35),
+                            secondaryColor.opacity(0.15),
+                            Color.ember.opacity(0.08)
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: size / 2
+                    )
+                )
+                .frame(width: size, height: size)
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.white.opacity(0.06),
+                            .clear
+                        ],
+                        center: UnitPoint(x: 0.35, y: 0.25),
+                        startRadius: 0,
+                        endRadius: size * 0.4
+                    )
+                )
+                .frame(width: size, height: size)
+        }
+    }
+
+    private var glassRefraction: some View {
+        Ellipse()
+            .fill(
+                LinearGradient(
+                    colors: [
+                        secondaryColor.opacity(0.18 + effectiveAmplitude * 0.12),
+                        mood.accentColor.opacity(0.08),
+                        .clear
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: size * 0.7, height: size * 0.45)
+            .blur(radius: size * 0.06)
+            .offset(y: -size * 0.08)
+            .rotationEffect(.degrees(glassRotation))
+    }
+
+    private var innerGlow: some View {
         Circle()
             .fill(
                 RadialGradient(
                     colors: [
-                        Color(hex: "0D0D0D"),
-                        mood.accentColor.opacity(0.4),
-                        Color.ember.opacity(0.2)
+                        Color.white.opacity(0.12 + shimmerPhase * 0.08),
+                        mood.accentColor.opacity(0.04),
+                        .clear
                     ],
-                    center: .center,
+                    center: UnitPoint(x: 0.38, y: 0.32),
                     startRadius: 0,
-                    endRadius: size / 2
+                    endRadius: size * 0.35
                 )
             )
-            .frame(width: size, height: size)
+            .frame(width: size * 0.6, height: size * 0.6)
+            .blendMode(.screen)
     }
 
     private var pulsingRing: some View {
-        let ringSize = size * (1.0 + CGFloat(effectiveAmplitude) * 0.25)
-        return Circle()
+        let ringSize = size * (1.0 + CGFloat(effectiveAmplitude) * 0.22)
+        return ZStack {
+            Circle()
+                .stroke(
+                    AngularGradient(
+                        colors: [
+                            ringColor.opacity(0.7),
+                            secondaryColor.opacity(0.4),
+                            ringColor.opacity(0.1),
+                            secondaryColor.opacity(0.3),
+                            ringColor.opacity(0.7)
+                        ],
+                        center: .center
+                    ),
+                    lineWidth: 1.5
+                )
+                .frame(width: ringSize, height: ringSize)
+                .opacity(state == .idle ? 0.4 : 0.9)
+            if state != .idle {
+                Circle()
+                    .stroke(
+                        ringColor.opacity(0.15),
+                        lineWidth: 0.5
+                    )
+                    .frame(width: ringSize * 1.12, height: ringSize * 1.12)
+            }
+        }
+    }
+
+    private var shimmerArc: some View {
+        Circle()
+            .trim(from: 0.0, to: 0.3)
             .stroke(
                 LinearGradient(
-                    colors: [ringColor.opacity(0.8), ringColor.opacity(0.1)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+                    colors: [Color.white.opacity(0.25 + shimmerPhase * 0.15), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
                 ),
-                lineWidth: 2
+                style: StrokeStyle(lineWidth: 1.2, lineCap: .round)
             )
-            .frame(width: ringSize, height: ringSize)
-            .opacity(state == .idle ? 0.35 : 0.85)
-    }
-
-    private var outerHalo: some View {
-        Circle()
-            .stroke(ringColor.opacity(0.5), lineWidth: 1)
-            .frame(width: size * 1.8, height: size * 1.8)
-            .opacity(max(0, 0.6 - effectiveAmplitude * 0.5))
-    }
-
-    private var shimmerCore: some View {
-        Circle()
-            .fill(Color.white.opacity(0.15 + shimmerPhase * 0.2))
-            .frame(width: size * 0.18, height: size * 0.18)
-            .blur(radius: 2)
+            .frame(width: size * 0.88, height: size * 0.88)
+            .rotationEffect(.degrees(glassRotation * 0.7))
     }
 
     private var particles: some View {
-        ForEach(0..<3, id: \.self) { index in
+        ForEach(0..<5, id: \.self) { index in
             ForgeOrbitalParticle(
                 index: index,
                 size: size,
                 amplitude: effectiveAmplitude,
                 state: state,
-                color: mood.accentColor,
+                color: index % 2 == 0 ? mood.accentColor : secondaryColor,
                 reduceMotion: reduceMotion
             )
         }
@@ -151,18 +232,22 @@ struct AuroraOrbView: View {
         withAnimation(.linear(duration: spinDuration).repeatForever(autoreverses: false)) {
             rotation = 360
         }
-        withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+        withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
             shimmerPhase = 1
+        }
+        withAnimation(.linear(duration: 8.0).repeatForever(autoreverses: false)) {
+            glassRotation = 360
         }
     }
 }
 
 private struct AuroraWaveCanvas: View {
     let accent: Color
+    let secondary: Color
     let amplitude: Double
 
     private static let configs: [(phase: Double, speed: Double, opacity: Double)] = [
-        (0.0, 0.8, 0.22), (2.2, 1.1, 0.34)
+        (0.0, 0.7, 0.18), (1.8, 0.9, 0.28), (3.6, 1.1, 0.22)
     ]
 
     var body: some View {
@@ -180,24 +265,22 @@ private struct AuroraWaveCanvas: View {
         for (index, config) in Self.configs.enumerated() {
             let waveAmp = radius * 0.08 * (1.0 + amplitude * 1.5) * (1.0 + Double(index) * 0.05)
             var path = Path()
-            let steps = 20
+            let steps = 24
             for step in 0...steps {
                 let angle = Double(step) / Double(steps) * .pi * 2
                 let wobble = sin(angle * 3 + time * config.speed + config.phase) * waveAmp
+                    + sin(angle * 5 + time * config.speed * 0.6) * waveAmp * 0.3
                 let r = radius * 0.82 + wobble
                 let point = CGPoint(
                     x: center.x + CGFloat(cos(angle) * r),
                     y: center.y + CGFloat(sin(angle) * r)
                 )
-                if step == 0 {
-                    path.move(to: point)
-                } else {
-                    path.addLine(to: point)
-                }
+                if step == 0 { path.move(to: point) }
+                else { path.addLine(to: point) }
             }
             path.closeSubpath()
-            let strokeColor = accent.opacity(config.opacity)
-            context.stroke(path, with: .color(strokeColor), lineWidth: 1.5)
+            let strokeColor = (index % 2 == 0 ? accent : secondary).opacity(config.opacity)
+            context.stroke(path, with: .color(strokeColor), lineWidth: 1.2)
         }
     }
 }
@@ -217,16 +300,17 @@ private struct ForgeOrbitalParticle: View {
     }
 
     private func particle(at time: Double) -> some View {
-        let speed = 0.4 + Double(index) * 0.08
-        let angle = time * speed + Double(index) * (.pi / 4)
-        let baseRadius = Double(size / 2) * (0.6 + Double(index % 3) * 0.1)
-        let scatter = (state == .idle && !reduceMotion) ? 0.0 : amplitude * 20.0
+        let speed = 0.3 + Double(index) * 0.1
+        let angle = time * speed + Double(index) * (.pi * 2 / 5)
+        let baseRadius = Double(size / 2) * (0.55 + Double(index % 3) * 0.12)
+        let scatter = (state == .idle && !reduceMotion) ? 0.0 : amplitude * 18.0
         let radius = baseRadius + scatter
-        let dotSize = CGFloat(4 + index % 3)
+        let dotSize = CGFloat(2 + index % 3)
 
         return Circle()
-            .fill(color.opacity(0.7))
+            .fill(color.opacity(0.6))
             .frame(width: dotSize, height: dotSize)
+            .shadow(color: color.opacity(0.5), radius: 2)
             .offset(x: CGFloat(cos(angle) * radius), y: CGFloat(sin(angle) * radius))
     }
 }
