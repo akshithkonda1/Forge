@@ -99,7 +99,7 @@ final class ExerciseLibraryFilterTests: XCTestCase {
         }
     }
 
-    func testHowToScriptNamesTheLiftAndWalksCues() {
+    func testHowToScriptNamesTheLiftAndWalksCues() throws {
         let bench = try XCTUnwrap(ExerciseLibrary.match("Barbell Bench Press"))
         let script = ExerciseLibrary.howToScript(for: bench)
         XCTAssertTrue(script.contains("Barbell Bench Press"))
