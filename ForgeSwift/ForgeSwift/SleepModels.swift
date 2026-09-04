@@ -40,7 +40,7 @@ enum AlarmSoundOption: String, CaseIterable, Codable {
     }
 }
 
-struct ForgeAlarm: Identifiable, Codable {
+struct ForgeAlarm: Identifiable, Codable, Equatable {
     var id: UUID = UUID()
     var label: String = "Wake Up"
     var time: Date = Calendar.current.date(from: DateComponents(hour: 7, minute: 0)) ?? Date()
@@ -51,6 +51,258 @@ struct ForgeAlarm: Identifiable, Codable {
     var smartWakeWindow: Int = 30               // minutes before alarm
     var isEnabled: Bool = true
     var gradualVolume: Bool = true
+}
+
+/// Next fire, smart-wake lead, and notification ids — pure so tests can pin the clock.
+enum SleepWakeEngine {
+    static let idPrefix = "forge.wake."
+    static let category = "forge.wake"
+    static let actionSnooze = "forge.wake.snooze"
+    static let actionUp = "forge.wake.up"
+    static let maxSnoozes = 2
+
+    static func hourMinute(of time: Date, calendar: Calendar = .current) -> (Int, Int) {
+        let c = calendar.dateComponents([.hour, .minute], from: time)
+        return (c.hour ?? 7, c.minute ?? 0)
+    }
+
+    /// Empty `days` means every day. Disabled alarms never fire.
+    static func nextHardFire(
+        alarm: ForgeAlarm,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Date? {
+        guard alarm.isEnabled else { return nil }
+        let (hour, minute) = hourMinute(of: alarm.time, calendar: calendar)
+        let days = alarm.days.isEmpty ? Array(1...7) : Array(Set(alarm.days))
+        for offset in 0...7 {
+            guard let day = calendar.date(byAdding: .day, value: offset, to: now) else { continue }
+            let weekday = calendar.component(.weekday, from: day)
+            guard days.contains(weekday) else { continue }
+            var comps = calendar.dateComponents([.year, .month, .day], from: day)
+            comps.hour = hour
+            comps.minute = minute
+            comps.second = 0
+            guard let fire = calendar.date(from: comps) else { continue }
+            if fire > now { return fire }
+            // Keep this morning's alarm current for two minutes so the Wake tab can say "get up".
+            if offset == 0, now.timeIntervalSince(fire) >= 0, now.timeIntervalSince(fire) < 120 {
+                return fire
+            }
+        }
+        return nil
+    }
+
+    static func smartWakeFire(hard: Date, windowMinutes: Int) -> Date {
+        hard.addingTimeInterval(-TimeInterval(max(1, windowMinutes)) * 60)
+    }
+
+    static func nextAlarm(in alarms: [ForgeAlarm], now: Date = Date(), calendar: Calendar = .current) -> ForgeAlarm? {
+        alarms
+            .compactMap { alarm -> (ForgeAlarm, Date)? in
+                guard let fire = nextHardFire(alarm: alarm, now: now, calendar: calendar) else { return nil }
+                return (alarm, fire)
+            }
+            .min(by: { $0.1 < $1.1 })?
+            .0
+    }
+
+    static func hardNotificationId(for alarmID: UUID) -> String { idPrefix + "hard." + alarmID.uuidString }
+    static func smartNotificationId(for alarmID: UUID) -> String { idPrefix + "smart." + alarmID.uuidString }
+    static func snoozeNotificationId(for alarmID: UUID) -> String { idPrefix + "snooze." + alarmID.uuidString }
+
+    static func isWakeNotification(_ identifier: String) -> Bool {
+        identifier.hasPrefix(idPrefix)
+    }
+
+    static func canSnooze(count: Int) -> Bool {
+        count < maxSnoozes
+    }
+
+    /// First upcoming `weekday` at `hour`:`minute` on or after `now`'s calendar day.
+    static func dateOnWeekday(
+        _ weekday: Int,
+        hour: Int,
+        minute: Int,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Date? {
+        for offset in 0..<7 {
+            guard let day = calendar.date(byAdding: .day, value: offset, to: now) else { continue }
+            guard calendar.component(.weekday, from: day) == weekday else { continue }
+            var comps = calendar.dateComponents([.year, .month, .day], from: day)
+            comps.hour = hour
+            comps.minute = minute
+            comps.second = 0
+            return calendar.date(from: comps)
+        }
+        return nil
+    }
+
+    /// Smart-wake clock, including a previous-day wrap (00:15 − 30 min → 23:45 Sunday).
+    static func repeatingSmartClock(
+        weekday: Int,
+        hour: Int,
+        minute: Int,
+        windowMinutes: Int,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> (weekday: Int, hour: Int, minute: Int) {
+        guard let hard = dateOnWeekday(weekday, hour: hour, minute: minute, now: now, calendar: calendar) else {
+            return (weekday, hour, minute)
+        }
+        let smart = smartWakeFire(hard: hard, windowMinutes: windowMinutes)
+        return (
+            calendar.component(.weekday, from: smart),
+            calendar.component(.hour, from: smart),
+            calendar.component(.minute, from: smart)
+        )
+    }
+
+    static func minutesUntil(_ date: Date, now: Date = Date()) -> Int {
+        Int((date.timeIntervalSince(now) / 60).rounded())
+    }
+
+    static func countdownLabel(until date: Date, now: Date = Date()) -> String {
+        let minutes = max(0, minutesUntil(date, now: now))
+        if minutes < 60 { return "in \(minutes) min" }
+        let hours = minutes / 60
+        let rem = minutes % 60
+        return rem == 0 ? "in \(hours)h" : "in \(hours)h \(rem)m"
+    }
+}
+
+enum SleepWakePhase: String, Equatable {
+    case waiting, approaching, windowOpen, due, morning
+}
+
+/// Next alarm + copy for the Wake tab and the ringing screen.
+struct SleepWakeCoach: Equatable {
+    var phase: SleepWakePhase
+    var alarm: ForgeAlarm?
+    var hardFire: Date?
+    var smartFire: Date?
+    var minutesUntilHard: Int
+    var headline: String
+    var cue: String
+    var ariaPrompt: String
+
+    var countdownLabel: String {
+        guard let hardFire else { return "no wake set" }
+        if phase == .due { return "now" }
+        return SleepWakeEngine.countdownLabel(until: hardFire)
+    }
+
+    static func make(
+        alarms: [ForgeAlarm],
+        now: Date = Date(),
+        calendar: Calendar = .current,
+        sleepScore: Int? = nil,
+        lastNightHours: Double? = nil
+    ) -> SleepWakeCoach {
+        let alarm = SleepWakeEngine.nextAlarm(in: alarms, now: now, calendar: calendar)
+        let hard = alarm.flatMap { SleepWakeEngine.nextHardFire(alarm: $0, now: now, calendar: calendar) }
+        let smart: Date? = {
+            guard let alarm, let hard, alarm.isSmartWake else { return nil }
+            return SleepWakeEngine.smartWakeFire(hard: hard, windowMinutes: alarm.smartWakeWindow)
+        }()
+        let until = hard.map { SleepWakeEngine.minutesUntil($0, now: now) } ?? 0
+        let hour = calendar.component(.hour, from: now)
+
+        let phase: SleepWakePhase
+        if let hard, now >= hard {
+            phase = .due
+        } else if let smart, now >= smart {
+            phase = .windowOpen
+        } else if hard != nil, until <= 90 {
+            phase = .approaching
+        } else if hour >= 5, hour < 10, hard == nil || until > 12 * 60 {
+            phase = .morning
+        } else {
+            phase = .waiting
+        }
+
+        let timeLabel = hard?.formatted(date: .omitted, time: .shortened) ?? "no time"
+        let (headline, cue, prompt) = copy(
+            phase: phase,
+            timeLabel: timeLabel,
+            until: max(0, until),
+            sleepScore: sleepScore,
+            lastNightHours: lastNightHours
+        )
+        return SleepWakeCoach(
+            phase: phase,
+            alarm: alarm,
+            hardFire: hard,
+            smartFire: smart,
+            minutesUntilHard: until,
+            headline: headline,
+            cue: cue,
+            ariaPrompt: prompt
+        )
+    }
+
+    static func morningPrompt(sleepScore: Int?, lastNightHours: Double?) -> String {
+        let night: String
+        if let sleepScore {
+            night = "Last night scored \(sleepScore)."
+        } else if let lastNightHours {
+            night = "Last night was \(String(format: "%.1f", lastNightHours)) hours."
+        } else {
+            night = "Last night's sleep is unavailable."
+        }
+        return "I just woke up. \(night) First ten minutes: light, water, no scroll. Get me moving."
+    }
+
+    private static func copy(
+        phase: SleepWakePhase,
+        timeLabel: String,
+        until: Int,
+        sleepScore: Int?,
+        lastNightHours: Double?
+    ) -> (String, String, String) {
+        let nightBit: String
+        if let sleepScore {
+            nightBit = "Last night scored \(sleepScore)."
+        } else if let lastNightHours {
+            nightBit = "Last night was \(String(format: "%.1f", lastNightHours)) hours."
+        } else {
+            nightBit = "Last night's sleep is unavailable."
+        }
+
+        switch phase {
+        case .waiting:
+            return (
+                "Next wake \(timeLabel)",
+                "Hard alarm stands. Smart wake only fires earlier if you left it on.",
+                "My next alarm is \(timeLabel). Help me actually get up when it rings — no snooze spiral."
+            )
+        case .approaching:
+            return (
+                "Wake in \(until) min",
+                "Don't bargain with the first alarm. Water, light, stand up.",
+                "Alarm is \(timeLabel). \(nightBit) Get me up on the first ring."
+            )
+        case .windowOpen:
+            return (
+                "Smart window is open",
+                "If you're already light, get up now. The hard alarm still fires at \(timeLabel).",
+                "I'm in the smart-wake window before \(timeLabel). If I'm light, get me up now."
+            )
+        case .due:
+            return (
+                "Get up",
+                "The day already started. Hold I'm up — snooze is rationed.",
+                morningPrompt(sleepScore: sleepScore, lastNightHours: lastNightHours)
+            )
+        case .morning:
+            return (
+                "You're up",
+                "Don't sit back down. Light, water, then the first real task.",
+                morningPrompt(sleepScore: sleepScore, lastNightHours: lastNightHours)
+            )
+        }
+    }
 }
 
 struct SleepSoundItem: Identifiable {
@@ -93,13 +345,15 @@ enum SleepTab: Int, CaseIterable {
         switch self {
         case .day: return "Day"
         case .night: return "Tonight"
-        case .alarms: return "Alarms"
+        case .alarms: return "Wake"
         }
     }
 
-    /// Evening and the small hours open on Tonight — that's when the page has a job.
+    /// Evening opens Tonight. Morning opens Wake. Midday stays on Day.
     static func suggested(hour: Int) -> SleepTab {
-        (hour >= 19 || hour < 5) ? .night : .day
+        if hour >= 19 || hour < 5 { return .night }
+        if hour >= 5 && hour < 10 { return .alarms }
+        return .day
     }
 }
 
@@ -272,10 +526,18 @@ struct SleepBedtimeCoach: Equatable {
     }
 }
 
-enum VolumeRampCurve: String, CaseIterable {
+enum VolumeRampCurve: String, CaseIterable, Codable {
     case instant  = "Instant"
     case gentle   = "Gentle"
     case gradual  = "Gradual"
+
+    var rampSeconds: Double {
+        switch self {
+        case .instant: return 0.4
+        case .gentle:  return 15
+        case .gradual: return 60
+        }
+    }
 
     var description: String {
         switch self {

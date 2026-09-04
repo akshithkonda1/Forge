@@ -12,8 +12,10 @@ final class SleepBedtimeCoachTests: XCTestCase {
     func testSuggestedTabOpensTonightInTheEvening() {
         XCTAssertEqual(SleepTab.suggested(hour: 21), .night)
         XCTAssertEqual(SleepTab.suggested(hour: 2), .night)
+        XCTAssertEqual(SleepTab.suggested(hour: 7), .alarms)
         XCTAssertEqual(SleepTab.suggested(hour: 10), .day)
         XCTAssertEqual(SleepTab.night.title, "Tonight")
+        XCTAssertEqual(SleepTab.alarms.title, "Wake")
     }
 
     func testFallbackBedtimeUsesOnsetHour() {

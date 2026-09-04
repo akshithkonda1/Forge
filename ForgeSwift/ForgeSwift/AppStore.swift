@@ -78,6 +78,8 @@ final class AppStore: ObservableObject {
     @Published var pendingLifestyleSegment: String? = nil
     /// When true, main shell presents Hydration full-screen.
     @Published var pendingHydrationOpen: Bool = false
+    /// Sleep page leaf: `alarms` / `wake` opens the Wake tab.
+    @Published var pendingSleepTab: String? = nil
 
     // Quiet mode — damp proactive noise (persisted)
     @Published var quietMode: Bool = UserDefaults.standard.bool(forKey: "forge.quiet.mode.v1") {

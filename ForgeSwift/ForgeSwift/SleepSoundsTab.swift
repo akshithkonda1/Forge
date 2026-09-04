@@ -70,6 +70,86 @@ final class SleepWindDownPlayer: ObservableObject {
     }
 }
 
+/// Rising two-tone. Stops wind-down first so the alarm is the only thing in the room.
+@MainActor
+final class SleepWakePlayer: ObservableObject {
+    static let shared = SleepWakePlayer()
+
+    @Published private(set) var isPlaying = false
+
+    private var engine: AVAudioEngine?
+    private let tone = WakeToneState()
+
+    func start(for alarm: ForgeAlarm) {
+        stop(deactivateSession: false)
+        SleepWindDownPlayer.shared.stop(deactivateSession: false)
+        let ramp = alarm.gradualVolume ? ForgeAlarmStore.shared.volumeRamp : .instant
+        tone.reset(rampSeconds: ramp.rampSeconds)
+        let engine = AVAudioEngine()
+        let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1)!
+        let state = tone
+        let source = AVAudioSourceNode { _, _, frameCount, audioBufferList -> OSStatus in
+            let buffers = UnsafeMutableAudioBufferListPointer(audioBufferList)
+            for buffer in buffers {
+                guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
+                for i in 0..<Int(frameCount) {
+                    data[i] = state.nextSample()
+                }
+            }
+            return noErr
+        }
+        engine.attach(source)
+        engine.connect(source, to: engine.mainMixerNode, format: format)
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [])
+            try AVAudioSession.sharedInstance().setActive(true)
+            try engine.start()
+        } catch {
+            return
+        }
+        self.engine = engine
+        isPlaying = true
+    }
+
+    func ensurePlaying(for alarm: ForgeAlarm) {
+        if isPlaying { return }
+        start(for: alarm)
+    }
+
+    func stop(deactivateSession: Bool = true) {
+        engine?.stop()
+        engine = nil
+        isPlaying = false
+        tone.reset(rampSeconds: 0.4)
+        if deactivateSession {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
+    }
+}
+
+/// Audio-thread oscillator. Isolated from UI so the render callback stays off MainActor.
+private final class WakeToneState: @unchecked Sendable {
+    private var t: Double = 0
+    private var frames: Int = 0
+    private var rampFrames: Int = 8_820
+
+    func reset(rampSeconds: Double) {
+        t = 0
+        frames = 0
+        rampFrames = max(1, Int(rampSeconds * 22_050))
+    }
+
+    func nextSample() -> Float {
+        frames += 1
+        let env = min(1, Float(frames) / Float(rampFrames))
+        let s1 = sin(2 * Double.pi * 392 * t)
+        let s2 = sin(2 * Double.pi * 523.25 * t)
+        t += 1 / 22_050
+        if t > 1 { t -= 1 }
+        return Float(s1 * 0.34 + s2 * 0.22) * env
+    }
+}
+
 /// Audio-thread integrator. Isolated from UI so the render callback stays off MainActor.
 private final class BrownNoiseState: @unchecked Sendable {
     private var last: Float = 0

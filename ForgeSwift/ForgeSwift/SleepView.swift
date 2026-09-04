@@ -8,6 +8,8 @@ struct SleepView: View {
     )
     @State private var showSleepPersonalization = false
 
+    @ObservedObject private var alarmStore = ForgeAlarmStore.shared
+
     private var tonightCoach: SleepBedtimeCoach {
         let nights = store.sleepData.prefix(14)
         let schedule = EnergySchedule.make(from: store.sleepData)
@@ -19,6 +21,29 @@ struct SleepView: View {
         )
     }
 
+    private var wakeCoach: SleepWakeCoach {
+        SleepWakeCoach.make(
+            alarms: alarmStore.alarms,
+            sleepScore: store.sleepData.first?.score,
+            lastNightHours: store.sleepData.first?.totalHours
+        )
+    }
+
+    private var headerSubtitle: String {
+        if selectedTab == .alarms { return wakeCoach.headline }
+        return tonightCoach.phase == .dayplan
+            ? "Energy first. Night second."
+            : tonightCoach.headline
+    }
+
+    private func consumePendingSleepTab() {
+        guard let leaf = store.pendingSleepTab else { return }
+        if leaf == "alarms" || leaf == "wake" {
+            selectedTab = .alarms
+        }
+        store.pendingSleepTab = nil
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             SleepBackground().ignoresSafeArea()
@@ -26,11 +51,12 @@ struct SleepView: View {
             VStack(spacing: 0) {
                 SleepHeaderView(
                     selectedTab: selectedTab,
-                    subtitle: tonightCoach.phase == .dayplan
-                        ? "Energy first. Night second."
-                        : tonightCoach.headline,
+                    subtitle: headerSubtitle,
                     onAskAria: {
-                        store.openChat(with: tonightCoach.ariaPrompt, voice: false)
+                        store.openChat(
+                            with: selectedTab == .alarms ? wakeCoach.ariaPrompt : tonightCoach.ariaPrompt,
+                            voice: false
+                        )
                     },
                     onPersonalize: { showSleepPersonalization = true },
                     onTabSelect: { selectedTab = $0 }
@@ -49,6 +75,7 @@ struct SleepView: View {
 
                     AlarmTab()
                         .environmentObject(hkService)
+                        .environmentObject(store)
                         .tag(SleepTab.alarms)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
@@ -60,6 +87,8 @@ struct SleepView: View {
                 .environmentObject(hkService)
                 .environmentObject(store)
         }
+        .onAppear { consumePendingSleepTab() }
+        .onChange(of: store.pendingSleepTab) { _, _ in consumePendingSleepTab() }
         .task {
             if await hkService.requestAuthorization() {
                 let hkSleep = await hkService.fetchRecentSleepData(days: 14)

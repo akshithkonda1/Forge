@@ -144,6 +144,18 @@ extension AppStore {
             return true
         case "sleep":
             activeTab = .sleep
+            if let leaf = segments.dropFirst().first, leaf == "wake" || leaf == "alarms" {
+                pendingSleepTab = "alarms"
+            }
+            return true
+        case "wake":
+            activeTab = .sleep
+            pendingSleepTab = "alarms"
+            let alarmID = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name.lowercased() == "alarm" })?
+                .value
+                .flatMap(UUID.init(uuidString:))
+            SleepWakeStore.shared.ringFromNotification(alarmID: alarmID)
             return true
         case "workout", "train":
             activeTab = .workout
