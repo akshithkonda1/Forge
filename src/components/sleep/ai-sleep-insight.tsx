@@ -22,7 +22,7 @@ export function AiSleepInsight() {
       {/* Forge AI label */}
       <div className="mb-2 flex items-center gap-2">
         <div className="h-1.5 w-1.5 rounded-full bg-ember" />
-        <span className="text-xs font-medium text-ember">Forge AI</span>
+        <span className="text-xs font-medium text-ember">ARIA</span>
       </div>
 
       {/* Insight text */}
@@ -41,7 +41,7 @@ export function AiSleepInsight() {
         )}
       >
         <MessageCircle size={13} />
-        Chat about this
+        Ask ARIA about this
       </button>
     </motion.div>
   );

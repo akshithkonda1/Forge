@@ -173,7 +173,7 @@ struct SmartProfileSetupView: View {
                             Image(systemName: "heart.text.square.fill")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(.success)
-                            Text("Data from HealthKit")
+                            Text("Data from Apple Health")
                                 .font(.system(size: 13, weight: .bold))
                                 .foregroundColor(.success)
                             Spacer()

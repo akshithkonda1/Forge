@@ -109,17 +109,17 @@ final class AppleMusicController: ObservableObject, MusicControlling {
     }
 
     func refresh() {
+        // MediaPlayer is enough to control playback; MusicKit is best-effort for artwork.
         let mpOK = MPMediaLibrary.authorizationStatus() == .authorized
-        let mkOK = MusicAuthorization.currentStatus == .authorized
-        isAuthorized = mpOK && mkOK
+        isAuthorized = mpOK
         if mpOK { Task { await updateNowPlaying() } }
     }
 
     func requestAccess() async {
-        async let mpStatus = MPMediaLibrary.requestAuthorization()
-        async let mkStatus = MusicAuthorization.request()
-        let (mp, mk) = await (mpStatus, mkStatus)
-        isAuthorized = (mp == .authorized) && (mk == .authorized)
+        let mp = await MPMediaLibrary.requestAuthorization()
+        // Request MusicKit too when available so artwork can resolve — failure is non-fatal.
+        _ = await MusicAuthorization.request()
+        isAuthorized = mp == .authorized
         if mp == .authorized { await updateNowPlaying() }
     }
 

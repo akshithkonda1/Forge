@@ -13,14 +13,14 @@
 name: Validate AWS IAM policies in Terraform templates using Policy Validator
 on:
   push:
-    branches: ["claude/forge-fitness-frontend-TwlOQ" ]
+    branches: ["main"]
     paths:
-      - "infra/terraform/**"
+      - "backend/infra/**"
       - ".github/workflows/policy-validator-tf.yml"
   pull_request:
-    branches: ["claude/forge-fitness-frontend-TwlOQ"]
+    branches: ["main"]
     paths:
-      - "infra/terraform/**"
+      - "backend/infra/**"
       - ".github/workflows/policy-validator-tf.yml"
   workflow_dispatch:
 env:
@@ -33,9 +33,45 @@ env:
   REFERENCE_POLICY_TYPE: TYPE_OF_REFERENCE_POLICY # set to pass the policy type associated with the IAM policy under analysis and the reference policy. This is required if you are using `CHECK_NO_NEW_ACCESS_CHECK` policy-check-type.
 
 jobs:
+  # The placeholder check has to live in a *step*, not in a job-level `if:`.
+  #
+  # `env` is not in scope when a job-level condition is evaluated — that is
+  # decided before the job's environment exists — so the previous guard,
+  #
+  #     if: ${{ env.AWS_ROLE != 'MY_ROLE' && ... }}
+  #
+  # was not a false condition that skipped the job. It was an unresolvable
+  # expression that failed the whole workflow before any job was created: 30
+  # runs, 30 failures, zero jobs, on every branch including main. The intent was
+  # right and the context was unavailable where it was used.
+  #
+  # `needs` *is* in scope in a job-level `if:`, so the check runs here and the
+  # real job gates on its output.
+  guard:
+    name: Check configuration
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Are the template placeholders still in place?
+        id: check
+        run: |
+          if [ "$AWS_ROLE" != "MY_ROLE" ] \
+            && [ "$REGION" != "MY_AWS_REGION" ] \
+            && [ "$TEMPLATE_PATH" != "FILE_PATH_TO_THE_TF_PLAN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Policy Validator is unconfigured — still on the starter-template"
+            echo "placeholders. Skipping. Set AWS_ROLE, REGION and TEMPLATE_PATH in"
+            echo "this workflow's env block to turn it on, and note that TEMPLATE_PATH"
+            echo "needs a step that actually produces the Terraform plan JSON —"
+            echo "nothing in this repository writes one yet."
+          fi
+
   policy-validator:
-    # Skip until real AWS role/region/template values replace the template placeholders.
-    if: ${{ env.AWS_ROLE != 'MY_ROLE' && env.REGION != 'MY_AWS_REGION' && env.TEMPLATE_PATH != 'FILE_PATH_TO_THE_TF_PLAN' }}
+    needs: guard
+    if: needs.guard.outputs.configured == 'true'
     runs-on: ubuntu-latest # Virtual machine to run the workflow (configurable)
     #https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services#updating-your-github-actions-workflow
     #https://aws.amazon.com/blogs/security/use-iam-roles-to-connect-github-actions-to-actions-in-aws/
@@ -47,10 +83,10 @@ jobs:
     steps:
       # checkout the repo for workflow to access the contents
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       # Configure AWS Credentials. More configuration details here- https://github.com/aws-actions/configure-aws-credentials
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           role-to-assume: ${{ env.AWS_ROLE }}
           aws-region: ${{ env.REGION }}

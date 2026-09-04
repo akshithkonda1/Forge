@@ -1,7 +1,7 @@
 {
-  "name": "Forge - AI Training Partner",
+  "name": "Forge — ARIA Coaching",
   "short_name": "Forge",
-  "description": "Your AI-powered personal fitness trainer that adapts to your body, coaches in real-time, and builds a training relationship over time.",
+  "description": "Forge unifies your health signals. ARIA coaches from inside the life you already have.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0A0A0A",

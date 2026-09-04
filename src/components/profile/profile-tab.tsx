@@ -17,7 +17,7 @@ export function ProfileTab() {
   const [subTab, setSubTab] = useState<SubTab>("progress");
 
   return (
-    <div className="min-h-[100dvh] bg-background">
+    <div className="bg-background">
       {/* Sub-tab bar */}
       <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl pt-12 px-4 pb-2">
         <div className="flex rounded-lg bg-surface p-1">

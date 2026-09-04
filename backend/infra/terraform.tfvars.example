@@ -1,0 +1,36 @@
+aws_region   = "us-east-1"
+project_name = "forge"
+
+# Required, no default. Anything outside prod/production/staging/stage leaves the
+# unsigned dev-override token accepted and serves seeded demo data in place of a
+# user's own health metrics. Set "prod" for anything real people log into.
+environment = "dev"
+
+allowed_origins = [
+  "http://localhost:3000",
+]
+
+# Optional: set this only if you want to override the generated bucket name.
+# uploads_bucket_name = "forge-dev-123456789012-us-east-1-uploads"
+
+# Seed the AI provider secret out-of-band after apply so it never lands in Terraform state.
+# With the default project/environment values, the secret name will be:
+# forge-dev/ai/provider
+#
+# Example:
+# aws secretsmanager put-secret-value \
+#   --secret-id forge-dev/ai/provider \
+#   --secret-string '{"OPENAI_API_KEY":"replace-me"}'
+
+tags = {
+  Owner = "Forge"
+}
+
+# Third router slot — the model agentic turns call in when a mode fans out to
+# its own specialists and subagents. Leave both unset to keep the code default
+# (Kimi K2.5). Set both together to move the slot; a name that disagrees with
+# the id makes the transcript claim a model that never answered.
+#
+# Prove a new tertiary in staging before production follows:
+# ai_router_model_3_id   = "global.xai.grok-4.6"
+# ai_router_model_3_name = "Grok"

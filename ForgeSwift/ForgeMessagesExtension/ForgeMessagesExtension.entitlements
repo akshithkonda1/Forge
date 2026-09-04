@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The app group is the only capability this extension gets, and it is used
+	     for exactly two small values: an invite the app staged for sending, and
+	     the list of shares this device has accepted.
+
+	     Deliberately absent: HealthKit, and iCloud/CloudKit. The extension never
+	     mints a share, never reads a digest and never touches health data, so
+	     granting it those would widen the blast radius of a Messages extension —
+	     code that runs inside someone else's chat — for no functional gain. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.forge.ForgeSwift</string>
+	</array>
+</dict>
+</plist>

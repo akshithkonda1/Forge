@@ -1,0 +1,464 @@
+import Foundation
+import Combine
+import UIKit
+import HealthKit
+import ForgeCore
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
+
+extension AppStore {
+
+    func refreshDailyData() async {
+        let hk = HealthKitManager.shared
+        let seeded = await seedTestReadyHealthKitIfNeeded()
+        let authorized = await hk.checkAuthorizationStatus()
+        healthKitLive = authorized
+
+        if authorized {
+            await hk.refreshHydration()
+        }
+        if authorized, let snapshot = await hk.fetchRecentSnapshot() {
+            updateMetrics(
+                steps: snapshot.steps,
+                activeCalories: snapshot.activeCalories,
+                hrv: snapshot.hrv.map { Int($0) },
+                restingHR: snapshot.restingHeartRate,
+                deepSleep: nil,
+                totalSleep: snapshot.sleepHours.map { Int($0 * 60) }
+            )
+            if let weight = userProfile.weight {
+                userProfile.weight = weight
+            }
+        }
+
+        let samples = BiometricsObserveService.shared.samplesFromStore(self)
+        _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
+
+        // Menstrual cycle: auto-enable + quiet weekly HealthKit sync (or immediate if broken).
+        MenstrualHealthStore.shared.enableForFemaleProfileIfNeeded(gender: userProfile.gender)
+        if let sex = userProfile.biologicalSex {
+            MenstrualHealthStore.shared.enableForBiologicalSexIfNeeded(sex)
+        }
+        if MenstrualHealthStore.shared.settings.enabled {
+            MenstrualHealthStore.shared.seedTestReadyCycleIfNeeded(
+                testReady: AriaService.shouldUseTestReadyDummy
+            )
+            await MenstrualHealthStore.shared.quietWeeklyHealthKitSync(force: !authorized)
+            MenstrualHealthStore.shared.refresh(from: self)
+        }
+
+        if authorized {
+            let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 30)
+            mergeSleepDataLocally(nights)
+            let workouts = await hk.fetchWorkoutsForHistory(days: 30)
+            mergeWorkoutsFromHealthKit(workouts)
+        }
+
+        // In-memory pack only if HealthKit did not give us numbers
+        // (write failed, or Device Hub on a phone we will not seed).
+        if !seeded || !hasMeaningfulLifeSignal {
+            installFakeHealthPackIfNeeded()
+        } else {
+            usingTestReadyHealthPack = true
+        }
+        learnFromFirstHealthConnectIfNeeded()
+
+        lastMetricsRefresh = Date()
+        rebuildTodayPlanFromLife()
+        recomputeStreak()
+        await flushPendingWidgetWater()
+        publishHomeWidgets()
+        objectWillChange.send()
+    }
+
+    /// Simulator Test-Ready patch: write the ForgeCore pack into HealthKit
+    /// every launch, then the fetch above is what ARIA reads.
+    @discardableResult
+    func seedTestReadyHealthKitIfNeeded() async -> Bool {
+        #if targetEnvironment(simulator)
+        let isSimulator = true
+        #else
+        let isSimulator = false
+        #endif
+        let alreadyAuthorized = await HealthKitManager.shared.checkAuthorizationStatus()
+        guard FakeHealthPack.shouldSeedHealthKit(
+            debugBuild: ForgeAuthPolicy.isDebugBuild,
+            testReady: AriaService.shouldUseTestReadyDummy,
+            isSimulator: isSimulator,
+            healthAuthorized: alreadyAuthorized
+        ) else { return false }
+        do {
+            try await HealthKitManager.shared.requestTestReadyPackAuthorization()
+            try await HealthKitManager.shared.replaceTestReadyPack(FakeHealthPack.generate(seed: Self.testReadySessionSeed))
+            usingTestReadyHealthPack = true
+            return true
+        } catch {
+            print("Test-Ready HealthKit seed failed: \(error)")
+            return false
+        }
+    }
+
+    /// Remember what Apple Health just taught ARIA. Once per fingerprint so
+    /// reseeding the sim pack does not spam the same insight.
+    func learnFromFirstHealthConnectIfNeeded() {
+        let snap = AriaFirstHealthBriefing.snapshot(from: self)
+        guard snap.fromHealthKit, hasMeaningfulLifeSignal else { return }
+        let token = AriaFirstHealthBriefing.fingerprint(snap)
+        let key = "forge.aria.learnedHealthConnect.v1"
+        if UserDefaults.standard.string(forKey: key) == token { return }
+        for insight in AriaFirstHealthBriefing.learnInsights(snapshot: snap) {
+            AriaContextStore.shared.addInsight(insight)
+            rememberDurable(insight)
+        }
+        UserDefaults.standard.set(token, forKey: key)
+    }
+
+    func mergeWorkoutsFromHealthKit(_ workouts: [HKWorkout]) {
+        guard !workouts.isEmpty else { return }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withFullDate]
+        var merged = Dictionary(workoutHistory.map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
+        for workout in workouts {
+            let date = String(formatter.string(from: workout.startDate).prefix(10))
+            let name = (workout.metadata?[HealthKitManager.testReadySessionNameKey] as? String)
+                ?? (workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String)
+                ?? "Session"
+            let intensityRaw = workout.metadata?[HealthKitManager.testReadyIntensityKey] as? String
+            let volume = Int(workout.metadata?[HealthKitManager.testReadyVolumeKey] as? String ?? "") ?? 0
+            let type: WorkoutType = {
+                switch workout.workoutActivityType {
+                case .traditionalStrengthTraining: return .strength
+                case .running, .walking, .cycling: return .cardio
+                case .highIntensityIntervalTraining: return .hiit
+                case .yoga: return .yoga
+                case .flexibility, .cooldown: return .mobility
+                default: return .strength
+                }
+            }()
+            let record = WorkoutHistory(
+                id: workout.uuid.uuidString,
+                date: date,
+                name: name,
+                type: type,
+                duration: max(1, Int((workout.duration / 60).rounded())),
+                volume: volume,
+                intensity: WorkoutIntensity(rawValue: intensityRaw ?? "") ?? .moderate
+            )
+            merged[record.id] = record
+        }
+        workoutHistory = merged.values.sorted { $0.date > $1.date }
+    }
+
+    /// SimRunner-shaped 30-day pack from ForgeCore. In-memory fallback when
+    /// HealthKit cannot be written. Real HealthKit samples always win.
+    /// Seed for this run's Test-Ready dataset.
+    ///
+    /// The generator defaults to a fixed seed, so before this every launch
+    /// produced a byte-identical history: the same thirty nights, the same HRV
+    /// curve, the same sessions in the same order. That is exactly right for
+    /// `FakeHealthPackTests`, which pin their own seed and still do. It is
+    /// wrong for a person living in the app for an afternoon — you stop reading
+    /// the numbers and start recognising them, and a bug that only shows on one
+    /// shape of data never gets shown a second shape.
+    ///
+    /// Derived once per process, so all three call sites within a session still
+    /// agree with each other. Determinism was never the goal at the call sites;
+    /// reproducibility in the tests was, and that is untouched.
+    static let testReadySessionSeed: Int = {
+        let time = UInt64(max(0, Date().timeIntervalSince1970 * 1_000))
+        return Int(truncatingIfNeeded: time ^ UInt64(truncatingIfNeeded: UUID().hashValue))
+    }()
+
+    /// Turn the pack's lifestyle history into tags ARIA already reads.
+    ///
+    /// Without this the markers and social events are generated, written and
+    /// never seen — thirty days of evenings that no surface can reach, which is
+    /// the same failure as a widget that is not in its bundle. `lifestyleTags`
+    /// is the existing channel to both the local path and the backend, so the
+    /// history travels the same way every other lifestyle signal does.
+    static func lifestyleTags(from pack: FakeHealthPack) -> [String] {
+        var tags: [String] = []
+        tags.append("persona:\(pack.personaLabel)")
+        if let today = pack.today {
+            if !today.felt.isEmpty { tags.append("felt:\(today.felt)") }
+            if !today.storyLine.isEmpty { tags.append("story:\(today.storyLine)") }
+        }
+
+        // Last night is the one the user is living in right now, so it gets to
+        // be specific rather than aggregate.
+        if let recent = pack.days.dropFirst().first, let event = recent.social.first {
+            tags.append("lastnight:\(event.kind.rawValue)")
+            if event.drinks > 0 { tags.append("lastnight:drinks:\(event.drinks)") }
+            if event.ranLate { tags.append("lastnight:late") }
+        }
+
+        // Where the month actually went, most-visited first. Counts, not
+        // coordinates: ARIA should know this person trains and eats out, not
+        // where they were on the 14th.
+        var placeCounts: [String: Int] = [:]
+        var drinkingNights = 0
+        var socialNights = 0
+        for day in pack.days {
+            for marker in day.markers {
+                placeCounts[marker.kind.rawValue, default: 0] += 1
+            }
+            if let event = day.social.first {
+                socialNights += 1
+                if event.drinks >= 2 { drinkingNights += 1 }
+            }
+        }
+        for (kind, count) in placeCounts.sorted(by: { $0.value > $1.value }).prefix(4) {
+            tags.append("place:\(kind):\(count)")
+        }
+        tags.append("social:nights:\(socialNights)")
+        if drinkingNights > 0 { tags.append("social:drinking_nights:\(drinkingNights)") }
+
+        let workDays = placeCounts["work"] ?? 0
+        if workDays >= pack.days.count / 3 { tags.append("routine:office_regular") }
+        if (placeCounts["travel"] ?? 0) >= 2 { tags.append("routine:travels") }
+
+        return tags
+    }
+
+    func installFakeHealthPackIfNeeded() {
+        let testReady = AriaService.shouldUseTestReadyDummy
+        guard FakeHealthPack.shouldInstall(
+            debugBuild: ForgeAuthPolicy.isDebugBuild,
+            testReady: testReady,
+            hasRealHealthSignal: hasMeaningfulLifeSignal
+        ) else {
+            return
+        }
+        apply(FakeHealthPack.generate(seed: Self.testReadySessionSeed))
+    }
+
+    func apply(_ pack: FakeHealthPack) {
+        guard let today = pack.today else { return }
+        usingTestReadyHealthPack = true
+        dailyMetrics = DailyMetrics(
+            steps: today.steps,
+            activeCalories: today.activeCalories,
+            hrv: today.hrvMs,
+            restingHR: today.restingHR,
+            deepSleep: Int(today.night.deepMinutes.rounded()),
+            totalSleep: Int(today.night.totalMinutes.rounded())
+        )
+        let score = ReadinessCalculator.score(from: pack.readinessInputs)
+        readiness = ReadinessData(
+            overall: score.overall,
+            sleepQuality: score.sleepQuality,
+            recoveryScore: score.recovery,
+            stressLevel: max(0, 100 - score.recovery),
+            energyBank: score.overall
+        )
+        sleepData = pack.days.map { day in
+            SleepData(
+                date: day.isoDate,
+                totalHours: day.night.totalMinutes / 60,
+                deepMinutes: Int(day.night.deepMinutes.rounded()),
+                remMinutes: Int(day.night.remMinutes.rounded()),
+                lightMinutes: Int(day.night.coreMinutes.rounded()),
+                awakeMinutes: Int(day.night.awakeMinutes.rounded()),
+                score: day.sleepScore,
+                onset: day.night.start,
+                wake: day.night.end
+            )
+        }
+        AriaContextStore.shared.applyLifestyleHistoryTags(Self.lifestyleTags(from: pack))
+
+        workoutHistory = pack.days.compactMap { day in
+            guard let session = day.workout else { return nil }
+            return WorkoutHistory(
+                id: "fake-\(day.isoDate)-\(session.name)",
+                date: day.isoDate,
+                name: session.name,
+                type: WorkoutType(rawValue: session.type.rawValue) ?? .strength,
+                duration: session.durationMinutes,
+                volume: session.volume,
+                intensity: WorkoutIntensity(rawValue: session.intensity) ?? .moderate
+            )
+        }
+        if HealthKitManager.shared.todayWaterMilliliters == 0 {
+            HealthKitManager.shared.installTestReadyHydration(milliliters: today.hydrationMl)
+        }
+    }
+
+    /// Sleep, HRV, or any Health write that means today's number is theirs — not a blank launch.
+    var hasMeaningfulLifeSignal: Bool {
+        dailyMetrics.totalSleep > 0
+            || dailyMetrics.hrv > 0
+            || sleepData.contains(where: { $0.totalHours > 0 })
+            || (healthKitLive && (dailyMetrics.steps > 0 || dailyMetrics.activeCalories > 0))
+    }
+
+    /// Rebuild today's session from readiness, cycle, equipment, constraints, theme.
+    /// Skipped while a session is in progress so we don't yank the floor out.
+    func rebuildTodayPlanFromLife() {
+        guard !isWorkoutActive else { return }
+        let plan = AriaPlanEngine.evaluate(
+            input: "Build today's session from my sleep, readiness, cycle, equipment, and the time I actually have.",
+            context: makeTrainerContext()
+        )
+        var workout = plan.workoutPlan
+        let dayKey: String = {
+            let f = DateFormatter()
+            f.calendar = Calendar.current
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "yyyy-MM-dd"
+            return f.string(from: Date())
+        }()
+        workout.id = "life-\(dayKey)-\(workout.name)"
+        todayWorkout = workout
+    }
+
+    /// Write the session from *this* moment's life, then open Train.
+    /// Recovery and "build" both land here — not in chat.
+    func startLifeShapedSession() {
+        if !isWorkoutActive {
+            rebuildTodayPlanFromLife()
+            startWorkout()
+        }
+        activeTab = .workout
+    }
+
+    /// Update user metrics (typically from HealthKit integration)
+    func updateMetrics(
+        steps: Int? = nil,
+        activeCalories: Int? = nil,
+        hrv: Int? = nil,
+        restingHR: Int? = nil,
+        deepSleep: Int? = nil,
+        totalSleep: Int? = nil
+    ) {
+        if let steps = steps { dailyMetrics.steps = steps }
+        if let activeCalories = activeCalories { dailyMetrics.activeCalories = activeCalories }
+        if let hrv = hrv { dailyMetrics.hrv = hrv }
+        if let restingHR = restingHR { dailyMetrics.restingHR = restingHR }
+        if let deepSleep = deepSleep { dailyMetrics.deepSleep = deepSleep }
+        if let totalSleep = totalSleep { dailyMetrics.totalSleep = totalSleep }
+        
+        // Recalculate readiness based on new metrics
+        recalculateReadiness()
+    }
+
+    /// Recalculate readiness score based on current metrics
+    private func recalculateReadiness() {
+        // Simplified readiness calculation
+        // In production, this would use more sophisticated algorithms
+        
+        let sleepScore = calculateSleepScore()
+        let hrvScore = calculateHRVScore()
+        let restingHRScore = calculateRestingHRScore()
+        
+        readiness.overall = (sleepScore + hrvScore + restingHRScore) / 3
+        readiness.sleepQuality = sleepScore
+        readiness.recoveryScore = (hrvScore + restingHRScore) / 2
+    }
+
+    private func calculateSleepScore() -> Int {
+        let totalHours = Double(dailyMetrics.totalSleep) / 60
+        let deepMinutes = dailyMetrics.deepSleep
+        
+        var score = 0
+        
+        // Total sleep score (0-50 points)
+        if totalHours >= 7.5 {
+            score += 50
+        } else if totalHours >= 7 {
+            score += 40
+        } else if totalHours >= 6 {
+            score += 25
+        } else {
+            score += 10
+        }
+        
+        // Deep sleep score (0-50 points)
+        if deepMinutes >= 90 {
+            score += 50
+        } else if deepMinutes >= 70 {
+            score += 40
+        } else if deepMinutes >= 50 {
+            score += 25
+        } else {
+            score += 10
+        }
+        
+        return min(score, 100)
+    }
+
+    private func calculateHRVScore() -> Int {
+        // HRV scoring (typical range: 20-100ms)
+        let hrv = dailyMetrics.hrv
+        
+        if hrv >= 60 {
+            return 90
+        } else if hrv >= 50 {
+            return 80
+        } else if hrv >= 40 {
+            return 65
+        } else if hrv >= 30 {
+            return 50
+        } else {
+            return 30
+        }
+    }
+
+    private func calculateRestingHRScore() -> Int {
+        // Resting HR scoring (lower is better for athletes)
+        let hr = dailyMetrics.restingHR
+        
+        if hr <= 55 {
+            return 95
+        } else if hr <= 60 {
+            return 85
+        } else if hr <= 65 {
+            return 75
+        } else if hr <= 70 {
+            return 60
+        } else {
+            return 40
+        }
+    }
+    
+    // MARK: - Profile Management
+
+    func connectHealthDevice(_ id: String) {
+        var ids = HealthDeviceCatalog.migrateStoredIDs(userProfile.connectedDevices)
+        if !ids.contains(id) { ids.append(id) }
+        userProfile.connectedDevices = ids
+    }
+
+    func disconnectHealthDevice(_ id: String) {
+        var ids = HealthDeviceCatalog.migrateStoredIDs(userProfile.connectedDevices)
+        ids.removeAll { $0 == id }
+        userProfile.connectedDevices = ids
+    }
+
+    func mergeSleepDataLocally(_ local: [SleepData]) {
+        guard !local.isEmpty else { return }
+        var merged = Dictionary(sleepData.map { ($0.date, $0) }, uniquingKeysWith: { _, new in new })
+        for night in local {
+            merged[night.date] = night
+        }
+        sleepData = merged.values.sorted { $0.date > $1.date }
+        if let latest = sleepData.first {
+            dailyMetrics.totalSleep = Int(latest.totalHours * 60)
+            dailyMetrics.deepSleep = latest.deepMinutes
+            recalculateReadiness()
+        }
+    }
+
+    func addSleepData(_ sleep: SleepData) {
+        sleepData.insert(sleep, at: 0)
+        
+        // Update daily metrics
+        dailyMetrics.totalSleep = Int(sleep.totalHours * 60)
+        dailyMetrics.deepSleep = sleep.deepMinutes
+        
+        // Recalculate readiness
+        recalculateReadiness()
+    }
+    
+    // MARK: - Personal Records
+}

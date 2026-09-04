@@ -1,12 +1,15 @@
 import Foundation
 import SwiftUI
 
+#if DEBUG
+/// Dates the demo fixtures below are pinned to. Nothing outside them calls it.
 private func isoDateString(daysAgo: Int) -> String {
     let date = Date().addingTimeInterval(-86400 * Double(daysAgo))
     let formatter = ISO8601DateFormatter()
     formatter.formatOptions = [.withFullDate]
     return String(formatter.string(from: date).prefix(10))
 }
+#endif
 
 // MARK: - Enums (mirrors /src/types/index.ts)
 
@@ -91,6 +94,25 @@ enum ExperienceLevel: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum TrainingEquipment: String, Codable, CaseIterable, Identifiable {
+    case commercialGym = "Commercial Gym"
+    case homeGym = "Home Gym"
+    case bodyweight = "Bodyweight Only"
+    case hotelGym = "Hotel / Travel"
+    case crossfitBox = "CrossFit Box"
+
+    var id: String { rawValue }
+    var icon: String {
+        switch self {
+        case .commercialGym: return "building.2.fill"
+        case .homeGym: return "house.fill"
+        case .bodyweight: return "figure.strengthtraining.functional"
+        case .hotelGym: return "suitcase.fill"
+        case .crossfitBox: return "flame.fill"
+        }
+    }
+}
+
 enum Gender: String, Codable, CaseIterable, Identifiable {
     case male = "Male"
     case female = "Female"
@@ -109,6 +131,18 @@ enum Gender: String, Codable, CaseIterable, Identifiable {
         case .other: return "person.fill"
         }
     }
+}
+
+enum BiologicalSex: String, Codable, CaseIterable, Identifiable {
+    case female = "Female"
+    case male = "Male"
+    case intersex = "Intersex"
+    case preferNotToSay = "Prefer not to say"
+
+    var id: String { rawValue }
+    var label: String { rawValue }
+    /// Female and intersex users get cycle tracking auto-enabled.
+    var cycleAutoEnabled: Bool { self == .female || self == .intersex }
 }
 
 enum WorkoutType: String, Codable, CaseIterable, Identifiable {
@@ -147,7 +181,7 @@ enum WorkoutIntensity: String, Codable {
     }
 }
 
-enum MessageRole: String { case trainer, user }
+enum MessageRole: String, Codable { case trainer, user }
 
 // MARK: - Data Models
 
@@ -160,14 +194,116 @@ struct UserProfile: Codable {
     var coachingStyle: CoachingStyle
     var connectedDevices: [String]
     var weeklySchedule: [Int]
+    var trainingEquipment: TrainingEquipment
     
     // HealthKit-derived health metrics
     var age: Int?
     var weight: Double?  // in kg
     var height: Double?  // in cm
 
+    /// Preferred ARIA narrative / programming style (Solo Leveling, classic, etc.).
+    var trainingTheme: AriaTrainingTheme
+    /// Free-time interest tags (e.g. `interest:gaming`) used when resolving themes.
+    var interestTags: [String]
+
+    /// Captured during onboarding to auto-configure cycle health features.
+    var biologicalSex: BiologicalSex?
+    /// Males who opted into cycle health education during onboarding.
+    var educationalCycleMode: Bool
+
+    /// Filename of the on-device profile photo in `ProfileAvatarStore` (JPEG in Application Support).
+    /// The image itself is not stored on the profile to keep UserDefaults payloads small.
+    var avatarFileName: String?
+
     var initials: String {
         name.split(separator: " ").compactMap { $0.first.map { String($0).uppercased() } }.joined().prefix(2).description
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name, gender, fitnessGoals, experienceLevel, preferredWorkouts
+        case coachingStyle, connectedDevices, weeklySchedule, trainingEquipment
+        case age, weight, height, trainingTheme, interestTags
+        case biologicalSex, educationalCycleMode, avatarFileName
+    }
+
+    init(
+        name: String,
+        gender: Gender,
+        fitnessGoals: [UserFitnessGoal],
+        experienceLevel: ExperienceLevel,
+        preferredWorkouts: [WorkoutType],
+        coachingStyle: CoachingStyle,
+        connectedDevices: [String],
+        weeklySchedule: [Int],
+        trainingEquipment: TrainingEquipment,
+        age: Int? = nil,
+        weight: Double? = nil,
+        height: Double? = nil,
+        trainingTheme: AriaTrainingTheme = .classic,
+        interestTags: [String] = [],
+        biologicalSex: BiologicalSex? = nil,
+        educationalCycleMode: Bool = false,
+        avatarFileName: String? = nil
+    ) {
+        self.name = name
+        self.gender = gender
+        self.fitnessGoals = fitnessGoals
+        self.experienceLevel = experienceLevel
+        self.preferredWorkouts = preferredWorkouts
+        self.coachingStyle = coachingStyle
+        self.connectedDevices = connectedDevices
+        self.weeklySchedule = weeklySchedule
+        self.trainingEquipment = trainingEquipment
+        self.age = age
+        self.weight = weight
+        self.height = height
+        self.trainingTheme = trainingTheme
+        self.interestTags = interestTags
+        self.biologicalSex = biologicalSex
+        self.educationalCycleMode = educationalCycleMode
+        self.avatarFileName = avatarFileName
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        gender = try c.decode(Gender.self, forKey: .gender)
+        fitnessGoals = try c.decode([UserFitnessGoal].self, forKey: .fitnessGoals)
+        experienceLevel = try c.decode(ExperienceLevel.self, forKey: .experienceLevel)
+        preferredWorkouts = try c.decode([WorkoutType].self, forKey: .preferredWorkouts)
+        coachingStyle = try c.decode(CoachingStyle.self, forKey: .coachingStyle)
+        connectedDevices = try c.decode([String].self, forKey: .connectedDevices)
+        weeklySchedule = try c.decode([Int].self, forKey: .weeklySchedule)
+        trainingEquipment = try c.decode(TrainingEquipment.self, forKey: .trainingEquipment)
+        age = try c.decodeIfPresent(Int.self, forKey: .age)
+        weight = try c.decodeIfPresent(Double.self, forKey: .weight)
+        height = try c.decodeIfPresent(Double.self, forKey: .height)
+        trainingTheme = try c.decodeIfPresent(AriaTrainingTheme.self, forKey: .trainingTheme) ?? .classic
+        interestTags = try c.decodeIfPresent([String].self, forKey: .interestTags) ?? []
+        biologicalSex = try c.decodeIfPresent(BiologicalSex.self, forKey: .biologicalSex)
+        educationalCycleMode = try c.decodeIfPresent(Bool.self, forKey: .educationalCycleMode) ?? false
+        avatarFileName = try c.decodeIfPresent(String.self, forKey: .avatarFileName)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(name, forKey: .name)
+        try c.encode(gender, forKey: .gender)
+        try c.encode(fitnessGoals, forKey: .fitnessGoals)
+        try c.encode(experienceLevel, forKey: .experienceLevel)
+        try c.encode(preferredWorkouts, forKey: .preferredWorkouts)
+        try c.encode(coachingStyle, forKey: .coachingStyle)
+        try c.encode(connectedDevices, forKey: .connectedDevices)
+        try c.encode(weeklySchedule, forKey: .weeklySchedule)
+        try c.encode(trainingEquipment, forKey: .trainingEquipment)
+        try c.encodeIfPresent(age, forKey: .age)
+        try c.encodeIfPresent(weight, forKey: .weight)
+        try c.encodeIfPresent(height, forKey: .height)
+        try c.encode(trainingTheme, forKey: .trainingTheme)
+        try c.encode(interestTags, forKey: .interestTags)
+        try c.encodeIfPresent(biologicalSex, forKey: .biologicalSex)
+        try c.encode(educationalCycleMode, forKey: .educationalCycleMode)
+        try c.encodeIfPresent(avatarFileName, forKey: .avatarFileName)
     }
 }
 
@@ -221,22 +357,62 @@ struct WorkoutPlan: Identifiable {
     }
 }
 
+/// One movement inside a workout-plan rich card.
+/// A named struct (rather than a tuple) so cards survive `Codable` persistence.
+struct RichCardExercise: Codable, Hashable {
+    var name: String
+    var sets: Int
+    var reps: String
+
+    init(name: String, sets: Int, reps: String) {
+        self.name = name
+        self.sets = sets
+        self.reps = reps
+    }
+}
+
 // Rich card attached to a chat message
-struct RichCardData {
-    enum CardType { case workoutPlan, dataChart }
+struct RichCardData: Codable {
+    enum CardType: String, Codable { case workoutPlan, dataChart }
     var type: CardType
     // workout-plan fields
     var workoutName: String?
     var workoutDuration: Int?
-    var workoutExercises: [(name: String, sets: Int, reps: String)]?
+    var workoutExercises: [RichCardExercise]?
     // data-chart fields
     var chartTitle: String?
     var chartValues: [Double]?
     var chartInsight: String?
-    var chartColor: Color?
+    /// Colors aren't `Codable`; the hex string is what actually persists.
+    var chartColorHex: String?
+
+    var chartColor: Color? {
+        get { chartColorHex.map { Color(hex: $0) } }
+        set { chartColorHex = newValue?.forgeHexString }
+    }
+
+    init(
+        type: CardType,
+        workoutName: String? = nil,
+        workoutDuration: Int? = nil,
+        workoutExercises: [RichCardExercise]? = nil,
+        chartTitle: String? = nil,
+        chartValues: [Double]? = nil,
+        chartInsight: String? = nil,
+        chartColor: Color? = nil
+    ) {
+        self.type = type
+        self.workoutName = workoutName
+        self.workoutDuration = workoutDuration
+        self.workoutExercises = workoutExercises
+        self.chartTitle = chartTitle
+        self.chartValues = chartValues
+        self.chartInsight = chartInsight
+        self.chartColorHex = chartColor?.forgeHexString
+    }
 }
 
-struct ChatMessage: Identifiable {
+struct ChatMessage: Identifiable, Codable {
     var id: String
     var role: MessageRole
     var content: String
@@ -247,6 +423,8 @@ struct ChatMessage: Identifiable {
     var suggestedActions: [String]? = nil
     var memoryReference: String? = nil
     var confidenceReason: String? = nil
+    /// Which specialist answered. Optional so older transcripts still decode.
+    var coachAgent: String? = nil
 }
 
 struct SleepData: Identifiable {
@@ -258,6 +436,39 @@ struct SleepData: Identifiable {
     var lightMinutes: Int
     var awakeMinutes: Int
     var score: Int
+    /// When sleep actually began and ended, as opposed to how much of it there
+    /// was. Duration alone cannot place a circadian phase — two people sleeping
+    /// seven hours, one from 22:00 and one from 03:00, have opposite days.
+    ///
+    /// Optional because a night can be known by duration alone: HealthKit
+    /// entries written by third-party apps sometimes carry no usable stage
+    /// samples. Seeded demo nights do include both, with deliberate scatter.
+    var onset: Date? = nil
+    var wake: Date? = nil
+
+    /// Staged minutes plus awake. Falls back to `totalHours` when stages were not recorded.
+    var timeInBedMinutes: Int {
+        let staged = deepMinutes + remMinutes + lightMinutes + awakeMinutes
+        if staged > 0 { return staged }
+        return max(0, Int((totalHours * 60).rounded()))
+    }
+
+    /// Percent of time in bed that was actually sleep.
+    var efficiencyPercent: Int {
+        let bed = timeInBedMinutes
+        guard bed > 0 else { return 0 }
+        let stagedAsleep = deepMinutes + remMinutes + lightMinutes
+        let asleep = stagedAsleep > 0
+            ? stagedAsleep
+            : max(0, Int((totalHours * 60).rounded()) - awakeMinutes)
+        return min(100, max(0, Int((Double(min(asleep, bed)) / Double(bed) * 100).rounded())))
+    }
+
+    /// Locale-aware clock time for onset or wake. Nights known only by duration have neither.
+    func clock(_ date: Date?) -> String {
+        guard let date else { return "—" }
+        return date.formatted(date: .omitted, time: .shortened)
+    }
 }
 
 // MARK: - Sleep Intelligence
@@ -382,15 +593,6 @@ struct AdaptiveSleepGoal: Identifiable, Equatable {
     var icon: String
 }
 
-struct SleepAchievementState: Identifiable, Equatable {
-    var id: String
-    var title: String
-    var description: String
-    var unlocked: Bool
-    var progress: Double
-    var colorName: String
-}
-
 struct SleepRecommendation: Identifiable, Equatable {
     var id: String
     var icon: String
@@ -419,7 +621,7 @@ struct PersonalRecord: Identifiable {
     var formattedValue: String {
         if unit == "min" {
             let minutes = Int(value)
-            let seconds = Int((value - Double(minutes)) * 100)
+            let seconds = Int(((value - Double(minutes)) * 100).rounded())
             return String(format: "%d:%02d", minutes, seconds)
         }
         if value == value.rounded() { return String(Int(value)) }
@@ -437,7 +639,8 @@ let emptyProfile = UserProfile(
     preferredWorkouts: [],
     coachingStyle: .balanced,
     connectedDevices: [],
-    weeklySchedule: []
+    weeklySchedule: [],
+    trainingEquipment: .commercialGym
 )
 
 let emptyReadiness = ReadinessData(
@@ -457,7 +660,13 @@ let emptyMetrics = DailyMetrics(
     totalSleep: 0
 )
 
-// MARK: - Mock Data (DEBUG fallback only — mirrors useAppStore.ts)
+// MARK: - Mock Data
+//
+// Demo fixtures: one invented person's name, devices, biometrics and lifts.
+// The header said "DEBUG fallback only" long before anything enforced it, and
+// mockChatMessages was in fact reachable from a release build. Gated for real
+// now, so a shipping binary does not even carry the strings.
+#if DEBUG
 
 let mockProfile = UserProfile(
     name: "Akshith",
@@ -467,7 +676,8 @@ let mockProfile = UserProfile(
     preferredWorkouts: [WorkoutType.strength, WorkoutType.hiit],
     coachingStyle: CoachingStyle.pushHard,
     connectedDevices: ["Apple Watch", "Oura Ring"],
-    weeklySchedule: [1, 3, 5]
+    weeklySchedule: [1, 3, 5],
+    trainingEquipment: .commercialGym
 )
 
 let mockReadiness = ReadinessData(
@@ -532,12 +742,12 @@ let mockChatMessages: [ChatMessage] = {
                 workoutName: "Upper Body Power",
                 workoutDuration: 55,
                 workoutExercises: [
-                    ("Barbell Bench Press", 4, "6-8"),
-                    ("Weighted Pull-Ups", 4, "6-8"),
-                    ("Overhead Press", 3, "8-10"),
-                    ("Barbell Rows", 3, "8-10"),
-                    ("Incline DB Press", 3, "10-12"),
-                    ("Face Pulls", 3, "15-20"),
+                    RichCardExercise(name: "Barbell Bench Press", sets: 4, reps: "6-8"),
+                    RichCardExercise(name: "Weighted Pull-Ups", sets: 4, reps: "6-8"),
+                    RichCardExercise(name: "Overhead Press", sets: 3, reps: "8-10"),
+                    RichCardExercise(name: "Barbell Rows", sets: 3, reps: "8-10"),
+                    RichCardExercise(name: "Incline DB Press", sets: 3, reps: "10-12"),
+                    RichCardExercise(name: "Face Pulls", sets: 3, reps: "15-20"),
                 ]
             )
         ),
@@ -545,21 +755,66 @@ let mockChatMessages: [ChatMessage] = {
     ]
 }()
 
+/// A clock time on the night filed under `daysAgo`.
+///
+/// A bedtime reading 22:xx or later belongs to the evening *before* the morning
+/// the night is filed under; one reading 00:xx or 01:xx is already past
+/// midnight and belongs to the morning itself. Getting this backwards moves a
+/// bedtime by a full day, which is invisible in a duration and catastrophic in
+/// a phase estimate.
+private func mockClockTime(daysAgo: Int, _ time: String, previousEvening: Bool) -> Date {
+    let parts = time.split(separator: ":").compactMap { Int($0) }
+    let calendar = Calendar.current
+    let morning = calendar.startOfDay(for: Date().addingTimeInterval(-86400 * Double(daysAgo)))
+    let base = previousEvening ? (calendar.date(byAdding: .day, value: -1, to: morning) ?? morning) : morning
+    let minutes = (parts.first ?? 0) * 60 + (parts.count > 1 ? parts[1] : 0)
+    return calendar.date(byAdding: .minute, value: minutes, to: base) ?? base
+}
+
+private func mockOnset(_ daysAgo: Int, _ time: String) -> Date {
+    let hour = Int(time.split(separator: ":").first ?? "0") ?? 0
+    return mockClockTime(daysAgo: daysAgo, time, previousEvening: hour >= 12)
+}
+
+private func mockWake(_ daysAgo: Int, _ time: String) -> Date {
+    mockClockTime(daysAgo: daysAgo, time, previousEvening: false)
+}
+
+/// Seeded nights, replaced by HealthKit as soon as it is authorized.
+///
+/// Bedtimes drift by up to an hour either side of 23:00 on purpose. A fortnight
+/// of identical bedtimes renders a confidence figure no real person's data ever
+/// earns, and a demo that looks more certain than the product can be is a demo
+/// that sets the wrong expectation.
 let mockSleepData: [SleepData] = [
-    SleepData(date: isoDateString(daysAgo: 0), totalHours:7.2, deepMinutes:102, remMinutes:95,  lightMinutes:215, awakeMinutes:20, score:88),
-    SleepData(date: isoDateString(daysAgo: 1), totalHours:6.8, deepMinutes:78,  remMinutes:88,  lightMinutes:225, awakeMinutes:17, score:74),
-    SleepData(date: isoDateString(daysAgo: 2), totalHours:7.5, deepMinutes:110, remMinutes:100, lightMinutes:220, awakeMinutes:20, score:91),
-    SleepData(date: isoDateString(daysAgo: 3), totalHours:6.2, deepMinutes:65,  remMinutes:72,  lightMinutes:210, awakeMinutes:25, score:62),
-    SleepData(date: isoDateString(daysAgo: 4), totalHours:7.8, deepMinutes:115, remMinutes:105, lightMinutes:228, awakeMinutes:20, score:93),
-    SleepData(date: isoDateString(daysAgo: 5), totalHours:7.0, deepMinutes:88,  remMinutes:92,  lightMinutes:218, awakeMinutes:22, score:80),
-    SleepData(date: isoDateString(daysAgo: 6), totalHours:6.5, deepMinutes:72,  remMinutes:80,  lightMinutes:208, awakeMinutes:30, score:68),
-    SleepData(date: isoDateString(daysAgo: 7), totalHours:7.4, deepMinutes:98,  remMinutes:96,  lightMinutes:222, awakeMinutes:18, score:85),
-    SleepData(date: isoDateString(daysAgo: 8), totalHours:6.9, deepMinutes:82,  remMinutes:84,  lightMinutes:216, awakeMinutes:32, score:70),
-    SleepData(date: isoDateString(daysAgo: 9), totalHours:7.6, deepMinutes:108, remMinutes:102, lightMinutes:224, awakeMinutes:22, score:90),
-    SleepData(date: isoDateString(daysAgo: 10), totalHours:5.8, deepMinutes:55,  remMinutes:65,  lightMinutes:195, awakeMinutes:33, score:55),
-    SleepData(date: isoDateString(daysAgo: 11), totalHours:7.1, deepMinutes:95,  remMinutes:90,  lightMinutes:218, awakeMinutes:23, score:82),
-    SleepData(date: isoDateString(daysAgo: 12), totalHours:7.3, deepMinutes:100, remMinutes:94,  lightMinutes:220, awakeMinutes:24, score:84),
-    SleepData(date: isoDateString(daysAgo: 13), totalHours:6.6, deepMinutes:70,  remMinutes:78,  lightMinutes:212, awakeMinutes:36, score:65),
+    SleepData(date: isoDateString(daysAgo: 0), totalHours:7.2, deepMinutes:102, remMinutes:95,  lightMinutes:215, awakeMinutes:20, score:88,
+              onset: mockOnset(0, "23:10"),  wake: mockWake(0, "07:05")),
+    SleepData(date: isoDateString(daysAgo: 1), totalHours:6.8, deepMinutes:78,  remMinutes:88,  lightMinutes:225, awakeMinutes:17, score:74,
+              onset: mockOnset(1, "23:45"),  wake: mockWake(1, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 2), totalHours:7.5, deepMinutes:110, remMinutes:100, lightMinutes:220, awakeMinutes:20, score:91,
+              onset: mockOnset(2, "22:50"),  wake: mockWake(2, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 3), totalHours:6.2, deepMinutes:65,  remMinutes:72,  lightMinutes:210, awakeMinutes:25, score:62,
+              onset: mockOnset(3, "00:20"),  wake: mockWake(3, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 4), totalHours:7.8, deepMinutes:115, remMinutes:105, lightMinutes:228, awakeMinutes:20, score:93,
+              onset: mockOnset(4, "22:40"),  wake: mockWake(4, "07:10")),
+    SleepData(date: isoDateString(daysAgo: 5), totalHours:7.0, deepMinutes:88,  remMinutes:92,  lightMinutes:218, awakeMinutes:22, score:80,
+              onset: mockOnset(5, "23:15"),  wake: mockWake(5, "06:45")),
+    SleepData(date: isoDateString(daysAgo: 6), totalHours:6.5, deepMinutes:72,  remMinutes:80,  lightMinutes:208, awakeMinutes:30, score:68,
+              onset: mockOnset(6, "23:55"),  wake: mockWake(6, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 7), totalHours:7.4, deepMinutes:98,  remMinutes:96,  lightMinutes:222, awakeMinutes:18, score:85,
+              onset: mockOnset(7, "22:55"),  wake: mockWake(7, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 8), totalHours:6.9, deepMinutes:82,  remMinutes:84,  lightMinutes:216, awakeMinutes:32, score:70,
+              onset: mockOnset(8, "23:30"),  wake: mockWake(8, "07:05")),
+    SleepData(date: isoDateString(daysAgo: 9), totalHours:7.6, deepMinutes:108, remMinutes:102, lightMinutes:224, awakeMinutes:22, score:90,
+              onset: mockOnset(9, "22:45"),  wake: mockWake(9, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 10), totalHours:5.8, deepMinutes:55,  remMinutes:65,  lightMinutes:195, awakeMinutes:33, score:55,
+              onset: mockOnset(10, "01:05"), wake: mockWake(10, "07:15")),
+    SleepData(date: isoDateString(daysAgo: 11), totalHours:7.1, deepMinutes:95,  remMinutes:90,  lightMinutes:218, awakeMinutes:23, score:82,
+              onset: mockOnset(11, "23:20"), wake: mockWake(11, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 12), totalHours:7.3, deepMinutes:100, remMinutes:94,  lightMinutes:220, awakeMinutes:24, score:84,
+              onset: mockOnset(12, "23:05"), wake: mockWake(12, "07:00")),
+    SleepData(date: isoDateString(daysAgo: 13), totalHours:6.6, deepMinutes:70,  remMinutes:78,  lightMinutes:212, awakeMinutes:36, score:65,
+              onset: mockOnset(13, "23:50"), wake: mockWake(13, "07:05")),
 ]
 
 let mockWorkoutHistory: [WorkoutHistory] = [
@@ -582,3 +837,4 @@ let mockPersonalRecords: [PersonalRecord] = [
     PersonalRecord(exercise:"Mile Run",    value:6.45, unit:"min",  date: isoDateString(daysAgo: 5)),
     PersonalRecord(exercise:"Pull-Ups",    value:18,   unit:"reps", date: isoDateString(daysAgo: 2)),
 ]
+#endif

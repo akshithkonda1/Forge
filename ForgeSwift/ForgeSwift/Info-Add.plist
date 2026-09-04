@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Merged on top of the generated Info.plist (GENERATE_INFOPLIST_FILE stays
+	     YES), the same arrangement ForgeWatch/Info-Add.plist already uses. Only
+	     keys that cannot be expressed as an INFOPLIST_KEY_* build setting live
+	     here — an array of dictionaries cannot. -->
+
+	<!-- Lets iOS hand a CloudKit share straight to Forge when a supporter accepts
+	     an invite, landing in userDidAcceptCloudKitShareWith. Without it the
+	     share URL opens in Safari and stops there, which is the whole accept
+	     path for partner sharing. -->
+	<key>CKSharingSupported</key>
+	<true/>
+
+	<!-- Read at launch by ForgeAuthConfig.fromInfoDictionary.
+
+	     The values below are dev placeholders. A build that ships them cannot
+	     reach anything: 127.0.0.1 is unreachable from a device, and empty
+	     Cognito fields make cognitoConfigured false, so sign-in fails before it
+	     starts. Fill them from an applied stack before archiving, with
+	     scripts/generate_client_config.py — pass it the JSON from
+	     "terraform output" and the environment name you are building for.
+
+	     FORGEEnvironment is a control, not a label. ForgeAuthPolicy refuses the
+	     tester override when it is production-like, and ForgeAuthConfig treats
+	     any name it does not recognise as non-production, the permissive side,
+	     which is why the generator rejects a misspelling rather than writing it.
+	     The same script in check mode enforces all of this in CI. -->
+	<key>FORGEAPIBaseURL</key>
+	<string>http://127.0.0.1:3001</string>
+	<key>FORGECognitoRegion</key>
+	<string></string>
+	<key>FORGECognitoClientId</key>
+	<string></string>
+	<key>FORGECognitoUserPoolId</key>
+	<string></string>
+	<key>FORGEEnvironment</key>
+	<string>dev</string>
+
+	<!-- Used by the Messages extension to hand off to the app: forge://cycle/sharing
+	     opens the sharing screen, which is where consent and revocation live. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.forge.ForgeSwift</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>forge</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

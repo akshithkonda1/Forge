@@ -202,7 +202,7 @@ export function ActiveWorkoutView() {
   const strokeDashoffset = circumference * (1 - restProgress);
 
   return (
-    <div className="flex flex-col h-full min-h-[100dvh] bg-[#0A0A0A]">
+    <div className="flex h-full min-h-0 flex-col bg-background">
       {/* Header Bar */}
       <div className="flex items-center justify-between px-5 pt-4 pb-2">
         <div className="flex flex-col">
@@ -467,13 +467,16 @@ export function ActiveWorkoutView() {
       </div>
 
       {/* AI Coach Bar - Fixed at bottom */}
-      <div className="px-5 pb-5 pt-2 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]">
-        <div className="rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] p-4">
+      <div className="px-5 pb-5 pt-2">
+        <div className="rounded-xl border border-border bg-surface-elevated p-4">
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 mt-0.5 w-8 h-8 rounded-full bg-[#FF4D00]/10 flex items-center justify-center">
-              <Bot className="h-4 w-4 text-[#FF4D00]" />
+            <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-ember/10">
+              <Bot className="h-4 w-4 text-ember" />
             </div>
-            <div className="flex-1 min-h-[40px] flex items-center">
+            <div className="flex min-h-[40px] flex-1 flex-col justify-center">
+              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-ember">
+                ARIA
+              </p>
               <AnimatePresence mode="wait">
                 <motion.p
                   key={coachMessageIndex}

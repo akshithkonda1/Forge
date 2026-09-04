@@ -51,7 +51,7 @@ The core problem it solves: **fragmentation kills insight**. Your data exists, b
 Forge is well past the prototype stage. The monorepo contains production-grade pieces across the stack:
 
 ### iOS (Primary — ForgeSwift/)
-- **Mature native SwiftUI app** (iOS 17+)
+- **Mature native SwiftUI app** (iOS 27+ / watchOS 27+)
 - Full feature set: Home dashboard with readiness ring + AI greeting + today's plan, rich **ARIA ChatView** with contextual cards, detailed **SleepView** (stages, timelines, trends, AI insights), **WorkoutView** (live biometrics, rest timer, exercise nav, progressive overload), Lifestyle, Profile, multi-step Onboarding with coaching style selection.
 - Heavy investment in polish: custom design system, Swift Charts, HealthKitManager (deep integration), advanced UI patterns (glassmorphism, particles, animations, Aurora Orb components), accessibility, widgets (ForgeWidget).
 - Dozens of high-quality planning and implementation docs living alongside the code (AWARD_WINNING_*, CHATVIEW_IMPROVEMENTS, IMPLEMENTATION_SUMMARY, etc.).
@@ -63,15 +63,14 @@ Forge is well past the prototype stage. The monorepo contains production-grade p
 - Shared state (Zustand), API client, types.
 - Designed to feel native on its platform while sharing the exact same backend.
 
-### Backend & AI (backend/ + infra/terraform/)
-- **Python serverless architecture** on AWS (Lambda + API Gateway + DynamoDB + Bedrock).
-- Full Terraform IaC for reproducible infrastructure (main.tf, lambdas for every route, IAM, storage, etc.).
-- ARIA engine: context building, coach logic, feedback, biometrics inference/normalization/scoring, readiness calculation.
-- REST-style routes (chat, coach, sleep, workouts, dashboard, profile, integrations, health).
-- Seed data, dev server, CLI tools.
-- Strong separation: services, storage (DynamoDB abstraction), normalization layer.
+### Backend & AI (`backend/`)
+- **One Python serverless backend** on AWS (Lambda + API Gateway + DynamoDB + Bedrock) for iOS, web, and Android.
+- Terraform and the deployable Lambda live together at `backend/infra/`.
+- ARIA, Claude/Bedrock, and SimRunner live under `backend/ai/`.
+- REST routes (chat, coach, sleep, workouts, dashboard, profile, integrations, health).
+- Seed data, `dev_server.py`, `backend/ai/aria_cli.py`.
 
-### SimRunner — Offline AI Evaluation Harness (backend/simrunner/)
+### SimRunner — Offline AI Evaluation Harness (`backend/ai/simrunner/`)
 One of Forge's standout engineering achievements:
 - Fully deterministic, stdlib-only Python harness.
 - 20 behavioral archetypes (Tier 1 compliant athlete → Tier 5 system gamers/ambiguous signals).
@@ -88,7 +87,7 @@ This is how you safely ship an AI health coach that gives advice like "your read
 - `shared/api-contracts.ts` for type safety between frontend and backend (Pydantic models in Python stay in sync manually for now).
 - Strong CI/CD: separate workflows for Swift, Python backend, frontend, SimRunner, Terraform policy validation, AWS deploy.
 
-**Note on duplication**: `clients/ios/Forge/` contains an earlier/parallel SwiftUI implementation. `ForgeSwift/` is the primary, significantly more advanced codebase. Consolidation is planned.
+`ForgeSwift/` is the sole iOS codebase — no parallel/duplicate client remains.
 
 ---
 
@@ -102,18 +101,14 @@ forge/
 │   └── docs/                    # iOS-specific planning docs
 ├── src/                         # Next.js web/Android client (TypeScript)
 │   ├── app/, components/, stores/, types/
-├── backend/                     # Python backend logic
-│   ├── app/ai/                  # ARIA services, routes, context, coach
-│   ├── simrunner/               # Full offline eval harness + baselines + tests
-│   ├── dev_server.py, aria_cli.py
-│   └── IMPLEMENTATION_PLAN.md
-├── infra/terraform/             # AWS serverless infrastructure as code
-│   ├── lambda/                  # Python Lambda handlers (routes + services)
-│   │   ├── routes/ (aria, chat, coach, sleep, workouts...)
-│   │   ├── services/ (aria_engine, biometrics, normalization, scoring...)
-│   │   └── storage/
-│   ├── main.tf, variables.tf, outputs.tf
-│   └── build/ & policy validation
+├── backend/                     # Shared AWS backend (iOS + web + Android)
+│   ├── infra/                   # Terraform + deployable Lambda
+│   │   ├── lambda/              # handler, routes, ARIA engine, Bedrock
+│   │   └── *.tf
+│   ├── ai/                      # ARIA CLI + SimRunner + local AI package
+│   ├── tests/                   # Python unit tests
+│   ├── dev_server.py
+│   └── pyproject.toml / requirements.txt
 ├── shared/                      # Cross-language contracts (api-contracts.ts)
 ├── .github/workflows/           # CI for everything (swift, backend, frontend, simrunner, terraform, aws)
 ├── package.json + pnpm          # Web tooling
@@ -179,7 +174,7 @@ forge/
 ## Getting Started
 
 ### Prerequisites
-- Xcode 15+ + iOS 17+ simulator/device (for ForgeSwift)
+- Xcode 27 + iOS 27 / watchOS 27 simulator or device (for ForgeSwift)
 - Node.js 18+ + pnpm (for web client)
 - Python 3.10+ (for backend/SimRunner)
 - AWS CLI + Terraform (for infra)
@@ -195,7 +190,7 @@ cd Forge
 ```bash
 open ForgeSwift/ForgeSwift.xcodeproj
 ```
-- Select simulator or device (iOS 17+)
+- Select simulator or device (iOS 27)
 - Build & run (⌘R)
 - Grant HealthKit permissions when prompted
 - Explore Home → Chat (ARIA) → Sleep → Workout flows
@@ -214,22 +209,22 @@ SimRunner is the best way to explore the AI layer locally without any API keys:
 
 ```bash
 # Full evaluation across all archetypes + models
-python -m backend.simrunner --all
+python -m backend.ai.simrunner --all
 
 # With statistical confidence
-python -m backend.simrunner --all --seeds 5
+python -m backend.ai.simrunner --all --seeds 5
 
 # Regression gate (what CI uses)
-SIMRUNNER_TODAY=$(date +%Y-%m-%d) python -m backend.simrunner --all --gate
+SIMRUNNER_TODAY=$(date +%Y-%m-%d) python -m backend.ai.simrunner --all --gate
 ```
 
-See `backend/simrunner/README.md` for full options and architecture.
+See `backend/ai/simrunner/README.md` for full options and architecture.
 
 Dev server / CLI tools also available in `backend/`.
 
 ### 5. Infrastructure (Terraform)
 ```bash
-cd infra/terraform
+cd backend/infra
 terraform init
 terraform plan
 # terraform apply (with AWS credentials configured)
@@ -257,9 +252,10 @@ It stress-tests the entire prompt → context → response pipeline using:
 - Committed golden baselines + CI regression gates
 - Optional real Bedrock calls for live grading
 
-This level of rigor is uncommon in consumer AI health apps and is a major differentiator for safety and defensibility.
 
-Full documentation: [`backend/simrunner/README.md`](backend/simrunner/README.md)
+We believe systems like SimRunner can help shape the next generation of AI assurance by making behavioral validation, regression control, and deployment gating first-class parts of the AI release process. It's the first true step to making AI more secure and more usable for all of us.
+
+Full documentation: [`backend/ai/simrunner/README.md`](backend/ai/simrunner/README.md)
 
 ---
 
@@ -277,7 +273,7 @@ Full documentation: [`backend/simrunner/README.md`](backend/simrunner/README.md)
 - [ ] End-to-end HealthKit → normalized backend → ARIA context pipeline
 - [ ] Full user auth / persistence / profile management
 - [ ] Polish remaining iOS screens and widget experience
-- [ ] Consolidate iOS duplication (ForgeSwift/ vs clients/ios/Forge/)
+- [x] Consolidate iOS duplication — `ForgeSwift/` is the sole client
 
 ### Phase 3 — Platform Integrations
 - [ ] Strava, Garmin, WHOOP, Oura adapters (or Terra/Vital middleware)
@@ -288,7 +284,7 @@ Full documentation: [`backend/simrunner/README.md`](backend/simrunner/README.md)
 - [ ] Adaptive training plans
 - [ ] Deeper trend/anomaly detection
 - [ ] Expanded SimRunner archetypes + prompt A/B testing in CI
-- [ ] Apple Watch companion (future)
+- [x] Apple Watch companion — **v1 underway**: `ForgeWatch` watchOS 27 target with context-aware Mindfulness Coach (breathing orb + haptic guidance + on-device suggestion engine), readiness/sleep/mindfulness complications, and a shared `ForgeCore` Swift package. See `ForgeSwift/WATCH_APP_IMPLEMENTATION_PLAN.md`.
 
 ### Phase 5 — Growth
 - Android native improvements, social features, export APIs, etc.
@@ -310,7 +306,7 @@ Contributions are very welcome — especially in:
 3. Run relevant CI locally (especially `python -m backend.simrunner --gate` for AI changes)
 4. Open PR with clear description
 
-See existing high-quality docs in `ForgeSwift/ForgeSwift/` and `backend/simrunner/` for style and depth expectations.
+See existing high-quality docs in `ForgeSwift/ForgeSwift/` and `backend/ai/simrunner/` for style and depth expectations.
 
 ---
 

@@ -1,0 +1,32 @@
+{
+  "bedrock_model_id": null,
+  "composite": 75.4,
+  "consumer_stability_grade": "B+",
+  "critical_failures": 5,
+  "derived": false,
+  "determinism_rate": 100.0,
+  "dimensions": {
+    "actionability": 90.0,
+    "chronotype_alignment": 85.0,
+    "context_utilization": 74.0,
+    "directional_correctness": 58.7,
+    "epistemic_honesty": 60.0,
+    "tone_compliance": 100.0
+  },
+  "display_name": "Mistral Large 2 \u2014 The Rebounding Runner",
+  "engine_model": "opus->anthropic.claude-opus-4-8, sonnet->anthropic.claude-sonnet-4-6",
+  "epistemic_rigor_grade": "C",
+  "grade": "B",
+  "mission_critical_count": 5,
+  "mission_critical_queries": [
+    "I missed 3 workouts. How do I get back on track?",
+    "I slept 5 hours but I feel okay. Should I still train hard?",
+    "My HRV has been lower than usual this week. What does that mean for me?"
+  ],
+  "model_archetype": "baseline",
+  "model_archetype_name": "Baseline",
+  "model_id": "mistral.mistral-large-2puls",
+  "system_passed": false,
+  "tier": 2,
+  "verdict": "HOLD \u2014 5 mission-critical failure(s)"
+}

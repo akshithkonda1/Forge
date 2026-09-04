@@ -37,13 +37,12 @@ final class VoiceCoachManager: NSObject {
     // Conversation history for Claude
     private var conversationHistory: [[String: String]] = []
     
-    // Anthropic API
-    private let apiURL = URL(string: "https://api.anthropic.com/v1/messages")!
-    private let apiKey: String = {
-        // In production: load from Keychain or environment
-        // For now: set via Info.plist key "ANTHROPIC_API_KEY"
-        Bundle.main.infoDictionary?["ANTHROPIC_API_KEY"] as? String ?? ""
-    }()
+    // Forge's own backend. This used to be a direct POST to api.anthropic.com
+    // with a key read from Info.plist — an extractable secret in any build that
+    // set one, and a request that skipped auth, sanitization, the model router
+    // and every cost control. Nothing on screen instantiates this manager today,
+    // which made it easy to miss; the code still shipped in the binary, and dead
+    // code is what gets wired up later without anyone re-auditing it.
     
     // MARK: - Init
     
@@ -124,10 +123,12 @@ final class VoiceCoachManager: NSObject {
         isThinking = true
         
         conversationHistory.append(["role": "user", "content": userMessage])
-        
+        trimConversationHistory()
+
         do {
-            let response = try await callClaude(messages: conversationHistory)
+            let response = try await askForge(userMessage)
             conversationHistory.append(["role": "assistant", "content": response])
+            trimConversationHistory()
             lastCoachMessage = response
             isThinking = false
             speak(response)
@@ -147,6 +148,14 @@ final class VoiceCoachManager: NSObject {
     
     func clearHistory() {
         conversationHistory = []
+    }
+
+    /// Mid-workout coaching only needs the last few exchanges; anything older
+    /// just inflates every request. Keeps the window at 12 turns.
+    private func trimConversationHistory() {
+        let maxTurns = 12
+        guard conversationHistory.count > maxTurns else { return }
+        conversationHistory = Array(conversationHistory.suffix(maxTurns))
     }
     
     // MARK: - Private: Speech Recognition
@@ -242,66 +251,63 @@ final class VoiceCoachManager: NSObject {
         isSpeaking = true
     }
     
-    // MARK: - Private: Claude API
-    
-    private func callClaude(messages: [[String: String]]) async throws -> String {
-        var request = URLRequest(url: apiURL)
+    // MARK: - Private: ARIA backend
+
+    /// One authenticated chat turn against Forge's own API.
+    ///
+    /// The system prompt is deliberately no longer sent from here. ARIA's
+    /// persona and the security law live server-side in `live_system_prompt()`,
+    /// so a client cannot define — or quietly drift from — the rules the model
+    /// answers under. Conversation continuity is the server's job too, via the
+    /// relationship/context engine; `conversationHistory` is kept only for the
+    /// on-screen transcript.
+    private func askForge(_ message: String) async throws -> String {
+        guard let url = URL(string: "ai/chat", relativeTo: AriaService.shared.baseURL) else {
+            throw CoachError.apiError("This build isn't pointed at a Forge server.")
+        }
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        
-        let body: [String: Any] = [
-            "model": "claude-sonnet-4-5",
-            "max_tokens": 150,              // Keep responses short — this is voice
-            "system": systemPrompt,
-            "messages": messages
-        ]
-        
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw CoachError.apiError("API returned non-200")
-        }
-        
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let content = json["content"] as? [[String: Any]],
-              let first = content.first,
-              let text = first["text"] as? String else {
-            throw CoachError.parseError
-        }
-        
-        return text
-    }
-    
-    private var systemPrompt: String {
-        """
-        You are Forge, an elite AI fitness coach speaking to an athlete mid-workout. Your personality: direct, motivating, knowledgeable. Like a world-class personal trainer in their ear.
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "message": message,
+            "voice_mode": true,
+            "context": ["workout": workoutContext.contextLine],
+        ])
 
-        Current workout context:
-        - Workout: \(workoutContext.workoutName)
-        - Exercise: \(workoutContext.exerciseName)
-        - Set: \(workoutContext.currentSet) of \(workoutContext.sets)
-        - Weight: \(workoutContext.weight) lbs × \(workoutContext.reps) reps
-        - Elapsed time: \(workoutContext.elapsedTime)
-        - Heart rate: \(workoutContext.heartRate) bpm (Zone \(workoutContext.hrZone))
-        - Calories burned: \(workoutContext.calories)
-        - Rest time: \(workoutContext.restSeconds)s between sets
-        - Exercise notes: \(workoutContext.notes)
-
-        Rules:
-        - Respond in 1-3 sentences MAX. This is voice — brevity is everything.
-        - No markdown, no lists, no formatting of any kind.
-        - Be specific to the exercise and current context, not generic.
-        - For form questions, give one concrete, actionable cue.
-        - For pain/discomfort, take it seriously and advise accordingly.
-        - Match the athlete's energy — if they're crushing it, match that intensity.
-        - Never say "Great question!" or any filler. Get straight to it.
-        """
+        if AriaService.shouldUseTestReadyDummy || AriaOperatingMode.current.isLocalTesting {
+            return localWorkoutReply(message)
+        }
+        do {
+            let (data, _) = try await ForgeAPI.send(request)
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return localWorkoutReply(message)
+            }
+            let text = (json["message"] as? String) ?? (json["prose_summary"] as? String) ?? ""
+            return text.isEmpty ? localWorkoutReply(message) : text
+        } catch {
+            return localWorkoutReply(message)
+        }
     }
+
+    /// On-device set coach so the mic always has a job, even without a server.
+    private func localWorkoutReply(_ message: String) -> String {
+        let lower = message.lowercased()
+        let lift = workoutContext.exerciseName.isEmpty ? "this lift" : workoutContext.exerciseName
+        if lower.contains("tired") || lower.contains("hard") || lower.contains("heavy") {
+            return "Stay with \(lift). Set \(workoutContext.currentSet) of \(workoutContext.sets) — quality over ego. Rest \(workoutContext.restSeconds)s if you need it."
+        }
+        if lower.contains("form") || lower.contains("how") {
+            return workoutContext.notes.isEmpty
+                ? "Own \(lift). Brace, full range, no bounce. Set \(workoutContext.currentSet) of \(workoutContext.sets)."
+                : workoutContext.notes
+        }
+        if lower.contains("rest") || lower.contains("how long") {
+            return "\(workoutContext.restSeconds) seconds, then \(lift). Breathe down."
+        }
+        return "You're on \(lift), set \(workoutContext.currentSet) of \(workoutContext.sets). \(workoutContext.contextLine). Ask me about the next set, rest, or form."
+    }
+
     
     // MARK: - Audio Session
     
@@ -339,6 +345,26 @@ extension VoiceCoachManager: AVSpeechSynthesizerDelegate {
 }
 
 // MARK: - Workout Context
+
+extension WorkoutContext {
+    /// Facts for the server to reason over — not instructions for the model.
+    ///
+    /// The client used to send a full system prompt telling ARIA who to be. That
+    /// belongs server-side with the security law, so all that travels now is the
+    /// state of the set in front of the athlete.
+    var contextLine: String {
+        var parts: [String] = []
+        if !workoutName.isEmpty { parts.append("Workout: \(workoutName)") }
+        if !exerciseName.isEmpty { parts.append("Exercise: \(exerciseName)") }
+        parts.append("Set \(currentSet) of \(sets)")
+        if !weight.isEmpty || !reps.isEmpty { parts.append("\(weight) × \(reps)") }
+        if !elapsedTime.isEmpty { parts.append("Elapsed \(elapsedTime)") }
+        if heartRate > 0 { parts.append("HR \(heartRate) bpm (Zone \(hrZone))") }
+        if restSeconds > 0 { parts.append("Rest \(restSeconds)s") }
+        if !notes.isEmpty { parts.append("Notes: \(notes)") }
+        return parts.joined(separator: " · ")
+    }
+}
 
 struct WorkoutContext {
     var workoutName: String

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, type Variants } from "framer-motion";
 import {
   User,
@@ -17,6 +18,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
+import { useToast } from "@/stores/useToast";
+import { Sheet } from "@/components/ui/sheet";
 import type { CoachingStyle, FitnessGoal, WorkoutType } from "@/types";
 
 // ---------- Mappings ----------
@@ -199,19 +202,37 @@ function Pill({ children, variant = "default" }: { children: React.ReactNode; va
 
 // ---------- Main Component ----------
 
+const DEVICE_OPTIONS = [
+  "Apple Watch",
+  "Garmin",
+  "Oura Ring",
+  "Fitbit",
+  "Samsung Galaxy Watch",
+  "Whoop",
+];
+
+type SettingsSheet =
+  | "name"
+  | "coaching"
+  | "devices"
+  | "schedule"
+  | "privacy"
+  | "subscription"
+  | "help"
+  | "about"
+  | "logout"
+  | null;
+
 export default function SettingsPage() {
-  const { userProfile } = useAppStore();
+  const router = useRouter();
+  const { userProfile, updateProfile, notificationPrefs, setNotificationPref, resetSession } =
+    useAppStore();
+  const showToast = useToast((s) => s.show);
+  const [sheet, setSheet] = useState<SettingsSheet>(null);
+  const [draftName, setDraftName] = useState(userProfile.name);
 
-  // Local toggle states for notification switches
-  const [toggles, setToggles] = useState({
-    workoutReminders: true,
-    aiInsights: true,
-    recoveryAlerts: true,
-    weeklySummary: false,
-  });
-
-  const handleToggle = (key: keyof typeof toggles) => {
-    setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
+  const handleToggle = (key: keyof typeof notificationPrefs) => {
+    setNotificationPref(key, !notificationPrefs[key]);
   };
 
   // Derive initials from name
@@ -264,6 +285,10 @@ export default function SettingsPage() {
           </h2>
           <button
             type="button"
+            onClick={() => {
+              setDraftName(userProfile.name);
+              setSheet("name");
+            }}
             className="text-sm font-medium text-ember transition-colors hover:text-ember-light"
           >
             Edit
@@ -282,7 +307,7 @@ export default function SettingsPage() {
       </motion.div>
 
       {/* ===== 2. AI Trainer Section ===== */}
-      <SectionHeader>AI Trainer</SectionHeader>
+      <SectionHeader>ARIA</SectionHeader>
       <SectionCard>
         {/* Coaching Style */}
         <SettingsRow
@@ -295,6 +320,7 @@ export default function SettingsPage() {
             </span>
           }
           showChevron
+          onClick={() => setSheet("coaching")}
         />
         {/* Style description */}
         <div className="px-4 py-2.5">
@@ -333,11 +359,13 @@ export default function SettingsPage() {
               </span>
             }
             showChevron
+            onClick={() => setSheet("devices")}
           />
         ))}
         {/* Add Device */}
         <button
           type="button"
+          onClick={() => setSheet("devices")}
           className="flex w-full items-center gap-3 px-4 py-3 transition-colors active:bg-surface-hover"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-border-light">
@@ -368,8 +396,9 @@ export default function SettingsPage() {
           icon={<Dumbbell size={18} />}
           iconColor="text-ember"
           label="Training Schedule"
-          value={scheduleDays}
+          value={scheduleDays || "Not set"}
           showChevron
+          onClick={() => setSheet("schedule")}
         />
         {/* Equipment */}
         <SettingsRow
@@ -387,7 +416,7 @@ export default function SettingsPage() {
           label="Workout Reminders"
           rightElement={
             <ToggleSwitch
-              enabled={toggles.workoutReminders}
+              enabled={notificationPrefs.workoutReminders}
               onToggle={() => handleToggle("workoutReminders")}
             />
           }
@@ -395,10 +424,10 @@ export default function SettingsPage() {
         <SettingsRow
           icon={<Bell size={18} />}
           iconColor="text-steel"
-          label="AI Insights"
+          label="ARIA Insights"
           rightElement={
             <ToggleSwitch
-              enabled={toggles.aiInsights}
+              enabled={notificationPrefs.aiInsights}
               onToggle={() => handleToggle("aiInsights")}
             />
           }
@@ -409,7 +438,7 @@ export default function SettingsPage() {
           label="Recovery Alerts"
           rightElement={
             <ToggleSwitch
-              enabled={toggles.recoveryAlerts}
+              enabled={notificationPrefs.recoveryAlerts}
               onToggle={() => handleToggle("recoveryAlerts")}
             />
           }
@@ -420,7 +449,7 @@ export default function SettingsPage() {
           label="Weekly Summary"
           rightElement={
             <ToggleSwitch
-              enabled={toggles.weeklySummary}
+              enabled={notificationPrefs.weeklySummary}
               onToggle={() => handleToggle("weeklySummary")}
             />
           }
@@ -435,24 +464,28 @@ export default function SettingsPage() {
           iconColor="text-text-secondary"
           label="Data & Privacy"
           showChevron
+          onClick={() => setSheet("privacy")}
         />
         <SettingsRow
           icon={<CreditCard size={18} />}
           iconColor="text-text-secondary"
           label="Subscription"
           showChevron
+          onClick={() => setSheet("subscription")}
         />
         <SettingsRow
           icon={<HelpCircle size={18} />}
           iconColor="text-text-secondary"
           label="Help & Support"
           showChevron
+          onClick={() => setSheet("help")}
         />
         <SettingsRow
           icon={<Info size={18} />}
           iconColor="text-text-secondary"
           label="About Forge"
           showChevron
+          onClick={() => setSheet("about")}
         />
       </SectionCard>
 
@@ -460,6 +493,7 @@ export default function SettingsPage() {
       <motion.div variants={itemVariants} className="mt-6">
         <button
           type="button"
+          onClick={() => setSheet("logout")}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-surface px-4 py-3.5 transition-colors active:bg-surface-hover"
         >
           <LogOut size={18} className="text-danger" />
@@ -469,6 +503,177 @@ export default function SettingsPage() {
 
       {/* Bottom spacer */}
       <div className="h-4" />
+
+      <Sheet
+        open={sheet === "name"}
+        onClose={() => setSheet(null)}
+        title="Your name"
+        footer={
+          <button
+            type="button"
+            className="w-full rounded-xl bg-ember py-3 text-sm font-semibold text-white"
+            onClick={() => {
+              const next = draftName.trim();
+              if (!next) return;
+              updateProfile({ name: next });
+              setSheet(null);
+              showToast("ARIA will use that name from here.");
+            }}
+          >
+            Save
+          </button>
+        }
+      >
+        <input
+          value={draftName}
+          onChange={(e) => setDraftName(e.target.value)}
+          className="w-full rounded-xl border border-border bg-surface-elevated px-4 py-3 text-sm text-text-primary outline-none focus:border-ember"
+          placeholder="Name"
+          autoFocus
+        />
+      </Sheet>
+
+      <Sheet open={sheet === "coaching"} onClose={() => setSheet(null)} title="Coaching style">
+        <div className="flex flex-col gap-2">
+          {(Object.keys(coachingStyleLabels) as CoachingStyle[]).map((style) => (
+            <button
+              key={style}
+              type="button"
+              onClick={() => {
+                updateProfile({ coachingStyle: style });
+                setSheet(null);
+                showToast("ARIA's voice updated.");
+              }}
+              className={cn(
+                "rounded-xl border p-3 text-left",
+                userProfile.coachingStyle === style
+                  ? "border-ember bg-ember/10"
+                  : "border-border bg-surface-elevated"
+              )}
+            >
+              <p className="text-sm font-semibold text-text-primary">
+                {coachingStyleLabels[style]}
+              </p>
+              <p className="mt-1 text-xs text-text-tertiary">
+                {coachingStyleDescriptions[style]}
+              </p>
+            </button>
+          ))}
+        </div>
+      </Sheet>
+
+      <Sheet open={sheet === "devices"} onClose={() => setSheet(null)} title="Devices">
+        <div className="flex flex-col gap-2">
+          {DEVICE_OPTIONS.map((device) => {
+            const on = userProfile.connectedDevices.includes(device);
+            return (
+              <button
+                key={device}
+                type="button"
+                onClick={() => {
+                  const next = on
+                    ? userProfile.connectedDevices.filter((d) => d !== device)
+                    : [...userProfile.connectedDevices, device];
+                  updateProfile({ connectedDevices: next });
+                }}
+                className={cn(
+                  "flex items-center justify-between rounded-xl border px-4 py-3 text-sm",
+                  on ? "border-ember/50 bg-ember/10 text-ember" : "border-border text-text-secondary"
+                )}
+              >
+                <span>{device}</span>
+                <span className="text-xs">{on ? "Connected" : "Tap to add"}</span>
+              </button>
+            );
+          })}
+        </div>
+      </Sheet>
+
+      <Sheet open={sheet === "schedule"} onClose={() => setSheet(null)} title="Training schedule">
+        <div className="grid grid-cols-7 gap-1.5">
+          {dayLabels.map((day, index) => {
+            const on = userProfile.weeklySchedule.includes(index);
+            return (
+              <button
+                key={day}
+                type="button"
+                onClick={() => {
+                  const next = on
+                    ? userProfile.weeklySchedule.filter((d) => d !== index)
+                    : [...userProfile.weeklySchedule, index].sort((a, b) => a - b);
+                  updateProfile({ weeklySchedule: next });
+                }}
+                className={cn(
+                  "rounded-lg py-3 text-xs font-semibold",
+                  on ? "bg-ember text-white" : "bg-surface-elevated text-text-tertiary"
+                )}
+              >
+                {day}
+              </button>
+            );
+          })}
+        </div>
+      </Sheet>
+
+      <Sheet open={sheet === "privacy"} onClose={() => setSheet(null)} title="Data & Privacy">
+        <p className="text-sm leading-relaxed text-text-secondary">
+          Forge keeps structured health signals on-device and in your account. ARIA only
+          uses the domains you grant. Clinical notes and insurance coverage stay out.
+        </p>
+      </Sheet>
+
+      <Sheet open={sheet === "subscription"} onClose={() => setSheet(null)} title="Subscription">
+        <p className="text-sm leading-relaxed text-text-secondary">
+          You&apos;re on the Forge preview. Every page here stays available — billing
+          isn&apos;t wired in this build.
+        </p>
+      </Sheet>
+
+      <Sheet open={sheet === "help"} onClose={() => setSheet(null)} title="Help & Support">
+        <p className="text-sm leading-relaxed text-text-secondary">
+          Ask ARIA from the chat tab for training and recovery. For account issues,
+          use the in-app chat or email support from the iOS client.
+        </p>
+      </Sheet>
+
+      <Sheet open={sheet === "about"} onClose={() => setSheet(null)} title="About Forge">
+        <p className="text-sm leading-relaxed text-text-secondary">
+          Forge unifies your health signals. ARIA is the intelligence layer — recovery-first
+          coaching that fits the life you already have.
+        </p>
+      </Sheet>
+
+      <Sheet
+        open={sheet === "logout"}
+        onClose={() => setSheet(null)}
+        title="Log out?"
+        footer={
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="flex-1 rounded-xl bg-surface-elevated py-3 text-sm font-semibold text-text-secondary"
+              onClick={() => setSheet(null)}
+            >
+              Stay
+            </button>
+            <button
+              type="button"
+              className="flex-1 rounded-xl bg-danger/90 py-3 text-sm font-semibold text-white"
+              onClick={() => {
+                resetSession();
+                setSheet(null);
+                router.replace("/onboarding");
+              }}
+            >
+              Log out
+            </button>
+          </div>
+        }
+      >
+        <p className="text-sm leading-relaxed text-text-secondary">
+          This returns you to onboarding. Your demo metrics stay on this device.
+        </p>
+      </Sheet>
     </motion.div>
   );
 }

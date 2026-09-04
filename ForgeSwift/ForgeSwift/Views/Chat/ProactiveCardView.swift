@@ -47,19 +47,11 @@ struct ProactiveCardView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.textMuted)
             }
-            .padding(16)
-            .background(
-                LinearGradient(
-                    colors: [Color.surface, Color.steel.opacity(0.06)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .cornerRadius(18)
-            .overlay(
-                RoundedRectangle(cornerRadius: 18)
-                    .stroke(Color.steel.opacity(0.25), lineWidth: 1)
-            )
+            .padding(18)
+            // Was a hand-rolled gradient + plain (non-continuous) .cornerRadius(18)
+            // + stroke, with no shadow — the only Home card with zero depth and a
+            // different corner curve from everything around it.
+            .forgeGlassCard(accent: .steel)
         }
         .buttonStyle(.plain)
         .opacity(appeared ? 1 : 0)

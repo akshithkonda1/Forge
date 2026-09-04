@@ -1,0 +1,17 @@
+# Copy to remote.tf (gitignored via *_override / local choice) when the
+# state should live in S3 instead of a laptop.
+#
+#   cp remote.tf.example remote.tf
+#   terraform init -migrate-state
+#
+# iOS and Android share this stack. One state file. One account.
+
+terraform {
+  backend "s3" {
+    bucket         = "forge-tf-state"
+    key            = "backend/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "forge-tf-locks"
+    encrypt        = true
+  }
+}
