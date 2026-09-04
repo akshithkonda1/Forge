@@ -112,7 +112,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         from datetime import timezone
         import datetime as _dt
         now = _dt.datetime.now(timezone.utc)
-        _context.update_context(uid, {"relationship_level": updated_level, "last_promoted_at": now.isoformat()})
+        _context.update_context(uid, {"relationship_level": updated_level, "last_promoted_at": now})
     else:
         updated_level = int(rich.get("relationship_level", 1))
 
@@ -157,7 +157,7 @@ def handle_post_ai_archetype(body: dict[str, Any], *, user_id: str) -> dict:
 
     try:
         import asyncio
-        from backend.app.ai.routes.archetype import create_archetype
+        from backend.ai.app.routes.archetype import create_archetype
 
         result = asyncio.get_event_loop().run_until_complete(
             create_archetype(

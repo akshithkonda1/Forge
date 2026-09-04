@@ -5,7 +5,9 @@ from typing import Any, Callable
 
 from ai_router import AIRouter, RouteRequest, RoutingError
 from responses import RouteError, ok
+from seed_data import today_iso
 from services import coach_context, scoring
+from storage import dynamodb, keys
 
 
 # AI router invocation is wrapped so tests can monkeypatch it without booting Bedrock.
@@ -102,9 +104,33 @@ def handle_post_coach_workout_plan(user_id: str, _body: dict) -> dict:
         f"{baseline['intensity']} intensity).{plan_clause}"
     )
     routed = _safe_route(payload, fallback)
+
+    # `PLAN#{date}` is read in 4 places (this file, routes/workouts.py,
+    # routes/dashboard.py) but was never written anywhere — GET /workouts/today
+    # always returned nothing for a real account. Persist a minimal record here,
+    # using the user's own last *logged* duration rather than inventing one
+    # (WorkoutPlan.duration is non-optional on the client, and the AI router
+    # only returns prose, no structured duration).
+    last_duration = (context.get("recentWorkouts") or [{}])[0].get("duration")
+    if isinstance(last_duration, (int, float)) and not isinstance(last_duration, bool):
+        day = today_iso()
+        generated_plan = {
+            "id": f"plan-{int(datetime.now(timezone.utc).timestamp() * 1000)}",
+            "date": day,
+            "name": f"{baseline['focus'].title()} Focus",
+            "type": baseline["suggestedType"],
+            "duration": last_duration,
+            "intensity": baseline["intensity"],
+            "generatedBy": "ai",
+            "exercises": [],
+            "notes": routed["answer"],
+        }
+        dynamodb.put_item({**keys.workout_plan_key(user_id, day), **generated_plan})
+        today_plan = generated_plan
+
     return ok({
         "baseline": baseline,
-        "todayPlan": context["todayPlan"],
+        "todayPlan": today_plan,
         "explanation": routed["answer"],
         "fallback": routed.get("fallback", False),
     })
