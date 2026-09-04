@@ -52,12 +52,6 @@ struct ForgeEmptyState: View {
     }
 }
 
-struct ConnectedDevicesSheet: View {
-    var body: some View {
-        ConnectedDevicesLibraryView()
-    }
-}
-
 struct SectionCard<Content: View>: View {
     @ViewBuilder let content: () -> Content
     var body: some View {
