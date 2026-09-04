@@ -1,23 +1,285 @@
 import SwiftUI
+import UserNotifications
+
+@MainActor
+final class ForgeAlarmStore: ObservableObject {
+    static let shared = ForgeAlarmStore()
+
+    @Published var alarms: [ForgeAlarm]
+    @Published var sunriseEnabled = true
+    @Published var volumeRamp: VolumeRampCurve = .gradual
+    @Published var routine: [RoutineItem]
+
+    private let alarmsKey = "forge.sleep.alarms.v1"
+    private let sunriseKey = "forge.sleep.sunrise.enabled.v1"
+    private let rampKey = "forge.sleep.volumeRamp.v1"
+    private let routineKey = "forge.sleep.routine.v1"
+    private let defaults = UserDefaults.standard
+
+    private init() {
+        if let data = defaults.data(forKey: alarmsKey),
+           let saved = try? JSONDecoder().decode([ForgeAlarm].self, from: data) {
+            alarms = saved
+        } else {
+            alarms = [
+                ForgeAlarm(
+                    label: "Weekdays",
+                    time: Calendar.current.date(from: DateComponents(hour: 7, minute: 0)) ?? Date(),
+                    days: [2, 3, 4, 5, 6],
+                    isEnabled: true
+                )
+            ]
+        }
+        sunriseEnabled = defaults.object(forKey: sunriseKey) as? Bool ?? true
+        if let raw = defaults.string(forKey: rampKey),
+           let ramp = VolumeRampCurve(rawValue: raw) {
+            volumeRamp = ramp
+        }
+        if let data = defaults.data(forKey: routineKey),
+           let saved = try? JSONDecoder().decode([RoutineItem].self, from: data) {
+            routine = saved
+        } else {
+            routine = RoutineItem.defaults
+        }
+        SleepAlarmScheduler.registerCategories()
+        Task { await SleepAlarmScheduler.sync(alarms) }
+    }
+
+    func upsert(_ alarm: ForgeAlarm) {
+        if let i = alarms.firstIndex(where: { $0.id == alarm.id }) {
+            alarms[i] = alarm
+        } else {
+            alarms.append(alarm)
+        }
+        persistAndSchedule()
+    }
+
+    func setEnabled(id: UUID, enabled: Bool) {
+        guard let i = alarms.firstIndex(where: { $0.id == id }) else { return }
+        alarms[i].isEnabled = enabled
+        persistAndSchedule()
+    }
+
+    func remove(at offsets: IndexSet) {
+        alarms.remove(atOffsets: offsets)
+        persistAndSchedule()
+    }
+
+    func setSunriseEnabled(_ on: Bool) {
+        sunriseEnabled = on
+        defaults.set(on, forKey: sunriseKey)
+    }
+
+    func setVolumeRamp(_ ramp: VolumeRampCurve) {
+        volumeRamp = ramp
+        defaults.set(ramp.rawValue, forKey: rampKey)
+    }
+
+    func setRoutine(_ items: [RoutineItem]) {
+        routine = items
+        if let data = try? JSONEncoder().encode(items) {
+            defaults.set(data, forKey: routineKey)
+        }
+    }
+
+    var next: ForgeAlarm? { SleepWakeEngine.nextAlarm(in: alarms) }
+
+    func alarm(id: UUID?) -> ForgeAlarm? {
+        guard let id else { return nil }
+        return alarms.first { $0.id == id }
+    }
+
+    func persistAndSchedule() {
+        if let data = try? JSONEncoder().encode(alarms) {
+            defaults.set(data, forKey: alarmsKey)
+        }
+        Task { await SleepAlarmScheduler.sync(alarms) }
+    }
+}
+
+enum SleepAlarmScheduler {
+    private static let center = UNUserNotificationCenter.current()
+
+    static func registerCategories() {
+        let snooze = UNNotificationAction(
+            identifier: SleepWakeEngine.actionSnooze,
+            title: "Snooze",
+            options: []
+        )
+        let up = UNNotificationAction(
+            identifier: SleepWakeEngine.actionUp,
+            title: "I'm up",
+            options: [.foreground]
+        )
+        let category = UNNotificationCategory(
+            identifier: SleepWakeEngine.category,
+            actions: [up, snooze],
+            intentIdentifiers: [],
+            options: [.customDismissAction]
+        )
+        center.setNotificationCategories([category])
+    }
+
+    static func sync(_ alarms: [ForgeAlarm]) async {
+        do { try await center.requestAuthorization(options: [.alert, .sound, .badge]) } catch {}
+        let pending = await center.pendingNotificationRequests()
+        let stale = pending.map(\.identifier).filter(SleepWakeEngine.isWakeNotification)
+        center.removePendingNotificationRequests(withIdentifiers: stale)
+
+        for alarm in alarms where alarm.isEnabled {
+            await schedule(alarm)
+        }
+    }
+
+    static func scheduleSnooze(alarm: ForgeAlarm) async {
+        let fire = Date().addingTimeInterval(TimeInterval(max(1, alarm.snoozeMinutes)) * 60)
+        await add(
+            id: SleepWakeEngine.snoozeNotificationId(for: alarm.id),
+            title: alarm.label,
+            body: "Snooze is over. Get up.",
+            date: fire,
+            repeats: false,
+            alarmID: alarm.id.uuidString,
+            kind: "hard"
+        )
+    }
+
+    private static func schedule(_ alarm: ForgeAlarm) async {
+        let (hour, minute) = SleepWakeEngine.hourMinute(of: alarm.time)
+        let days = alarm.days.isEmpty ? Array(1...7) : alarm.days
+        for weekday in days {
+            await addRepeating(
+                id: SleepWakeEngine.hardNotificationId(for: alarm.id) + ".\(weekday)",
+                weekday: weekday,
+                hour: hour,
+                minute: minute,
+                title: alarm.label,
+                body: "Get up. The day already started.",
+                alarmID: alarm.id.uuidString,
+                kind: "hard"
+            )
+            if alarm.isSmartWake {
+                let smart = SleepWakeEngine.repeatingSmartClock(
+                    weekday: weekday,
+                    hour: hour,
+                    minute: minute,
+                    windowMinutes: alarm.smartWakeWindow
+                )
+                await addRepeating(
+                    id: SleepWakeEngine.smartNotificationId(for: alarm.id) + ".\(smart.weekday)",
+                    weekday: smart.weekday,
+                    hour: smart.hour,
+                    minute: smart.minute,
+                    title: "Smart wake · \(alarm.label)",
+                    body: "If you're already light, get up now. Hard alarm still fires at the set time.",
+                    alarmID: alarm.id.uuidString,
+                    kind: "smart"
+                )
+            }
+        }
+    }
+
+    private static func addRepeating(
+        id: String,
+        weekday: Int,
+        hour: Int,
+        minute: Int,
+        title: String,
+        body: String,
+        alarmID: String,
+        kind: String
+    ) async {
+        var comps = DateComponents()
+        comps.weekday = weekday
+        comps.hour = hour
+        comps.minute = minute
+        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+        await add(id: id, title: title, body: body, trigger: trigger, alarmID: alarmID, kind: kind)
+    }
+
+    private static func add(
+        id: String,
+        title: String,
+        body: String,
+        date: Date,
+        repeats: Bool,
+        alarmID: String,
+        kind: String
+    ) async {
+        guard date > Date() else { return }
+        let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: repeats)
+        await add(id: id, title: title, body: body, trigger: trigger, alarmID: alarmID, kind: kind)
+    }
+
+    private static func add(
+        id: String,
+        title: String,
+        body: String,
+        trigger: UNNotificationTrigger,
+        alarmID: String,
+        kind: String
+    ) async {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.categoryIdentifier = SleepWakeEngine.category
+        content.interruptionLevel = .timeSensitive
+        content.userInfo = [
+            "destination": "forge://wake",
+            "alarmID": alarmID,
+            "kind": kind
+        ]
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+        try? await center.add(request)
+    }
+}
 
 struct AlarmTab: View {
-    @State private var alarms: [ForgeAlarm] = [
-        ForgeAlarm(label: "Wake Up", time: Calendar.current.date(from: DateComponents(hour: 6, minute: 45)) ?? Date(), days: [2,3,4,5,6], isEnabled: true),
-        ForgeAlarm(label: "Weekend", time: Calendar.current.date(from: DateComponents(hour: 8, minute: 0)) ?? Date(), days: [1,7], sound: .forestBirds, isEnabled: false),
-    ]
+    @ObservedObject private var store = ForgeAlarmStore.shared
     @State private var showEditor = false
     @State private var editingAlarm: ForgeAlarm? = nil
-
-    var nextAlarm: ForgeAlarm? {
-        alarms.filter { $0.isEnabled }.first
-    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 28) {
-                if let next = nextAlarm {
+                if let next = store.next {
                     NextAlarmHero(alarm: next)
+                } else {
+                    Text("No wake set. Add one — it will actually fire.")
+                        .font(.system(size: 14))
+                        .foregroundColor(.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 8)
                 }
+
+                Button {
+                    SleepWakeStore.shared.ring(store.next ?? ForgeAlarm())
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "sun.max.fill")
+                            .foregroundStyle(Color(hex: "F59E0B"))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Test wake now")
+                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .foregroundColor(.textPrimary)
+                            Text("Sunrise, rising tone, hold to dismiss. The real thing.")
+                                .font(.system(size: 12))
+                                .foregroundColor(.textTertiary)
+                        }
+                        Spacer()
+                    }
+                    .padding(16)
+                    .background(Color.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color(hex: "F59E0B").opacity(0.35), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Test the wake-up screen now")
 
                 VStack(spacing: 12) {
                     HStack {
@@ -35,13 +297,16 @@ struct AlarmTab: View {
                         }
                     }
 
-                    ForEach($alarms) { $alarm in
-                        AlarmRow(alarm: $alarm, onEdit: {
-                            editingAlarm = alarm
-                            showEditor = true
-                        })
+                    ForEach(store.alarms) { alarm in
+                        AlarmRow(
+                            alarm: alarm,
+                            onToggle: { store.setEnabled(id: alarm.id, enabled: $0) },
+                            onEdit: {
+                                editingAlarm = alarm
+                                showEditor = true
+                            }
+                        )
                     }
-                    .onDelete { idx in alarms.remove(atOffsets: idx) }
                 }
 
                 WakeUpTab()
@@ -52,11 +317,7 @@ struct AlarmTab: View {
         .sheet(isPresented: $showEditor) {
             if let alarm = editingAlarm {
                 AlarmEditorSheet(alarm: alarm) { updated in
-                    if let i = alarms.firstIndex(where: { $0.id == updated.id }) {
-                        alarms[i] = updated
-                    } else {
-                        alarms.append(updated)
-                    }
+                    store.upsert(updated)
                 }
             }
         }
@@ -75,9 +336,14 @@ struct NextAlarmHero: View {
         return f.string(from: alarm.time)
     }
     private var daysString: String {
-        let sorted = alarm.days.sorted()
-        let names = sorted.compactMap { Weekday(rawValue: $0)?.short }
+        if alarm.days.isEmpty { return "Every day" }
+        let names = alarm.days.sorted().compactMap { Weekday(rawValue: $0)?.short }
         return names.joined(separator: " · ")
+    }
+
+    private var untilString: String {
+        guard let fire = SleepWakeEngine.nextHardFire(alarm: alarm) else { return alarm.label }
+        return "\(alarm.label)  ·  \(SleepWakeEngine.countdownLabel(until: fire))"
     }
 
     var body: some View {
@@ -94,11 +360,11 @@ struct NextAlarmHero: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.textSecondary)
             }
-            Text("\(alarm.label)  ·  \(daysString)")
+            Text("\(untilString)  ·  \(daysString)")
                 .font(.system(size: 14))
                 .foregroundColor(.textSecondary)
             if alarm.isSmartWake {
-                Text("Smart wake · \(alarm.smartWakeWindow) min")
+                Text("Smart wake opens \(alarm.smartWakeWindow) min earlier. Hard alarm still fires.")
                     .font(.system(size: 12))
                     .foregroundColor(.textTertiary)
                     .padding(.top, 2)
@@ -110,7 +376,8 @@ struct NextAlarmHero: View {
 }
 
 struct AlarmRow: View {
-    @Binding var alarm: ForgeAlarm
+    let alarm: ForgeAlarm
+    let onToggle: (Bool) -> Void
     let onEdit: () -> Void
 
     private var timeStr: String {
@@ -118,42 +385,52 @@ struct AlarmRow: View {
         return f.string(from: alarm.time)
     }
     private var daysStr: String {
-        alarm.days.sorted().compactMap { Weekday(rawValue: $0)?.short }.joined(separator: " · ")
+        if alarm.days.isEmpty { return "Every day" }
+        return alarm.days.sorted().compactMap { Weekday(rawValue: $0)?.short }.joined(separator: " · ")
     }
 
     var body: some View {
-        Button(action: onEdit) {
-            HStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(timeStr)
-                        .font(.system(size: 26, weight: .semibold))
-                        .foregroundColor(alarm.isEnabled ? .textPrimary : .textTertiary)
-                        .monospacedDigit()
-                    HStack(spacing: 8) {
-                        Text(alarm.label)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(alarm.isEnabled ? .textSecondary : .textMuted)
-                        if !alarm.days.isEmpty {
+        HStack(spacing: 16) {
+            Button(action: onEdit) {
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(timeStr)
+                            .font(.system(size: 26, weight: .semibold))
+                            .foregroundColor(alarm.isEnabled ? .textPrimary : .textTertiary)
+                            .monospacedDigit()
+                        HStack(spacing: 8) {
+                            Text(alarm.label)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(alarm.isEnabled ? .textSecondary : .textMuted)
                             Circle().fill(Color.borderColor).frame(width: 3, height: 3)
                             Text(daysStr)
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundColor(.textMuted)
+                            if alarm.isSmartWake {
+                                Text("Smart")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(.steel)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(Color.steel.opacity(0.12))
+                                    .clipShape(Capsule())
+                            }
                         }
                     }
+                    Spacer()
                 }
-                Spacer()
-                Toggle("", isOn: $alarm.isEnabled)
-                    .tint(.ember)
-                    .labelsHidden()
-                    .onChange(of: alarm.isEnabled) {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    }
             }
-            .padding(.vertical, 12)
-            .opacity(alarm.isEnabled ? 1 : 0.45)
-            .animation(.easeInOut(duration: 0.2), value: alarm.isEnabled)
+            .buttonStyle(.plain)
+            Toggle("", isOn: Binding(get: { alarm.isEnabled }, set: { on in
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                onToggle(on)
+            }))
+            .tint(.ember)
+            .labelsHidden()
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 12)
+        .opacity(alarm.isEnabled ? 1 : 0.45)
+        .animation(.easeInOut(duration: 0.2), value: alarm.isEnabled)
     }
 }
 
@@ -334,7 +611,7 @@ struct AlarmEditorSheet: View {
                                         Text("Smart Wake")
                                             .font(.system(size: 14, weight: .medium))
                                             .foregroundColor(.textPrimary)
-                                        Text("Wake during lightest sleep phase")
+                                        Text("Earlier nudge if you might already be light. Hard alarm still fires.")
                                             .font(.system(size: 12))
                                             .foregroundColor(.textTertiary)
                                     }

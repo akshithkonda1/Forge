@@ -1,45 +1,352 @@
 import SwiftUI
 
+@MainActor
+final class SleepWakeStore: ObservableObject {
+    static let shared = SleepWakeStore()
+
+    @Published var isRinging = false
+    @Published private(set) var current: ForgeAlarm?
+    @Published private(set) var snoozeCount = 0
+    @Published private(set) var startedAt = Date()
+
+    var remainingSnoozes: Int { max(0, SleepWakeEngine.maxSnoozes - snoozeCount) }
+
+    func ring(_ alarm: ForgeAlarm) {
+        if isRinging, current?.id == alarm.id {
+            SleepWakePlayer.shared.ensurePlaying(for: alarm)
+            return
+        }
+        current = alarm
+        snoozeCount = 0
+        startedAt = Date()
+        isRinging = true
+        SleepWindDownPlayer.shared.stop(deactivateSession: false)
+        SleepWakePlayer.shared.start(for: alarm)
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+    }
+
+    func ringFromNotification(alarmID: UUID?) {
+        let alarm = ForgeAlarmStore.shared.alarm(id: alarmID)
+            ?? ForgeAlarmStore.shared.next
+            ?? ForgeAlarm()
+        ring(alarm)
+    }
+
+    func dismiss() {
+        isRinging = false
+        current = nil
+        SleepWakePlayer.shared.stop()
+    }
+
+    func snooze() {
+        guard let alarm = current, SleepWakeEngine.canSnooze(count: snoozeCount) else { return }
+        snoozeCount += 1
+        isRinging = false
+        SleepWakePlayer.shared.stop()
+        Task { await SleepAlarmScheduler.scheduleSnooze(alarm: alarm) }
+    }
+
+    func handleSnoozeAction(alarmID: UUID?) async {
+        let alarm = ForgeAlarmStore.shared.alarm(id: alarmID)
+            ?? current
+            ?? ForgeAlarmStore.shared.next
+            ?? ForgeAlarm()
+        if !SleepWakeEngine.canSnooze(count: snoozeCount) {
+            ring(alarm)
+            return
+        }
+        snoozeCount += 1
+        isRinging = false
+        SleepWakePlayer.shared.stop()
+        await SleepAlarmScheduler.scheduleSnooze(alarm: alarm)
+    }
+}
+
+struct SleepWakeScreen: View {
+    @EnvironmentObject private var store: AppStore
+    @ObservedObject private var wake = SleepWakeStore.shared
+    @ObservedObject private var alarms = ForgeAlarmStore.shared
+    @State private var doneRoutine: Set<UUID> = []
+    @State private var tick = Date()
+
+    private var alarm: ForgeAlarm { wake.current ?? ForgeAlarm() }
+
+    private var progress: Double {
+        min(1, Date().timeIntervalSince(wake.startedAt) / 24)
+    }
+
+    private var clock: String {
+        tick.formatted(date: .omitted, time: .shortened)
+    }
+
+    var body: some View {
+        ZStack {
+            sunrise
+            VStack(spacing: 28) {
+                Spacer()
+                VStack(spacing: 8) {
+                    Text(clock)
+                        .font(.system(size: 72, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .monospacedDigit()
+                    Text(alarm.label)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.72))
+                    Text(SleepWakeCoach.morningPrompt(
+                        sleepScore: store.sleepData.first?.score,
+                        lastNightHours: store.sleepData.first?.totalHours
+                    ))
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white.opacity(0.78))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
+                    .padding(.top, 6)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(alarms.routine.filter(\.isEnabled).prefix(3)) { item in
+                        Button {
+                            if doneRoutine.contains(item.id) { doneRoutine.remove(item.id) }
+                            else { doneRoutine.insert(item.id) }
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: doneRoutine.contains(item.id) ? "checkmark.circle.fill" : item.icon)
+                                    .foregroundColor(doneRoutine.contains(item.id) ? .white : .white.opacity(0.7))
+                                Text(item.name)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.white)
+                                Spacer()
+                                Text("\(item.duration) min")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.55))
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color.white.opacity(doneRoutine.contains(item.id) ? 0.22 : 0.10))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 24)
+
+                HoldToWakeButton { wake.dismiss() }
+
+                if wake.remainingSnoozes > 0 {
+                    Button {
+                        wake.snooze()
+                    } label: {
+                        Text("Snooze \(alarm.snoozeMinutes) min · \(wake.remainingSnoozes) left")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Snooze. \(wake.remainingSnoozes) remaining.")
+                } else {
+                    Text("No snoozes left. Get up.")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.55))
+                }
+
+                Button {
+                    let prompt = SleepWakeCoach.morningPrompt(
+                        sleepScore: store.sleepData.first?.score,
+                        lastNightHours: store.sleepData.first?.totalHours
+                    )
+                    wake.dismiss()
+                    store.openChat(with: prompt, voice: false)
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                        Text("Ask ARIA to start the morning")
+                    }
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.88))
+                }
+                .buttonStyle(.plain)
+                .padding(.bottom, 36)
+            }
+        }
+        .interactiveDismissDisabled()
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { tick = $0 }
+        .onAppear {
+            SleepWakePlayer.shared.ensurePlaying(for: alarm)
+        }
+    }
+
+    private var sunrise: some View {
+        let t = alarms.sunriseEnabled ? progress : 0.12
+        return ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.04, green: 0.05, blue: 0.10),
+                    Color(red: 0.55 + 0.2 * t, green: 0.28 + 0.25 * t, blue: 0.12 + 0.15 * t),
+                    Color(red: 0.98, green: 0.62 + 0.2 * t, blue: 0.28 + 0.25 * t)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            RadialGradient(
+                colors: [Color(hex: "F59E0B").opacity(0.15 + 0.55 * t), .clear],
+                center: UnitPoint(x: 0.5, y: 0.78),
+                startRadius: 10,
+                endRadius: 280
+            )
+        }
+        .ignoresSafeArea()
+        .animation(.easeInOut(duration: 1.0), value: t)
+    }
+}
+
+struct HoldToWakeButton: View {
+    let action: () -> Void
+    @State private var progress: CGFloat = 0
+    @State private var holdTask: Task<Void, Never>?
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            Capsule().fill(Color.white.opacity(0.14))
+            Capsule()
+                .fill(Color.white.opacity(0.32))
+                .frame(width: 280 * progress)
+            Text(progress > 0.05 ? "Keep holding" : "Hold — I'm up")
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+        }
+        .frame(width: 280, height: 58)
+        .contentShape(Capsule())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in beginHold() }
+                .onEnded { _ in cancelHold() }
+        )
+        .accessibilityLabel("Hold to dismiss. I'm up.")
+    }
+
+    private func beginHold() {
+        guard holdTask == nil else { return }
+        withAnimation(.linear(duration: 1.2)) { progress = 1 }
+        holdTask = Task {
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            guard !Task.isCancelled else { return }
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            action()
+        }
+    }
+
+    private func cancelHold() {
+        holdTask?.cancel()
+        holdTask = nil
+        withAnimation(.easeOut(duration: 0.18)) { progress = 0 }
+    }
+}
+
 struct WakeUpTab: View {
     @EnvironmentObject private var hkService: HealthKitSleepService
-    @State private var smartWakeEnabled = true
-    @State private var smartWakeWindow  = 30
-    @State private var sunriseEnabled   = true
-    @State private var sunriseDuration  = 20          // minutes
-    @State private var colorTemp        = 0.5         // 0=warm, 1=cool
-    @State private var volumeRamp: VolumeRampCurve    = .gradual
-    @State private var morningRoutine: [RoutineItem]  = RoutineItem.defaults
+    @EnvironmentObject private var appStore: AppStore
+    @ObservedObject private var store = ForgeAlarmStore.shared
+    @State private var sunriseDuration = 20
+    @State private var colorTemp = 0.5
+
+    private var coach: SleepWakeCoach {
+        SleepWakeCoach.make(
+            alarms: store.alarms,
+            sleepScore: appStore.sleepData.first?.score,
+            lastNightHours: appStore.sleepData.first?.totalHours
+        )
+    }
 
     var body: some View {
         VStack(spacing: 20) {
-            SmartWakeCard(
-                enabled: $smartWakeEnabled,
-                windowMinutes: $smartWakeWindow
-            )
+            NextWakePlanCard(coach: coach)
+
+            if store.next != nil {
+                SmartWakeCard(
+                    enabled: Binding(
+                        get: { store.next?.isSmartWake ?? false },
+                        set: { on in
+                            guard var next = store.next else { return }
+                            next.isSmartWake = on
+                            store.upsert(next)
+                        }
+                    ),
+                    windowMinutes: Binding(
+                        get: { store.next?.smartWakeWindow ?? 30 },
+                        set: { mins in
+                            guard var next = store.next else { return }
+                            next.smartWakeWindow = mins
+                            store.upsert(next)
+                        }
+                    )
+                )
+            }
 
             AdaptiveSunriseCard(
                 config: hkService.currentSunriseConfig,
-                enabled: $sunriseEnabled,
+                enabled: Binding(
+                    get: { store.sunriseEnabled },
+                    set: { store.setSunriseEnabled($0) }
+                ),
                 duration: $sunriseDuration,
                 colorTemp: $colorTemp
             )
 
-            VolumeRampCard(curve: $volumeRamp)
+            VolumeRampCard(curve: Binding(
+                get: { store.volumeRamp },
+                set: { store.setVolumeRamp($0) }
+            ))
 
-            MorningRoutineCard(items: $morningRoutine)
-
-            WakeGreetingCard()
+            MorningRoutineCard(items: Binding(
+                get: { store.routine },
+                set: { store.setRoutine($0) }
+            ))
         }
         .onAppear {
             let config = hkService.currentSunriseConfig
             sunriseDuration = config.durationMinutes
             colorTemp = config.colorTemp
-            smartWakeWindow = hkService.computeSmartAlarmWindow(
-                baseWindow: smartWakeWindow,
-                recentScore: nil,
-                debt: 0,
-                chronotype: hkService.userProfile.chronotype
-            )
+        }
+    }
+}
+
+struct NextWakePlanCard: View {
+    let coach: SleepWakeCoach
+    @EnvironmentObject private var store: AppStore
+
+    var body: some View {
+        WakeUpSection(icon: "sun.horizon.fill", title: "This wake", color: Color(hex: "F59E0B")) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(coach.headline)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.textPrimary)
+                Text(coach.cue)
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let smart = coach.smartFire, let hard = coach.hardFire {
+                    Text("Smart \(smart.formatted(date: .omitted, time: .shortened))  ·  Hard \(hard.formatted(date: .omitted, time: .shortened))")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                }
+                Button {
+                    store.openChat(with: coach.ariaPrompt, voice: false)
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                        Text("Ask ARIA about this morning")
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(.ember)
+                    .padding(12)
+                    .background(Color.ember.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 }
@@ -54,9 +361,9 @@ struct SmartWakeCard: View {
                 VStack(spacing: 14) {
                     Toggle(isOn: $enabled) {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("Wake during lightest sleep")
+                            Text("Earlier nudge, then the hard alarm")
                                 .font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                            Text("Detects your sleep cycle and wakes you at the optimal moment")
+                            Text("iPhone cannot read live sleep stage. Smart wake fires first — if you're already light, get up. The hard alarm still stands.")
                                 .font(.system(size: 12)).foregroundColor(.textTertiary).lineSpacing(3)
                         }
                     }
@@ -64,7 +371,7 @@ struct SmartWakeCard: View {
 
                     if enabled {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Detection window")
+                            Text("Lead window")
                                 .font(.system(size: 12, weight: .semibold)).foregroundColor(.textSecondary)
                             HStack(spacing: 10) {
                                 ForEach([15, 30, 45], id: \.self) { mins in

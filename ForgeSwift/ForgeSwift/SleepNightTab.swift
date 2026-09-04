@@ -23,32 +23,57 @@ struct SleepNightTab: View {
     @Binding var showPersonalization: Bool
     @State private var showSounds = false
 
+    private var coach: SleepBedtimeCoach {
+        let nights = store.sleepData.prefix(14)
+        let schedule = EnergySchedule.make(from: store.sleepData)
+        return SleepBedtimeCoach.make(
+            onsets: nights.compactMap(\.onset),
+            sleepMinutes: nights.map { $0.totalHours * 60 },
+            needMinutes: (schedule?.needHours ?? 8) * 60,
+            fallbackOnsetHour: schedule?.phase.onsetHour
+        )
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 28) {
-                SleepLastNightDetail()
-                AISleepEnvironmentView()
-                AIPersonalizedGoalsView()
-                SleepWeekRhythm()
-                ChronotypeBadge(onTap: { showPersonalization = true })
-                Button { showSounds = true } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Sounds")
-                                .font(.system(size: 16, weight: .semibold))
+            VStack(alignment: .leading, spacing: 24) {
+                SleepTonightHero(coach: coach)
+                SleepWindDownRitual(coach: coach, onSounds: { showSounds = true })
+                SleepTonightSoundDock(onMore: { showSounds = true })
+                Button {
+                    store.openChat(with: coach.ariaPrompt, voice: false)
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "sparkles")
+                            .foregroundStyle(Color.ember)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Ask ARIA to get you to bed")
+                                .font(.system(size: 15, weight: .semibold, design: .rounded))
                                 .foregroundColor(.textPrimary)
-                            Text("Rain, noise, or a timer for wind-down.")
-                                .font(.system(size: 13))
+                            Text(coach.phase == .dayplan
+                                 ? "A short landing plan for tonight"
+                                 : "No score. Just the next step.")
+                                .font(.system(size: 12))
                                 .foregroundColor(.textTertiary)
                         }
                         Spacer()
-                        Image(systemName: "chevron.right")
+                        Image(systemName: "arrow.up.right")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.textMuted)
+                            .foregroundColor(.ember)
                     }
-                    .padding(.vertical, 4)
+                    .padding(16)
+                    .background(Color.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color.ember.opacity(0.22), lineWidth: 1)
+                    )
                 }
                 .buttonStyle(.plain)
+
+                AISleepEnvironmentView()
+                SleepLastNightDetail()
+                ChronotypeBadge(onTap: { showPersonalization = true })
             }
             .padding(.horizontal, 20)
             .padding(.top, 12)
@@ -64,6 +89,181 @@ struct SleepNightTab: View {
                             Button("Done") { showSounds = false }
                         }
                     }
+            }
+        }
+    }
+}
+
+struct SleepTonightHero: View {
+    let coach: SleepBedtimeCoach
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            let live = coach.advancing(now: context.date)
+            VStack(alignment: .leading, spacing: 14) {
+                Text("TONIGHT")
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundColor(.textTertiary)
+                Text(live.headline)
+                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    .foregroundColor(.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(live.bedtimeLabel)
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .foregroundColor(.aurora)
+                        .monospacedDigit()
+                    Text(live.countdownLabel == "now" ? "lights out" : "in \(live.countdownLabel)")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.textSecondary)
+                }
+                Text(live.cue)
+                    .font(.system(size: 14))
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct SleepWindDownRitual: View {
+    let coach: SleepBedtimeCoach
+    var onSounds: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("GET TO BED")
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(1.2)
+                .foregroundColor(.textTertiary)
+            ritualRow(
+                step: "1",
+                title: "Dim the room",
+                detail: "Lights and screens down. Melatonin does not argue with a bright kitchen."
+            )
+            Button(action: onSounds) {
+                ritualRow(
+                    step: "2",
+                    title: "Start a sound",
+                    detail: "Brown noise for thirty minutes. One tap below, then you are done negotiating."
+                )
+            }
+            .buttonStyle(.plain)
+            ritualRow(
+                step: "3",
+                title: "Phone stays here",
+                detail: coach.phase == .overdue || coach.phase == .lightsOut
+                    ? "Charge it outside the bed. The next scroll is not worth tomorrow."
+                    : "Set it down when the sound starts. Bed is the next room, not the next tab."
+            )
+        }
+    }
+
+    private func ritualRow(step: String, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(step)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(.aurora)
+                .frame(width: 28, height: 28)
+                .background(Color.aurora.opacity(0.14))
+                .clipShape(Circle())
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundColor(.textPrimary)
+                Text(detail)
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+struct SleepTonightSoundDock: View {
+    var onMore: () -> Void
+    @ObservedObject private var player = SleepWindDownPlayer.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("WIND-DOWN SOUND")
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundColor(.textTertiary)
+                Spacer()
+                Button("More", action: onMore)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.aurora)
+            }
+
+            if player.isPlaying {
+                HStack(spacing: 12) {
+                    Image(systemName: "waveform")
+                        .foregroundStyle(Color.aurora)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Brown noise")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.textPrimary)
+                        Text(player.remainingLabel)
+                            .font(.system(size: 12))
+                            .foregroundColor(.textTertiary)
+                            .monospacedDigit()
+                    }
+                    Spacer()
+                    Button {
+                        player.stop()
+                    } label: {
+                        Text("Stop")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Color.danger.opacity(0.85))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(16)
+                .background(Color.aurora.opacity(0.10))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            } else {
+                Button {
+                    player.start(minutes: 30)
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "play.fill")
+                            .foregroundStyle(Color.white)
+                            .frame(width: 36, height: 36)
+                            .background(Color.aurora)
+                            .clipShape(Circle())
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Start 30-minute wind-down")
+                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .foregroundColor(.textPrimary)
+                            Text("Generated brown noise. No library, no account.")
+                                .font(.system(size: 12))
+                                .foregroundColor(.textTertiary)
+                        }
+                        Spacer()
+                    }
+                    .padding(16)
+                    .background(Color.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.aurora.opacity(0.28), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Start thirty minute brown noise wind-down")
             }
         }
     }

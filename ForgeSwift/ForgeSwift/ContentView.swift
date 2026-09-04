@@ -119,6 +119,7 @@ struct MainTabView: View {
     @State private var showCycleHealth = false
     @State private var showHydration = false
     @State private var cycleInitialPane: MenstrualHealthView.Pane = .me
+    @ObservedObject private var wakeStore = SleepWakeStore.shared
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -212,6 +213,13 @@ struct MainTabView: View {
                         }
                     }
             }
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { wakeStore.isRinging },
+            set: { if !$0 { wakeStore.dismiss() } }
+        )) {
+            SleepWakeScreen()
+                .environmentObject(store)
         }
         .sheet(isPresented: $weeklyReview.showSheet) {
             WeeklyAriaReviewSheet()

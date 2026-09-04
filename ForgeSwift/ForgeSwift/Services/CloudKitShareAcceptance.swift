@@ -78,6 +78,8 @@ final class ForgeAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificatio
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        SleepAlarmScheduler.registerCategories()
+        Task { @MainActor in _ = ForgeAlarmStore.shared }
         return true
     }
 
@@ -88,10 +90,42 @@ final class ForgeAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificatio
 
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        let id = notification.request.identifier
+        guard SleepWakeEngine.isWakeNotification(id) else {
+            return [.banner, .sound, .list]
+        }
+        let alarmID = (notification.request.content.userInfo["alarmID"] as? String)
+            .flatMap(UUID.init(uuidString:))
+        await MainActor.run {
+            SleepWakeStore.shared.ringFromNotification(alarmID: alarmID)
+        }
+        return [.sound]
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
         let id = response.notification.request.identifier
         let destination = response.notification.request.content.userInfo["destination"] as? String
+        if SleepWakeEngine.isWakeNotification(id) {
+            let alarmID = (response.notification.request.content.userInfo["alarmID"] as? String)
+                .flatMap(UUID.init(uuidString:))
+            switch response.actionIdentifier {
+            case SleepWakeEngine.actionSnooze:
+                await SleepWakeStore.shared.handleSnoozeAction(alarmID: alarmID)
+            case SleepWakeEngine.actionUp:
+                await MainActor.run { SleepWakeStore.shared.dismiss() }
+            default:
+                await MainActor.run { SleepWakeStore.shared.ringFromNotification(alarmID: alarmID) }
+                if let url = URL(string: destination ?? "forge://wake") {
+                    NotificationCenter.default.post(name: ForgeAppDelegate.openURLNotification, object: url)
+                }
+            }
+            return
+        }
         if id == ForgeNotificationScheduler.ID.weeklyAriaReview
             || destination == "forge://aria/weekly" {
             NotificationCenter.default.post(name: WeeklyAriaReviewStore.openNotification, object: nil)
