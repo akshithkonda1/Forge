@@ -108,3 +108,21 @@ enum CyclePhaseCoachingDirective {
         }
     }
 }
+
+extension CyclePhaseCoachingDirective {
+    /// Classifies a coaching domain from the user's own message so the injected
+    /// directive matches what they're actually asking about, instead of always
+    /// falling back to the general directive.
+    static func classifyDomain(from text: String) -> CoachingDomain {
+        let lower = text.lowercased()
+        if lower.contains("workout") || lower.contains("train") || lower.contains("exercise")
+            || lower.contains("lift") || lower.contains("gym") { return .workout }
+        if lower.contains("eat") || lower.contains("food") || lower.contains("protein")
+            || lower.contains("meal") || lower.contains("calorie") || lower.contains("hydrat") { return .nutrition }
+        if lower.contains("sleep") || lower.contains("tired") || lower.contains("exhausted")
+            || lower.contains("rest") { return .sleep }
+        if lower.contains("stress") || lower.contains("anxious") || lower.contains("overwhelmed")
+            || lower.contains("mood") { return .stress }
+        return .general
+    }
+}
