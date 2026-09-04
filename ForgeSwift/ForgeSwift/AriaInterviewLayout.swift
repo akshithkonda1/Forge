@@ -296,43 +296,6 @@ struct AriaInterviewLayout: View {
                     continueTitle: coordinator.profile.freeTimeInterests.isEmpty ? "Skip" : "Continue",
                     onContinue: { coordinator.confirmInterests() }
                 )
-            case .trainingTheme:
-                VStack(spacing: 10) {
-                    OptionCardsComposer(
-                        options: AriaTrainingTheme.allCases.map {
-                            ($0.rawValue, $0.label, $0.tagline)
-                        },
-                        onSelect: { raw in
-                            dictation.cancel()
-                            if let theme = AriaTrainingTheme(rawValue: raw) {
-                                coordinator.selectTrainingTheme(theme)
-                            }
-                        }
-                    )
-                    Button {
-                        dictation.cancel()
-                        coordinator.skipTrainingTheme()
-                    } label: {
-                        Text("Skip — classic coach")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.textSecondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                    }
-                    .buttonStyle(.plain)
-                }
-            case .lifeContext:
-                VStack(spacing: 10) {
-                    OptionCardsComposer(
-                        options: LifeContextOption.allCases.map { ($0.rawValue, $0.label, "") },
-                        onSelect: { raw in
-                            dictation.cancel()
-                            if let o = LifeContextOption(rawValue: raw) {
-                                coordinator.selectLifeContext(o)
-                            }
-                        }
-                    )
-                }
             case .conditions:
                 ConditionsComposer(coordinator: coordinator, dictation: dictation)
             case .coaching:

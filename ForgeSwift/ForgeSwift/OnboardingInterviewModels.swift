@@ -31,9 +31,6 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
     case coaching
     case conditions // now optional at the very end, before ready
     case ready
-    // Legacy steps kept for migration but no longer in flow
-    case trainingTheme
-    case lifeContext
 
     var progressLabel: String {
         switch self {
@@ -46,8 +43,6 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
         case .workouts:       return "Training"
         case .sleep:          return "Sleep"
         case .freeTime:       return "Lifestyle"
-        case .trainingTheme:  return "Style"
-        case .lifeContext:    return "Context"
         case .conditions:     return "Boundaries"
         case .coaching:       return "Voice"
         case .ready:          return "Ready"
@@ -68,8 +63,6 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
         case .coaching: return .coaching
         case .conditions: return .conditions
         case .ready: return .ready
-        case .trainingTheme: return .trainingTheme
-        case .lifeContext: return .lifeContext
         }
     }
 
@@ -87,8 +80,10 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
         case .coaching: self = .coaching
         case .conditions: self = .conditions
         case .ready: self = .ready
-        case .trainingTheme: self = .trainingTheme
-        case .lifeContext: self = .lifeContext
+        // Collapsed legacy screens: OnboardingGraph.previous(of:) already
+        // normalizes both to .freeTime before walking; mirror that here so a
+        // graph step built from old persisted state resolves the same way.
+        case .trainingTheme, .lifeContext: self = .freeTime
         }
     }
 }
