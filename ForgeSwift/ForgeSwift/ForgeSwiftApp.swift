@@ -24,6 +24,8 @@ struct ForgeSwiftApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(store)
+                .environment(AriaPresence.shared)
+                .environment(SleepWindDownPlayer.shared)
                 .preferredColorScheme(.dark)
                 .onAppear {
                     // Re-sync when UI is up (WCSession may not be activated in init).

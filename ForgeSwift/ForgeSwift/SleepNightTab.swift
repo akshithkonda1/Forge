@@ -188,7 +188,7 @@ struct SleepWindDownRitual: View {
 
 struct SleepTonightSoundDock: View {
     var onMore: () -> Void
-    @ObservedObject private var player = SleepWindDownPlayer.shared
+    private let player = SleepWindDownPlayer.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -238,8 +238,8 @@ struct SleepTonightSoundDock: View {
                     HStack(spacing: 8) {
                         ForEach(SleepSoundKind.tonightPicks) { kind in
                             Button {
+                                FDS.haptic(.medium)
                                 player.start(kind: kind, minutes: 30)
-                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                             } label: {
                                 HStack(spacing: 8) {
                                     Image(systemName: kind.icon)

@@ -121,6 +121,14 @@ final class ExerciseLibraryFilterTests: XCTestCase {
         XCTAssertTrue(cables.allSatisfy { $0.equipment == .cable })
     }
 
+    func testAriaSpeechPrepDropsEmptyAndCapsLength() {
+        XCTAssertNil(AriaSpeechPrep.clipped("   "))
+        XCTAssertNil(AriaSpeechPrep.clipped(""))
+        XCTAssertEqual(AriaSpeechPrep.clipped("  Hello ARIA  "), "Hello ARIA")
+        let long = String(repeating: "a", count: AriaSpeechPrep.characterLimit + 40)
+        XCTAssertEqual(AriaSpeechPrep.clipped(long)?.count, AriaSpeechPrep.characterLimit)
+    }
+
     private static func fixtureContext() -> TrainerContext {
         TrainerContext(
             userProfile: UserProfile(

@@ -1,71 +1,4 @@
 import SwiftUI
-import AVFoundation
-import UIKit
-
-enum AROrbState: Equatable {
-    case idle, listening, processing, speaking
-}
-
-/// App-wide ARIA voice presence. Welcome, chat, Train “show me how”, and the
-/// tab mark all read this so the same Aurora orb moves when she talks.
-@MainActor
-final class AriaPresence: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
-    static let shared = AriaPresence()
-
-    @Published private(set) var isSpeaking = false
-    @Published private(set) var isListening = false
-    @Published private(set) var isThinking = false
-    @Published var amplitude: Float = 0.18
-
-    var orbState: AROrbState {
-        if isSpeaking { return .speaking }
-        if isListening { return .listening }
-        if isThinking { return .processing }
-        return .idle
-    }
-
-    private let synthesizer = AVSpeechSynthesizer()
-
-    private override init() {
-        super.init()
-        synthesizer.delegate = self
-    }
-
-    func setListening(_ on: Bool) { isListening = on }
-    func setThinking(_ on: Bool) { isThinking = on }
-    func markSpeaking(_ on: Bool) { isSpeaking = on }
-
-    func speak(_ text: String) {
-        let clipped = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !clipped.isEmpty else { return }
-        if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
-        let utterance = AVSpeechUtterance(string: String(clipped.prefix(900)))
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        if UIAccessibility.isVoiceOverRunning {
-            utterance.prefersAssistiveTechnologySettings = true
-        } else {
-            utterance.rate = 0.52
-            utterance.pitchMultiplier = 0.95
-        }
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
-        try? AVAudioSession.sharedInstance().setActive(true)
-        isSpeaking = true
-        synthesizer.speak(utterance)
-    }
-
-    func stopSpeaking() {
-        synthesizer.stopSpeaking(at: .immediate)
-        isSpeaking = false
-    }
-
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in self?.isSpeaking = false }
-    }
-
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in self?.isSpeaking = false }
-    }
-}
 
 /// Compact Aurora orb for avatars, tabs, and cards.
 /// Live speech/listen from `AriaPresence` overrides the idle state so every
@@ -108,7 +41,7 @@ struct AuroraOrbView: View {
     /// instead of the caller’s idle state.
     var followPresence: Bool = false
 
-    @ObservedObject private var presence = AriaPresence.shared
+    private let presence = AriaPresence.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -420,4 +353,15 @@ private struct AuroraLivingField: View {
             context.fill(Path(ellipseIn: rect), with: .color(color.opacity(fade)))
         }
     }
+}
+
+#Preview("ARIA idle") {
+    AuroraOrbView(state: .idle, amplitude: 0.3, size: 148)
+        .environment(AriaPresence.shared)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("ARIA speaking") {
+    AuroraOrbView(state: .speaking, amplitude: 0.8, size: 148, followPresence: false)
+        .preferredColorScheme(.dark)
 }

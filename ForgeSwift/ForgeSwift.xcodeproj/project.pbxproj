@@ -40,6 +40,8 @@
 		1WC00C2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00D2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift */; };
 		1WC00E2F9FF867004091AA /* CyclePhaseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */; };
 		1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */; };
+		1ARIA0292F9FF867004091AA /* AriaPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0282F9FF867004091AA /* AriaPresence.swift */; };
+		1SLEEP013F9FF867004091AA /* SleepSoundEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */; };
 		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
 		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
 		B5516E84A984973E2E0A546A /* HealthKitManager+Queries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */; };
@@ -277,6 +279,8 @@
 		1TEST01A00000000000000A /* ExerciseLibraryFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */; };
 		1TEST01C00000000000000A /* CycleHealthLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01B00000000000000A /* CycleHealthLaunchTests.swift */; };
 		1TEST01E00000000000000A /* FakeCyclePackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01D00000000000000A /* FakeCyclePackTests.swift */; };
+		1TEST02000000000000000A /* SleepWakeEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01F00000000000000A /* SleepWakeEngineTests.swift */; };
+		1TEST02200000000000000A /* SleepBedtimeCoachTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02100000000000000A /* SleepBedtimeCoachTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -390,6 +394,8 @@
 		1WC00D2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleFertileWindowLiveActivity.swift; sourceTree = "<group>"; };
 		1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseWidget.swift; sourceTree = "<group>"; };
 		1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbComponents.swift; sourceTree = "<group>"; };
+		1ARIA0282F9FF867004091AA /* AriaPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPresence.swift; sourceTree = "<group>"; };
+		1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSoundEngine.swift; sourceTree = "<group>"; };
 		1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MusicControllerFactory.swift; sourceTree = SOURCE_ROOT; };
 		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
 		1E4DF7152F9FF867004091AA /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
@@ -416,6 +422,8 @@
 		1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseLibraryFilterTests.swift; sourceTree = "<group>"; };
 		1TEST01B00000000000000A /* CycleHealthLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleHealthLaunchTests.swift; sourceTree = "<group>"; };
 		1TEST01D00000000000000A /* FakeCyclePackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeCyclePackTests.swift; sourceTree = "<group>"; };
+		1TEST01F00000000000000A /* SleepWakeEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeEngineTests.swift; sourceTree = "<group>"; };
+		1TEST02100000000000000A /* SleepBedtimeCoachTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepBedtimeCoachTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
@@ -868,6 +876,7 @@
 				D02B8B267BDE65BC4C962889 /* SleepNightTab.swift */,
 				4621301CC9D9971E70777C7C /* SleepAlarmTab.swift */,
 				A623D0F06FD3C50C8C9C2DF0 /* SleepSoundsTab.swift */,
+				1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */,
 				C453AB65225E570720899AB3 /* SleepWakeUpTab.swift */,
 				5505055FD73CA7ABA5E30C5A /* SleepInsightCards.swift */,
 				50D57284AB740A5B9CBDEDDF /* SleepDetailSheets.swift */,
@@ -919,6 +928,7 @@
 				1ARIA0272F9FF867004091AA /* Theme+Readiness.swift */,
 				1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */,
 				1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */,
+				1ARIA0282F9FF867004091AA /* AriaPresence.swift */,
 				F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */,
 				F0F10000000000000000002A /* WatchAriaConfigBridge.swift */,
 				1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */,
@@ -1087,6 +1097,8 @@
 				1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */,
 				1TEST01B00000000000000A /* CycleHealthLaunchTests.swift */,
 				1TEST01D00000000000000A /* FakeCyclePackTests.swift */,
+				1TEST01F00000000000000A /* SleepWakeEngineTests.swift */,
+				1TEST02100000000000000A /* SleepBedtimeCoachTests.swift */,
 			);
 			path = ForgeSwiftTests;
 			sourceTree = "<group>";
@@ -1442,6 +1454,7 @@
 				1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */,
 				1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */,
 				1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */,
+				1ARIA0292F9FF867004091AA /* AriaPresence.swift in Sources */,
 				1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */,
 				35A81356CC836973378A412F /* LifestyleModels.swift in Sources */,
 				373EC9928467751C3ADEA77F /* LifestyleServices.swift in Sources */,
@@ -1497,6 +1510,7 @@
 				2FFACC674BBEA570D73CE1E8 /* SleepNightTab.swift in Sources */,
 				D73A7502C11F243B8CA79DB3 /* SleepAlarmTab.swift in Sources */,
 				EEC7867EE378171FAB034AD7 /* SleepSoundsTab.swift in Sources */,
+				1SLEEP013F9FF867004091AA /* SleepSoundEngine.swift in Sources */,
 				CDA91213B4AFC8A533C4E2D4 /* SleepWakeUpTab.swift in Sources */,
 				CEAD2F52487C32101B080DB7 /* SleepInsightCards.swift in Sources */,
 				A03C28515F509A3422756067 /* SleepDetailSheets.swift in Sources */,
@@ -1606,6 +1620,8 @@
 				1TEST01A00000000000000A /* ExerciseLibraryFilterTests.swift in Sources */,
 				1TEST01C00000000000000A /* CycleHealthLaunchTests.swift in Sources */,
 				1TEST01E00000000000000A /* FakeCyclePackTests.swift in Sources */,
+				1TEST02000000000000000A /* SleepWakeEngineTests.swift in Sources */,
+				1TEST02200000000000000A /* SleepBedtimeCoachTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

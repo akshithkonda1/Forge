@@ -305,7 +305,7 @@ struct SleepWakeCoach: Equatable {
     }
 }
 
-enum SleepSoundKind: String, CaseIterable, Identifiable, Hashable {
+enum SleepSoundKind: String, CaseIterable, Identifiable, Hashable, Sendable {
     case cafe, brown, white, pink, lofi
     case rain, ocean, forest, thunder, fan
     case fireplace, tibetan, chimes
@@ -420,7 +420,7 @@ struct SleepSoundItem: Identifiable, Hashable {
     var blurb: String { kind.blurb }
 }
 
-enum SleepSoundCategory: String, CaseIterable {
+enum SleepSoundCategory: String, CaseIterable, Equatable, Sendable {
     case nature  = "Nature"
     case noise   = "Noise"
     case ambient = "Ambient"

@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 struct ExerciseLibraryView: View {
     @EnvironmentObject var store: AppStore
@@ -23,20 +22,15 @@ struct ExerciseLibraryView: View {
             ZStack {
                 Color.background.ignoresSafeArea()
                 VStack(spacing: 0) {
-                    searchBar
                     organizeRow
                     filterRow
                     if sections.isEmpty {
-                        VStack(spacing: 10) {
-                            Spacer()
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 28))
-                                .foregroundColor(.textMuted)
-                            Text("No movements match")
-                                .font(.system(size: 15, weight: .medium, design: .rounded))
-                                .foregroundColor(.textTertiary)
-                            Spacer()
+                        ContentUnavailableView {
+                            Label("No movements match", systemImage: "magnifyingglass")
+                        } description: {
+                            Text("Try a different search or clear a filter.")
                         }
+                        .foregroundStyle(Color.textTertiary)
                     } else {
                         ScrollView(showsIndicators: false) {
                             LazyVStack(alignment: .leading, spacing: 18, pinnedViews: [.sectionHeaders]) {
@@ -70,6 +64,10 @@ struct ExerciseLibraryView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.foregroundColor(.ember).fontWeight(.semibold) } }
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Movements, muscles, gear")
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .sensoryFeedback(.selection, trigger: organize)
             .sheet(item: $selected) { def in ExerciseDetailSheet(def: def) }
         }
     }
@@ -139,24 +137,6 @@ struct ExerciseLibraryView: View {
         }
     }
 
-    private var searchBar: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass").font(.system(size: 15)).foregroundColor(.textMuted)
-            TextField("Search movements, muscles, gear…", text: $query)
-                .font(.system(size: 15)).foregroundColor(.textPrimary).tint(.ember)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .accessibilityLabel("Search movements")
-            if !query.isEmpty {
-                Button { query = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 15)).foregroundColor(.textMuted) }
-            }
-        }
-        .padding(.horizontal, 14).padding(.vertical, 12)
-        .background(Color.surface).cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
-        .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 8)
-    }
-
     private var filterRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
@@ -207,7 +187,7 @@ struct ExerciseLibraryView: View {
     private func libraryCard(_ def: ExerciseDefinition) -> some View {
         HStack(spacing: 10) {
             Button {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                FDS.haptic(.light)
                 selected = def
             } label: {
                 HStack(spacing: 14) {
@@ -362,11 +342,11 @@ struct ExerciseDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Close") { dismiss() }.foregroundColor(.ember).fontWeight(.semibold) } }
+            .sensoryFeedback(.success, trigger: added)
         }
     }
 
     private func addToPlan() {
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
         let ex = Exercise(id: UUID().uuidString, name: def.name, sets: def.defaultSets,
                           reps: def.repRangeLabel.replacingOccurrences(of: "–", with: "-"),
                           weight: def.mechanic == .compound && def.equipment != .bodyweight ? 95 : (def.equipment == .bodyweight ? nil : 25),
