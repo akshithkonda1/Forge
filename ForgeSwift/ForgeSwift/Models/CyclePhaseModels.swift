@@ -313,8 +313,6 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
     var twwDaysElapsed: Int?
     /// Active health condition affecting cycle interpretation (nil = none).
     var condition: CycleCondition?
-    /// True when Apple Watch wrist temperature (Series 8+) is contributing to BBT.
-    var wristTemperatureAvailable: Bool
     /// Real-time 0…100 fertile-window confidence signal (nil when tracking off,
     /// hormonal contraception, condition suppresses fertile window, or no cycle anchor).
     var fertileScore: Int?
@@ -374,7 +372,6 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
         cycleGoal: nil,
         twwDaysElapsed: nil,
         condition: nil,
-        wristTemperatureAvailable: false,
         fertileScore: nil,
         stage: .unknown,
         periodEndConfirmed: false,

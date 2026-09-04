@@ -6,10 +6,6 @@ extension AppStore {
         LifestyleTargets.resolve(profile: userProfile, overrides: nutritionPreferences)
     }
 
-    var dataLoadState: DataLoadState {
-        .loaded
-    }
-
     var progressSummary: ProgressSummary? {
         guard !workoutHistory.isEmpty || !personalRecords.isEmpty else { return nil }
 

@@ -351,7 +351,6 @@ enum MenstrualCycleEngine {
             cycleGoal: nil,
             twwDaysElapsed: nil,
             condition: settings.condition == .none ? nil : settings.condition,
-            wristTemperatureAvailable: false,
             fertileScore: fertileScore,
             stage: stage,
             periodEndConfirmed: periodEndConfirmed,

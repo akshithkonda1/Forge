@@ -20,37 +20,6 @@ extension MenstrualHealthStore {
         AriaContextStore.shared.applySupportedPeople(ariaPeople)
     }
 
-    func ariaContextLines() -> [String] {
-        var lines: [String] = []
-        if settings.enabled, settings.shareWithAria {
-            lines.append("Self cycle phase: \(snapshot.phase.label)")
-            if let d = snapshot.dayInCycle {
-                lines.append("Self day in cycle: \(d)")
-            }
-            lines.append(snapshot.trainingNote)
-            if coachingPreferences.sampleCount > 0 {
-                let directive = coachingPreferences.coachingDirective
-                if !directive.isEmpty { lines.append(directive) }
-            }
-        }
-        for person in consentedPeople where person.settings.shareWithAria {
-            let snap = personSnapshots[person.id] ?? .empty
-            let who = person.role.shortLabel
-            lines.append("\(who) (\(person.displayName)) phase: \(snap.phase.label)")
-            if let d = snap.dayInCycle {
-                lines.append("\(who) (\(person.displayName)) day in cycle: \(d)")
-            }
-            if let brief = personBriefs[person.id] {
-                lines.append("\(person.displayName): \(brief.headline)")
-                lines.append(brief.communicationTip)
-            }
-        }
-        if consentedPeople.contains(where: { $0.settings.shareWithAria }) {
-            lines.append(PartnerSupportBrief.disclaimer)
-        }
-        return lines
-    }
-
     // MARK: Persist
 
     /// Refresh evaluation + local ARIA brief after a user action label.

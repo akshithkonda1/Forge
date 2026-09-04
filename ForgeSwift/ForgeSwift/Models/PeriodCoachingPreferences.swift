@@ -163,8 +163,8 @@ struct PeriodCoachingPreferences: Codable, Equatable {
             recoveryBias = min(1, recoveryBias + 0.05)
         }
 
-        func boost(_ topic: PeriodCoachingTopic, helped: Bool, wantMore: Bool, wantLess: Bool) {
-            let positive = (helped ? 1 : 0) + (wantMore ? 1 : 0) - (wantLess ? 1 : 0)
+        func boost(_ topic: PeriodCoachingTopic, helped: Bool, wantMore: Bool, wantLess: Bool, didntHelp: Bool) {
+            let positive = (helped ? 1 : 0) + (wantMore ? 1 : 0) - (wantLess ? 1 : 0) - (didntHelp ? 1 : 0)
             guard positive != 0 else { return }
             switch topic {
             case .rest:
@@ -192,7 +192,8 @@ struct PeriodCoachingPreferences: Codable, Equatable {
                 t,
                 helped: feedback.whatHelped.contains(t),
                 wantMore: feedback.wantMore.contains(t),
-                wantLess: feedback.wantLess.contains(t)
+                wantLess: feedback.wantLess.contains(t),
+                didntHelp: feedback.whatDidntHelp.contains(t)
             )
         }
 
