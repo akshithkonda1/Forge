@@ -924,32 +924,3 @@ struct TypingIndicator: View {
         }
     }
 }
-
-struct HealthKitStatusPill: View {
-    let state: HealthKitState
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(dotColor)
-                .frame(width: 6, height: 6)
-            Text(state.label)
-                .font(.caption2.weight(.bold))
-                .foregroundColor(.textSecondary)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color.surface)
-        .clipShape(Capsule())
-        .overlay(Capsule().stroke(Color.borderColor, lineWidth: 0.5))
-    }
-
-    private var dotColor: Color {
-        switch state {
-        case .authorized: return .success
-        case .requesting: return .warning
-        case .denied, .unavailable: return .textMuted
-        case .unknown: return .steel
-        }
-    }
-}

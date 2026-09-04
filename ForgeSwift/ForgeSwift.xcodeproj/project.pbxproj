@@ -113,15 +113,10 @@
 		1CYC0012F9FF867004091AA /* CycleDataEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */; };
 		1CYC0032F9FF867004091AA /* CycleAriaAnalyst.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */; };
 		1E44AFC830182A1F00D1C14D /* PeriodEndFeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */; };
-		1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */; };
-		1E4DF71A2F9FFA70004091AA /* OnboardingDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */; };
-		1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */; };
-		1E4DF71E2F9FFAE1004091AA /* SmartProfileSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF71D2F9FFAE1004091AA /* SmartProfileSetupView.swift */; };
 		1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */; };
 		1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */; };
 		1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */; };
 		C82BC7E19F20D94DAE955D97 /* OnboardingInterviewModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */; };
-		E7ACBAA738CA8B1E5C3F044C /* OnboardingAriaBot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E82C39E6C70CE31BD2644BC /* OnboardingAriaBot.swift */; };
 		1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */; };
 		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
 		1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */; };
@@ -474,15 +469,10 @@
 		1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleDataEvaluator.swift; sourceTree = "<group>"; };
 		1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleAriaAnalyst.swift; sourceTree = "<group>"; };
 		1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeriodEndFeedbackView.swift; sourceTree = "<group>"; };
-		1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingHealthKitViews.swift; sourceTree = "<group>"; };
-		1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDataManager.swift; sourceTree = "<group>"; };
-		1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedDataConnectionView.swift; sourceTree = "<group>"; };
-		1E4DF71D2F9FFAE1004091AA /* SmartProfileSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartProfileSetupView.swift; sourceTree = "<group>"; };
 		1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeDesignSystem.swift; sourceTree = "<group>"; };
 		1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+ForgeCardShadow.swift"; sourceTree = "<group>"; };
 		1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCoordinator.swift; sourceTree = "<group>"; };
 		20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingInterviewModels.swift; sourceTree = "<group>"; };
-		3E82C39E6C70CE31BD2644BC /* OnboardingAriaBot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingAriaBot.swift; sourceTree = "<group>"; };
 		1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachManager.swift; sourceTree = "<group>"; };
 		1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachViews.swift; sourceTree = "<group>"; };
 		1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachIntegration.swift; sourceTree = "<group>"; };
@@ -925,10 +915,6 @@
 				84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */,
 				F0A6E1020000000000000001 /* HealthKitManager+TestReadyPack.swift */,
 				2EB4405A8E5B4B03D8429D91 /* HealthKitManager+Clinical.swift */,
-				1E4DF7172F9FF889004091AA /* OnboardingHealthKitViews.swift */,
-				1E4DF7192F9FFA70004091AA /* OnboardingDataManager.swift */,
-				1E4DF71B2F9FFAAA004091AA /* EnhancedDataConnectionView.swift */,
-				1E4DF71D2F9FFAE1004091AA /* SmartProfileSetupView.swift */,
 				F0F1000000000000000000A2 /* LifestyleTargets.swift */,
 				FWSETED01 /* SettingsEditorViews.swift */,
 				FWNSCHED01 /* ForgeNotificationScheduler.swift */,
@@ -940,7 +926,6 @@
 				F0F10000000000000000002A /* WatchAriaConfigBridge.swift */,
 				1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */,
 				20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */,
-				3E82C39E6C70CE31BD2644BC /* OnboardingAriaBot.swift */,
 			);
 			path = ForgeSwift;
 			sourceTree = "<group>";
@@ -1435,7 +1420,6 @@
 				1WC0072F9FF867004091AA /* BiologicalSexStepView.swift in Sources */,
 				1WC0092F9FF867004091AA /* CycleLiveActivityAttributes.swift in Sources */,
 				1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */,
-				1E4DF71E2F9FFAE1004091AA /* SmartProfileSetupView.swift in Sources */,
 				AA0001000000000000000003 /* Models.swift in Sources */,
 				AA0001000000000000000004 /* AppStore.swift in Sources */,
 				8CB0ADBC701D60630E70D45D /* AppStore+Chat.swift in Sources */,
@@ -1447,7 +1431,6 @@
 				BA9881825031CB92A10A23F2 /* TrainerContext.swift in Sources */,
 				AD90BAFEC8EA35A4F14EF83C /* FoundationModelsResponseGenerator.swift in Sources */,
 				DF0C39F95818C60589E494FC /* RuleBasedResponseGenerator.swift in Sources */,
-				1E4DF71A2F9FFA70004091AA /* OnboardingDataManager.swift in Sources */,
 				AA0001000000000000000005 /* ContentView.swift in Sources */,
 				1NAV012F9FF867004091AA /* ForgeNavigation.swift in Sources */,
 				1AUTH0012F9FF867004091AA /* AuthWelcomeView.swift in Sources */,
@@ -1497,11 +1480,8 @@
 				FE51C885416EF0AE0DEFAB91 /* ChatInputAreaView.swift in Sources */,
 				ACE45AF3C089322AD1CE0744 /* VoiceOrbOverlay.swift in Sources */,
 				8A35071816F1EA8B299F27D5 /* ChatRichCards.swift in Sources */,
-				1E4DF71C2F9FFAAA004091AA /* EnhancedDataConnectionView.swift in Sources */,
 				1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator.swift in Sources */,
 				C82BC7E19F20D94DAE955D97 /* OnboardingInterviewModels.swift in Sources */,
-				E7ACBAA738CA8B1E5C3F044C /* OnboardingAriaBot.swift in Sources */,
-				1E4DF7182F9FF889004091AA /* OnboardingHealthKitViews.swift in Sources */,
 				AA0001000000000000000009 /* WorkoutView.swift in Sources */,
 				1AB79BAC8BDB10BD5B60057F /* ExerciseCatalog.swift in Sources */,
 				8AEE13A27BA4358BC5A5BCF0 /* WorkoutAdaptiveEngine.swift in Sources */,
