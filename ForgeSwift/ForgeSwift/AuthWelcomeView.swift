@@ -6,6 +6,7 @@ import SwiftUI
 struct AuthWelcomeView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var page = 0
     @State private var appeared = false
@@ -174,6 +175,10 @@ struct AuthWelcomeView: View {
         }
         .onDisappear {
             autoAdvanceTask?.cancel()
+            AriaPresence.shared.stopSpeaking()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { AriaPresence.shared.stopSpeaking() }
         }
     }
 
@@ -245,6 +250,7 @@ private struct AuthHookPageView: View {
     let page: AuthHookPage
     let isActive: Bool
     let floatPhase: CGFloat
+    @State private var didGreet = false
 
     private var accent: Color { Color(hex: page.accentHex) }
 
@@ -253,37 +259,62 @@ private struct AuthHookPageView: View {
             Spacer(minLength: 12)
 
             ZStack {
-                Circle()
-                    .fill(accent.opacity(0.18))
-                    .frame(width: 160, height: 160)
-                    .blur(radius: 24)
-                    .scaleEffect(isActive ? 1.05 + floatPhase * 0.04 : 0.92)
-                Circle()
-                    .stroke(accent.opacity(0.35), lineWidth: 1.5)
-                    .frame(width: 120, height: 120)
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [accent.opacity(0.45), accent.opacity(0.08), .clear],
-                            center: .center,
-                            startRadius: 8,
-                            endRadius: 70
-                        )
+                if page.id == "aria" {
+                    AuroraOrbView(
+                        state: .idle,
+                        amplitude: 0.34,
+                        mood: .energized,
+                        size: 148,
+                        followPresence: true
                     )
-                    .frame(width: 110, height: 110)
-                Image(systemName: page.icon)
-                    .font(.system(size: 40, weight: .bold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.white, accent],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                    .scaleEffect(isActive ? 1.0 + floatPhase * 0.02 : 0.92)
+                } else {
+                    Circle()
+                        .fill(accent.opacity(0.18))
+                        .frame(width: 160, height: 160)
+                        .blur(radius: 24)
+                        .scaleEffect(isActive ? 1.05 + floatPhase * 0.04 : 0.92)
+                    Circle()
+                        .stroke(accent.opacity(0.35), lineWidth: 1.5)
+                        .frame(width: 120, height: 120)
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [accent.opacity(0.45), accent.opacity(0.08), .clear],
+                                center: .center,
+                                startRadius: 8,
+                                endRadius: 70
+                            )
                         )
-                    )
-                    .shadow(color: accent.opacity(0.6), radius: 12, y: 4)
-                    .offset(y: isActive ? -floatPhase * 6 : 0)
+                        .frame(width: 110, height: 110)
+                    Image(systemName: page.icon)
+                        .font(.system(size: 40, weight: .bold))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.white, accent],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .shadow(color: accent.opacity(0.6), radius: 12, y: 4)
+                        .offset(y: isActive ? -floatPhase * 6 : 0)
+                }
             }
             .frame(height: 170)
+            .onChange(of: isActive) { _, active in
+                guard page.id == "aria" else { return }
+                if active {
+                    greetIfNeeded()
+                } else {
+                    didGreet = false
+                    AriaPresence.shared.stopSpeaking()
+                }
+            }
+            .onAppear {
+                if isActive, page.id == "aria" {
+                    greetIfNeeded()
+                }
+            }
 
             VStack(spacing: 12) {
                 Text(page.kicker)
@@ -332,6 +363,12 @@ private struct AuthHookPageView: View {
         .opacity(isActive ? 1 : 0.55)
         .scaleEffect(isActive ? 1 : 0.96)
         .animation(FDS.Spring.standard, value: isActive)
+    }
+
+    private func greetIfNeeded() {
+        guard !didGreet else { return }
+        didGreet = true
+        AriaPresence.shared.speak(AriaOnboardingGuide.welcomeSpokenLine)
     }
 }
 

@@ -38,7 +38,18 @@ enum TargetMuscle: String, CaseIterable, Identifiable, Hashable {
     }
 
     /// Coarse training region — drives the balance read-out + accent colors.
-    enum Region: String { case push, pull, legs, core, conditioning }
+    enum Region: String, CaseIterable {
+        case push, pull, legs, core, conditioning
+        var label: String {
+            switch self {
+            case .push: return "Push"
+            case .pull: return "Pull"
+            case .legs: return "Legs"
+            case .core: return "Core"
+            case .conditioning: return "Conditioning"
+            }
+        }
+    }
     var region: Region {
         switch self {
         case .chest, .frontDelts, .sideDelts, .triceps: return .push
@@ -623,18 +634,119 @@ enum ExerciseLibrary {
 
     static func definition(for exercise: Exercise) -> ExerciseDefinition? { match(exercise.name) }
 
-    static func filter(query: String, muscle: TargetMuscle?, equipment: GearType?, pattern: MovementPattern?) -> [ExerciseDefinition] {
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+    static func filter(query: String, muscle: TargetMuscle? = nil, equipment: GearType? = nil, pattern: MovementPattern? = nil) -> [ExerciseDefinition] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return all.filter { def in
-            (q.isEmpty || def.name.lowercased().contains(q) || def.muscleSummary.lowercased().contains(q))
-            && (muscle == nil || def.primary.contains(muscle!) || def.secondary.contains(muscle!))
-            && (equipment == nil || def.equipment == equipment!)
-            && (pattern == nil || def.pattern == pattern!)
+            let matchesQuery = q.isEmpty
+                || def.name.lowercased().contains(q)
+                || def.muscleSummary.lowercased().contains(q)
+            let matchesMuscle = muscle.map { def.primary.contains($0) || def.secondary.contains($0) } ?? true
+            let matchesGear = equipment.map { def.equipment == $0 } ?? true
+            let matchesPattern = pattern.map { def.pattern == $0 } ?? true
+            return matchesQuery && matchesMuscle && matchesGear && matchesPattern
         }
     }
 
     static func count(matching muscle: TargetMuscle) -> Int {
         all.filter { $0.primary.contains(muscle) || $0.secondary.contains(muscle) }.count
+    }
+
+    enum OrganizeBy: String, CaseIterable, Identifiable {
+        case region, muscle, pattern, equipment
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .region: return "Region"
+            case .muscle: return "Muscle"
+            case .pattern: return "Pattern"
+            case .equipment: return "Gear"
+            }
+        }
+    }
+
+    struct Section: Identifiable {
+        let id: String
+        let title: String
+        let accent: Color
+        let items: [ExerciseDefinition]
+    }
+
+    static func grouped(
+        query: String,
+        muscle: TargetMuscle?,
+        equipment: GearType?,
+        pattern: MovementPattern?,
+        by organize: OrganizeBy
+    ) -> [Section] {
+        let rows = Self.catalogSorted(filter(query: query, muscle: muscle, equipment: equipment, pattern: pattern))
+        switch organize {
+        case .region:
+            return bucket(rows, keys: TargetMuscle.Region.allCases, key: \.region) { region, items in
+                Section(id: region.rawValue, title: region.label, accent: items[0].accent, items: items)
+            }
+        case .muscle:
+            var buckets: [TargetMuscle: [ExerciseDefinition]] = [:]
+            for row in rows {
+                for muscle in row.primary {
+                    buckets[muscle, default: []].append(row)
+                }
+            }
+            return TargetMuscle.allCases.compactMap { muscle in
+                guard let items = buckets[muscle], !items.isEmpty else { return nil }
+                return Section(id: muscle.rawValue, title: muscle.label, accent: muscle.accent, items: items)
+            }
+        case .pattern:
+            return bucket(rows, keys: MovementPattern.allCases, key: \.pattern) { pattern, items in
+                Section(id: pattern.rawValue, title: pattern.label, accent: items[0].accent, items: items)
+            }
+        case .equipment:
+            return bucket(rows, keys: GearType.allCases, key: \.equipment) { gear, items in
+                Section(id: gear.rawValue, title: gear.label, accent: items[0].accent, items: items)
+            }
+        }
+    }
+
+    /// Compounds first, then A–Z. Shared so every grouping stays in the same order.
+    private static func catalogSorted(_ items: [ExerciseDefinition]) -> [ExerciseDefinition] {
+        items.sorted {
+            if $0.isCompound != $1.isCompound { return $0.isCompound && !$1.isCompound }
+            return $0.name < $1.name
+        }
+    }
+
+    private static func bucket<Key: Hashable>(
+        _ rows: [ExerciseDefinition],
+        keys: [Key],
+        key: (ExerciseDefinition) -> Key?,
+        section: (Key, [ExerciseDefinition]) -> Section
+    ) -> [Section] {
+        var buckets: [Key: [ExerciseDefinition]] = [:]
+        buckets.reserveCapacity(keys.count)
+        for row in rows {
+            guard let k = key(row) else { continue }
+            buckets[k, default: []].append(row)
+        }
+        return keys.compactMap { k in
+            guard let items = buckets[k], !items.isEmpty else { return nil }
+            return section(k, items)
+        }
+    }
+
+    /// Spoken walkthrough ARIA uses for Show me how.
+    static func howToScript(for def: ExerciseDefinition) -> String {
+        var parts: [String] = ["Here's how to do \(def.name)."]
+        parts.append("It's a \(def.pattern.label.lowercased()) on \(def.equipment.label.lowercased()). Primary: \(def.primary.map(\.label).joined(separator: ", ")).")
+        if !def.cues.isEmpty {
+            let numbered = def.cues.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: " ")
+            parts.append("Cues: \(numbered)")
+        }
+        if !def.faults.isEmpty {
+            parts.append("Watch for: \(def.faults.joined(separator: ". ")).")
+        }
+        if let regress = def.regressions.first {
+            parts.append("If it feels off, switch to \(regress).")
+        }
+        return parts.joined(separator: " ")
     }
 }
 

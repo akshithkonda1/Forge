@@ -80,7 +80,8 @@ struct AriaInterviewLayout: View {
                             ? dictation.amplitude
                             : (coordinator.ariaOrbState == .speaking ? 0.55 : 0.22),
                         mood: coordinator.ariaMood,
-                        size: 44
+                        size: 44,
+                        followPresence: true
                     )
                 }
 

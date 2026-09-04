@@ -95,6 +95,9 @@ struct WorkoutIdleView: View {
             }
         }
         .sheet(isPresented: $showLibrary) { ExerciseLibraryView() }
+        .sheet(item: $store.pendingShowHow) { def in
+            ExerciseDetailSheet(def: def)
+        }
         .sheet(isPresented: $showDashboard) {
             if let workout = store.todayWorkout {
                 ARIADashboardView(snapshot: Self.plannedSnapshot(workout, readiness: store.readiness),
@@ -109,7 +112,7 @@ struct WorkoutIdleView: View {
 
     private var quickActions: some View {
         HStack(spacing: 10) {
-            idleActionTile(icon: "figure.stand", title: "Library", subtitle: "Tap a muscle", accent: Color(hex: "38BDF8")) { showLibrary = true }
+            idleActionTile(icon: "books.vertical.fill", title: "Library", subtitle: "Grouped list", accent: Color(hex: "38BDF8")) { showLibrary = true }
             idleActionTile(icon: "brain.head.profile", title: "ARIA Brief", subtitle: "Plan readout", accent: .ember) { showDashboard = true }
         }
     }
@@ -453,6 +456,7 @@ struct WorkoutStatPill: View {
 struct WorkoutExerciseRow: View {
     let exercise: Exercise; let index: Int
     let isExpanded: Bool; let onTap: () -> Void
+    @EnvironmentObject var store: AppStore
     private var def: ExerciseDefinition? { ExerciseLibrary.definition(for: exercise) }
 
     var body: some View {
@@ -514,7 +518,27 @@ struct WorkoutExerciseRow: View {
                             Image(systemName: "clock.fill").font(.system(size: 12)).foregroundColor(.textMuted)
                             Text("\(exercise.restSeconds)s rest between sets").font(.system(size: 12)).foregroundColor(.textTertiary)
                         }
-                        .padding(.horizontal, 20).padding(.bottom, 14)
+                        .padding(.horizontal, 20)
+                        Button {
+                            FDS.haptic(.medium)
+                            store.showHowToPerform(exercise.name)
+                        } label: {
+                            HStack(spacing: 8) {
+                                ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.3)
+                                Text("Show me how")
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                Spacer()
+                                Image(systemName: "books.vertical.fill").font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .background(Color.ember)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 14)
                     }
                     .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                 }
@@ -633,8 +657,8 @@ struct WorkoutEmptyState: View {
                 }
                 Button { showLibrary = true } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "figure.stand").font(.system(size: 14))
-                        Text("Browse by muscle").font(.system(size: 15, weight: .semibold))
+                        Image(systemName: "books.vertical.fill").font(.system(size: 14))
+                        Text("Browse the library").font(.system(size: 15, weight: .semibold))
                     }
                     .foregroundColor(.steel).padding(.horizontal, 24).padding(.vertical, 13)
                     .background(Color.steel.opacity(0.1)).cornerRadius(16)

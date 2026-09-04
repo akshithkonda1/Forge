@@ -63,6 +63,14 @@ struct SettingsPageView: View {
                 .padding(.top, 8)
                 .padding(.bottom, FDS.Spacing.sm)
 
+                sectionHeader("All pages")
+                Text("The rooms. Open one when you need to log or override — ARIA already reads them.")
+                    .font(.system(size: 12))
+                    .foregroundColor(.textTertiary)
+                    .padding(.bottom, 10)
+                ForgeExploreDestinationsGrid()
+                    .padding(.bottom, FDS.Spacing.md)
+
                 sectionHeader("ARIA")
                 SectionCard {
                     Button(action: { showCoachingStylePicker = true }) {
@@ -532,14 +540,6 @@ struct SettingsPageView: View {
                     }
                     .buttonStyle(.plain)
                 }
-
-                sectionHeader("All pages")
-                Text("The rooms. Open one when you need to log or override — ARIA already reads them.")
-                    .font(.system(size: 12))
-                    .foregroundColor(.textTertiary)
-                    .padding(.bottom, 10)
-                ForgeExploreDestinationsGrid()
-                    .padding(.bottom, FDS.Spacing.md)
 
                 // Log Out
                 Button {

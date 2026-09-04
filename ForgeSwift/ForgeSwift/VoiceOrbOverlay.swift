@@ -54,10 +54,11 @@ struct VoiceOrbOverlay: View {
                         state:     speech.voiceState.orbState,
                         amplitude: max(speech.amplitude, 0.35),
                         mood:      mood,
-                        size:      148
+                        size:      148,
+                        followPresence: true
                     )
-                    .scaleEffect(orbRevealed ? 1.0 : 0.7)
-                    .opacity(orbRevealed ? 1 : 0)
+                        .scaleEffect(orbRevealed ? 1.0 : 0.7)
+                        .opacity(orbRevealed ? 1 : 0)
                 }
                 .frame(height: 176)
 

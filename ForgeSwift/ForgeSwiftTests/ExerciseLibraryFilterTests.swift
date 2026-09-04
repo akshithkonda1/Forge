@@ -72,6 +72,63 @@ final class ExerciseLibraryFilterTests: XCTestCase {
         XCTAssertTrue(plan.workoutPlan.exercises.contains { $0.name.localizedCaseInsensitiveContains("calf") })
     }
 
+    func testGroupedByRegionCoversEveryMoveOnce() {
+        let sections = ExerciseLibrary.grouped(query: "", muscle: nil, equipment: nil, pattern: nil, by: .region)
+        XCTAssertEqual(sections.map(\.title), TargetMuscle.Region.allCases.map(\.label).filter { label in
+            sections.contains { $0.title == label }
+        })
+        let ids = sections.flatMap { $0.items.map(\.id) }
+        XCTAssertEqual(Set(ids).count, ids.count, "a move should appear in only one region group")
+        XCTAssertEqual(Set(ids), Set(ExerciseLibrary.all.map(\.id)))
+        XCTAssertEqual(ExerciseLibrary.OrganizeBy.allCases.map(\.label), ["Region", "Muscle", "Pattern", "Gear"])
+    }
+
+    func testGroupedByMusclePutsCompoundsFirst() {
+        let sections = ExerciseLibrary.grouped(query: "", muscle: nil, equipment: nil, pattern: nil, by: .muscle)
+        XCTAssertFalse(sections.isEmpty)
+        XCTAssertTrue(sections.contains { $0.id == TargetMuscle.chest.rawValue && !$0.items.isEmpty })
+        for section in sections {
+            var seenIsolation = false
+            for item in section.items {
+                if item.isCompound {
+                    XCTAssertFalse(seenIsolation, "\(section.title) should list compounds before isolations")
+                } else {
+                    seenIsolation = true
+                }
+            }
+        }
+    }
+
+    func testHowToScriptNamesTheLiftAndWalksCues() throws {
+        let bench = try XCTUnwrap(ExerciseLibrary.match("Barbell Bench Press"))
+        let script = ExerciseLibrary.howToScript(for: bench)
+        XCTAssertTrue(script.contains("Barbell Bench Press"))
+        XCTAssertTrue(script.localizedCaseInsensitiveContains("horizontal push") || script.localizedCaseInsensitiveContains("barbell"))
+        XCTAssertTrue(script.contains("Pin the shoulder blades"))
+        XCTAssertTrue(script.contains("Watch for") || bench.faults.isEmpty)
+    }
+
+    func testGroupedByPatternKeepsEveryMove() {
+        let sections = ExerciseLibrary.grouped(query: "", muscle: nil, equipment: nil, pattern: nil, by: .pattern)
+        XCTAssertEqual(sections.flatMap(\.items).count, ExerciseLibrary.all.count)
+    }
+
+    func testFilterTreatsNilAsWildcard() {
+        let all = ExerciseLibrary.filter(query: "")
+        XCTAssertEqual(all.count, ExerciseLibrary.all.count)
+        let cables = ExerciseLibrary.filter(query: "", equipment: .cable)
+        XCTAssertFalse(cables.isEmpty)
+        XCTAssertTrue(cables.allSatisfy { $0.equipment == .cable })
+    }
+
+    func testAriaSpeechPrepDropsEmptyAndCapsLength() {
+        XCTAssertNil(AriaSpeechPrep.clipped("   "))
+        XCTAssertNil(AriaSpeechPrep.clipped(""))
+        XCTAssertEqual(AriaSpeechPrep.clipped("  Hello ARIA  "), "Hello ARIA")
+        let long = String(repeating: "a", count: AriaSpeechPrep.characterLimit + 40)
+        XCTAssertEqual(AriaSpeechPrep.clipped(long)?.count, AriaSpeechPrep.characterLimit)
+    }
+
     private static func fixtureContext() -> TrainerContext {
         TrainerContext(
             userProfile: UserProfile(

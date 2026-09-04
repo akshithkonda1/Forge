@@ -14,6 +14,12 @@
 	<key>CKSharingSupported</key>
 	<true/>
 
+	<!-- Sleep soundscapes and the wake tone keep playing when the screen locks. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+
 	<!-- Read at launch by ForgeAuthConfig.fromInfoDictionary.
 
 	     The values below are dev placeholders. A build that ships them cannot
