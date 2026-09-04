@@ -5,7 +5,6 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var store: AppStore
     @State private var showSplash = true
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -29,9 +28,8 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            let delay: TimeInterval = reduceMotion ? 0.6 : 1.4
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                withAnimation(FDS.adaptiveAnimation(.easeOut(duration: 0.5))) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+                withAnimation(.easeOut(duration: 0.6)) {
                     showSplash = false
                 }
             }
@@ -92,8 +90,6 @@ struct ForgeSplashScreen: View {
                 .offset(y: textOffset)
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Forge. Your body. Your coach.")
         .onAppear {
             let base: Animation = reduceMotion
                 ? .easeOut(duration: 0.3)
@@ -249,24 +245,9 @@ struct MainTabView: View {
     
 }
 
-// MARK: - Tab Bar Metrics
+// MARK: - Bottom Navigation
 
-private enum ForgeTabBarMetrics {
-    static let barHeight: CGFloat = 64
-    static let horizontalInset: CGFloat = 20
-    static let bottomPadding: CGFloat = 8
-    static let contentInset: CGFloat = 96
-
-    static var safeAreaBottom: CGFloat {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first?.windows.first?.safeAreaInsets.bottom ?? 0
-    }
-}
-
-// MARK: - Floating Tab Bar
-
-struct ForgeTabBar: View {
+struct ForgeBottomNav: View {
     @EnvironmentObject var store: AppStore
     var namespace: Namespace.ID
 
@@ -282,27 +263,6 @@ struct ForgeTabBar: View {
                 } else {
                     RegularForgeTab(tab: tab, namespace: namespace)
                 }
-                .padding(.horizontal, FDS.Spacing.sm)
-                .frame(height: ForgeTabBarMetrics.barHeight)
-                .background(tabBarBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: FDS.Radius.xl + 4, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    readinessTint.opacity(0.28),
-                                    Color.white.opacity(0.08),
-                                    readinessTint.opacity(0.12)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 0.75
-                        )
-                )
-                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl + 4, style: .continuous))
-                .shadow(color: readinessTint.opacity(0.22), radius: 18, y: 6)
-                .shadow(color: .black.opacity(0.45), radius: 24, y: 10)
             }
         }
         .padding(.top, 10)
@@ -341,9 +301,9 @@ struct ForgeTabBar: View {
     }
 }
 
-// MARK: - Tab Item Button
+// MARK: - Regular Tab Button
 
-struct ForgeTabItem: View {
+struct RegularForgeTab: View {
     let tab: TabItem
     var namespace: Namespace.ID
     @EnvironmentObject var store: AppStore
@@ -391,7 +351,7 @@ struct ForgeTabItem: View {
     }
 }
 
-// MARK: - ARIA Center Tab
+// MARK: - ARIA Center Button (Chat + Voice toggle)
 
 struct ARIATabButton: View {
     var namespace: Namespace.ID
@@ -467,63 +427,11 @@ struct ARIATabButton: View {
             }
         }
     }
-
-    private var ariaOrb: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    isVoiceMode
-                        ? LinearGradient(colors: [Color.steel, Color.steelDark], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        : FDS.Gradient.emberDeep
-                )
-                .frame(width: 46, height: 46)
-                .overlay(
-                    Circle()
-                        .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
-                )
-                .shadow(
-                    color: (isVoiceMode ? Color.steel : Color.ember).opacity(isActive ? 0.55 : 0.25),
-                    radius: isActive ? 14 : 8,
-                    y: 4
-                )
-
-            Image(systemName: isVoiceMode ? "waveform" : "sparkles")
-                .font(.system(size: isVoiceMode ? 17 : 16, weight: .bold))
-                .foregroundStyle(Color.white)
-                .symbolEffect(.bounce, value: isVoiceMode)
-        }
-        .scaleEffect(isActive ? 1 : 0.92)
-        .animation(FDS.adaptiveAnimation(FDS.Spring.standard), value: isActive)
-        .animation(FDS.adaptiveAnimation(FDS.Spring.standard), value: isVoiceMode)
-    }
-
-    private func openARIA() {
-        FDS.haptic(.medium)
-        withAnimation(FDS.adaptiveAnimation(FDS.Spring.standard)) {
-            store.activeTab = .chat
-        }
-    }
-
-    private func toggleVoiceMode() {
-        FDS.notificationHaptic(.success)
-        withAnimation(FDS.adaptiveAnimation(FDS.Spring.standard)) {
-            store.ariaVoiceMode.toggle()
-            store.activeTab = .chat
-        }
-    }
 }
 
-// MARK: - Tab Button Style
-
-private struct ForgeTabButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.94 : 1)
-            .animation(FDS.Spring.snap, value: configuration.isPressed)
-    }
-}
-
-// MARK: - TabItem Presentation
+// MARK: - TabItem extensions
+// Requires TabItem enum to have cases: .home, .chat, .workout, .lifestyle, .sleep, .profile
+// Each needs: label: String, systemImage: String, systemImageFilled: String
 
 extension TabItem {
     /// Short labels for the 7-tab bar so nothing clips on small phones.
