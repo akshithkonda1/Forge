@@ -128,7 +128,7 @@ class ModelEstimator:
             name=self.metric.value,
             value=prediction["value"],
             state=str(prediction.get("state", "modeled")),
-            confidence=float(prediction.get("confidence", 0.8)),
+            confidence=float(prediction.get("confidence") or 0.8),
             method=str(prediction.get("method") or "model:inference"),
             detail=str(prediction.get("detail") or f"model prediction for {self.metric.value}"),
         )

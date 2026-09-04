@@ -117,10 +117,6 @@ class CoachContextEngine:
         self._save(user_id, context)
         return context
 
-    def should_be_proactive(self, user_id: str) -> bool:
-        context = self.get_or_create_context(user_id)
-        return context.relationship_level >= 3 and bool(context.recent_patterns)
-
     def memory_reference(self, user_id: str, message: str) -> str | None:
         context = self.get_or_create_context(user_id)
         if context.relationship_level < 2 or not context.last_insights:

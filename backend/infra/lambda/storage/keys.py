@@ -29,10 +29,6 @@ def readiness_key(user_id: str, date: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": f"READINESS#{date}"}
 
 
-def chat_thread_key(user_id: str, thread_id: str) -> dict:
-    return {"pk": f"USER#{user_id}", "sk": f"CHAT#{thread_id}"}
-
-
 def chat_message_key(user_id: str, thread_id: str, created_at: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": f"CHAT#{thread_id}#MSG#{created_at}"}
 
