@@ -634,13 +634,16 @@ enum ExerciseLibrary {
 
     static func definition(for exercise: Exercise) -> ExerciseDefinition? { match(exercise.name) }
 
-    static func filter(query: String, muscle: TargetMuscle?, equipment: GearType?, pattern: MovementPattern?) -> [ExerciseDefinition] {
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+    static func filter(query: String, muscle: TargetMuscle? = nil, equipment: GearType? = nil, pattern: MovementPattern? = nil) -> [ExerciseDefinition] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return all.filter { def in
-            (q.isEmpty || def.name.lowercased().contains(q) || def.muscleSummary.lowercased().contains(q))
-            && (muscle == nil || def.primary.contains(muscle!) || def.secondary.contains(muscle!))
-            && (equipment == nil || def.equipment == equipment!)
-            && (pattern == nil || def.pattern == pattern!)
+            let matchesQuery = q.isEmpty
+                || def.name.lowercased().contains(q)
+                || def.muscleSummary.lowercased().contains(q)
+            let matchesMuscle = muscle.map { def.primary.contains($0) || def.secondary.contains($0) } ?? true
+            let matchesGear = equipment.map { def.equipment == $0 } ?? true
+            let matchesPattern = pattern.map { def.pattern == $0 } ?? true
+            return matchesQuery && matchesMuscle && matchesGear && matchesPattern
         }
     }
 
@@ -675,38 +678,57 @@ enum ExerciseLibrary {
         pattern: MovementPattern?,
         by organize: OrganizeBy
     ) -> [Section] {
-        let rows = filter(query: query, muscle: muscle, equipment: equipment, pattern: pattern)
-        func sorted(_ items: [ExerciseDefinition]) -> [ExerciseDefinition] {
-            items.sorted {
-                if $0.isCompound != $1.isCompound { return $0.isCompound && !$1.isCompound }
-                return $0.name < $1.name
-            }
-        }
+        let rows = Self.catalogSorted(filter(query: query, muscle: muscle, equipment: equipment, pattern: pattern))
         switch organize {
         case .region:
-            return TargetMuscle.Region.allCases.compactMap { region in
-                let items = sorted(rows.filter { $0.region == region })
-                guard !items.isEmpty else { return nil }
-                return Section(id: region.rawValue, title: region.label, accent: items[0].accent, items: items)
+            return bucket(rows, keys: TargetMuscle.Region.allCases, key: \.region) { region, items in
+                Section(id: region.rawValue, title: region.label, accent: items[0].accent, items: items)
             }
         case .muscle:
-            return TargetMuscle.allCases.compactMap { m in
-                let items = sorted(rows.filter { $0.primary.contains(m) })
-                guard !items.isEmpty else { return nil }
-                return Section(id: m.rawValue, title: m.label, accent: m.accent, items: items)
+            var buckets: [TargetMuscle: [ExerciseDefinition]] = [:]
+            for row in rows {
+                for muscle in row.primary {
+                    buckets[muscle, default: []].append(row)
+                }
+            }
+            return TargetMuscle.allCases.compactMap { muscle in
+                guard let items = buckets[muscle], !items.isEmpty else { return nil }
+                return Section(id: muscle.rawValue, title: muscle.label, accent: muscle.accent, items: items)
             }
         case .pattern:
-            return MovementPattern.allCases.compactMap { p in
-                let items = sorted(rows.filter { $0.pattern == p })
-                guard !items.isEmpty else { return nil }
-                return Section(id: p.rawValue, title: p.label, accent: items[0].accent, items: items)
+            return bucket(rows, keys: MovementPattern.allCases, key: \.pattern) { pattern, items in
+                Section(id: pattern.rawValue, title: pattern.label, accent: items[0].accent, items: items)
             }
         case .equipment:
-            return GearType.allCases.compactMap { g in
-                let items = sorted(rows.filter { $0.equipment == g })
-                guard !items.isEmpty else { return nil }
-                return Section(id: g.rawValue, title: g.label, accent: items[0].accent, items: items)
+            return bucket(rows, keys: GearType.allCases, key: \.equipment) { gear, items in
+                Section(id: gear.rawValue, title: gear.label, accent: items[0].accent, items: items)
             }
+        }
+    }
+
+    /// Compounds first, then A–Z. Shared so every grouping stays in the same order.
+    private static func catalogSorted(_ items: [ExerciseDefinition]) -> [ExerciseDefinition] {
+        items.sorted {
+            if $0.isCompound != $1.isCompound { return $0.isCompound && !$1.isCompound }
+            return $0.name < $1.name
+        }
+    }
+
+    private static func bucket<Key: Hashable>(
+        _ rows: [ExerciseDefinition],
+        keys: [Key],
+        key: (ExerciseDefinition) -> Key?,
+        section: (Key, [ExerciseDefinition]) -> Section
+    ) -> [Section] {
+        var buckets: [Key: [ExerciseDefinition]] = [:]
+        buckets.reserveCapacity(keys.count)
+        for row in rows {
+            guard let k = key(row) else { continue }
+            buckets[k, default: []].append(row)
+        }
+        return keys.compactMap { k in
+            guard let items = buckets[k], !items.isEmpty else { return nil }
+            return section(k, items)
         }
     }
 

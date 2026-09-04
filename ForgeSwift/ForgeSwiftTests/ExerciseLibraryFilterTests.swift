@@ -108,6 +108,19 @@ final class ExerciseLibraryFilterTests: XCTestCase {
         XCTAssertTrue(script.contains("Watch for") || bench.faults.isEmpty)
     }
 
+    func testGroupedByPatternKeepsEveryMove() {
+        let sections = ExerciseLibrary.grouped(query: "", muscle: nil, equipment: nil, pattern: nil, by: .pattern)
+        XCTAssertEqual(sections.flatMap(\.items).count, ExerciseLibrary.all.count)
+    }
+
+    func testFilterTreatsNilAsWildcard() {
+        let all = ExerciseLibrary.filter(query: "")
+        XCTAssertEqual(all.count, ExerciseLibrary.all.count)
+        let cables = ExerciseLibrary.filter(query: "", equipment: .cable)
+        XCTAssertFalse(cables.isEmpty)
+        XCTAssertTrue(cables.allSatisfy { $0.equipment == .cable })
+    }
+
     private static func fixtureContext() -> TrainerContext {
         TrainerContext(
             userProfile: UserProfile(

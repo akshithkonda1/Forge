@@ -6,6 +6,7 @@ import SwiftUI
 struct AuthWelcomeView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var page = 0
     @State private var appeared = false
@@ -174,6 +175,10 @@ struct AuthWelcomeView: View {
         }
         .onDisappear {
             autoAdvanceTask?.cancel()
+            AriaPresence.shared.stopSpeaking()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { AriaPresence.shared.stopSpeaking() }
         }
     }
 

@@ -312,6 +312,7 @@ enum SleepSoundKind: String, CaseIterable, Identifiable, Hashable {
     case binaural, hz432, deepFocus
 
     var id: String { rawValue }
+    static let storageKey = "forge.sleep.sound.kind.v1"
 
     var displayName: String {
         switch self {

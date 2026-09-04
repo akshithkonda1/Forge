@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import UIKit
 
 enum AROrbState: Equatable {
     case idle, listening, processing, speaking
@@ -25,7 +26,7 @@ final class AriaPresence: NSObject, ObservableObject, AVSpeechSynthesizerDelegat
 
     private let synthesizer = AVSpeechSynthesizer()
 
-    override init() {
+    private override init() {
         super.init()
         synthesizer.delegate = self
     }
@@ -37,27 +38,32 @@ final class AriaPresence: NSObject, ObservableObject, AVSpeechSynthesizerDelegat
     func speak(_ text: String) {
         let clipped = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clipped.isEmpty else { return }
-        if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .word) }
+        if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
         let utterance = AVSpeechUtterance(string: String(clipped.prefix(900)))
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = 0.52
-        utterance.pitchMultiplier = 0.95
-        try? AVAudioSession.sharedInstance().setCategory(.playback, options: [.duckOthers])
+        if UIAccessibility.isVoiceOverRunning {
+            utterance.prefersAssistiveTechnologySettings = true
+        } else {
+            utterance.rate = 0.52
+            utterance.pitchMultiplier = 0.95
+        }
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
+        try? AVAudioSession.sharedInstance().setActive(true)
         isSpeaking = true
         synthesizer.speak(utterance)
     }
 
     func stopSpeaking() {
-        synthesizer.stopSpeaking(at: .word)
+        synthesizer.stopSpeaking(at: .immediate)
         isSpeaking = false
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.isSpeaking = false }
+        Task { @MainActor [weak self] in self?.isSpeaking = false }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.isSpeaking = false }
+        Task { @MainActor [weak self] in self?.isSpeaking = false }
     }
 }
 
@@ -104,6 +110,7 @@ struct AuroraOrbView: View {
 
     @ObservedObject private var presence = AriaPresence.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     private var resolvedState: AROrbState {
         followPresence && presence.orbState != .idle ? presence.orbState : state
@@ -124,16 +131,22 @@ struct AuroraOrbView: View {
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: tick, paused: reduceMotion)) { timeline in
+        TimelineView(.animation(
+            minimumInterval: tick,
+            paused: reduceMotion || scenePhase != .active
+        )) { timeline in
             let t = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
             orb(at: t)
         }
         .frame(width: size, height: size)
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             resolvedState == .speaking ? "ARIA speaking"
                 : resolvedState == .listening ? "ARIA listening"
                 : "ARIA"
         )
+        .accessibilityAddTraits(resolvedState == .idle ? [] : .updatesFrequently)
     }
 
     private func orb(at t: TimeInterval) -> some View {

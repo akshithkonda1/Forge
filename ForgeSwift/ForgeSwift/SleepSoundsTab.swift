@@ -9,7 +9,7 @@ final class SleepWindDownPlayer: ObservableObject {
     @Published private(set) var isPlaying = false
     @Published private(set) var remainingSeconds = 0
     @Published private(set) var kind: SleepSoundKind = {
-        SleepSoundKind(rawValue: UserDefaults.standard.string(forKey: "forge.sleep.sound.kind.v1") ?? "") ?? .brown
+        SleepSoundKind(rawValue: UserDefaults.standard.string(forKey: SleepSoundKind.storageKey) ?? "") ?? .brown
     }()
     @Published var volume: Double = 0.75 {
         didSet { engine?.mainMixerNode.outputVolume = Float(volume) }
@@ -22,18 +22,30 @@ final class SleepWindDownPlayer: ObservableObject {
     }
 
     private var engine: AVAudioEngine?
-    private var tick: Timer?
+    private var countdown: Task<Void, Never>?
+    private var interruptionObserver: NSObjectProtocol?
+    private var wasInterrupted = false
     private let synth = SoundscapeState()
+
+    private init() {
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] note in
+            Task { @MainActor in self?.handleInterruption(note) }
+        }
+    }
 
     func start(kind: SleepSoundKind? = nil, minutes: Int = 30) {
         if let kind {
             self.kind = kind
-            UserDefaults.standard.set(kind.rawValue, forKey: "forge.sleep.sound.kind.v1")
+            UserDefaults.standard.set(kind.rawValue, forKey: SleepSoundKind.storageKey)
         }
         stop(deactivateSession: false)
         synth.reset(kind: self.kind)
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1) else { return }
         let engine = AVAudioEngine()
-        let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1)!
         let state = synth
         let source = AVAudioSourceNode { _, _, frameCount, audioBufferList -> OSStatus in
             let buffers = UnsafeMutableAudioBufferListPointer(audioBufferList)
@@ -58,19 +70,14 @@ final class SleepWindDownPlayer: ObservableObject {
         self.engine = engine
         remainingSeconds = max(1, minutes) * 60
         isPlaying = true
-        tick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self else { return }
-                self.remainingSeconds -= 1
-                self.engine?.mainMixerNode.outputVolume = Float(self.volume)
-                if self.remainingSeconds <= 0 { self.stop() }
-            }
-        }
+        wasInterrupted = false
+        startCountdown()
     }
 
     func stop(deactivateSession: Bool = true) {
-        tick?.invalidate()
-        tick = nil
+        countdown?.cancel()
+        countdown = nil
+        wasInterrupted = false
         engine?.stop()
         engine = nil
         isPlaying = false
@@ -78,6 +85,49 @@ final class SleepWindDownPlayer: ObservableObject {
         synth.reset(kind: kind)
         if deactivateSession {
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
+    }
+
+    private func startCountdown() {
+        countdown?.cancel()
+        countdown = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard let self, !Task.isCancelled else { return }
+                remainingSeconds -= 1
+                if remainingSeconds <= 0 { stop() }
+            }
+        }
+    }
+
+    private func handleInterruption(_ note: Notification) {
+        guard
+            let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+            let type = AVAudioSession.InterruptionType(rawValue: raw)
+        else { return }
+        switch type {
+        case .began:
+            guard isPlaying else { return }
+            wasInterrupted = true
+            countdown?.cancel()
+            countdown = nil
+            engine?.pause()
+        case .ended:
+            guard wasInterrupted, isPlaying else { return }
+            wasInterrupted = false
+            let options = AVAudioSession.InterruptionOptions(
+                rawValue: note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+            )
+            guard options.contains(.shouldResume) else { return }
+            do {
+                try AVAudioSession.sharedInstance().setActive(true)
+                try engine?.start()
+                startCountdown()
+            } catch {
+                stop()
+            }
+        @unknown default:
+            break
         }
     }
 }
@@ -92,13 +142,15 @@ final class SleepWakePlayer: ObservableObject {
     private var engine: AVAudioEngine?
     private let tone = WakeToneState()
 
+    private init() {}
+
     func start(for alarm: ForgeAlarm) {
         stop(deactivateSession: false)
         SleepWindDownPlayer.shared.stop(deactivateSession: false)
         let ramp = alarm.gradualVolume ? ForgeAlarmStore.shared.volumeRamp : .instant
         tone.reset(rampSeconds: ramp.rampSeconds)
         let engine = AVAudioEngine()
-        let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1)!
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1) else { return }
         let state = tone
         let source = AVAudioSourceNode { _, _, frameCount, audioBufferList -> OSStatus in
             let buffers = UnsafeMutableAudioBufferListPointer(audioBufferList)
@@ -141,17 +193,22 @@ final class SleepWakePlayer: ObservableObject {
 
 /// Audio-thread oscillator. Isolated from UI so the render callback stays off MainActor.
 private final class WakeToneState: @unchecked Sendable {
+    private let lock = NSLock()
     private var t: Double = 0
     private var frames: Int = 0
     private var rampFrames: Int = 8_820
 
     func reset(rampSeconds: Double) {
+        lock.lock()
+        defer { lock.unlock() }
         t = 0
         frames = 0
         rampFrames = max(1, Int(rampSeconds * 22_050))
     }
 
     func nextSample() -> Float {
+        lock.lock()
+        defer { lock.unlock() }
         frames += 1
         let env = min(1, Float(frames) / Float(rampFrames))
         let s1 = sin(2 * Double.pi * 392 * t)
@@ -164,6 +221,7 @@ private final class WakeToneState: @unchecked Sendable {
 
 /// Audio-thread soundscape. Isolated from UI so the render callback stays off MainActor.
 private final class SoundscapeState: @unchecked Sendable {
+    private let lock = NSLock()
     private var kind: SleepSoundKind = .brown
     private var t: Double = 0
     private var frames: Int = 0
@@ -176,6 +234,8 @@ private final class SoundscapeState: @unchecked Sendable {
     private let sr: Double = 22_050
 
     func reset(kind: SleepSoundKind) {
+        lock.lock()
+        defer { lock.unlock() }
         self.kind = kind
         t = 0
         frames = 0
@@ -187,6 +247,8 @@ private final class SoundscapeState: @unchecked Sendable {
     }
 
     func nextSample() -> Float {
+        lock.lock()
+        defer { lock.unlock() }
         frames += 1
         t += 1 / sr
         if t > 64 { t -= 64 }
@@ -293,9 +355,12 @@ struct SleepSoundsTab: View {
 
     let timerOptions = [15, 30, 45, 60, 90]
 
-    var filtered: [SleepSoundItem] {
-        guard let cat = selectedCategory else { return allSleepSounds }
-        return allSleepSounds.filter { $0.category == cat }
+    private var libraryGroups: [(category: SleepSoundCategory, items: [SleepSoundItem])] {
+        let cats = selectedCategory.map { [$0] } ?? Array(SleepSoundCategory.allCases)
+        return cats.compactMap { cat in
+            let items = allSleepSounds.filter { $0.category == cat }
+            return items.isEmpty ? nil : (cat, items)
+        }
     }
 
     var body: some View {
@@ -367,20 +432,29 @@ struct SleepSoundsTab: View {
                     }
                 }
 
-                LazyVStack(spacing: 10) {
-                    ForEach(filtered) { sound in
-                        SoundLibraryRow(
-                            sound: sound,
-                            isActive: player.isPlaying && player.kind == sound.kind,
-                            onTap: {
-                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                if player.isPlaying, player.kind == sound.kind {
-                                    player.stop()
-                                } else {
-                                    player.start(kind: sound.kind, minutes: sleepTimer)
-                                }
+                LazyVStack(alignment: .leading, spacing: 18) {
+                    ForEach(libraryGroups, id: \.category) { group in
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(group.category.rawValue.uppercased())
+                                .font(.system(size: 11, weight: .bold))
+                                .tracking(1.1)
+                                .foregroundColor(.textMuted)
+                                .accessibilityAddTraits(.isHeader)
+                            ForEach(group.items) { sound in
+                                SoundLibraryRow(
+                                    sound: sound,
+                                    isActive: player.isPlaying && player.kind == sound.kind,
+                                    onTap: {
+                                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                        if player.isPlaying, player.kind == sound.kind {
+                                            player.stop()
+                                        } else {
+                                            player.start(kind: sound.kind, minutes: sleepTimer)
+                                        }
+                                    }
+                                )
                             }
-                        )
+                        }
                     }
                 }
             }
@@ -428,6 +502,7 @@ struct SleepSoundsTab: View {
                     .foregroundColor(.textMuted)
                 Slider(value: $player.volume, in: 0...1)
                     .tint(player.kind.color)
+                    .accessibilityLabel("Volume")
                 Image(systemName: "speaker.wave.3.fill")
                     .font(.system(size: 11))
                     .foregroundColor(.textMuted)
@@ -437,6 +512,8 @@ struct SleepSoundsTab: View {
         .background(Color.surface)
         .cornerRadius(18)
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color(hex: "6366F1").opacity(0.3), lineWidth: 1))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Now playing \(player.kind.displayName), \(player.remainingLabel)")
     }
 }
 
@@ -484,22 +561,26 @@ struct SoundLibraryRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(sound.name). \(sound.blurb)")
+        .accessibilityHint(isActive ? "Stops playback" : "Plays this sound")
         .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 }
 
 struct SoundWaveformBadge: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
-        TimelineView(.animation) { tl in
-            let t = tl.date.timeIntervalSinceReferenceDate
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: reduceMotion)) { tl in
+            let t = reduceMotion ? 0 : tl.date.timeIntervalSinceReferenceDate
             HStack(spacing: 2) {
                 ForEach(0..<6, id: \.self) { i in
-                    let h = 4 + 8 * abs(sin(t * 3 + Double(i) * 0.7))
+                    let h = reduceMotion ? 8.0 : 4 + 8 * abs(sin(t * 3 + Double(i) * 0.7))
                     RoundedRectangle(cornerRadius: 1)
                         .fill(Color(hex: "6366F1").opacity(0.7))
                         .frame(width: 2, height: CGFloat(h))
                 }
             }
         }
+        .accessibilityHidden(true)
     }
 }

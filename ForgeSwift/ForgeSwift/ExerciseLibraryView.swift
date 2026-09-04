@@ -86,6 +86,7 @@ struct ExerciseLibraryView: View {
                     Text(section.title)
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(.textPrimary)
+                        .accessibilityAddTraits(.isHeader)
                     Text("\(section.items.count)")
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
                         .foregroundColor(.textMuted)
@@ -143,6 +144,9 @@ struct ExerciseLibraryView: View {
             Image(systemName: "magnifyingglass").font(.system(size: 15)).foregroundColor(.textMuted)
             TextField("Search movements, muscles, gear…", text: $query)
                 .font(.system(size: 15)).foregroundColor(.textPrimary).tint(.ember)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .accessibilityLabel("Search movements")
             if !query.isEmpty {
                 Button { query = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 15)).foregroundColor(.textMuted) }
             }
