@@ -3,7 +3,7 @@
 This plan is based on the current repository state:
 
 - The web and iOS clients are fully mock-data driven today.
-- The deployed backend shape is an AWS HTTP API backed by a Python Lambda in `infra/terraform/lambda`.
+- The deployed backend shape is an AWS HTTP API backed by a Python Lambda in `backend/infra/lambda`.
 - Terraform already provisions Cognito, a single-table DynamoDB table, an uploads S3 bucket, Secrets Manager, CloudWatch logs, and a Bedrock AI router endpoint.
 - The top-level README describes a TypeScript backend, but the working backend code is currently Python Lambda. The next backend work should extend the working Lambda path unless the team explicitly decides to migrate runtime later.
 
@@ -30,7 +30,7 @@ Current routes:
 - `ANY /`
 - `ANY /{proxy+}`
 
-Next route work should happen in `infra/terraform/lambda/handler.py` with internal modules split out once handler size grows.
+Next route work should happen in `backend/infra/lambda/handler.py` with internal modules split out once handler size grows.
 
 ### Cognito
 
@@ -153,7 +153,7 @@ Provider-specific OAuth and sync jobs should be added after the core domain API 
 Recommended Lambda source layout:
 
 ```text
-infra/terraform/lambda/
+backend/infra/lambda/
   handler.py
   ai_router.py
   auth.py
@@ -203,7 +203,7 @@ Keep route handlers thin. Put validation, scoring, and persistence behind servic
 
 ## Test Coverage
 
-`tests/test_backend_handler.py` covers Phase 1 routes, ingestion accept/reject, sleep + workout post-then-list round trips, integration sync stub, coach routes (with router stub + failure path), and the scoring service primitives.
+`backend/tests/test_backend_handler.py` covers Phase 1 routes, ingestion accept/reject, sleep + workout post-then-list round trips, integration sync stub, coach routes (with router stub + failure path), and the scoring service primitives.
 
 ## Testing Plan
 

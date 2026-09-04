@@ -1,0 +1,178 @@
+# Fails if any cloud-sync conflict copy (iCloud "Foo 3.swift", Drive "Foo (1).ts",
+# Dropbox "Foo (Case Conflict).py", Finder "Foo copy.swift") is committed.
+#
+# 111 of these reached main in a single commit before this check existed: the
+# merge was made from a working tree inside an iCloud-synced folder, and `git add`
+# swept the conflict copies in alongside the real changes. Nothing referenced
+# them, so no build broke and nothing flagged it.
+#
+# No branch filter and no path filter — this is a filename scan with no build
+# step, so it costs seconds and should gate every push and every pull request.
+
+name: Repo Hygiene
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repo-hygiene-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conflict-copies:
+    name: No file-sync conflict copies
+    runs-on: ubuntu-latest
+
+    steps:
+      # Actions must be pinned to a full-length commit SHA (repo policy).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - name: Scan tracked files
+        run: scripts/check-conflict-copies.sh
+
+  xcode-project:
+    name: Xcode project structure
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # project.pbxproj is hand-edited in this repo, and its two nastiest
+      # failures — a source file in no target, a build file pointing at a
+      # deleted reference — are invisible on Linux and produce either a macOS
+      # build failure ten minutes later or, worse, a file that silently never
+      # compiles. This decides both from the text, in about a second.
+      - name: Validate project.pbxproj
+        run: python3 scripts/check-pbxproj.py
+
+  partner-redaction:
+    name: Partner redaction boundary
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # Supporter-facing code must never name MenstrualCycleSnapshot, and the
+      # Messages extension must never gain a purchase check. Neither is
+      # expressible in the type system, and both are the kind of regression that
+      # looks like an ordinary feature commit in review.
+      - name: Check partner-visible surfaces
+        run: scripts/check-partner-redaction.sh
+
+  duplicate-decls:
+    name: No duplicate Swift declarations
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # A function pasted twice into the same type is an 'invalid redeclaration'
+      # error that only appears on macOS, minutes into a build, and blocks every
+      # branch until someone removes it. It reached main once already. This is
+      # the same finding in about a second, on Linux, before merge.
+      - name: Scan for redeclarations
+        run: python3 scripts/check-duplicate-decls.py
+
+  extension-access:
+    name: Access across extension splits
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # Splitting a class into Type.swift + Type+Concern.swift changes what
+      # `private` means: from "this type" to "this file". A private member read
+      # from a sibling stops resolving, and a `private(set)` property assigned
+      # from a sibling reads fine and fails only on the write — which is not
+      # something a diff shows you. Both have already cost a macOS CI round
+      # trip on this branch.
+      - name: Scan for file-scoped access across a split type
+        run: python3 scripts/check-extension-access.py ForgeSwift
+
+  usage-strings:
+    name: Permission usage strings
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # A permission-gated API without its Info.plist usage string is not a
+      # warning and not a denied permission — iOS sends SIGABRT the moment the
+      # API is touched, so the app dies on the user's first tap. Nothing in a
+      # build or a simulator run surfaces it. Three of these reached main:
+      # microphone and speech recognition behind the voice coach, and contacts
+      # behind "Find Workout Buddies".
+      - name: Check usage strings
+        run: python3 scripts/check-usage-strings.py
+
+  client-config:
+    name: Client configuration consistency
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # Info-Add.plist carries the API base URL, Cognito ids and environment
+      # name that ForgeAuthConfig reads at launch. The committed values are dev
+      # placeholders — http://127.0.0.1:3001 and empty Cognito fields — which is
+      # correct for a dev build and fatal for a shipped one: loopback is
+      # unreachable from a device, so every request fails and sign-in cannot
+      # work at all. This does not demand real values on every branch; it fails
+      # only when the plist contradicts itself, which is the shape the mistake
+      # takes — an archive labelled prod still pointing at localhost, or an
+      # environment name misspelled into the permissive bucket.
+      - name: Check client configuration
+        run: python3 scripts/generate_client_config.py --check
+
+  package-sources:
+    name: SwiftPM sources lists
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # ForgeCore's Package.swift names every file instead of letting SwiftPM
+      # walk the directory, to avoid picking up Finder " 2.swift" duplicates.
+      # The cost is a second place to remember, and forgetting it fails silently
+      # in the direction that matters: an unlisted source is never compiled, and
+      # an unlisted *test* is never run while `swift test` still reports success.
+      # Nothing goes red. That nearly happened on the commit adding
+      # SessionClockTests, CompanionConfigTests and WorkoutCoachingTests — a
+      # change whose whole point was to end "these managers have no tests".
+      - name: Check SwiftPM sources lists
+        run: python3 scripts/check-package-sources.py
+
+  widget-bundles:
+    name: Widget bundle registration
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # WidgetKit only shows what the bundle lists, so a widget that is on
+      # disk, in the Xcode target and compiling can still be invisible on
+      # every device. There is no build error and no failing test — the
+      # feature is simply gone. #155 and #156 both added a complication on
+      # the same line of ForgeWatchWidgetBundle.body; the merge kept one, and
+      # every other gate stayed green while the watch face lost hydration.
+      - name: Check widget bundle registration
+        run: python3 scripts/check-widget-bundles.py
+
+  aria-web-research:
+    name: ARIA web research stays local-testing-only
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # LocalTestingOrchestrator's own doc comment promises it holds no
+      # network transport — AriaWebResearch is the one intentional, isolated
+      # exception (a curated, keyless fetch gated to local testing). Neither
+      # half of that design fails a build or a test if it quietly erodes: a
+      # future URLSession creeping into the orchestrator directly, or
+      # AriaWebResearch getting called from somewhere that isn't actually
+      # gated behind AriaOperatingMode.isLocalTesting, both compile clean.
+      - name: Check AriaWebResearch stays isolated
+        run: python3 scripts/check-aria-web-research.py

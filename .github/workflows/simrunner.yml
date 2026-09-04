@@ -3,14 +3,17 @@
 
 name: SimRunner
 
+# Runs on every branch and every pull request — main included. Path filters scope
+# it to SimRunner; there is deliberately no branch filter.
 on:
   push:
-    branches: ["claude/forge-fitness-frontend-TwlOQ"]
     paths:
+      - "backend/ai/**"
       - "backend/simrunner/**"
       - ".github/workflows/simrunner.yml"
   pull_request:
     paths:
+      - "backend/ai/**"
       - "backend/simrunner/**"
       - ".github/workflows/simrunner.yml"
 
@@ -27,15 +30,15 @@ jobs:
 
     steps:
       # Actions must be pinned to a full-length commit SHA (repo policy).
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       # No setup-python: the harness is stdlib-only and Python 3.10+, so the
       # runner's system python3 (3.12 on ubuntu-24.04) is sufficient.
       - name: Unit + property + determinism tests
-        run: python3 -m unittest discover -s backend/simrunner/tests -p "test_*.py" -v
+        run: python3 -m unittest discover -s backend/ai/simrunner/tests -p "test_*.py" -v
 
       - name: Tier-1 smoke (offline, no network, no tokens)
-        run: python3 -m backend.simrunner
+        run: python3 -m backend.ai.simrunner
 
       # Regression gate: the full suite is re-graded against the committed golden
       # baselines and the run fails if any model's composite drops past
@@ -45,4 +48,4 @@ jobs:
       - name: Regression gate (all 20 archetypes vs committed baseline)
         env:
           SIMRUNNER_TODAY: "2026-01-15"
-        run: python3 -m backend.simrunner --all --gate
+        run: python3 -m backend.ai.simrunner --all --gate

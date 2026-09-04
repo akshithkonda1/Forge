@@ -11,6 +11,9 @@ __pycache__/
 # next.js
 /.next/
 /out/
+# Next.js auto-generates these AI agent rule files on `next dev` (agentRules).
+/AGENTS.md
+/CLAUDE.md
 
 # production
 /build
@@ -44,11 +47,24 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+backend/infra/build/*.zip
 infra/terraform/build/*.zip
 
 # xcode
-*.xcuserdata/
+# Per-user IDE state. The previous pattern `*.xcuserdata/` only matched
+# directories *ending in* ".xcuserdata" — the real directory is plain
+# "xcuserdata", so this never matched and the state was committed.
+xcuserdata/
+*.xcuserdatad/
 *.xcuserstate
+*.xcscmblueprint
+DerivedData/
+.swiftpm/xcode/xcuserdata/
 
 # simrunner generated reports
+backend/ai/simrunner/reports/
 backend/simrunner/reports/
+
+# Accidental nested monorepo clone (use ForgeWidget/ for widgets)
+/Forge/
+ForgeSwift/ForgeCore/.build/

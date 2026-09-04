@@ -18,12 +18,33 @@ enum FDS {
     // MARK: - Radius
     
     enum Radius {
-        static let xs:   CGFloat = 4
-        static let sm:   CGFloat = 8
-        static let md:   CGFloat = 12
-        static let lg:   CGFloat = 16
-        static let xl:   CGFloat = 20
+        static let xs:   CGFloat = 6
+        static let sm:   CGFloat = 10
+        static let md:   CGFloat = 14
+        static let lg:   CGFloat = 18
+        static let xl:   CGFloat = 22
+        static let xxl:  CGFloat = 28
         static let pill: CGFloat = 999
+    }
+
+    // MARK: - Type
+
+    enum TypeScale {
+        static func display(_ size: CGFloat = 32) -> Font {
+            .system(size: size, weight: .semibold, design: .rounded)
+        }
+        static func title(_ size: CGFloat = 22) -> Font {
+            .system(size: size, weight: .semibold, design: .rounded)
+        }
+        static func body(_ size: CGFloat = 15) -> Font {
+            .system(size: size, weight: .regular, design: .default)
+        }
+        static func label(_ size: CGFloat = 12) -> Font {
+            .system(size: size, weight: .semibold, design: .rounded)
+        }
+        static func micro(_ size: CGFloat = 10) -> Font {
+            .system(size: size, weight: .semibold, design: .rounded)
+        }
     }
     
     // MARK: - Duration
@@ -45,27 +66,53 @@ enum FDS {
         static let hero     = Animation.spring(response: 0.45, dampingFraction: 0.70)
         static let floaty   = Animation.spring(response: 0.55, dampingFraction: 0.65)
         static let page     = Animation.spring(response: 0.40, dampingFraction: 0.80)
+        /// Slow inhale — used for ARIA reveals and orb breath.
+        static let fluid    = Animation.spring(response: 0.82, dampingFraction: 0.78)
     }
     
     // MARK: - Gradients
     
     enum Gradient {
         static let ember = LinearGradient(
-            colors: [Color.ember, Color.emberLight],
+            colors: [Color.emberLight, Color.ember, Color.emberDark],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
         
         static let emberDeep = LinearGradient(
-            colors: [Color(hex: "FF4D00"), Color(hex: "E84000"), Color(hex: "CC3D00")],
+            colors: [Color(hex: "FF6B2B"), Color(hex: "FF4D00"), Color(hex: "C43A00")],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
         
         static let steel = LinearGradient(
-            colors: [Color.steel, Color.steelLight],
+            colors: [Color.steelLight, Color.steel, Color.steelDark],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
+        )
+
+        static let aurora = LinearGradient(
+            colors: [Color.ember.opacity(0.9), Color.aurora, Color.steel.opacity(0.85)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
+        static let chrome = LinearGradient(
+            colors: [Color.white.opacity(0.14), Color.white.opacity(0.04), Color.clear],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+
+        static let neon = LinearGradient(
+            colors: [Color(hex: "00D2FF"), Color(hex: "7B61FF"), Color(hex: "FF2D55")],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
+        static let glass = LinearGradient(
+            colors: [Color.white.opacity(0.12), Color.white.opacity(0.02)],
+            startPoint: .top,
+            endPoint: .bottom
         )
     }
     

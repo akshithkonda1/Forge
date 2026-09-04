@@ -169,6 +169,12 @@ struct AriaChatRequest: Codable {
     var recentMetrics: [String: Double]?
     var permissions: [String: Bool]?
     var voiceMode: Bool?
+    /// `insight` = short Lifestyle card. Backend skips Bedrock + Dynamo writes.
+    var mode: String? = nil
+    /// Specialist coach (`aria` / `train` / `recover` / `fuel` / `life` / `cycle`).
+    var agent: String? = nil
+    /// Every specialist on this turn. One live call covers the list.
+    var agents: [String]? = nil
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
@@ -177,6 +183,9 @@ struct AriaChatRequest: Codable {
         case recentMetrics = "recent_metrics"
         case permissions
         case voiceMode = "voice_mode"
+        case mode
+        case agent
+        case agents
     }
 }
 

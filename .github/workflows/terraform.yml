@@ -1,15 +1,17 @@
 name: 'Terraform'
 
+# Checks (fmt / validate / plan with -backend=false) run on every branch and every
+# pull request. The live apply is gated separately inside the terraform-apply job,
+# so widening this trigger does not widen who can deploy.
 on:
   push:
-    branches: [ "claude/forge-fitness-frontend-TwlOQ" ]
     paths:
       - '.github/workflows/terraform.yml'
-      - 'infra/terraform/**'
+      - 'backend/infra/**'
   pull_request:
     paths:
       - '.github/workflows/terraform.yml'
-      - 'infra/terraform/**'
+      - 'backend/infra/**'
   workflow_dispatch:
     inputs:
       run_apply:
@@ -27,7 +29,13 @@ concurrency:
 
 env:
   AWS_REGION: us-east-1
-  TF_WORKING_DIR: infra/terraform
+  TF_WORKING_DIR: backend/infra
+  # var.environment has no default on purpose: it decides whether the API accepts
+  # unsigned dev-override tokens and whether seeded demo data stands in for real
+  # health metrics. Naming it here keeps that choice visible at the deploy
+  # definition instead of buried in a variable default. Change this to "prod"
+  # when this workflow is the thing deploying the production stack.
+  TF_VAR_environment: dev
 
 jobs:
   terraform-checks:
@@ -44,7 +52,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
@@ -76,20 +84,37 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: 1.15.0
 
+      # Gated on `main`, which is the branch that actually exists.
+      #
+      # This previously gated on refs/heads/claude/forge-fitness-frontend-TwlOQ,
+      # a scaffold branch long since deleted, so the condition could never be
+      # true: this step never ran, the apply step below depends on its outcome,
+      # and Terraform has therefore never deployed from CI at all. Every run
+      # quietly took the plan-only path and reported success.
+      #
+      # What this now does on a push to main: apply to the environment named by
+      # TF_VAR_environment at the top of this file, which is `dev`. Still doubly
+      # gated — `continue-on-error` here means an environment with no AWS
+      # secrets configured skips the apply and falls through to plan validation
+      # rather than failing. Pull requests never apply.
+      #
+      # Before pointing this at production, change TF_VAR_environment to "prod"
+      # deliberately: it decides whether the API accepts unsigned dev-override
+      # tokens and whether seeded demo data stands in for real health metrics.
       - name: Configure AWS credentials
         id: aws-creds
         if: >-
-          (github.event_name == 'push' && github.ref == 'refs/heads/claude/forge-fitness-frontend-TwlOQ')
+          (github.event_name == 'push' && github.ref == 'refs/heads/main')
           || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
         continue-on-error: true
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v4
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v4
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
@@ -105,7 +130,7 @@ jobs:
         if: >-
           steps.aws-creds.outcome == 'success'
           && (
-            (github.event_name == 'push' && github.ref == 'refs/heads/claude/forge-fitness-frontend-TwlOQ')
+            (github.event_name == 'push' && github.ref == 'refs/heads/main')
             || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
           )
         env:

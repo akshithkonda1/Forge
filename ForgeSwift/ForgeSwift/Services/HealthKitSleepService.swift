@@ -1,5 +1,8 @@
 import Foundation
 import HealthKit
+import UIKit
+import CoreGraphics
+import ForgeCore
 
 /// Chronotype-aware sleep intelligence: HealthKit ingestion, scoring, adaptive wake/sunrise, and ARIA context.
 @MainActor
@@ -9,6 +12,22 @@ final class HealthKitSleepService: ObservableObject {
     @Published var userProfile: UserSleepProfile
     @Published var currentSunriseConfig: AdaptiveSunriseConfig
     @Published private(set) var isAuthorized = false
+
+    /// Lazy ARIA notes for the Sleep tab's cards — one per card, fired only
+    /// once that card actually appears, guarded on the note already being
+    /// set. Same pattern as `LifestyleViewModel`'s `refreshMealNote` family:
+    /// nil means "show the local heuristic," never a fake "LIVE" badge.
+    @Published var aiBedtimeNote: String?
+    @Published var aiGoalsNote: String?
+    @Published var aiRecommendationsNote: String?
+
+    /// Result of the last room-photo read from `/sleep/environment-check`.
+    /// nil after a call means the backend declined (Bedrock off, or the
+    /// call failed) — the card falls back to its local, data-driven read
+    /// rather than inventing an assessment of a photo nobody analyzed.
+    @Published var environmentAssessment: String?
+    @Published private(set) var isAnalyzingEnvironment = false
+    @Published var environmentCheckError: String?
 
     private let healthKit = HealthKitManager.shared
 
@@ -40,13 +59,15 @@ final class HealthKitSleepService: ObservableObject {
     func fetchRecentSleepData(days: Int = 14) async -> [SleepData] {
         guard isAuthorized || healthKit.isAuthorized else { return [] }
         let sessions = await healthKit.fetchRecentSleepSessions(days: days)
+        let recentWakes = sessions.compactMap(\.wake)
         return sessions.map { session in
             let scored = scoreNight(
                 totalHours: session.totalHours,
                 deepMinutes: session.deepMinutes,
                 remMinutes: session.remMinutes,
                 awakeMinutes: session.awakeMinutes,
-                profile: userProfile
+                profile: userProfile,
+                recentWakes: recentWakes
             )
             return SleepData(
                 date: session.date,
@@ -55,7 +76,9 @@ final class HealthKitSleepService: ObservableObject {
                 remMinutes: session.remMinutes,
                 lightMinutes: session.lightMinutes,
                 awakeMinutes: session.awakeMinutes,
-                score: scored
+                score: scored,
+                onset: session.onset,
+                wake: session.wake
             )
         }
     }
@@ -65,7 +88,8 @@ final class HealthKitSleepService: ObservableObject {
         deepMinutes: Int,
         remMinutes: Int,
         awakeMinutes: Int,
-        profile: UserSleepProfile
+        profile: UserSleepProfile,
+        recentWakes: [Date] = []
     ) -> Int {
         let chronotype = profile.chronotype
         let targetHours = chronotype.targetSleepHours
@@ -79,21 +103,51 @@ final class HealthKitSleepService: ObservableObject {
             ? max(0, ((totalMinutes - Double(awakeMinutes)) / totalMinutes) * 100)
             : 0
 
+        // Same spread→confidence map as CircadianRhythm.phase: a 3-hour circular
+        // SD is "no schedule". Under five wakes there is not enough signal, so
+        // keep the old neutral 80 rather than punish a new user for missing data.
+        let consistency: Double
+        if recentWakes.count >= 5 {
+            let spread = CircadianRhythm.circularSpread(recentWakes.map { CircadianRhythm.hourOfDay($0) })
+            consistency = max(0, min(100, (1 - spread / 3.0) * 100))
+        } else {
+            consistency = 80
+        }
+
         let weighted = durationScore * 0.35
             + deepScore * 0.25
             + remScore * 0.20
             + efficiency * 0.15
-            + 80 * 0.05 // consistency placeholder until wake-time samples exist
+            + consistency * 0.05
 
         return min(100, max(0, Int(weighted.rounded())))
     }
 
     // MARK: - Sleep Debt
 
+    /// Hours of sleep owed over the trailing fortnight.
+    ///
+    /// Two things changed here relative to the obvious version, both because the
+    /// obvious version reads better than it behaves:
+    ///
+    /// Summing a week and subtracting a target lets a surplus cancel a deficit,
+    /// so a ten-hour Saturday erases two ruined weeknights and the figure says
+    /// you are fine. Debt is per-night and one-directional; you cannot sleep
+    /// ahead.
+    ///
+    /// And the target is estimated from the user's own best nights rather than
+    /// read off their chronotype. A chronotype is a phase preference — when you
+    /// sleep — not a quantity. Two bears do not need the same eight hours.
     func computeSleepDebt(from sleepData: [SleepData]) -> Double {
-        let target = userProfile.chronotype.targetSleepHours
-        let actual = sleepData.prefix(7).reduce(0.0) { $0 + $1.totalHours }
-        return max(0, target * 7 - actual)
+        // `sleepData` arrives newest-first; the engine's window is a suffix.
+        let durations = Array(sleepData.map(\.totalHours).reversed())
+        let need = CircadianRhythm.sleepNeedHours(fromAsleepHours: durations)
+        return CircadianRhythm.sleepDebtHours(asleepHours: durations, need: need)
+    }
+
+    func estimatedSleepNeed(from sleepData: [SleepData]) -> Double {
+        let durations = Array(sleepData.map(\.totalHours).reversed())
+        return CircadianRhythm.sleepNeedHours(fromAsleepHours: durations)
     }
 
     func targetSleepHours() -> Double {
@@ -195,39 +249,12 @@ final class HealthKitSleepService: ObservableObject {
         ]
     }
 
-    // MARK: - Achievements
+    // MARK: - Streak
 
-    func computeAchievements(from sleepData: [SleepData]) -> [SleepAchievementState] {
-        let streak = sleepData.prefix(while: { $0.score >= 75 }).count
-        let avgDeep = sleepData.prefix(7).map(\.deepMinutes).reduce(0, +) / max(1, min(7, sleepData.count))
-        let perfectWeek = sleepData.prefix(7).count == 7 && sleepData.prefix(7).allSatisfy { $0.score >= 85 }
-
-        return [
-            SleepAchievementState(
-                id: "perfect-week",
-                title: "Perfect Week",
-                description: "7 days of 85+ scores",
-                unlocked: perfectWeek,
-                progress: Double(min(streak, 7)) / 7,
-                colorName: "ember"
-            ),
-            SleepAchievementState(
-                id: "deep-sleeper",
-                title: "Deep Sleeper",
-                description: "90+ min deep avg",
-                unlocked: avgDeep >= 90,
-                progress: min(1, Double(avgDeep) / 90),
-                colorName: "steel"
-            ),
-            SleepAchievementState(
-                id: "consistency",
-                title: "Consistency",
-                description: "7-day good-sleep streak",
-                unlocked: streak >= 7,
-                progress: Double(min(streak, 7)) / 7,
-                colorName: "success"
-            ),
-        ]
+    /// Consecutive most-recent nights scoring 75+. `sleepData` arrives
+    /// newest-first, so this is a straight prefix count, not a scan.
+    func computeGoodSleepStreak(from sleepData: [SleepData]) -> Int {
+        sleepData.prefix(while: { $0.score >= 75 }).count
     }
 
     // MARK: - Recommendations
@@ -312,6 +339,91 @@ final class HealthKitSleepService: ObservableObject {
         return recs
     }
 
+    // MARK: - ARIA notes
+
+    /// Lazy ARIA "why tonight" note for `AISleepPredictionCard` — the numeric
+    /// bedtime itself comes from `EnergySchedule` (real circadian modeling,
+    /// no LLM needed); this is the natural-language reasoning layered on top.
+    func refreshBedtimeNote(store: AppStore, schedule: EnergySchedule) async {
+        guard aiBedtimeNote == nil else { return }
+        let prompt = """
+        Tonight's bedtime works out to \(EnergySchedule.clockLabel(schedule.phase.onsetHour)), \
+        with \(String(format: "%.1f", schedule.debtHours))h of sleep debt over the last \
+        \(schedule.nightsUsed) nights. In one sentence, why does tonight specifically call for that time?
+        """
+        let resp = await store.ariaInsight(prompt: prompt, agent: .sleep)
+        aiBedtimeNote = resp.map { $0.proseSummary ?? $0.message }
+    }
+
+    /// Lazy ARIA coaching note for `AIPersonalizedGoalsView` — the goal
+    /// progress bars are already real (`computeAdaptiveGoals`); this adds
+    /// the "so what" ARIA would say about where they stand.
+    func refreshGoalsNote(store: AppStore, goals: [AdaptiveSleepGoal]) async {
+        guard aiGoalsNote == nil, let behind = goals.min(by: { ($0.current / max(0.01, $0.target)) < ($1.current / max(0.01, $1.target)) }) else { return }
+        let prompt = """
+        Of my sleep goals, \(behind.title) is furthest off — \(String(format: "%.1f", behind.current)) \
+        of \(String(format: "%.1f", behind.target)) \(behind.unit). In one sentence, what's the single \
+        highest-leverage change to close that gap?
+        """
+        let resp = await store.ariaInsight(prompt: prompt, agent: .sleep)
+        aiGoalsNote = resp.map { $0.proseSummary ?? $0.message }
+    }
+
+    /// Lazy ARIA note for `AISmartRecommendationsView` — layered on top of
+    /// the real chronotype-driven `chronotypeRecommendations(debt:)` list,
+    /// same "heuristic list + one ARIA sentence" shape as the goals note.
+    func refreshRecommendationsNote(store: AppStore, debt: Double) async {
+        guard aiRecommendationsNote == nil else { return }
+        let prompt = """
+        \(chronotypeInsightPrefix())and \(String(format: "%.1f", debt))h of sleep debt this week, \
+        what's the one thing I should actually change tonight? One sentence, specific, not generic advice.
+        """
+        let resp = await store.ariaInsight(prompt: prompt, agent: .sleep)
+        aiRecommendationsNote = resp.map { $0.proseSummary ?? $0.message }
+    }
+
+    // MARK: - Environment (vision)
+
+    /// Sends a real photo of the room to `/sleep/environment-check`, which
+    /// now actually reads it (`BedrockGateway.converse` carries an image
+    /// content block; see `ai_router.py`). No fabricated readings — a nil
+    /// `environmentAssessment` after this call means the backend declined
+    /// (Bedrock off, or the call failed), and the card shows its local,
+    /// data-driven read instead rather than inventing a description of the room.
+    func analyzeSleepEnvironment(image: UIImage) async {
+        isAnalyzingEnvironment = true
+        defer { isAnalyzingEnvironment = false }
+
+        guard let jpeg = image.downscaledJPEG(maxDimension: 1024, quality: 0.55) else {
+            environmentCheckError = "Couldn't read that photo — try another."
+            return
+        }
+
+        do {
+            guard let url = URL(string: "sleep/environment-check", relativeTo: AriaService.shared.baseURL) else {
+                throw ForgeAPI.Failure.notConfigured
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 30
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["image_base64": jpeg.base64EncodedString()])
+
+            let (data, _) = try await ForgeAPI.send(request)
+            let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+            guard (json["available"] as? Bool) == true, let text = json["assessment"] as? String else {
+                environmentAssessment = Self.localEnvironmentRead(image: image)
+                environmentCheckError = nil
+                return
+            }
+            environmentAssessment = text
+            environmentCheckError = nil
+        } catch {
+            environmentAssessment = Self.localEnvironmentRead(image: image)
+            environmentCheckError = nil
+        }
+    }
+
     // MARK: - Profile
 
     func updateProfile(_ profile: UserSleepProfile) {
@@ -339,51 +451,48 @@ final class HealthKitSleepService: ObservableObject {
         return "As a \(chronotype.displayName) (\(chronotype.tagline)), "
     }
 
-    // MARK: - ARIA Context (local string for future backend)
-
-    func buildARIAContext(sleepData: [SleepData], store: AppStore) -> String {
-        let debt = computeSleepDebt(from: sleepData)
-        let latest = sleepData.first
-        let efficiency: String = {
-            guard let latest else { return "n/a" }
-            let total = latest.totalHours * 60
-            guard total > 0 else { return "n/a" }
-            return "\(Int(((total - Double(latest.awakeMinutes)) / total) * 100))%"
-        }()
-
-        var lines: [String] = [
-            "CHRONOTYPE: \(userProfile.chronotype.displayName)",
-            "TARGET_SLEEP: \(userProfile.chronotype.targetSleepHours)h | DEBT_7D: \(String(format: "%.1f", debt))h",
-        ]
-
-        if let latest {
-            lines.append(
-                "LAST_NIGHT: score \(latest.score), deep \(latest.deepMinutes)m, REM \(latest.remMinutes)m, efficiency \(efficiency)"
-            )
+    /// On-device room read when Bedrock is off — brightness + clock, labeled as local.
+    private static func localEnvironmentRead(image: UIImage) -> String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let dark = averageBrightness(image) < 0.30
+        if hour >= 22 || hour < 5 {
+            return dark
+                ? "On this phone: the frame looks dim and it's late — that's a real wind-down window. Keep it that way."
+                : "On this phone: it's late but the frame looks bright. Dim the space if you can."
         }
+        return dark
+            ? "On this phone: the room already looks dim. Protect that last hour — cooler, quieter."
+            : "On this phone: I read the photo locally. Darker and quieter in the last hour helps the night land."
+    }
 
-        if !userProfile.personality.isEmpty {
-            lines.append("PERSONALITY: \(userProfile.personality)")
+    private static func averageBrightness(_ image: UIImage) -> CGFloat {
+        guard let cg = image.cgImage else { return 0.5 }
+        let width = 16, height = 16
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        guard let ctx = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return 0.5 }
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
+        var total: CGFloat = 0
+        let count = width * height
+        for i in 0..<count {
+            let o = i * 4
+            total += (CGFloat(pixels[o]) + CGFloat(pixels[o + 1]) + CGFloat(pixels[o + 2])) / (3 * 255)
         }
-        if !userProfile.notes.isEmpty {
-            lines.append("LIFESTYLE_NOTES: \(userProfile.notes)")
-        }
-
-        lines.append("SUNRISE: \(currentSunriseConfig.durationMinutes)min, temp \(String(format: "%.2f", currentSunriseConfig.colorTemp)), intensity \(String(format: "%.2f", currentSunriseConfig.intensity))")
-        lines.append("READINESS: overall \(store.readiness.overall), sleep quality \(store.readiness.sleepQuality)")
-
-        let recs = chronotypeRecommendations(debt: debt).prefix(3).map { "- \($0.title): \($0.description)" }
-        if !recs.isEmpty {
-            lines.append("RECOMMENDATIONS:")
-            lines.append(contentsOf: recs)
-        }
-
-        return lines.joined(separator: "\n")
+        return total / CGFloat(count)
     }
 
     private func formatHour(_ hour: Double) -> String {
-        let h = Int(hour) % 24
-        let m = Int((hour - Double(Int(hour))) * 60)
+        // Wrap into [0, 24) so a computed pre-midnight hour (e.g. 7 - 8 = -1) reads as 11 PM, not "-1 AM".
+        let norm = (hour.truncatingRemainder(dividingBy: 24) + 24).truncatingRemainder(dividingBy: 24)
+        let h = Int(norm) % 24
+        let m = Int((norm - Double(Int(norm))) * 60)
         let period = h >= 12 ? "PM" : "AM"
         let display = h % 12 == 0 ? 12 : h % 12
         return m > 0 ? "\(display):\(String(format: "%02d", m)) \(period)" : "\(display) \(period)"

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ActiveWorkoutView } from "./active-workout-view";
 
 export function WorkoutPage() {
-  const { todayWorkout, activeWorkout, startWorkout } = useAppStore();
+  const { todayWorkout, activeWorkout, startWorkout, setActiveTab } = useAppStore();
 
   return (
     <AnimatePresence mode="wait">
@@ -29,7 +29,7 @@ export function WorkoutPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.35 }}
-          className="flex flex-col items-center justify-center min-h-[100dvh] bg-[#0A0A0A] px-6"
+          className="flex min-h-full flex-col items-center bg-background px-6 py-10"
         >
           {todayWorkout ? (
             <div className="flex flex-col items-center w-full max-w-sm">
@@ -139,7 +139,7 @@ export function WorkoutPage() {
               >
                 You don&apos;t have a workout scheduled for today.
                 <br />
-                Chat with your AI coach to plan one.
+                Talk with ARIA to plan one.
               </motion.p>
 
               <motion.div
@@ -151,8 +151,9 @@ export function WorkoutPage() {
                   variant="secondary"
                   size="lg"
                   className="min-h-[52px] px-8"
+                  onClick={() => setActiveTab("chat")}
                 >
-                  Talk to Coach
+                  Talk with ARIA
                 </Button>
               </motion.div>
             </div>

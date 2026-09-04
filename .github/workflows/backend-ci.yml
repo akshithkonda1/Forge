@@ -4,17 +4,16 @@
 
 name: Backend CI
 
+# Runs on every branch and every pull request — main included. Path filters scope
+# it to the backend; there is deliberately no branch filter.
 on:
   push:
-    branches: ["claude/forge-fitness-frontend-TwlOQ"]
     paths:
-      - "tests/**"
-      - "infra/terraform/lambda/**"
+      - "backend/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
     paths:
-      - "tests/**"
-      - "infra/terraform/lambda/**"
+      - "backend/**"
       - ".github/workflows/backend-ci.yml"
 
 permissions:
@@ -28,7 +27,20 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       - name: Backend unit tests (lambda + ARIA + biometrics)
-        run: python3 -m unittest discover -s tests -p "test_*.py" -v
+        run: python3 -m unittest discover -s backend/tests -p "test_*.py" -v
+
+      # Explicit AI gate so the Bedrock kill-switch, the QoL "life rhythm" wiring,
+      # and the ARIA habit/lifestyle e2e always run on this PR and are visible as
+      # their own check. Stdlib-only, Linux — no Mac/iOS, no AWS, Bedrock off.
+      - name: AI / ARIA gate (Bedrock kill-switch + QoL life-rhythm + e2e)
+        working-directory: backend/tests
+        run: |
+          python3 -m unittest -v \
+            test_ai_router \
+            test_ai_router_gate \
+            test_aria_engine \
+            test_aria_qol_life_rhythm \
+            test_e2e_aria_habit_lifestyle

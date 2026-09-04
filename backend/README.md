@@ -1,12 +1,23 @@
 # FORGE Backend
 
-Shared AWS-backed backend for both Forge clients.
+One AWS backend for every Forge client — iPhone, Android, web. Same Cognito, same API, same ARIA, same Dynamo. The clients differ; the resources do not.
+
+```
+backend/
+  infra/          Terraform + the deployable Lambda (ARIA, routes, Bedrock)
+  ai/             Local ARIA: CLI, SimRunner, evaluation harness
+  app/            Thin app package
+  tests/          Unit tests (stdlib unittest)
+  dev_server.py   http://127.0.0.1:3001 wrapping the Lambda handler
+  requirements.txt
+  pyproject.toml
+```
+
+Production code is `backend/infra/lambda`. Terraform zips that folder. Do not grow a second handler tree.
 
 ## Implementation Plan
 
-See `IMPLEMENTATION_PLAN.md` for the backend build plan derived from the current frontend surfaces and AWS infrastructure.
-
-The important current decision: the working backend is the Python Lambda under `infra/terraform/lambda`, even though the root README still describes a future TypeScript backend folder. New backend implementation should extend the Lambda route/service modules first, then revisit runtime migration once the API is stable.
+See `IMPLEMENTATION_PLAN.md`. New routes go in `backend/infra/lambda/handler.py` and `backend/infra/lambda/routes/`.
 
 ## Implemented Routes
 
@@ -38,7 +49,21 @@ Phase 4 — AI coach (wraps `POST /ai/router`):
 
 Each coach route gathers a bounded user-context package via `services/coach_context.py` and falls back to a deterministic answer if Bedrock is unreachable, so clients and tests can run without AWS credentials.
 
-All routes return deterministic seed data when no persisted data exists, so clients can move from local mocks to API calls before ingestion pipelines are populated.
+## Demo data
+
+Outside production, routes fall back to the deterministic fixtures in `seed_data.py` when
+nothing has been persisted, so clients can move from local mocks to API calls before the
+ingestion pipelines are populated.
+
+`security.demo_data_enabled()` gates that fallback and is **always false when `ENVIRONMENT`
+is `prod`, `production`, `staging` or `stage`** — not overridable there, because ARIA reasons
+over whatever these endpoints return and a fixture reaching a real account means coaching
+someone on another person's invented HRV, sleep and lifts. A new production account gets
+empty collections and null scalars with every response key still present; `FORGE_DEMO_DATA`
+forces the fallback on or off in the non-production environments only.
+
+`ENVIRONMENT` is therefore a security control. `var.environment` has no Terraform default for
+that reason — it also decides whether the unsigned dev-override token is accepted.
 
 ## User Category Organizer
 

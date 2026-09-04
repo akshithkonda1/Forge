@@ -1,15 +1,16 @@
-# Build the ForgeSwift Xcode project on macOS runners.
+# Build ForgeSwift (iOS 27) + ForgeWatch (watchOS 27) and test ForgeCore on macOS.
 
 name: Swift
 
+# Runs on every branch and every pull request. Path filters keep it off changes
+# that cannot affect the app; branch filters are deliberately absent so main and
+# feature branches are gated identically.
 on:
   push:
-    branches: [ "claude/forge-fitness-frontend-TwlOQ" ]
     paths:
       - "ForgeSwift/**"
       - ".github/workflows/swift.yml"
   pull_request:
-    branches: [ "claude/forge-fitness-frontend-TwlOQ" ]
     paths:
       - "ForgeSwift/**"
       - ".github/workflows/swift.yml"
@@ -21,25 +22,166 @@ concurrency:
   group: swift-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Deployment targets are deliberately NOT passed to xcodebuild. The project
+  # sets IPHONEOS/WATCHOS_DEPLOYMENT_TARGET=27.0 across all fourteen build
+  # configurations, and that is what ships; a flag here would be a second place
+  # to remember, which is the only way the two can disagree.
+  #
+  # They did disagree. The overrides existed as four literals, and #156 raised
+  # the two Debug ones to 27.0 and left Release at 17.0 and 10.0. Release then
+  # built against a floor the code no longer supports and failed on
+  # `'FoundationModelsResponseGenerator' is only available in iOS 26.0 or
+  # newer` — in the configuration that actually ships, while Debug stayed
+  # green. Building anything other than what the project declares means CI is
+  # testing a configuration no user will ever run.
+
+  # Shared xcodebuild flags — no signing in CI.
+  XCODE_FLAGS: >-
+    CODE_SIGNING_ALLOWED=NO
+    CODE_SIGN_IDENTITY=
+    ONLY_ACTIVE_ARCH=NO
+    EXCLUDED_ARCHS=x86_64
+
 jobs:
   build:
-    runs-on: macos-latest
+    # Xcode 27 / iOS 27 / watchOS 27 — the SDK Forge is developed against.
+    # macos-15 ships Xcode 16 and cannot compile a deployment target of 27.
+    runs-on: xcode-27
     defaults:
       run:
         working-directory: ForgeSwift
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - name: Build ForgeSwift
+      - name: Show Xcode / platforms
         run: |
+          xcodebuild -version
+          xcrun simctl list runtimes 2>/dev/null | head -40 || true
+          xcodebuild -project ForgeSwift.xcodeproj -list
+
+      - name: Resolve package dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project ForgeSwift.xcodeproj \
+            -scheme ForgeSwift
+
+      - name: Test ForgeCore
+        run: |
+          cd ForgeCore
+          swift test
+
+      - name: Build ForgeSwift + tests (iOS Simulator)
+        run: |
+          set -euo pipefail
+          # `build-for-testing` rather than `build`, so the ForgeSwiftTests
+          # bundle is compiled as well. A test target CI never builds is a test
+          # target that silently rots. It compiles against the generic
+          # destination, so no simulator runtime has to be installed — actually
+          # *running* the tests needs a booted simulator, which is a separate
+          # change carrying its own runtime-availability risk.
           xcodebuild \
             -project ForgeSwift.xcodeproj \
             -scheme ForgeSwift \
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
+            -skipPackagePluginValidation \
+            build-for-testing \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            ONLY_ACTIVE_ARCH=NO \
+            EXCLUDED_ARCHS=x86_64 \
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/ios-build.log
+
+      # xcodebuild logs run to ~2000 lines and bury `error:` lines thousands of
+      # lines above the failure summary, which makes a red build genuinely hard
+      # to diagnose from the web UI. Echo just the diagnostics at the end.
+      - name: Compile errors (iOS)
+        if: failure()
+        run: |
+          echo "::group::Swift errors"
+          test -f /tmp/ios-build.log || { echo "(build did not reach this step)"; exit 0; }
+          grep -E "error: " /tmp/ios-build.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || echo "(no error: lines matched)"
+          echo "::endgroup::"
+
+      - name: Build ForgeWatch + Widgets (watchOS Simulator)
+        # Scheme builds ForgeWatch and embeds ForgeWatchWidgets with package
+        # products resolved. Do not use bare -target for widgets — SPM product
+        # linkage (ForgeCore) is not applied the same way without the scheme.
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ForgeSwift.xcodeproj \
+            -scheme ForgeWatch \
+            -destination 'generic/platform=watchOS Simulator' \
+            -configuration Debug \
+            -skipPackagePluginValidation \
             build \
             CODE_SIGNING_ALLOWED=NO \
-            IPHONEOS_DEPLOYMENT_TARGET=17.0 \
-            ONLY_ACTIVE_ARCH=YES \
-            EXCLUDED_ARCHS=x86_64
+            CODE_SIGN_IDENTITY="" \
+            ONLY_ACTIVE_ARCH=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/watch-build.log
+
+      - name: Compile errors (watchOS)
+        if: failure()
+        run: |
+          echo "::group::Swift errors"
+          test -f /tmp/watch-build.log || { echo "(build did not reach this step)"; exit 0; }
+          grep -E "error: " /tmp/watch-build.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || echo "(no error: lines matched)"
+          echo "::endgroup::"
+
+      # Everything above builds Debug, which is the configuration that runs
+      # `#if DEBUG` and never the `#else`. Shipping code now has both branches —
+      # the demo fixtures in Models.swift and the chat seed in AppStore+Chat are
+      # compiled out of Release — so a Debug-only pipeline cannot see an error
+      # in the half of the code that actually ships. Release also turns on
+      # whole-module optimization, which diagnoses some things Debug does not.
+      # It roughly doubles this job; the alternative is finding out at archive
+      # time, or from the App Store.
+      - name: Build ForgeSwift (iOS, Release)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ForgeSwift.xcodeproj \
+            -scheme ForgeSwift \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Release \
+            -skipPackagePluginValidation \
+            build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            ONLY_ACTIVE_ARCH=NO \
+            EXCLUDED_ARCHS=x86_64 \
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/ios-release.log
+
+      - name: Compile errors (iOS, Release)
+        if: failure()
+        run: |
+          echo "::group::Swift errors"
+          test -f /tmp/ios-release.log || { echo "(build did not reach this step)"; exit 0; }
+          grep -E "error: " /tmp/ios-release.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || echo "(no error: lines matched)"
+          echo "::endgroup::"
+
+      - name: Build ForgeWatch + Widgets (watchOS, Release)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ForgeSwift.xcodeproj \
+            -scheme ForgeWatch \
+            -destination 'generic/platform=watchOS Simulator' \
+            -configuration Release \
+            -skipPackagePluginValidation \
+            build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            ONLY_ACTIVE_ARCH=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/watch-release.log
+
+      - name: Compile errors (watchOS, Release)
+        if: failure()
+        run: |
+          echo "::group::Swift errors"
+          test -f /tmp/watch-release.log || { echo "(build did not reach this step)"; exit 0; }
+          grep -E "error: " /tmp/watch-release.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || echo "(no error: lines matched)"
+          echo "::endgroup::"

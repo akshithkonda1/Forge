@@ -1,0 +1,478 @@
+import Foundation
+
+/// How this install is allowed to prove who the user is.
+///
+/// Production talks to Cognito. Debug builds may mint a local tester
+/// session so a device or simulator can exercise the rest of the app
+/// without AWS secrets. That path is compiled out of Release.
+public enum ForgeAuthMode: String, Equatable, Sendable, Codable {
+    case cognito
+    case devOverride
+}
+
+public struct ForgeAuthConfig: Equatable, Sendable {
+    public var apiBaseURL: URL
+    public var cognitoRegion: String
+    public var cognitoClientId: String
+    public var cognitoUserPoolId: String
+    /// `dev` / `test` / `local` / `ci` may use the tester account. Anything
+    /// production-like must not, even in a debug binary pointed at prod.
+    public var environment: String
+
+    public init(
+        apiBaseURL: URL,
+        cognitoRegion: String = "",
+        cognitoClientId: String = "",
+        cognitoUserPoolId: String = "",
+        environment: String = "dev"
+    ) {
+        self.apiBaseURL = apiBaseURL
+        self.cognitoRegion = cognitoRegion
+        self.cognitoClientId = cognitoClientId
+        self.cognitoUserPoolId = cognitoUserPoolId
+        self.environment = environment
+    }
+
+    public var cognitoConfigured: Bool {
+        !cognitoRegion.isEmpty && !cognitoClientId.isEmpty
+    }
+
+    public var isProductionLike: Bool {
+        ["prod", "production", "staging", "stage"].contains(environment.lowercased())
+    }
+
+    /// `127.0.0.1` is the Mac when you Run in Xcode. On a phone in Device Hub
+    /// it is the phone itself — chat would hang. Loopback means Test-Ready
+    /// dummy, not a network call.
+    public var apiIsLoopback: Bool {
+        guard let host = apiBaseURL.host?.lowercased(), !host.isEmpty else { return true }
+        return host == "127.0.0.1" || host == "localhost" || host == "::1"
+    }
+
+    /// Matches `backend/infra/lambda/auth.py` `_TEST_USER_ID`.
+    public static let testUserId = "test-user-00000000"
+    public static let testEmail = "tester@forge.dev"
+
+    public static let defaultLocalAPI = URL(string: "http://127.0.0.1:3001")!
+
+    public static func fromInfoDictionary(_ info: [String: Any]) -> ForgeAuthConfig {
+        let env = (info["FORGEEnvironment"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let api = (info["FORGEAPIBaseURL"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let region = (info["FORGECognitoRegion"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let client = (info["FORGECognitoClientId"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pool = (info["FORGECognitoUserPoolId"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return ForgeAuthConfig(
+            apiBaseURL: URL(string: api ?? "") ?? defaultLocalAPI,
+            cognitoRegion: region ?? "",
+            cognitoClientId: client ?? "",
+            cognitoUserPoolId: pool ?? "",
+            environment: (env?.isEmpty == false ? env! : "dev")
+        )
+    }
+}
+
+public struct ForgeAuthSession: Equatable, Sendable, Codable {
+    public var userId: String
+    public var email: String
+    public var displayName: String
+    public var provider: String
+    public var accessToken: String
+    public var idToken: String?
+    public var refreshToken: String?
+    public var mode: ForgeAuthMode
+
+    public init(
+        userId: String,
+        email: String,
+        displayName: String,
+        provider: String,
+        accessToken: String,
+        idToken: String? = nil,
+        refreshToken: String? = nil,
+        mode: ForgeAuthMode
+    ) {
+        self.userId = userId
+        self.email = email
+        self.displayName = displayName
+        self.provider = provider
+        self.accessToken = accessToken
+        self.idToken = idToken
+        self.refreshToken = refreshToken
+        self.mode = mode
+    }
+
+    public var authorizationHeader: String { "Bearer \(accessToken)" }
+}
+
+public enum ForgeAuthPolicy {
+    /// Compile-time gate. Release binaries cannot mint a tester session.
+    public static var isDebugBuild: Bool {
+        #if DEBUG
+        true
+        #else
+        false
+        #endif
+    }
+
+    /// The tester account is allowed only in a debug build pointed at a
+    /// non-production environment, and only when the user (or a test) left
+    /// the override switched on.
+    public static func devOverrideAllowed(
+        userEnabled: Bool,
+        config: ForgeAuthConfig,
+        debugBuild: Bool = isDebugBuild
+    ) -> Bool {
+        debugBuild && userEnabled && !config.isProductionLike
+    }
+
+    /// True when this process was started from Xcode (Device Hub, simulator,
+    /// or an attached iPhone). `OS_ACTIVITY_DT_MODE` is what Xcode injects.
+    public static var isXcodeDeviceHubLaunch: Bool {
+        isXcodeDeviceHubLaunch(
+            environment: ProcessInfo.processInfo.environment,
+            debugBuild: isDebugBuild
+        )
+    }
+
+    public static func isXcodeDeviceHubLaunch(
+        environment: [String: String],
+        debugBuild: Bool
+    ) -> Bool {
+        guard debugBuild else { return false }
+        if environment["OS_ACTIVITY_DT_MODE"] != nil { return true }
+        if environment["SIMULATOR_DEVICE_NAME"] != nil { return true }
+        if environment["SIMULATOR_UDID"] != nil { return true }
+        if environment["DYLD_INSERT_LIBRARIES"]?.contains("libBacktraceRecording") == true {
+            return true
+        }
+        return false
+    }
+
+    /// Mint the tester session so Device Hub / loopback runs never wait on AWS.
+    public static func shouldAutoInstallTester(
+        allowed: Bool,
+        xcodeLaunch: Bool,
+        apiIsLoopback: Bool
+    ) -> Bool {
+        allowed && (xcodeLaunch || apiIsLoopback)
+    }
+}
+
+/// Local identity the Lambda already accepts outside production
+/// (`FORGE_TEST_USER_ID` / unsigned JWT `sub`).
+public enum DevAuthOverride {
+    public static let userId = ForgeAuthConfig.testUserId
+    public static let email = ForgeAuthConfig.testEmail
+    public static let displayName = "Tester"
+    public static let provider = "dev-override"
+
+    public static func session() -> ForgeAuthSession {
+        ForgeAuthSession(
+            userId: userId,
+            email: email,
+            displayName: displayName,
+            provider: provider,
+            accessToken: unsignedAccessToken(sub: userId, email: email),
+            mode: .devOverride
+        )
+    }
+
+    /// Three-part JWT with `alg: none`. The Lambda only reads `sub` in
+    /// non-production; it never verifies the signature on this path.
+    public static func unsignedAccessToken(sub: String, email: String) -> String {
+        let header = base64URL(["alg": "none", "typ": "JWT"])
+        let payload = base64URL([
+            "sub": sub,
+            "email": email,
+            "token_use": "access",
+            "iss": "forge-dev-override",
+        ])
+        return "\(header).\(payload)."
+    }
+
+    private static func base64URL(_ object: [String: String]) -> String {
+        let data = try! JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        return data.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+}
+
+/// Matches `backend/infra/main.tf` `aws_cognito_user_pool.forge` password_policy.
+public enum CognitoPasswordPolicy {
+    public static let minimumLength = 12
+
+    public static func problems(in password: String) -> [String] {
+        var issues: [String] = []
+        if password.count < minimumLength {
+            issues.append("at least \(minimumLength) characters")
+        }
+        if password.rangeOfCharacter(from: .uppercaseLetters) == nil {
+            issues.append("an uppercase letter")
+        }
+        if password.rangeOfCharacter(from: .lowercaseLetters) == nil {
+            issues.append("a lowercase letter")
+        }
+        if password.rangeOfCharacter(from: .decimalDigits) == nil {
+            issues.append("a number")
+        }
+        let symbols = CharacterSet.alphanumerics.inverted
+        if password.rangeOfCharacter(from: symbols) == nil {
+            issues.append("a symbol")
+        }
+        return issues
+    }
+
+    public static func isValid(_ password: String) -> Bool {
+        problems(in: password).isEmpty
+    }
+}
+
+public enum CognitoPasswordAuth {
+    public struct Result: Equatable, Sendable {
+        public var accessToken: String
+        public var idToken: String?
+        public var refreshToken: String?
+        public var userId: String
+        public var email: String
+    }
+
+    public struct SignUpResult: Equatable, Sendable {
+        public var userConfirmed: Bool
+        public var userSub: String?
+        public var codeDestination: String?
+    }
+
+    public static func signUpRequest(
+        region: String,
+        clientId: String,
+        username: String,
+        password: String,
+        name: String
+    ) throws -> URLRequest {
+        guard !region.isEmpty, !clientId.isEmpty else {
+            throw ForgeAuthError.cognitoNotConfigured
+        }
+        guard CognitoPasswordPolicy.isValid(password) else {
+            let need = CognitoPasswordPolicy.problems(in: password).joined(separator: ", ")
+            throw ForgeAuthError.cognitoRejected("Password needs \(need).")
+        }
+        let url = URL(string: "https://cognito-idp.\(region).amazonaws.com/")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-amz-json-1.1", forHTTPHeaderField: "Content-Type")
+        request.setValue("AWSCognitoIdentityProviderService.SignUp", forHTTPHeaderField: "X-Amz-Target")
+        var attributes: [[String: String]] = [
+            ["Name": "email", "Value": username],
+        ]
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            attributes.append(["Name": "name", "Value": trimmed])
+        }
+        let body: [String: Any] = [
+            "ClientId": clientId,
+            "Username": username,
+            "Password": password,
+            "UserAttributes": attributes,
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
+    public static func parseSignUpResponse(_ data: Data) throws -> SignUpResult {
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+        if let type = object["__type"] as? String, type.lowercased().contains("exception") {
+            throw ForgeAuthError.cognitoRejected((object["message"] as? String) ?? "Sign-up failed.")
+        }
+        let destination = (object["CodeDeliveryDetails"] as? [String: Any])?["Destination"] as? String
+        return SignUpResult(
+            userConfirmed: (object["UserConfirmed"] as? Bool) ?? false,
+            userSub: object["UserSub"] as? String,
+            codeDestination: destination
+        )
+    }
+
+    public static func confirmSignUpRequest(
+        region: String,
+        clientId: String,
+        username: String,
+        code: String
+    ) throws -> URLRequest {
+        guard !region.isEmpty, !clientId.isEmpty else {
+            throw ForgeAuthError.cognitoNotConfigured
+        }
+        let url = URL(string: "https://cognito-idp.\(region).amazonaws.com/")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-amz-json-1.1", forHTTPHeaderField: "Content-Type")
+        request.setValue("AWSCognitoIdentityProviderService.ConfirmSignUp", forHTTPHeaderField: "X-Amz-Target")
+        let body: [String: Any] = [
+            "ClientId": clientId,
+            "Username": username,
+            "ConfirmationCode": code.trimmingCharacters(in: .whitespacesAndNewlines),
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
+    public static func parseConfirmSignUpResponse(_ data: Data) throws {
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+        if let type = object["__type"] as? String, type.lowercased().contains("exception") {
+            throw ForgeAuthError.cognitoRejected((object["message"] as? String) ?? "Confirmation failed.")
+        }
+    }
+
+    public static func initiateAuthRequest(
+        region: String,
+        clientId: String,
+        username: String,
+        password: String
+    ) throws -> URLRequest {
+        guard !region.isEmpty, !clientId.isEmpty else {
+            throw ForgeAuthError.cognitoNotConfigured
+        }
+        let url = URL(string: "https://cognito-idp.\(region).amazonaws.com/")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-amz-json-1.1", forHTTPHeaderField: "Content-Type")
+        request.setValue("AWSCognitoIdentityProviderService.InitiateAuth", forHTTPHeaderField: "X-Amz-Target")
+        let body: [String: Any] = [
+            "AuthFlow": "USER_PASSWORD_AUTH",
+            "ClientId": clientId,
+            "AuthParameters": [
+                "USERNAME": username,
+                "PASSWORD": password,
+            ],
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
+    /// Exchange a refresh token for a fresh access token.
+    ///
+    /// Cognito access tokens live an hour by default. Without this the app works
+    /// beautifully for sixty minutes and then 401s on every request until the
+    /// user signs in again — and because the chat path swallows failures, it
+    /// would degrade to rule-based answers rather than say anything.
+    ///
+    /// REFRESH_TOKEN_AUTH is already in `explicit_auth_flows` on the iOS client.
+    public static func refreshRequest(
+        region: String,
+        clientId: String,
+        refreshToken: String
+    ) throws -> URLRequest {
+        guard !region.isEmpty, !clientId.isEmpty else {
+            throw ForgeAuthError.cognitoNotConfigured
+        }
+        guard !refreshToken.isEmpty else {
+            throw ForgeAuthError.cognitoRejected("No refresh token stored.")
+        }
+        let url = URL(string: "https://cognito-idp.\(region).amazonaws.com/")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-amz-json-1.1", forHTTPHeaderField: "Content-Type")
+        request.setValue("AWSCognitoIdentityProviderService.InitiateAuth", forHTTPHeaderField: "X-Amz-Target")
+        let body: [String: Any] = [
+            "AuthFlow": "REFRESH_TOKEN_AUTH",
+            "ClientId": clientId,
+            "AuthParameters": ["REFRESH_TOKEN": refreshToken],
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
+    /// Parse a refresh response.
+    ///
+    /// Cognito does **not** return a refresh token here — the caller must keep
+    /// the one it already has. Treating the absent field as "signed out" is the
+    /// classic way to make refresh log everyone out on the first renewal.
+    public static func parseRefreshResponse(_ data: Data,
+                                            email: String,
+                                            existingRefreshToken: String) throws -> Result {
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+        if let type = object["__type"] as? String, type.lowercased().contains("exception") {
+            throw ForgeAuthError.cognitoRejected((object["message"] as? String) ?? "Refresh failed.")
+        }
+        guard
+            let result = object["AuthenticationResult"] as? [String: Any],
+            let access = result["AccessToken"] as? String,
+            !access.isEmpty
+        else {
+            throw ForgeAuthError.cognitoRejected("Cognito did not return a refreshed token.")
+        }
+        let idToken = result["IdToken"] as? String
+        return Result(
+            accessToken: access,
+            idToken: idToken,
+            refreshToken: result["RefreshToken"] as? String ?? existingRefreshToken,
+            userId: jwtSubject(idToken) ?? jwtSubject(access) ?? email,
+            email: email
+        )
+    }
+
+    public static func parseAuthResponse(_ data: Data, email: String) throws -> Result {
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+        if let type = object["__type"] as? String, type.lowercased().contains("exception") {
+            let message = (object["message"] as? String) ?? "Sign-in failed."
+            throw ForgeAuthError.cognitoRejected(message)
+        }
+        guard
+            let result = object["AuthenticationResult"] as? [String: Any],
+            let access = result["AccessToken"] as? String,
+            !access.isEmpty
+        else {
+            throw ForgeAuthError.cognitoRejected("Cognito did not return tokens.")
+        }
+        let idToken = result["IdToken"] as? String
+        let userId = jwtSubject(idToken) ?? jwtSubject(access) ?? email
+        return Result(
+            accessToken: access,
+            idToken: idToken,
+            refreshToken: result["RefreshToken"] as? String,
+            userId: userId,
+            email: email
+        )
+    }
+
+    public static func jwtSubject(_ token: String?) -> String? {
+        guard let token else { return nil }
+        let parts = token.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count >= 2 else { return nil }
+        var payload = String(parts[1])
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let pad = payload.count % 4
+        if pad > 0 { payload += String(repeating: "=", count: 4 - pad) }
+        guard
+            let data = Data(base64Encoded: payload),
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        return (json["sub"] as? String) ?? (json["username"] as? String)
+    }
+}
+
+public enum ForgeAuthError: Error, Equatable {
+    case cognitoNotConfigured
+    case cognitoRejected(String)
+    case overrideDisabled
+    case network
+    /// No session, or a refresh token Cognito has revoked. Distinct from
+    /// `.network` on purpose: one means try again later, the other means the
+    /// person has to sign in, and showing the wrong one wastes their time.
+    case signedOut
+
+    public var isRecoverableByRetry: Bool {
+        self == .network
+    }
+
+    public var userMessage: String {
+        switch self {
+        case .cognitoNotConfigured: return "Sign-in isn't configured for this build."
+        case .cognitoRejected(let message): return message
+        case .overrideDisabled: return "Tester sign-in is off in this build."
+        case .network: return "Couldn't reach Forge. Check your connection and try again."
+        case .signedOut: return "Your session expired. Sign in to continue."
+        }
+    }
+}

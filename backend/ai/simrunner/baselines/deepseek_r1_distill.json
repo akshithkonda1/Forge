@@ -1,0 +1,32 @@
+{
+  "bedrock_model_id": null,
+  "composite": 75.0,
+  "consumer_stability_grade": "B+",
+  "critical_failures": 3,
+  "derived": false,
+  "determinism_rate": 100.0,
+  "dimensions": {
+    "actionability": 91.2,
+    "chronotype_alignment": 85.0,
+    "context_utilization": 69.2,
+    "directional_correctness": 59.6,
+    "epistemic_honesty": 68.0,
+    "tone_compliance": 96.0
+  },
+  "display_name": "DeepSeek R1 \u2014 The High-ACWR CrossFitter",
+  "engine_model": "opus->anthropic.claude-opus-4-8, sonnet->anthropic.claude-sonnet-4-6",
+  "epistemic_rigor_grade": "C",
+  "grade": "B",
+  "mission_critical_count": 3,
+  "mission_critical_queries": [
+    "I'm in a product launch sprint. I know I'm not sleeping enough but I can't stop. What do I do?",
+    "I've trained 9 days in a row. I feel great. Should I take a rest day?",
+    "My readiness is 58 but it's been rising all week. Do I train or not?"
+  ],
+  "model_archetype": "baseline",
+  "model_archetype_name": "Baseline",
+  "model_id": "deepseek.r1-distill",
+  "system_passed": false,
+  "tier": 3,
+  "verdict": "HOLD \u2014 3 mission-critical failure(s)"
+}
