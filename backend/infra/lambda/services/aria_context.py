@@ -33,6 +33,7 @@ class UserContext:
             "last_insights": self.last_insights,
             "relationship_level": self.relationship_level,
             "last_updated": self.last_updated.isoformat(),
+            "last_promoted_at": self.last_promoted_at.isoformat() if self.last_promoted_at else None,
         }
 
     @classmethod

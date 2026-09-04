@@ -4,6 +4,8 @@ Each test fails against the pre-fix code and passes after the fix. Grouped by
 the subsystem the defect lived in.
 """
 
+import json
+import os
 import sys
 import unittest
 from datetime import datetime, timezone
@@ -139,6 +141,153 @@ class MissingFieldsRedactionTests(unittest.TestCase):
         sanitized_missing = set(apply_permissions(ctx, perms)[0].missing_fields)
         self.assertNotIn("body.weight_kg", raw_missing)       # leak: present data hidden from missing
         self.assertIn("body.weight_kg", sanitized_missing)    # fixed: reported unavailable
+
+
+class ArchetypeLiveImportTests(unittest.TestCase):
+    """routes/aria.py's handle_post_ai_archetype imported a transposed module path
+    (backend.app.ai.routes.archetype instead of backend.ai.app.routes.archetype),
+    caught by a bare except and silently falling through to a worse inline
+    3-category fallback every single time. archetype.py's own _try_bedrock also
+    imported two more nonexistent bedrock_client paths and probed for methods
+    the real client doesn't expose, so even a corrected outer import alone
+    wouldn't have reached live Bedrock."""
+
+    def test_real_archetype_module_imports_cleanly(self):
+        from backend.ai.app.routes.archetype import create_archetype  # must not raise
+        self.assertTrue(callable(create_archetype))
+
+    def test_handler_reaches_the_real_module_not_the_inline_fallback(self):
+        from routes.aria import handle_post_ai_archetype
+
+        result = handle_post_ai_archetype(
+            {"description": "a calm, data-driven analyst"}, user_id="test-user"
+        )
+        body = json.loads(result["body"])
+        # The inline fallback's signature is model == "local-forge" with a
+        # top-level user_id key; the real module returns model == "backend"/
+        # "claude" with no top-level user_id, and a richer 5-category match.
+        self.assertNotEqual(body.get("model"), "local-forge")
+        self.assertNotIn("user_id", body)
+        self.assertEqual(body["archetype"]["relatedBuiltin"], "analyst")
+
+
+class LastPromotedAtRoundTripTests(unittest.TestCase):
+    """aria_context.UserContext.to_dict() omitted last_promoted_at, so it never
+    survived a storage round-trip -- the 'promote at most once per 24h' guard
+    in routes/aria.py never engaged, since every load saw None."""
+
+    def test_last_promoted_at_survives_to_dict_from_dict_round_trip(self):
+        from services.aria_context import UserContext
+
+        ctx = UserContext(
+            user_id="u1", relationship_level=3,
+            last_promoted_at=datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        self.assertIn("last_promoted_at", ctx.to_dict())
+        restored = UserContext.from_dict(ctx.to_dict())
+        self.assertEqual(restored.last_promoted_at, ctx.last_promoted_at)
+
+    def test_none_last_promoted_at_round_trips_as_none(self):
+        from services.aria_context import UserContext
+
+        ctx = UserContext(user_id="u1")
+        self.assertIsNone(UserContext.from_dict(ctx.to_dict()).last_promoted_at)
+
+
+class RelationshipPromotionThrottleTests(unittest.TestCase):
+    """routes/aria.py's handle_post_ai_chat passed last_promoted_at as an
+    already-stringified value (now.isoformat()) where UserContext declares a real
+    datetime. Dormant while aria_context.to_dict() omitted the field entirely; once
+    that omission was fixed (see LastPromotedAtRoundTripTests), every promoting chat
+    started crashing with AttributeError: 'str' object has no attribute 'isoformat'
+    the next time to_dict() ran. Drives the real route end-to-end so both the crash
+    and the 24h throttle last_promoted_at exists to enforce are covered -- a round
+    -trip test on UserContext alone can't see a caller passing the wrong type."""
+
+    def test_promoting_chat_does_not_crash_and_bumps_relationship(self):
+        from routes.aria import handle_post_ai_chat
+        from services.aria_context import CoachContextEngine
+
+        uid = f"promo-user-{id(self)}"
+        result = handle_post_ai_chat(  # must not raise
+            {"message": "hello", "recent_metrics": {"readiness": 80}}, user_id=uid
+        )
+        self.assertEqual(result["statusCode"], 200)
+        self.assertEqual(CoachContextEngine().get_or_create_context(uid).relationship_level, 2)
+
+    def test_second_promoting_chat_within_24h_is_throttled(self):
+        from routes.aria import handle_post_ai_chat
+        from services.aria_context import CoachContextEngine
+
+        uid = f"throttle-user-{id(self)}"
+        handle_post_ai_chat({"message": "hello", "recent_metrics": {"readiness": 80}}, user_id=uid)
+        handle_post_ai_chat({"message": "hello again", "recent_metrics": {"readiness": 80}}, user_id=uid)
+        # Still 2, not 3: the second promotion is suppressed by the <24h guard,
+        # which only engages if last_promoted_at actually survived the first save.
+        self.assertEqual(CoachContextEngine().get_or_create_context(uid).relationship_level, 2)
+
+
+class ReadinessNullScoreTests(unittest.TestCase):
+    """readiness.compute_readiness crashed with TypeError on a stored sleep
+    record with score: null -- dict.get's default only applies when the key is
+    absent, not when it's present and explicitly None."""
+
+    def test_null_score_does_not_crash(self):
+        from services import readiness
+
+        result = readiness.compute_readiness(
+            [{"date": "2026-09-02", "source": "manual", "score": None, "totalHours": 7.5}]
+        )
+        self.assertIsInstance(result["overall"], int)
+
+    def test_null_score_falls_back_to_the_same_default_as_a_missing_key(self):
+        from services import readiness
+
+        with_null = readiness.compute_readiness([{"score": None}])
+        missing_key = readiness.compute_readiness([{}])
+        for key in ("overall", "sleepQuality", "recoveryScore", "stressLevel", "energyBank"):
+            self.assertEqual(with_null[key], missing_key[key])
+
+
+class WorkoutPlanPersistenceTests(unittest.TestCase):
+    """routes/coach.py's handle_post_coach_workout_plan generated a plan via the
+    AI router but never persisted it -- keys.workout_plan_key/PLAN#{date} was
+    read in 4 places and written nowhere, so GET /workouts/today always
+    returned nothing for a real account."""
+
+    def _toggle_demo_data(self, value: str | None):
+        previous = os.environ.get("FORGE_DEMO_DATA")
+        if value is None:
+            os.environ.pop("FORGE_DEMO_DATA", None)
+        else:
+            os.environ["FORGE_DEMO_DATA"] = value
+        self.addCleanup(
+            lambda: os.environ.pop("FORGE_DEMO_DATA", None) if previous is None
+            else os.environ.__setitem__("FORGE_DEMO_DATA", previous)
+        )
+
+    def test_generated_plan_is_readable_via_workouts_today(self):
+        from routes.coach import handle_post_coach_workout_plan
+        from routes.workouts import handle_get_workouts_today
+
+        self._toggle_demo_data("true")
+        uid = f"test-workout-plan-{id(self)}"
+        posted = json.loads(handle_post_coach_workout_plan(uid, {})["body"])["todayPlan"]
+        self.assertIsNotNone(posted)
+
+        fetched = json.loads(handle_get_workouts_today(uid)["body"])["workout"]
+        self.assertEqual(fetched["id"], posted["id"])
+        self.assertEqual(fetched["duration"], posted["duration"])
+
+    def test_never_fabricates_a_duration_with_no_logged_workout_history(self):
+        from routes.coach import handle_post_coach_workout_plan
+        from routes.workouts import handle_get_workouts_today
+
+        self._toggle_demo_data("false")
+        uid = f"test-no-history-{id(self)}"
+        handle_post_coach_workout_plan(uid, {})
+        fetched = json.loads(handle_get_workouts_today(uid)["body"])["workout"]
+        self.assertIsNone(fetched)
 
 
 if __name__ == "__main__":

@@ -110,14 +110,17 @@ async def create_archetype(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _try_bedrock(description: str, preferred_name: str | None) -> dict[str, Any] | None:
-    """Invoke Claude on Bedrock if the project helper is available."""
+    """Invoke Claude on Bedrock, opt-in via ``ARIA_BEDROCK_ENABLED`` (same flag and
+    truthy-value set ``services/aria_engine.py``'s ``bedrock_enabled()`` uses) so the
+    default/offline path and CI stay hermetic."""
+    import os
+
+    if os.getenv("ARIA_BEDROCK_ENABLED", "").strip().lower() not in {"1", "true", "yes", "on"}:
+        return None
     try:
-        from backend.app.services import bedrock_client  # type: ignore
+        from backend.ai.simrunner.aria_simrunner.bedrock_client import converse
     except Exception:
-        try:
-            from backend.simrunner.backend_simulator import bedrock_client  # type: ignore
-        except Exception:
-            return None
+        return None
 
     system = (
         "You invent relational personality archetypes for coaching. "
@@ -125,13 +128,9 @@ async def _try_bedrock(description: str, preferred_name: str | None) -> dict[str
         "supportStance, formality, humor, expressiveness, lengthBias, exampleScript, relatedBuiltin."
     )
     user = f"Description: {description}\nPreferred name: {preferred_name or ''}"
+    model_id = os.getenv("AI_ROUTER_MODEL_1_ID", "anthropic.claude-sonnet-4-6")
     try:
-        if hasattr(bedrock_client, "invoke_text"):
-            raw = await bedrock_client.invoke_text(system=system, user=user)  # type: ignore
-        elif hasattr(bedrock_client, "complete"):
-            raw = bedrock_client.complete(f"{system}\n\n{user}")  # type: ignore
-        else:
-            return None
+        raw = converse(model_id, system, user)
     except Exception:
         return None
 

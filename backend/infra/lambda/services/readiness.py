@@ -15,11 +15,13 @@ def compute_readiness(sleep_records: list[dict[str, Any]], hrv: float | None = N
         return empty_readiness()
 
     latest = sleep_records[0]
-    sleep_score = float(latest.get("score", 75))
+    # `or 75` catches a stored `score: null`, not just an absent key — `dict.get`'s
+    # default only applies when the key itself is missing.
+    sleep_score = float(latest.get("score", 75) or 75)
 
     # Weight last 3 nights for recovery trend.
     recent = sleep_records[:3]
-    avg_score = sum(float(r.get("score", 75)) for r in recent) / len(recent)
+    avg_score = sum(float(r.get("score", 75) or 75) for r in recent) / len(recent)
 
     recovery_score = round(avg_score * 0.9 + (min(sleep_score, 100) * 0.1))
 
