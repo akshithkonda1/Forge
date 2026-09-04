@@ -184,21 +184,6 @@ final class OnboardingCoordinator {
                 mood: .focused
             )
             ariaOrbState = .listening
-        case .trainingTheme:
-            let gamingHint = profile.freeTimeInterests.contains(.gaming) || profile.freeTimeInterests.contains(.reading)
-                ? " Into stories or games? I can train you like Solo Leveling — daily quests, rank windows from readiness."
-                : " Prefer classic coaching, or a world like Solo Leveling, Demon Slayer, or military ops?"
-            await ariaSay(
-                "How should your plans feel?\(gamingHint) Pick a style — or skip for classic.",
-                mood: .energized
-            )
-            ariaOrbState = .listening
-        case .lifeContext:
-            await ariaSay(
-                "Optional: anything about your living situation that affects time or energy? Skip anytime — Prefer not to say is always fine.",
-                mood: .calm
-            )
-            ariaOrbState = .listening
         case .conditions:
             await ariaSay(
                 "Do you have any conditions I should respect when coaching — ADHD, epilepsy, an injury, a chronic illness, a disability, or something else? Optional. I'm a lifestyle coach, not a doctor. I won't diagnose or treat; I'll only use this to keep guidance safer and more realistic.",

@@ -16,6 +16,8 @@ struct SettingsPageView: View {
     @State private var catalogRevision = 0
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
+    @State private var showTrainingThemePicker = false
+    @State private var showNutritionTargetsEditor = false
     @State private var showTermsSheet = false
     @State private var showClinicalData = false
     @State private var showDataPermissions = false
@@ -42,6 +44,14 @@ struct SettingsPageView: View {
         store.userProfile.weeklySchedule.map { dayLabels[$0] }.joined(separator: " / ")
     }
 
+    // Mirrors NutritionTargetsEditorView.load()'s own useCustom check.
+    var nutritionTargetsAreCustom: Bool {
+        let prefs = store.nutritionPreferences
+        return prefs.proteinGrams != nil || prefs.calorieTarget != nil
+            || prefs.stepTarget != nil || prefs.waterGlassesTarget != nil
+            || prefs.hydrationTargetMl != nil
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
@@ -58,6 +68,18 @@ struct SettingsPageView: View {
                     Button(action: { showCoachingStylePicker = true }) {
                         SettingsRow(icon: "person.fill", iconColor: .ember, label: "Coaching Style",
                                     trailingText: store.userProfile.coachingStyle.label, showChevron: true)
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider().background(Color.borderColor)
+                    Button(action: { showTrainingThemePicker = true }) {
+                        SettingsRow(
+                            icon: store.userProfile.trainingTheme.icon,
+                            iconColor: Color(hex: store.userProfile.trainingTheme.accentHex),
+                            label: "Training Theme",
+                            trailingText: store.userProfile.trainingTheme.label,
+                            showChevron: true
+                        )
                     }
                     .buttonStyle(.plain)
 
@@ -364,6 +386,21 @@ struct SettingsPageView: View {
                     .buttonStyle(.plain)
                 }
 
+                // Nutrition
+                sectionHeader("Nutrition")
+                SectionCard {
+                    Button { showNutritionTargetsEditor = true } label: {
+                        SettingsRow(
+                            icon: "fork.knife",
+                            iconColor: .ember,
+                            label: "Nutrition Targets",
+                            trailingText: nutritionTargetsAreCustom ? "Custom" : "Recommended",
+                            showChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 // Notifications
                 sectionHeader("Notifications")
                 SectionCard {
@@ -532,6 +569,12 @@ struct SettingsPageView: View {
         }
         .sheet(isPresented: $showCoachingStylePicker) {
             CoachingStylePickerView()
+        }
+        .sheet(isPresented: $showTrainingThemePicker) {
+            TrainingThemePickerView()
+        }
+        .sheet(isPresented: $showNutritionTargetsEditor) {
+            NutritionTargetsEditorView()
         }
         .sheet(isPresented: $showDevicesSheet) {
             ConnectedDevicesLibraryView()

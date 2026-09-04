@@ -24,12 +24,13 @@ final class OnboardingGraphLockTests: XCTestCase {
         XCTAssertEqual(coordinator.progress, 1.0)
         XCTAssertEqual(coordinator.progressStepIndex, 12)
         XCTAssertEqual(coordinator.progressStepCount, 12)
-        XCTAssertNotEqual(coordinator.progressStepCount, AriaInterviewStep.allCases.count)
 
-        // allCases still lists trainingTheme + lifeContext, so Ready would be 11/13.
-        let allCasesReady = Double(AriaInterviewStep.ready.rawValue)
-            / Double(max(1, AriaInterviewStep.allCases.count - 1))
-        XCTAssertNotEqual(coordinator.progress, allCasesReady)
+        // The app-side trainingTheme/lifeContext legacy cases are gone (deleted
+        // with their now-unreachable interview screens), so allCases and the
+        // graph's activeSteps agree on count. OnboardingGraph.Step (ForgeCore)
+        // still carries the two legacy cases for migration -- see
+        // OnboardingGraphTests.swift for that half of the lock.
+        XCTAssertEqual(AriaInterviewStep.allCases.count, 12)
 
         coordinator.step = .intro
         XCTAssertEqual(coordinator.progress, 0)
