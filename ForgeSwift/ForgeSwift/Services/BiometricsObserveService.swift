@@ -19,7 +19,7 @@ final class BiometricsObserveService {
             samples: samples.isEmpty ? nil : samples,
             includeStored: true,
             ageYears: store.userProfile.age,
-            permissions: contextStore.permissions.payload,
+            permissions: DataPermissionsStore.shared.payloadIfRestricted(),
             message: message,
             voiceMode: store.ariaVoiceMode
         )

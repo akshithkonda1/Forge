@@ -5,6 +5,7 @@ import ForgeCore
 /// Grounded transparency, not a debug dump.
 struct ContextInspectorSheet: View {
     @ObservedObject var aria = AriaContextStore.shared
+    @ObservedObject var permissions = DataPermissionsStore.shared
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
@@ -34,16 +35,13 @@ struct ContextInspectorSheet: View {
                     }
 
                     // Redacted (permissions)
-                    if !aria.permissions.grants.isEmpty {
-                        let off = aria.permissions.grants.filter { !$0.value }.map(\.key)
-                        if !off.isEmpty {
-                            InspectorSection(title: "Off — redacted before reasoning", icon: "eye.slash.fill", color: .warning) {
-                                ForEach(off, id: \.self) { domain in
-                                    InspectorRow(text: "\(domain) is off (permission) — never sent", color: .warning)
-                                }
-                                Text("Off ≠ missing. ARIA says so explicitly.")
-                                    .font(.system(size: 11)).foregroundColor(.textTertiary).italic()
+                    if !permissions.restrictedDomains.isEmpty {
+                        InspectorSection(title: "Off — redacted before reasoning", icon: "eye.slash.fill", color: .warning) {
+                            ForEach(permissions.restrictedDomains, id: \.self) { domain in
+                                InspectorRow(text: "\(domain) is off (permission) — never sent", color: .warning)
                             }
+                            Text("Off ≠ missing. ARIA says so explicitly.")
+                                .font(.system(size: 11)).foregroundColor(.textTertiary).italic()
                         }
                     }
 

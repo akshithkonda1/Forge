@@ -67,7 +67,6 @@
 		1ARIA0122F9FF867004091AA /* ContextInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0112F9FF867004091AA /* ContextInspectorView.swift */; };
 		1ARIA0142F9FF867004091AA /* ProactiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0132F9FF867004091AA /* ProactiveCardView.swift */; };
 		1ARIA0202F9FF867004091AA /* ARIAContextPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0212F9FF867004091AA /* ARIAContextPayload.swift */; };
-		1ARIA0222F9FF867004091AA /* AriaPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0232F9FF867004091AA /* AriaPermissions.swift */; };
 		1ARIA0242F9FF867004091AA /* BiometricsObserveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0252F9FF867004091AA /* BiometricsObserveService.swift */; };
 		1ARIA0262F9FF867004091AA /* Theme+Readiness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0272F9FF867004091AA /* Theme+Readiness.swift */; };
 		1ARIA0302F9FF867004091AA /* AriaTrainingTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */; };
@@ -423,7 +422,6 @@
 		1ARIA0112F9FF867004091AA /* ContextInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextInspectorView.swift; sourceTree = "<group>"; };
 		1ARIA0132F9FF867004091AA /* ProactiveCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProactiveCardView.swift; sourceTree = "<group>"; };
 		1ARIA0212F9FF867004091AA /* ARIAContextPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARIAContextPayload.swift; sourceTree = "<group>"; };
-		1ARIA0232F9FF867004091AA /* AriaPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPermissions.swift; sourceTree = "<group>"; };
 		1ARIA0252F9FF867004091AA /* BiometricsObserveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricsObserveService.swift; sourceTree = "<group>"; };
 		1ARIA0272F9FF867004091AA /* Theme+Readiness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Theme+Readiness.swift"; sourceTree = "<group>"; };
 		1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaTrainingTheme.swift; sourceTree = "<group>"; };
@@ -742,7 +740,6 @@
 				1ARIA0012F9FF867004091AA /* AriaContext.swift */,
 				1ARIA0032F9FF867004091AA /* AriaResponse.swift */,
 				1ARIA0212F9FF867004091AA /* ARIAContextPayload.swift */,
-				1ARIA0232F9FF867004091AA /* AriaPermissions.swift */,
 				1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */,
 			);
 			path = Models;
@@ -1373,7 +1370,6 @@
 				1ARIA0122F9FF867004091AA /* ContextInspectorView.swift in Sources */,
 				1ARIA0142F9FF867004091AA /* ProactiveCardView.swift in Sources */,
 				1ARIA0202F9FF867004091AA /* ARIAContextPayload.swift in Sources */,
-				1ARIA0222F9FF867004091AA /* AriaPermissions.swift in Sources */,
 				1ARIA0242F9FF867004091AA /* BiometricsObserveService.swift in Sources */,
 				1ARIA0262F9FF867004091AA /* Theme+Readiness.swift in Sources */,
 				1ARIA0302F9FF867004091AA /* AriaTrainingTheme.swift in Sources */,

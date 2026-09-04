@@ -9,12 +9,10 @@ final class AriaContextStore: ObservableObject {
 
     @Published var context: AriaContext
     @Published private(set) var lastProactiveInsight: String?
-    @Published private(set) var permissions: AriaPermissionsStore
     @Published private(set) var lastObservedContext: ARIAContextPayload?
 
     private let defaults = UserDefaults.standard
     private let storageKey = "forge.aria.userContext"
-    private let permissionsKey = "forge.aria.permissions"
     private let userIdKey = "forge.aria.userId"
 
     private init() {
@@ -23,13 +21,6 @@ final class AriaContextStore: ObservableObject {
             context = saved
         } else {
             context = AriaContext(userId: Self.stableUserId())
-        }
-
-        if let data = defaults.data(forKey: permissionsKey),
-           let saved = try? JSONDecoder().decode(AriaPermissionsStore.self, from: data) {
-            permissions = saved
-        } else {
-            permissions = .allowAll
         }
     }
 
@@ -51,14 +42,7 @@ final class AriaContextStore: ObservableObject {
         persist()
     }
 
-    func setPermission(_ domain: AriaDataDomain, allowed: Bool) {
-        permissions.setAllowed(domain, allowed)
-        if let data = try? JSONEncoder().encode(permissions) {
-            defaults.set(data, forKey: permissionsKey)
-        }
-    }
-
-    func buildARIAContext(from store: AppStore) -> ARIAContextPayload {
+    func buildARIAContext(from store: AppStore, query: String? = nil) -> ARIAContextPayload {
         let iso = ISO8601DateFormatter()
         let lastSleep = store.sleepData.first
         let nights = store.sleepData.count
@@ -197,7 +181,8 @@ final class AriaContextStore: ObservableObject {
             }
             let phaseRaw = String(phaseTag.dropFirst("cycle_phase:".count))
             guard let phase = MenstrualPhase(rawValue: phaseRaw), phase != .unknown else { return nil }
-            let text = CyclePhaseCoachingDirective.directive(for: phase, domain: .general)
+            let domain = CyclePhaseCoachingDirective.classifyDomain(from: query ?? "")
+            let text = CyclePhaseCoachingDirective.directive(for: phase, domain: domain)
             return text.isEmpty ? nil : text
         }()
         let lifestyleDomain = ARIAContextPayload.LifestyleDomain(

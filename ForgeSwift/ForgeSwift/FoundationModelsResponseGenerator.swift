@@ -99,7 +99,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         - Recovery Score: \(context.readiness.recoveryScore)/100
         
         Time: \(context.isEarlyMorning ? "Early morning (before 7am)" : context.isLateNight ? "Late night (after 10pm)" : "Daytime")
-        \(cyclePromptBlock(context))
+        \(cyclePromptBlock(input, context))
         
         \(CyclePrivacy.ariaDirective)
         
@@ -126,7 +126,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
     }
 
     @MainActor
-    private func cyclePromptBlock(_ context: TrainerContext) -> String {
+    private func cyclePromptBlock(_ input: String, _ context: TrainerContext) -> String {
         var blocks: [String] = []
         if let c = context.cycleSnapshot, c.trackingEnabled {
             var lines = [
@@ -139,7 +139,8 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
             if let next = c.nextPeriod {
                 lines.append("Next period window: \(next.earliestDayKey)…\(next.latestDayKey)")
             }
-            let phaseDirective = CyclePhaseCoachingDirective.directive(for: c.phase, domain: .general)
+            let domain = CyclePhaseCoachingDirective.classifyDomain(from: input)
+            let phaseDirective = CyclePhaseCoachingDirective.directive(for: c.phase, domain: domain)
             if !phaseDirective.isEmpty {
                 lines.append("## Phase Coaching Directive\n\(phaseDirective)")
             }

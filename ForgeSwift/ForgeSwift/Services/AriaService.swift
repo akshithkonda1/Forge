@@ -56,7 +56,7 @@ final class AriaService: ObservableObject {
         if !isInsight, HealthKitManager.shared.hasStructuredRecordsAccess {
             _ = await HealthKitManager.shared.fetchClinicalRecordsSummary()
         }
-        let domainContext = contextStore.buildARIAContext(from: store)
+        let domainContext = contextStore.buildARIAContext(from: store, query: text)
         let legacyMetrics = contextStore.buildRichContext(from: store).recentMetrics
 
         // Device Hub / dev-override / loopback testers stay on the fast,
