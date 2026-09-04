@@ -611,7 +611,7 @@ struct AlarmEditorSheet: View {
                                         Text("Smart Wake")
                                             .font(.system(size: 14, weight: .medium))
                                             .foregroundColor(.textPrimary)
-                                        Text("Wake during lightest sleep phase")
+                                        Text("Earlier nudge if you might already be light. Hard alarm still fires.")
                                             .font(.system(size: 12))
                                             .foregroundColor(.textTertiary)
                                     }

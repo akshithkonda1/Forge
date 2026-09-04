@@ -361,9 +361,9 @@ struct SmartWakeCard: View {
                 VStack(spacing: 14) {
                     Toggle(isOn: $enabled) {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("Wake during lightest sleep")
+                            Text("Earlier nudge, then the hard alarm")
                                 .font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                            Text("Detects your sleep cycle and wakes you at the optimal moment")
+                            Text("iPhone cannot read live sleep stage. Smart wake fires first — if you're already light, get up. The hard alarm still stands.")
                                 .font(.system(size: 12)).foregroundColor(.textTertiary).lineSpacing(3)
                         }
                     }
@@ -371,7 +371,7 @@ struct SmartWakeCard: View {
 
                     if enabled {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Detection window")
+                            Text("Lead window")
                                 .font(.system(size: 12, weight: .semibold)).foregroundColor(.textSecondary)
                             HStack(spacing: 10) {
                                 ForEach([15, 30, 45], id: \.self) { mins in
