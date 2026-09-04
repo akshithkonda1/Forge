@@ -64,6 +64,10 @@ struct MenstrualHealthView: View {
     @State private var saveError: String?
     @State private var showAddPerson = false
     @State private var confirmRemovePerson = false
+    /// `handleAppear` used to re-apply `initialPane` on every appear, which
+    /// snapped Support back to My cycle after a sheet dismissed.
+    @State private var didApplyLaunchPane = false
+    @State private var coldStartDate = Date()
 
     private var accent: Color {
         let phase = pane == .me ? cycleStore.snapshot.phase : cycleStore.partnerSnapshot.phase
@@ -91,6 +95,9 @@ struct MenstrualHealthView: View {
                 cycleStore.lastModelUpdateMessage = nil
             }
             .onAppear(perform: handleAppear)
+            .onChange(of: initialPane) { _, newPane in
+                if let newPane { pane = newPane }
+            }
     }
 
     /// Navigation chrome + presentation (sheets / dialogs / alert) broken out of `body`
@@ -221,10 +228,32 @@ struct MenstrualHealthView: View {
         }
     }
 
+    private var isColdStart: Bool {
+        cycleStore.settings.enabled
+            && cycleStore.snapshot.lastPeriodStartDayKey == nil
+            && cycleStore.snapshot.cyclesObserved == 0
+    }
+
     @ViewBuilder
     private var meEnabledContent: some View {
-        meEnabledPrimary
-        meEnabledSecondary
+        if isColdStart {
+            coldStartContent
+        } else {
+            meEnabledPrimary
+            meEnabledSecondary
+        }
+    }
+
+    @ViewBuilder
+    private var coldStartContent: some View {
+        phaseOrbitCard
+        coldStartCard
+        quickLogCard
+        Group {
+            shareSupportCard
+            settingsCard
+            disclaimerFooter
+        }
     }
 
     @ViewBuilder
@@ -234,25 +263,31 @@ struct MenstrualHealthView: View {
         if let condition = cycleStore.settings.condition.activeCase {
             conditionCard(condition)
         }
-        accuracyCard
-        ariaAnalystCard
-        if cycleStore.settings.highAccuracyMode {
-            highAccuracyCueCard
-        }
+        quickLogCard
         dayStrip
-        predictionGrid
-        fertileScoreSection
+        if cycleStore.snapshot.cyclesObserved > 0 {
+            predictionGrid
+            fertileScoreSection
+        }
     }
 
     @ViewBuilder
     private var meEnabledSecondary: some View {
-        CycleGoalSelectorCard(
-            goal: cycleStore.settings.cycleGoal,
-            onUpdate: { cycleStore.updateCycleGoal($0) }
-        )
-        twwSection
+        Group {
+            if cycleStore.accuracyReport.sampleCount > 0 {
+                accuracyCard
+            }
+            ariaAnalystCard
+            if cycleStore.settings.highAccuracyMode {
+                highAccuracyCueCard
+            }
+            CycleGoalSelectorCard(
+                goal: cycleStore.settings.cycleGoal,
+                onUpdate: { cycleStore.updateCycleGoal($0) }
+            )
+            twwSection
+        }
         predictionFeedbackCard
-        quickLogCard
         historyCard
         insightsCard
         ariaCoachCard
@@ -376,12 +411,15 @@ struct MenstrualHealthView: View {
         if let sex = store.userProfile.biologicalSex {
             cycleStore.enableForBiologicalSexIfNeeded(sex)
         }
-        if let initialPane {
-            pane = initialPane
-        } else if store.userProfile.gender != .female,
-                  store.userProfile.biologicalSex?.cycleAutoEnabled != true,
-                  !cycleStore.settings.enabled {
-            pane = .partner
+        if !didApplyLaunchPane {
+            if let initialPane {
+                pane = initialPane
+            } else if store.userProfile.gender != .female,
+                      store.userProfile.biologicalSex?.cycleAutoEnabled != true,
+                      !cycleStore.settings.enabled {
+                pane = .partner
+            }
+            didApplyLaunchPane = true
         }
         partnerNameDraft = cycleStore.partnerSettings.partnerName
         partnerRelDraft = cycleStore.partnerSettings.relationshipLabel
@@ -391,6 +429,7 @@ struct MenstrualHealthView: View {
             showSharing = true
             store.pendingCycleSharingOpen = false
         }
+        cycleStore.seedTestReadyCycleIfNeeded(testReady: AriaService.shouldUseTestReadyDummy)
         cycleStore.refresh(from: store)
         Task { await cycleStore.syncFromHealthKit() }
         // Refetched every appearance rather than cached: a revoke on the owner's
@@ -435,9 +474,11 @@ struct MenstrualHealthView: View {
             // Facts, not vibes: real dates for the two things people actually plan around.
             stageFactsSection(snap: snap)
 
-            // The one action that closes the loop, offered exactly when it applies.
+            // One episode control — start or finish — not a third copy further down the page.
             if stage == .period, !snap.periodEndConfirmed {
                 periodFinishedButton
+            } else {
+                periodStartButton
             }
         }
         .padding(18)
@@ -515,6 +556,108 @@ struct MenstrualHealthView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    private var periodStartButton: some View {
+        Button {
+            let msg = cycleStore.confirmPeriodStartedToday(
+                flow: selectedFlow == .none ? .medium : selectedFlow
+            )
+            cycleStore.refresh(from: store)
+            cycleStore.refreshAnalyst(lastAction: "period_started_today")
+            showToast(msg)
+        } label: {
+            Label("My period started", systemImage: "flag.fill")
+                .font(FDS.TypeScale.label(14))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    LinearGradient(
+                        colors: [Color(hex: "F87171"), Color(hex: "EF4444")],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var coldStartCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("ANCHOR THIS CYCLE")
+                .forgeSectionLabel()
+            Text("When did your last period start?")
+                .font(FDS.TypeScale.title(20))
+                .foregroundColor(.textPrimary)
+            Text("One start date unlocks phase, next period, and training bias. Everything else can wait.")
+                .font(FDS.TypeScale.body(13))
+                .foregroundColor(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                coldStartChip("Today", daysAgo: 0)
+                coldStartChip("3 days ago", daysAgo: 3)
+                coldStartChip("1 week ago", daysAgo: 7)
+            }
+
+            DatePicker(
+                "Last start",
+                selection: $coldStartDate,
+                in: Calendar.current.date(byAdding: .day, value: -45, to: Date())!...Date(),
+                displayedComponents: .date
+            )
+            .datePickerStyle(.compact)
+            .tint(Color(hex: "EF4444"))
+            .foregroundColor(.textPrimary)
+
+            Button {
+                logColdStart(on: CycleDayKey.key(for: coldStartDate))
+            } label: {
+                Text("Log this start")
+                    .font(FDS.TypeScale.label(15))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "F87171"), Color(hex: "EF4444")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(18)
+        .forgeGlassCard(accent: Color(hex: "EF4444"))
+    }
+
+    private func coldStartChip(_ title: String, daysAgo: Int) -> some View {
+        Button {
+            if let date = Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date()) {
+                coldStartDate = date
+                logColdStart(on: CycleDayKey.key(for: date))
+            }
+        } label: {
+            Text(title)
+                .font(FDS.TypeScale.label(12))
+                .foregroundColor(.textPrimary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(Color.surfaceElevated)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func logColdStart(on dayKey: String) {
+        cycleStore.logPeriodStart(on: dayKey, flow: selectedFlow == .none ? .medium : selectedFlow)
+        cycleStore.refresh(from: store)
+        cycleStore.refreshAnalyst(lastAction: "period_started")
+        showToast("Start logged · \(shortDate(dayKey))")
     }
 
     private func stageColor(_ stage: CycleStage) -> Color {
@@ -995,63 +1138,11 @@ struct MenstrualHealthView: View {
 
     private var predictionFeedbackCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("LOG START & END")
+            Text("FORECAST OFFSET")
                 .forgeSectionLabel()
-            Text("Confirm start and finish. Starts sharpen forecasts; Period finished opens a short “How was your period?” check-in so ARIA learns what helps you — on-device only, never sold.")
+            Text("If the window was early or late, tell the model once. Start and finish live in Where you are.")
                 .font(FDS.TypeScale.body(12))
                 .foregroundColor(.textSecondary)
-
-            HStack(spacing: 10) {
-                Button {
-                    let msg = cycleStore.confirmPeriodStartedToday(
-                        flow: selectedFlow == .none ? .medium : selectedFlow
-                    )
-                    cycleStore.refresh(from: store)
-                    cycleStore.refreshAnalyst(lastAction: "period_started_today")
-                    showToast(msg)
-                } label: {
-                    Label("Period start", systemImage: "flag.fill")
-                        .font(FDS.TypeScale.label(14))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            LinearGradient(
-                                colors: [Color(hex: "F87171"), Color(hex: "EF4444")],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    let msg = cycleStore.confirmPeriodEndedToday()
-                    cycleStore.refresh(from: store)
-                    cycleStore.refreshAnalyst(lastAction: "period_ended_today")
-                    showToast(msg)
-                    if let episode = cycleStore.pendingPeriodEndEpisode {
-                        periodEndEpisode = episode
-                        showPeriodEndFeedback = true
-                    }
-                } label: {
-                    Label("Period finished", systemImage: "checkmark.flag.fill")
-                        .font(FDS.TypeScale.label(14))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            LinearGradient(
-                                colors: [Color(hex: "A78BFA"), Color(hex: "6366F1")],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
 
             if cycleStore.coachingPreferences.sampleCount > 0,
                let summary = cycleStore.coachingPreferences.lastLearnedSummary {
@@ -1529,55 +1620,6 @@ struct MenstrualHealthView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(.plain)
-
-                HStack(spacing: 10) {
-                    Button {
-                        cycleStore.logPeriodStart(flow: selectedFlow == .none ? .medium : selectedFlow)
-                        cycleStore.refresh(from: store)
-                        FDS.notificationHaptic(.success)
-                        showToast("Period start logged")
-                    } label: {
-                        VStack(spacing: 4) {
-                            Image(systemName: "flag.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                            Text("Period start")
-                                .font(FDS.TypeScale.micro(11))
-                                .multilineTextAlignment(.center)
-                        }
-                        .foregroundStyle(Color(hex: "EF4444"))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color(hex: "EF4444").opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Log period start")
-
-                    Button {
-                        let msg = cycleStore.confirmPeriodEndedToday()
-                        cycleStore.refresh(from: store)
-                        showToast(msg)
-                        if let episode = cycleStore.pendingPeriodEndEpisode {
-                            periodEndEpisode = episode
-                            showPeriodEndFeedback = true
-                        }
-                    } label: {
-                        VStack(spacing: 4) {
-                            Image(systemName: "checkmark.flag.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                            Text("Period finished")
-                                .font(FDS.TypeScale.micro(11))
-                                .multilineTextAlignment(.center)
-                        }
-                        .foregroundStyle(Color(hex: "6366F1"))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color(hex: "6366F1").opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Log period finished and answer how it went")
-                }
             }
         }
         .padding(18)
@@ -1732,10 +1774,10 @@ struct MenstrualHealthView: View {
     private var ariaCoachCard: some View {
         Button {
             let phase = cycleStore.snapshot.phase.label
-            store.openChat(
-                with: "I'm in \(phase) — how should I train and recover today?",
-                voice: false
-            )
+            let prompt = cycleStore.settings.shareWithAria
+                ? "I'm in \(phase) — how should I train and recover today?"
+                : "Help me train and recover today."
+            store.openChat(with: prompt, voice: false)
         } label: {
             HStack(spacing: 14) {
                 ZStack {

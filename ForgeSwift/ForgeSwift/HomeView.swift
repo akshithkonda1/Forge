@@ -5,10 +5,6 @@ struct HomeView: View {
     @State private var showHeaderBlur = false
     @State private var showTrend = false
     @State private var proactiveInsight: String?
-    /// Cycle Health is opened only from Home (full-screen cover), not a bottom tab.
-    @State private var showCycleHealth = false
-    @State private var cycleInitialPane: MenstrualHealthView.Pane? = nil
-
     private var primaryAction: HomePrimaryAction {
         HomePrimaryAction.resolve(store: store)
     }
@@ -56,16 +52,14 @@ struct HomeView: View {
                         if !MenstrualHealthStore.shared.consentedPeople.isEmpty {
                             HomeSupportPulseCard {
                                 FDS.haptic(.light)
-                                cycleInitialPane = .partner
-                                showCycleHealth = true
+                                store.openCycleHealth(pane: "partner")
                             }
                         }
 
                         if showsCycleEntry {
                             HomeCycleModule {
                                 FDS.haptic(.light)
-                                cycleInitialPane = .me
-                                showCycleHealth = true
+                                store.openCycleHealth()
                             }
                         }
 
@@ -111,45 +105,8 @@ struct HomeView: View {
             proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store)
             MenstrualHealthStore.shared.refresh(from: store)
         }
-        .fullScreenCover(isPresented: $showCycleHealth) {
-            NavigationStack {
-                MenstrualHealthView(initialPane: cycleInitialPane)
-                    .environmentObject(store)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Close") {
-                                showCycleHealth = false
-                                cycleInitialPane = nil
-                            }
-                            .foregroundStyle(Color.ember)
-                        }
-                    }
-            }
-            .preferredColorScheme(.dark)
-        }
-        .onChange(of: store.pendingCycleHealthOpen) { _, open in
-            guard open else { return }
-            if store.pendingCyclePane == "partner" {
-                cycleInitialPane = .partner
-            } else {
-                cycleInitialPane = .me
-            }
-            showCycleHealth = true
-            store.pendingCycleHealthOpen = false
-            store.pendingCyclePane = nil
-        }
         .sheet(isPresented: $store.showContextInspector) {
             ContextInspectorSheet()
-        }
-        .onAppear {
-            if store.pendingCycleHealthOpen {
-                if store.pendingCyclePane == "partner" {
-                    cycleInitialPane = .partner
-                }
-                showCycleHealth = true
-                store.pendingCycleHealthOpen = false
-                store.pendingCyclePane = nil
-            }
         }
     }
 

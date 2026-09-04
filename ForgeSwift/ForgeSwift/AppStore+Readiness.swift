@@ -41,6 +41,9 @@ extension AppStore {
             MenstrualHealthStore.shared.enableForBiologicalSexIfNeeded(sex)
         }
         if MenstrualHealthStore.shared.settings.enabled {
+            MenstrualHealthStore.shared.seedTestReadyCycleIfNeeded(
+                testReady: AriaService.shouldUseTestReadyDummy
+            )
             await MenstrualHealthStore.shared.quietWeeklyHealthKitSync(force: !authorized)
             MenstrualHealthStore.shared.refresh(from: self)
         }

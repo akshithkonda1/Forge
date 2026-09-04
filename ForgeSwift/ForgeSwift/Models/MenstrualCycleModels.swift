@@ -333,3 +333,54 @@ enum CycleDayKey {
         return d.formatted(.dateTime.month(.abbreviated).day())
     }
 }
+
+/// Local-only cycle history for testers. Never written to HealthKit or a phone pack.
+enum FakeCyclePack {
+    static let source = "testReady"
+    static let cycleLength = 28
+    static let periodLength = 5
+    static let cycleCount = 4
+
+    /// Day-in-cycle for today, 10...16, so testers land in a named phase instead of bleeding.
+    static func currentDayInCycle(seed: Int) -> Int {
+        10 + abs(seed % 7)
+    }
+
+    static func shouldSeed(testReady: Bool, trackingEnabled: Bool, logsEmpty: Bool, alreadySeeded: Bool) -> Bool {
+        testReady && trackingEnabled && logsEmpty && !alreadySeeded
+    }
+
+    static func generate(now: Date = Date(), seed: Int) -> [CycleDayLog] {
+        let todayKey = CycleDayKey.key(for: now)
+        let dayInCycle = currentDayInCycle(seed: seed)
+        guard let lastStart = CycleDayKey.addDays(todayKey, -(dayInCycle - 1)) else { return [] }
+
+        var logs: [CycleDayLog] = []
+        for cycleIndex in 0..<cycleCount {
+            guard let start = CycleDayKey.addDays(lastStart, -cycleIndex * cycleLength) else { continue }
+            for day in 0..<periodLength {
+                guard let key = CycleDayKey.addDays(start, day) else { continue }
+                if let delta = CycleDayKey.daysBetween(key, todayKey), delta < 0 { continue }
+                logs.append(
+                    CycleDayLog(
+                        dayKey: key,
+                        flow: flow(onPeriodDay: day),
+                        source: source,
+                        updatedAt: CycleDayKey.date(from: key) ?? now
+                    )
+                )
+            }
+        }
+        return logs.sorted { $0.dayKey < $1.dayKey }
+    }
+
+    private static func flow(onPeriodDay day: Int) -> MenstrualFlowLevel {
+        switch day {
+        case 0: return .medium
+        case 1: return .heavy
+        case 2: return .medium
+        case 3: return .light
+        default: return .spotting
+        }
+    }
+}
