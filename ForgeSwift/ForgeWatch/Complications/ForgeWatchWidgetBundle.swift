@@ -5,8 +5,9 @@ import SwiftUI
 //
 // Entry point of the ForgeWatchWidgets extension: readiness, mindfulness,
 // sleep, live workout, the supporter's "how to show up" glance, and
-// hydration — the only one of the six with a button, because logging a
-// glass is the one action short enough to belong on a watch face.
+// hydration. Tapping any of them opens Forge; none has an in-place
+// interactive button today (HydrationComplication's own header explains why
+// logging a glass isn't one yet, and what it would take).
 
 @main
 struct ForgeWatchWidgetBundle: WidgetBundle {

@@ -72,7 +72,6 @@ final class WorkoutSessionManager {
     private var countdownTask: Task<Void, Never>?
     private var hrSamples: [Double] = []
     private var zoneSeconds: [Int: Int] = [:]
-    private var lastCueZone: Int?
     private var lastCueAt = Date.distantPast
     /// When the session really began.
     ///
@@ -109,7 +108,6 @@ final class WorkoutSessionManager {
         summary = nil
         hrSamples = []
         zoneSeconds = [:]
-        lastCueZone = nil
         lastCueAt = .distantPast
 
         phase = .countdown
@@ -221,7 +219,6 @@ final class WorkoutSessionManager {
         ) else { return }
 
         lastCueAt = decision.firedAt
-        lastCueZone = zone.zone
         coachingCue = decision.cue
         WKInterfaceDevice.current().play(.click)
     }

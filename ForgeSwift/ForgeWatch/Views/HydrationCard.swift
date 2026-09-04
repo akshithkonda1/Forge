@@ -51,6 +51,12 @@ struct HydrationCard: View {
                 .foregroundStyle(ForgePalette.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if let last = hydration.lastLoggedAt {
+                Label("Logged \(last.formatted(.relative(presentation: .named)))", systemImage: "checkmark.circle")
+                    .font(.system(size: 10))
+                    .foregroundStyle(ForgePalette.textTertiary)
+            }
+
             if hydration.lastWriteFailed {
                 // The drink still counted; only the write to Health did not.
                 // Saying so beats a number that quietly disagrees with Health.

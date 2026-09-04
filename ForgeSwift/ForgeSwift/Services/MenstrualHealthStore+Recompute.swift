@@ -79,8 +79,6 @@ extension MenstrualHealthStore {
                 WatchSnapshotStore.update(reloadWidgets: false) { ws in
                     ws.cyclePhase = snap.phase.rawValue
                     ws.cycleDayInCycle = snap.dayInCycle
-                    ws.cycleFertileWindowOpen = (snap.phase == .fertileWindow || snap.phase == .ovulation)
-                    ws.cycleFertileScore = snap.fertileScore
                     if let nextPeriod = snap.nextPeriod,
                        let nextDate = CycleDayKey.date(from: nextPeriod.medianDayKey) {
                         ws.cycleNextPeriodDaysAway = Calendar.current.dateComponents([.day], from: Date(), to: nextDate).day

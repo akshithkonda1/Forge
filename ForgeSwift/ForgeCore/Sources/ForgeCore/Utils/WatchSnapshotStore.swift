@@ -23,7 +23,6 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
     public var recommendedDuration: TimeInterval?
     public var recommendationReason: String?
 
-    public var lifestyleMode: LifestyleMode?
     public var mindfulMinutesToday: Double?
     /// Present only while a workout session is running (drives the
     /// ActiveWorkoutComplication). Optional so old snapshots still decode.
@@ -38,8 +37,6 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
     // Cycle phase fields — synced from MenstrualHealthStore.recompute()
     public var cyclePhase: String?
     public var cycleDayInCycle: Int?
-    public var cycleFertileWindowOpen: Bool?
-    public var cycleFertileScore: Int?
     public var cycleNextPeriodDaysAway: Int?
     public var updatedAt: Date
 

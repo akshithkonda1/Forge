@@ -33,7 +33,6 @@ public struct WatchARIAContext: Codable, Sendable, Equatable {
     // Training load
     public var hoursSinceLastWorkout: Double?
     public var lastWorkoutType: String?
-    public var yesterdayStrain: Double?
 
     // Mindfulness history (today)
     public var mindfulMinutesToday: Double?

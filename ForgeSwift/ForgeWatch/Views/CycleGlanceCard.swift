@@ -49,6 +49,14 @@ struct CycleGlanceCard: View {
                         .foregroundStyle(ForgePalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                // The phone owns the sync; this card only ever displays what it
+                // was last handed. Saying when makes that dependency visible
+                // instead of implying the watch itself just checked.
+                if let updated = snapshot?.updatedAt {
+                    Label("Synced \(updated.formatted(.relative(presentation: .named)))", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(ForgePalette.textTertiary)
+                }
             }
             .padding(ForgeDS.Spacing.md)
             .background(RoundedRectangle(cornerRadius: ForgeDS.Radius.lg).fill(ForgePalette.surface))

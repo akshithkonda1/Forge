@@ -346,7 +346,7 @@ private struct DebriefView: View {
         if let deeper = await aria.deeperDebrief(
             practice: debrief.practice,
             minutes: debrief.minutesLogged,
-            heartRateSettleBPM: nil
+            heartRateSettleBPM: debrief.heartRateSettleBPM
         ) {
             withAnimation(.easeInOut(duration: 0.3)) { upgradedMessage = deeper }
         }
