@@ -376,60 +376,6 @@ final class OnboardingCoordinator {
         Task { await advanceTo(AriaInterviewStep(OnboardingGraph.next(after: .confirmInterests))) }
     }
 
-    func selectTrainingTheme(_ theme: AriaTrainingTheme) {
-        guard step == .trainingTheme else { return }
-        profile.trainingTheme = theme
-        appendUser(theme.label)
-        FDS.haptic(.light)
-        syncPartialContext()
-        Task {
-            if theme == .classic {
-                await ariaSay(
-                    "Classic coaching it is — clear plans, no gimmicks. You can always say “train like Solo Leveling” later and I’ll switch.",
-                    mood: .calm
-                )
-            } else if theme == .soloLeveling {
-                await ariaSay(
-                    "Solo Leveling locked. I’ll build daily quests, rank windows from readiness, and gate-clear sessions when your body can take it.",
-                    mood: .energized
-                )
-            } else {
-                await ariaSay(
-                    "\(theme.label) it is — \(theme.tagline) Every plan will respect readiness while staying in that world.",
-                    mood: .focused
-                )
-            }
-            await advanceTo(.lifeContext)
-        }
-    }
-
-    func skipTrainingTheme() {
-        guard step == .trainingTheme else { return }
-        profile.trainingTheme = .classic
-        appendUser("Skip — classic coach")
-        FDS.haptic(.light)
-        Task {
-            await advanceTo(.lifeContext)
-        }
-    }
-
-    func selectLifeContext(_ option: LifeContextOption) {
-        guard step == .lifeContext else { return }
-        profile.lifeContext = option
-        appendUser(option.label)
-        FDS.haptic(.light)
-        syncPartialContext()
-        Task { await advanceTo(.conditions) }
-    }
-
-    func skipLifeContext() {
-        guard step == .lifeContext else { return }
-        profile.lifeContext = .preferNot
-        appendUser("Prefer not to say")
-        FDS.haptic(.light)
-        Task { await advanceTo(.conditions) }
-    }
-
     func toggleCondition(_ condition: ReportedCondition) {
         guard step == .conditions else { return }
         FDS.selectionHaptic()
