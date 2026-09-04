@@ -524,7 +524,7 @@ struct WorkoutExerciseRow: View {
                             store.showHowToPerform(exercise.name)
                         } label: {
                             HStack(spacing: 8) {
-                                AriaPortraitView(size: 22)
+                                ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.3)
                                 Text("Show me how")
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
                                 Spacer()

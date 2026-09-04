@@ -74,7 +74,15 @@ struct AriaInterviewLayout: View {
                             .frame(width: 54, height: 54)
                             .blur(radius: 10)
                     }
-                    AriaPortraitView(size: 44)
+                    AuroraOrbView(
+                        state: dictation.isListening ? .listening : coordinator.ariaOrbState,
+                        amplitude: dictation.isListening
+                            ? dictation.amplitude
+                            : (coordinator.ariaOrbState == .speaking ? 0.55 : 0.22),
+                        mood: coordinator.ariaMood,
+                        size: 44,
+                        followPresence: true
+                    )
                 }
 
                 VStack(alignment: .leading, spacing: 3) {

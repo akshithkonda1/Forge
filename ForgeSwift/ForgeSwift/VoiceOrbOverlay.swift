@@ -50,7 +50,13 @@ struct VoiceOrbOverlay: View {
                         .animation(.easeInOut(duration: 1.1), value: speech.voiceState.label)
                     }
 
-                    AriaPortraitView(size: 148)
+                    AuroraOrbView(
+                        state:     speech.voiceState.orbState,
+                        amplitude: max(speech.amplitude, 0.35),
+                        mood:      mood,
+                        size:      148,
+                        followPresence: true
+                    )
                         .scaleEffect(orbRevealed ? 1.0 : 0.7)
                         .opacity(orbRevealed ? 1 : 0)
                 }

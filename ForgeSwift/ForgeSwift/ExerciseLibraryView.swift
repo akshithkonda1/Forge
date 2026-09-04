@@ -232,7 +232,7 @@ struct ExerciseLibraryView: View {
                 AriaPresence.shared.speak(ExerciseLibrary.howToScript(for: def))
             } label: {
                 VStack(spacing: 4) {
-                    AriaPortraitView(size: 22, live: false)
+                    ARIAIdentityMark(state: .speaking, mood: .energized, size: 22, amplitude: 0.4)
                     Text("How")
                         .font(.system(size: 10, weight: .bold, design: .rounded))
                 }
@@ -320,7 +320,7 @@ struct ExerciseDetailSheet: View {
                             AriaPresence.shared.speak(ExerciseLibrary.howToScript(for: def))
                         } label: {
                             HStack(spacing: 10) {
-                                AriaPortraitView(size: 28)
+                                ARIAIdentityMark(state: .speaking, mood: .energized, size: 28, amplitude: 0.5)
                                 Text("ARIA, show me how")
                                     .font(.system(size: 16, weight: .bold))
                             }

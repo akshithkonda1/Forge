@@ -255,8 +255,14 @@ private struct AuthHookPageView: View {
 
             ZStack {
                 if page.id == "aria" {
-                    AriaPortraitView(size: 148, showsPresence: false)
-                        .scaleEffect(isActive ? 1.0 + floatPhase * 0.02 : 0.92)
+                    AuroraOrbView(
+                        state: .idle,
+                        amplitude: 0.34,
+                        mood: .energized,
+                        size: 148,
+                        followPresence: true
+                    )
+                    .scaleEffect(isActive ? 1.0 + floatPhase * 0.02 : 0.92)
                 } else {
                     Circle()
                         .fill(accent.opacity(0.18))

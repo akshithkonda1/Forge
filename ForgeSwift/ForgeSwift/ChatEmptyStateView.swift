@@ -62,7 +62,13 @@ struct ChatEmptyStateView: View {
                     ))
                     .frame(width: 220, height: 220).blur(radius: 36)
 
-                AriaPortraitView(size: 128)
+                AuroraOrbView(
+                    state: .idle,
+                    amplitude: 0.32,
+                    mood: mood,
+                    size: 128,
+                    followPresence: true
+                )
             }
             .scaleEffect(appeared ? 1 : 0.72)
             .opacity(appeared ? 1 : 0)
