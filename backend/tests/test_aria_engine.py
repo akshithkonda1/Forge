@@ -446,9 +446,9 @@ class LiveBedrockTests(unittest.TestCase):
 
 class CoachAgentTests(unittest.TestCase):
     def test_unknown_agent_falls_back_to_aria(self):
-        self.assertEqual(aria_engine.normalize_coach_agent(None), "aria")
-        self.assertEqual(aria_engine.normalize_coach_agent("wizard"), "aria")
-        self.assertEqual(aria_engine.normalize_coach_agent("Workout"), "workout")
+        self.assertEqual(aria_engine.normalize_coach_agents(None), ["aria"])
+        self.assertEqual(aria_engine.normalize_coach_agents("wizard"), ["aria"])
+        self.assertEqual(aria_engine.normalize_coach_agents("Workout"), ["workout"])
 
     def test_agents_list_is_unbounded_and_deduped(self):
         roster = aria_engine.normalize_coach_agents(

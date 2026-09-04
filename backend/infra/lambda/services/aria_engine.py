@@ -115,8 +115,9 @@ _DOMAIN_ALIASES = {
 
 # --- Canonical ARIA system prompt (Section 2) --------------------------------
 #
-# Phase 1 ``/ai/chat`` is deterministic and does not execute this prompt, but the
-# brief treats the prompt as a product artifact ("ARIA is the product"). It is
+# The deterministic engine below does not execute this prompt directly, but
+# ``live_system_prompt()`` composes it into every live model call (Bedrock-backed
+# ``/ai/chat``, form-check briefings, etc.) — see that function's docstring. It is
 # defined here as the single canonical version and unit-tested for the behaviors
 # the brief requires it to have.
 ARIA_SYSTEM_PROMPT = f"""\
@@ -223,11 +224,6 @@ COACH_AGENTS = {
         "context is absent or restricted, say you don't have it and coach generally."
     ),
 }
-
-
-def normalize_coach_agent(raw: Any | None) -> str:
-    key = str(raw or "aria").strip().lower()
-    return key if key in COACH_AGENTS else "aria"
 
 
 def normalize_coach_agents(raw: Any | None, single: Any | None = None) -> list[str]:
