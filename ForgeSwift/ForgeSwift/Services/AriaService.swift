@@ -284,6 +284,7 @@ enum AriaOnboardingGuide {
 
     /// First hook on the welcome carousel — learning, not eavesdropping.
     static let welcomeTitle = "ARIA is already learning."
+    static let welcomeSpokenLine = "I'm ARIA. I'm already learning how you live — then we'll train from that."
 
     static func firstSessionScript(profile: OnboardingProfile, healthConnected: Bool) -> String {
         let name = profile.trimmedName.isEmpty ? "there" : profile.firstName

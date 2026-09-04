@@ -305,12 +305,118 @@ struct SleepWakeCoach: Equatable {
     }
 }
 
-struct SleepSoundItem: Identifiable {
-    let id: UUID = UUID()
-    let name: String
-    let icon: String
-    let color: Color
-    let category: SleepSoundCategory
+enum SleepSoundKind: String, CaseIterable, Identifiable, Hashable {
+    case cafe, brown, white, pink, lofi
+    case rain, ocean, forest, thunder, fan
+    case fireplace, tibetan, chimes
+    case binaural, hz432, deepFocus
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .cafe: return "Café"
+        case .brown: return "Brown Noise"
+        case .white: return "White Noise"
+        case .pink: return "Pink Noise"
+        case .lofi: return "Lo-Fi Beats"
+        case .rain: return "Rain"
+        case .ocean: return "Ocean"
+        case .forest: return "Forest"
+        case .thunder: return "Thunder"
+        case .fan: return "Fan"
+        case .fireplace: return "Fireplace"
+        case .tibetan: return "Tibetan Bowl"
+        case .chimes: return "Wind Chimes"
+        case .binaural: return "Binaural"
+        case .hz432: return "432 Hz"
+        case .deepFocus: return "Deep Focus"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .cafe: return "cup.and.saucer.fill"
+        case .brown: return "waveform.path"
+        case .white: return "waveform"
+        case .pink: return "waveform.path.ecg"
+        case .lofi: return "music.note.list"
+        case .rain: return "cloud.rain.fill"
+        case .ocean: return "water.waves"
+        case .forest: return "tree.fill"
+        case .thunder: return "cloud.bolt.rain.fill"
+        case .fan: return "fan.fill"
+        case .fireplace: return "flame.fill"
+        case .tibetan: return "bell.fill"
+        case .chimes: return "wind"
+        case .binaural: return "headphones"
+        case .hz432: return "tuningfork"
+        case .deepFocus: return "brain.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .cafe: return Color(hex: "92400E")
+        case .brown: return Color(hex: "92400E")
+        case .white: return .textTertiary
+        case .pink: return Color(hex: "EC4899")
+        case .lofi: return Color(hex: "F472B6")
+        case .rain: return .steel
+        case .ocean: return Color(hex: "0EA5E9")
+        case .forest: return .success
+        case .thunder: return Color(hex: "6366F1")
+        case .fan: return .textSecondary
+        case .fireplace: return .ember
+        case .tibetan: return Color(hex: "A78BFA")
+        case .chimes: return Color(hex: "38BDF8")
+        case .binaural: return Color(hex: "818CF8")
+        case .hz432: return .success
+        case .deepFocus: return Color(hex: "7C3AED")
+        }
+    }
+
+    var category: SleepSoundCategory {
+        switch self {
+        case .rain, .ocean, .forest, .thunder: return .nature
+        case .white, .brown, .pink, .fan: return .noise
+        case .fireplace, .cafe, .tibetan, .chimes: return .ambient
+        case .lofi, .binaural, .hz432, .deepFocus: return .focus
+        }
+    }
+
+    var blurb: String {
+        switch self {
+        case .cafe: return "Muffled chatter, cups, and a warm room tone — like a quiet corner table."
+        case .brown: return "Deep rumble. Masks traffic and thoughts without sounding hissy."
+        case .white: return "Full-spectrum hiss. Good for blocking sharp sounds."
+        case .pink: return "Softer than white, brighter than brown. Balanced mask."
+        case .lofi: return "Slow kick, snare, and a dusty pad. Focus, not a playlist."
+        case .rain: return "Steady rainfall on a roof. Soft drops, no storm drama."
+        case .ocean: return "Slow swell and recede. Longer waves than rain."
+        case .forest: return "Leaves, distant birds, and a low breeze."
+        case .thunder: return "Far-off rumbles over rain. Occasional, not constant."
+        case .fan: return "Oscillating air. Mechanical, even, easy to ignore."
+        case .fireplace: return "Low crackle and ember hiss."
+        case .tibetan: return "A long singing-bowl tone that rings out and returns."
+        case .chimes: return "Sparse pentatonic notes in the wind."
+        case .binaural: return "Two close tones beating slowly. Headphones help."
+        case .hz432: return "A single 432 Hz tone, very quiet under a soft bed."
+        case .deepFocus: return "Low pad with a slow pulse. Work, not sleep-first."
+        }
+    }
+
+    static let tonightPicks: [SleepSoundKind] = [.cafe, .brown, .white, .lofi]
+}
+
+struct SleepSoundItem: Identifiable, Hashable {
+    var id: SleepSoundKind { kind }
+    let kind: SleepSoundKind
+    var name: String { kind.displayName }
+    var icon: String { kind.icon }
+    var color: Color { kind.color }
+    var category: SleepSoundCategory { kind.category }
+    var blurb: String { kind.blurb }
 }
 
 enum SleepSoundCategory: String, CaseIterable {
@@ -320,24 +426,7 @@ enum SleepSoundCategory: String, CaseIterable {
     case focus   = "Focus"
 }
 
-let allSleepSounds: [SleepSoundItem] = [
-    SleepSoundItem(name: "Rain",          icon: "cloud.rain.fill",          color: .steel,              category: .nature),
-    SleepSoundItem(name: "Ocean",         icon: "water.waves",               color: Color(hex: "0EA5E9"), category: .nature),
-    SleepSoundItem(name: "Forest",        icon: "tree.fill",                 color: .success,            category: .nature),
-    SleepSoundItem(name: "Thunder",       icon: "cloud.bolt.rain.fill",      color: Color(hex: "6366F1"), category: .nature),
-    SleepSoundItem(name: "White Noise",   icon: "waveform",                  color: .textTertiary,       category: .noise),
-    SleepSoundItem(name: "Brown Noise",   icon: "waveform.path",             color: Color(hex: "92400E"), category: .noise),
-    SleepSoundItem(name: "Pink Noise",    icon: "waveform.path.ecg",         color: Color(hex: "EC4899"), category: .noise),
-    SleepSoundItem(name: "Fan",           icon: "fan.fill",                  color: .textSecondary,      category: .noise),
-    SleepSoundItem(name: "Fireplace",     icon: "flame.fill",                color: .ember,              category: .ambient),
-    SleepSoundItem(name: "Café",          icon: "cup.and.saucer.fill",       color: Color(hex: "92400E"), category: .ambient),
-    SleepSoundItem(name: "Tibetan Bowl",  icon: "bell.fill",                 color: Color(hex: "A78BFA"), category: .ambient),
-    SleepSoundItem(name: "Wind Chimes",   icon: "wind",                      color: Color(hex: "38BDF8"), category: .ambient),
-    SleepSoundItem(name: "Lo-Fi",         icon: "music.note",                color: Color(hex: "F472B6"), category: .focus),
-    SleepSoundItem(name: "Binaural",      icon: "headphones",                color: Color(hex: "818CF8"), category: .focus),
-    SleepSoundItem(name: "432 Hz",        icon: "tuningfork",                color: .success,            category: .focus),
-    SleepSoundItem(name: "Deep Focus",    icon: "brain.fill",                color: Color(hex: "7C3AED"), category: .focus),
-]
+let allSleepSounds: [SleepSoundItem] = SleepSoundKind.allCases.map { SleepSoundItem(kind: $0) }
 
 enum SleepTab: Int, CaseIterable {
     case day, night, alarms
@@ -513,7 +602,7 @@ struct SleepBedtimeCoach: Equatable {
         case .lightsOut:
             return (
                 "It's bedtime",
-                "Stop negotiating. Brown noise on, screen down, lights out.",
+                "Stop negotiating. Pick a sound, screen down, lights out.",
                 "It is bedtime. Help me actually get into bed right now."
             )
         case .overdue:

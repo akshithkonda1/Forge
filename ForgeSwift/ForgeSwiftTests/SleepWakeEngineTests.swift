@@ -142,6 +142,28 @@ final class SleepWakeEngineTests: XCTestCase {
         )
     }
 
+    func testSoundLibraryHasNamedBedsNotJustBrown() {
+        XCTAssertEqual(SleepSoundKind.allCases.count, 16)
+        XCTAssertEqual(
+            Set(SleepSoundKind.tonightPicks),
+            [.cafe, .brown, .white, .lofi]
+        )
+        XCTAssertEqual(SleepSoundKind.cafe.displayName, "Café")
+        XCTAssertEqual(SleepSoundKind.white.displayName, "White Noise")
+        XCTAssertEqual(SleepSoundKind.lofi.displayName, "Lo-Fi Beats")
+        XCTAssertEqual(SleepSoundKind.brown.category, .noise)
+        XCTAssertEqual(SleepSoundKind.cafe.category, .ambient)
+        XCTAssertEqual(SleepSoundKind.lofi.category, .focus)
+        XCTAssertEqual(SleepSoundKind.rain.category, .nature)
+        for kind in SleepSoundKind.allCases {
+            XCTAssertFalse(kind.displayName.isEmpty, kind.rawValue)
+            XCTAssertFalse(kind.blurb.isEmpty, kind.rawValue)
+            XCTAssertFalse(kind.icon.isEmpty, kind.rawValue)
+        }
+        XCTAssertEqual(allSleepSounds.count, SleepSoundKind.allCases.count)
+        XCTAssertEqual(Set(SleepSoundKind.allCases.map(\.category)), Set(SleepSoundCategory.allCases))
+    }
+
     private func weekdayAlarm(hour: Int, minute: Int) -> ForgeAlarm {
         ForgeAlarm(
             label: "Weekdays",

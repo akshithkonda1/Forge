@@ -249,6 +249,7 @@ final class VoiceCoachManager: NSObject {
         
         speechSynthesizer.speak(utterance)
         isSpeaking = true
+        AriaPresence.shared.markSpeaking(true)
     }
     
     // MARK: - Private: ARIA backend
@@ -334,6 +335,7 @@ extension VoiceCoachManager: AVSpeechSynthesizerDelegate {
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         Task { @MainActor in
             self.isSpeaking = false
+            AriaPresence.shared.markSpeaking(false)
             // Restore audio session for recording after speaking
             try? AVAudioSession.sharedInstance().setCategory(
                 .playAndRecord,

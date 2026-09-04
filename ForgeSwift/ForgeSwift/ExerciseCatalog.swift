@@ -38,7 +38,18 @@ enum TargetMuscle: String, CaseIterable, Identifiable, Hashable {
     }
 
     /// Coarse training region — drives the balance read-out + accent colors.
-    enum Region: String { case push, pull, legs, core, conditioning }
+    enum Region: String, CaseIterable {
+        case push, pull, legs, core, conditioning
+        var label: String {
+            switch self {
+            case .push: return "Push"
+            case .pull: return "Pull"
+            case .legs: return "Legs"
+            case .core: return "Core"
+            case .conditioning: return "Conditioning"
+            }
+        }
+    }
     var region: Region {
         switch self {
         case .chest, .frontDelts, .sideDelts, .triceps: return .push
@@ -635,6 +646,85 @@ enum ExerciseLibrary {
 
     static func count(matching muscle: TargetMuscle) -> Int {
         all.filter { $0.primary.contains(muscle) || $0.secondary.contains(muscle) }.count
+    }
+
+    enum OrganizeBy: String, CaseIterable, Identifiable {
+        case region, muscle, pattern, equipment
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .region: return "Region"
+            case .muscle: return "Muscle"
+            case .pattern: return "Pattern"
+            case .equipment: return "Gear"
+            }
+        }
+    }
+
+    struct Section: Identifiable {
+        let id: String
+        let title: String
+        let accent: Color
+        let items: [ExerciseDefinition]
+    }
+
+    static func grouped(
+        query: String,
+        muscle: TargetMuscle?,
+        equipment: GearType?,
+        pattern: MovementPattern?,
+        by organize: OrganizeBy
+    ) -> [Section] {
+        let rows = filter(query: query, muscle: muscle, equipment: equipment, pattern: pattern)
+        func sorted(_ items: [ExerciseDefinition]) -> [ExerciseDefinition] {
+            items.sorted {
+                if $0.isCompound != $1.isCompound { return $0.isCompound && !$1.isCompound }
+                return $0.name < $1.name
+            }
+        }
+        switch organize {
+        case .region:
+            return TargetMuscle.Region.allCases.compactMap { region in
+                let items = sorted(rows.filter { $0.region == region })
+                guard !items.isEmpty else { return nil }
+                return Section(id: region.rawValue, title: region.label, accent: items[0].accent, items: items)
+            }
+        case .muscle:
+            return TargetMuscle.allCases.compactMap { m in
+                let items = sorted(rows.filter { $0.primary.contains(m) })
+                guard !items.isEmpty else { return nil }
+                return Section(id: m.rawValue, title: m.label, accent: m.accent, items: items)
+            }
+        case .pattern:
+            return MovementPattern.allCases.compactMap { p in
+                let items = sorted(rows.filter { $0.pattern == p })
+                guard !items.isEmpty else { return nil }
+                return Section(id: p.rawValue, title: p.label, accent: items[0].accent, items: items)
+            }
+        case .equipment:
+            return GearType.allCases.compactMap { g in
+                let items = sorted(rows.filter { $0.equipment == g })
+                guard !items.isEmpty else { return nil }
+                return Section(id: g.rawValue, title: g.label, accent: items[0].accent, items: items)
+            }
+        }
+    }
+
+    /// Spoken walkthrough ARIA uses for Show me how.
+    static func howToScript(for def: ExerciseDefinition) -> String {
+        var parts: [String] = ["Here's how to do \(def.name)."]
+        parts.append("It's a \(def.pattern.label.lowercased()) on \(def.equipment.label.lowercased()). Primary: \(def.primary.map(\.label).joined(separator: ", ")).")
+        if !def.cues.isEmpty {
+            let numbered = def.cues.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: " ")
+            parts.append("Cues: \(numbered)")
+        }
+        if !def.faults.isEmpty {
+            parts.append("Watch for: \(def.faults.joined(separator: ". ")).")
+        }
+        if let regress = def.regressions.first {
+            parts.append("If it feels off, switch to \(regress).")
+        }
+        return parts.joined(separator: " ")
     }
 }
 

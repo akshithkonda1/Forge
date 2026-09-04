@@ -93,6 +93,23 @@ extension AppStore {
         activeTab = .chat
     }
 
+    /// Train → library card + ARIA talking the athlete through the lift.
+    func showHowToPerform(_ name: String, speakLocally: Bool = true, openChat: Bool = false) {
+        let def = ExerciseLibrary.match(name)
+        if let def {
+            pendingShowHow = def
+            if speakLocally {
+                AriaPresence.shared.speak(ExerciseLibrary.howToScript(for: def))
+            }
+        }
+        if openChat || def == nil {
+            self.openChat(
+                with: "Show me how to do \(name). Walk me through setup, cues, common faults, and a regression if my joints complain.",
+                voice: true
+            )
+        }
+    }
+
     /// Deep-link into the shell Cycle Health cover (optional Support pane).
     /// Home no longer hosts its own cover — two full-screen presenters on the
     /// same published flag blanked or stuck the page when opened from Home.

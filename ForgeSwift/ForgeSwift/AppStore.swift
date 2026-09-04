@@ -129,6 +129,8 @@ final class AppStore: ObservableObject {
     }
 
     // ARIA bridge
+    /// When set, Train presents the library detail so ARIA can show the move.
+    @Published var pendingShowHow: ExerciseDefinition? = nil
     @Published var ariaVoiceMode: Bool = false
     /// One-shot: open the voice orb on the next chat appear / handoff. Cleared
     /// after consume so a sticky Voice tab does not re-listen on every visit.

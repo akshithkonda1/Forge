@@ -59,19 +59,10 @@ final class SpeechManager: ObservableObject {
 
     var isListening: Bool { voiceState == .listening }
 
-    private let synthesizer = AVSpeechSynthesizer()
-
     /// Speak an ARIA reply when the chat orb is in voice mode.
     func speak(_ text: String) {
-        let clipped = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !clipped.isEmpty else { return }
-        if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .word) }
-        let utterance = AVSpeechUtterance(string: String(clipped.prefix(420)))
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = 0.52
-        utterance.pitchMultiplier = 0.95
-        try? AVAudioSession.sharedInstance().setCategory(.playback, options: [.duckOthers])
-        synthesizer.speak(utterance)
+        AriaPresence.shared.setListening(false)
+        AriaPresence.shared.speak(text)
     }
 
     func startListening() {
@@ -85,6 +76,7 @@ final class SpeechManager: ObservableObject {
         recognizedText = ""
         authorizationDenied = false
         voiceState = .listening
+        AriaPresence.shared.setListening(true)
         amplitude = 0.15
 
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
@@ -257,6 +249,7 @@ final class SpeechManager: ObservableObject {
         recognitionTask = nil
         amplitude = 0
         if clearText { recognizedText = "" }
+        AriaPresence.shared.setListening(false)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }

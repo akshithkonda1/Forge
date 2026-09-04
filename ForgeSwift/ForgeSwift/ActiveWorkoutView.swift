@@ -156,6 +156,9 @@ struct ActiveWorkoutView: View {
                 FormCheckCameraView(exercise: exercise, definition: currentDef, liveContext: liveContext(for: exercise))
             }
         }
+        .sheet(item: $store.pendingShowHow) { def in
+            ExerciseDetailSheet(def: def)
+        }
         .onAppear  {
             if store.todayWorkout == nil {
                 store.rebuildTodayPlanFromLife()
@@ -447,6 +450,24 @@ struct ActiveWorkoutView: View {
 
                 VStack(alignment: .leading, spacing: 14) {
                     Text(exercise.name).font(.system(size: 26, weight: .bold)).foregroundColor(.textPrimary)
+                    Button {
+                        FDS.haptic(.medium)
+                        store.showHowToPerform(exercise.name)
+                    } label: {
+                        HStack(spacing: 8) {
+                            AriaPortraitView(size: 22)
+                            Text("Show me how")
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                            Image(systemName: "books.vertical")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundColor(.ember)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.ember.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
                     if let def = currentDef {
                         HStack(spacing: 6) {
                             ForEach(def.primary.prefix(3)) { m in

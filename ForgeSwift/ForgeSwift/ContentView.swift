@@ -64,7 +64,7 @@ struct ForgeSplashScreen: View {
             .ignoresSafeArea()
 
             VStack(spacing: 28) {
-                AuroraOrbView(state: .idle, amplitude: 0.34, mood: .energized, size: 132)
+                AriaPortraitView(size: 132)
                     .scaleEffect(logoScale)
                     .opacity(logoOpacity)
                     .shadow(color: Color.ember.opacity(0.35 * glowIntensity), radius: 48, y: 8)

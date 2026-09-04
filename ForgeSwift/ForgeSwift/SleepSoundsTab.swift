@@ -1,13 +1,19 @@
 import SwiftUI
 import AVFoundation
 
-/// Generated brown noise + a fade-out timer. No bundled files, no network.
+/// Generated soundscapes — café, noise colors, lo-fi, nature. No bundled files.
 @MainActor
 final class SleepWindDownPlayer: ObservableObject {
     static let shared = SleepWindDownPlayer()
 
     @Published private(set) var isPlaying = false
     @Published private(set) var remainingSeconds = 0
+    @Published private(set) var kind: SleepSoundKind = {
+        SleepSoundKind(rawValue: UserDefaults.standard.string(forKey: "forge.sleep.sound.kind.v1") ?? "") ?? .brown
+    }()
+    @Published var volume: Double = 0.75 {
+        didSet { engine?.mainMixerNode.outputVolume = Float(volume) }
+    }
 
     var remainingLabel: String {
         let m = remainingSeconds / 60
@@ -17,14 +23,18 @@ final class SleepWindDownPlayer: ObservableObject {
 
     private var engine: AVAudioEngine?
     private var tick: Timer?
-    private let brown = BrownNoiseState()
+    private let synth = SoundscapeState()
 
-    func start(minutes: Int = 30) {
+    func start(kind: SleepSoundKind? = nil, minutes: Int = 30) {
+        if let kind {
+            self.kind = kind
+            UserDefaults.standard.set(kind.rawValue, forKey: "forge.sleep.sound.kind.v1")
+        }
         stop(deactivateSession: false)
-        brown.reset()
+        synth.reset(kind: self.kind)
         let engine = AVAudioEngine()
         let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1)!
-        let state = brown
+        let state = synth
         let source = AVAudioSourceNode { _, _, frameCount, audioBufferList -> OSStatus in
             let buffers = UnsafeMutableAudioBufferListPointer(audioBufferList)
             for buffer in buffers {
@@ -37,6 +47,7 @@ final class SleepWindDownPlayer: ObservableObject {
         }
         engine.attach(source)
         engine.connect(source, to: engine.mainMixerNode, format: format)
+        engine.mainMixerNode.outputVolume = Float(volume)
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try AVAudioSession.sharedInstance().setActive(true)
@@ -51,6 +62,7 @@ final class SleepWindDownPlayer: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 self.remainingSeconds -= 1
+                self.engine?.mainMixerNode.outputVolume = Float(self.volume)
                 if self.remainingSeconds <= 0 { self.stop() }
             }
         }
@@ -63,7 +75,7 @@ final class SleepWindDownPlayer: ObservableObject {
         engine = nil
         isPlaying = false
         remainingSeconds = 0
-        brown.reset()
+        synth.reset(kind: kind)
         if deactivateSession {
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
@@ -150,65 +162,150 @@ private final class WakeToneState: @unchecked Sendable {
     }
 }
 
-/// Audio-thread integrator. Isolated from UI so the render callback stays off MainActor.
-private final class BrownNoiseState: @unchecked Sendable {
-    private var last: Float = 0
+/// Audio-thread soundscape. Isolated from UI so the render callback stays off MainActor.
+private final class SoundscapeState: @unchecked Sendable {
+    private var kind: SleepSoundKind = .brown
+    private var t: Double = 0
+    private var frames: Int = 0
+    private var brown: Float = 0
+    private var pink: [Float] = Array(repeating: 0, count: 7)
+    private var eventAt: Int = 8_000
+    private var eventAmp: Float = 0
+    private var lofiPhase: Int = 0
 
-    func reset() { last = 0 }
+    private let sr: Double = 22_050
+
+    func reset(kind: SleepSoundKind) {
+        self.kind = kind
+        t = 0
+        frames = 0
+        brown = 0
+        pink = Array(repeating: 0, count: 7)
+        eventAt = 6_000
+        eventAmp = 0
+        lofiPhase = 0
+    }
 
     func nextSample() -> Float {
+        frames += 1
+        t += 1 / sr
+        if t > 64 { t -= 64 }
         let white = Float.random(in: -1...1)
-        last = (last + (0.02 * white)) * 0.98
-        return max(-1, min(1, last * 0.45))
+        brown = (brown + (0.02 * white)) * 0.98
+        let brownClamped = max(-1, min(1, brown * 0.45))
+        let pinkVal = pinkNoise(white)
+        switch kind {
+        case .white:
+            return white * 0.18
+        case .brown:
+            return brownClamped
+        case .pink:
+            return pinkVal * 0.28
+        case .fan:
+            let lfo = Float(0.72 + 0.28 * sin(t * 0.35))
+            return brownClamped * lfo * 0.9
+        case .rain:
+            let drop = white * white > 0.92 ? white * 0.35 : white * 0.08
+            return (pinkVal * 0.22) + drop * 0.15
+        case .ocean:
+            let swell = Float(0.45 + 0.55 * sin(t * 0.22))
+            return brownClamped * swell * 0.85 + pinkVal * 0.08 * swell
+        case .forest:
+            var s = pinkVal * 0.16 + brownClamped * 0.12
+            if frames == eventAt {
+                eventAmp = 0.18
+                eventAt = frames + Int.random(in: 12_000...40_000)
+            }
+            eventAmp *= 0.992
+            let chirp = Float(sin(2 * Double.pi * 2400 * t)) * eventAmp
+            return s + chirp
+        case .thunder:
+            var s = pinkVal * 0.14 + brownClamped * 0.2
+            if frames >= eventAt {
+                eventAmp = 0.55
+                eventAt = frames + Int.random(in: 30_000...90_000)
+            }
+            eventAmp *= 0.9992
+            s += brownClamped * eventAmp
+            return s
+        case .fireplace:
+            let crack = white * white > 0.97 ? abs(white) * 0.4 : 0
+            return brownClamped * 0.55 + crack
+        case .cafe:
+            let room = pinkVal * 0.22 + brownClamped * 0.12
+            let murmur = Float(sin(2 * Double.pi * 180 * t) * 0.04 + sin(2 * Double.pi * 240 * t) * 0.03)
+            if frames >= eventAt {
+                eventAmp = Float.random(in: 0.12...0.28)
+                eventAt = frames + Int.random(in: 8_000...22_000)
+            }
+            eventAmp *= 0.96
+            let cup = Float(sin(2 * Double.pi * 1800 * t)) * eventAmp
+            return room + murmur + cup
+        case .tibetan:
+            let env = Float(0.5 + 0.5 * sin(t * 0.15))
+            return Float(sin(2 * Double.pi * 220 * t) * 0.18 + sin(2 * Double.pi * 330 * t) * 0.08) * env
+        case .chimes:
+            if frames >= eventAt {
+                eventAmp = 0.22
+                eventAt = frames + Int.random(in: 14_000...36_000)
+            }
+            eventAmp *= 0.9994
+            let freqs: [Double] = [523.25, 587.33, 659.25, 783.99]
+            let f = freqs[(frames / 18_000) % freqs.count]
+            return Float(sin(2 * Double.pi * f * t)) * eventAmp
+        case .lofi:
+            lofiPhase += 1
+            let beat = 18_900 // ~70 BPM at 22050
+            let pos = lofiPhase % beat
+            let kick = pos < 900 ? Float(sin(2 * Double.pi * 55 * t)) * (1 - Float(pos) / 900) * 0.45 : 0
+            let snarePos = (lofiPhase + beat / 2) % beat
+            let snare = snarePos < 500 ? white * (1 - Float(snarePos) / 500) * 0.18 : 0
+            let pad = Float(sin(2 * Double.pi * 196 * t) * 0.07 + sin(2 * Double.pi * 246.94 * t) * 0.05)
+            let vinyl = white * white > 0.995 ? white * 0.08 : white * 0.012
+            return kick + snare + pad + vinyl
+        case .binaural:
+            return Float(sin(2 * Double.pi * 200 * t) * 0.14 + sin(2 * Double.pi * 206 * t) * 0.14)
+        case .hz432:
+            return Float(sin(2 * Double.pi * 432 * t)) * 0.12 + brownClamped * 0.08
+        case .deepFocus:
+            let pulse = Float(0.55 + 0.45 * sin(t * 0.4))
+            return (Float(sin(2 * Double.pi * 110 * t)) * 0.12 + brownClamped * 0.1) * pulse
+        }
+    }
+
+    private func pinkNoise(_ white: Float) -> Float {
+        pink[0] = 0.99886 * pink[0] + white * 0.0555179
+        pink[1] = 0.99332 * pink[1] + white * 0.0750759
+        pink[2] = 0.96900 * pink[2] + white * 0.1538520
+        pink[3] = 0.86650 * pink[3] + white * 0.3104856
+        pink[4] = 0.55000 * pink[4] + white * 0.5329522
+        pink[5] = -0.7616 * pink[5] - white * 0.0168980
+        let v = pink[0] + pink[1] + pink[2] + pink[3] + pink[4] + pink[5] + pink[6] + white * 0.5362
+        pink[6] = white * 0.115926
+        return v * 0.11
     }
 }
 
 struct SleepSoundsTab: View {
-    @State private var activeSounds: [(sound: SleepSoundItem, volume: Double)] = []
+    @ObservedObject private var player = SleepWindDownPlayer.shared
     @State private var selectedCategory: SleepSoundCategory? = nil
-    @State private var sleepTimer: Int = 0      // 0 = off
-    @State private var timerRemaining: Int = 0
-    @State private var showMixer = false
+    @State private var sleepTimer: Int = 30
 
-    let timerOptions = [0, 15, 30, 45, 60, 90]
+    let timerOptions = [15, 30, 45, 60, 90]
 
     var filtered: [SleepSoundItem] {
         guard let cat = selectedCategory else { return allSleepSounds }
         return allSleepSounds.filter { $0.category == cat }
     }
 
-    func isActive(_ sound: SleepSoundItem) -> Bool {
-        activeSounds.contains { $0.sound.id == sound.id }
-    }
-
-    func toggleSound(_ sound: SleepSoundItem) {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        if let i = activeSounds.firstIndex(where: { $0.sound.id == sound.id }) {
-            activeSounds.remove(at: i)
-        } else if activeSounds.count < 3 {
-            activeSounds.append((sound: sound, volume: 0.75))
-        }
-    }
-
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
-                // Now playing mini bar
-                if !activeSounds.isEmpty {
-                    NowPlayingBar(
-                        sounds: activeSounds,
-                        onMixerTap: { withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { showMixer.toggle() } },
-                        onStop: { withAnimation { activeSounds.removeAll() } }
-                    )
-
-                    if showMixer {
-                        SoundMixerPanel(activeSounds: $activeSounds)
-                            .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
-                    }
+                if player.isPlaying {
+                    nowPlaying
                 }
 
-                // Sleep timer
-                EditorSection(title: "SLEEP TIMER") {
+                EditorSection(title: "TIMER") {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(timerOptions, id: \.self) { mins in
@@ -216,7 +313,7 @@ struct SleepSoundsTab: View {
                                     sleepTimer = mins
                                     UISelectionFeedbackGenerator().selectionChanged()
                                 } label: {
-                                    Text(mins == 0 ? "Off" : "\(mins)m")
+                                    Text("\(mins)m")
                                         .font(.system(size: 13, weight: .semibold))
                                         .foregroundColor(sleepTimer == mins ? .white : .textTertiary)
                                         .padding(.horizontal, 14).padding(.vertical, 8)
@@ -229,7 +326,13 @@ struct SleepSoundsTab: View {
                     }
                 }
 
-                // Category filter
+                EditorSection(title: "LIBRARY") {
+                    Text("Pick one. Each is generated on this phone — café chatter, noise colors, lo-fi, nature. No account, no files.")
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 EditorSection(title: "CATEGORIES") {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
@@ -264,21 +367,20 @@ struct SleepSoundsTab: View {
                     }
                 }
 
-                // Capacity hint
-                if activeSounds.count >= 3 {
-                    HStack(spacing: 6) {
-                        Image(systemName: "info.circle").font(.system(size: 12))
-                        Text("Mix up to 3 sounds at once")
-                            .font(.system(size: 12, weight: .medium))
-                    }
-                    .foregroundColor(.textMuted)
-                }
-
-                // Sound grid
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                LazyVStack(spacing: 10) {
                     ForEach(filtered) { sound in
-                        SoundCard(sound: sound, isActive: isActive(sound), onTap: { toggleSound(sound) })
-                            .opacity(activeSounds.count >= 3 && !isActive(sound) ? 0.4 : 1)
+                        SoundLibraryRow(
+                            sound: sound,
+                            isActive: player.isPlaying && player.kind == sound.kind,
+                            onTap: {
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                if player.isPlaying, player.kind == sound.kind {
+                                    player.stop()
+                                } else {
+                                    player.start(kind: sound.kind, minutes: sleepTimer)
+                                }
+                            }
+                        )
                     }
                 }
             }
@@ -286,51 +388,103 @@ struct SleepSoundsTab: View {
             .padding(.bottom, 100)
         }
     }
-}
 
-struct NowPlayingBar: View {
-    let sounds: [(sound: SleepSoundItem, volume: Double)]
-    let onMixerTap: () -> Void
-    let onStop: () -> Void
-
-    var body: some View {
-        HStack(spacing: 14) {
-            HStack(spacing: -8) {
-                ForEach(sounds.prefix(3), id: \.sound.id) { item in
-                    ZStack {
-                        Circle().fill(item.sound.color.opacity(0.2)).frame(width: 32, height: 32)
-                        Image(systemName: item.sound.icon).font(.system(size: 13)).foregroundColor(item.sound.color)
-                    }
-                    .overlay(Circle().stroke(Color.background, lineWidth: 2))
+    private var nowPlaying: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(player.kind.color.opacity(0.2)).frame(width: 44, height: 44)
+                    Image(systemName: player.kind.icon).font(.system(size: 16)).foregroundColor(player.kind.color)
                 }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(player.kind.displayName)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                    HStack(spacing: 8) {
+                        SoundWaveformBadge()
+                        Text(player.remainingLabel)
+                            .font(.system(size: 12))
+                            .foregroundColor(.textTertiary)
+                            .monospacedDigit()
+                    }
+                }
+                Spacer()
+                Button {
+                    player.stop()
+                } label: {
+                    Text("Stop")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.danger.opacity(0.85))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
             }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(sounds.map { $0.sound.name }.joined(separator: " · "))
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.textPrimary)
-                    .lineLimit(1)
-
-                // Animated waveform indicator
-                SoundWaveformBadge()
-            }
-
-            Spacer()
-
-            Button(action: onMixerTap) {
-                Image(systemName: "slider.horizontal.3").font(.system(size: 14)).foregroundColor(Color(hex: "6366F1"))
-                    .frame(width: 36, height: 36).background(Color(hex: "6366F1").opacity(0.12)).clipShape(Circle())
-            }
-            Button(action: onStop) {
-                Image(systemName: "stop.fill").font(.system(size: 14)).foregroundColor(.textTertiary)
-                    .frame(width: 36, height: 36).background(Color.surfaceElevated).clipShape(Circle())
+            HStack(spacing: 10) {
+                Image(systemName: "speaker.fill")
+                    .font(.system(size: 11))
+                    .foregroundColor(.textMuted)
+                Slider(value: $player.volume, in: 0...1)
+                    .tint(player.kind.color)
+                Image(systemName: "speaker.wave.3.fill")
+                    .font(.system(size: 11))
+                    .foregroundColor(.textMuted)
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .background(Color.surface)
         .cornerRadius(18)
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color(hex: "6366F1").opacity(0.3), lineWidth: 1))
-        .shadow(color: Color(hex: "6366F1").opacity(0.1), radius: 12, y: 4)
+    }
+}
+
+struct SoundLibraryRow: View {
+    let sound: SleepSoundItem
+    let isActive: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(alignment: .top, spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(sound.color.opacity(isActive ? 0.28 : 0.12))
+                        .frame(width: 52, height: 52)
+                    Image(systemName: isActive ? "pause.fill" : sound.icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(sound.color)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(sound.name)
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .foregroundColor(.textPrimary)
+                        Spacer()
+                        Text(sound.category.rawValue.uppercased())
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(0.8)
+                            .foregroundColor(.textMuted)
+                    }
+                    Text(sound.blurb)
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+            .padding(14)
+            .background(isActive ? sound.color.opacity(0.10) : Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(isActive ? sound.color.opacity(0.45) : Color.borderColor.opacity(0.4), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(sound.name). \(sound.blurb)")
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 }
 
@@ -347,122 +501,5 @@ struct SoundWaveformBadge: View {
                 }
             }
         }
-    }
-}
-
-struct SoundMixerPanel: View {
-    @Binding var activeSounds: [(sound: SleepSoundItem, volume: Double)]
-
-    var body: some View {
-        VStack(spacing: 14) {
-            Text("MIXER")
-                .font(.system(size: 10, weight: .black))
-                .foregroundColor(.textTertiary)
-                .tracking(2.5)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            ForEach(Array(activeSounds.enumerated()), id: \.offset) { index, item in
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle().fill(item.sound.color.opacity(0.18)).frame(width: 36, height: 36)
-                        Image(systemName: item.sound.icon).font(.system(size: 14)).foregroundColor(item.sound.color)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.sound.name).font(.system(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
-                        Slider(value: $activeSounds[index].volume, in: 0...1)
-                            .tint(item.sound.color)
-                    }
-                    Button {
-                        withAnimation { 
-                            _ = activeSounds.remove(at: index)
-                        }
-                    } label: {
-                        Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundColor(.textMuted)
-                            .frame(width: 28, height: 28).background(Color.surfaceElevated).clipShape(Circle())
-                    }
-                }
-            }
-        }
-        .padding(16)
-        .background(Color.surface)
-        .cornerRadius(16)
-        .overlay {
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color(hex: "6366F1").opacity(0.25), lineWidth: 1)
-        }
-    }
-}
-
-struct SoundCard: View {
-    let sound: SleepSoundItem
-    let isActive: Bool
-    let onTap: () -> Void
-    @State private var pressed = false
-
-    var body: some View {
-        Button(action: onTap) {
-            VStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(sound.color.opacity(isActive ? 0.25 : 0.12))
-                        .frame(width: 56, height: 56)
-                        .shadow(color: isActive ? sound.color.opacity(0.4) : .clear, radius: 12)
-
-                    if isActive {
-                        // Animated waveform replaces icon while playing
-                        TimelineView(.animation) { tl in
-                            let t = tl.date.timeIntervalSinceReferenceDate
-                            HStack(spacing: 3) {
-                                ForEach(0..<5, id: \.self) { i in
-                                    let h = 8 + 14 * abs(sin(t * 2.5 + Double(i) * 0.8))
-                                    RoundedRectangle(cornerRadius: 2)
-                                        .fill(sound.color)
-                                        .frame(width: 3, height: CGFloat(h))
-                                }
-                            }
-                        }
-                    } else {
-                        Image(systemName: sound.icon)
-                            .font(.system(size: 22, weight: .medium))
-                            .foregroundColor(sound.color)
-                    }
-                }
-
-                VStack(spacing: 3) {
-                    Text(sound.name)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.textPrimary)
-                    Text(sound.category.rawValue)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(sound.color.opacity(0.8))
-                }
-
-                if isActive {
-                    Text("Playing")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(sound.color)
-                        .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(sound.color.opacity(0.12))
-                        .cornerRadius(20)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 20)
-            .background(Color.surface)
-            .cornerRadius(20)
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(isActive ? sound.color.opacity(0.5) : Color.borderColor.opacity(0.4), lineWidth: isActive ? 1.5 : 1)
-            )
-            .shadow(color: isActive ? sound.color.opacity(0.2) : .black.opacity(0.04), radius: isActive ? 14 : 6, y: isActive ? 6 : 3)
-            .scaleEffect(pressed ? 0.95 : 1)
-        }
-        .buttonStyle(.plain)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in pressed = true }
-                .onEnded   { _ in pressed = false }
-        )
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isActive)
     }
 }

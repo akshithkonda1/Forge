@@ -147,7 +147,7 @@ struct SleepWindDownRitual: View {
                 ritualRow(
                     step: "2",
                     title: "Start a sound",
-                    detail: "Brown noise for thirty minutes. One tap below, then you are done negotiating."
+                    detail: "Café, brown noise, white noise, lo-fi — pick one, thirty minutes, then bed."
                 )
             }
             .buttonStyle(.plain)
@@ -198,17 +198,17 @@ struct SleepTonightSoundDock: View {
                     .tracking(1.2)
                     .foregroundColor(.textTertiary)
                 Spacer()
-                Button("More", action: onMore)
+                Button("Library", action: onMore)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.aurora)
             }
 
             if player.isPlaying {
                 HStack(spacing: 12) {
-                    Image(systemName: "waveform")
-                        .foregroundStyle(Color.aurora)
+                    Image(systemName: player.kind.icon)
+                        .foregroundStyle(player.kind.color)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Brown noise")
+                        Text(player.kind.displayName)
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(.textPrimary)
                         Text(player.remainingLabel)
@@ -234,36 +234,34 @@ struct SleepTonightSoundDock: View {
                 .background(Color.aurora.opacity(0.10))
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             } else {
-                Button {
-                    player.start(minutes: 30)
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "play.fill")
-                            .foregroundStyle(Color.white)
-                            .frame(width: 36, height: 36)
-                            .background(Color.aurora)
-                            .clipShape(Circle())
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Start 30-minute wind-down")
-                                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                                .foregroundColor(.textPrimary)
-                            Text("Generated brown noise. No library, no account.")
-                                .font(.system(size: 12))
-                                .foregroundColor(.textTertiary)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(SleepSoundKind.tonightPicks) { kind in
+                            Button {
+                                player.start(kind: kind, minutes: 30)
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: kind.icon)
+                                    Text(kind.displayName)
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .background(kind.color.opacity(0.85))
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Start \(kind.displayName)")
+                            .accessibilityHint(kind.blurb)
                         }
-                        Spacer()
                     }
-                    .padding(16)
-                    .background(Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.aurora.opacity(0.28), lineWidth: 1)
-                    )
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Start thirty minute brown noise wind-down")
+
+                Text("Generated on this phone. Open Library for rain, ocean, fireplace, and more.")
+                    .font(.system(size: 12))
+                    .foregroundColor(.textTertiary)
             }
         }
     }

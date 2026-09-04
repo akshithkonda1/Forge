@@ -1,11 +1,189 @@
 import SwiftUI
+import AVFoundation
 
 enum AROrbState: Equatable {
     case idle, listening, processing, speaking
 }
 
-/// Compact circular crop of `AuroraOrbView` for avatars, tabs, and cards.
-/// The full orb draws a 1.8× halo; this clips to `size` so it sits in chrome.
+/// App-wide ARIA voice presence. Welcome, chat, Train “show me how”, and the
+/// tab mark all read this so the same portrait moves when she talks.
+@MainActor
+final class AriaPresence: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
+    static let shared = AriaPresence()
+
+    @Published private(set) var isSpeaking = false
+    @Published private(set) var isListening = false
+    @Published private(set) var isThinking = false
+    @Published var amplitude: Float = 0.18
+
+    var orbState: AROrbState {
+        if isSpeaking { return .speaking }
+        if isListening { return .listening }
+        if isThinking { return .processing }
+        return .idle
+    }
+
+    private let synthesizer = AVSpeechSynthesizer()
+
+    override init() {
+        super.init()
+        synthesizer.delegate = self
+    }
+
+    func setListening(_ on: Bool) { isListening = on }
+    func setThinking(_ on: Bool) { isThinking = on }
+    func markSpeaking(_ on: Bool) { isSpeaking = on }
+
+    func speak(_ text: String) {
+        let clipped = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clipped.isEmpty else { return }
+        if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .word) }
+        let utterance = AVSpeechUtterance(string: String(clipped.prefix(900)))
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = 0.52
+        utterance.pitchMultiplier = 0.95
+        try? AVAudioSession.sharedInstance().setCategory(.playback, options: [.duckOthers])
+        isSpeaking = true
+        synthesizer.speak(utterance)
+    }
+
+    func stopSpeaking() {
+        synthesizer.stopSpeaking(at: .word)
+        isSpeaking = false
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor in self.isSpeaking = false }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        Task { @MainActor in self.isSpeaking = false }
+    }
+}
+
+/// Welcome photo of ARIA, used as her face throughout the app.
+/// Idle: slow float + ember breath. Speaking: glow, rings, and a jaw pulse.
+struct AriaPortraitView: View {
+    var size: CGFloat = 44
+    var showsPresence: Bool = false
+    /// Timeline idle/speak motion. Turn off in long lists — presence still tints the face.
+    var live: Bool = true
+
+    @ObservedObject private var presence = AriaPresence.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Group {
+            if live {
+                TimelineView(.animation(
+                    minimumInterval: reduceMotion ? 1.0 : 1.0 / 24.0,
+                    paused: presence.orbState == .idle && (reduceMotion || size < 90)
+                )) { timeline in
+                    face(at: timeline.date)
+                }
+            } else {
+                face(at: Date())
+            }
+        }
+        .accessibilityLabel(
+            presence.isSpeaking ? "ARIA speaking"
+                : presence.isListening ? "ARIA listening"
+                : "ARIA"
+        )
+    }
+
+    private func face(at date: Date) -> some View {
+        let t = date.timeIntervalSinceReferenceDate
+        let speak = presence.isSpeaking
+        let listen = presence.isListening
+        let think = presence.isThinking
+        let breath = reduceMotion || !live ? 0 : (0.5 + 0.5 * sin(t * 1.15))
+        let talk = speak ? (0.55 + 0.45 * abs(sin(t * 11.0))) : 0
+        let listenPulse = listen ? (0.5 + 0.5 * abs(sin(t * 3.2))) : 0
+        let floatY = reduceMotion || !live ? 0 : (speak ? CGFloat(sin(t * 6.2)) * size * 0.018 : CGFloat(sin(t * 1.4)) * size * 0.03)
+
+        return ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.ember.opacity(speak ? 0.42 + talk * 0.18 : 0.14 + breath * 0.08),
+                            Color(hex: "00D2FF").opacity(speak ? 0.12 : (listen ? 0.22 + listenPulse * 0.12 : 0.04)),
+                            .clear
+                        ],
+                        center: .center,
+                        startRadius: size * 0.12,
+                        endRadius: size * 0.82
+                    )
+                )
+                .frame(width: size * 1.55, height: size * 1.55)
+                .blur(radius: size * 0.18)
+                .scaleEffect(speak ? 1.08 + talk * 0.06 : (listen ? 1.04 + listenPulse * 0.04 : 1))
+
+            if (speak || listen || think) && !reduceMotion {
+                ForEach(0..<2, id: \.self) { i in
+                    Circle()
+                        .stroke(
+                            (speak ? Color.ember : Color(hex: "00D2FF"))
+                                .opacity(0.28 - Double(i) * 0.08),
+                            lineWidth: 1.2
+                        )
+                        .frame(width: size * (1.12 + CGFloat(i) * 0.16), height: size * (1.12 + CGFloat(i) * 0.16))
+                        .scaleEffect(1 + (speak ? talk : listenPulse) * (0.06 + CGFloat(i) * 0.04))
+                }
+            }
+
+            portrait
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+                .overlay(
+                    Circle().stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.35),
+                                Color.ember.opacity(speak ? 0.7 : 0.35),
+                                Color(hex: "00D2FF").opacity(0.25)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: max(1, size * 0.035)
+                    )
+                )
+                .overlay(alignment: .bottom) {
+                    if speak {
+                        Capsule()
+                            .fill(Color.ember.opacity(0.55))
+                            .frame(width: size * 0.22, height: size * (0.04 + 0.07 * talk))
+                            .offset(y: -size * 0.18)
+                            .blur(radius: 1.2)
+                            .accessibilityHidden(true)
+                    }
+                }
+                .scaleEffect(speak ? 1.03 + talk * 0.02 : 1)
+                .offset(y: floatY)
+                .shadow(color: Color.ember.opacity(speak ? 0.45 : 0.18), radius: speak ? 10 : 5, y: 3)
+
+            if showsPresence {
+                Circle()
+                    .fill(Color(hex: "22C55E"))
+                    .frame(width: max(7, size * 0.2), height: max(7, size * 0.2))
+                    .overlay(Circle().stroke(Color(hex: "080808"), lineWidth: 2))
+                    .offset(x: size * 0.34, y: size * 0.34)
+            }
+        }
+        .frame(width: size, height: size)
+    }
+
+    private var portrait: some View {
+        Image("AriaPortrait")
+            .resizable()
+            .scaledToFill()
+    }
+}
+
+/// Compact circular crop of ARIA for avatars, tabs, and cards.
+/// Uses the welcome portrait; live presence overrides idle/listening/speaking.
 struct ARIAIdentityMark: View {
     var state: AROrbState = .idle
     var mood: ARIAMood = .focused
@@ -13,11 +191,11 @@ struct ARIAIdentityMark: View {
     var amplitude: Float = 0.22
     var showsPresence: Bool = false
 
+    @ObservedObject private var presence = AriaPresence.shared
+
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            AuroraOrbView(state: state, amplitude: amplitude, mood: mood, size: size)
-                .frame(width: size, height: size)
-                .clipShape(Circle())
+            AriaPortraitView(size: size, showsPresence: false)
             if showsPresence {
                 Circle()
                     .fill(Color(hex: "22C55E"))
@@ -28,6 +206,7 @@ struct ARIAIdentityMark: View {
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
+        .onAppear { presence.amplitude = amplitude }
     }
 }
 
