@@ -62,6 +62,10 @@ final class AppStore: ObservableObject {
     // History & Records
     @Published var workoutHistory: [WorkoutHistory] = []
     @Published var personalRecords: [PersonalRecord] = []
+    /// Lifecycle of refreshDailyData(), the load that populates the two properties
+    /// above. Progress's skeleton keys off `.loading` for the first-load case only
+    /// -- see ProgressPageView.isInitialLoading.
+    @Published var dataLoadState: DataLoadState = .idle
 
     // Navigation
     @Published var activeTab: TabItem = .home

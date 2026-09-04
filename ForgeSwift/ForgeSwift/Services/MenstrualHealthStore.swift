@@ -47,9 +47,6 @@ final class MenstrualHealthStore: ObservableObject {
     @Published var coachingPreferences: PeriodCoachingPreferences = .neutral
     /// Pending episode metadata after logPeriodEnd — UI presents feedback sheet.
     @Published var pendingPeriodEndEpisode: PeriodEpisode?
-    /// True when the user's biological sex makes the cycle surface relevant, so the UI
-    /// can open straight to it. Set during onboarding.
-    @Published private(set) var cycleSurfaceRelevant = false
 
     /// ~24 months of daily logs.
     static let maxRetainedLogs = 800
@@ -126,7 +123,6 @@ final class MenstrualHealthStore: ObservableObject {
             coachingPreferences = p
         }
         lastAdvertisedNextPeriodMedian = defaults.string(forKey: advertisedKey)
-        cycleSurfaceRelevant = defaults.bool(forKey: cycleRelevantKey)
         snapshot = .empty
         partnerSnapshot = .empty
         partnerSupportBrief = nil

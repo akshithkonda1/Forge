@@ -10,6 +10,7 @@ import FoundationModels
 extension AppStore {
 
     func refreshDailyData() async {
+        dataLoadState = .loading
         let hk = HealthKitManager.shared
         let seeded = await seedTestReadyHealthKitIfNeeded()
         let authorized = await hk.checkAuthorizationStatus()
@@ -69,6 +70,7 @@ extension AppStore {
         recomputeStreak()
         await flushPendingWidgetWater()
         publishHomeWidgets()
+        dataLoadState = .loaded
         objectWillChange.send()
     }
 

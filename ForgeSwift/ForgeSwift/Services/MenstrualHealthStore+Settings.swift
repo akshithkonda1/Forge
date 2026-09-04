@@ -66,12 +66,6 @@ extension MenstrualHealthStore {
         }
     }
 
-    /// Surface partner tracking for users who may support a female partner (any gender).
-    func enablePartnerTrackingIfAppropriate(gender: Gender) {
-        // Soft suggest only — do not auto-enable without consent flag.
-        _ = gender
-    }
-
     func updateCycleGoal(_ goal: CycleGoal) {
         updateSettings { $0.cycleGoal = goal }
     }
