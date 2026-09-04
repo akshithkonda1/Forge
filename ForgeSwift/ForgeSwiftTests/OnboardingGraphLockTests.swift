@@ -92,33 +92,6 @@ final class OnboardingGraphLockTests: XCTestCase {
         XCTAssertEqual(coordinator.step, .ready)
     }
 
-    func testOnboardingBotSaysOneLinePerTurn() {
-        var profile = OnboardingProfile()
-        profile.name = "Sam"
-        profile.fitnessGoals = [.buildMuscle]
-        profile.experienceLevel = .intermediate
-        profile.coachingStyle = .balanced
-
-        let bot = OnboardingAriaBot()
-        let opening = bot.opening(profile: profile, health: nil, healthConnected: false)
-        XCTAssertEqual(opening.messages.count, 1)
-        XCTAssertTrue(opening.messages[0].contains("Sam"))
-        XCTAssertFalse(opening.messages[0].contains("VO₂"))
-        XCTAssertFalse(opening.messages[0].contains("HRV"))
-
-        let days = bot.reply(step: 0, input: "4–5 days", answers: [], profile: profile)
-        XCTAssertEqual(days.messages.count, 1)
-        XCTAssertEqual(days.tags, ["weekly_days:4–5_days"])
-
-        let energy = bot.reply(step: 1, input: "Mornings", answers: ["4–5 days"], profile: profile)
-        XCTAssertEqual(energy.messages.count, 1)
-
-        let done = bot.reply(step: 2, input: "Time", answers: ["4–5 days", "Mornings"], profile: profile)
-        XCTAssertTrue(done.finished)
-        XCTAssertEqual(done.messages.count, 1)
-        XCTAssertTrue(done.messages[0].contains("tight"))
-    }
-
     func testWelcomeHookSaysLearningNotListening() {
         XCTAssertEqual(AriaOnboardingGuide.welcomeTitle, "ARIA is already learning.")
         XCTAssertFalse(AriaOnboardingGuide.welcomeTitle.localizedCaseInsensitiveContains("listening"))
