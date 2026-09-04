@@ -137,6 +137,9 @@ struct MainTabView: View {
     @Namespace private var tabNamespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    @State private var swipeOffset: CGFloat = 0
+    @State private var swipeDirection: Edge = .trailing
+
     private let navTabs: [TabItem] = [.home, .workout, .chat, .sleep, .profile]
 
     var body: some View {
@@ -145,15 +148,64 @@ struct MainTabView: View {
 
             tabContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .offset(x: swipeOffset)
                 .padding(.bottom, store.isWorkoutActive ? 0 : ForgeTabBarMetrics.contentInset)
+                .simultaneousGesture(tabSwipeGesture)
 
             if !store.isWorkoutActive {
-                ForgeTabBar(namespace: tabNamespace, tabs: navTabs)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                ForgeTabBar(
+                    namespace: tabNamespace,
+                    tabs: navTabs,
+                    readinessScore: store.readiness.overall
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(FDS.adaptiveAnimation(FDS.Spring.page), value: store.isWorkoutActive)
         .ignoresSafeArea(edges: .bottom)
+    }
+
+    private var tabSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 24, coordinateSpace: .local)
+            .onChanged { value in
+                guard !store.isWorkoutActive else { return }
+                guard isHorizontalSwipe(value) else { return }
+
+                let resistance: CGFloat = 0.35
+                swipeOffset = value.translation.width * resistance
+            }
+            .onEnded { value in
+                guard !store.isWorkoutActive else { return }
+                defer {
+                    withAnimation(FDS.adaptiveAnimation(FDS.Spring.page)) {
+                        swipeOffset = 0
+                    }
+                }
+                guard isHorizontalSwipe(value) else { return }
+
+                let threshold: CGFloat = 72
+                if value.translation.width <= -threshold {
+                    moveTab(by: 1)
+                } else if value.translation.width >= threshold {
+                    moveTab(by: -1)
+                }
+            }
+    }
+
+    private func isHorizontalSwipe(_ value: DragGesture.Value) -> Bool {
+        abs(value.translation.width) > abs(value.translation.height) * 1.35
+    }
+
+    private func moveTab(by offset: Int) {
+        guard let currentIndex = navTabs.firstIndex(of: store.activeTab) else { return }
+        let nextIndex = currentIndex + offset
+        guard navTabs.indices.contains(nextIndex) else { return }
+
+        swipeDirection = offset > 0 ? .trailing : .leading
+        FDS.selectionHaptic()
+        withAnimation(FDS.adaptiveAnimation(FDS.Spring.page)) {
+            store.activeTab = navTabs[nextIndex]
+        }
     }
 
     @ViewBuilder
@@ -174,7 +226,15 @@ struct MainTabView: View {
                 .id(store.activeTab)
         } else {
             content
-                .transition(.opacity.combined(with: .scale(scale: 0.985)))
+                .transition(
+                    .asymmetric(
+                        insertion: .opacity
+                            .combined(with: .move(edge: swipeDirection))
+                            .combined(with: .scale(scale: 0.985)),
+                        removal: .opacity
+                            .combined(with: .move(edge: swipeDirection == .trailing ? .leading : .trailing))
+                    )
+                )
                 .animation(FDS.Spring.page, value: store.activeTab)
                 .id(store.activeTab)
         }
@@ -202,33 +262,60 @@ struct ForgeTabBar: View {
     @EnvironmentObject var store: AppStore
     var namespace: Namespace.ID
     let tabs: [TabItem]
+    let readinessScore: Int
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var readinessTint: Color { readinessColor(for: readinessScore) }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                ForEach(tabs, id: \.self) { tab in
-                    if tab == .chat {
-                        ARIATabButton(namespace: namespace)
-                    } else {
-                        ForgeTabItem(tab: tab, namespace: namespace)
+            ZStack {
+                if !reduceMotion {
+                    ReadinessTabBarGlow(tint: readinessTint)
+                        .allowsHitTesting(false)
+                }
+
+                HStack(spacing: 0) {
+                    ForEach(tabs, id: \.self) { tab in
+                        if tab == .chat {
+                            ARIATabButton(namespace: namespace)
+                        } else {
+                            ForgeTabItem(tab: tab, namespace: namespace)
+                        }
                     }
                 }
+                .padding(.horizontal, FDS.Spacing.sm)
+                .frame(height: ForgeTabBarMetrics.barHeight)
+                .background(tabBarBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: FDS.Radius.xl + 4, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    readinessTint.opacity(0.28),
+                                    Color.white.opacity(0.08),
+                                    readinessTint.opacity(0.12)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.75
+                        )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl + 4, style: .continuous))
+                .shadow(color: readinessTint.opacity(0.22), radius: 18, y: 6)
+                .shadow(color: .black.opacity(0.45), radius: 24, y: 10)
             }
-            .padding(.horizontal, FDS.Spacing.sm)
-            .frame(height: ForgeTabBarMetrics.barHeight)
-            .background(tabBarBackground)
-            .overlay(
-                RoundedRectangle(cornerRadius: FDS.Radius.xl + 4, style: .continuous)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl + 4, style: .continuous))
-            .shadow(color: .black.opacity(0.45), radius: 24, y: 10)
             .padding(.horizontal, ForgeTabBarMetrics.horizontalInset)
             .padding(.bottom, ForgeTabBarMetrics.bottomPadding)
+            .animation(FDS.adaptiveAnimation(.easeInOut(duration: 0.8)), value: readinessScore)
 
             Color.clear
                 .frame(height: ForgeTabBarMetrics.safeAreaBottom)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Main navigation. Readiness \(readinessScore), \(readinessLabel(for: readinessScore)).")
     }
 
     private var tabBarBackground: some View {
@@ -240,8 +327,8 @@ struct ForgeTabBar: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.06),
-                            Color.white.opacity(0.02),
+                            readinessTint.opacity(0.10),
+                            Color.white.opacity(0.04),
                             Color.clear
                         ],
                         startPoint: .top,
@@ -249,6 +336,36 @@ struct ForgeTabBar: View {
                     )
                 )
         }
+    }
+}
+
+private struct ReadinessTabBarGlow: View {
+    let tint: Color
+
+    var body: some View {
+        ZStack {
+            Capsule(style: .continuous)
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            tint.opacity(0.34),
+                            tint.opacity(0.12),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 8,
+                        endRadius: 140
+                    )
+                )
+                .frame(height: ForgeTabBarMetrics.barHeight + 28)
+                .blur(radius: 22)
+
+            Capsule(style: .continuous)
+                .fill(tint.opacity(0.08))
+                .frame(height: ForgeTabBarMetrics.barHeight + 6)
+                .blur(radius: 10)
+        }
+        .padding(.horizontal, ForgeTabBarMetrics.horizontalInset - 6)
     }
 }
 
