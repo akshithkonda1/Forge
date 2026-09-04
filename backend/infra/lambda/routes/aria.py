@@ -159,15 +159,15 @@ def handle_post_ai_archetype(body: dict[str, Any], *, user_id: str) -> dict:
         import asyncio
         from backend.ai.app.routes.archetype import create_archetype
 
-        result = asyncio.get_event_loop().run_until_complete(
-            create_archetype(
-                {
-                    "description": description,
-                    "preferred_name": preferred_name,
-                    "user_id": uid,
-                }
-            )
-        )
+        payload = {
+            "description": description,
+            "preferred_name": preferred_name,
+            "user_id": uid,
+        }
+        try:
+            result = asyncio.run(create_archetype(payload))
+        except RuntimeError:
+            result = asyncio.get_event_loop().run_until_complete(create_archetype(payload))
         result.pop("status", None)
         return ok(result)
     except Exception:
