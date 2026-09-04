@@ -162,6 +162,7 @@ final class SleepWakeEngineTests: XCTestCase {
         }
         XCTAssertEqual(allSleepSounds.count, SleepSoundKind.allCases.count)
         XCTAssertEqual(Set(SleepSoundKind.allCases.map(\.category)), Set(SleepSoundCategory.allCases))
+        XCTAssertEqual(SleepSoundKind.storageKey, "forge.sleep.sound.kind.v1")
     }
 
     private func weekdayAlarm(hour: Int, minute: Int) -> ForgeAlarm {
