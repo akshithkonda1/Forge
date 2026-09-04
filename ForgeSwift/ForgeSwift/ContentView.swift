@@ -112,10 +112,7 @@ struct ForgeSplashScreen: View {
     }
 }
 
-private struct SplashMeshBackground: View {
-    var body: some View {
-        ZStack {
-            Color.background
+// MARK: - Main Tab Container
 
 struct MainTabView: View {
     @EnvironmentObject var store: AppStore
