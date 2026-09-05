@@ -139,8 +139,15 @@ struct ClinicalDataNonPHIView: View {
                 .padding(.bottom, 4)
             }
 
-            ForEach(results) { med in
-                pharmacyRow(med)
+            if results.isEmpty, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text("No match in the FDA catalog for “\(query)”. Try the generic or the brand.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(results) { med in
+                    pharmacyRow(med)
+                }
             }
         }
     }

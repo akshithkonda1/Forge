@@ -33,6 +33,14 @@ final class MedicationPharmacyTests: XCTestCase {
         XCTAssertTrue(rows.allSatisfy { !$0.name.isEmpty && !$0.generic.isEmpty })
     }
 
+    func testCatalogIsRealFDAPresentationsNotInventedStrengths() {
+        let rows = MedicationPharmacy.all()
+        let generics = Set(rows.map { $0.generic.lowercased() })
+        XCTAssertGreaterThanOrEqual(generics.count, 2_000, "Padded strength grids do not produce thousands of distinct ingredients")
+        XCTAssertTrue(rows.contains { $0.brand?.localizedCaseInsensitiveCompare("Lipitor") == .orderedSame })
+        XCTAssertGreaterThanOrEqual(rows.filter { $0.generic.localizedCaseInsensitiveContains("atorvastatin") }.count, 4)
+    }
+
     func testClinicalSummaryEmptyIsSafe() {
         XCTAssertFalse(ClinicalRecordsSummary.empty.hasData)
         XCTAssertTrue(ClinicalRecordsSummary.empty.items.isEmpty)
