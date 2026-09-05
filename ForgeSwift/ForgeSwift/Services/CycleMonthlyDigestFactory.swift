@@ -54,6 +54,21 @@ enum CycleMonthlyDigestFactory {
         )
     }
 
+    /// Group owner logs into calendar months and keep the trailing window.
+    /// Reports read this after a HealthKit sync — Apple Cycle is the store.
+    static func window(
+        months: Int,
+        logs: [CycleDayLog],
+        snapshot: MenstrualCycleSnapshot,
+        settings: MenstrualTrackingSettings
+    ) -> [CycleMonthlyDigest] {
+        let keys = Array(Set(logs.map { String($0.dayKey.prefix(7)) }))
+            .filter { $0.count == 7 && $0.contains("-") }
+            .sorted()
+        let kept = Array(keys.suffix(max(1, months)))
+        return kept.map { make(monthKey: $0, logs: logs, snapshot: snapshot, settings: settings) }
+    }
+
     private static func interStartLengths(_ episodes: [PeriodEpisode]) -> [Int] {
         guard episodes.count >= 2 else { return [] }
         var out: [Int] = []

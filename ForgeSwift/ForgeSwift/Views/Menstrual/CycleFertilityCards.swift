@@ -167,10 +167,11 @@ struct CycleGoalSelectorCard: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if goal == .avoidPregnancy {
-                Label("FAM requires consistent tracking — not a substitute for medical contraception.", systemImage: "exclamationmark.triangle.fill")
+            if goal == .intimacy {
+                Text("Healthy sex, safe sex, positions, period sex, partner tips — on this iPhone. Forge is not a contraceptive.")
                     .font(FDS.TypeScale.body(11))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 2)
             }
         }

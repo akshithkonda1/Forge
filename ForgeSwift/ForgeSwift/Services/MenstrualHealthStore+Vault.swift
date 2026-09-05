@@ -92,20 +92,31 @@ extension MenstrualHealthStore {
         }
     }
 
-    func loadRecentMonthlyDigests() -> [CycleMonthlyDigest] {
-        let pairs = (try? cycleVault.readRecentMonths()) ?? []
-        return pairs.compactMap { try? JSONDecoder().decode(CycleMonthlyDigest.self, from: $1) }
+    func loadRecentMonthlyDigests(windowMonths: Int = 12) -> [CycleMonthlyDigest] {
+        CycleMonthlyDigestFactory.window(
+            months: windowMonths,
+            logs: logs,
+            snapshot: snapshot,
+            settings: settings
+        )
     }
 
-    func clinicianRhythmReportText() -> String {
+    func clinicianRhythmReportText(windowMonths: Int = 12) -> String {
         CycleRhythmReport.clinicianText(
-            months: loadRecentMonthlyDigests(),
+            months: loadRecentMonthlyDigests(windowMonths: windowMonths),
             generatedDayKey: CycleDayKey.key(),
             typicalCycle: snapshot.cycleLengthMedian,
             typicalPeriod: snapshot.periodLengthMedian,
             mae: accuracyReport.maeDays,
-            maeSamples: accuracyReport.sampleCount
+            maeSamples: accuracyReport.sampleCount,
+            windowMonths: windowMonths
         )
+    }
+
+    /// Pull Apple Cycle Tracking, then template the clinician pack from those samples.
+    func refreshClinicianReportFromAppleHealth(windowMonths: Int = 12) async -> String {
+        await syncFromHealthKit(days: max(windowMonths, 1) * 31 + 14)
+        return clinicianRhythmReportText(windowMonths: windowMonths)
     }
 
     func wipeVaultArchives() {

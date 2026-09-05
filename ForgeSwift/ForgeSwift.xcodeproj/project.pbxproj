@@ -98,6 +98,8 @@
 		A2C5EDADB407191EC019770C /* MenstrualHealthStore+Aria.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41A17320AF2DF34E1036CFD6 /* MenstrualHealthStore+Aria.swift */; };
 		C7C1E1020000000000000001 /* MenstrualHealthStore+Vault.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E1010000000000000001 /* MenstrualHealthStore+Vault.swift */; };
 		C7C1E1040000000000000001 /* CycleMonthlyDigestFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E1030000000000000001 /* CycleMonthlyDigestFactory.swift */; };
+		C7C1E10A0000000000000001 /* AriaCycleTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E1090000000000000001 /* AriaCycleTools.swift */; };
+		C7C1E10C0000000000000001 /* AriaOnDeviceHealthPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E10B0000000000000001 /* AriaOnDeviceHealthPolicy.swift */; };
 		C7C1E1060000000000000001 /* CycleRhythmReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E1050000000000000001 /* CycleRhythmReportView.swift */; };
 		C7C1E1080000000000000001 /* CycleVaultAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E1070000000000000001 /* CycleVaultAppTests.swift */; };
 		1ARIA0422F9FF867004091AA /* Menstrual/MenstrualHealthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */; };
@@ -463,6 +465,8 @@
 		41A17320AF2DF34E1036CFD6 /* MenstrualHealthStore+Aria.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenstrualHealthStore+Aria.swift"; sourceTree = "<group>"; };
 		C7C1E1010000000000000001 /* MenstrualHealthStore+Vault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenstrualHealthStore+Vault.swift"; sourceTree = "<group>"; };
 		C7C1E1030000000000000001 /* CycleMonthlyDigestFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleMonthlyDigestFactory.swift; sourceTree = "<group>"; };
+		C7C1E1090000000000000001 /* AriaCycleTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCycleTools.swift; sourceTree = "<group>"; };
+		C7C1E10B0000000000000001 /* AriaOnDeviceHealthPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaOnDeviceHealthPolicy.swift; sourceTree = "<group>"; };
 		C7C1E1050000000000000001 /* CycleRhythmReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Menstrual/CycleRhythmReportView.swift"; sourceTree = "<group>"; };
 		C7C1E1070000000000000001 /* CycleVaultAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleVaultAppTests.swift; sourceTree = "<group>"; };
 		1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Menstrual/MenstrualHealthView.swift; sourceTree = "<group>"; };
@@ -797,6 +801,8 @@
 				41A17320AF2DF34E1036CFD6 /* MenstrualHealthStore+Aria.swift */,
 				C7C1E1010000000000000001 /* MenstrualHealthStore+Vault.swift */,
 				C7C1E1030000000000000001 /* CycleMonthlyDigestFactory.swift */,
+				C7C1E1090000000000000001 /* AriaCycleTools.swift */,
+				C7C1E10B0000000000000001 /* AriaOnDeviceHealthPolicy.swift */,
 				1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */,
 				1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */,
 				1ARIA0452F9FF867004091AA /* PartnerSupportCoach.swift */,
@@ -1415,6 +1421,8 @@
 				A2C5EDADB407191EC019770C /* MenstrualHealthStore+Aria.swift in Sources */,
 				C7C1E1020000000000000001 /* MenstrualHealthStore+Vault.swift in Sources */,
 				C7C1E1040000000000000001 /* CycleMonthlyDigestFactory.swift in Sources */,
+				C7C1E10A0000000000000001 /* AriaCycleTools.swift in Sources */,
+				C7C1E10C0000000000000001 /* AriaOnDeviceHealthPolicy.swift in Sources */,
 				1CYC0012F9FF867004091AA /* CycleDataEvaluator.swift in Sources */,
 				1CYC0032F9FF867004091AA /* CycleAriaAnalyst.swift in Sources */,
 				1ARIA0442F9FF867004091AA /* PartnerSupportCoach.swift in Sources */,

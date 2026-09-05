@@ -1,6 +1,7 @@
 import Foundation
 
-/// Client for POST /ai/observe — fuses HealthKit samples with stored metrics.
+/// Client for on-device observation. Wearable samples stay in Apple Health;
+/// ARIA reads them on this iPhone. Forge `/ai/observe` is not a warehouse.
 @MainActor
 final class BiometricsObserveService {
     static let shared = BiometricsObserveService()
@@ -14,54 +15,20 @@ final class BiometricsObserveService {
         samples: [HealthSamplePayload] = [],
         message: String? = nil
     ) async -> ObserveResponsePayload? {
-        let payload = ObserveRequestPayload(
-            userId: contextStore.context.userId,
-            samples: samples.isEmpty ? nil : samples,
-            includeStored: true,
-            ageYears: store.userProfile.age,
-            permissions: DataPermissionsStore.shared.payloadIfRestricted(),
-            message: message,
-            voiceMode: store.ariaVoiceMode
+        _ = samples
+        _ = message
+        _ = store
+        return ObserveResponsePayload(
+            ariaContext: contextStore.lastObservedContext,
+            restrictedDomains: DataPermissionsStore.shared.restrictedDomains.isEmpty
+                ? nil
+                : DataPermissionsStore.shared.restrictedDomains,
+            missingFields: nil
         )
-
-        if AriaService.shouldUseTestReadyDummy {
-            return ObserveResponsePayload(
-                ariaContext: contextStore.lastObservedContext,
-                restrictedDomains: nil,
-                missingFields: nil
-            )
-        }
-
-        guard let url = URL(string: "ai/observe", relativeTo: AriaService.shared.baseURL) else { return nil }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONEncoder().encode(payload)
-
-        guard let (data, response) = try? await ForgeAPI.send(request),
-              let http = response as? HTTPURLResponse,
-              (200...299).contains(http.statusCode),
-              let decoded = try? JSONDecoder().decode(ObserveResponsePayload.self, from: data) else {
-            return nil
-        }
-
-        if let ctx = decoded.ariaContext {
-            contextStore.applyObservedContext(ctx)
-        }
-        return decoded
     }
 
-    /// Build HealthKit samples from current daily metrics for observe sync.
-    /// Real dated history, not one snapshot stamped "now".
-    ///
-    /// This used to emit a single sample per metric, all timestamped `Date()`,
-    /// so `BodyModel` accumulated at most one point per refresh and could never
-    /// establish a personal baseline — which is why `hrv_7day_trend` came back
-    /// empty and the client felt obliged to invent one.
-    ///
-    /// `HealthKitManager.weeklyTrends` already holds seven days of per-day HRV
-    /// and step counts, correctly dated, fetched on the same refresh. Sending it
-    /// is what lets the server's median-based baseline mean anything.
+    /// Dated HealthKit samples ARIA already has on this iPhone.
+    /// Used for on-device opinions — not uploaded to Forge.
     func samplesFromStore(_ store: AppStore) -> [HealthSamplePayload] {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime]

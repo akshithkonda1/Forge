@@ -1933,9 +1933,9 @@ struct MenstrualHealthView: View {
                 set: { v in cycleStore.updateSettings { $0.shareWithAria = v } }
             )) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Share cycle with ARIA")
+                    Text("ARIA reads cycle on this iPhone")
                         .foregroundColor(.textPrimary)
-                    Text("Off until you turn it on. ARIA never sees phase unless you opt in.")
+                    Text("ARIA may mention your cycle in chat on this iPhone. Samples never leave the device. Claude/Grok do not get your chart.")
                         .font(FDS.TypeScale.body(11))
                         .foregroundColor(.textTertiary)
                 }
@@ -1983,7 +1983,7 @@ struct MenstrualHealthView: View {
             } label: {
                 HStack {
                     Image(systemName: "lock.rectangle.stack.fill")
-                    Text("12-month Vault report")
+                    Text("Apple Cycle report")
                         .font(FDS.TypeScale.label(14))
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -2702,8 +2702,8 @@ struct MenstrualHealthView: View {
                 set: { v in cycleStore.updatePartnerSettings { $0.shareWithAria = v } }
             )) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Share with ARIA").foregroundColor(.textPrimary)
-                    Text("Off until you turn it on. ARIA coaches you from what you log.")
+                    Text("ARIA reads this on this iPhone").foregroundColor(.textPrimary)
+                    Text("Never uploaded to Forge. Claude/Grok do not get their chart.")
                         .font(FDS.TypeScale.body(11))
                         .foregroundColor(.textTertiary)
                 }

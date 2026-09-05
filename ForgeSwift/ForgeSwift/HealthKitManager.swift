@@ -433,6 +433,8 @@ class HealthKitManager: ObservableObject {
             HKCategoryType(.mindfulSession),
             HKCategoryType(.menstrualFlow),
             HKQuantityType(.basalBodyTemperature),
+            HKCategoryType(.cervicalMucusQuality),
+            HKCategoryType(.ovulationTestResult),
         ])
     }
     
@@ -534,8 +536,9 @@ class HealthKitManager: ObservableObject {
     }
 
     /// Distinct HealthKit source names this phone has already seen.
-    /// Feeds the device shelf so a wearable that writes to Apple Health can
-    /// appear without a catalog update.
+    /// Feeds the device shelf so a wearable that writes to Apple Health
+    /// (Oura, Garmin, Watch, …) can appear without a catalog update.
+    /// ARIA reads those samples on this iPhone. Forge does not scrape vendor accounts.
     func knownHealthSources() async -> [String] {
         guard isHealthDataAvailable() else { return [] }
 

@@ -1,17 +1,19 @@
 import SwiftUI
 import ForgeCore
 
-/// 12-month Cycle Vault report — on-device, clinician-shareable, no fertility.
+/// 3 / 6 / 12-month clinician pack — templated on-device from Apple Cycle Tracking.
 struct CycleRhythmReportView: View {
     @ObservedObject var cycleStore: MenstrualHealthStore
     @Environment(\.dismiss) private var dismiss
+    @State private var window: CycleRhythmReport.Window = .twelve
+    @State private var isRefreshing = false
 
     private var months: [CycleMonthlyDigest] {
-        cycleStore.loadRecentMonthlyDigests()
+        cycleStore.loadRecentMonthlyDigests(windowMonths: window.rawValue)
     }
 
     private var report: String {
-        cycleStore.clinicianRhythmReportText()
+        cycleStore.clinicianRhythmReportText(windowMonths: window.rawValue)
     }
 
     var body: some View {
@@ -22,21 +24,43 @@ struct CycleRhythmReportView: View {
                         Text("Rhythm report")
                             .font(FDS.TypeScale.title(22))
                             .foregroundColor(.textPrimary)
-                        Text("Sealed in Cycle Vault on this iPhone. Hand this to a gynecologist — not a social feed. Fertile windows and private notes stay out.")
+                        Text("Forge reads what it already wrote to Apple Cycle Tracking, then fills this template on your iPhone. Nothing is stored on Forge servers. Hand it to a gynecologist — not a social feed.")
                             .font(FDS.TypeScale.body(14))
                             .foregroundColor(.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
+                    Picker("Window", selection: $window) {
+                        ForEach(CycleRhythmReport.Window.allCases) { w in
+                            Text(w.label).tag(w)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
                     overviewChips
 
+                    Button {
+                        isRefreshing = true
+                        Task {
+                            _ = await cycleStore.refreshClinicianReportFromAppleHealth(windowMonths: window.rawValue)
+                            isRefreshing = false
+                        }
+                    } label: {
+                        Label(isRefreshing ? "Reading Apple Cycle…" : "Refresh from Apple Cycle",
+                              systemImage: "arrow.triangle.2.circlepath")
+                            .font(FDS.TypeScale.label(14))
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.vitality)
+                    .disabled(isRefreshing)
+
                     if months.isEmpty {
-                        Text("Keep logging. Each month writes an encrypted archive. After a few cycles this becomes a 12-month evidence pack.")
+                        Text("Keep logging. Each day writes to Apple Health. After a few cycles this becomes a 3, 6, or 12-month evidence pack.")
                             .font(FDS.TypeScale.body(14))
                             .foregroundColor(.textSecondary)
                     } else {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("MONTHLY ARCHIVES").forgeSectionLabel()
+                            Text("MONTHS IN THIS PACK").forgeSectionLabel()
                             ForEach(months) { month in
                                 monthRow(month)
                             }
@@ -66,7 +90,7 @@ struct CycleRhythmReportView: View {
                 .padding(20)
             }
             .background(Color.background.ignoresSafeArea())
-            .navigationTitle("Cycle Vault")
+            .navigationTitle("Apple Cycle report")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -85,7 +109,7 @@ struct CycleRhythmReportView: View {
             if let mae = cycleStore.accuracyReport.maeDays {
                 chip(String(format: "MAE %.1fd", mae), Color(hex: "22C55E"))
             }
-            chip("Vault", Color.vitality)
+            chip("Apple Cycle", Color.vitality)
             Spacer(minLength: 0)
         }
     }
@@ -101,7 +125,7 @@ struct CycleRhythmReportView: View {
                     .foregroundColor(.textTertiary)
             }
             Spacer()
-            Image(systemName: "lock.fill")
+            Image(systemName: "heart.text.square.fill")
                 .font(.system(size: 11))
                 .foregroundStyle(Color.vitality)
         }

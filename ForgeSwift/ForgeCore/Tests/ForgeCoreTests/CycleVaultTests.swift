@@ -121,6 +121,7 @@ final class CycleRhythmReportTests: XCTestCase {
             maeSamples: 8
         )
         XCTAssertTrue(text.contains("12-MONTH TRACKING SUMMARY"))
+        XCTAssertTrue(text.contains("Apple Cycle Tracking"))
         XCTAssertTrue(text.contains("Days logged: 40"))
         XCTAssertTrue(text.contains("cramps: 5"))
         XCTAssertTrue(text.contains("2026-08"))
@@ -142,6 +143,33 @@ final class CycleRhythmReportTests: XCTestCase {
         )
         XCTAssertTrue(text.contains("No monthly archives yet"))
         XCTAssertFalse(text.lowercased().contains("fertile"))
+    }
+
+    func testThreeMonthWindowHeaderDoesNotLeakForbiddenTerms() {
+        let months = (1...5).map { i in
+            CycleMonthlyDigest(
+                monthKey: String(format: "2026-%02d", i),
+                daysLogged: 20,
+                bleedingDays: 4,
+                cycleStarts: 1
+            )
+        }
+        let text = CycleRhythmReport.clinicianText(
+            months: months,
+            generatedDayKey: "2026-05-20",
+            typicalCycle: 28,
+            typicalPeriod: 5,
+            mae: 1.0,
+            maeSamples: 3,
+            windowMonths: 3
+        )
+        XCTAssertTrue(text.contains("3-MONTH TRACKING SUMMARY"))
+        XCTAssertTrue(text.contains("2026-05"))
+        XCTAssertFalse(text.contains("2026-01"))
+        let lower = text.lowercased()
+        for term in CycleRhythmReport.forbiddenClinicianTerms {
+            XCTAssertFalse(lower.contains(term), "3-month pack leaked \(term)")
+        }
     }
 }
 

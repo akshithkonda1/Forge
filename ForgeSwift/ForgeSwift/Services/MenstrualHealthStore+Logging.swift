@@ -45,7 +45,7 @@ extension MenstrualHealthStore {
         persistLogs()
         recompute()
         pushAriaTags()
-        Task { await writeFlowToHealthKitIfNeeded(log) }
+        Task { await writeCycleDayToAppleHealth(log) }
     }
 
     /// If bleeding is logged on or after a confirmed end day, the bleed evidently is not
@@ -96,10 +96,9 @@ extension MenstrualHealthStore {
         persistLogs()
         recompute()
         pushAriaTags()
-        let bleeding = updates.filter(\.flow.isBleeding)
         Task {
-            for log in bleeding {
-                await writeFlowToHealthKitIfNeeded(log)
+            for log in updates {
+                await writeCycleDayToAppleHealth(log)
             }
         }
     }

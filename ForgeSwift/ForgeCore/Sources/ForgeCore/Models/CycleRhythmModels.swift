@@ -186,7 +186,7 @@ public struct CycleTrainingPrescription: Equatable, Sendable {
 public enum CycleGoalCoach {
 
     public static let disclaimer =
-        "Lifestyle coaching from your logs and preferences — not medical advice, not a race plan, not contraception."
+        "Lifestyle coaching from your logs and preferences — not medical advice, not a race plan, not a birth-control method."
 
     public static func prescribe(
         goal: CycleLifestyleGoal,
@@ -355,7 +355,7 @@ public enum CycleGoalCoach {
                 ? "Longer run or a workout is on the table if sleep was decent."
                 : "A stronger session is available. Warm up thoroughly (joints can feel looser).",
             intensityLine: "Still not a license to ignore pain. Form over load.",
-            returnLine: "This is not ovulation coaching for anyone else — it is your training dial."
+            returnLine: "This is your training dial, not timing advice for anyone else."
         )
     }
 }
@@ -424,6 +424,22 @@ public enum CycleRhythmReport {
         "fertile", "ovulat", "conceive", "sexual", "bbt", "mucus", "lh surge",
     ]
 
+    public enum Window: Int, Codable, CaseIterable, Sendable, Identifiable {
+        case three = 3
+        case six = 6
+        case twelve = 12
+
+        public var id: Int { rawValue }
+
+        public var label: String {
+            switch self {
+            case .three: return "3 months"
+            case .six: return "6 months"
+            case .twelve: return "12 months"
+            }
+        }
+    }
+
     /// Plain-text packet the owner can share with a gynecologist. Generated
     /// on-device. Does not include fertile timing or private notes.
     public static func clinicianText(
@@ -432,9 +448,10 @@ public enum CycleRhythmReport {
         typicalCycle: Double?,
         typicalPeriod: Double?,
         mae: Double?,
-        maeSamples: Int
+        maeSamples: Int,
+        windowMonths: Int = 12
     ) -> String {
-        let sorted = months.sorted { $0.monthKey < $1.monthKey }
+        let sorted = months.sorted { $0.monthKey < $1.monthKey }.suffix(max(1, windowMonths))
         let daysLogged = sorted.reduce(0) { $0 + $1.daysLogged }
         let bleeding = sorted.reduce(0) { $0 + $1.bleedingDays }
         let starts = sorted.reduce(0) { $0 + $1.cycleStarts }
@@ -452,10 +469,11 @@ public enum CycleRhythmReport {
         let topSymptoms = symptomTotals.sorted { $0.value > $1.value }.prefix(8)
 
         var lines: [String] = [
-            "FORGE CYCLE VAULT — 12-MONTH TRACKING SUMMARY",
+            "FORGE — \(windowMonths)-MONTH TRACKING SUMMARY",
             "Generated on this iPhone · \(generatedDayKey)",
-            "Lifestyle tracking evidence — not a diagnosis, not birth control.",
-            "Share only with a clinician you trust. Forge does not hold a copy.",
+            "Source: Apple Cycle Tracking on this iPhone. Forge templated this pack from what it already wrote to Apple Health. No Forge database.",
+            "Lifestyle tracking evidence — not a diagnosis, not a birth-control method.",
+            "Share only with a clinician you trust.",
             "",
             "OVERVIEW",
             "Months included: \(sorted.count)",
@@ -488,7 +506,7 @@ public enum CycleRhythmReport {
         lines.append("")
         lines.append("MONTH BY MONTH")
         if sorted.isEmpty {
-            lines.append("No monthly archives yet. Keep logging — a month seals into the vault automatically.")
+            lines.append("No monthly archives yet. Keep logging to Apple Cycle Tracking — this pack fills from that ledger.")
         } else {
             for m in sorted {
                 var row = "\(m.monthKey)  logged \(m.daysLogged)d  bleed \(m.bleedingDays)d  starts \(m.cycleStarts)"
@@ -503,7 +521,7 @@ public enum CycleRhythmReport {
         }
         lines.append("")
         lines.append("NOT IN THIS REPORT")
-        lines.append("Private notes, supporter names, and conception-timing fields are withheld. This pack is bleeding days, cycle length, pain, and symptom counts only.")
+        lines.append("Private notes, supporter names, and withheld timing fields stay off this pack. Bleeding days, cycle length, pain, and symptom counts only.")
         lines.append(CycleGoalCoach.disclaimer)
         return lines.joined(separator: "\n")
     }

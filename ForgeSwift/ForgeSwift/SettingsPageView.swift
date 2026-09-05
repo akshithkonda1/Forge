@@ -336,7 +336,7 @@ struct SettingsPageView: View {
                     }
                     Group {
                     Divider().background(Color.borderColor)
-                    SettingsRow(icon: "eye.fill", iconColor: .ember, label: "Share cycle with ARIA") {
+                    SettingsRow(icon: "eye.fill", iconColor: .ember, label: "ARIA reads cycle on this iPhone") {
                         ForgeToggle(isOn: Binding(
                             get: { MenstrualHealthStore.shared.settings.shareWithAria },
                             set: { v in MenstrualHealthStore.shared.updateSettings { $0.shareWithAria = v } }
@@ -633,7 +633,7 @@ struct SettingsPageView: View {
         .sheet(isPresented: $showLocalPrivacy) {
             NavigationStack {
                 ScrollView {
-                    Text("Forge keeps Apple Health data on this device. ARIA only receives what you allow under Data Permissions. Wearables on the Devices list write to Apple Health through their own iOS apps — Forge reads that ledger, it does not scrape vendor accounts.")
+                    Text("Forge keeps Apple Health data on this device — including Oura, Garmin, Watch, and any other wearable that writes to Apple Health. ARIA reads that ledger here and gives an opinion. Claude and Grok never receive the sample warehouse. Forge account storage is the user record, not your chart.")
                         .font(.system(size: 15))
                         .foregroundColor(.textSecondary)
                         .padding(20)
