@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// Primary entry into Cycle Health. Not a bottom tab — the shell presents the page.
 struct HomeCycleModule: View {
@@ -14,6 +15,7 @@ struct HomeCycleModule: View {
     }
 
     private var phase: MenstrualPhase {
+        if stealthHome { return .unknown }
         if preferPartner || (!cycleStore.consentedPeople.isEmpty && !cycleStore.settings.enabled) {
             if let person = cycleStore.mostTimelyPerson,
                let snap = cycleStore.personSnapshots[person.id] {
@@ -26,7 +28,17 @@ struct HomeCycleModule: View {
 
     private var accent: Color { Color(hex: phase.accentHex) }
 
+    private var stealthHome: Bool {
+        cycleStore.settings.enabled && cycleStore.settings.discretionMode == .stealth
+    }
+
+    private var kindHome: Bool {
+        cycleStore.settings.enabled && cycleStore.settings.discretionMode == .kind
+    }
+
     private var title: String {
+        if stealthHome { return "Cycle Health" }
+        if kindHome { return CycleDiscretionMode.kind.lockSafeLine }
         if cycleStore.settings.enabled, let day = cycleStore.snapshot.dayInCycle {
             return "\(cycleStore.snapshot.phase.label) · Day \(day)"
         }
@@ -45,6 +57,12 @@ struct HomeCycleModule: View {
     }
 
     private var subtitle: String {
+        if stealthHome {
+            return CyclePrivacy.shortPromise
+        }
+        if kindHome {
+            return "Open Cycle Health for your log"
+        }
         if cycleStore.settings.enabled {
             return cycleStore.snapshot.trainingNote
         }
@@ -104,7 +122,12 @@ struct HomeCycleModule: View {
 
                 // Mini chips
                 HStack(spacing: 8) {
-                    if cycleStore.settings.enabled {
+                    if stealthHome {
+                        miniChip("Private", Color.vitality)
+                    } else if kindHome {
+                        miniChip("Take it easy", Color.indigo)
+                        miniChip("Private", Color.vitality)
+                    } else if cycleStore.settings.enabled {
                         miniChip("\(Int(cycleStore.snapshot.confidence * 100))% conf", accent)
                         if let next = cycleStore.snapshot.nextPeriod {
                             miniChip("Next \(shortDate(next.medianDayKey))", Color.alert)

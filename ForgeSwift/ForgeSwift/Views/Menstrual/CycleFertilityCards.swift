@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct FertileScoreCard: View {
     let score: Int
@@ -78,7 +79,11 @@ struct FertileScoreCard: View {
 
 struct CycleGoalSelectorCard: View {
     let goal: CycleGoal
+    var lifestyleGoal: CycleLifestyleGoal = .none
+    var periodTrainingStyle: CyclePeriodTrainingStyle = .easy
     let onUpdate: (CycleGoal) -> Void
+    var onLifestyle: (CycleLifestyleGoal) -> Void = { _ in }
+    var onPeriodStyle: (CyclePeriodTrainingStyle) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -109,6 +114,58 @@ struct CycleGoalSelectorCard: View {
                     }
                     .buttonStyle(.plain)
                 }
+            }
+            Text("What ARIA should design training around")
+                .font(FDS.TypeScale.body(12))
+                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                ForEach(Array(CycleLifestyleGoal.allCases.filter { $0 != .none }) + [.none], id: \.self) { g in
+                    Button {
+                        onLifestyle(g)
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: g.icon)
+                                .font(.caption)
+                            Text(g == .none ? "Ask me" : g.label)
+                                .font(FDS.TypeScale.micro(10))
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(lifestyleGoal == g ? Color.ember.opacity(0.15) : Color.surfaceElevated)
+                        .foregroundStyle(lifestyleGoal == g ? Color.ember : .secondary)
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            if lifestyleGoal != .none {
+                Text("While you’re on your period")
+                    .font(FDS.TypeScale.body(12))
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    ForEach(CyclePeriodTrainingStyle.allCases) { style in
+                        Button {
+                            onPeriodStyle(style)
+                        } label: {
+                            Text(style.label)
+                                .font(FDS.TypeScale.micro(10))
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(periodTrainingStyle == style ? Color.ember.opacity(0.15) : Color.surfaceElevated)
+                                .foregroundStyle(periodTrainingStyle == style ? Color.ember : .secondary)
+                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                Text(periodTrainingStyle.runningCopy)
+                    .font(FDS.TypeScale.body(11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if goal == .avoidPregnancy {
                 Label("FAM requires consistent tracking — not a substitute for medical contraception.", systemImage: "exclamationmark.triangle.fill")

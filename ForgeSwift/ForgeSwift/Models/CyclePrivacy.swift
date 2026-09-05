@@ -7,7 +7,7 @@ enum CyclePrivacy {
 
     /// Short line for chips / home module.
     static let shortPromise =
-        "Your log stays on this phone. They only see how to help if you invite them."
+        "Sealed in Cycle Vault on this iPhone. They only see how to help if you invite them in iMessage."
 
     /// Full user-facing policy (lifestyle product language).
     static let policy = """
@@ -27,10 +27,10 @@ enum CyclePrivacy {
 
     /// Compact bullets for privacy cards.
     static let bullets: [(icon: String, text: String)] = [
-        ("lock.shield.fill", "Secured on your device — you control what’s logged"),
+        ("lock.shield.fill", "Cycle Vault — keychain-wrapped archive on this iPhone"),
         ("eye.fill", "ARIA / Forge read only when you opt in to coach you"),
+        ("message.fill", "Support invites: iPhone + iMessage only. SMS is not valid access"),
         ("xmark.seal.fill", "Never sold, never used for ads, never resold to third parties"),
-        ("server.rack", "Cloud models process for your session — not to exploit your data"),
         ("hand.raised.fill", "Lifestyle guidance only — not diagnosis or contraception"),
     ]
 

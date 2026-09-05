@@ -1,6 +1,17 @@
 # Cycle Health: Point A → Point B
 
-Planning document. No product code in this change — evaluate what exists, name the gaps, and pick what to build next.
+**Status (this branch):** Implemented. Cycle Vault, 12-month clinician Rhythm report, Discretion Mode, iMessage-only support (Partner / Relative / Parent, including parents of minors), high-accuracy learning, and ARIA lifestyle-goal training prescriptions.
+
+Privacy tenet: wrapping key in Keychain (`AfterFirstUnlockThisDeviceOnly`), ciphertext in `Application Support/ForgeCycleVault/` (`live.box` + `months/YYYY-MM.box`, 12 retained), no Forge servers, SMS invites are not valid access.
+
+Implementation:
+
+- `ForgeCore/.../CycleVault.swift` — AES-GCM archive, 12-month boxes, wipe + month purge
+- `ForgeCore/.../CycleRhythmModels.swift` — discretion, lifestyle goals, period training style, clinician text
+- `MenstrualHealthStore+Vault.swift` — migrate off `UserDefaults`
+- Settings → You → Cycle privacy — Discretion Mode + Vault + lock + high-accuracy
+- My cycle — extra-care ping, training card, Vault report sheet
+- Support invite — iPhone + iMessage only; CloudKit URL withheld from SMS
 
 **North star:** the best personal cycle tracker *and* the best support product for the people around you, with privacy, security, and discretion as the product — not a footer.
 
@@ -338,10 +349,66 @@ Questions that change the design if you have a preference:
 | Redaction | `Models/PartnerCycleDigest.swift` |
 | Sharing | `Services/PartnerCycleSharing.swift` |
 | Guidance | `Services/SupporterGuidance.swift`, `PartnerSupportCoach.swift` |
-| Persistence (the problem) | `Services/MenstrualHealthStore.swift` → `UserDefaults` |
-| Vault target | `ForgeCore/Security/SecureStore.swift`, `SecureStoreMigration.swift` |
+| Persistence | `Services/MenstrualHealthStore+Vault.swift` → Cycle Vault (legacy `UserDefaults` is migrate-then-delete) |
+| Vault | `ForgeCore/Security/CycleVault.swift`, `SecureStore.swift` |
 | Privacy copy | `Models/CyclePrivacy.swift` |
 | Lock-screen leak | `ForgeWidgetExtension/CyclePhaseWidget.swift` |
 | Lock-safe support | `ForgeCore/Utils/PartnerSupportGlance.swift` |
 | Invite discretion | `ForgeCore/Models/PartnerInvitePayload.swift` |
 | CI gate | `scripts/check-partner-redaction.sh` |
+
+---
+
+## 9. Competitive teardown — Drip, Flo, Clue, Apple, Natural Cycles
+
+The job is not “more symptoms.” It is: **on-device reproductive data + a support OS nobody else has + training that respects the bleed.** Forge does not claim HIPAA, “impenetrable,” or app-as-contraception.
+
+### Drip (the privacy gold standard we steal from, then beat)
+
+What Drip gets right: no account, symptothermal math you can inspect, CSV export, optional password, data stays on the phone. That is the threat model.
+
+Where Drip loses, and Forge ships the gap:
+
+| Drip | Forge |
+|---|---|
+| Local DB, optional app password | **Cycle Vault** — Keychain wrapping key + AES-GCM files (`live.box`, 12 month boxes), `completeFileProtection`. Not a plist. |
+| No clinician pack | Rolling **12-month Rhythm report** (counts/medians/pain/symptoms). Fertile timing, notes, sex, mucus, BBT stay out. Share sheet is user-initiated. |
+| No support network | **Partner / Relative / Parent** (parents of minors allowed). CloudKit redacted digest only. |
+| No invitation channel discipline | **iPhone + iMessage only.** SMS, email, and a pasted CloudKit URL are invalid access. Fallback copy carries no redeemable URL. |
+| No lock-screen policy | **Discretion Mode** in Settings/You: Stealth / Kind / Clinical. Widgets, Home, notifications, Live Activity honor it. Face ID gate in stealth. |
+| No coach | **ARIA** asks the training goal (running/endurance/strength/mixed) and a period style (skip / easy / shorter / usual). Example: loves running, hates running on her period → cap or skip miles while bleeding, rebuild after. |
+| No high-accuracy learning | Binary high-accuracy toggle. When on, BBT/OPK cues fire and learned period-end prefs tighten today’s volume cap. |
+
+Drip is a diary with integrity. Forge is a diary with integrity **plus** a job for the people who show up **plus** a training translation.
+
+### Flo
+
+Feature encyclopedia, community, predictions. Historically a **server-side** product with a privacy record that is the opposite of post-Roe. Flo wins on content volume. Forge wins on: Forge never holds the chart; supporters never see a chart; lock screens cannot out you; training is phase-aware without sending the log to train a model.
+
+### Clue
+
+Stronger science communication than Flo, EU posture, still an **account/cloud** cycle. No iMessage-gated support OS. No clinician 12-month vault. No “run X easy miles on your period, then rebuild.” Clue is a better tracker than most. It is not a support product.
+
+### Apple Cycle Tracking
+
+On-device, HealthKit, boring in the best way. No ARIA, no support invites, no Rhythm report you can hand a gynecologist, no discretion policy for the lock screen widget you install. Forge uses Apple’s model (device-first, hardware-backed keys) and then adds the product Apple will not ship: support + coaching.
+
+### Natural Cycles
+
+FDA-cleared contraception. **Explicit non-goal.** Forge must never compete here. TTC / family-planning goals stay self-only. Clinician report and ARIA copy both say Forge is not birth control.
+
+### Euki / other local education apps
+
+Local and educational. Not a FAM engine, not a support OS, not a training coach. Respect the lane; do not copy the encyclopedia.
+
+### What “destroy” actually means in product copy
+
+Do not trash competitors in the UI. Beat them in the architecture:
+
+1. **Vault, not UserDefaults.** Drip’s privacy intent, Apple’s keychain model.
+2. **Support nobody else has**, with a channel constraint (iMessage/iPhone) that is the access-control, not a preference.
+3. **Rhythm report** a gynecologist can use as tracking evidence — not a diagnosis.
+4. **ARIA translates goals** (especially running-on-period) instead of a static luteal essay.
+5. **Discretion** so the owner’s own widgets cannot leak what the supporter glance already refuses to say.
+
+Still not in this pass (on purpose): month calendar polish, symptom-pattern cards, contraception protocol, pregnancy/postpartum modes, web/Android cycle.

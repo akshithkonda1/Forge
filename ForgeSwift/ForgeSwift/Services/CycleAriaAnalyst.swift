@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 /// ARIA cycle analyst: Understand → Evaluate → Teach.
 /// Engine owns numbers; ARIA coaches, critiques data quality, and may recommend
@@ -74,9 +75,21 @@ enum CycleAriaAnalyst {
         evaluation: CycleDataEvaluation,
         settings: MenstrualTrackingSettings,
         lastAction: String?,
-        isPartner: Bool
+        isPartner: Bool,
+        preferLighterTraining: Bool = false,
+        recoveryBias: Double = 0.35
     ) -> CycleAIContext {
-        CycleAIContext(
+        let rx = CycleGoalCoach.prescribe(
+            goal: settings.lifestyleGoal,
+            phaseRaw: snapshot.phase.rawValue,
+            isBleeding: snapshot.isCurrentlyBleeding || snapshot.stage == .period,
+            periodFinishedRecently: snapshot.stage == .postPeriod,
+            preferLighterTraining: preferLighterTraining,
+            recoveryBias: recoveryBias,
+            highAccuracy: settings.highAccuracyMode,
+            periodStyle: settings.periodTrainingStyle
+        )
+        return CycleAIContext(
             phase: snapshot.phase.rawValue,
             stage: snapshot.stage.rawValue,
             periodEndConfirmed: snapshot.periodEndConfirmed,
@@ -100,7 +113,10 @@ enum CycleAriaAnalyst {
             hormonal: settings.usesHormonalContraception,
             irregular: snapshot.irregularityFlag,
             lastUserAction: lastAction,
-            isPartner: isPartner
+            isPartner: isPartner,
+            lifestyleGoal: settings.lifestyleGoal.rawValue,
+            trainingHeadline: isPartner ? nil : rx.headline,
+            periodTrainingStyle: settings.periodTrainingStyle.rawValue
         )
     }
 
@@ -147,7 +163,11 @@ enum CycleAriaAnalyst {
         ovuConf=\(String(format: "%.2f", context.ovulationConfidence)),
         MAE=\(context.accuracyMAE.map { String(format: "%.1f" , $0) } ?? "n/a") over \(context.accuracySampleCount),
         quality=\(context.qualityGrade), issues=\(context.issues.joined(separator: ",")),
-        lastAction=\(context.lastUserAction ?? "none"), partner=\(context.isPartner).
+        lastAction=\(context.lastUserAction ?? "none"), partner=\(context.isPartner),
+        lifestyleGoal=\(context.lifestyleGoal), training=\(context.trainingHeadline ?? "n/a"),
+        periodStyle=\(context.periodTrainingStyle).
+
+        If they have a running or training goal, translate phase into volume (miles/sets) and a return-to-normal plan using periodStyle while bleeding. Never treat Forge as contraception.
 
         Local evaluation summary: \(evaluation.userFacingSummary)
         Teaching seed: \(evaluation.teachingSummary)
