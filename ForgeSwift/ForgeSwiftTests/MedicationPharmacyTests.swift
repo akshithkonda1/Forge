@@ -5,7 +5,7 @@ final class MedicationPharmacyTests: XCTestCase {
 
     func testCatalogExceedsTenThousand() {
         XCTAssertGreaterThanOrEqual(MedicationPharmacy.count, MedicationPharmacy.minimumCount)
-        XCTAssertGreaterThanOrEqual(MedicationPharmacy.all().count, 10_000)
+        XCTAssertGreaterThanOrEqual(MedicationPharmacy.all().count, 50_000, "NDC + drugs@FDA + CDC CVX must ship as a federal-scale catalog")
     }
 
     func testSearchFindsKnownFDADrugs() {
@@ -18,6 +18,18 @@ final class MedicationPharmacyTests: XCTestCase {
 
         let metformin = MedicationPharmacy.search("metformin")
         XCTAssertFalse(metformin.isEmpty)
+    }
+
+    func testSearchFindsXcopriAndOxtellar() {
+        let xcopri = MedicationPharmacy.search("xcopri")
+        XCTAssertFalse(xcopri.isEmpty, "Xcopri is an FDA-approved cenobamate brand and must be searchable")
+        XCTAssertTrue(xcopri.contains { $0.brand?.localizedCaseInsensitiveContains("Xcopri") == true })
+        XCTAssertTrue(xcopri.contains { $0.generic.localizedCaseInsensitiveContains("cenobamate") })
+
+        let oxtellar = MedicationPharmacy.search("oxtellar")
+        XCTAssertFalse(oxtellar.isEmpty, "Oxtellar XR is an FDA-approved oxcarbazepine brand and must be searchable")
+        XCTAssertTrue(oxtellar.contains { $0.brand?.localizedCaseInsensitiveContains("Oxtellar") == true })
+        XCTAssertTrue(oxtellar.contains { $0.generic.localizedCaseInsensitiveContains("oxcarbazepine") })
     }
 
     func testSearchIsCappedAndCaseInsensitive() {

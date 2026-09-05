@@ -20,7 +20,7 @@ struct ClinicalDataNonPHIView: View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 22) {
-                    Text("Two steps. Connect Apple Health for the meds and allergies already on this iPhone. Then search the pharmacy — every FDA-approved presentation Forge ships, updated from openFDA when you're online.")
+                    Text("Two steps. Connect Apple Health for the meds and allergies already on this iPhone. Then search the pharmacy — every product on the FDA NDC and drugs@FDA lists (the same codes CMS and CDC bill), plus CDC vaccines. Updates itself from openFDA.")
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
