@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import ForgeCore
 
 struct MenstrualTrackingSettings: Codable, Equatable {
     var enabled: Bool
@@ -28,6 +29,16 @@ struct MenstrualTrackingSettings: Codable, Equatable {
     var periodReminderEnabled: Bool
     /// User's stated cycle goal.
     var cycleGoal: CycleGoal
+    /// Running / strength / mixed — ARIA translates this into phase-aware volume.
+    var lifestyleGoal: CycleLifestyleGoal
+    /// How to train while bleeding. Default easy miles, not a forced rest day.
+    var periodTrainingStyle: CyclePeriodTrainingStyle
+    /// Lock screen / Home / Watch: stealth, kind, or clinical.
+    var discretionMode: CycleDiscretionMode
+    /// Face ID (or device passcode) before Cycle Health opens.
+    var cycleLockEnabled: Bool
+    /// Owner tapped “need extra care” on this day; digest stays thoughtfulness-only.
+    var needExtraCareDayKey: String?
     /// Active health condition for personalised engine behaviour and ARIA coaching.
     var condition: CycleCondition
     /// Last bleeding day the user confirmed ("Period finished"). Belongs to the current
@@ -42,7 +53,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         case privacyAcknowledged, calibrationOffsetDays, highAccuracyMode, overdueWidenDays
         case learnedLutealDays
         case bbtReminderEnabled, bbtReminderHour, fertileWindowAlertEnabled, periodReminderEnabled
-        case cycleGoal, condition, confirmedPeriodEndDayKey, partnerShareTier
+        case cycleGoal, lifestyleGoal, periodTrainingStyle, discretionMode, cycleLockEnabled, needExtraCareDayKey
+        case condition, confirmedPeriodEndDayKey, partnerShareTier
     }
 
     static let `default` = MenstrualTrackingSettings(
@@ -81,6 +93,11 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         fertileWindowAlertEnabled: Bool = false,
         periodReminderEnabled: Bool = false,
         cycleGoal: CycleGoal = .general,
+        lifestyleGoal: CycleLifestyleGoal = .none,
+        periodTrainingStyle: CyclePeriodTrainingStyle = .easy,
+        discretionMode: CycleDiscretionMode = .clinical,
+        cycleLockEnabled: Bool = false,
+        needExtraCareDayKey: String? = nil,
         condition: CycleCondition = .none,
         confirmedPeriodEndDayKey: String? = nil,
         partnerShareTier: PartnerShareTier = .supportCoach
@@ -102,6 +119,11 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         self.fertileWindowAlertEnabled = fertileWindowAlertEnabled
         self.periodReminderEnabled = periodReminderEnabled
         self.cycleGoal = cycleGoal
+        self.lifestyleGoal = lifestyleGoal
+        self.periodTrainingStyle = periodTrainingStyle
+        self.discretionMode = discretionMode
+        self.cycleLockEnabled = cycleLockEnabled
+        self.needExtraCareDayKey = needExtraCareDayKey
         self.condition = condition
         self.confirmedPeriodEndDayKey = confirmedPeriodEndDayKey
         self.partnerShareTier = partnerShareTier
@@ -126,6 +148,11 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         fertileWindowAlertEnabled = try c.decodeIfPresent(Bool.self, forKey: .fertileWindowAlertEnabled) ?? false
         periodReminderEnabled = try c.decodeIfPresent(Bool.self, forKey: .periodReminderEnabled) ?? false
         cycleGoal = try c.decodeIfPresent(CycleGoal.self, forKey: .cycleGoal) ?? .general
+        lifestyleGoal = try c.decodeIfPresent(CycleLifestyleGoal.self, forKey: .lifestyleGoal) ?? .none
+        periodTrainingStyle = try c.decodeIfPresent(CyclePeriodTrainingStyle.self, forKey: .periodTrainingStyle) ?? .easy
+        discretionMode = try c.decodeIfPresent(CycleDiscretionMode.self, forKey: .discretionMode) ?? .clinical
+        cycleLockEnabled = try c.decodeIfPresent(Bool.self, forKey: .cycleLockEnabled) ?? false
+        needExtraCareDayKey = try c.decodeIfPresent(String.self, forKey: .needExtraCareDayKey)
         condition = try c.decodeIfPresent(CycleCondition.self, forKey: .condition) ?? .none
         confirmedPeriodEndDayKey = try c.decodeIfPresent(String.self, forKey: .confirmedPeriodEndDayKey)
         partnerShareTier = try c.decodeIfPresent(PartnerShareTier.self, forKey: .partnerShareTier) ?? .supportCoach
@@ -150,6 +177,11 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         try c.encode(fertileWindowAlertEnabled, forKey: .fertileWindowAlertEnabled)
         try c.encode(periodReminderEnabled, forKey: .periodReminderEnabled)
         try c.encode(cycleGoal, forKey: .cycleGoal)
+        try c.encode(lifestyleGoal, forKey: .lifestyleGoal)
+        try c.encode(periodTrainingStyle, forKey: .periodTrainingStyle)
+        try c.encode(discretionMode, forKey: .discretionMode)
+        try c.encode(cycleLockEnabled, forKey: .cycleLockEnabled)
+        try c.encodeIfPresent(needExtraCareDayKey, forKey: .needExtraCareDayKey)
         try c.encode(condition, forKey: .condition)
         try c.encodeIfPresent(confirmedPeriodEndDayKey, forKey: .confirmedPeriodEndDayKey)
         try c.encode(partnerShareTier, forKey: .partnerShareTier)
@@ -161,5 +193,12 @@ struct MenstrualTrackingSettings: Codable, Equatable {
             return max(10, min(16, Int(learned.rounded())))
         }
         return max(10, min(16, typicalLutealDays))
+    }
+
+    /// Extra-care ping is live for today and yesterday — then it expires.
+    func extraCareIsActive(asOf dayKey: String = CycleDayKey.key()) -> Bool {
+        guard let start = needExtraCareDayKey,
+              let days = CycleDayKey.daysBetween(start, dayKey) else { return false }
+        return (0...1).contains(days)
     }
 }

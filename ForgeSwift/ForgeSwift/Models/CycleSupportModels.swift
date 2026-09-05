@@ -11,33 +11,39 @@ enum CycleSupportRole: String, Codable, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Partner, relative, or parent — the only roles the owner can assign.
+    static var selectableRoles: [CycleSupportRole] { [.romantic, .family, .child] }
+
     var label: String {
         switch self {
-        case .romantic: return "Partner / spouse"
-        case .child:    return "Daughter / child"
-        case .family:   return "Family"
-        case .friend:   return "Friend"
-        case .other:    return "Someone I support"
+        case .romantic: return "Partner"
+        case .child:    return "Parent"
+        case .family:   return "Relative"
+        case .friend:   return "Relative"
+        case .other:    return "Relative"
         }
     }
 
-    var shortLabel: String {
-        switch self {
-        case .romantic: return "Partner"
-        case .child:    return "Child"
-        case .family:   return "Family"
-        case .friend:   return "Friend"
-        case .other:    return "Support"
-        }
-    }
+    var shortLabel: String { label }
 
     var icon: String {
         switch self {
         case .romantic: return "heart.fill"
         case .child:    return "figure.and.child.holdinghands"
         case .family:   return "house.fill"
-        case .friend:   return "person.2.fill"
-        case .other:    return "hands.sparkles.fill"
+        case .friend:   return "house.fill"
+        case .other:    return "house.fill"
+        }
+    }
+
+    var pickerDetail: String {
+        switch self {
+        case .romantic:
+            return "Girlfriend, boyfriend, wife, husband, spouse. Comfort and intimacy notes stay here."
+            case .child:
+                return "You are a parent — including of a minor — or they are your parent. Care and dignity, never a partner lens."
+        case .family, .friend, .other:
+            return "Sister, brother, mom, dad, family. No intimacy material."
         }
     }
 
@@ -45,10 +51,10 @@ enum CycleSupportRole: String, Codable, CaseIterable, Identifiable {
     var suggestedLabels: [String] {
         switch self {
         case .romantic: return ["partner", "girlfriend", "boyfriend", "wife", "husband", "spouse", "fiancé"]
-        case .child:    return ["daughter", "child", "kid", "teen"]
-        case .family:   return ["sister", "mom", "mother", "sibling", "family"]
-        case .friend:   return ["friend", "roommate"]
-        case .other:    return ["person I support"]
+        case .child:    return ["parent", "mom", "dad", "mother", "father", "daughter", "child", "kid", "teen"]
+        case .family:   return ["sister", "brother", "mom", "dad", "mother", "father", "sibling", "family"]
+        case .friend:   return ["relative"]
+        case .other:    return ["relative"]
         }
     }
 

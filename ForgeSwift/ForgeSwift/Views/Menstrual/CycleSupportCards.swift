@@ -43,7 +43,7 @@ struct AddSupportedPersonSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("Partner, daughter, sister, friend — each person is their own. ARIA will not treat a child as a partner.")
+                    Text("Partner, relative, or parent — including a parent of a minor. Each person is their own. They need an iPhone; invites are iMessage only.")
                         .font(FDS.TypeScale.body(14))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -51,7 +51,7 @@ struct AddSupportedPersonSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("WHO")
                             .forgeSectionLabel()
-                        ForEach(CycleSupportRole.allCases) { option in
+                        ForEach(CycleSupportRole.selectableRoles) { option in
                             Button {
                                 role = option
                                 label = option.suggestedLabels.first ?? label

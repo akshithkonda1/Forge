@@ -77,10 +77,10 @@ enum CycleStage: String, Codable, Equatable {
     /// Same arc, phrased for the person supporting them.
     func partnerLabel(name: String) -> String {
         switch self {
-        case .period: return "\(name) is on her period"
+        case .period: return "\(name) is on their period"
         case .postPeriod: return "\(name)'s period has finished"
-        case .fertile: return "\(name) is in her fertile window"
-        case .ovulation: return "\(name) is around ovulation"
+        case .fertile: return "\(name) is in a higher-energy window"
+        case .ovulation: return "\(name) is around mid-cycle"
         case .premenstrual: return "\(name) is pre-menstrual"
         case .unknown: return "Still learning \(name)'s rhythm"
         }
@@ -335,6 +335,8 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
     var stageNarrative: String = ""
     /// Days until next period median estimate (negative if overdue); nil when unknown.
     var daysUntilNextPeriod: Int? = nil
+    /// Owner requested extra thoughtfulness without sharing details.
+    var extraCareRequested: Bool = false
 
     static let empty = MenstrualCycleSnapshot(
         asOfDayKey: "",
@@ -379,7 +381,8 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
         currentPeriodDayCount: nil,
         currentPeriodEndDayKey: nil,
         stageNarrative: "",
-        daysUntilNextPeriod: nil
+        daysUntilNextPeriod: nil,
+        extraCareRequested: false
     )
 }
 

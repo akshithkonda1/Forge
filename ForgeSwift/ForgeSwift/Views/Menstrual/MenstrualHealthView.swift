@@ -1,4 +1,6 @@
 import SwiftUI
+import LocalAuthentication
+import ForgeCore
 
 /// Flagship menstrual intelligence UI — self tracking + family support.
 struct MenstrualHealthView: View {
@@ -68,6 +70,7 @@ struct MenstrualHealthView: View {
     /// snapped Support back to My cycle after a sheet dismissed.
     @State private var didApplyLaunchPane = false
     @State private var coldStartDate = Date()
+    @State private var showRhythmReport = false
 
     private var accent: Color {
         let phase = pane == .me ? cycleStore.snapshot.phase : cycleStore.partnerSnapshot.phase
@@ -128,6 +131,9 @@ struct MenstrualHealthView: View {
                     .environmentObject(store)
                     .preferredColorScheme(.dark)
             }
+            .sheet(isPresented: $showRhythmReport) {
+                CycleRhythmReportView(cycleStore: cycleStore)
+            }
             .sheet(isPresented: $showAddPerson) {
                 AddSupportedPersonSheet(cycleStore: cycleStore) { person in
                     partnerNameDraft = person.settings.partnerName
@@ -187,6 +193,32 @@ struct MenstrualHealthView: View {
             .navigationTitle("Cycle Health")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { cycleToolbar }
+            .overlay {
+                if !cycleStore.cycleUnlockedThisSession,
+                   cycleStore.settings.enabled,
+                   cycleStore.settings.cycleLockEnabled || cycleStore.settings.discretionMode == .stealth {
+                    ZStack {
+                        Color.background.opacity(0.96).ignoresSafeArea()
+                        VStack(spacing: 16) {
+                            Image(systemName: "lock.shield.fill")
+                                .font(.system(size: 36))
+                                .foregroundStyle(Color.vitality)
+                            Text("Cycle Health is locked")
+                                .font(FDS.TypeScale.title(20))
+                                .foregroundColor(.textPrimary)
+                            Text("Face ID or your device passcode. Discretion Mode is on.")
+                                .font(FDS.TypeScale.body(14))
+                                .foregroundColor(.textSecondary)
+                                .multilineTextAlignment(.center)
+                            Button("Unlock") { unlockCycleIfNeeded() }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.ember)
+                        }
+                        .padding(28)
+                    }
+                    .accessibilityElement(children: .contain)
+                }
+            }
     }
 
     private var rootStack: some View {
@@ -260,6 +292,8 @@ struct MenstrualHealthView: View {
     private var meEnabledPrimary: some View {
         phaseOrbitCard
         cycleStageCard
+        extraCareCard
+        trainingPrescriptionCard
         if let condition = cycleStore.settings.condition.activeCase {
             conditionCard(condition)
         }
@@ -283,7 +317,11 @@ struct MenstrualHealthView: View {
             }
             CycleGoalSelectorCard(
                 goal: cycleStore.settings.cycleGoal,
-                onUpdate: { cycleStore.updateCycleGoal($0) }
+                lifestyleGoal: cycleStore.settings.lifestyleGoal,
+                periodTrainingStyle: cycleStore.settings.periodTrainingStyle,
+                onUpdate: { cycleStore.updateCycleGoal($0) },
+                onLifestyle: { goal in cycleStore.updateSettings { $0.lifestyleGoal = goal } },
+                onPeriodStyle: { style in cycleStore.updateSettings { $0.periodTrainingStyle = style } }
             )
             twwSection
         }
@@ -306,6 +344,43 @@ struct MenstrualHealthView: View {
     /// settings on purpose: sharing your cycle with someone is a considered
     /// decision, not a toggle you should meet before you have looked at your
     /// own data.
+    private var extraCareCard: some View {
+        let active = cycleStore.settings.extraCareIsActive()
+        return Button {
+            cycleStore.updateSettings { s in
+                s.needExtraCareDayKey = active ? nil : CycleDayKey.key()
+            }
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: active ? "heart.circle.fill" : "heart.circle")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color.ember)
+                    .frame(width: 30)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(active ? "Extra care is on" : "Need extra care today")
+                        .font(FDS.TypeScale.label(15))
+                        .foregroundColor(.textPrimary)
+                    Text("Supporters see a thoughtfulness ping — not why. Expires in 48 hours.")
+                        .font(FDS.TypeScale.body(12))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .forgeGlassCard(accent: .ember)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var trainingPrescriptionCard: some View {
+        CycleTrainingPrescriptionCard(prescription: cycleStore.trainingPrescription) {
+            let rx = cycleStore.trainingPrescription
+            store.openChat(with: "My goal is \(cycleStore.settings.lifestyleGoal.label). I'm in \(cycleStore.snapshot.phase.label). \(rx.headline) \(rx.volumeLine) Shape today's session.")
+        }
+    }
+
     private var shareSupportCard: some View {
         Button {
             showSharing = true
@@ -437,6 +512,7 @@ struct MenstrualHealthView: View {
         // seeing a digest on their next visit, not whenever a push happens to
         // arrive.
         Task { await cycleStore.syncSharedPeriodFinished() }
+        unlockCycleIfNeeded()
         withAnimation(FDS.Spring.hero.delay(0.05)) { appeared = true }
         guard !UIAccessibility.isReduceMotionEnabled else { return }
         withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
@@ -1222,6 +1298,26 @@ struct MenstrualHealthView: View {
         .buttonStyle(.plain)
     }
 
+    private func unlockCycleIfNeeded() {
+        let locked = cycleStore.settings.cycleLockEnabled
+            || cycleStore.settings.discretionMode == .stealth
+        guard locked, cycleStore.settings.enabled, !cycleStore.cycleUnlockedThisSession else {
+            cycleStore.cycleUnlockedThisSession = true
+            return
+        }
+        let ctx = LAContext()
+        var error: NSError?
+        guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            cycleStore.cycleUnlockedThisSession = true
+            return
+        }
+        ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Unlock Cycle Health") { success, _ in
+            DispatchQueue.main.async {
+                cycleStore.cycleUnlockedThisSession = success
+            }
+        }
+    }
+
     private func showToast(_ msg: String) {
         let token = UUID()
         toastToken = token
@@ -1773,10 +1869,14 @@ struct MenstrualHealthView: View {
 
     private var ariaCoachCard: some View {
         Button {
-            let phase = cycleStore.snapshot.phase.label
-            let prompt = cycleStore.settings.shareWithAria
-                ? "I'm in \(phase) — how should I train and recover today?"
-                : "Help me train and recover today."
+            let prompt: String = {
+                if cycleStore.settings.shareWithAria {
+                    let phase = cycleStore.snapshot.phase.label
+                    let rx = cycleStore.trainingPrescription
+                    return "My goal is \(cycleStore.settings.lifestyleGoal.label). I'm in \(phase). \(rx.headline) How should I train today?"
+                }
+                return "Help me train and recover today."
+            }()
             store.openChat(with: prompt, voice: false)
         } label: {
             HStack(spacing: 14) {
@@ -1858,12 +1958,41 @@ struct MenstrualHealthView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("High-accuracy mode")
                         .foregroundColor(.textPrimary)
-                    Text("BBT/OPK cues + same-day confirms. Lifestyle only — not contraception.")
+                    Text("On or off — always. When on, BBT/OPK cues and learned period-end prefs tighten today's training cap.")
                         .font(FDS.TypeScale.body(11))
                         .foregroundColor(.textTertiary)
                 }
             }
             .tint(Color(hex: "A855F7"))
+
+            Picker("Discretion", selection: Binding(
+                get: { cycleStore.settings.discretionMode },
+                set: { mode in cycleStore.updateSettings { $0.discretionMode = mode } }
+            )) {
+                ForEach(CycleDiscretionMode.allCases) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            Text(cycleStore.settings.discretionMode.detail)
+                .font(FDS.TypeScale.body(11))
+                .foregroundColor(.textTertiary)
+
+            Button {
+                showRhythmReport = true
+            } label: {
+                HStack {
+                    Image(systemName: "lock.rectangle.stack.fill")
+                    Text("12-month Vault report")
+                        .font(FDS.TypeScale.label(14))
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.textTertiary)
+                }
+                .foregroundColor(.textPrimary)
+                .padding(.vertical, 8)
+            }
+            .buttonStyle(.plain)
 
             Toggle(isOn: Binding(
                 get: { cycleStore.settings.enabled },
@@ -2285,7 +2414,7 @@ struct MenstrualHealthView: View {
                 .forgeSectionLabel()
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(CycleSupportRole.allCases) { role in
+                    ForEach(CycleSupportRole.selectableRoles) { role in
                         Button {
                             supportRole = role
                             partnerRelDraft = role.suggestedLabels.first ?? partnerRelDraft

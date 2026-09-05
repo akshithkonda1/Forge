@@ -48,6 +48,11 @@ final class MenstrualHealthStore: ObservableObject {
     /// Pending episode metadata after logPeriodEnd — UI presents feedback sheet.
     @Published var pendingPeriodEndEpisode: PeriodEpisode?
 
+    /// Keychain-wrapped archive. Live state + rolling 12-month clinician boxes.
+    var cycleVault: CycleVault
+    @Published var vaultSaveError: String?
+    @Published var cycleUnlockedThisSession: Bool = false
+
     /// ~24 months of daily logs.
     static let maxRetainedLogs = 800
 
@@ -77,95 +82,43 @@ final class MenstrualHealthStore: ObservableObject {
     let testReadySeededKey = "forge.menstrual.testReady.seeded.v1"
 
     private init() {
-        if let data = defaults.data(forKey: settingsKey),
-           let s = try? JSONDecoder().decode(MenstrualTrackingSettings.self, from: data) {
-            settings = s
-        } else {
-            settings = .default
-        }
-        if let data = defaults.data(forKey: logsKey),
-           let l = try? JSONDecoder().decode([CycleDayLog].self, from: data) {
-            logs = l
-        } else {
-            logs = []
-        }
-        let migrated = Self.loadPeople(
-            defaults: defaults,
-            peopleKey: peopleKey,
-            selectedPersonKey: selectedPersonKey,
-            partnerSettingsKey: partnerSettingsKey,
-            partnerLogsKey: partnerLogsKey
-        )
-        supportedPeople = migrated.people
-        selectedPersonId = migrated.selectedId
-        partnerSettings = migrated.people.first(where: { $0.id == migrated.selectedId })?.settings
-            ?? migrated.people.first?.settings
-            ?? .default
-        partnerLogs = migrated.people.first(where: { $0.id == migrated.selectedId })?.logs
-            ?? migrated.people.first?.logs
-            ?? []
+        settings = .default
+        logs = []
+        supportedPeople = []
+        selectedPersonId = nil
+        partnerSettings = .default
+        partnerLogs = []
         personSnapshots = [:]
         personBriefs = [:]
-        if let data = defaults.data(forKey: feedbackKey),
-           let f = try? JSONDecoder().decode([CyclePredictionFeedback].self, from: data) {
-            predictionFeedback = f
-        }
-        if let data = defaults.data(forKey: forecastKey),
-           let f = try? JSONDecoder().decode([CycleForecastRecord].self, from: data) {
-            forecastArchive = f
-        }
-        if let data = defaults.data(forKey: periodEndFeedbackKey),
-           let f = try? JSONDecoder().decode([PeriodEndFeedback].self, from: data) {
-            periodEndFeedbacks = f
-        }
-        if let data = defaults.data(forKey: coachingPrefsKey),
-           let p = try? JSONDecoder().decode(PeriodCoachingPreferences.self, from: data) {
-            coachingPreferences = p
-        }
-        lastAdvertisedNextPeriodMedian = defaults.string(forKey: advertisedKey)
         snapshot = .empty
         partnerSnapshot = .empty
         partnerSupportBrief = nil
+        cycleVault = Self.makeVault()
+        vaultSaveError = nil
+        loadFromVaultOrLegacy()
         recompute()
         recomputePartner()
     }
 
     // MARK: Settings
 
-    func persistSettings() {
-        if let data = try? JSONEncoder().encode(settings) {
-            defaults.set(data, forKey: settingsKey)
-        }
-    }
+    func persistSettings() { persistVault() }
 
-    func persistLogs() {
-        if let data = try? JSONEncoder().encode(logs) {
-            defaults.set(data, forKey: logsKey)
-        }
-    }
+    func persistLogs() { persistVault() }
 
-    func persistPeople() {
-        if let data = try? JSONEncoder().encode(supportedPeople) {
-            defaults.set(data, forKey: peopleKey)
-        }
-        persistSelectedPerson()
-        // v1 projection of the selected person so a rollback still has one slot.
-        let projection = selectedPerson
-        if let data = try? JSONEncoder().encode(projection?.settings ?? PartnerCycleSettings.default) {
-            defaults.set(data, forKey: partnerSettingsKey)
-        }
-        if let data = try? JSONEncoder().encode(projection?.logs ?? []) {
-            defaults.set(data, forKey: partnerLogsKey)
-        }
-    }
+    func persistPeople() { persistVault() }
 
     func persistSelectedPerson() {
-        if let selectedPersonId {
-            defaults.set(selectedPersonId, forKey: selectedPersonKey)
-        } else {
-            defaults.removeObject(forKey: selectedPersonKey)
-        }
+        persistVault()
     }
+
+    func persistFeedback() { persistVault() }
+
+    func persistForecasts() { persistVault() }
+
+    func persistPeriodEndFeedback() { persistVault() }
+
+    func persistCoachingPrefs() { persistVault() }
 
     func syncSelectedProjection() {
         if let person = selectedPerson {
@@ -213,37 +166,8 @@ final class MenstrualHealthStore: ObservableObject {
             || v1Settings.relationshipLabel != "partner"
         guard hasLegacy else { return ([], nil) }
         let person = SupportedPerson.make(settings: v1Settings, logs: v1Logs)
-        if let data = try? JSONEncoder().encode([person]) {
-            defaults.set(data, forKey: peopleKey)
-            defaults.set(person.id, forKey: selectedPersonKey)
-        }
         return ([person], person.id)
     }
-
-    func persistFeedback() {
-        if let data = try? JSONEncoder().encode(predictionFeedback) {
-            defaults.set(data, forKey: feedbackKey)
-        }
-    }
-
-    func persistForecasts() {
-        if let data = try? JSONEncoder().encode(forecastArchive) {
-            defaults.set(data, forKey: forecastKey)
-        }
-    }
-
-    func persistPeriodEndFeedback() {
-        if let data = try? JSONEncoder().encode(periodEndFeedbacks) {
-            defaults.set(data, forKey: periodEndFeedbackKey)
-        }
-    }
-
-    func persistCoachingPrefs() {
-        if let data = try? JSONEncoder().encode(coachingPreferences) {
-            defaults.set(data, forKey: coachingPrefsKey)
-        }
-    }
-
 }
 
 // MARK: - HealthKit DTO
