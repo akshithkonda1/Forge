@@ -201,6 +201,15 @@ struct ClinicalRecordsSummary: Identifiable, Codable {
     let connectedSourceNames: [String]
     let hasData: Bool
 
+    static let empty = ClinicalRecordsSummary(
+        items: [],
+        totalRecordCount: 0,
+        recordCountsByType: [:],
+        recentRecordNames: [],
+        connectedSourceNames: [],
+        hasData: false
+    )
+
     func items(for kind: StructuredHealthKind) -> [StructuredHealthItem] {
         items.filter { $0.kind == kind }
     }
@@ -639,21 +648,27 @@ class HealthKitManager: ObservableObject {
     
 
     
+    nonisolated static func safeClinicalName(_ record: HKClinicalRecord) -> String {
+        let name = record.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? "Untitled record" : name
+    }
+
     nonisolated static func fetchClinicalRecords(type: HKClinicalType, healthStore: HKHealthStore) async -> [HKClinicalRecord] {
         await withCheckedContinuation { continuation in
+            let once = ClinicalQueryResumeOnce<[HKClinicalRecord]>()
             let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
             let query = HKSampleQuery(
                 sampleType: type,
                 predicate: nil,
-                limit: 20,
+                limit: 40,
                 sortDescriptors: [sortDescriptor]
             ) { _, samples, _ in
-                continuation.resume(returning: (samples as? [HKClinicalRecord]) ?? [])
+                once.finish((samples as? [HKClinicalRecord]) ?? []) { continuation.resume(returning: $0) }
             }
             healthStore.execute(query)
         }
     }
-    
+
     // MARK: - Cycle Health
     
 
@@ -702,6 +717,17 @@ struct UserHealthProfile {
     
     var hasData: Bool {
         age != nil || dateOfBirth != nil || biologicalSex != nil || bloodType != nil || weightKg != nil || heightCm != nil || bodyMassIndex != nil || leanBodyMassKg != nil || bodyFatPercentage != nil || restingHeartRate != nil || vo2Max != nil || averageHRV != nil || cycleSummary?.hasData == true || clinicalSummary?.hasData == true
+    }
+}
+
+/// HealthKit can invoke a query handler more than once. Resume the
+/// continuation exactly once so the medicine page cannot crash on that path.
+private final class ClinicalQueryResumeOnce<T>: @unchecked Sendable {
+    private var done = false
+    func finish(_ value: T, _ resume: (T) -> Void) {
+        guard !done else { return }
+        done = true
+        resume(value)
     }
 }
 

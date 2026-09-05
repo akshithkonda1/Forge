@@ -84,6 +84,8 @@ final class AppStore: ObservableObject {
     @Published var pendingHydrationOpen: Bool = false
     /// Sleep page leaf: `alarms` / `wake` opens the Wake tab.
     @Published var pendingSleepTab: String? = nil
+    /// Shell presents the Medicine / clinical-data (non-PHI) page.
+    @Published var pendingClinicalOpen: Bool = false
 
     // Quiet mode — damp proactive noise (persisted)
     @Published var quietMode: Bool = UserDefaults.standard.bool(forKey: "forge.quiet.mode.v1") {
