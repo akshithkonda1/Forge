@@ -303,15 +303,15 @@ enum AriaOnboardingGuide {
 
         switch style {
         case .driven:
-            return "\(name) — standards first. Week one targets \(goal)\(workouts.isEmpty ? "" : " through \(workouts)").\(sleep)\(themeLine)\(healthLine)"
+            return "\(name) — I'm in the loop tomorrow morning. Week one targets \(goal)\(workouts.isEmpty ? "" : " through \(workouts)").\(sleep)\(themeLine)\(healthLine) Don't wait until you feel like it."
         case .balanced:
-            return "\(name), first block balances work and recovery around \(goal)\(workouts.isEmpty ? "" : ", favoring \(workouts)").\(sleep)\(themeLine)\(healthLine)"
+            return "\(name), I'm with you in the mornings now. First block balances work and recovery around \(goal)\(workouts.isEmpty ? "" : ", favoring \(workouts)").\(sleep)\(themeLine)\(healthLine)"
         case .supportive:
-            return "\(name), we make this doable from day one — small wins toward \(goal).\(sleep)\(themeLine)\(healthLine)"
+            return "\(name), we make this doable from day one — small wins toward \(goal) that you'll still do when the day is messy.\(sleep)\(themeLine)\(healthLine)"
         case .scientist:
-            return "\(name) — load and recovery will map back to \(goal). I'll explain the why.\(sleep)\(themeLine)\(healthLine)"
+            return "\(name) — load and recovery will map back to \(goal). I'll explain the why, every day.\(sleep)\(themeLine)\(healthLine)"
         case .elite:
-            return "\(name), readiness and output pointed at \(goal).\(sleep)\(themeLine)\(healthLine)"
+            return "\(name), readiness and output pointed at \(goal). I'll be in the morning numbers.\(sleep)\(themeLine)\(healthLine)"
         }
     }
 
@@ -326,7 +326,7 @@ enum AriaOnboardingGuide {
 
     static func welcomeChatMessage(profile: OnboardingProfile, healthConnected: Bool) -> String {
         var message = firstSessionScript(profile: profile, healthConnected: healthConnected)
-        message += "\n\nOpen chat anytime — I'm already tracking the context we built together in onboarding."
+        message += "\n\nOpen chat anytime — I'm already tracking the context we built together. I'll be here every day. That's the job."
         message += "\n\nOne human thing: if there's a partner, wife, or daughter whose cycle days you try to show up for, tell me in plain words. A lot of people do — I'll keep it practical and never clinical for them."
         if profile.guidanceOnlyMode {
             message += "\n\nReminder: for any conditions you shared, I only provide lifestyle guidance — not diagnosis, treatment, or medical solutions."

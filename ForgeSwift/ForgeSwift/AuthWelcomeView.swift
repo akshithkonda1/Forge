@@ -207,7 +207,7 @@ private struct AuthHookPage: Identifiable {
             id: "aria",
             kicker: "MEET YOUR COACH",
             title: AriaOnboardingGuide.welcomeTitle,
-            body: "ARIA is an adaptive lifestyle coach, not a commander. She works with the life you already have — readiness, sleep, wearables — and raises quality of life the way compound interest works. Enough small moves and one day life is slightly different. Over time you see it and appreciate it. You still decide.",
+            body: "ARIA is an adaptive lifestyle coach, not a commander. You are meeting someone who will be in your mornings — readiness, sleep, the session you'd skip. Small moves compound. You still decide.",
             icon: "sparkles",
             accentHex: "FF5A00",
             reward: "A coach who already knows you"
@@ -256,14 +256,27 @@ private struct AuthHookPageView: View {
 
             ZStack {
                 if page.id == "aria" {
-                    AuroraOrbView(
-                        state: .idle,
-                        amplitude: 0.34,
-                        mood: .energized,
-                        size: 148,
-                        followPresence: true
-                    )
-                    .scaleEffect(isActive ? 1.0 + floatPhase * 0.02 : 0.92)
+                    Button {
+                        FDS.haptic(.soft)
+                        AriaPresence.shared.speak(AriaOnboardingGuide.welcomeSpokenLine, interrupt: true)
+                    } label: {
+                        VStack(spacing: 8) {
+                            AuroraOrbView(
+                                state: .idle,
+                                amplitude: 0.34,
+                                mood: .energized,
+                                size: 148,
+                                followPresence: true
+                            )
+                            .scaleEffect(isActive ? 1.0 + floatPhase * 0.02 : 0.92)
+                            Text("Tap me — I’m here")
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundColor(.ember.opacity(0.9))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Hear ARIA")
+                    .accessibilityHint("Plays her welcome line")
                 } else {
                     Circle()
                         .fill(accent.opacity(0.18))
@@ -296,7 +309,7 @@ private struct AuthHookPageView: View {
                         .offset(y: isActive ? -floatPhase * 6 : 0)
                 }
             }
-            .frame(height: 170)
+            .frame(height: 196)
             .onChange(of: isActive) { _, active in
                 guard page.id == "aria" else { return }
                 if active {

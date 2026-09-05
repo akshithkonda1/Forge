@@ -34,18 +34,18 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
 
     var progressLabel: String {
         switch self {
-        case .intro:          return "Hello"
-        case .name:           return "Name"
-        case .health:         return "Apple Health"
+        case .intro:          return "Meet ARIA"
+        case .name:           return "What I call you"
+        case .health:         return "Your signals"
         case .details:        return "Your details"
-        case .goals:          return "Goals"
+        case .goals:          return "What we’re building"
         case .experience:     return "Level"
         case .workouts:       return "Training"
-        case .sleep:          return "Sleep"
-        case .freeTime:       return "Lifestyle"
+        case .sleep:          return "Your clock"
+        case .freeTime:       return "Your life"
         case .conditions:     return "Boundaries"
-        case .coaching:       return "Voice"
-        case .ready:          return "Ready"
+        case .coaching:       return "How I talk"
+        case .ready:          return "Every day"
         }
     }
 
