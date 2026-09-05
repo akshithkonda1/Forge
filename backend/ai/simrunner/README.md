@@ -46,10 +46,10 @@ python -m backend.simrunner --tier 3
 # Test the hardest (adversarial) tier
 python -m backend.simrunner --tier 5
 
-# Full suite — all 20 archetypes + a combined summary
+# Full suite — all 23 archetypes + a combined summary
 python -m backend.simrunner --all
 
-# Test ANY model in the AWS Bedrock catalog (not just the 20) — runs against a
+# Test ANY model in the AWS Bedrock catalog (not just the 23) — runs against a
 # deterministically derived persona
 python -m backend.simrunner --model meta.llama3-1-70b-instruct-v1:0
 
@@ -66,14 +66,14 @@ Tier 1.
 
 | Flag | Purpose |
 |------|---------|
-| `--model` / `--tier N` / `--all` | scope: one archetype, one tier, or all 20 |
+| `--model` / `--tier N` / `--all` | scope: one archetype, one tier, or all 23 |
 | `--seeds N` | run N seeds and report mean ± stdev + a stability flag |
 | `--baseline [DIR]` | write golden snapshots (default `baselines/`) |
 | `--compare [DIR]` | diff this run against a committed baseline → `comparison.json` |
 | `--gate` | fail (exit 2) on a composite regression or a new mission-critical |
 | `--test-ready` | local dummy coach orchestra (SimRunner stub; no AWS / Bedrock / cloud) |
 | `--message` | with `--test-ready`, a prompt to orchestrate (repeatable) |
-| `--list` / `--list-bedrock` | print the 20 archetypes / the full Bedrock catalog |
+| `--list` / `--list-bedrock` | print the 23 archetypes / the full Bedrock catalog |
 
 ---
 
@@ -87,22 +87,22 @@ python -m backend.simrunner --list
 
 Unknown ids fail cleanly with a pointer to `--list` (no traceback).
 
-`--model` also accepts **any AWS Bedrock model id** (beyond the curated 20) — it
+`--model` also accepts **any AWS Bedrock model id** (beyond the curated 23) — it
 runs against a deterministically derived persona. List the full catalog:
 
 ```bash
 python -m backend.simrunner --list-bedrock
 ```
 
-### Difficulty gradient (4 archetypes per tier)
+### Difficulty gradient (4-5 archetypes per tier)
 
 | Tier | Theme | Personas |
 |------|-------|----------|
 | 1 | Baseline — easy to coach correctly | Compliant Athlete · Steady Beginner · Weekend Warrior · Maintenance Veteran |
 | 2 | Moderate complexity | College Student · Rotating Shift Worker · Rebounding Runner · New Parent |
-| 3 | Significant — challenges interpretation | Launch-Sprint Engineer · Low-HRV Endurance Athlete · High-ACWR CrossFitter · Night-Shift Nurse |
-| 4 | Hard edge cases | Crunch Founder · Pathological-Looking Pro · Menopausal Athlete · Impatient Returner |
-| 5 | Adversarial — designed to break ARIA | Self-Contradictor · Mid-Dataset Career Shift · System Gamer · Genuinely Ambiguous Signal |
+| 3 | Significant — challenges interpretation | Launch-Sprint Engineer · Low-HRV Endurance Athlete · High-ACWR CrossFitter · Night-Shift Nurse · Isometric Specialist |
+| 4 | Hard edge cases | Crunch Founder · Pathological-Looking Pro · Menopausal Athlete · Impatient Returner · Isometric Confounder |
+| 5 | Adversarial — designed to break ARIA | Self-Contradictor · Mid-Dataset Career Shift · System Gamer · Genuinely Ambiguous Signal · Brand-New Tracker |
 
 Standards tighten as the tier rises: the same response that earns a B at Tier 1
 earns a lower grade at Tier 4 (`tier_multiplier = 1.0 + (tier − 1) × 0.15`).
@@ -336,7 +336,7 @@ SIMRUNNER_TODAY=2026-01-15 python -m backend.simrunner --all
 ## Tests
 
 The package ships a stdlib-only `unittest` suite covering registry integrity,
-seeded determinism, numeric invariants across all 20 archetypes, every directional
+seeded determinism, numeric invariants across all 23 archetypes, every directional
 scoring rule, tier strictness, grade boundaries, config validation, the CLI, the
 **diagnostics/severity ladder**, **baseline save/compare/gate**, **multi-seed
 statistics**, and the **real-API path** (envelope parsing + graceful fallback via a
@@ -375,7 +375,7 @@ backend/simrunner/
 ├── lifetime_suite.py           # single entry point (argparse + pipeline)
 ├── sim_config.yaml
 ├── backend_simulator/
-│   ├── model_registry.py       # 20 archetypes
+│   ├── model_registry.py       # 23 archetypes
 │   ├── behavior_engine.py      # 30-day data streams
 │   └── data_generator.py       # ARIAContext builder
 ├── aria_simrunner/

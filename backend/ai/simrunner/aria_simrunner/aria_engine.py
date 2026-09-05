@@ -380,10 +380,18 @@ class ARIAEngine:
         hrv_bit = (
             f"HRV {t.hrv}ms (7-day avg {context.hrv_7d_avg})" if t.hrv is not None else "HRV not available"
         )
-        return (
+        phrase = (
             f"Readiness is {t.readiness_score}, {hrv_bit}, "
             f"ACWR {context.acwr}, sleep debt {context.sleep_debt_7d_hours}h."
         )
+        # Never true for an archetype that doesn't opt into isometric_emphasis,
+        # so this is a no-op for every archetype that predates this feature.
+        if context.last_workout_type == "isometric" and context.last_workout_peak_hr is not None:
+            phrase += (
+                f" Last workout was isometric — a brief HR spike to "
+                f"{context.last_workout_peak_hr}bpm, not sustained cardio load."
+            )
+        return phrase
 
     def _context_key(self, context: ARIAContext) -> str:
         t = context.today
