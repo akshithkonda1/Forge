@@ -224,6 +224,7 @@ final class AppStore: ObservableObject {
     /// Message currently being typewriter-revealed (nil when idle).
     @Published var streamingMessageId: String? = nil
     @Published var streamingVisibleCount: Int = 0
+    var streamingRevealTask: Task<Void, Never>?
 
     static let onboardedDefaultsKey = "forge.onboarding.completed"
     static let profileDefaultsKey = "forge.user.profile.v1"

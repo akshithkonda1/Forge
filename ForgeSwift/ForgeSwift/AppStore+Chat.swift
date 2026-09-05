@@ -62,6 +62,9 @@ extension AppStore {
     }
 
     private func persistChatSession() {
+        if chatMessages.count > Self.maxPersistedMessages {
+            chatMessages = Array(chatMessages.suffix(Self.maxPersistedMessages))
+        }
         let recent = Array(chatMessages.suffix(Self.maxPersistedMessages))
         let doc = ChatSessionDocument(
             version: 3,
@@ -143,15 +146,17 @@ extension AppStore {
     /// Progressive reveal of the latest ARIA reply — feels like streaming even
     /// when the backend returns a full message. Does not mutate stored content.
     func beginStreamingReveal(for messageId: String, fullLength: Int) {
+        streamingRevealTask?.cancel()
         streamingMessageId = messageId
         streamingVisibleCount = min(24, fullLength)
-        Task { @MainActor in
+        streamingRevealTask = Task { @MainActor in
             let step = max(3, fullLength / 40)
-            while streamingMessageId == messageId, streamingVisibleCount < fullLength {
+            while !Task.isCancelled, streamingMessageId == messageId, streamingVisibleCount < fullLength {
                 try? await Task.sleep(nanoseconds: 18_000_000)
+                guard !Task.isCancelled else { return }
                 streamingVisibleCount = min(fullLength, streamingVisibleCount + step)
             }
-            if streamingMessageId == messageId {
+            if !Task.isCancelled, streamingMessageId == messageId {
                 streamingMessageId = nil
                 streamingVisibleCount = 0
             }
@@ -312,6 +317,7 @@ extension AppStore {
 
     /// Send a message through ARIA (remote when available, local fallback).
     func sendMessage(_ text: String, ariaPayload: String? = nil) async {
+        guard !isGeneratingResponse else { return }
         if isInAriaFirstBond, !hasCompletedAriaUseOnboarding {
             let turn = AriaFirstBond.advance(
                 beat: ariaFirstBondBeat,

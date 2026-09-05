@@ -61,6 +61,7 @@ struct ChatView: View {
 
     // Cancellable timers for transient UI so nothing fires after teardown.
     @State private var proactiveInsightTask:  Task<Void, Never>? = nil
+    @State private var sendTask: Task<Void, Never>? = nil
 
     @FocusState private var isInputFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
@@ -203,10 +204,8 @@ struct ChatView: View {
                 sleepScore: store.sleepData.first?.score
             )
             speech.conversationalMood = ariaMood
-            ariaContext.configure(userId: store.userProfile.name)
             ariaContext.updateProfile(
-                goals: store.userProfile.fitnessGoals.map(\.label),
-                lifestyleTags: [store.userProfile.experienceLevel.label]
+                goals: store.userProfile.fitnessGoals.map(\.label)
             )
             proactiveInsightTask?.cancel()
             proactiveInsightTask = Task { @MainActor in
@@ -242,6 +241,8 @@ struct ChatView: View {
             // Nothing should keep running once chat is off-screen.
             speech.cancel()
             proactiveInsightTask?.cancel()
+            sendTask?.cancel()
+            isTyping = false
             showVoiceOrb = false
         }
         .onChange(of: speech.recognizedText) { _, text in
@@ -291,7 +292,7 @@ struct ChatView: View {
 
     func sendMessage(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, !isTyping else { return }
+        guard !trimmed.isEmpty, !isTyping, !store.isGeneratingResponse else { return }
 
         choreographedHaptic(.messageSent, mood: ariaMood)
 
@@ -305,8 +306,10 @@ struct ChatView: View {
         swipeReplyTarget = nil
         proactiveInsight = nil
 
-        Task {
+        sendTask?.cancel()
+        sendTask = Task {
             await store.sendMessage(trimmed)
+            guard !Task.isCancelled else { return }
             isTyping = false
             if store.isInAriaFirstBond { showQuickActions = true }
             choreographedHaptic(.messageReceived, mood: ariaMood)
