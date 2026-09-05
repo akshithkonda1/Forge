@@ -12,7 +12,6 @@ struct AuthWelcomeView: View {
     @State private var appeared = false
     @State private var showSignIn = false
     @State private var showSignUp = false
-    @State private var ringPulse = false
     @State private var floatPhase: CGFloat = 0
     @State private var autoAdvanceTask: Task<Void, Never>?
 
@@ -164,9 +163,6 @@ struct AuthWelcomeView: View {
         .onAppear {
             withAnimation(FDS.Spring.hero.delay(0.05)) { appeared = true }
             if !reduceMotion {
-                withAnimation(.easeOut(duration: 2.0).repeatForever(autoreverses: false)) {
-                    ringPulse = true
-                }
                 withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
                     floatPhase = 1
                 }

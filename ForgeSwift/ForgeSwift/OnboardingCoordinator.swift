@@ -29,7 +29,6 @@ final class OnboardingCoordinator {
     var healthProfile: UserHealthProfile?
     var healthSnapshot: HealthDataSnapshot?
     var healthPrefillNote: String?
-    var showHealthSourceBadge = false // optional — user taps "Show where this came from" if they want it
 
     var calendarState: HealthKitState = .unknown
     var calendarBusyToday: Int = 0
