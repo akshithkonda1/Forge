@@ -25,10 +25,6 @@ struct NameComposer: View {
                         .font(.system(size: 28, weight: .semibold, design: .rounded))
                         .foregroundColor(.textPrimary)
                         .onSubmit { focusedField = .last }
-
-                    DictationMicButton(dictation: dictation) {
-                        applySpokenName()
-                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -43,7 +39,7 @@ struct NameComposer: View {
                             lineWidth: 1
                         )
                 )
-                Text("What you’ll hear in coaching. First name is enough.")
+                Text("What you’ll hear every morning and after training. First name is enough.")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.textTertiary)
             }
@@ -87,7 +83,7 @@ struct NameComposer: View {
                     Image(systemName: "sparkle")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.ember)
-                    Text("ARIA will call you \(coordinator.profile.firstName).")
+                    Text("ARIA will call you \(coordinator.profile.firstName) — every day.")
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundColor(.textPrimary)
                 }
@@ -113,25 +109,12 @@ struct NameComposer: View {
         }
         .onChange(of: dictation.recognizedText) { _, text in
             guard dictation.isListening, focusedField != .last else { return }
-            let spoken = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !spoken.isEmpty { coordinator.profile.name = spoken }
+            if case .fillName(let name) = AriaInterviewVoice.matchSpoken(text, step: .name, profile: coordinator.profile) {
+                coordinator.applySpokenName(name)
+            }
         }
         .animation(FDS.Spring.snap, value: dictation.isListening)
         .animation(FDS.Spring.snap, value: coordinator.profile.isPreferredNameValid)
-    }
-
-    private func applySpokenName() {
-        let spoken = dictation.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !spoken.isEmpty else { return }
-        let parts = spoken.split(separator: " ").map(String.init)
-        if focusedField == .last, parts.count == 1 {
-            coordinator.profile.lastName = spoken
-        } else if parts.count >= 2 {
-            coordinator.profile.name = parts[0]
-            coordinator.profile.lastName = parts.dropFirst().joined(separator: " ")
-        } else {
-            coordinator.profile.name = spoken
-        }
     }
 
     private func submit() {
@@ -516,12 +499,12 @@ struct HealthComposer: View {
                 )
             }
 
-            Text("Both optional. One tap each, or skip — you can add them later in Settings.")
+            Text("Both optional — but Health is how I become something you open before coffee, not when you remember. One tap each, or skip.")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.textMuted)
                 .multilineTextAlignment(.center)
 
-            Button("Continue") { Task { await coordinator.continueFromHealth() } }
+            Button("Continue") { coordinator.continueFromHealth() }
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(.textPrimary)
                 .frame(maxWidth: .infinity).frame(height: 44)
@@ -677,13 +660,10 @@ struct ConditionsComposer: View {
             }
 
             if coordinator.profile.reportedConditions.contains(.other) {
-                HStack(spacing: 10) {
-                    TextField("Anything else I should know? (optional)", text: $coordinator.freeText)
-                        .padding(12)
-                        .background(Color.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                    DictationMicButton(dictation: dictation)
-                }
+                TextField("Anything else I should know? (optional)", text: $coordinator.freeText)
+                    .padding(12)
+                    .background(Color.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
 
             if coordinator.profile.guidanceOnlyMode {
@@ -752,10 +732,11 @@ struct ReadyComposer: View {
     var body: some View {
         VStack(spacing: 14) {
             if !coordinator.profile.firstName.isEmpty {
-                Text("You’re set, \(coordinator.profile.firstName).")
+                Text("You’re set, \(coordinator.profile.firstName). I’ll be here tomorrow.")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)
                     .frame(maxWidth: .infinity)
+                    .multilineTextAlignment(.center)
             }
             if coordinator.profile.guidanceOnlyMode {
                 Text("ARIA will coach with guidance only for the conditions you shared.")
@@ -835,6 +816,7 @@ struct PrimaryCTA: View {
 
 struct MessageBubble: View {
     let message: AriaOnboardingMessage
+    var onTap: (() -> Void)? = nil
     @State private var appeared = false
 
     var body: some View {
@@ -856,6 +838,9 @@ struct MessageBubble: View {
                         )
                     Spacer(minLength: 36)
                 }
+                .onTapGesture { onTap?() }
+                .accessibilityAddTraits(onTap == nil ? AccessibilityTraits() : .isButton)
+                .accessibilityHint(onTap == nil ? "" : "Plays this line")
             case .user:
                 HStack {
                     Spacer(minLength: 48)

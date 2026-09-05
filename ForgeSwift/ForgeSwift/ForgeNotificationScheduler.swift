@@ -23,7 +23,6 @@ enum ForgeNotificationScheduler {
         static let cycleOPKWindow = "forge.notif.cycle.opk"
         static let cycleFertileWindow = "forge.notif.cycle.fertile"
         static let cyclePeriodReminder = "forge.notif.cycle.period"
-        static let cyclePhaseTransition = "forge.notif.cycle.phase"
         /// Local, on the supporter's phone. Body is lock-safe — never a phase.
         static let partnerSupport = "forge.notif.partner.support"
     }
@@ -122,7 +121,7 @@ enum ForgeNotificationScheduler {
             ID.lifestyleHydration, ID.lifestyleLunch, ID.lifestyleDinner, ID.lifestyleSleep,
             ID.briefMorning, ID.briefEvening, ID.weeklyAriaReview,
             ID.cycleBBTReminder, ID.cycleOPKWindow, ID.cycleFertileWindow,
-            ID.cyclePeriodReminder, ID.cyclePhaseTransition,
+            ID.cyclePeriodReminder,
         ]
         center.removePendingNotificationRequests(withIdentifiers: ids)
         center.removeDeliveredNotifications(withIdentifiers: ids)
@@ -136,7 +135,7 @@ enum ForgeNotificationScheduler {
     ) async {
         let cycleIds = [
             ID.cycleBBTReminder, ID.cycleOPKWindow, ID.cycleFertileWindow,
-            ID.cyclePeriodReminder, ID.cyclePhaseTransition,
+            ID.cyclePeriodReminder,
         ]
         center.removePendingNotificationRequests(withIdentifiers: cycleIds)
         center.removeDeliveredNotifications(withIdentifiers: cycleIds)

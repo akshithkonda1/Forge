@@ -1,4 +1,4 @@
-"""Backend Simulator — 21 frontier behavioral archetypes.
+"""Backend Simulator — 23 frontier behavioral archetypes.
 
 These are NOT live API models. Each is a named persona with a behavioral profile
 that the simulator uses to synthesize 30 days of realistic biometric data — so
@@ -6,11 +6,17 @@ SimRunner can stress-test ARIA across a difficulty gradient without making a
 single network call or burning a token.
 
 Difficulty gradient: 4 archetypes per tier, tiers 1 (trivial to coach) → 5
-(adversarial, designed to break naive coaching) — except tier 5, which carries
-one extra archetype (5, not 4) so genuine data-sparsity has its own dedicated
-persona alongside the four existing adversarial traits (self-contradiction,
-a mid-dataset regime change, fake-workout gaming, and genuine signal
-ambiguity), none of which were a good fit to double up sparseness onto.
+(adversarial, designed to break naive coaching) — except tiers 3, 4, and 5,
+which each carry one extra archetype (5, not 4). Tier 5's extra: genuine
+data-sparsity has its own dedicated persona alongside the four existing
+adversarial traits (self-contradiction, a mid-dataset regime change,
+fake-workout gaming, and genuine signal ambiguity), none of which were a good
+fit to double up sparseness onto. Tiers 3 and 4's extras are a matched pair:
+isometric training gets a base case at tier 3 (does ARIA use isometric data at
+all) and a harder confound at tier 4 (benign isometric HR spikes mixed with
+genuine overtraining in the same 30-day stream — ARIA must tell them apart),
+mirroring how tier 4's other personas are already "must not misread X as Y"
+tests.
 """
 
 from __future__ import annotations
@@ -191,6 +197,21 @@ BEDROCK_MODEL_REGISTRY: list[dict] = [
             "notable_pattern": "short_sleep_clusters",
         },
     },
+    {
+        "model_id": "mistral.mistral-large-2-isometric",
+        "display_name": "Mistral Large 2 — The Isometric Specialist",
+        "difficulty_tier": 3,
+        "coaching_challenge": "Trains mostly planks, holds, and carries; ARIA must read the sharp HR spike as isometric signature, not cardio strain",
+        "behavioral_profile": {
+            "chronotype": "bear", "age": 32, "occupation": "physical therapist",
+            "experience_level": "advanced", "coaching_style": "data-driven",
+            "sleep_consistency": 0.80, "hrv_baseline": 57, "hrv_variance": 0.11,
+            "training_frequency_per_week": 5, "training_consistency": 0.85,
+            "overtraining_tendency": 0.15, "sleep_debt_tendency": 0.15,
+            "stress_response": "low", "life_irregularity": 0.15, "season": "maintenance",
+            "isometric_emphasis": 0.70,
+        },
+    },
     # ──────────────────────── Tier 4 — Hard edge ─────────────────────────
     {
         "model_id": "anthropic.claude-opus-4-8-thinking",
@@ -249,6 +270,21 @@ BEDROCK_MODEL_REGISTRY: list[dict] = [
             "overtraining_tendency": 0.65, "sleep_debt_tendency": 0.25,
             "stress_response": "moderate", "life_irregularity": 0.20, "season": "recovery",
             "notable_pattern": "injury_return",
+        },
+    },
+    {
+        "model_id": "meta.llama4-maverick-isometric-confound",
+        "display_name": "Llama 4 Maverick — The Isometric Confounder",
+        "difficulty_tier": 4,
+        "coaching_challenge": "Isometric most days but genuinely overtrains on the dynamic days mixed in; ARIA must tell benign HR spikes from real risk within the same stream",
+        "behavioral_profile": {
+            "chronotype": "lion", "age": 34, "occupation": "climber",
+            "experience_level": "advanced", "coaching_style": "push-hard",
+            "sleep_consistency": 0.70, "hrv_baseline": 56, "hrv_variance": 0.13,
+            "training_frequency_per_week": 6, "training_consistency": 0.85,
+            "overtraining_tendency": 0.75, "sleep_debt_tendency": 0.25,
+            "stress_response": "moderate", "life_irregularity": 0.15, "season": "peak",
+            "isometric_emphasis": 0.45,
         },
     },
     # ─────────────────────── Tier 5 — Adversarial ────────────────────────
@@ -348,7 +384,7 @@ def all_model_ids() -> list[str]:
 def resolve_archetype(model_id: str) -> dict:
     """Return a coaching archetype for a model_id.
 
-    A named archetype (one of the curated 20) wins; otherwise any model in the
+    A named archetype (one of the curated 23) wins; otherwise any model in the
     Bedrock catalog resolves to a deterministically derived persona, so SimRunner
     can test against the whole registry. Unknown ids raise KeyError.
     """
@@ -383,8 +419,11 @@ def _sanitize_id(model_id: str) -> str:
 # Tier 5 carries one extra archetype: dedicated sparse-data coverage
 # ("The Brand-New Tracker") alongside the four existing adversarial traits,
 # none of which were a thematically honest fit to double up sparseness onto.
-_TIER_COUNTS: dict[int, int] = {1: 4, 2: 4, 3: 4, 4: 4, 5: 5}
-TOTAL_ARCHETYPES = sum(_TIER_COUNTS.values())  # 21
+# Tiers 3 and 4 each carry one extra too: an isometric base case ("The
+# Isometric Specialist") and its harder tier-4 confound ("The Isometric
+# Confounder") — see the module docstring.
+_TIER_COUNTS: dict[int, int] = {1: 4, 2: 4, 3: 5, 4: 5, 5: 5}
+TOTAL_ARCHETYPES = sum(_TIER_COUNTS.values())  # 23
 
 
 def validate_registry(registry: list[dict] | None = None) -> None:

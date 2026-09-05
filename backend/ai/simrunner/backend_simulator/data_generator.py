@@ -74,6 +74,13 @@ class ARIAContext:
     sleep_nights_available_7d: int = 7
     missing_fields: list[str] = field(default_factory=list)
 
+    # The last logged workout's type/peak HR, whatever day it fell on — None
+    # when no workout has occurred yet in the scanned window. Lets ARIA reason
+    # about a recent isometric session (sharp, duration-independent HR spike,
+    # not sustained cardio strain) specifically, not just "trained N days ago."
+    last_workout_type: str | None = None
+    last_workout_peak_hr: int | None = None
+
 
 def _mean(values: list[float]) -> float:
     return sum(values) / len(values) if values else 0.0
@@ -119,8 +126,12 @@ def build_context(stream: list[DailyRecord], profile: dict, day_index: int = 29)
         else:
             break
     days_since = 0
+    last_workout_type: str | None = None
+    last_workout_peak_hr: int | None = None
     for record in reversed(stream[: day_index + 1]):
         if record.workout_logged:
+            last_workout_type = record.workout_type
+            last_workout_peak_hr = record.workout_peak_hr
             break
         days_since += 1
 
@@ -176,6 +187,8 @@ def build_context(stream: list[DailyRecord], profile: dict, day_index: int = 29)
         hrv_days_available_7d=hrv_days_available_7d,
         sleep_nights_available_7d=sleep_nights_available_7d,
         missing_fields=missing_fields,
+        last_workout_type=last_workout_type,
+        last_workout_peak_hr=last_workout_peak_hr,
     )
 
 
