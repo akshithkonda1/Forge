@@ -116,7 +116,10 @@ extension CyclePhaseCoachingDirective {
     static func classifyDomain(from text: String) -> CoachingDomain {
         let lower = text.lowercased()
         if lower.contains("workout") || lower.contains("train") || lower.contains("exercise")
-            || lower.contains("lift") || lower.contains("gym") { return .workout }
+            || lower.contains("lift") || lower.contains("gym")
+            || lower.contains("run") || lower.contains("mile") || lower.contains("jog") {
+            return .workout
+        }
         if lower.contains("eat") || lower.contains("food") || lower.contains("protein")
             || lower.contains("meal") || lower.contains("calorie") || lower.contains("hydrat") { return .nutrition }
         if lower.contains("sleep") || lower.contains("tired") || lower.contains("exhausted")

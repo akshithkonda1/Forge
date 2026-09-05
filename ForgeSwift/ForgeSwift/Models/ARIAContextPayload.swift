@@ -21,75 +21,76 @@ struct ARIAContextPayload: Codable, Equatable {
     var conversation: ConversationDomain? = nil
 
     struct SleepDomain: Codable, Equatable {
-        var durationMinutes: Double?
-        var efficiency: Double?
-        var remMinutes: Double?
-        var deepMinutes: Double?
-        var hrv: Double?
-        var restingHR: Double?
-        var nightsAvailable: Int?
+        var durationMinutes: Double? = nil
+        var efficiency: Double? = nil
+        var remMinutes: Double? = nil
+        var deepMinutes: Double? = nil
+        var hrv: Double? = nil
+        var restingHR: Double? = nil
+        var nightsAvailable: Int? = nil
     }
 
     struct ReadinessDomain: Codable, Equatable {
-        var hrv7DayTrend: Double?
-        var hrv30DayBaseline: Double?
-        var recoveryScore: Double?
-        var hrvDaysAvailable: Int?
+        var hrv7DayTrend: Double? = nil
+        var hrv30DayBaseline: Double? = nil
+        var recoveryScore: Double? = nil
+        var hrvDaysAvailable: Int? = nil
     }
 
     struct TrainingDomain: Codable, Equatable {
-        var lastWorkoutType: String?
-        var lastWorkoutDurationMinutes: Double?
-        var hoursSinceLastWorkout: Double?
-        var weeklyLoadScore: Double?
+        var lastWorkoutType: String? = nil
+        var lastWorkoutDurationMinutes: Double? = nil
+        var hoursSinceLastWorkout: Double? = nil
+        var weeklyLoadScore: Double? = nil
     }
 
     struct ActivityDomain: Codable, Equatable {
-        var steps3DayAvg: Double?
-        var activeCalories3DayAvg: Double?
+        var steps3DayAvg: Double? = nil
+        var activeCalories3DayAvg: Double? = nil
     }
 
     struct ChronotypeDomain: Codable, Equatable {
-        var typicalSleepOnset: String?
-        var typicalWakeTime: String?
-        var consistencyScore: Double?
+        var typicalSleepOnset: String? = nil
+        var typicalWakeTime: String? = nil
+        var consistencyScore: Double? = nil
     }
 
     struct BodyDomain: Codable, Equatable {
-        var weightKg: Double?
-        var weightTrendKg: Double?
-        var bodyFatPct: Double?
-        var vo2Max: Double?
+        var weightKg: Double? = nil
+        var weightTrendKg: Double? = nil
+        var bodyFatPct: Double? = nil
+        var vo2Max: Double? = nil
     }
 
     struct NutritionDomain: Codable, Equatable {
-        var caloriesIn3DayAvg: Double?
-        var proteinG3DayAvg: Double?
-        var hydrationMl3DayAvg: Double?
-        var calorieTarget: Double?
+        var caloriesIn3DayAvg: Double? = nil
+        var proteinG3DayAvg: Double? = nil
+        var hydrationMl3DayAvg: Double? = nil
+        var calorieTarget: Double? = nil
     }
 
     struct ProfileDomain: Codable, Equatable {
-        var primaryGoal: String?
-        var experienceLevel: String?
-        var coachingStyle: String?
-        var constraints: [String]
+        var primaryGoal: String? = nil
+        var experienceLevel: String? = nil
+        var coachingStyle: String? = nil
+        var constraints: [String] = []
     }
 
     struct ProgressDomain: Codable, Equatable {
-        var workoutsCompleted30d: Int?
-        var newPersonalRecords: Int?
-        var trainingLoadTrend: String?
-        var recoveryConsistencyDelta: Double?
+        var workoutsCompleted30d: Int? = nil
+        var newPersonalRecords: Int? = nil
+        var trainingLoadTrend: String? = nil
+        var recoveryConsistencyDelta: Double? = nil
     }
 
     struct LifestyleDomain: Codable, Equatable {
-        var tags: [String]
-        var recentPatterns: [String]
-        var goals: [String]
-        /// Biology-grounded coaching text for the user's current cycle phase, injected
-        /// into the ARIA system prompt on both the remote and local-fallback paths.
-        var cyclePhaseDirective: String?
+        var tags: [String] = []
+        var recentPatterns: [String] = []
+        var goals: [String] = []
+        /// Biology-grounded coaching text for the user's current cycle phase.
+        /// Local ARIA may read this. Remote Claude/Grok must not — stripped
+        /// by `AriaOnDeviceHealthPolicy` before `/ai/chat`.
+        var cyclePhaseDirective: String? = nil
     }
 
     /// Allergies, meds, conditions, immunizations, labs, procedures.

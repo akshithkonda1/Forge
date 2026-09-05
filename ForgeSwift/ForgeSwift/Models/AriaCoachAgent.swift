@@ -106,9 +106,13 @@ enum AriaCoachAgent: String, Codable, CaseIterable, Identifiable {
             return "You are ARIA’s Progress agent. Zoom out — weeks, not today. Streaks, trends, what’s actually changing."
         case .cycle:
             return """
-            You are ARIA’s Cycle agent. Lifestyle coaching only — not medical care, not contraception. \
-            Use cycle context only if they shared it with ARIA. Never invent fertility timing, flow, or symptoms. \
-            If they asked how to support someone, coach the supporter, not the diary.
+            You are ARIA’s Cycle agent. You read cycle context on this iPhone — never from a Forge database. \
+            Wearables land in Apple Health; you read that ledger locally. \
+            Lifestyle coaching: training, recovery, healthy sex, safe sex, positions, period sex, \
+            and how a partner can help. Not medical care. Not contraception. \
+            Never invent fertility timing, flow, or symptoms. \
+            If they asked how to support someone, coach the supporter, not the diary. \
+            Intimate help is invited — never assumed from a phase label.
             """
         }
     }
@@ -181,7 +185,7 @@ enum AriaCoachAgentRouter {
             if !kinds.contains(kind) { kinds.append(kind) }
         }
 
-        if matches(lower, Self.cycleNeedles) { add(.cycle) }
+        if isCycleQuery(lower) { add(.cycle) }
         if matches(lower, Self.recoveryNeedles) { add(.recovery) }
         if matches(lower, Self.sleepNeedles) { add(.sleep) }
         if matches(lower, Self.lifestyleNeedles) { add(.lifestyle) }
@@ -324,8 +328,8 @@ enum AriaCoachAgentRouter {
     @MainActor
     static func cycleAvailable() -> Bool {
         let cycle = MenstrualHealthStore.shared
-        if cycle.settings.enabled, cycle.settings.shareWithAria { return true }
-        if cycle.consentedPeople.contains(where: { $0.settings.shareWithAria }) { return true }
+        if cycle.settings.enabled { return true }
+        if cycle.consentedPeople.contains(where: { $0.settings.enabled }) { return true }
         if !PartnerCycleSharing.shared.receivedDigests.isEmpty { return true }
         return false
     }
@@ -457,7 +461,7 @@ enum AriaCoachAgentRouter {
                 }
                 return "Cycle · \(subject): show up, don’t diagnose."
             }
-            guard cycle.settings.enabled, cycle.settings.shareWithAria else { return nil }
+            guard cycle.settings.enabled else { return nil }
             if let teach = cycle.lastAriaBrief?.teaching, !teach.isEmpty {
                 let clip = String(teach.prefix(140))
                 if !said.contains(clip.lowercased()) {
@@ -515,9 +519,41 @@ enum AriaCoachAgentRouter {
     private static let cycleNeedles = [
         "period", "luteal", "follicular", "pms", "cramp", "cycle",
         "support her", "her period", "daughter", "how to show up", "show up",
+        "safe sex", "period sex", "healthy sex", "positions", "things to try",
+        "gynecologist", "gynaecologist", "rhythm report", "cycle report",
+        "3-month", "6-month", "12-month", "trying to conceive", "apple cycle",
     ]
+
+    static func isCycleQuery(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        if matches(lower, cycleNeedles) { return true }
+        return AriaMessageTokens.containsAnyWord(lower, [
+            "sex", "intimate", "intimacy", "condom", "lube", "conceive", "ttc",
+        ])
+    }
 
     private static func matches(_ text: String, _ needles: [String]) -> Bool {
         needles.contains { text.contains($0) }
+    }
+}
+
+/// Whole-word match so "sex" does not fire inside "exercise".
+enum AriaMessageTokens {
+    static func containsAnyWord(_ text: String, _ words: Set<String>) -> Bool {
+        var current = ""
+        func flush() -> Bool {
+            let word = current.lowercased()
+            current.removeAll(keepingCapacity: true)
+            return words.contains(word)
+        }
+        for ch in text {
+            if ch.isLetter {
+                current.append(ch)
+            } else if !current.isEmpty, flush() {
+                return true
+            }
+        }
+        if !current.isEmpty { return flush() }
+        return false
     }
 }

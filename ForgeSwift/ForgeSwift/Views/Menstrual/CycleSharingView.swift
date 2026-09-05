@@ -104,7 +104,7 @@ struct CycleSharingView: View {
             Text("Invite someone to support me")
                 .font(FDS.TypeScale.title(22))
                 .foregroundColor(.textPrimary)
-            Text("Send them a short iMessage. They get coaching on how to show up — heat, water, a lighter evening — not your log, flow, or symptoms. Especially useful if they haven’t been taught this.")
+            Text("Send them a short iMessage from Forge in Messages. They must have an iPhone. SMS, email, and a pasted link are not valid access — the invite never includes a redeemable URL outside iMessage.")
                 .font(FDS.TypeScale.body(14))
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -124,7 +124,7 @@ struct CycleSharingView: View {
             // The role decides whether intimate-health material appears at all,
             // so it is a privacy control wearing a personalisation hat. Asked
             // plainly rather than inferred from a free-text label.
-            ForEach(CycleSupportRole.allCases) { option in
+            ForEach(CycleSupportRole.selectableRoles) { option in
                 Button {
                     role = option
                 } label: {
@@ -150,7 +150,7 @@ struct CycleSharingView: View {
                 .buttonStyle(.plain)
             }
             if role == .romantic {
-                Text("Partners also see comfort and intimacy notes. Fertility timing stays off unless you pick Timing.")
+                Text("Partners also see comfort and intimacy notes. Fertility timing stays off unless you pick Timing. iPhone + iMessage required.")
                     .font(FDS.TypeScale.body(11))
                     .foregroundColor(.textTertiary)
             }
@@ -279,23 +279,21 @@ struct CycleSharingView: View {
                     .foregroundColor(.textTertiary)
             }
 
-            // The extension only holds an invite for 30 minutes, so send it now
-            // or come back. Said plainly rather than letting the button quietly
-            // stop working.
-            ShareLink(item: invite.shareURL, message: Text(invite.fallbackMessageBody)) {
-                Label(acceptedCount > 0 ? "Invite someone else in Messages" : "Send in Messages",
-                      systemImage: "message.fill")
+            // The extension only holds an invite for 30 minutes. iMessage on
+            // iPhone is the only valid send path — ShareLink/SMS is withheld
+            // because a CloudKit URL in a green bubble is redeemable access.
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Ready for iMessage", systemImage: "message.fill")
                     .font(FDS.TypeScale.label(15))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(Color.ember)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                Text("Open Messages, tap the app drawer, choose Forge, and send. SMS is not valid access.")
+                    .font(FDS.TypeScale.body(11))
+                    .foregroundColor(.textTertiary)
             }
-
-            Text("Or open Forge inside Messages — the bubble never names period details.")
-                .font(FDS.TypeScale.body(11))
-                .foregroundColor(.textTertiary)
 
             Button(role: .destructive) {
                 confirmRevoke = true

@@ -43,7 +43,7 @@ struct AddSupportedPersonSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("Partner, daughter, sister, friend — each person is their own. ARIA will not treat a child as a partner.")
+                    Text("Partner, relative, or parent — including a parent of a minor. Each person is their own. They need an iPhone; invites are iMessage only.")
                         .font(FDS.TypeScale.body(14))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -51,7 +51,7 @@ struct AddSupportedPersonSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("WHO")
                             .forgeSectionLabel()
-                        ForEach(CycleSupportRole.allCases) { option in
+                        ForEach(CycleSupportRole.selectableRoles) { option in
                             Button {
                                 role = option
                                 label = option.suggestedLabels.first ?? label
@@ -238,43 +238,57 @@ struct SexualHealthEntryCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("SEXUAL HEALTH & CONTRACEPTION")
+            Text("SEXUAL HEALTH & INTIMACY")
                 .font(FDS.TypeScale.label(11))
                 .foregroundColor(.textTertiary)
                 .tracking(0.8)
 
+            Text("Healthy sex, safe sex, positions, period sex, and how a partner can actually help — on this iPhone. Forge is not a contraceptive.")
+                .font(FDS.TypeScale.body(11))
+                .foregroundColor(.textTertiary)
+
             VStack(spacing: 8) {
                 entryButton(
-                    icon: "pills.fill",
-                    label: "Contraception methods",
-                    subtitle: "Biology-first overview with effectiveness data",
-                    prompt: SexualHealthCoach.contraceptionOverviewPrompt(
-                        biologicalSex: store.userProfile.biologicalSex,
-                        snapshot: cycleStore.snapshot.phase != .unknown ? cycleStore.snapshot : nil,
-                        isEducational: store.userProfile.educationalCycleMode,
-                        isHormonal: cycleStore.settings.usesHormonalContraception
-                    )
-                )
-                entryButton(
-                    icon: "calendar.badge.checkmark",
-                    label: "Fertility awareness (FAM)",
-                    subtitle: "How reliable is FAM for your cycle specifically",
-                    prompt: SexualHealthCoach.famReliabilityPrompt(snapshot: cycleStore.snapshot)
-                )
-                entryButton(
                     icon: "heart.circle.fill",
-                    label: "Wellbeing in my phase",
-                    subtitle: "Hormonal context for energy, mood & libido",
-                    prompt: SexualHealthCoach.phaseWellnessPrompt(
+                    label: "Healthy & safe sex",
+                    subtitle: "Consent, condoms, STI literacy — not a prescription",
+                    prompt: SexualHealthCoach.intimacyPrompt(
                         phase: cycleStore.snapshot.phase,
                         snapshot: cycleStore.snapshot.phase != .unknown ? cycleStore.snapshot : nil
                     )
                 )
                 entryButton(
-                    icon: "clock.badge.checkmark",
-                    label: "Fertility timing (TTC)",
-                    subtitle: "Optimise timing using your ovulation data",
+                    icon: "figure.stand",
+                    label: "Positions & things to try",
+                    subtitle: "Comfort first. Optional ideas, not a script",
+                    prompt: SexualHealthCoach.positionsPrompt(phase: cycleStore.snapshot.phase)
+                )
+                entryButton(
+                    icon: "drop.fill",
+                    label: "Sex during your period",
+                    subtitle: "What helps, what to skip, how to talk about it",
+                    prompt: SexualHealthCoach.periodSexPrompt(phase: cycleStore.snapshot.phase)
+                )
+                entryButton(
+                    icon: "person.2.fill",
+                    label: "Tips for you and a partner",
+                    subtitle: "Crossing friend → help without turning it into a quiz",
+                    prompt: SexualHealthCoach.partnerHelpPrompt(
+                        phase: cycleStore.snapshot.phase,
+                        relationshipLabel: nil
+                    )
+                )
+                entryButton(
+                    icon: "staroflife.fill",
+                    label: "Trying to conceive",
+                    subtitle: "Timing literacy. Forge is not a fertility clinic",
                     prompt: SexualHealthCoach.ttcPrompt(snapshot: cycleStore.snapshot)
+                )
+                entryButton(
+                    icon: "clock.badge.questionmark",
+                    label: "If conceiving is taking longer",
+                    subtitle: "When to get help — literacy, not a diagnosis",
+                    prompt: SexualHealthCoach.difficultyConceivingPrompt(snapshot: cycleStore.snapshot)
                 )
             }
 

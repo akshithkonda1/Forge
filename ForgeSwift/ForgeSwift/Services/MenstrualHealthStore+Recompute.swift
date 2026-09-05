@@ -30,6 +30,7 @@ extension MenstrualHealthStore {
         }
         // TTC mode: attach goal + two-week wait progress to the snapshot.
         snap.cycleGoal = settings.cycleGoal
+        snap.extraCareRequested = settings.extraCareIsActive(asOf: snap.asOfDayKey)
         if snap.phase == .luteal,
            let dayInCycle = snap.dayInCycle,
            let ovulationDay = snap.ovulationDayInCycle,
@@ -58,7 +59,6 @@ extension MenstrualHealthStore {
             // Remember what we currently advertise so the next real start can score us.
             if let median = snap.nextPeriod?.medianDayKey {
                 lastAdvertisedNextPeriodMedian = median
-                defaults.set(median, forKey: advertisedKey)
             }
             await ForgeNotificationScheduler.syncCycleNotifications(settings: settings, snapshot: snapshot)
 
@@ -76,15 +76,31 @@ extension MenstrualHealthStore {
 
             // Sync cycle data to WatchSnapshot (drives complications + lockscreen widget).
             if snap.trackingEnabled {
+                let until: Int? = {
+                    guard let nextPeriod = snap.nextPeriod,
+                          let nextDate = CycleDayKey.date(from: nextPeriod.medianDayKey) else { return nil }
+                    return Calendar.current.dateComponents([.day], from: Date(), to: nextDate).day
+                }()
+                let fields = CycleDiscretionPolicy.watchFields(
+                    mode: settings.discretionMode,
+                    phaseRaw: snap.phase.rawValue,
+                    dayInCycle: snap.dayInCycle,
+                    daysUntilNext: until
+                )
                 WatchSnapshotStore.update(reloadWidgets: false) { ws in
-                    ws.cyclePhase = snap.phase.rawValue
-                    ws.cycleDayInCycle = snap.dayInCycle
-                    if let nextPeriod = snap.nextPeriod,
-                       let nextDate = CycleDayKey.date(from: nextPeriod.medianDayKey) {
-                        ws.cycleNextPeriodDaysAway = Calendar.current.dateComponents([.day], from: Date(), to: nextDate).day
-                    } else {
-                        ws.cycleNextPeriodDaysAway = nil
-                    }
+                    ws.cyclePhase = fields.phase
+                    ws.cycleDayInCycle = fields.dayInCycle
+                    ws.cycleNextPeriodDaysAway = fields.daysUntilNext
+                    ws.cycleDiscretion = settings.discretionMode.rawValue
+                    ws.cycleLockSafeLine = fields.lockLine
+                }
+            } else {
+                WatchSnapshotStore.update(reloadWidgets: false) { ws in
+                    ws.cyclePhase = nil
+                    ws.cycleDayInCycle = nil
+                    ws.cycleNextPeriodDaysAway = nil
+                    ws.cycleDiscretion = CycleDiscretionMode.stealth.rawValue
+                    ws.cycleLockSafeLine = nil
                 }
             }
 
@@ -92,7 +108,8 @@ extension MenstrualHealthStore {
             // matches WorkoutActivityCoordinator; avoids deprecated contentState:).
             if #available(iOS 16.2, *) {
                 let isInFertileWindow = snap.phase == .fertileWindow || snap.phase == .ovulation
-                if isInFertileWindow && snap.trackingEnabled {
+                let allowLive = settings.discretionMode == .clinical
+                if isInFertileWindow && snap.trackingEnabled && allowLive {
                     let state = CycleLiveActivityAttributes.ContentState(
                         phase: snap.phase.rawValue,
                         dayInCycle: snap.dayInCycle,
@@ -129,7 +146,6 @@ extension MenstrualHealthStore {
               let anchor = snap.lastPeriodStartDayKey else { return }
         // Update cache
         lastAdvertisedNextPeriodMedian = next.medianDayKey
-        defaults.set(next.medianDayKey, forKey: advertisedKey)
 
         if let idx = forecastArchive.firstIndex(where: { $0.anchorPeriodStartDayKey == anchor && $0.isOpen }) {
             // Refresh open forecast with latest engine view (same cycle)

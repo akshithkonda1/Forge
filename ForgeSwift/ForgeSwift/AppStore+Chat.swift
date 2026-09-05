@@ -562,7 +562,7 @@ extension AppStore {
         }()
         let roster: [(settings: PartnerCycleSettings, snapshot: MenstrualCycleSnapshot)] =
             cycleStore.consentedPeople.compactMap { person in
-                guard person.settings.shareWithAria else { return nil }
+                guard person.settings.enabled, person.settings.shareWithAria else { return nil }
                 return (person.settings, cycleStore.personSnapshots[person.id] ?? .empty)
             }
         let activePerson = cycleStore.selectedPerson.flatMap { person in

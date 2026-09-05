@@ -208,7 +208,7 @@ final class LocalTestingOrchestrator {
             hasSubagents: routed.count > 1
         )
 
-        await simulateThinking(tier: tier)
+        await simulateThinking(tier: tier, force: AriaCycleTools.shouldHandle(text))
 
         let domain = domainClassifier.domain(of: text)
         affinity[domain, default: 0] += 1
@@ -246,6 +246,10 @@ final class LocalTestingOrchestrator {
 
         var rng = AriaSeededRNG(seed: seed &+ UInt64(exchanges))
         var parts: [String] = [base.content]
+
+        if let toolNote = AriaCycleTools.run(text: text) {
+            parts.append(toolNote)
+        }
 
         if let recall = recallBeat(for: domain, rng: &rng) {
             parts.append(recall)
@@ -320,13 +324,17 @@ final class LocalTestingOrchestrator {
     /// genuine on-device inference with its own real latency; stacking this
     /// synthetic delay on top of that would just make an honest wait feel
     /// sluggish for no reason, so it's skipped in that case.
-    private func simulateThinking(tier: AriaModelTier) async {
-        guard !usingFoundationModels else { return }
+    ///
+    /// Cycle / intimacy / clinician-report turns still take extra time: ARIA
+    /// is running on-device tools against Apple Health, not returning a canned
+    /// one-liner. `force` keeps that wait even when Foundation Models is on.
+    private func simulateThinking(tier: AriaModelTier, force: Bool = false) async {
+        guard force || !usingFoundationModels else { return }
         var rng = AriaSeededRNG(seed: seed &+ UInt64(exchanges &* 7 &+ 1))
         // Agentic turns fan out to several specialists before anything comes
         // back, so they take visibly longer. A local mode where the hard
         // question returns as fast as "hey" is the tell that nothing fanned out.
-        let range = tier == .tertiary ? 1_600..<3_200 : 800..<2_000
+        let range = (force || tier == .tertiary) ? 1_600..<3_200 : 800..<2_000
         let milliseconds = rng.int(in: range)
         try? await Task.sleep(nanoseconds: UInt64(milliseconds) * 1_000_000)
     }

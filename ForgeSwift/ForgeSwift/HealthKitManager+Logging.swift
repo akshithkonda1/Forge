@@ -282,7 +282,9 @@ extension HealthKitManager {
         let end = Calendar.current.date(byAdding: .day, value: 1, to: dayStart)
             .map { $0.addingTimeInterval(-1) } ?? dayStart
         let metadata: [String: Any] = [
-            HKMetadataKeyMenstrualCycleStart: isCycleStart
+            HKMetadataKeyMenstrualCycleStart: isCycleStart,
+            HKMetadataKeySyncIdentifier: "forge.cycle.flow.\(dayKey)",
+            HKMetadataKeySyncVersion: 1
         ]
         let sample = HKCategorySample(
             type: type,
@@ -294,8 +296,95 @@ extension HealthKitManager {
         do {
             try await healthStore.save(sample)
         } catch {
-            // Best-effort write; logging stays local even if HK write fails.
             print("Menstrual flow HK save failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Writes one BBT reading to Apple Cycle Tracking. Sync identifier replaces the day's sample.
+    func saveBasalBodyTemperature(dayKey: String, celsius: Double) async {
+        guard isAuthorized,
+              let dayStart = CycleDayKey.startOfDay(from: dayKey) else { return }
+        let type = HKQuantityType(.basalBodyTemperature)
+        let quantity = HKQuantity(unit: .degreeCelsius(), doubleValue: celsius)
+        let sample = HKQuantitySample(
+            type: type,
+            quantity: quantity,
+            start: dayStart,
+            end: dayStart,
+            metadata: [
+                HKMetadataKeySyncIdentifier: "forge.cycle.bbt.\(dayKey)",
+                HKMetadataKeySyncVersion: 1
+            ]
+        )
+        do {
+            try await healthStore.save(sample)
+        } catch {
+            print("BBT HK save failed: \(error.localizedDescription)")
+        }
+    }
+
+    func saveOvulationTest(dayKey: String, result: OvulationTestResult) async {
+        guard isAuthorized,
+              let dayStart = CycleDayKey.startOfDay(from: dayKey) else { return }
+        let type = HKCategoryType(.ovulationTestResult)
+        let value: HKCategoryValueOvulationTestResult
+        switch result {
+        case .negative: value = .negative
+        case .lhSurge: value = .luteinizingHormoneSurge
+        case .estrogenSurge: value = .estrogenSurge
+        case .positive: value = .positive
+        case .indeterminate: value = .indeterminate
+        case .unknown: return
+        }
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: dayStart)
+            .map { $0.addingTimeInterval(-1) } ?? dayStart
+        let sample = HKCategorySample(
+            type: type,
+            value: value.rawValue,
+            start: dayStart,
+            end: end,
+            metadata: [
+                HKMetadataKeySyncIdentifier: "forge.cycle.opk.\(dayKey)",
+                HKMetadataKeySyncVersion: 1
+            ]
+        )
+        do {
+            try await healthStore.save(sample)
+        } catch {
+            print("OPK HK save failed: \(error.localizedDescription)")
+        }
+    }
+
+    func saveCervicalMucus(dayKey: String, quality: CervicalMucusQuality) async {
+        guard isAuthorized,
+              let dayStart = CycleDayKey.startOfDay(from: dayKey),
+              quality != .unknown else { return }
+        let type = HKCategoryType(.cervicalMucusQuality)
+        let value: HKCategoryValueCervicalMucusQuality
+        switch quality {
+        case .dry: value = .dry
+        case .sticky: value = .sticky
+        case .creamy: value = .creamy
+        case .watery: value = .watery
+        case .eggWhite: value = .eggWhite
+        case .unknown: return
+        }
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: dayStart)
+            .map { $0.addingTimeInterval(-1) } ?? dayStart
+        let sample = HKCategorySample(
+            type: type,
+            value: value.rawValue,
+            start: dayStart,
+            end: end,
+            metadata: [
+                HKMetadataKeySyncIdentifier: "forge.cycle.mucus.\(dayKey)",
+                HKMetadataKeySyncVersion: 1
+            ]
+        )
+        do {
+            try await healthStore.save(sample)
+        } catch {
+            print("Mucus HK save failed: \(error.localizedDescription)")
         }
     }
 }

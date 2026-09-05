@@ -1,9 +1,9 @@
 import Foundation
+import ForgeCore
 
 /// ARIA cycle analyst: Understand → Evaluate → Teach.
-/// Engine owns numbers; ARIA coaches, critiques data quality, and may recommend
-/// lifestyle sexual-health / contraception *materials* (education) — never claims
-/// Forge itself is birth control.
+/// Engine owns numbers; ARIA coaches, critiques data quality, and may teach
+/// healthy sex / partner-help literacy — never claims Forge itself is birth control.
 @MainActor
 enum CycleAriaAnalyst {
 
@@ -24,7 +24,7 @@ enum CycleAriaAnalyst {
         "Lifestyle coaching — not medical diagnosis. Forge timing estimates are not themselves birth control."
 
     static let privacyLine =
-        "ARIA evaluates cycle context for coaching only when Share with ARIA is on — never sold."
+        "ARIA reads your cycle on this iPhone. Never uploaded to Forge."
 
     /// Local (offline) three-mode brief — always available.
     static func localBrief(
@@ -40,10 +40,10 @@ enum CycleAriaAnalyst {
                 return "Bleed is over. Iron and hydration are worth a thought over the next few days, and training capacity usually rebuilds fast from here."
             }
             if snapshot.phase == .fertileWindow || snapshot.phase == .ovulation {
-                return "If pregnancy timing matters for your lifestyle plans, consider clinician-approved contraception options and sexual-health resources — Forge’s phase labels are coaching aids, not a contraceptive method."
+                return "If you want closeness this week, ask ARIA about comfort, safe sex, and positions — phase labels are not a contraceptive."
             }
             if snapshot.phase == .menstruation {
-                return "Sexual-health basics (hygiene products, comfort, rest) are fair lifestyle topics — ask ARIA if you want product or recovery tips."
+                return "Period week: rest, heat, and optional closeness. Ask ARIA about period sex and how a partner can help without turning it into a quiz."
             }
             return nil
         }()
@@ -74,9 +74,21 @@ enum CycleAriaAnalyst {
         evaluation: CycleDataEvaluation,
         settings: MenstrualTrackingSettings,
         lastAction: String?,
-        isPartner: Bool
+        isPartner: Bool,
+        preferLighterTraining: Bool = false,
+        recoveryBias: Double = 0.35
     ) -> CycleAIContext {
-        CycleAIContext(
+        let rx = CycleGoalCoach.prescribe(
+            goal: settings.lifestyleGoal,
+            phaseRaw: snapshot.phase.rawValue,
+            isBleeding: snapshot.isCurrentlyBleeding || snapshot.stage == .period,
+            periodFinishedRecently: snapshot.stage == .postPeriod,
+            preferLighterTraining: preferLighterTraining,
+            recoveryBias: recoveryBias,
+            highAccuracy: settings.highAccuracyMode,
+            periodStyle: settings.periodTrainingStyle
+        )
+        return CycleAIContext(
             phase: snapshot.phase.rawValue,
             stage: snapshot.stage.rawValue,
             periodEndConfirmed: snapshot.periodEndConfirmed,
@@ -100,7 +112,10 @@ enum CycleAriaAnalyst {
             hormonal: settings.usesHormonalContraception,
             irregular: snapshot.irregularityFlag,
             lastUserAction: lastAction,
-            isPartner: isPartner
+            isPartner: isPartner,
+            lifestyleGoal: settings.lifestyleGoal.rawValue,
+            trainingHeadline: isPartner ? nil : rx.headline,
+            periodTrainingStyle: settings.periodTrainingStyle.rawValue
         )
     }
 
@@ -147,16 +162,19 @@ enum CycleAriaAnalyst {
         ovuConf=\(String(format: "%.2f", context.ovulationConfidence)),
         MAE=\(context.accuracyMAE.map { String(format: "%.1f" , $0) } ?? "n/a") over \(context.accuracySampleCount),
         quality=\(context.qualityGrade), issues=\(context.issues.joined(separator: ",")),
-        lastAction=\(context.lastUserAction ?? "none"), partner=\(context.isPartner).
+        lastAction=\(context.lastUserAction ?? "none"), partner=\(context.isPartner),
+        lifestyleGoal=\(context.lifestyleGoal), training=\(context.trainingHeadline ?? "n/a"),
+        periodStyle=\(context.periodTrainingStyle).
+
+        If they have a running or training goal, translate phase into volume (miles/sets) and a return-to-normal plan using periodStyle while bleeding. Never treat Forge as contraception.
 
         Local evaluation summary: \(evaluation.userFacingSummary)
         Teaching seed: \(evaluation.teachingSummary)
 
         If stage is postPeriod, do NOT give period-day advice. The bleed is over: acknowledge it,
         then coach the rebuild — energy, training progression, and what is coming next.
-        If fertile/ovulation phase and user might care about pregnancy timing, you may mention
-        lifestyle sexual-health and contraception materials while stating Forge is not birth control.
-        End with a one-line lifestyle disclaimer.
+        If they ask about closeness, coach healthy sex, safe sex, positions, and partner help.
+        Never present Forge as contraception. End with a one-line lifestyle disclaimer.
         """
     }
 
@@ -178,7 +196,7 @@ enum CycleAriaAnalyst {
         }
         lines.append(evaluation.teachingSummary)
         if snapshot.phase == .fertileWindow || snapshot.phase == .ovulation {
-            lines.append("Lifestyle note: if pregnancy timing matters, use clinician-approved contraception methods — Forge labels are coaching aids only.")
+            lines.append("Lifestyle note: closeness is invited, never assumed from a phase label. Forge is not a contraceptive.")
         }
         return lines.joined(separator: " ")
     }

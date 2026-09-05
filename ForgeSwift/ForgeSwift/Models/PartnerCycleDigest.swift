@@ -307,6 +307,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
 
         let thoughtful = (resolvedPhase == .bleeding)
             || (resolvedPhase == .winding && snapshot.recommendRecoveryBias)
+            || snapshot.extraCareRequested
 
         phase = resolvedPhase
         energy = resolvedEnergy
@@ -317,7 +318,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
         supportHeadline = {
             if finished { return "Period finished. Everyday support is enough." }
             if tier == .onPeriod {
-                return resolvedPhase == .bleeding
+                return (resolvedPhase == .bleeding || snapshot.extraCareRequested)
                     ? "Be extra kind this week."
                     : "Everyday support is enough."
             }
@@ -484,12 +485,12 @@ struct PartnerCycleInvite: Codable, Equatable {
         self.createdAt = createdAt
     }
 
-    /// Fallback text for the plain-SMS path, when the recipient has no iMessage or
-    /// no Forge app. Deliberately vague about *what* is being shared — the sender
-    /// should decide who knows they track a cycle, not a lock-screen preview.
-    var fallbackMessageBody: String {
-        "\(fromDisplayName) is sharing a support view in Forge — not a full log. \(shareURL.absoluteString)"
-    }
+    /// SMS is not a valid access path. iPhone + iMessage only. The CloudKit
+    /// URL is withheld so a lock-screen text cannot redeem the share.
+    var fallbackMessageBody: String { messagePayload.fallbackMessageBody }
+
+    var iMessageOnly: Bool { true }
+    var smsAccessIsValid: Bool { false }
 
     /// Bubble caption for the Messages extension. Same discretion rule.
     var bubbleCaption: String { "\(fromDisplayName) would like your support" }
