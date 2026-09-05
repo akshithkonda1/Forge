@@ -1,6 +1,6 @@
 """ARIA SimRunner — single entry point.
 
-Runs the full offline pipeline against one archetype, a tier, or all 20:
+Runs the full offline pipeline against one archetype, a tier, or all 23:
 
     python -m backend.simrunner                       # tier 1 (fast sanity)
     python -m backend.simrunner --model <model_id>
@@ -270,7 +270,7 @@ def _select_models(args) -> list[dict]:
 
 
 def _print_catalog() -> None:
-    print("ARIA SimRunner — 20 curated *user* archetypes (use a model_id with --model);")
+    print("ARIA SimRunner — 23 curated *user* archetypes (use a model_id with --model);")
     print("any Bedrock model id also works via --model (see --list-bedrock).")
     for tier in range(1, 6):
         print(f"\nTier {tier}:")
@@ -400,7 +400,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="backend.simrunner",
         description="ARIA SimRunner — offline evaluation harness",
     )
-    parser.add_argument("--list", action="store_true", help="list the 20 curated user archetypes and exit")
+    parser.add_argument("--list", action="store_true", help="list the 23 curated user archetypes and exit")
     parser.add_argument("--list-bedrock", action="store_true", help="list the full Bedrock model catalog and exit")
     parser.add_argument(
         "--list-model-archetypes",
@@ -410,7 +410,7 @@ def main(argv: list[str] | None = None) -> int:
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--model", help="user archetype model_id OR any Bedrock catalog id")
     group.add_argument("--tier", type=int, choices=[1, 2, 3, 4, 5], help="test all user archetypes in a tier")
-    group.add_argument("--all", action="store_true", help="test all 20 user archetypes")
+    group.add_argument("--all", action="store_true", help="test all 23 user archetypes")
     parser.add_argument(
         "--model-archetype",
         default=None,

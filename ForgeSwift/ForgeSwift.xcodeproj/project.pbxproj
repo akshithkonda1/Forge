@@ -41,6 +41,7 @@
 		1WC00E2F9FF867004091AA /* CyclePhaseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */; };
 		1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */; };
 		1ARIA0292F9FF867004091AA /* AriaPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0282F9FF867004091AA /* AriaPresence.swift */; };
+		1VOICE0022F9FF867004091AA /* AriaInterviewVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */; };
 		1SLEEP013F9FF867004091AA /* SleepSoundEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */; };
 		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
 		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
@@ -281,6 +282,7 @@
 		1TEST01E00000000000000A /* FakeCyclePackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01D00000000000000A /* FakeCyclePackTests.swift */; };
 		1TEST02000000000000000A /* SleepWakeEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01F00000000000000A /* SleepWakeEngineTests.swift */; };
 		1TEST02200000000000000A /* SleepBedtimeCoachTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02100000000000000A /* SleepBedtimeCoachTests.swift */; };
+		1TEST02400000000000000A /* AriaInterviewVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -395,6 +397,7 @@
 		1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseWidget.swift; sourceTree = "<group>"; };
 		1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbComponents.swift; sourceTree = "<group>"; };
 		1ARIA0282F9FF867004091AA /* AriaPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPresence.swift; sourceTree = "<group>"; };
+		1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewVoice.swift; sourceTree = "<group>"; };
 		1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSoundEngine.swift; sourceTree = "<group>"; };
 		1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MusicControllerFactory.swift; sourceTree = SOURCE_ROOT; };
 		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
@@ -424,6 +427,7 @@
 		1TEST01D00000000000000A /* FakeCyclePackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeCyclePackTests.swift; sourceTree = "<group>"; };
 		1TEST01F00000000000000A /* SleepWakeEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeEngineTests.swift; sourceTree = "<group>"; };
 		1TEST02100000000000000A /* SleepBedtimeCoachTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepBedtimeCoachTests.swift; sourceTree = "<group>"; };
+		1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewVoiceTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
@@ -834,6 +838,7 @@
 				AA0002000000000000000006 /* OnboardingView.swift */,
 				D739BE302C6406D4FD5FFAF1 /* OnboardingModels.swift */,
 				3EFADEBB5E6749FF6794C3D4 /* AriaInterviewLayout.swift */,
+				1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */,
 				5D1B4CAD5FA5D25B74EC6E1C /* OnboardingComposers.swift */,
 				946C46A9CAC2E8FAA15F2A6E /* OnboardingComponents.swift */,
 				AA0002000000000000000007 /* HomeView.swift */,
@@ -1099,6 +1104,7 @@
 				1TEST01D00000000000000A /* FakeCyclePackTests.swift */,
 				1TEST01F00000000000000A /* SleepWakeEngineTests.swift */,
 				1TEST02100000000000000A /* SleepBedtimeCoachTests.swift */,
+				1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */,
 			);
 			path = ForgeSwiftTests;
 			sourceTree = "<group>";
@@ -1449,6 +1455,7 @@
 				AA0001000000000000000006 /* OnboardingView.swift in Sources */,
 				D1919B244B3A650517464755 /* OnboardingModels.swift in Sources */,
 				616F3C419B3EB7ADAE50115B /* AriaInterviewLayout.swift in Sources */,
+				1VOICE0022F9FF867004091AA /* AriaInterviewVoice.swift in Sources */,
 				4A125A771F1A069647744C7B /* OnboardingComposers.swift in Sources */,
 				6CBB68B52859EB1DA316AE05 /* OnboardingComponents.swift in Sources */,
 				1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */,
@@ -1622,6 +1629,7 @@
 				1TEST01E00000000000000A /* FakeCyclePackTests.swift in Sources */,
 				1TEST02000000000000000A /* SleepWakeEngineTests.swift in Sources */,
 				1TEST02200000000000000A /* SleepBedtimeCoachTests.swift in Sources */,
+				1TEST02400000000000000A /* AriaInterviewVoiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

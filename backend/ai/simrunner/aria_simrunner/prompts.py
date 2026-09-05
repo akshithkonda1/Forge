@@ -65,7 +65,7 @@ def build_user_prompt(query: str, context: ARIAContext) -> str:
         sleep_bit = f"{t.total_sleep_hours}h (deep {deep_bit})"
     else:
         sleep_bit = "not available"
-    block = "\n".join([
+    lines = [
         "[USER MODEL — ground truth]",
         f"- name/occupation: {context.user_name} ({context.occupation}); season: {context.life_season}",
         f"- chronotype: {context.chronotype}; target sleep {context.target_sleep_hours}h, wake {context.target_wake_hour}:00",
@@ -76,5 +76,18 @@ def build_user_prompt(query: str, context: ARIAContext) -> str:
         f"- training: streak {context.training_streak}d, {context.days_since_last_workout}d since last workout",
         f"- flags: overtrained={context.is_overtrained}, sleep_deprived={context.is_sleep_deprived}, "
         f"notable_event={context.notable_event_note or 'none'}",
-    ])
+    ]
+    # Additive only: neither branch can fire for a context whose workout_type
+    # was never rolled "isometric" (every archetype that predates this
+    # feature, always), so this appends zero lines and the block above renders
+    # byte-identical to before for them.
+    if t.workout_type == "isometric" and t.isometric_holds:
+        holds_desc = "; ".join(f"{h.exercise} {h.hold_seconds}s×{h.sets}" for h in t.isometric_holds)
+        lines.append(f"- today's isometric work: {holds_desc} (peak HR {t.workout_peak_hr}bpm, brief spike)")
+    elif context.last_workout_type == "isometric" and context.last_workout_peak_hr is not None:
+        lines.append(
+            f"- last workout was isometric: brief HR spike to {context.last_workout_peak_hr}bpm, "
+            "not sustained cardio load"
+        )
+    block = "\n".join(lines)
     return f"{block}\n\n[USER MESSAGE]\n{query.strip()}\n\nReturn only the JSON object."

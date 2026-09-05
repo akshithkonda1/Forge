@@ -182,7 +182,7 @@ enum AriaFirstBond {
             case .yes:
                 preface = "You’ll see their names when they join a turn. You still talk to me."
             case .no:
-                preface = "You never pick a class. You ask. I bring Train, Recover, Fuel, or Life if the question needs them."
+                preface = "You never pick a class. You ask. I bring in Workout, Recovery, Sleep, Lifestyle, or Progress if the question needs them."
                     + (context.cycleAvailable ? " Cycle only because you shared that." : " Cycle stays off until you share it.")
             default:
                 preface = "One conversation. Extra hands only when useful."
@@ -287,7 +287,7 @@ enum AriaFirstBond {
             message: """
             \(preface)
 
-            You talk to me. I bring in Train, Recover, Fuel, Life when a question needs them.\(cycle) You don’t pick a class. Sound right?
+            You talk to me. I bring in Workout, Recovery, Sleep, Lifestyle, and Progress when a question needs them.\(cycle) You don’t pick a class. Sound right?
             """,
             replies: yesNo,
             next: .specialists

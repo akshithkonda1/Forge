@@ -15,6 +15,14 @@ backend's own observation that HRV and resting HR are the only two metrics it
 blends across sources today). Every new RNG draw these introduce is gated behind
 the profile opting in, never rolled-and-discarded, so a profile that never sets
 either key consumes the RNG stream identically to before this existed.
+
+A third optional key, ``isometric_emphasis`` (0-1, the odds a workout day rolls
+isometric — planks, holds, carries — instead of dynamic training), follows the
+same discipline. Isometric work triggers a sharp, duration-independent HR/BP
+spike (the pressor reflex) that reverts fast once the hold ends — physiologically
+distinct from dynamic exercise's more gradual, duration-scaling cardiovascular
+load — so it gets its own roll, its own load formula, and its own peak-HR
+estimate, all gated behind the same opt-in.
 """
 
 from __future__ import annotations
@@ -24,6 +32,17 @@ import math
 import os
 import random
 from dataclasses import dataclass
+
+
+@dataclass
+class IsometricHold:
+    """One exercise within an isometric session. Names borrow from
+    ``ExerciseCatalog.swift``'s ``ForceType.isometric`` set for narrative
+    realism — there is no code link between the two, by design (out of scope:
+    would require new cross-language infra for no behavioral benefit here)."""
+    exercise: str
+    hold_seconds: int
+    sets: int
 
 
 @dataclass
@@ -39,12 +58,17 @@ class DailyRecord:
     steps: int
     active_calories: int
     workout_logged: bool
-    workout_type: str | None        # "strength" | "cardio" | "hiit" | "rest" | None
+    workout_type: str | None        # "strength" | "cardio" | "hiit" | "isometric" | "rest" | None
     workout_duration_minutes: int | None
     workout_intensity: str | None   # "low" | "moderate" | "high" | "max"
     training_load: float
     acwr: float                     # acute:chronic workload ratio (7d:28d) — always present
     notes: str | None
+    # Isometric-only detail — None for dynamic workouts and rest days alike.
+    # Models isometric's distinctive HR signature specifically, not a general
+    # peak-HR overhaul of dynamic-workout tracking.
+    workout_peak_hr: int | None = None
+    isometric_holds: list[IsometricHold] | None = None
 
 
 _CHRONOTYPE_SLEEP_TARGET = {"bear": 8.0, "lion": 7.5, "wolf": 7.5, "dolphin": 6.5}
@@ -57,6 +81,25 @@ _DAYS = 30
 _STAGE_CAPTURE_FACTOR = 0.75
 _SOURCE_CONFLICT_PROBABILITY = 0.35
 _SOURCE_CONFLICT_MAGNITUDE = (6, 14)  # bpm swing applied to resting_hr on a conflict day
+
+# Isometric holds: a sharp, duration-independent HR/BP spike (the pressor
+# reflex) that reverts fast once the hold ends, and a lower true cardiovascular
+# training stimulus per minute than dynamic work despite that spike — captured
+# below as a lower load factor, which then flows unmodified through the
+# existing ACWR/HRV-suppression math (_acwr, and the `acute`/`suppression`
+# lines in generate_stream) with no changes needed to either.
+_ISOMETRIC_EXERCISES = [
+    "Plank", "Side Plank", "Wall Sit", "Farmer's Carry", "Hollow Hold",
+    "Ab Wheel Rollout", "Pallof Press", "Dead Bug", "Cossack Squat Hold",
+]
+_ISOMETRIC_HR_SPIKE_RANGE = {  # bpm added above resting_hr during a hold
+    "low": (12, 25), "moderate": (22, 40), "high": (35, 55),
+}
+_ISOMETRIC_LOAD_FACTOR = 0.55         # sustained load per minute vs. an equivalent dynamic set
+_ISOMETRIC_DURATION_MINUTES = (12, 60)
+_ISOMETRIC_HOLD_SECONDS = (20, 75)    # per hold
+_ISOMETRIC_SETS = (2, 5)              # holds per exercise
+_ISOMETRIC_EXERCISE_COUNT = (2, 4)    # exercises per session
 
 
 def _reference_today(reference_date: "datetime.date | None" = None) -> datetime.date:
@@ -134,6 +177,21 @@ def _sleep_for_day(profile: dict, target: float, rng: random.Random, debt_active
     return _clamp(hours, 3.0, 10.5)
 
 
+def _generate_isometric_holds(rng: random.Random) -> list[IsometricHold]:
+    """Only ever called from inside the isometric_emphasis-gated branch — every
+    draw here is already proven unreachable for the 21 pre-existing archetypes."""
+    count = rng.randint(*_ISOMETRIC_EXERCISE_COUNT)
+    exercises = rng.sample(_ISOMETRIC_EXERCISES, min(count, len(_ISOMETRIC_EXERCISES)))
+    return [
+        IsometricHold(
+            exercise=exercise,
+            hold_seconds=rng.randint(*_ISOMETRIC_HOLD_SECONDS),
+            sets=rng.randint(*_ISOMETRIC_SETS),
+        )
+        for exercise in exercises
+    ]
+
+
 def generate_stream(
     profile: dict, seed: int = 42, reference_date: "datetime.date | None" = None
 ) -> list[DailyRecord]:
@@ -198,12 +256,27 @@ def generate_stream(
         workout_type = workout_intensity = None
         duration = None
         load = 0.0
+        isometric_holds = None
         if do_workout:
-            workout_type = rng.choice(["strength", "cardio", "hiit", "strength", "cardio"])
-            workout_intensity = rng.choices(
-                ["low", "moderate", "high", "max"], weights=[2, 4, 3, 1])[0]
-            duration = int(_clamp(rng.gauss(55, 15), 20, 110))
-            load = duration / 60.0 * _INTENSITY_LOAD[workout_intensity] * season_factor
+            # First operand short-circuits: for the 21 pre-existing archetypes
+            # (and any archetype that simply never sets the key) isometric_emphasis
+            # is 0.0, so rng.random() below never executes — zero new draws,
+            # zero reseeding of anything after this point. Same technique the
+            # `logs_fake_workouts` gate one block down already relies on.
+            isometric_emphasis = float(profile.get("isometric_emphasis", 0.0))
+            if isometric_emphasis > 0.0 and rng.random() < isometric_emphasis:
+                workout_type = "isometric"
+                workout_intensity = rng.choices(["low", "moderate", "high"], weights=[2, 5, 3])[0]
+                duration = int(_clamp(rng.gauss(28, 8), *_ISOMETRIC_DURATION_MINUTES))
+                load = (duration / 60.0 * _INTENSITY_LOAD[workout_intensity]
+                        * season_factor * _ISOMETRIC_LOAD_FACTOR)
+                isometric_holds = _generate_isometric_holds(rng)
+            else:
+                workout_type = rng.choice(["strength", "cardio", "hiit", "strength", "cardio"])
+                workout_intensity = rng.choices(
+                    ["low", "moderate", "high", "max"], weights=[2, 4, 3, 1])[0]
+                duration = int(_clamp(rng.gauss(55, 15), 20, 110))
+                load = duration / 60.0 * _INTENSITY_LOAD[workout_intensity] * season_factor
 
         # Gamers log sessions that the body never registers as stress.
         if profile.get("logs_fake_workouts") and not do_workout and rng.random() < 0.4:
@@ -234,6 +307,16 @@ def generate_stream(
         if profile.get("source_conflict") and rng.random() < _SOURCE_CONFLICT_PROBABILITY:
             resting_hr = int(_clamp(
                 resting_hr + rng.choice([-1, 1]) * rng.uniform(*_SOURCE_CONFLICT_MAGNITUDE), 38, 90))
+
+        # Isometric peak HR: resting_hr + a sharp, duration-independent spike.
+        # Gated purely on workout_type, which can only be "isometric" as a
+        # downstream consequence of the already-gated roll above — never true
+        # for the 21 pre-existing archetypes, so this draw never executes for
+        # them regardless of where in the function it sits.
+        workout_peak_hr = None
+        if workout_type == "isometric":
+            spike = rng.uniform(*_ISOMETRIC_HR_SPIKE_RANGE[workout_intensity])
+            workout_peak_hr = int(_clamp(resting_hr + spike, 60, 220))
 
         # --- Sparse/incomplete data: independent per-field presence rolls,
         # entirely skipped (no rng draw at all) when the profile doesn't opt
@@ -288,6 +371,7 @@ def generate_stream(
             workout_logged=do_workout, workout_type=workout_type,
             workout_duration_minutes=duration, workout_intensity=workout_intensity,
             training_load=round(load, 3), acwr=round(acwr, 2), notes=note,
+            workout_peak_hr=workout_peak_hr, isometric_holds=isometric_holds,
         ))
 
     _guarantee_notable_events(records, notes_added, rng)

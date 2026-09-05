@@ -91,6 +91,16 @@ _SPECIFIC = (re.compile(r"\b\d+\s?(%|min|minutes|sets?|reps?|x)\b"), re.compile(
 _NEGATION_CUES = ("no ", "not ", "n't", "avoid", "instead of", "rather than", "hold ",
                   "without", "skip", "never", "less ", "reduce", "back off")
 
+# Deliberately narrower than surfaces_overtraining's bare "acwr"/"rest" (which
+# exist to catch a response that OMITS overtraining language, so being loose
+# there only biases toward leniency). Used as a positive claim of overtraining,
+# where a loose match would false-positive on any routine "ACWR 1.14" context
+# citation -- confirmed live via a real offline run before this was tightened.
+_OVERTRAINING_CLAIM = (
+    "overtrain", "too much load", "workload is too much", "load is too much",
+    "that's too much", "back off", "deload",
+)
+
 
 def _advocates(text: str, phrases: tuple[str, ...]) -> bool:
     """True only where the text actually recommends one of ``phrases`` — an
@@ -145,6 +155,8 @@ def _score_context_utilization(text: str, ctx: ARIAContext, mult: float, failure
                f"{ctx.acwr}", str(round(ctx.sleep_debt_7d_hours, 1)), str(round(ctx.readiness_7d_avg))}
     if t.hrv is not None:
         numbers.add(str(t.hrv))
+    if ctx.last_workout_type == "isometric" and ctx.last_workout_peak_hr is not None:
+        numbers.add(str(ctx.last_workout_peak_hr))
     specific_hits = sum(1 for n in numbers if n and n in text)
 
     # Contradiction: claims peak/recovered while data says otherwise.
@@ -194,6 +206,24 @@ def _score_directional(text: str, rec: str, ctx: ARIAContext, mult: float,
     if ctx.hrv_7d_trend == "falling" and t.readiness_score < 65 and recommends_increase:
         failures.append(f"Directional correctness: recommended increasing load while HRV falling, readiness={t.readiness_score}")
         return 0.0
+    if ctx.last_workout_type == "isometric" and _advocates(text, _OVERTRAINING_CLAIM):
+        # Only a misread if none of the 4 rules above would independently
+        # justify the same caution — otherwise a response correctly flagging
+        # e.g. real sleep debt would get wrongly penalized just for following
+        # an isometric day. This is deliberately the last rule checked so it
+        # can never fire ahead of (or double-count) a genuine violation above.
+        no_other_reason = not (
+            t.readiness_score < 50 or ctx.is_overtrained
+            or ctx.sleep_debt_7d_hours > 5.0
+            or (ctx.hrv_7d_trend == "falling" and t.readiness_score < 65)
+        )
+        if no_other_reason:
+            failures.append(
+                f"Directional correctness: misread a transient isometric HR spike "
+                f"({ctx.last_workout_peak_hr}bpm) as sustained overtraining with no "
+                f"other risk signal present (ACWR={ctx.acwr}, readiness={t.readiness_score})"
+            )
+            return 0.0
 
     # All hard rules pass — score on specificity.
     if response.recommendation and any(p.search(rec) for p in _SPECIFIC):
@@ -299,6 +329,8 @@ def _recommendations(failures: list[str], scores: DimensionScores, ctx: ARIACont
         recs.append("[SYSTEM PROMPT] When 7-day sleep debt > 5h, require the response to prioritize sleep before training volume.")
     if "increasing load while hrv falling" in joined:
         recs.append("[SYSTEM PROMPT] Block load-increase recommendations when HRV trend is falling and readiness < 65.")
+    if "misread a transient isometric" in joined:
+        recs.append("[SYSTEM PROMPT] Teach the isometric HR signature: a brief spike from a hold is not sustained cardio strain — don't flag overtraining from it alone.")
     if "sparse query" in joined:
         recs.append("[SYSTEM PROMPT] For maximally-sparse prompts, require a clarifying question before any recommendation.")
     if "overconfident" in joined or "confidently wrong" in joined:
@@ -326,4 +358,5 @@ def _snapshot(ctx: ARIAContext) -> dict:
         "readiness_trend": ctx.readiness_trend, "is_overtrained": ctx.is_overtrained,
         "is_sleep_deprived": ctx.is_sleep_deprived, "chronotype": ctx.chronotype,
         "life_season": ctx.life_season, "notable_event": ctx.notable_event_note,
+        "last_workout_type": ctx.last_workout_type, "last_workout_peak_hr": ctx.last_workout_peak_hr,
     }
