@@ -53,9 +53,4 @@ enum WindDownScheduler {
             return false
         }
     }
-
-    static func cancel() {
-        UNUserNotificationCenter.current()
-            .removePendingNotificationRequests(withIdentifiers: [identifier])
-    }
 }

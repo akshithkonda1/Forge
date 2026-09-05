@@ -14,6 +14,7 @@ struct OnboardingView: View {
 
     @State private var page = 0
     @State private var requestingAccess = false
+    @State private var authorizationDenied = false
 
     var body: some View {
         TabView(selection: $page) {
@@ -79,35 +80,59 @@ struct OnboardingView: View {
                     .foregroundStyle(ForgePalette.textSecondary)
                     .multilineTextAlignment(.center)
 
-                HapticButton(haptic: .success) {
-                    requestingAccess = true
-                    Task {
-                        await health.requestAuthorization()
-                        await health.refreshAll()
+                if authorizationDenied {
+                    Text("Health access wasn't granted. Forge will show honest empty states here until it's turned on from the paired iPhone's Health app — Watch can't show the permission sheet again once denied.")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(ForgePalette.textSecondary)
+                        .multilineTextAlignment(.center)
+
+                    HapticButton(haptic: .success) {
                         contextEngine.completeOnboarding()
-                    }
-                } label: {
-                    if requestingAccess {
-                        ProgressView().frame(maxWidth: .infinity)
-                    } else {
-                        Text("Connect Health & begin")
+                    } label: {
+                        Text("Continue anyway")
                             .font(ForgeType.caption(13))
                             .frame(maxWidth: .infinity)
                     }
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(ForgePalette.steel.opacity(0.85))
-                .disabled(requestingAccess)
-                .accessibilityLabel("Connect Health and begin")
-                .accessibilityHint("Shows the Health permission sheet, then opens Forge.")
+                    .buttonStyle(.borderedProminent)
+                    .tint(ForgePalette.steel.opacity(0.85))
+                    .accessibilityLabel("Continue anyway")
+                    .accessibilityHint("Opens Forge with empty states until Health is connected from the paired iPhone.")
+                } else {
+                    HapticButton(haptic: .success) {
+                        requestingAccess = true
+                        Task {
+                            await health.requestAuthorization()
+                            if health.authorizationFailed {
+                                requestingAccess = false
+                                authorizationDenied = true
+                            } else {
+                                await health.refreshAll()
+                                contextEngine.completeOnboarding()
+                            }
+                        }
+                    } label: {
+                        if requestingAccess {
+                            ProgressView().frame(maxWidth: .infinity)
+                        } else {
+                            Text("Connect Health & begin")
+                                .font(ForgeType.caption(13))
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(ForgePalette.steel.opacity(0.85))
+                    .disabled(requestingAccess)
+                    .accessibilityLabel("Connect Health and begin")
+                    .accessibilityHint("Shows the Health permission sheet, then opens Forge.")
 
-                Button("Not now — look around first") {
-                    contextEngine.completeOnboarding()
+                    Button("Not now — look around first") {
+                        contextEngine.completeOnboarding()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11))
+                    .foregroundStyle(ForgePalette.textTertiary)
+                    .accessibilityHint("Skips permissions. Forge will show honest empty states until Health is connected.")
                 }
-                .buttonStyle(.plain)
-                .font(.system(size: 11))
-                .foregroundStyle(ForgePalette.textTertiary)
-                .accessibilityHint("Skips permissions. Forge will show honest empty states until Health is connected.")
             }
             .padding(.horizontal, 4)
         }

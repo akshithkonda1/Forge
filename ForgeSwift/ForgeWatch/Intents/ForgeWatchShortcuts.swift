@@ -4,11 +4,13 @@ import AppIntents
 //
 // Split out of ForgeWatchIntents.swift on purpose.
 //
-// The intents themselves belong to two targets: the watch app runs them, and
-// the widgets extension needs them visible for HydrationComplication's
-// `Button(intent:)`. A file compiled into two targets is fine for an AppIntent
-// and wrong for an AppShortcutsProvider — two providers registering the same
-// phrases leaves the user with duplicates in Shortcuts and Siri.
+// The intent types themselves could reasonably belong to two targets: the
+// watch app runs them today, and the widgets extension would need them
+// visible for the interactive `Button(intent:)` HydrationComplication's own
+// header describes but does not yet build. A file compiled into two targets
+// is fine for an AppIntent and wrong for an AppShortcutsProvider — two
+// providers registering the same phrases leaves the user with duplicates in
+// Shortcuts and Siri.
 //
 // So this file is app-target only.
 

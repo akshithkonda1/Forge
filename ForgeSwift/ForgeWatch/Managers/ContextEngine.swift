@@ -146,7 +146,6 @@ final class ContextEngine {
         suggestedMode = nil
         defaults?.set(mode?.rawValue, forKey: Keys.mode)
         defaults?.set(modeStartedAt, forKey: Keys.modeStart)
-        WatchSnapshotStore.update { $0.lifestyleMode = mode }
         revision += 1
     }
 

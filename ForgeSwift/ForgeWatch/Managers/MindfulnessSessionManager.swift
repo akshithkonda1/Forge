@@ -33,6 +33,7 @@ final class MindfulnessSessionManager {
         var minutesLogged: Double
         var message: String
         var biofeedbackLine: String?
+        var heartRateSettleBPM: Double?
         var healthKitSaved: Bool
     }
 
@@ -222,6 +223,7 @@ final class MindfulnessSessionManager {
             minutesLogged: countsAsSession ? practicedSeconds / 60 : 0,
             message: debriefMessage(practice: practice, seconds: practicedSeconds),
             biofeedbackLine: biofeedbackLine(from: biofeedback),
+            heartRateSettleBPM: biofeedback?.settleBPM,
             healthKitSaved: saved
         )
         state = .debrief
