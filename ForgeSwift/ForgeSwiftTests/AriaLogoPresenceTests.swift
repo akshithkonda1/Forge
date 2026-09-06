@@ -1,17 +1,17 @@
 import XCTest
 @testable import ForgeSwift
 
-/// Locks the fluid ARIA mark contract: asset name, no-ring crop, and when
+/// Locks the fluid generic mark contract: asset name, no-ring crop, and when
 /// the welcome chime may fire. Does not start AVAudioEngine.
-final class AriaLogoPresenceTests: XCTestCase {
+final class AriaLogoPresenceTests: XCTestCase { // generic ForgeMark, was AriaLogo
 
     func testFluidMarkUsesAriaLogoAssetWithoutARingCrop() {
-        XCTAssertEqual(AriaWelcomeChime.assetName, "AriaLogo")
+        XCTAssertEqual(AriaWelcomeChime.assetName, "ForgeMark")
         XCTAssertEqual(AriaWelcomeChime.cropScale, 1.0, accuracy: 0.001)
         XCTAssertLessThanOrEqual(
             AriaWelcomeChime.cropScale,
             1.05,
-            "the ember is the mark — do not zoom past a glass frame that is gone"
+            "generic mark — do not zoom past its frame"
         )
         XCTAssertEqual(AriaWelcomeChime.heroMinimumSize, 90)
     }

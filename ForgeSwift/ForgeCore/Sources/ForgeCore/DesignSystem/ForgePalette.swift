@@ -63,7 +63,7 @@ public enum ForgePalette {
     public static let warning = Color(forgeHex: "EAB308")
     public static let danger  = Color(forgeHex: "EF4444")
 
-    // MARK: ARIA presence roles
+    // MARK: Presence roles (generic — not ARIA-specific)
     // Weight shifts. Identity does not. Pair with AriaSigilGeometry breath.
     public static let ariaIdle       = ember
     public static let ariaListening  = teal

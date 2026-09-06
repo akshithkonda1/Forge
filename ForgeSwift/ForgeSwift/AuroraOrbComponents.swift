@@ -1,8 +1,8 @@
 import SwiftUI
 import ForgeCore
 
-/// Compact ARIA mark for avatars, tabs, and cards.
-/// The 4-lobe ember is the identity. Live speech/listen from
+/// Compact generic mark for avatars, tabs, and cards.
+/// Generic sparkles mark — no ARIA-specific branding. Live speech/listen from
 /// `AriaPresence` overrides idle so every mark breathes when she talks.
 struct ARIAIdentityMark: View {
     var state: AROrbState = .idle
@@ -32,7 +32,7 @@ struct ARIAIdentityMark: View {
     }
 }
 
-/// Living 4-lobe ember. The PNG is aspect-fit and never stretched.
+/// Living generic orb. Procedural circle, never stretched.
 /// Motion is uniform scale + hue shimmer + a procedural core pulse.
 /// Reduce Motion freezes on the still frame.
 struct AuroraOrbView: View {
@@ -121,15 +121,38 @@ struct AuroraOrbView: View {
             .opacity(reduceMotion ? 0.28 : 0.95)
             .scaleEffect(scale)
 
-            Image(AriaWelcomeChime.assetName)
-                .interpolation(.high)
-                .resizable()
-                .scaledToFit()
-                .hueRotation(.degrees(hue))
-                .brightness(reduceMotion ? 0 : core * 0.85)
-                .saturation(1 + breath * 0.12)
-                .frame(width: size, height: size)
-                .scaleEffect(scale)
+            // Generic mark — no ARIA-specific PNG. Procedural circle + system sparkles.
+            ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.white.opacity(0.96), Color.white.opacity(0.82)],
+                            center: .center,
+                            startRadius: size * 0.08,
+                            endRadius: size * 0.42
+                        )
+                    )
+                    .overlay(
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [ForgePalette.ember.opacity(0.9), ForgePalette.amber.opacity(0.85)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .blendMode(.overlay)
+                    )
+                Image(systemName: "sparkles")
+                    .font(.system(size: size * 0.26, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.96))
+                    .shadow(color: .black.opacity(0.18), radius: 1, y: 1)
+            }
+            .frame(width: size * 0.66, height: size * 0.66)
+            .hueRotation(.degrees(hue))
+            .brightness(reduceMotion ? 0 : core * 0.55)
+            .saturation(1 + breath * 0.08)
+            .scaleEffect(scale)
 
             // Procedural ember — reads as alive even when the PNG is still.
             RadialGradient(

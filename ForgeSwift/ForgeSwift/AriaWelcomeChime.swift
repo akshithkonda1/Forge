@@ -1,13 +1,13 @@
 import AVFoundation
 import CoreGraphics
 
-/// Welcome arrive-sound and the 4-lobe ember mark contract.
+/// Welcome arrive-sound and the generic app mark contract.
 /// Aspect-fit only — never crop past a ring or stretch into a circle.
 /// Pure gates so tests can lock quiet mode and Reduce Motion without audio.
 enum AriaWelcomeChime: Sendable {
-    static let assetName = "AriaLogo"
+    static let assetName = "ForgeMark"
     /// 1.0 — show the whole ember. Lockstep with `shared/aria-mark.json`.
-    static let cropScale: CGFloat = 1.0
+    static let cropScale: CGFloat = 1.0 // generic mark — no ARIA-specific crop
     static let heroMinimumSize: CGFloat = 90
 
     static func shouldPlay(
