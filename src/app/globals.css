@@ -190,6 +190,55 @@
   animation: aria-orb-breathe 1.15s ease-in-out infinite;
 }
 
+/* Living ARIA ember — friendly pulse, iridescent shimmer, soft lobe stretch. */
+@keyframes aria-mark-live {
+  0%,
+  100% {
+    transform: scale(1) scaleX(1) scaleY(1);
+    filter: hue-rotate(0deg) brightness(1) saturate(1);
+  }
+  40% {
+    transform: scale(1.028) scaleX(1.016) scaleY(0.988);
+    filter: hue-rotate(7deg) brightness(1.055) saturate(1.06);
+  }
+  72% {
+    transform: scale(1.012) scaleX(0.988) scaleY(1.016);
+    filter: hue-rotate(-6deg) brightness(1.02) saturate(1.03);
+  }
+}
+
+@keyframes aria-mark-halo {
+  0%,
+  100% {
+    opacity: 0.22;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(1.04);
+  }
+}
+
+.aria-mark {
+  animation: aria-mark-live 3.57s ease-in-out infinite;
+  transform-origin: center center;
+  user-select: none;
+}
+
+.aria-mark-speak {
+  animation-name: aria-mark-live;
+}
+
+.aria-mark-glow {
+  background: radial-gradient(
+    circle at 50% 48%,
+    rgba(255, 106, 26, 0.32) 0%,
+    rgba(62, 200, 200, 0.1) 42%,
+    transparent 70%
+  );
+  animation: aria-mark-halo 3.57s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -198,6 +247,14 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .aria-mark,
+  .aria-mark-speak,
+  .aria-mark-glow {
+    animation: none !important;
+    filter: none;
+    transform: none;
   }
 }
 
