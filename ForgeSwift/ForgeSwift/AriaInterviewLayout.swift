@@ -90,23 +90,17 @@ struct AriaInterviewLayout: View {
                     coordinator.replayLastAriaLine()
                 } label: {
                     ZStack {
-                        if dictation.isListening || presence.isSpeaking || coordinator.isTyping {
-                            Circle()
-                                .fill(coordinator.ariaMood.accentColor.opacity(0.28))
-                                .frame(width: 72, height: 72)
-                                .blur(radius: 12)
-                        }
                         AuroraOrbView(
                             state: dictation.isListening ? .listening : coordinator.ariaOrbState,
                             amplitude: dictation.isListening
                                 ? dictation.amplitude
                                 : (presence.isSpeaking ? 0.7 : 0.28),
                             mood: coordinator.ariaMood,
-                            size: 58,
+                            size: 64,
                             followPresence: true
                         )
                     }
-                    .frame(width: 62, height: 62)
+                    .frame(width: 68, height: 68)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Replay ARIA")

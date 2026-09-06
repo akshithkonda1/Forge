@@ -52,9 +52,9 @@ struct ForgeSplashScreen: View {
 
             RadialGradient(
                 colors: [
-                    Color.ember.opacity(0.10 * glowIntensity),
-                    Color(hex: "7B61FF").opacity(0.06 * glowIntensity),
-                    Color.aurora.opacity(0.03 * glowIntensity),
+                    Color(hex: AriaSigilPalette.goldHex).opacity(0.08 * glowIntensity),
+                    Color(hex: AriaSigilPalette.bloodHex).opacity(0.06 * glowIntensity),
+                    Color(hex: AriaSigilPalette.voidMidHex).opacity(0.4 * glowIntensity),
                     .clear
                 ],
                 center: .center,
@@ -73,7 +73,7 @@ struct ForgeSplashScreen: View {
                 )
                     .scaleEffect(logoScale)
                     .opacity(logoOpacity)
-                    .shadow(color: Color.ember.opacity(0.35 * glowIntensity), radius: 48, y: 8)
+                    .shadow(color: Color(hex: AriaSigilPalette.goldHex).opacity(0.22 * glowIntensity), radius: 36, y: 6)
 
                 VStack(spacing: 10) {
                     Text("FORGE")
@@ -396,29 +396,14 @@ struct ARIATabButton: View {
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    (isVoiceMode ? Color.steel : Color.ember).opacity(isActive ? 0.3 : 0.14),
-                                    (isVoiceMode ? Color(hex: "00D2FF") : Color.ember).opacity(0.04),
+                                    Color(hex: AriaSigilPalette.goldHex).opacity(isActive ? 0.16 : 0.07),
+                                    Color(hex: AriaSigilPalette.bloodHex).opacity(0.10),
                                     .clear
                                 ],
                                 center: .center,
-                                startRadius: 10,
-                                endRadius: 32
+                                startRadius: 8,
+                                endRadius: 30
                             )
-                        )
-                        .frame(width: 56, height: 56)
-                        .shadow(color: (isVoiceMode ? Color.steel : Color.ember).opacity(isActive ? 0.55 : 0.22), radius: 14, y: 4)
-                    Circle()
-                        .stroke(
-                            AngularGradient(
-                                colors: [
-                                    (isVoiceMode ? Color.steelLight : Color.emberLight).opacity(0.6),
-                                    (isVoiceMode ? Color(hex: "00D2FF") : Color(hex: "FF2D55")).opacity(0.2),
-                                    (isVoiceMode ? Color.steel : Color.ember).opacity(0.4),
-                                    .clear
-                                ],
-                                center: .center
-                            ),
-                            lineWidth: 1.2
                         )
                         .frame(width: 56, height: 56)
                     ARIAIdentityMark(

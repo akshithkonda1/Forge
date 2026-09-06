@@ -5,7 +5,6 @@ struct ChatHeaderView: View {
     @ObservedObject private var ariaService = AriaService.shared
     let mood:              ARIAMood
     var onAvatarLongPress: (() -> Void)? = nil
-    @State private var pulse        = false
     @State private var appeared     = false
 
     private var scoreColor: Color {
@@ -18,24 +17,8 @@ struct ChatHeaderView: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            ZStack(alignment: .bottomTrailing) {
-                ARIAIdentityMark(state: .idle, mood: mood, size: 44, amplitude: 0.2)
-
-                // Presence pulse around the live orb
-                ZStack {
-                    Circle().fill(Color(hex: "080808")).frame(width: 14, height: 14)
-                    Circle().fill(Color(hex: "22C55E")).frame(width: 9, height: 9)
-                        .shadow(color: Color(hex: "22C55E").opacity(0.7), radius: 3)
-                    Circle().fill(Color(hex: "22C55E").opacity(0.4))
-                        .frame(width: 9, height: 9)
-                        .scaleEffect(pulse ? 2.0 : 1.0)
-                        .opacity(pulse ? 0 : 0.7)
-                        .animation(.easeOut(duration: 1.8).repeatForever(autoreverses: false), value: pulse)
-                }
-                .offset(x: 3, y: 3)
-            }
-            .onAppear { pulse = true }
+            HStack(spacing: 12) {
+            ARIAIdentityMark(state: .idle, mood: mood, size: 44, amplitude: 0.2)
             .onLongPressGesture(minimumDuration: 0.45) {
                 choreographedHaptic(.reactionAdded)
                 onAvatarLongPress?()
@@ -79,7 +62,7 @@ struct ChatHeaderView: View {
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(Color.ember.opacity(0.8))
                     } else {
-                        Circle().fill(Color(hex: "22C55E")).frame(width: 5, height: 5)
+                        Circle().fill(Color(hex: AriaSigilPalette.goldHex)).frame(width: 5, height: 5)
                         Text(headerStatusLine)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.textSecondary)

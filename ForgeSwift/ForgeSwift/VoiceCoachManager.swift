@@ -17,7 +17,7 @@ final class VoiceCoachManager: NSObject {
     var lastCoachMessage: String = ""
     var transcribedText: String = ""
     var error: String? = nil
-    var isVoiceEnabled: Bool = true
+    var isVoiceEnabled: Bool = AriaTrainVoice.isEnabled
     
     // MARK: - Private
     
@@ -62,32 +62,38 @@ final class VoiceCoachManager: NSObject {
     
     /// Speak a proactive message at a key workout moment
     func announceWorkoutStart() {
-        let msg = "Let's go. \(workoutContext.workoutName). First up — \(workoutContext.exerciseName). \(workoutContext.sets) sets of \(workoutContext.reps) at \(workoutContext.weight). Lock in."
+        var msg = workoutContext.workoutName.isEmpty
+            ? "First up is \(workoutContext.exerciseName)."
+            : "\(workoutContext.workoutName). First up is \(workoutContext.exerciseName)."
+        if workoutContext.sets > 0 {
+            msg += " \(workoutContext.sets) sets"
+            if !workoutContext.reps.isEmpty { msg += " of \(workoutContext.reps)" }
+            if !workoutContext.weight.isEmpty { msg += " at \(workoutContext.weight)" }
+            msg += "."
+        }
         speak(msg)
     }
     
     func announceSetComplete(setNumber: Int, totalSets: Int, restSeconds: Int) {
         let isLast = setNumber >= totalSets
         if isLast {
-            let msg = "Set \(setNumber) done. Moving on. Rest up."
-            speak(msg)
+            speak("Last set's done. Rest up.")
         } else {
             let remaining = totalSets - setNumber
-            let msg = "Set \(setNumber) down, \(remaining) to go. \(restSeconds) seconds."
-            speak(msg)
+            speak("Set \(setNumber) down. \(remaining) to go. \(restSeconds) seconds.")
         }
     }
     
     func announceRestOver(nextExerciseName: String) {
-        speak("Rest over. \(nextExerciseName) — let's go.")
+        speak("Rest's over. \(nextExerciseName) next.")
     }
     
     func announceWorkoutComplete(duration: String, calories: Int) {
-        speak("That's a wrap. \(duration) of work, \(calories) calories burned. Well done.")
+        speak("That's a wrap. \(duration) of work, \(calories) calories. Nice work.")
     }
     
     func announceHRWarning(hr: Int) {
-        speak("Heart rate at \(hr). Take an extra 30 seconds before the next set.")
+        speak("Heart rate's at \(hr). Take an extra thirty seconds.")
     }
     
     /// Start listening for user voice input
@@ -139,11 +145,24 @@ final class VoiceCoachManager: NSObject {
     }
     
     func toggleVoice() {
-        isVoiceEnabled.toggle()
-        if !isVoiceEnabled {
-            stopListening()
-            speechSynthesizer.stopSpeaking(at: .immediate)
-        }
+        setVoiceEnabled(!isVoiceEnabled)
+    }
+
+    func setVoiceEnabled(_ enabled: Bool) {
+        isVoiceEnabled = enabled
+        AriaTrainVoice.isEnabled = enabled
+        if !enabled { silence() }
+    }
+
+    func interruptSpeech() {
+        speechSynthesizer.stopSpeaking(at: .immediate)
+        isSpeaking = false
+        AriaPresence.shared.markSpeaking(false)
+    }
+
+    func silence() {
+        stopListening()
+        interruptSpeech()
     }
     
     func clearHistory() {
@@ -226,28 +245,14 @@ final class VoiceCoachManager: NSObject {
     
     private func speak(_ text: String) {
         guard isVoiceEnabled else { return }
-        
-        // Don't interrupt — queue it
-        if speechSynthesizer.isSpeaking {
-            speechSynthesizer.stopSpeaking(at: .word)
-        }
-        
         lastCoachMessage = text
-        
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = 0.52          // Slightly faster than default — confident, not robotic
-        utterance.pitchMultiplier = 0.95
-        utterance.volume = 1.0
-        utterance.preUtteranceDelay = 0.1
-        
-        // Pause music/audio ducking
-        try? AVAudioSession.sharedInstance().setCategory(
-            .playback,
-            options: [.duckOthers, .allowBluetoothA2DP]
+        let started = AriaSpeechPrep.enqueue(
+            text,
+            on: speechSynthesizer,
+            interrupt: true,
+            stopAt: .word
         )
-        
-        speechSynthesizer.speak(utterance)
+        guard started else { return }
         isSpeaking = true
         AriaPresence.shared.markSpeaking(true)
     }
@@ -334,14 +339,22 @@ final class VoiceCoachManager: NSObject {
 extension VoiceCoachManager: AVSpeechSynthesizerDelegate {
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         Task { @MainActor in
+            guard !self.speechSynthesizer.isSpeaking else { return }
             self.isSpeaking = false
             AriaPresence.shared.markSpeaking(false)
-            // Restore audio session for recording after speaking
             try? AVAudioSession.sharedInstance().setCategory(
                 .playAndRecord,
                 mode: .default,
                 options: [.defaultToSpeaker, .allowBluetoothA2DP, .duckOthers]
             )
+        }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        Task { @MainActor in
+            guard !self.speechSynthesizer.isSpeaking else { return }
+            self.isSpeaking = false
+            AriaPresence.shared.markSpeaking(false)
         }
     }
 }
