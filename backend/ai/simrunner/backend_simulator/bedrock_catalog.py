@@ -105,17 +105,9 @@ _CATALOG: list[tuple] = [
     ("ai21.jamba-instruct-v1:0", "ai21", "jamba", "balanced", "text", 256000),
     # DeepSeek
     ("deepseek.r1-v1:0", "deepseek", "deepseek", "reasoning", "text", 128000),
-    # Moonshot / Kimi (text) — this is the id ai_router.py actually calls
-    # (AI_ROUTER_MODEL_3_ID). The catalog previously carried three
-    # `moonshot.kimi-*-v1:0` entries under the wrong vendor prefix, none of which
-    # the router has ever asked for, so SimRunner's verdicts were being formed
-    # against a model production does not use.
-    ("moonshotai.kimi-k2.5", "moonshotai", "kimi", "frontier", "text", 128000),
-    # xAI — not in the router's default slots today, but the catalog is a list of
-    # what Bedrock offers rather than of what Forge currently routes to (Cohere,
-    # AI21, Writer and the rest are all here on the same basis), and slotting Grok
-    # in is live work. Whether it answers the native Converse operation at all is
-    # unverified — see the caveat in ai_router.py.
+    # xAI — Grok is the id ai_router.py actually calls for the third router slot
+    # (AI_ROUTER_MODEL_3_ID). ARIA's standing ensemble is the Claude family plus
+    # Grok; there is no third vendor.
     ("global.xai.grok-4.6", "xai", "grok", "frontier", "text", 256000),
     # Stability (image)
     ("stability.stable-image-ultra-v1:0", "stability", "stable-image", "image", "image", None),
