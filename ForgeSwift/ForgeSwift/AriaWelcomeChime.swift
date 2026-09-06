@@ -1,8 +1,8 @@
 import AVFoundation
 import CoreGraphics
 
-/// Welcome arrive-sound and the fluid-ember mark contract.
-/// The mark is the gooey blob itself — no ring, no glass frame to crop past.
+/// Welcome arrive-sound and the 4-lobe ember mark contract.
+/// Aspect-fit only — never crop past a ring or stretch into a circle.
 /// Pure gates so tests can lock quiet mode and Reduce Motion without audio.
 enum AriaWelcomeChime: Sendable {
     static let assetName = "AriaLogo"

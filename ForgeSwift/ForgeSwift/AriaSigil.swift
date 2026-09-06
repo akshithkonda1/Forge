@@ -1,26 +1,23 @@
 import Foundation
 
 /// Living motion for ARIA's fluid ember mark.
-/// Adaptive Recovery Interactive Assistant — friendly, warm, approachable.
-/// Numbers lock to `shared/aria-mark.json`. Pure so tests can freeze
-/// Reduce Motion without a TimelineView.
+/// Uniform scale only — never stretch. Numbers lock to `shared/aria-mark.json`.
 enum AriaSigilGeometry: Sendable {
 
     /// Frozen phase for Reduce Motion and snapshots.
     static let stillPose: Double = 1.72
 
-    static let idleBreathHz: Double = 0.28
-    static let listeningBreathHz: Double = 0.42
-    static let processingBreathHz: Double = 0.52
-    static let speakingBreathHz: Double = 0.38
+    static let idleBreathHz: Double = 0.45
+    static let listeningBreathHz: Double = 0.58
+    static let processingBreathHz: Double = 0.7
+    static let speakingBreathHz: Double = 0.62
 
-    /// Soft iridescent wander. Stay well under carnival territory.
-    static let maxHueDegrees: Double = 7
-    /// Gentle lobe stretch — a breath, not a wobble.
-    static let maxEdgeUndulation: Double = 0.016
-    static let breathScale: Double = 0.028
-    /// Orange-core brightness pulse.
-    static let corePulseAmount: Double = 0.035
+    static let maxHueDegrees: Double = 12
+    /// Always 0 — nonuniform lobe stretch is what made the mark look melted.
+    static let maxEdgeUndulation: Double = 0
+    /// 1.0 ↔ 1.04 uniform breath.
+    static let breathScale: Double = 0.04
+    static let corePulseAmount: Double = 0.1
 
     static func breathHz(for state: AROrbState) -> Double {
         switch state {
@@ -41,9 +38,9 @@ enum AriaSigilGeometry: Sendable {
         let wave = 0.5 + 0.5 * sin(time * breathHz(for: state) * 1.15 * .pi * 2)
         let boost: Double
         switch state {
-        case .speaking: boost = 0.22
-        case .listening: boost = 0.12
-        case .processing: boost = 0.10
+        case .speaking: boost = 0.35
+        case .listening: boost = 0.18
+        case .processing: boost = 0.14
         case .idle: boost = 0
         }
         return wave * corePulseAmount + boost * corePulseAmount
@@ -51,23 +48,20 @@ enum AriaSigilGeometry: Sendable {
 
     static func hueShiftDegrees(time: Double, state: AROrbState, reduceMotion: Bool) -> Double {
         if reduceMotion { return 0 }
-        let wander = sin(time * 0.22 * .pi * 2)
-        return wander * maxHueDegrees
+        return sin(time * 0.35 * .pi * 2) * maxHueDegrees
     }
 
-    static func edgeUndulation(time: Double, reduceMotion: Bool) -> (x: Double, y: Double) {
-        if reduceMotion { return (0, 0) }
-        let x = sin(time * 0.31 * .pi * 2) * maxEdgeUndulation
-        let y = cos(time * 0.27 * .pi * 2) * maxEdgeUndulation
-        return (x, y)
+    static func uniformScale(breath: Double, reduceMotion: Bool) -> Double {
+        if reduceMotion { return 1 }
+        return 1 + breath * breathScale
     }
 
     static func glowOpacity(state: AROrbState, breath: Double) -> Double {
         switch state {
-        case .idle: return 0.34 + breath * 0.10
-        case .listening: return 0.48 + breath * 0.12
-        case .processing: return 0.40 + breath * 0.08
-        case .speaking: return 0.58 + breath * 0.16
+        case .idle: return 0.42 + breath * 0.22
+        case .listening: return 0.55 + breath * 0.2
+        case .processing: return 0.48 + breath * 0.16
+        case .speaking: return 0.66 + breath * 0.24
         }
     }
 }
