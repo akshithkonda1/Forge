@@ -7,6 +7,11 @@ struct CycleRhythmReportView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var window: CycleRhythmReport.Window = .twelve
     @State private var isRefreshing = false
+    @State private var pdfURL: URL?
+    @State private var linkBusy = false
+    @State private var linkURL: URL?
+    @State private var linkError: String?
+    @State private var linkExpires: String?
 
     private var months: [CycleMonthlyDigest] {
         cycleStore.loadRecentMonthlyDigests(windowMonths: window.rawValue)
@@ -24,7 +29,7 @@ struct CycleRhythmReportView: View {
                         Text("Rhythm report")
                             .font(FDS.TypeScale.title(22))
                             .foregroundColor(.textPrimary)
-                        Text("Forge reads what it already wrote to Apple Cycle Tracking, then fills this template on your iPhone. Nothing is stored on Forge servers. Hand it to a gynecologist — not a social feed.")
+                        Text("Forge reads what it already wrote to Apple Cycle Tracking, then fills this template on your iPhone. Share the PDF via Mail, Files, or MyChart. A temporary private link is optional and expires in a day — nothing is stored in a Forge database.")
                             .font(FDS.TypeScale.body(14))
                             .foregroundColor(.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -43,6 +48,7 @@ struct CycleRhythmReportView: View {
                         isRefreshing = true
                         Task {
                             _ = await cycleStore.refreshClinicianReportFromAppleHealth(windowMonths: window.rawValue)
+                            rebuildPDF()
                             isRefreshing = false
                         }
                     } label: {
@@ -76,16 +82,51 @@ struct CycleRhythmReportView: View {
                         .background(Color.surfaceElevated)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                    ShareLink(item: report) {
-                        Label("Share with my clinician", systemImage: "square.and.arrow.up")
-                            .font(FDS.TypeScale.label(15))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color.ember)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    if let pdfURL {
+                        ShareLink(item: pdfURL) {
+                            Label("Share PDF with my clinician", systemImage: "square.and.arrow.up")
+                                .font(FDS.TypeScale.label(15))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Color.ember)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .accessibilityHint("Opens the system share sheet with a PDF. You choose Mail, Files, MyChart, or AirDrop.")
                     }
-                    .accessibilityHint("Opens the system share sheet. You choose who receives this report.")
+
+                    Button {
+                        Task { await mintTemporaryLink() }
+                    } label: {
+                        Label(
+                            linkBusy ? "Minting a 24-hour link…" : "Temporary private link (24h)",
+                            systemImage: "link"
+                        )
+                        .font(FDS.TypeScale.label(14))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.vitality)
+                    .disabled(linkBusy || pdfURL == nil)
+
+                    if let linkURL {
+                        ShareLink(item: linkURL) {
+                            Text("Share expiring link")
+                                .font(FDS.TypeScale.label(14))
+                        }
+                        if let linkExpires {
+                            Text("Expires \(linkExpires). Not stored on Forge servers.")
+                                .font(FDS.TypeScale.body(11))
+                                .foregroundColor(.textTertiary)
+                        }
+                    }
+                    if let linkError {
+                        Text(linkError)
+                            .font(FDS.TypeScale.body(12))
+                            .foregroundColor(.ember)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .padding(20)
             }
@@ -97,8 +138,47 @@ struct CycleRhythmReportView: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .onAppear { rebuildPDF() }
+            .onChange(of: window) { _, _ in rebuildPDF() }
         }
         .preferredColorScheme(.dark)
+    }
+
+    private func rebuildPDF() {
+        let dayKey = CycleDayKey.key()
+        let title = "FORGE — \(window.rawValue)-MONTH TRACKING SUMMARY"
+        pdfURL = try? CycleReportPDF.writeTemporaryPDF(
+            windowMonths: window.rawValue,
+            dayKey: dayKey,
+            title: title,
+            body: report
+        )
+        linkURL = nil
+        linkError = nil
+        linkExpires = nil
+    }
+
+    private func mintTemporaryLink() async {
+        guard let pdfURL, let data = try? Data(contentsOf: pdfURL) else {
+            linkError = "Could not build the PDF on this iPhone."
+            return
+        }
+        linkBusy = true
+        linkError = nil
+        defer { linkBusy = false }
+        do {
+            let ticket = try await CycleReportUploadClient.requestTicket(
+                byteLength: data.count,
+                windowMonths: window.rawValue
+            )
+            try await CycleReportUploadClient.upload(pdf: data, ticket: ticket)
+            linkURL = ticket.getUrl
+            linkExpires = ticket.expiresAt
+        } catch is ForgeAPI.Failure {
+            linkError = "Share the PDF from this iPhone — a cloud link needs sign-in and is optional."
+        } catch {
+            linkError = "Share the PDF from this iPhone — a cloud link is optional and wasn’t available."
+        }
     }
 
     private var overviewChips: some View {

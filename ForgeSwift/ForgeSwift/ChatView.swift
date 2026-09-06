@@ -224,6 +224,9 @@ struct ChatView: View {
         .onChange(of: store.ariaPendingChatPrompt) { _, _ in
             tryConsumeHandoff()
         }
+        .onChange(of: store.pendingIntimacySession) { _, _ in
+            tryConsumeHandoff()
+        }
         .onChange(of: store.ariaVoiceLaunch) { _, _ in
             tryConsumeHandoff()
         }
@@ -255,19 +258,32 @@ struct ChatView: View {
 
     /// Home / tab → chat bridge (prompt + optional one-shot voice orb).
     private func tryConsumeHandoff() {
-        guard store.ariaPendingChatPrompt != nil || store.ariaVoiceLaunch else { return }
+        guard store.ariaPendingChatPrompt != nil
+                || store.ariaVoiceLaunch
+                || store.pendingIntimacySession != nil else { return }
         consumePendingHomeHandoff()
     }
 
     private func consumePendingHomeHandoff() {
         let result = ARIAChatHandoff.consume(
-            .init(pendingPrompt: store.ariaPendingChatPrompt, voiceLaunch: store.ariaVoiceLaunch)
+            .init(
+                pendingPrompt: store.ariaPendingChatPrompt,
+                voiceLaunch: store.ariaVoiceLaunch,
+                intimacySession: store.pendingIntimacySession
+            )
         )
         store.ariaPendingChatPrompt = nil
         store.ariaVoiceLaunch = false
+        store.pendingIntimacySession = nil
 
         if result.startVoice {
             startVoiceCapture()
+        }
+
+        if let session = result.intimacySession {
+            store.seedIntimacyConversation(session)
+            showQuickActions = true
+            return
         }
 
         if let prompt = result.prompt {

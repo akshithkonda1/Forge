@@ -136,6 +136,8 @@ final class AppStore: ObservableObject {
     /// after consume so a sticky Voice tab does not re-listen on every visit.
     @Published var ariaVoiceLaunch: Bool = false
     @Published var ariaPendingChatPrompt: String? = nil
+    /// Cycle intimacy CTA → seeded ARIA conversation (user opener + ARIA opening).
+    @Published var pendingIntimacySession: IntimacyChatSession? = nil
     @Published var lastSuggestedActions: [String] = []
     @Published var healthKitLive: Bool = false
     /// Last successful metrics refresh (Home status pill).

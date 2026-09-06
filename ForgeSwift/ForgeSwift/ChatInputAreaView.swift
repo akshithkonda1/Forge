@@ -130,7 +130,7 @@ struct ChatInputAreaView: View {
                 CoachAgentChipRow()
             }
 
-            if store.isInAriaFirstBond, !store.lastSuggestedActions.isEmpty {
+            if !store.lastSuggestedActions.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 9) {
                         ForEach(store.lastSuggestedActions, id: \.self) { label in

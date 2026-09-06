@@ -120,6 +120,8 @@ public struct FakeHealthDay: Sendable, Equatable {
     public var felt: String
     /// One human sentence that ties the evening, the night, and the body together.
     public var storyLine: String
+    /// Cycle overlay for this calendar day — flow, BBT, OPK, mucus, pain.
+    public var cycle: FakeCycleDayFacts?
 
     public init(
         dayStart: Date,
@@ -135,7 +137,8 @@ public struct FakeHealthDay: Sendable, Equatable {
         markers: [FakeLifestyleMarker] = [],
         social: [FakeSocialEvent] = [],
         felt: String = "steady",
-        storyLine: String = ""
+        storyLine: String = "",
+        cycle: FakeCycleDayFacts? = nil
     ) {
         self.dayStart = dayStart
         self.isoDate = isoDate
@@ -151,6 +154,7 @@ public struct FakeHealthDay: Sendable, Equatable {
         self.social = social
         self.felt = felt
         self.storyLine = storyLine
+        self.cycle = cycle
     }
 }
 
@@ -258,6 +262,7 @@ public struct FakeHealthPack: Sendable, Equatable {
                     calendar: calendar,
                     plan: plan,
                     bias: bias,
+                    seed: effectiveSeed,
                     rng: &rng
                 )
             )
@@ -359,6 +364,7 @@ public struct FakeHealthPack: Sendable, Equatable {
         calendar: Calendar,
         plan: DayPlan,
         bias: PersonaBias,
+        seed: Int,
         rng: inout SplitMix64
     ) -> FakeHealthDay {
         let weekday = calendar.component(.weekday, from: dayStart)   // 1 = Sunday
@@ -495,7 +501,8 @@ public struct FakeHealthPack: Sendable, Equatable {
             markers: markers,
             social: social.map { [$0] } ?? [],
             felt: felt,
-            storyLine: storyLine
+            storyLine: storyLine,
+            cycle: FakeCycleOverlay.facts(offsetFromToday: offset, seed: seed)
         )
     }
 

@@ -242,4 +242,17 @@ final class FakeHealthPackTests: XCTestCase {
             }
         }
     }
+
+    func testEveryDayCarriesCycleFactsThatMoveWithSeed() {
+        let a = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 2)
+        let b = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 2)
+        let c = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 3)
+        XCTAssertEqual(a.days.compactMap(\.cycle), b.days.compactMap(\.cycle))
+        XCTAssertEqual(a.today?.cycle?.dayInCycle, FakeCycleOverlay.currentDayInCycle(seed: 2))
+        XCTAssertNotEqual(a.today?.cycle?.dayInCycle, c.today?.cycle?.dayInCycle)
+        XCTAssertTrue(a.days.contains { $0.cycle?.isBleeding == true })
+        XCTAssertTrue(a.days.contains { $0.cycle?.ovulationTest == "lhSurge" })
+        XCTAssertTrue(a.days.contains { $0.cycle?.bbtCelsius != nil })
+        XCTAssertTrue(a.days.contains { ($0.cycle?.painScale ?? 0) >= 6 })
+    }
 }

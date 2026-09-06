@@ -21,6 +21,7 @@ from routes import (
     biometrics,
     chat,
     coach,
+    cycle,
     dashboard,
     devices,
     form_check,
@@ -263,6 +264,10 @@ def _route(event, _context):
             provider = path[len("/integrations/"):-len("/sync")]
             if provider and "/" not in provider:
                 return integrations.handle_post_integration_sync(user_id, provider, body)
+
+        # Apple Cycle PDF: presigned PUT/GET only. No Dynamo. No PDF body in Lambda.
+        if method == "POST" and path == "/cycle/report-upload":
+            return cycle.handle_post_cycle_report_upload(user_id, body)
 
     except RouteError as exc:
         return error_response(exc)
