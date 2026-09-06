@@ -10,6 +10,14 @@ enum AriaCycleTools {
         AriaCoachAgentRouter.isCycleQuery(text)
     }
 
+    struct PeriodSexContext: Equatable {
+        var isBleeding: Bool
+        var flow: MenstrualFlowLevel?
+        var painScale: Int?
+        var symptoms: [CycleSymptom]
+        var dayInCycle: Int?
+    }
+
     static func reportWindowMonths(in text: String) -> Int? {
         let lower = text.lowercased()
         let wantsReport = lower.contains("rhythm report") || lower.contains("clinician")
@@ -37,7 +45,8 @@ enum AriaCycleTools {
         phase: MenstrualPhase,
         relationshipLabel: String?,
         reportText: String?,
-        trainingText: String?
+        trainingText: String?,
+        periodSex: PeriodSexContext? = nil
     ) -> String? {
         let lower = text.lowercased()
         var chunks: [String] = []
@@ -51,6 +60,17 @@ enum AriaCycleTools {
         }
 
         if wantsPeriodSex(lower) {
+            if let periodSex {
+                let eval = SexualHealthCurriculum.periodSexEvaluation(
+                    phase: phase,
+                    isBleeding: periodSex.isBleeding,
+                    flow: periodSex.flow,
+                    painScale: periodSex.painScale,
+                    symptoms: periodSex.symptoms,
+                    dayInCycle: periodSex.dayInCycle
+                )
+                chunks.append(eval.asAriaSpeech)
+            }
             chunks.append(SexualHealthCurriculum.periodSex(phase: phase))
             chunks.append(SexualHealthCurriculum.positionsAndIdeas(for: phase))
         }
@@ -66,6 +86,7 @@ enum AriaCycleTools {
         }
         if wantsDifficultyConceiving(lower) {
             chunks.append(SexualHealthCurriculum.difficultyConceiving())
+            chunks.append(DifficultyConceivingGuide.copy.joined(separator: "\n"))
         } else if wantsTTC(lower) {
             chunks.append(
                 "Trying to conceive is literacy, not a clinic. Time sex you actually want across the days you track — Forge does not diagnose infertility."
@@ -103,12 +124,25 @@ enum AriaCycleTools {
             training = [rx.headline, rx.volumeLine, rx.intensityLine, rx.returnLine, rx.disclaimer]
                 .joined(separator: "\n")
         }
+        var periodCtx: PeriodSexContext?
+        if cycle.settings.enabled {
+            let todayKey = CycleDayKey.key()
+            let today = cycle.logs.first(where: { $0.dayKey == todayKey })
+            periodCtx = PeriodSexContext(
+                isBleeding: cycle.snapshot.isCurrentlyBleeding || (today?.flow.isBleeding ?? false),
+                flow: today?.flow,
+                painScale: today?.painScale,
+                symptoms: today?.symptoms ?? [],
+                dayInCycle: cycle.snapshot.dayInCycle
+            )
+        }
         return compose(
             text: text,
             phase: phase,
             relationshipLabel: role,
             reportText: report,
-            trainingText: training
+            trainingText: training,
+            periodSex: periodCtx
         )
     }
 

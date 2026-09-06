@@ -58,6 +58,34 @@ final class MindfulnessSuggestionEngineTests: XCTestCase {
         XCTAssertEqual(rec.trigger, "post-workout-reset")
     }
 
+    func testElevatedWristTemperatureSuggestsEaseNotDiagnosis() {
+        var ctx = context(hour: 14)
+        ctx.wristTemperatureDeviationC = 0.7
+        let rec = MindfulnessSuggestionEngine.suggest(for: ctx)
+        XCTAssertEqual(rec.trigger, "elevated-temperature")
+        XCTAssertTrue(rec.reason.lowercased().contains("clinician"))
+        XCTAssertFalse(rec.reason.lowercased().contains("you have a fever"))
+    }
+
+    func testPostWorkoutStillWinsOverHighTemperature() {
+        var ctx = context(hour: 14)
+        ctx.hoursSinceLastWorkout = 0.25
+        ctx.bodyTemperatureF = 100.6
+        XCTAssertEqual(
+            MindfulnessSuggestionEngine.suggest(for: ctx).trigger,
+            "post-workout-reset"
+        )
+    }
+
+    func testGreetingMentionsHighWristTemperature() {
+        var ctx = context(hour: 9)
+        ctx.readinessOverall = 70
+        ctx.readinessConfidence = 0.9
+        ctx.wristTemperatureDeviationC = 0.9
+        let line = MindfulnessSuggestionEngine.greeting(for: ctx, userName: "Sam")
+        XCTAssertTrue(line.lowercased().contains("temperature"))
+    }
+
     func testEveningSuggestsWindDown() {
         let rec = MindfulnessSuggestionEngine.suggest(for: context(hour: 21))
         XCTAssertEqual(rec.practice, .windDown)

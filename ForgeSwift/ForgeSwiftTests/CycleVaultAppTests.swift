@@ -91,12 +91,21 @@ final class CycleVaultAppTests: XCTestCase {
             SexualHealthCurriculum.thingsYouCanTry(for: .luteal),
             SexualHealthCurriculum.partnerAndYouTips(roleHint: nil),
             SexualHealthCurriculum.periodSex(phase: .menstruation),
+            SexualHealthCurriculum.periodSexEvaluation(
+                phase: .menstruation,
+                isBleeding: true,
+                flow: .medium,
+                painScale: 3,
+                symptoms: [.cramps],
+                dayInCycle: 2
+            ).asAriaSpeech,
             SexualHealthCurriculum.medicalDisclaimer,
         ].joined(separator: "\n").lowercased()
         XCTAssertTrue(blob.contains("consent"))
         XCTAssertTrue(blob.contains("positions") || blob.contains("side-lying") || blob.contains("spooning"))
         XCTAssertTrue(blob.contains("friend") && blob.contains("help"))
         XCTAssertTrue(blob.contains("not a birth-control") || blob.contains("not an fda"))
+        XCTAssertTrue(blob.contains("you still decide") || blob.contains("still decide"))
         XCTAssertFalse(blob.contains("pearl index"))
         XCTAssertFalse(blob.contains("forge is a contraceptive"))
     }

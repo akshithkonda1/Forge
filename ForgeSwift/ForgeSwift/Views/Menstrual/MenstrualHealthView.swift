@@ -281,8 +281,8 @@ struct MenstrualHealthView: View {
         phaseOrbitCard
         coldStartCard
         quickLogCard
+        sexualHealthCard
         Group {
-            shareSupportCard
             settingsCard
             disclaimerFooter
         }
@@ -334,16 +334,13 @@ struct MenstrualHealthView: View {
         // children, and adding sharing as an eleventh sibling is a compile
         // error with a diagnostic that points nowhere near the real cause.
         Group {
-            shareSupportCard
             settingsCard
             disclaimerFooter
         }
     }
 
-    /// Entry point to partner sharing. Sits below the coaching cards and above
-    /// settings on purpose: sharing your cycle with someone is a considered
-    /// decision, not a toggle you should meet before you have looked at your
-    /// own data.
+    /// Extra care ping for supporters — stays on My cycle because it is about
+    /// *today's* body, not an invite.
     private var extraCareCard: some View {
         let active = cycleStore.settings.extraCareIsActive()
         return Button {
@@ -381,6 +378,8 @@ struct MenstrualHealthView: View {
         }
     }
 
+    /// Invite lives on Support. My cycle is the owner's log — not the place
+    /// you send someone a share.
     private var shareSupportCard: some View {
         Button {
             showSharing = true
@@ -934,26 +933,36 @@ struct MenstrualHealthView: View {
 
     // MARK: Enable self
 
+    private var isCyclePhysiologyProfile: Bool {
+        store.userProfile.biologicalSex?.cycleAutoEnabled == true
+            || store.userProfile.gender == .female
+    }
+
     private var enableCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(Color(hex: "EF4444").opacity(0.15))
+                    .fill(Color(hex: "22C55E").opacity(0.15))
                     .frame(width: 72, height: 72)
-                Image(systemName: "drop.fill")
+                Image(systemName: isCyclePhysiologyProfile ? "drop.fill" : "person.crop.circle.badge.checkmark")
                     .font(.system(size: 28))
-                    .foregroundStyle(Color(hex: "EF4444"))
+                    .foregroundStyle(Color(hex: isCyclePhysiologyProfile ? "EF4444" : "22C55E"))
             }
-            Text("Track with precision")
+            Text(isCyclePhysiologyProfile ? "Track with precision" : "This is my cycle")
                 .font(FDS.TypeScale.title(20))
                 .foregroundColor(.textPrimary)
-            Text("Log flow, symptoms, and optional BBT. ARIA personalizes cycle length, ovulation estimates, and training bias — never medical diagnosis.")
+            Text(isCyclePhysiologyProfile
+                 ? "Log flow, symptoms, and optional BBT. ARIA personalizes cycle length, ovulation estimates, and training bias — never medical diagnosis."
+                 : "Cycle tracking is built for the person whose cycle it is — typically female physiology. You can turn it on anytime if that's you. If you are here to help someone else, stay on Support.")
                 .font(FDS.TypeScale.body(14))
                 .foregroundColor(.textSecondary)
             featureRow("drop.circle.fill", "Period episodes & predictions")
             featureRow("waveform.path.ecg", "Multi-signal confidence + feedback MAE")
             featureRow("sparkles", "Phase-aware ARIA coaching")
             featureRow("lock.shield.fill", CyclePrivacy.shortPromise)
+            if !isCyclePhysiologyProfile {
+                featureRow("checkmark.seal.fill", "Males can opt in at any time — Support stays available")
+            }
 
             Toggle(isOn: $privacyAccepted) {
                 Text("I understand cycle data is for my coaching only — never sold")
@@ -969,11 +978,14 @@ struct MenstrualHealthView: View {
                     $0.shareWithAria = false
                     $0.privacyAcknowledged = true
                 }
+                if !isCyclePhysiologyProfile {
+                    store.userProfile.educationalCycleMode = true
+                }
                 FDS.haptic(.medium)
                 showToast("Cycle tracking on")
                 Task { await cycleStore.syncFromHealthKit() }
             } label: {
-                Text("Enable my cycle")
+                Text(isCyclePhysiologyProfile ? "Enable my cycle" : "Turn on my cycle")
                     .font(FDS.TypeScale.label(16))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -2233,6 +2245,12 @@ struct MenstrualHealthView: View {
             // outranks a guess assembled from manual entries.
             sharedWithMeSection
 
+            shareSupportCard
+
+            if !cycleStore.settings.enabled {
+                myCycleOptInCard
+            }
+
             peopleStrip
 
             if cycleStore.supportedPeople.isEmpty {
@@ -2253,6 +2271,40 @@ struct MenstrualHealthView: View {
                     .foregroundColor(.textTertiary)
             }
         }
+    }
+
+    /// Support is help-someone. My cycle is *this body*. Males can opt in
+    /// anytime without redoing onboarding.
+    private var myCycleOptInCard: some View {
+        Button {
+            pane = .me
+            FDS.selectionHaptic()
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color(hex: "22C55E"))
+                    .frame(width: 30)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("This is my cycle — turn on tracking")
+                        .font(FDS.TypeScale.label(15))
+                        .foregroundColor(.textPrimary)
+                    Text(isCyclePhysiologyProfile
+                         ? "Open My cycle to enable your log."
+                         : "Cycle tracking is for the person whose cycle it is. You can opt in anytime. Support stays here for helping someone else.")
+                        .font(FDS.TypeScale.body(12))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.textTertiary)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .forgeGlassCard(accent: Color(hex: "22C55E"))
+        }
+        .buttonStyle(.plain)
     }
 
     /// Partner, daughter, sister — each is a chip, not a rewrite of the last one.

@@ -370,6 +370,27 @@ resource "aws_s3_bucket_lifecycle_configuration" "uploads" {
       days_after_initiation = 7
     }
   }
+
+  rule {
+    id     = "expire-cycle-reports"
+    status = "Enabled"
+
+    filter {
+      prefix = "cycle-reports/"
+    }
+
+    expiration {
+      days = 1
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 1
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
+    }
+  }
 }
 
 resource "aws_secretsmanager_secret" "ai_provider" {

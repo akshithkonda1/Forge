@@ -260,6 +260,40 @@ public enum ForgeHealthQueries {
         try await store.save(sample)
     }
 
+    /// Latest logged / sensor body temperature in °F.
+    public static func latestBodyTemperatureFahrenheit(
+        store: HKHealthStore,
+        hoursBack: Double = 24
+    ) async -> (value: Double, date: Date)? {
+        let samples = await quantitySamples(
+            store: store,
+            type: HKQuantityType(.bodyTemperature),
+            start: Date().addingTimeInterval(-hoursBack * 3600),
+            limit: 1,
+            ascending: false
+        )
+        guard let sample = samples.first else { return nil }
+        return (sample.quantity.doubleValue(for: .degreeFahrenheit()), sample.startDate)
+    }
+
+#if os(iOS) || os(watchOS)
+    /// Apple Watch sleeping wrist temperature: deviation from baseline, °C.
+    public static func latestSleepingWristTemperatureDeviationCelsius(
+        store: HKHealthStore,
+        hoursBack: Double = 36
+    ) async -> (value: Double, date: Date)? {
+        let samples = await quantitySamples(
+            store: store,
+            type: HKQuantityType(.appleSleepingWristTemperature),
+            start: Date().addingTimeInterval(-hoursBack * 3600),
+            limit: 1,
+            ascending: false
+        )
+        guard let sample = samples.first else { return nil }
+        return (sample.quantity.doubleValue(for: .degreeCelsius()), sample.startDate)
+    }
+#endif
+
     // MARK: Internals
 
     private static func quantitySamples(

@@ -185,6 +185,11 @@ extension AppStore {
         if let today = pack.today {
             if !today.felt.isEmpty { tags.append("felt:\(today.felt)") }
             if !today.storyLine.isEmpty { tags.append("story:\(today.storyLine)") }
+            if let cycle = today.cycle {
+                tags.append("cycle:phase:\(cycle.phase)")
+                tags.append("cycle:day:\(cycle.dayInCycle)")
+                if cycle.isBleeding { tags.append("cycle:bleeding") }
+            }
         }
 
         // Last night is the one the user is living in right now, so it gets to

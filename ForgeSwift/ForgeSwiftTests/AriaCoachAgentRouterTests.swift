@@ -339,6 +339,7 @@ final class ARIAChatHandoffTests: XCTestCase {
         XCTAssertNil(result.prompt)
         XCTAssertFalse(result.startVoice)
         XCTAssertFalse(result.autoSend)
+        XCTAssertNil(result.intimacySession)
     }
 
     @MainActor

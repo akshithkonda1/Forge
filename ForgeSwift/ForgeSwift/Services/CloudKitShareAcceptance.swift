@@ -135,6 +135,11 @@ final class ForgeAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificatio
            let url = URL(string: destination ?? ForgeWidgetLink.support.absoluteString) {
             NotificationCenter.default.post(name: ForgeAppDelegate.openURLNotification, object: url)
         }
+        if id.hasPrefix("forge.notif.aria.risk")
+            || destination == AriaHealthRiskBridge.destination,
+           let url = URL(string: destination ?? AriaHealthRiskBridge.destination) {
+            NotificationCenter.default.post(name: ForgeAppDelegate.openURLNotification, object: url)
+        }
     }
 
     /// The silent push a `CKDatabaseSubscription` sends when the owner writes a
