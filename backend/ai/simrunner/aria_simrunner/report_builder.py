@@ -45,6 +45,7 @@ def build_narrative(
     engine_model: str = "stub",
     diagnostic=None,
     multiseed: dict | None = None,
+    config_report: dict | None = None,
 ) -> str:
     d = stability.dimension_averages
     lines: list[str] = []
@@ -57,6 +58,18 @@ def build_narrative(
     add(f"Run Date: {timestamp}")
     add(f"Total Evaluations: {stability.total_runs}")
     add("")
+
+    if config_report is not None:
+        add("━━━ REAL CONFIGURATION (backend/infra Terraform) ━━━")
+        bedrock_enabled = config_report["aria_bedrock_enabled"]
+        add(f"  aria_bedrock_enabled: {bedrock_enabled['value']} (source: {bedrock_enabled['source']})")
+        add(f"  POST /ai/chat calls live Bedrock: {config_report['bedrock_live_for_chat']}")
+        if not config_report["bedrock_live_for_chat"]:
+            add("  NOTE: this run tests MODEL CAPABILITY, not current production /ai/chat")
+            add("  behavior — the real deployed endpoint would serve the deterministic")
+            add("  engine only in this configuration.")
+        add("")
+
     add(f"OVERALL GRADE: {stability.overall_grade}")
     add(f"Composite Score: {stability.overall_composite}/100")
     add("")
@@ -178,6 +191,7 @@ def build_json(
     engine_model: str = "stub",
     diagnostic=None,
     multiseed: dict | None = None,
+    config_report: dict | None = None,
 ) -> dict:
     return {
         "model": {
@@ -205,6 +219,7 @@ def build_json(
         "diagnostics": diagnostic.to_dict() if diagnostic is not None else None,
         "multiseed": _multiseed_json(multiseed),
         "evaluations": [asdict(r) for r in results],
+        "live_config_check": config_report,
     }
 
 
@@ -225,6 +240,7 @@ def save_reports(
     engine_model: str = "stub",
     diagnostic=None,
     multiseed: dict | None = None,
+    config_report: dict | None = None,
 ) -> list[str]:
     os.makedirs(out_dir, exist_ok=True)
     timestamp = _timestamp()
@@ -234,12 +250,14 @@ def save_reports(
     if report_format in ("text", "both"):
         path = stem + ".txt"
         with open(path, "w", encoding="utf-8") as fh:
-            fh.write(build_narrative(model, stability, determinism, timestamp, engine_model, diagnostic, multiseed))
+            fh.write(build_narrative(model, stability, determinism, timestamp, engine_model,
+                                      diagnostic, multiseed, config_report))
         written.append(path)
     if report_format in ("json", "both"):
         path = stem + ".json"
         with open(path, "w", encoding="utf-8") as fh:
-            json.dump(build_json(model, stability, determinism, results, timestamp, engine_model, diagnostic, multiseed),
+            json.dump(build_json(model, stability, determinism, results, timestamp, engine_model,
+                                  diagnostic, multiseed, config_report),
                       fh, indent=2, default=str)
         written.append(path)
     return written
@@ -365,7 +383,7 @@ def print_matrix_diagnostics(diag: dict) -> None:
             print(f"    · {p['pattern']}  (×{p['count']})")
 
 
-def save_combined_summary(summaries: list[dict], out_dir: str) -> str:
+def save_combined_summary(summaries: list[dict], out_dir: str, config_report: dict | None = None) -> str:
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, "_combined_summary.json")
     payload = {
@@ -377,6 +395,8 @@ def save_combined_summary(summaries: list[dict], out_dir: str) -> str:
     # --matrix / --matrix-bedrock produce a clear per-archetype gate board.
     if len(summaries) > 1:
         payload["matrix_diagnostics"] = matrix_diagnostics(summaries)
+    if config_report is not None:
+        payload["live_config_check"] = config_report
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2, default=str)
     return path

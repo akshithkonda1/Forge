@@ -9,14 +9,15 @@ import Foundation
 /// being a tangle.
 enum AriaOperatingMode {
 
-    /// Everything runs on this device. No `URLSession`, no model, no cloud —
-    /// `LocalTestingOrchestrator` answers from `RuleBasedResponseGenerator` and
-    /// `AriaVoiceEngine`, the same two pieces that already back offline mode.
+    /// Everything runs on this device. HealthKit / wearables are read here.
+    /// Claude and Grok are the only off-device intelligence, and they never
+    /// receive the HealthKit warehouse — `LocalTestingOrchestrator` answers
+    /// from on-device generators and tools.
     case localTesting
 
-    /// The real thing: `AriaService.postChat` against the deployed backend,
-    /// with local generation kept as the offline fallback it was always meant
-    /// to be.
+    /// Claude / Grok via `AriaService.postChat`. Health samples still stay on
+    /// this iPhone (`AriaOnDeviceHealthPolicy`). Local generation remains the
+    /// offline fallback.
     case liveBackend
 
     /// Swap to `.liveBackend` once auth is trusted end to end — sign-in now

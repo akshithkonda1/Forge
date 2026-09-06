@@ -192,6 +192,18 @@ public struct PartnerInvitePayload: Codable, Equatable, Sendable {
         effectiveStatus.isActionable ? "Tap to see what you'd see" : effectiveStatus.caption
     }
 
+    /// Support invites are iMessage-on-iPhone only. An SMS, email, or pasted
+    /// CloudKit URL is not a valid access path — the share is staged for the
+    /// Forge Messages extension, which SMS cannot carry.
+    public var iMessageOnly: Bool { true }
+    public var smsAccessIsValid: Bool { false }
+
+    /// Copy for any non-iMessage path. Deliberately omits `shareURL` so a
+    /// lock-screen SMS cannot redeem the invite.
+    public var fallbackMessageBody: String {
+        "\(fromDisplayName) sent a Forge support invite. It only works in iMessage on iPhone — open Forge in Messages. SMS is not valid access."
+    }
+
     /// `status` with expiry applied. The sender's device sets `.pending` and then
     /// may never run again, so a bubble that trusted the stored value alone would
     /// keep offering a dead invite indefinitely.

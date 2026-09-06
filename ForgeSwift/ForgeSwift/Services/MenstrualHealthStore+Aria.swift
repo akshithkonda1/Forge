@@ -64,8 +64,23 @@ extension MenstrualHealthStore {
             evaluation: lastEvaluation,
             settings: settings,
             lastAction: nil,
-            isPartner: isPartner
+            isPartner: isPartner,
+            preferLighterTraining: coachingPreferences.preferLighterTraining,
+            recoveryBias: coachingPreferences.recoveryBias
         )
         return CycleAriaAnalyst.chatPrompt(context: ctx, evaluation: lastEvaluation)
+    }
+
+    var trainingPrescription: CycleTrainingPrescription {
+        CycleGoalCoach.prescribe(
+            goal: settings.lifestyleGoal,
+            phaseRaw: snapshot.phase.rawValue,
+            isBleeding: snapshot.isCurrentlyBleeding || snapshot.stage == .period,
+            periodFinishedRecently: snapshot.stage == .postPeriod,
+            preferLighterTraining: coachingPreferences.preferLighterTraining,
+            recoveryBias: coachingPreferences.recoveryBias,
+            highAccuracy: settings.highAccuracyMode,
+            periodStyle: settings.periodTrainingStyle
+        )
     }
 }

@@ -53,6 +53,7 @@ let package = Package(
                 "Models/LifestyleContext.swift",
                 "Models/MindfulnessPractice.swift",
                 "Models/PartnerInvitePayload.swift",
+                "Models/CycleRhythmModels.swift",
                 "Models/SupportedPersonMatch.swift",
                 "Models/Readiness.swift",
                 "Models/SleepModels.swift",
@@ -62,6 +63,7 @@ let package = Package(
                 "Auth/ForgeAuthModels.swift",
                 "Security/SecureStore.swift",
                 "Security/SecureStoreMigration.swift",
+                "Security/CycleVault.swift",
                 "Utils/CompanionConfig.swift",
                 "Utils/PublishGate.swift",
                 "Utils/WatchSnapshotStore.swift",
@@ -76,6 +78,7 @@ let package = Package(
             // Explicit sources only — never pick up Finder " 2.swift" duplicates.
             sources: [
                 "CircadianRhythmTests.swift",
+                "CycleVaultTests.swift",
                 "CompanionConfigTests.swift",
                 "ContextRulesTests.swift",
                 "HealthDeviceCatalogTests.swift",

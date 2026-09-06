@@ -161,14 +161,11 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
     }
 
     private func isCycleQuery(_ text: String) -> Bool {
-        text.contains("period") || text.contains("menstrual") || text.contains("cycle day")
-            || text.contains("luteal") || text.contains("follicular") || text.contains("ovulat")
-            || text.contains("pms") || text.contains("cramp") || text.contains("my cycle")
-            || text.contains("time of the month")
+        AriaCoachAgentRouter.isCycleQuery(text)
+            || text.contains("period") || text.contains("menstrual") || text.contains("cycle day")
             || text.contains("partner cycle") || text.contains("her period") || text.contains("her cycle")
             || text.contains("girlfriend") || text.contains("wife") || text.contains("my partner")
-            || text.contains("support her") || text.contains("sync with") || text.contains("her pms")
-            || text.contains("date night") && (text.contains("cycle") || text.contains("period"))
+            || text.contains("support her") || text.contains("her pms")
     }
 
     private func isPartnerCycleQuery(_ text: String) -> Bool {
@@ -423,6 +420,20 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         }
 
         guard let cycle = context.cycleSnapshot, cycle.trackingEnabled else {
+            if AriaCycleTools.shouldHandle(input),
+               let intimacy = AriaCycleTools.compose(
+                text: input,
+                phase: .unknown,
+                relationshipLabel: nil,
+                reportText: nil,
+                trainingText: nil
+               ) {
+                return TrainerResponse(
+                    content: intimacy,
+                    suggestedActions: ["Healthy & safe sex", "Positions to try", "Tips for a partner"],
+                    confidence: 0.86
+                )
+            }
             let msg = """
             I can coach around your cycle once tracking is on — open Cycle Health to log periods, BBT, and OPKs, or sync Apple Health.
 
@@ -466,7 +477,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
 
         return TrainerResponse(
             content: lines.joined(separator: "\n\n"),
-            suggestedActions: ["Build a phase-aware workout", "Log period start", "Explain fertile window"],
+            suggestedActions: ["Healthy & safe sex", "Positions to try", "Log period start"],
             confidence: max(0.85, cycle.confidence)
         )
     }

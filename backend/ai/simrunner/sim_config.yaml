@@ -3,6 +3,8 @@ seed_count: 1                        # >1 enables multi-seed statistical confide
 snapshot_days: [7, 14, 21, 29]      # which days in the 30-day stream to test
 determinism_sample_size: 5           # prompts per tier for the determinism check
 use_real_api: false                  # set true to call the Claude API (costs tokens)
+strict_live: false                   # re-raise instead of silently falling back to the stub on a
+                                      # real-API failure; normally set by --live, not by hand
 gate_max_drop: 3.0                   # --gate fails if a composite regresses more than this many points
 grade_thresholds:
   A_plus: 95

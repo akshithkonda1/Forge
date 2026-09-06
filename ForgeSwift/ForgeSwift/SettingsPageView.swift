@@ -263,13 +263,58 @@ struct SettingsPageView: View {
 
                 // Cycle privacy (Home opens the full Cycle surface)
                 sectionHeader("Cycle privacy")
-                SectionCard {
-                    SettingsRow(
-                        icon: "lock.shield.fill",
-                        iconColor: Color(hex: "22C55E"),
-                        label: "Coaching-only data",
-                        trailingText: MenstrualHealthStore.shared.settings.enabled ? "On" : "Off"
-                    )
+                    SectionCard {
+                    VStack(alignment: .leading, spacing: 0) {
+                        SettingsRow(
+                            icon: "lock.shield.fill",
+                            iconColor: Color(hex: "22C55E"),
+                            label: "Cycle Vault",
+                            trailingText: MenstrualHealthStore.shared.vaultSaveError == nil ? "Sealed" : "Retry"
+                        )
+                        if let err = MenstrualHealthStore.shared.vaultSaveError {
+                            Button {
+                                MenstrualHealthStore.shared.persistVault()
+                            } label: {
+                                Text(err)
+                                    .font(.caption)
+                                    .foregroundColor(Color(hex: "F87171"))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 8)
+                        }
+                    }
+                    Divider().background(Color.borderColor)
+                    VStack(alignment: .leading, spacing: 8) {
+                        SettingsRow(
+                            icon: "eye.slash.fill",
+                            iconColor: .steel,
+                            label: "Discretion mode",
+                            trailingText: MenstrualHealthStore.shared.settings.discretionMode.label
+                        )
+                        Picker("Discretion", selection: Binding(
+                            get: { MenstrualHealthStore.shared.settings.discretionMode },
+                            set: { mode in MenstrualHealthStore.shared.updateSettings { $0.discretionMode = mode } }
+                        )) {
+                            ForEach(CycleDiscretionMode.allCases) { mode in
+                                Text(mode.label).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        Text(MenstrualHealthStore.shared.settings.discretionMode.detail)
+                            .font(.caption)
+                            .foregroundColor(.textTertiary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
+                    Divider().background(Color.borderColor)
+                    SettingsRow(icon: "faceid", iconColor: .ember, label: "Lock Cycle Health") {
+                        ForgeToggle(isOn: Binding(
+                            get: { MenstrualHealthStore.shared.settings.cycleLockEnabled
+                                || MenstrualHealthStore.shared.settings.discretionMode == .stealth },
+                            set: { v in MenstrualHealthStore.shared.updateSettings { $0.cycleLockEnabled = v } }
+                        ))
+                    }
                     Divider().background(Color.borderColor)
                     SettingsRow(
                         icon: "chart.line.uptrend.xyaxis",
@@ -289,8 +334,9 @@ struct SettingsPageView: View {
                             set: { v in MenstrualHealthStore.shared.updateSettings { $0.highAccuracyMode = v } }
                         ))
                     }
+                    Group {
                     Divider().background(Color.borderColor)
-                    SettingsRow(icon: "eye.fill", iconColor: .ember, label: "Share cycle with ARIA") {
+                    SettingsRow(icon: "eye.fill", iconColor: .ember, label: "ARIA reads cycle on this iPhone") {
                         ForgeToggle(isOn: Binding(
                             get: { MenstrualHealthStore.shared.settings.shareWithAria },
                             set: { v in MenstrualHealthStore.shared.updateSettings { $0.shareWithAria = v } }
@@ -309,6 +355,7 @@ struct SettingsPageView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    }
                 }
 
                 // Data & Privacy
@@ -586,7 +633,7 @@ struct SettingsPageView: View {
         .sheet(isPresented: $showLocalPrivacy) {
             NavigationStack {
                 ScrollView {
-                    Text("Forge keeps Apple Health data on this device. ARIA only receives what you allow under Data Permissions. Wearables on the Devices list write to Apple Health through their own iOS apps — Forge reads that ledger, it does not scrape vendor accounts.")
+                    Text("Forge keeps Apple Health data on this device — including Oura, Garmin, Watch, and any other wearable that writes to Apple Health. ARIA reads that ledger here and gives an opinion. Claude and Grok never receive the sample warehouse. Forge account storage is the user record, not your chart.")
                         .font(.system(size: 15))
                         .foregroundColor(.textSecondary)
                         .padding(20)

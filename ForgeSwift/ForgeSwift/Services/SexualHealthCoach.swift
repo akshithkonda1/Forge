@@ -12,15 +12,16 @@ enum SexualHealthCoach {
     /// Nonisolated so privacy/prompt builders can compose it off the main actor.
     nonisolated static let ariaDirective = """
     SEXUAL HEALTH COACHING DOMAIN:
-    All sexual health and contraception responses must be rooted in reproductive biology and \
-    physiology (e.g., LH surge mechanisms, progesterone's role in BBT rise, cervical mucus \
-    changes, Pearl Index effectiveness data). Do not rely on anecdote or general web advice.
+    You coach healthy sex, safe sex, consent, comfort, positions, period sex, \
+    and how a partner can help without becoming a clinician. You may discuss \
+    trying to conceive and difficulty conceiving as literacy. \
+    You must NOT present Forge as contraception, fertility-awareness-as-birth-control, \
+    or an FDA-regulated method. Do not quote Pearl Index as a reason to use this app \
+    to avoid pregnancy. If they ask about birth control, send them to a clinician \
+    and barrier methods / STI protection as education only.
     Always include: "I'm an AI health coach, not a medical professional — consult a doctor or \
     qualified clinician for personal medical advice."
-    Never prescribe a specific contraceptive method without understanding the user's health history.
-    When the user has cycle data, use their specific phase, regularity grade, and accuracy to \
-    personalise advice. For educational (supporter) mode, use physiology-first language that \
-    builds genuine understanding.
+    When the user has cycle data, use their phase for comfort and desire — never to schedule sex they do not want.
     """
 
     // MARK: - Chat Prompt Builders
@@ -45,9 +46,8 @@ enum SexualHealthCoach {
             parts.append("Accuracy grade: \(snap.accuracyGrade)")
         }
 
-        parts.append("\nUSER REQUEST: Provide a contraception overview relevant to my situation.")
-        parts.append("Include: how each main method works biologically, typical vs perfect use effectiveness (Pearl Index), and how each interacts with natural cycle tracking.")
-        parts.append("End with: \"\(SexualHealthCurriculum.medicalDisclaimer)\"")
+        parts.append("\nUSER REQUEST: Help me have healthy, safe sex. Cover consent, STI protection, lube, and how to talk about protection without making it a test.")
+        parts.append("Do not present Forge as birth control. End with: \"\(SexualHealthCurriculum.medicalDisclaimer)\"")
 
         return parts.joined(separator: "\n")
     }
@@ -99,8 +99,7 @@ enum SexualHealthCoach {
         TTC GUIDANCE:
         \(ttcNote)
 
-        USER REQUEST: Help me optimise timing for trying to conceive.
-        Explain the biology of the fertile window, how LH surge timing and BBT confirmation work, and what I can do to improve ovulation detection accuracy.
+        USER REQUEST: Help me try to conceive without turning sex into a chore. Explain timing literacy, then send me to a clinician if it has been a long time. Forge is not a fertility clinic.
         End with: "\(SexualHealthCurriculum.medicalDisclaimer)"
         """
     }
@@ -115,8 +114,74 @@ enum SexualHealthCoach {
         PHYSIOLOGICAL CONTEXT:
         \(wellnessNote)
 
-        USER REQUEST: Tell me about sexual health and wellbeing in my current cycle phase.
-        Ground your response in the hormonal changes happening right now. Cover: energy, mood physiology, libido, and any relevant sexual wellness considerations.
+        USER REQUEST: Sexual health and intimacy in my current cycle phase — comfort, desire, period sex if relevant, positions that tend to feel better, tips for me and for a partner. Not a contraception lecture.
+        End with: "\(SexualHealthCurriculum.medicalDisclaimer)"
+        """
+    }
+
+    static func intimacyPrompt(phase: MenstrualPhase, snapshot: MenstrualCycleSnapshot?) -> String {
+        """
+        \(ariaDirective)
+
+        CURRENT PHASE: \(phase.label)
+        SAFE SEX:
+        \(SexualHealthCurriculum.safeSexBasics())
+        POSITIONS:
+        \(SexualHealthCurriculum.positionsAndIdeas(for: phase))
+        THINGS YOU CAN TRY:
+        \(SexualHealthCurriculum.thingsYouCanTry(for: phase))
+        PERIOD SEX:
+        \(SexualHealthCurriculum.periodSex(phase: phase))
+        YOU + A PARTNER (FRIEND → HELP → INTIMACY):
+        \(SexualHealthCurriculum.partnerAndYouTips(roleHint: nil))
+
+        USER REQUEST: Healthy sex, safe sex, positions, things we can try, and how a partner can help without crossing into interrogation. Take your time. On this iPhone only.
+        End with: "\(SexualHealthCurriculum.medicalDisclaimer)"
+        """
+    }
+
+    static func positionsPrompt(phase: MenstrualPhase) -> String {
+        """
+        \(ariaDirective)
+
+        CURRENT PHASE: \(phase.label)
+        \(SexualHealthCurriculum.positionsAndIdeas(for: phase))
+        \(SexualHealthCurriculum.thingsYouCanTry(for: phase))
+
+        USER REQUEST: Positions and things we can actually try. Comfort first. Optional, not a script.
+        End with: "\(SexualHealthCurriculum.intimacyDisclaimer)"
+        """
+    }
+
+    static func periodSexPrompt(phase: MenstrualPhase) -> String {
+        """
+        \(ariaDirective)
+
+        CURRENT PHASE: \(phase.label)
+        \(SexualHealthCurriculum.periodSex(phase: phase))
+        \(SexualHealthCurriculum.positionsAndIdeas(for: phase))
+
+        USER REQUEST: Sex during a period — mess, comfort, positions, how to talk about it. Optional, never owed.
+        End with: "\(SexualHealthCurriculum.intimacyDisclaimer)"
+        """
+    }
+
+    static func partnerHelpPrompt(phase: MenstrualPhase, relationshipLabel: String?) -> String {
+        """
+        \(ariaDirective)
+        PHASE: \(phase.label)
+        \(SexualHealthCurriculum.partnerAndYouTips(roleHint: relationshipLabel))
+        USER REQUEST: How do I help without being weird — the border between friend and intimate partner.
+        End with: "\(SexualHealthCurriculum.intimacyDisclaimer)"
+        """
+    }
+
+    static func difficultyConceivingPrompt(snapshot: MenstrualCycleSnapshot) -> String {
+        """
+        \(ariaDirective)
+        USER CYCLE CONTEXT: phase=\(snapshot.phase.label), MAD=\(String(format: "%.1f", snapshot.cycleLengthMAD)), accuracy=\(snapshot.accuracyGrade)
+        \(SexualHealthCurriculum.difficultyConceiving())
+        USER REQUEST: We have been trying and it is not happening yet. Literacy only — not a diagnosis.
         End with: "\(SexualHealthCurriculum.medicalDisclaimer)"
         """
     }
@@ -125,12 +190,16 @@ enum SexualHealthCoach {
 
     /// Deterministic summary when ARIA backend is unavailable.
     static func localContraceptionSummary(biologicalSex: BiologicalSex?) -> String {
-        let intro = biologicalSex == .male || biologicalSex == nil
-            ? "Here's a biology-first overview of how contraception works:"
-            : "Here's how the main contraception methods work biologically:"
-        let methods = SexualHealthCurriculum.contraceptionMethods.prefix(4).map { m in
-            "**\(m.name)**: \(m.mechanism) Typical use: \(m.typicalUseEffectiveness)."
-        }.joined(separator: "\n\n")
-        return "\(intro)\n\n\(methods)\n\n\(SexualHealthCurriculum.medicalDisclaimer)"
+        SexualHealthCurriculum.safeSexBasics()
+    }
+
+    static func localIntimacySummary(phase: MenstrualPhase) -> String {
+        [
+            SexualHealthCurriculum.safeSexBasics(),
+            SexualHealthCurriculum.positionsAndIdeas(for: phase),
+            SexualHealthCurriculum.thingsYouCanTry(for: phase),
+            SexualHealthCurriculum.periodSex(phase: phase),
+            SexualHealthCurriculum.partnerAndYouTips(roleHint: nil),
+        ].joined(separator: "\n\n")
     }
 }

@@ -96,6 +96,14 @@ final class AriaCoachAgentRouterTests: XCTestCase {
             AriaCoachAgentRouter.resolve(message: "my period started", context: open),
             .cycle
         )
+        XCTAssertEqual(
+            AriaCoachAgentRouter.resolve(message: "what positions can we try", context: open),
+            .cycle
+        )
+        XCTAssertEqual(
+            AriaCoachAgentRouter.resolve(message: "what should I exercise today", context: open),
+            .workout
+        )
     }
 
     func testPinnedCycleFallsBackWhenNotShared() {
@@ -110,6 +118,8 @@ final class AriaCoachAgentRouterTests: XCTestCase {
         let law = AriaCoachAgent.cycle.localDirective.lowercased()
         XCTAssertTrue(law.contains("never invent fertility"))
         XCTAssertTrue(law.contains("not medical"))
+        XCTAssertTrue(law.contains("this iphone"))
+        XCTAssertTrue(law.contains("not contraception"))
     }
 
     func testMultiIntentSpawnsEveryMatchingAgent() {

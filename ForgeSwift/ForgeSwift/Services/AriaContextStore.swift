@@ -392,6 +392,7 @@ final class AriaContextStore: ObservableObject {
             tags.append("cycle:bleeding")
         }
         tags.append("cycle:goal:\(snap.cycleGoal?.rawValue ?? "general")")
+        tags.append("cycle:lifestyle:\(MenstrualHealthStore.shared.settings.lifestyleGoal.rawValue)")
         if let tww = snap.twwDaysElapsed {
             tags.append("cycle:tww_day:\(tww)")
         }
