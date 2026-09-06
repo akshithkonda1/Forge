@@ -27,10 +27,12 @@ export function AriaMark({
       aria-label={hero ? label ?? "ARIA" : undefined}
       role={hero ? "img" : undefined}
     >
-      <div
-        className="aria-mark-glow pointer-events-none absolute inset-[-18%] rounded-full"
-        style={{ animationDuration: speaking ? `${ARIA_MARK.speakBreathSeconds}s` : `${ARIA_MARK.idleBreathSeconds}s` }}
-      />
+      {size >= 48 && (
+        <div
+          className="aria-mark-glow pointer-events-none absolute inset-[-18%] rounded-full"
+          style={{ animationDuration: speaking ? `${ARIA_MARK.speakBreathSeconds}s` : `${ARIA_MARK.idleBreathSeconds}s` }}
+        />
+      )}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={ARIA_MARK.webPath}
