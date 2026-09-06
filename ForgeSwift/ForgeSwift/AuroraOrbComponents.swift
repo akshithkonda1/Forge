@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Compact ARIA mark for avatars, tabs, and cards.
-/// The fluid ember blob is the identity. Live speech/listen from
+/// The 4-lobe ember is the identity. Live speech/listen from
 /// `AriaPresence` overrides idle so every mark breathes when she talks.
 struct ARIAIdentityMark: View {
     var state: AROrbState = .idle
@@ -31,9 +31,9 @@ struct ARIAIdentityMark: View {
     }
 }
 
-/// The gooey iridescent ember — photo only, no ring, no glass frame.
-/// SwiftUI breathes the orange core, shifts iridescence, and undulates
-/// the lobes. Reduce Motion freezes on the still frame.
+/// Living 4-lobe ember. The PNG is aspect-fit and never stretched.
+/// Motion is uniform scale + hue shimmer + a procedural core pulse.
+/// Reduce Motion freezes on the still frame.
 struct AuroraOrbView: View {
     let state: AROrbState
     let amplitude: Float
@@ -55,11 +55,8 @@ struct AuroraOrbView: View {
         return amplitude
     }
 
-    /// Tiny marks still animate; they just tick less often.
     private var tick: Double {
         if reduceMotion { return 1 }
-        if size < 36 { return 1.0 / 16.0 }
-        if size < 80 { return 1.0 / 20.0 }
         return 1.0 / 24.0
     }
 
@@ -90,17 +87,11 @@ struct AuroraOrbView: View {
         let breath = AriaSigilGeometry.breath(time: t, state: live, reduceMotion: reduceMotion)
         let core = AriaSigilGeometry.corePulse(time: t, state: live, reduceMotion: reduceMotion)
         let hue = AriaSigilGeometry.hueShiftDegrees(time: t, state: live, reduceMotion: reduceMotion)
-        let edge = AriaSigilGeometry.edgeUndulation(time: t, reduceMotion: reduceMotion)
         let glow = AriaSigilGeometry.glowOpacity(state: live, breath: breath)
-        let amp = Double(resolvedAmplitude)
-        let energy = max(amp, 0.16) * 0.08
-        let scale: CGFloat = 1
-            + CGFloat(breath) * CGFloat(AriaSigilGeometry.breathScale)
-            + CGFloat(core) * 0.45
-            + CGFloat(energy) * 0.04
-        let floatY: CGFloat = (!reduceMotion && size >= 90)
-            ? CGFloat(sin(t * 0.7)) * size * 0.012
+        let talkBoost = (!reduceMotion && live == .speaking)
+            ? Double(resolvedAmplitude) * 0.008
             : 0
+        let scale = CGFloat(AriaSigilGeometry.uniformScale(breath: breath, reduceMotion: reduceMotion) + talkBoost)
 
         let ember = Color(hex: AriaSigilPalette.emberHex)
         let teal = Color(hex: AriaSigilPalette.tealHex)
@@ -114,38 +105,48 @@ struct AuroraOrbView: View {
         }()
 
         return ZStack {
-            // Ambient wash — a glow, never a ring stroke.
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            wash.opacity(0.20 + glow * 0.16 + core * 1.8),
-                            teal.opacity(0.05),
-                            .clear
-                        ],
-                        center: .center,
-                        startRadius: size * 0.06,
-                        endRadius: size * 0.58
-                    )
-                )
-                .frame(width: size * 1.22, height: size * 1.22)
-                .blur(radius: max(4, size * 0.13))
-                .opacity(reduceMotion ? 0.32 : 0.88)
+            RadialGradient(
+                colors: [
+                    wash.opacity(0.28 + glow * 0.2 + core * 0.9),
+                    teal.opacity(0.08),
+                    .clear
+                ],
+                center: .center,
+                startRadius: size * 0.04,
+                endRadius: size * 0.55
+            )
+            .frame(width: size * 1.12, height: size * 1.12)
+            .blur(radius: max(6, size * 0.16))
+            .opacity(reduceMotion ? 0.28 : 0.95)
+            .scaleEffect(scale)
 
             Image(AriaWelcomeChime.assetName)
                 .interpolation(.high)
                 .resizable()
                 .scaledToFit()
-                .scaleEffect(AriaWelcomeChime.cropScale)
-                .scaleEffect(x: 1 + CGFloat(edge.x), y: 1 + CGFloat(edge.y))
                 .hueRotation(.degrees(hue))
-                .brightness(core * 0.55)
-                .saturation(1 + breath * 0.05)
+                .brightness(reduceMotion ? 0 : core * 0.85)
+                .saturation(1 + breath * 0.12)
                 .frame(width: size, height: size)
+                .scaleEffect(scale)
+
+            // Procedural ember — reads as alive even when the PNG is still.
+            RadialGradient(
+                colors: [
+                    Color(hex: "FFE28A").opacity(0.55 + core * 2.2),
+                    ember.opacity(0.28 + core * 1.4),
+                    .clear
+                ],
+                center: .center,
+                startRadius: 0,
+                endRadius: size * 0.22
+            )
+            .frame(width: size * 0.46, height: size * 0.46)
+            .blendMode(.screen)
+            .opacity(reduceMotion ? 0.15 : 0.85)
+            .scaleEffect(0.82 + CGFloat(core) * 2.4)
         }
         .frame(width: size, height: size)
-        .scaleEffect(scale)
-        .offset(y: floatY)
     }
 }
 

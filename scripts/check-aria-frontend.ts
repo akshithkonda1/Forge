@@ -39,8 +39,9 @@ const contract = JSON.parse(readFileSync("shared/aria-mark.json", "utf8")) as ty
 assert(ARIA_MARK.cropScale === 1, "ember mark is not zoom-cropped past a ring");
 assert(ARIA_MARK.cropScale === contract.cropScale, "web cropScale matches shared/aria-mark.json");
 assert(ARIA_MARK.maxHueDegrees === contract.maxHueDegrees, "web hue matches shared/aria-mark.json");
-assert(ARIA_MARK.maxHueDegrees <= 8, "iridescence stays a shimmer");
-assert(ARIA_MARK.maxEdgeUndulation <= 0.02, "edge undulation stays gentle");
+assert(ARIA_MARK.maxHueDegrees === 12, "hue shimmer is visible");
+assert(ARIA_MARK.maxEdgeUndulation === 0, "never nonuniform stretch");
+assert(ARIA_MARK.breathScale === 0.04, "uniform breath is 1.0 to 1.04");
 assert(existsSync("public/aria-mark.png"), "web ARIA mark asset is present");
 assert(existsSync("shared/brand/aria-mark.png"), "shared ARIA mark asset is present");
 
