@@ -1,5 +1,9 @@
 import SwiftUI
+import PhotosUI
 import ForgeCore
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Clinical data that is not a chart: Health lists + an on-device federal pharmacy.
 /// Names, dates, and source only — never notes, coverage, or FHIR blobs.
@@ -19,6 +23,10 @@ struct ClinicalDataNonPHIView: View {
     @State private var diseaseFilter: String?
     @State private var visibleLimit = 40
     @State private var searchTask: Task<Void, Never>?
+    @State private var showCamera = false
+    @State private var photoItem: PhotosPickerItem?
+    @State private var scanningBottle = false
+    @State private var bottleScan: MedicationBottleScan?
 
     private var summary: ClinicalRecordsSummary? { health.clinicalSummary }
 
@@ -26,7 +34,7 @@ struct ClinicalDataNonPHIView: View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 22) {
-                    Text("Two steps. Connect Apple Health for the meds already on this iPhone. Then search every federal-list product by brand or generic — every body-system archetype and disease. ARIA reads this as its medication context layer and can pull from here.")
+                    Text("Two steps. Connect Apple Health for the meds already on this iPhone. Then search every federal-list product by brand or generic — or photograph the bottle when you cannot find it. ARIA reads what you already take so lifestyle and training can be for you. It never prescribes and never names a dose.")
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -64,6 +72,45 @@ struct ClinicalDataNonPHIView: View {
             .onDisappear {
                 searchTask?.cancel()
             }
+            .sheet(isPresented: $showCamera) {
+                CameraCaptureView { image in
+                    Task { await admitBottle(image) }
+                }
+            }
+            .onChange(of: photoItem) { _, item in
+                guard let item else { return }
+                Task { await admitPickedPhoto(item) }
+            }
+        }
+    }
+
+    private var bottleScanBar: some View {
+        HStack(spacing: 10) {
+            Button {
+                showCamera = true
+            } label: {
+                Label(scanningBottle ? "Reading label…" : "Photograph the bottle", systemImage: "camera.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.ember)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(scanningBottle || catalogLoading)
+            .accessibilityLabel("Photograph the medication bottle to add it instantly")
+
+            PhotosPicker(selection: $photoItem, matching: .images) {
+                Image(systemName: "photo.on.rectangle")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.ember)
+                    .frame(width: 48, height: 44)
+                    .background(Color.surfaceElevated)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .disabled(scanningBottle || catalogLoading)
+            .accessibilityLabel("Choose a bottle photo")
         }
     }
 
@@ -138,6 +185,20 @@ struct ClinicalDataNonPHIView: View {
             .background(Color.surfaceElevated)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
+            bottleScanBar
+
+            if let bottleScan {
+                Text(bottleScan.headline)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if bottleScan.admitted == nil {
+                    ForEach(bottleScan.candidates, id: \.id) { med in
+                        pharmacyRow(med)
+                    }
+                }
+            }
+
             sortBar
 
             if !saved.isEmpty {
@@ -158,7 +219,7 @@ struct ClinicalDataNonPHIView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
             } else if page.total == 0, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Text("No match for “\(query)”. Try the brand (Xcopri) or the generic (cenobamate).")
+                Text("No match for “\(query)”. Try the brand (Xcopri), the generic (cenobamate), or photograph the bottle.")
                     .font(.system(size: 13))
                     .foregroundColor(.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -395,5 +456,45 @@ struct ClinicalDataNonPHIView: View {
         defer { healthLoading = false }
         _ = await health.fetchClinicalRecordsSummary()
         AriaContextStore.shared.applyMedicationLayer()
+    }
+
+    private func admitPickedPhoto(_ item: PhotosPickerItem) async {
+#if canImport(UIKit)
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else {
+            bottleScan = MedicationBottleScan(
+                rawText: "",
+                tokensUsed: [],
+                admitted: nil,
+                candidates: []
+            )
+            return
+        }
+        await admitBottle(image)
+#endif
+        photoItem = nil
+    }
+
+    private func admitBottle(_ image: UIImage) async {
+        scanningBottle = true
+        defer { scanningBottle = false }
+        await MedicationPharmacy.prepare()
+#if canImport(Vision)
+        let text = await MedicationBottleScanner.readText(from: image)
+#else
+        let text = ""
+#endif
+        let scan = MedicationBottleScanner.match(ocrText: text)
+        bottleScan = scan
+        if let med = scan.admitted {
+            MedicationPharmacy.ensureSaved(name: med.name)
+            saved = MedicationPharmacy.savedNames()
+            AriaContextStore.shared.applyMedicationLayer()
+            query = med.brandOrGeneric
+            applySearch()
+        } else if let first = scan.tokensUsed.first {
+            query = first
+            applySearch()
+        }
     }
 }

@@ -143,6 +143,14 @@ enum MedicationPharmacy {
         UserDefaults.standard.set(Array(names.prefix(40)), forKey: savedKey)
     }
 
+    /// Instant admit — add without toggling off if it's already on the list.
+    static func ensureSaved(name: String) {
+        var names = savedNames()
+        if names.contains(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) { return }
+        names.insert(name, at: 0)
+        UserDefaults.standard.set(Array(names.prefix(40)), forKey: savedKey)
+    }
+
     static func lastRefreshLabel() -> String {
         guard let at = UserDefaults.standard.object(forKey: extrasAtKey) as? Date else {
             return "FDA · CDC · CMS NDC · sorted by archetype and disease"

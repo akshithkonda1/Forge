@@ -92,6 +92,49 @@ final class MedicationPharmacyTests: XCTestCase {
         XCTAssertEqual(Set(page.items.map(\.id)).count, page.items.count)
     }
 
+    func testBottleOCRAdmitsXcopriAndIgnoresDose() {
+        let scan = MedicationBottleScanner.match(ocrText: """
+        NDC 72078-101-03
+        XCOPRI
+        cenobamate tablets
+        100 mg
+        Rx only
+        Store at 20-25 C
+        """)
+        XCTAssertEqual(scan.admitted?.brand?.localizedCaseInsensitiveCompare("Xcopri"), .orderedSame)
+        XCTAssertTrue(scan.admitted?.generic.localizedCaseInsensitiveContains("cenobamate") == true)
+        XCTAssertEqual(scan.admitted?.disease, "Epilepsy")
+        XCTAssertFalse(scan.tokensUsed.contains { $0.lowercased() == "mg" || $0 == "100" })
+        XCTAssertTrue(scan.headline.contains("never names a dose"))
+    }
+
+    func testBottleOCRAdmitsOxtellarXR() {
+        let scan = MedicationBottleScanner.match(ocrText: "Oxtellar XR oxcarbazepine 150 mg extended release tablets")
+        XCTAssertTrue(scan.admitted?.brand?.localizedCaseInsensitiveContains("Oxtellar") == true)
+        XCTAssertTrue(scan.admitted?.generic.localizedCaseInsensitiveContains("oxcarbazepine") == true)
+    }
+
+    func testBottleOCRAdmitsLipitorWithoutInventingADose() {
+        let scan = MedicationBottleScanner.match(ocrText: "Lipitor atorvastatin calcium 10 mg tablets Rx only")
+        XCTAssertTrue(scan.admitted?.brand?.localizedCaseInsensitiveCompare("Lipitor") == .orderedSame)
+        XCTAssertTrue(scan.admitted?.generic.localizedCaseInsensitiveContains("atorvastatin") == true)
+        XCTAssertFalse(scan.headline.contains("10 mg"))
+    }
+
+    func testBottleOCRIgnoresLabelNoise() {
+        let scan = MedicationBottleScanner.match(ocrText: "Rx only Store at room temperature Keep out of reach of children")
+        XCTAssertNil(scan.admitted)
+        XCTAssertTrue(scan.candidates.isEmpty)
+    }
+
+    func testEnsureSavedDoesNotToggleOff() {
+        let name = "Xcopri 100 mg Tablet"
+        MedicationPharmacy.ensureSaved(name: name)
+        MedicationPharmacy.ensureSaved(name: name)
+        let names = MedicationPharmacy.savedNames()
+        XCTAssertEqual(names.filter { $0.caseInsensitiveCompare(name) == .orderedSame }.count, 1)
+    }
+
     func testClinicalSummaryEmptyIsSafe() {
         XCTAssertFalse(ClinicalRecordsSummary.empty.hasData)
         XCTAssertTrue(ClinicalRecordsSummary.empty.items.isEmpty)
