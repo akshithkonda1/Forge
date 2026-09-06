@@ -65,36 +65,3 @@ enum AriaSigilGeometry: Sendable {
         }
     }
 }
-
-/// Metals and void. Mood tints the ambient wash; the ember core stays warm.
-enum AriaSigilPalette: Sendable {
-    static let voidDeepHex = "030207"
-    static let voidMidHex = "0B0812"
-    static let ivoryHex = "F3EBDD"
-    static let goldHex = "C9A36A"
-    static let goldHotHex = "E8C48A"
-    static let steelHex = "6B7CFF"
-    static let frostHex = "9FD6FF"
-    static let bloodHex = "4A1018"
-    static let limbHex = "000000"
-    static let emberHex = "FF6A1A"
-    static let tealHex = "3EC8C8"
-
-    static func photonPrimary(for mood: ARIAMood) -> String {
-        switch mood {
-        case .energized: return goldHotHex
-        case .focused: return steelHex
-        case .calm: return "8B6CFF"
-        case .pushed: return goldHex
-        }
-    }
-
-    static func photonSecondary(for mood: ARIAMood) -> String {
-        switch mood {
-        case .energized: return goldHex
-        case .focused: return frostHex
-        case .calm: return goldHex
-        case .pushed: return "E07A6A"
-        }
-    }
-}

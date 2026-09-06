@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// Compact ARIA mark for avatars, tabs, and cards.
 /// The 4-lobe ember is the identity. Live speech/listen from
@@ -21,7 +22,7 @@ struct ARIAIdentityMark: View {
             )
             if showsPresence {
                 Circle()
-                    .fill(Color(hex: AriaSigilPalette.emberHex).opacity(0.9))
+                    .fill(ForgePalette.ember.opacity(0.9))
                     .frame(width: max(7, size * 0.18), height: max(7, size * 0.18))
                     .offset(x: 1, y: 1)
             }
@@ -93,13 +94,13 @@ struct AuroraOrbView: View {
             : 0
         let scale = CGFloat(AriaSigilGeometry.uniformScale(breath: breath, reduceMotion: reduceMotion) + talkBoost)
 
-        let ember = Color(hex: AriaSigilPalette.emberHex)
-        let teal = Color(hex: AriaSigilPalette.tealHex)
+        let ember = ForgePalette.ember
+        let teal = ForgePalette.teal
         let wash: Color = {
             switch live {
             case .listening: return teal
             case .speaking: return ember
-            case .processing: return Color(hex: AriaSigilPalette.photonPrimary(for: mood))
+            case .processing: return ForgePalette.steel
             case .idle: return ember
             }
         }()

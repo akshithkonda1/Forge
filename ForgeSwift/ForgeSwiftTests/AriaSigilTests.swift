@@ -56,13 +56,4 @@ final class AriaSigilTests: XCTestCase {
         )
     }
 
-    func testPaletteStaysPreciousNotNeon() {
-        XCTAssertEqual(AriaSigilPalette.goldHex, "C9A36A")
-        XCTAssertEqual(AriaSigilPalette.voidDeepHex, "030207")
-        XCTAssertEqual(AriaSigilPalette.bloodHex, "4A1018")
-        XCTAssertEqual(AriaSigilPalette.ivoryHex, "F3EBDD")
-        XCTAssertEqual(AriaSigilPalette.emberHex, "FF6A1A")
-        XCTAssertNotEqual(AriaSigilPalette.photonPrimary(for: .energized), "00D2FF")
-        XCTAssertNotEqual(AriaSigilPalette.photonPrimary(for: .focused), "22C55E")
-    }
 }
