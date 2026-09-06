@@ -5,8 +5,8 @@ struct ChatEmptyStateView: View {
     let onQuickActionTap: (String) -> Void
     var onVoiceTap: (() -> Void)? = nil
     @EnvironmentObject var store: AppStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared  = false
-    @State private var orbPulse  = false
     @State private var orbGlow   = false
 
     // Greeting message varies by mood
@@ -41,8 +41,8 @@ struct ChatEmptyStateView: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color(hex: AriaSigilPalette.goldHex).opacity(orbGlow ? 0.10 : 0.03),
-                                Color(hex: AriaSigilPalette.bloodHex).opacity(orbGlow ? 0.08 : 0.02),
+                                Color(hex: AriaSigilPalette.emberHex).opacity(orbGlow ? 0.12 : 0.04),
+                                Color(hex: AriaSigilPalette.tealHex).opacity(orbGlow ? 0.06 : 0.02),
                                 .clear
                             ],
                             center: .center, startRadius: 8, endRadius: 120
@@ -50,16 +50,6 @@ struct ChatEmptyStateView: View {
                     )
                     .frame(width: 240, height: 240)
                     .blur(radius: 28)
-
-                Circle()
-                    .stroke(Color(hex: AriaSigilPalette.goldHex).opacity(0.10), lineWidth: 0.6)
-                    .frame(width: 168, height: 168)
-                    .scaleEffect(orbPulse ? 1.06 : 1.0)
-                    .opacity(orbPulse ? 0.15 : 0.55)
-                    .animation(
-                        .easeInOut(duration: 5.2).repeatForever(autoreverses: true),
-                        value: orbPulse
-                    )
 
                 AuroraOrbView(
                     state: .idle,
@@ -200,8 +190,11 @@ struct ChatEmptyStateView: View {
         }
         .onAppear {
             appeared = true
-            withAnimation(.easeInOut(duration: 5.2).repeatForever(autoreverses: true)) { orbPulse = true }
-            withAnimation(.easeInOut(duration: 4.8).repeatForever(autoreverses: true)) { orbGlow = true }
+            if reduceMotion {
+                orbGlow = true
+            } else {
+                withAnimation(.easeInOut(duration: 4.8).repeatForever(autoreverses: true)) { orbGlow = true }
+            }
         }
     }
 }

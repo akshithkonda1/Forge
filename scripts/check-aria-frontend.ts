@@ -1,5 +1,7 @@
+import { existsSync } from "node:fs";
 import { coachReply } from "../src/lib/aria-coach.ts";
 import { ARIA_CINEMATIC_LINES, firstSessionScript, whisperForStep } from "../src/lib/aria-onboarding.ts";
+import { ARIA_MARK } from "../src/lib/aria-mark.ts";
 import type { DailyMetrics, ReadinessData, UserProfile } from "../src/types/index.ts";
 
 const profile: UserProfile = {
@@ -32,6 +34,12 @@ const metrics: DailyMetrics = {
 function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(msg);
 }
+
+assert(ARIA_MARK.cropScale === 1, "ember mark is not zoom-cropped past a ring");
+assert(ARIA_MARK.maxHueDegrees <= 8, "iridescence stays a shimmer");
+assert(ARIA_MARK.maxEdgeUndulation <= 0.02, "edge undulation stays gentle");
+assert(existsSync("public/aria-mark.png"), "web ARIA mark asset is present");
+assert(existsSync("shared/brand/aria-mark.png"), "shared ARIA mark asset is present");
 
 assert(ARIA_CINEMATIC_LINES.length === 1, "welcome is one beat");
 

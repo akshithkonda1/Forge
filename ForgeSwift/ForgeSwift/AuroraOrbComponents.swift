@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Compact ARIA mark for avatars, tabs, and cards.
-/// The circular logo crop is the identity. Live speech/listen from
+/// The fluid ember blob is the identity. Live speech/listen from
 /// `AriaPresence` overrides idle so every mark breathes when she talks.
 struct ARIAIdentityMark: View {
     var state: AROrbState = .idle
@@ -21,10 +21,9 @@ struct ARIAIdentityMark: View {
             )
             if showsPresence {
                 Circle()
-                    .stroke(Color(hex: AriaSigilPalette.goldHex), lineWidth: max(1.0, size * 0.045))
+                    .fill(Color(hex: AriaSigilPalette.emberHex).opacity(0.9))
                     .frame(width: max(7, size * 0.18), height: max(7, size * 0.18))
                     .offset(x: 1, y: 1)
-                    .opacity(0.85)
             }
         }
         .frame(width: size, height: size)
@@ -32,9 +31,9 @@ struct ARIAIdentityMark: View {
     }
 }
 
-/// The provided circular core (gold orb + rings), circle-clipped so the
-/// glass squircle and floor glow stay outside the mark. SwiftUI only
-/// breathes and glows around the photo — it does not redraw the logo.
+/// The gooey iridescent ember — photo only, no ring, no glass frame.
+/// SwiftUI breathes the orange core, shifts iridescence, and undulates
+/// the lobes. Reduce Motion freezes on the still frame.
 struct AuroraOrbView: View {
     let state: AROrbState
     let amplitude: Float
@@ -69,7 +68,7 @@ struct AuroraOrbView: View {
             minimumInterval: tick,
             paused: reduceMotion || scenePhase != .active
         )) { timeline in
-            let t = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
+            let t = reduceMotion ? AriaSigilGeometry.stillPose : timeline.date.timeIntervalSinceReferenceDate
             orb(at: t)
         }
         .frame(width: size, height: size)
@@ -88,87 +87,61 @@ struct AuroraOrbView: View {
 
     private func orb(at t: TimeInterval) -> some View {
         let live = resolvedState
+        let breath = AriaSigilGeometry.breath(time: t, state: live, reduceMotion: reduceMotion)
+        let core = AriaSigilGeometry.corePulse(time: t, state: live, reduceMotion: reduceMotion)
+        let hue = AriaSigilGeometry.hueShiftDegrees(time: t, state: live, reduceMotion: reduceMotion)
+        let edge = AriaSigilGeometry.edgeUndulation(time: t, reduceMotion: reduceMotion)
+        let glow = AriaSigilGeometry.glowOpacity(state: live, breath: breath)
         let amp = Double(resolvedAmplitude)
-        let breathHz: Double = {
-            switch live {
-            case .idle: return 1.15
-            case .listening: return 2.4
-            case .processing: return 3.2
-            case .speaking: return 1.9
-            }
-        }()
-        let breath = reduceMotion ? 0.45 : (0.5 + 0.5 * sin(t * breathHz))
-        let talk = live == .speaking && !reduceMotion ? (0.55 + 0.45 * abs(sin(t * 10.5))) : 0
-        let listen = live == .listening && !reduceMotion ? (0.5 + 0.5 * abs(sin(t * 3.4))) : 0
-        let energy = max(amp, 0.16 + breath * 0.10) + talk * 0.22 + listen * 0.12
-        let spin = reduceMotion ? 0 : t * (live == .speaking ? 38 : live == .listening ? 22 : live == .processing ? 48 : 11)
-        let floatY: CGFloat = (!reduceMotion && size >= 90) ? CGFloat(sin(t * 1.05)) * size * 0.022 : 0
-        let scale: CGFloat = 1 + CGFloat(breath) * (size >= 90 ? 0.045 : 0.03) + CGFloat(talk) * 0.04
+        let energy = max(amp, 0.16) * 0.08
+        let scale: CGFloat = 1
+            + CGFloat(breath) * CGFloat(AriaSigilGeometry.breathScale)
+            + CGFloat(core) * 0.45
+            + CGFloat(energy) * 0.04
+        let floatY: CGFloat = (!reduceMotion && size >= 90)
+            ? CGFloat(sin(t * 0.7)) * size * 0.012
+            : 0
 
-        let gold = Color(hex: AriaSigilPalette.goldHex)
-        let teal = Color(hex: "3EC8C8")
-        let glow: Color = {
+        let ember = Color(hex: AriaSigilPalette.emberHex)
+        let teal = Color(hex: AriaSigilPalette.tealHex)
+        let wash: Color = {
             switch live {
             case .listening: return teal
-            case .speaking: return gold
+            case .speaking: return ember
             case .processing: return Color(hex: AriaSigilPalette.photonPrimary(for: mood))
-            case .idle: return gold
+            case .idle: return ember
             }
         }()
 
         return ZStack {
+            // Ambient wash — a glow, never a ring stroke.
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            glow.opacity(0.28 + energy * 0.22 + talk * 0.18),
-                            teal.opacity(0.08 + listen * 0.12),
+                            wash.opacity(0.20 + glow * 0.16 + core * 1.8),
+                            teal.opacity(0.05),
                             .clear
                         ],
                         center: .center,
-                        startRadius: size * 0.10,
-                        endRadius: size * 0.72
+                        startRadius: size * 0.06,
+                        endRadius: size * 0.58
                     )
                 )
-                .frame(width: size * 1.48, height: size * 1.48)
-                .blur(radius: max(3, size * 0.12))
-                .opacity(reduceMotion ? 0.4 : 0.95)
+                .frame(width: size * 1.22, height: size * 1.22)
+                .blur(radius: max(4, size * 0.13))
+                .opacity(reduceMotion ? 0.32 : 0.88)
 
             Image(AriaWelcomeChime.assetName)
+                .interpolation(.high)
                 .resizable()
-                .scaledToFill()
+                .scaledToFit()
                 .scaleEffect(AriaWelcomeChime.cropScale)
+                .scaleEffect(x: 1 + CGFloat(edge.x), y: 1 + CGFloat(edge.y))
+                .hueRotation(.degrees(hue))
+                .brightness(core * 0.55)
+                .saturation(1 + breath * 0.05)
                 .frame(width: size, height: size)
-                .clipShape(Circle())
-                .overlay(
-                    Circle()
-                        .stroke(
-                            glow.opacity(0.18 + breath * 0.22 + talk * 0.20),
-                            lineWidth: max(0.8, size * 0.018)
-                        )
-                )
-
-            if !reduceMotion {
-                Circle()
-                    .stroke(
-                        AngularGradient(
-                            colors: [
-                                glow.opacity(0.0),
-                                glow.opacity(0.45 + breath * 0.25),
-                                teal.opacity(live == .listening ? 0.55 : 0.12),
-                                glow.opacity(0.0)
-                            ],
-                            center: .center
-                        ),
-                        lineWidth: max(1.1, size * 0.028)
-                    )
-                    .frame(
-                        width: size * (0.98 + CGFloat(energy) * 0.06),
-                        height: size * (0.98 + CGFloat(energy) * 0.06)
-                    )
-                    .rotationEffect(.degrees(spin))
-                    .opacity(live == .idle ? 0.42 : 0.78)
-            }
         }
         .frame(width: size, height: size)
         .scaleEffect(scale)

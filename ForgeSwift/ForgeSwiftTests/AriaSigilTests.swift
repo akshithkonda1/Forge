@@ -1,7 +1,7 @@
 import XCTest
 @testable import ForgeSwift
 
-/// Locks the mark so ARIA cannot drift back into a fidgety AI blob.
+/// Locks the fluid ember so ARIA stays friendly — alive, not a spinner.
 final class AriaSigilTests: XCTestCase {
 
     func testStillPoseIsStableAndNonZero() {
@@ -11,56 +11,48 @@ final class AriaSigilTests: XCTestCase {
         let b = AriaSigilGeometry.breath(time: 99, state: .idle, reduceMotion: true)
         XCTAssertEqual(a, b, "Reduce Motion must freeze breath")
         XCTAssertEqual(
-            AriaSigilGeometry.photonSpinDegrees(time: 0, state: .idle, reduceMotion: true),
-            AriaSigilGeometry.photonSpinDegrees(time: 40, state: .idle, reduceMotion: true)
+            AriaSigilGeometry.hueShiftDegrees(time: 0, state: .idle, reduceMotion: true),
+            AriaSigilGeometry.hueShiftDegrees(time: 40, state: .idle, reduceMotion: true)
         )
+        let still = AriaSigilGeometry.edgeUndulation(time: 12, reduceMotion: true)
+        XCTAssertEqual(still.x, 0)
+        XCTAssertEqual(still.y, 0)
     }
 
     func testIdleIsSlowerThanProcessing() {
-        let idle = AriaSigilGeometry.photonSpinDegrees(time: 10, state: .idle, reduceMotion: false)
-        let thinking = AriaSigilGeometry.photonSpinDegrees(time: 10, state: .processing, reduceMotion: false)
-        XCTAssertLessThan(idle, thinking)
-        XCTAssertLessThan(idle / 10, 8, "idle spin must feel like a watch, not a spinner")
+        XCTAssertLessThan(AriaSigilGeometry.idleBreathHz, AriaSigilGeometry.processingBreathHz)
+        XCTAssertLessThan(AriaSigilGeometry.idleBreathHz, 0.4, "idle must feel like a coach, not a spinner")
     }
 
-    func testGazeNeverLeavesTheIris() {
+    func testMotionStaysGentle() {
+        XCTAssertLessThanOrEqual(AriaSigilGeometry.maxHueDegrees, 8, "iridescence is a shimmer, not a carnival")
+        XCTAssertLessThanOrEqual(AriaSigilGeometry.maxEdgeUndulation, 0.02)
+        XCTAssertLessThanOrEqual(AriaSigilGeometry.breathScale, 0.04)
+        XCTAssertLessThanOrEqual(AriaSigilGeometry.corePulseAmount, 0.05)
         for t in stride(from: 0.0, through: 40, by: 0.37) {
-            for state in [AROrbState.idle, .listening, .processing, .speaking] {
-                let g = AriaSigilGeometry.gaze(time: t, state: state, reduceMotion: false)
-                XCTAssertLessThanOrEqual(abs(g.x), AriaSigilGeometry.maxGazeRatio + 0.0001)
-                XCTAssertLessThanOrEqual(abs(g.y), AriaSigilGeometry.maxGazeRatio + 0.0001)
-            }
+            let hue = AriaSigilGeometry.hueShiftDegrees(time: t, state: .idle, reduceMotion: false)
+            XCTAssertLessThanOrEqual(abs(hue), AriaSigilGeometry.maxHueDegrees + 0.0001)
+            let edge = AriaSigilGeometry.edgeUndulation(time: t, reduceMotion: false)
+            XCTAssertLessThanOrEqual(abs(edge.x), AriaSigilGeometry.maxEdgeUndulation + 0.0001)
+            XCTAssertLessThanOrEqual(abs(edge.y), AriaSigilGeometry.maxEdgeUndulation + 0.0001)
         }
-        XCTAssertEqual(AriaSigilGeometry.clampGaze(1), AriaSigilGeometry.maxGazeRatio)
-        XCTAssertEqual(AriaSigilGeometry.clampGaze(-1), -AriaSigilGeometry.maxGazeRatio)
     }
 
-    func testPhotonRingStaysBroken() {
-        XCTAssertGreaterThan(AriaSigilGeometry.photonTrimStart, 0)
-        XCTAssertLessThan(AriaSigilGeometry.photonTrimEnd, 1)
-        XCTAssertGreaterThan(
-            AriaSigilGeometry.photonTrimEnd - AriaSigilGeometry.photonTrimStart,
-            0.7,
-            "enough ring to read as a mark"
-        )
-        XCTAssertLessThan(
-            AriaSigilGeometry.photonTrimEnd - AriaSigilGeometry.photonTrimStart,
-            0.9,
-            "the gap is the mystery"
-        )
-    }
-
-    func testMindIsAPupilNotAFill() {
-        XCTAssertLessThan(AriaSigilGeometry.mindRatio, AriaSigilGeometry.horizonRatio)
-        XCTAssertLessThan(AriaSigilGeometry.horizonRatio, AriaSigilGeometry.photonRatio)
-        XCTAssertLessThan(AriaSigilGeometry.photonRatio, AriaSigilGeometry.voidRatio)
-    }
-
-    func testSpeakingGlowsMoreThanIdle() {
-        let idle = AriaSigilGeometry.mindGlow(amplitude: 0.3, state: .idle, breath: 0.5)
-        let talk = AriaSigilGeometry.mindGlow(amplitude: 0.3, state: .speaking, breath: 0.5)
+    func testSpeakingCoreIsWarmerThanIdle() {
+        let idle = AriaSigilGeometry.corePulse(time: 0.4, state: .idle, reduceMotion: false)
+        let talk = AriaSigilGeometry.corePulse(time: 0.4, state: .speaking, reduceMotion: false)
         XCTAssertGreaterThan(talk, idle)
-        XCTAssertLessThanOrEqual(talk, 1)
+        XCTAssertLessThan(talk, 0.12, "speaking stays a glow, not a strobe")
+    }
+
+    func testReduceMotionFreezesCoreAndHue() {
+        let a = AriaSigilGeometry.corePulse(time: 1, state: .speaking, reduceMotion: true)
+        let b = AriaSigilGeometry.corePulse(time: 40, state: .speaking, reduceMotion: true)
+        XCTAssertEqual(a, b)
+        XCTAssertEqual(
+            AriaSigilGeometry.hueShiftDegrees(time: 3, state: .listening, reduceMotion: true),
+            0
+        )
     }
 
     func testPaletteStaysPreciousNotNeon() {
@@ -68,6 +60,7 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertEqual(AriaSigilPalette.voidDeepHex, "030207")
         XCTAssertEqual(AriaSigilPalette.bloodHex, "4A1018")
         XCTAssertEqual(AriaSigilPalette.ivoryHex, "F3EBDD")
+        XCTAssertEqual(AriaSigilPalette.emberHex, "FF6A1A")
         XCTAssertNotEqual(AriaSigilPalette.photonPrimary(for: .energized), "00D2FF")
         XCTAssertNotEqual(AriaSigilPalette.photonPrimary(for: .focused), "22C55E")
     }

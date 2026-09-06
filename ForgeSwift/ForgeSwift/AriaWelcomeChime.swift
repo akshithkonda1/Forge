@@ -1,12 +1,13 @@
 import AVFoundation
 import CoreGraphics
 
-/// Welcome arrive-sound and the circular crop contract for the ARIA logo.
+/// Welcome arrive-sound and the fluid-ember mark contract.
+/// The mark is the gooey blob itself — no ring, no glass frame to crop past.
 /// Pure gates so tests can lock quiet mode and Reduce Motion without audio.
 enum AriaWelcomeChime: Sendable {
     static let assetName = "AriaLogo"
-    /// Zoom so a circle clip hides the glass squircle and floor glow.
-    static let cropScale: CGFloat = 1.52
+    /// 1.0 — show the whole ember. Lockstep with `shared/aria-mark.json`.
+    static let cropScale: CGFloat = 1.0
     static let heroMinimumSize: CGFloat = 90
 
     static func shouldPlay(
