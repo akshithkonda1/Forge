@@ -28,9 +28,9 @@
 
 ## Overview
 
-**Forge** is building the definitive unified health AI platform. Instead of five siloed apps (Garmin for runs, WHOOP for recovery, Oura for sleep, Apple Health for everything else, and a generic fitness tracker), Forge ingests data from everywhere, normalizes it into one coherent picture, and delivers **contextual, recovery-first AI coaching** tailored to real human lives — coders with irregular sleep, deep sleepers, desk workers, athletes, and everyone in between.
+**Forge** is building the definitive unified health AI platform. Instead of five siloed apps (Garmin for runs, WHOOP for recovery, Oura for sleep, Apple Health for everything else, and a generic fitness tracker), Forge ingests data from everywhere, normalizes it into one coherent picture, and delivers **contextual, lifestyle based AI coaching** tailored to real human lives — coders with irregular sleep, deep sleepers, desk workers, athletes, and everyone in between.
 
-The core problem it solves: **fragmentation kills insight**. Your data exists, but it's scattered. Forge makes it actionable.
+The core problems it solves: **fragmentation kills insight and apps typically ground you to stats and charts not to your life**. Your data exists, but it's scattered. You're human, everyone's different and everyone operates differently, Forge learns what makes you tick and makes it actionable.
 
 ### What Makes Forge Different
 
