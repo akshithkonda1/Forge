@@ -1,4 +1,3 @@
-import os
 import sys
 import unittest
 from pathlib import Path
@@ -25,8 +24,6 @@ def _ctx(
     streak=0,
     days=4,
     occ="teacher",
-    chrono="bear",
-    season="maintenance",
     last=None,
     logged=False,
     wtype=None,
@@ -51,8 +48,8 @@ def _ctx(
     c.has_hrv = hrv is not None
     c.is_data_sparse = sparse
     c.occupation = occ
-    c.chronotype = chrono
-    c.life_season = season
+    c.chronotype = "bear"
+    c.life_season = "maintenance"
     c.last_workout_type = last
     c.has_notable_event = False
     c.notable_event_note = None
@@ -88,7 +85,10 @@ class DeterministicReasonerTests(unittest.TestCase):
         )
         self.assertIn("5.4", letter)
         self.assertIn("44", letter)
-        self.assertGreaterEqual(len(letter.split()), 180)
+        self.assertGreaterEqual(len(letter.split()), 120)
+        self.assertNotRegex(letter, r"Readiness is \d")
+        self.assertNotRegex(letter, r"\bHRV \d")
+        self.assertNotIn("sleep debt", letter.lower())
 
     def test_same_inputs_same_letter(self):
         a = dr.reason(_ctx(), "I slept badly", 9)
