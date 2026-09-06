@@ -268,7 +268,7 @@ extension ExerciseDefinition {
 
 enum ExerciseLibrary {
 
-    static let all: [ExerciseDefinition] = pushChest + shoulders + pull + arms + legsQuad + legsPosterior + coreCarry + conditioning + mobility
+    static let all: [ExerciseDefinition] = pushChest + shoulders + pull + arms + legsQuad + legsPosterior + coreCarry + conditioning + mobility + expansion
 
     // ── Horizontal / chest push ──────────────────────────────────────────────
     static let pushChest: [ExerciseDefinition] = [

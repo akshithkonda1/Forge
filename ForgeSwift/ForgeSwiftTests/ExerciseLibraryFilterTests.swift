@@ -3,6 +3,18 @@ import XCTest
 
 final class ExerciseLibraryFilterTests: XCTestCase {
 
+    func testLibraryHasMoreThan215UniqueMoves() {
+        let rows = ExerciseLibrary.all
+        XCTAssertGreaterThanOrEqual(rows.count, 215, "library must be a real gym floor, not a starter pack")
+        let ids = rows.map(\.id)
+        XCTAssertEqual(Set(ids).count, ids.count, "every move needs a unique slug")
+        let names = rows.map(\.name)
+        XCTAssertEqual(Set(names).count, names.count, "every move needs a unique name")
+        XCTAssertNotNil(ExerciseLibrary.match("Turkish Get-Up"))
+        XCTAssertNotNil(ExerciseLibrary.match("Power Clean"))
+        XCTAssertNotNil(ExerciseLibrary.match("Ski Erg"))
+    }
+
     func testBicepsTapReturnsOnlyBicepsMoves() {
         let rows = ExerciseLibrary.filter(query: "", muscle: .biceps, equipment: nil, pattern: nil)
         XCTAssertFalse(rows.isEmpty, "biceps should have library moves")
