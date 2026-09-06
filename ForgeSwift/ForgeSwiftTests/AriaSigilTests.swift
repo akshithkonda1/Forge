@@ -1,7 +1,7 @@
 import XCTest
 @testable import ForgeSwift
 
-/// Locks the fluid ember so ARIA stays friendly — alive, not a spinner.
+/// Locks the ember mark's motion so ARIA stays friendly — alive, not a spinner.
 final class AriaSigilTests: XCTestCase {
 
     func testStillPoseIsStableAndNonZero() {
@@ -52,6 +52,33 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertEqual(
             AriaSigilGeometry.hueShiftDegrees(time: 3, state: .listening, reduceMotion: true),
             0
+        )
+    }
+
+    func testVeinPulseTracksBreathAndFreezesUnderReduceMotion() {
+        let a = AriaSigilGeometry.veinPulse(time: 5, state: .idle, reduceMotion: true)
+        let b = AriaSigilGeometry.veinPulse(time: 50, state: .idle, reduceMotion: true)
+        XCTAssertEqual(a, b, "Reduce Motion must freeze the vein pulse")
+        for t in stride(from: 0.0, through: 20, by: 0.41) {
+            let v = AriaSigilGeometry.veinPulse(time: t, state: .speaking, reduceMotion: false)
+            XCTAssertGreaterThanOrEqual(v, 0)
+            XCTAssertLessThanOrEqual(v, 1)
+        }
+    }
+
+    func testSparkTwinklesAreIndependentPerIndexAndFreezeUnderReduceMotion() {
+        let t = 3.3
+        let sparks = (0..<3).map { AriaSigilGeometry.sparkTwinkle(time: t, index: $0, reduceMotion: false) }
+        XCTAssertNotEqual(sparks[0], sparks[1])
+        XCTAssertNotEqual(sparks[1], sparks[2])
+        for s in sparks {
+            XCTAssertGreaterThanOrEqual(s, 0)
+            XCTAssertLessThanOrEqual(s, 1)
+        }
+        XCTAssertEqual(
+            AriaSigilGeometry.sparkTwinkle(time: 9, index: 0, reduceMotion: true),
+            AriaSigilGeometry.sparkTwinkle(time: 90, index: 0, reduceMotion: true),
+            "Reduce Motion must freeze spark twinkle"
         )
     }
 

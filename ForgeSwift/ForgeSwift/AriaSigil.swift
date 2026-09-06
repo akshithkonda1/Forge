@@ -1,6 +1,6 @@
 import Foundation
 
-/// Living motion for ARIA's fluid ember mark.
+/// Living motion for ARIA's ember mark.
 /// Adaptive Recovery Interactive Assistant — friendly, warm, approachable.
 /// Numbers lock to `shared/aria-mark.json`. Pure so tests can freeze
 /// Reduce Motion without a TimelineView.
@@ -69,6 +69,24 @@ enum AriaSigilGeometry: Sendable {
         case .processing: return 0.40 + breath * 0.08
         case .speaking: return 0.58 + breath * 0.16
         }
+    }
+
+    /// Vein brightness trails the core pulse by a fraction of a beat, so
+    /// light reads as travelling outward from the core to the rim rather
+    /// than the whole mark flashing at once.
+    static func veinPulse(time: Double, state: AROrbState, reduceMotion: Bool) -> Double {
+        if reduceMotion { return 0.62 }
+        let lag = 0.12
+        return 0.5 + 0.5 * sin((time - lag) * breathHz(for: state) * .pi * 2)
+    }
+
+    /// Three ember points twinkle on their own clocks so they never flash
+    /// in sync — the difference between embers catching and a strobe.
+    static func sparkTwinkle(time: Double, index: Int, reduceMotion: Bool) -> Double {
+        if reduceMotion { return 0.55 }
+        let hz = 0.4 + Double(index) * 0.13
+        let phase = Double(index) * 2.1
+        return 0.5 + 0.5 * sin(time * hz * .pi * 2 + phase)
     }
 }
 

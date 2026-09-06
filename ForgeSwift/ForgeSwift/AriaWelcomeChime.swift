@@ -1,8 +1,10 @@
 import AVFoundation
 import CoreGraphics
 
-/// Welcome arrive-sound and the fluid-ember mark contract.
-/// The mark is the gooey blob itself — no ring, no glass frame to crop past.
+/// Welcome arrive-sound and the shared raster-mark contract (`shared/aria-mark.json`,
+/// used for web parity). iOS's own mark is drawn natively by `PulseSigil` in
+/// `AuroraOrbComponents.swift` and no longer renders this asset directly — no
+/// ring, no glass frame to crop past, on either platform.
 /// Pure gates so tests can lock quiet mode and Reduce Motion without audio.
 enum AriaWelcomeChime: Sendable {
     static let assetName = "AriaLogo"
