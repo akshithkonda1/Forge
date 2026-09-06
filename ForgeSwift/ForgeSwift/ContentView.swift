@@ -124,6 +124,7 @@ struct MainTabView: View {
     /// `pendingCycleHealthOpen` flag, which blanked or stuck the page.
     @State private var showCycleHealth = false
     @State private var showHydration = false
+    @State private var showClinicalData = false
     @State private var cycleInitialPane: MenstrualHealthView.Pane = .me
     @ObservedObject private var wakeStore = SleepWakeStore.shared
 
@@ -173,12 +174,19 @@ struct MainTabView: View {
             guard open else { return }
             presentHydration()
         }
+        .onChange(of: store.pendingClinicalOpen) { _, open in
+            guard open else { return }
+            presentClinical()
+        }
         .onAppear {
             if store.pendingCycleHealthOpen {
                 presentCycleHealth()
             }
             if store.pendingHydrationOpen {
                 presentHydration()
+            }
+            if store.pendingClinicalOpen {
+                presentClinical()
             }
         }
         .fullScreenCover(isPresented: $showCycleHealth) {
@@ -201,6 +209,10 @@ struct MainTabView: View {
             }
             .preferredColorScheme(.dark)
             .environmentObject(store)
+        }
+        .fullScreenCover(isPresented: $showClinicalData) {
+            ClinicalDataNonPHIView()
+                .environmentObject(store)
         }
         .fullScreenCover(isPresented: $showHydration) {
             NavigationStack {
@@ -236,6 +248,11 @@ struct MainTabView: View {
     private func presentHydration() {
         showHydration = true
         store.pendingHydrationOpen = false
+    }
+
+    private func presentClinical() {
+        showClinicalData = true
+        store.pendingClinicalOpen = false
     }
 
     private func presentCycleHealth() {

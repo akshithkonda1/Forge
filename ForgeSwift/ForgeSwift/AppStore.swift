@@ -84,6 +84,8 @@ final class AppStore: ObservableObject {
     @Published var pendingHydrationOpen: Bool = false
     /// Sleep page leaf: `alarms` / `wake` opens the Wake tab.
     @Published var pendingSleepTab: String? = nil
+    /// Shell presents the Medicine / clinical-data (non-PHI) page.
+    @Published var pendingClinicalOpen: Bool = false
 
     // Quiet mode — damp proactive noise (persisted)
     @Published var quietMode: Bool = UserDefaults.standard.bool(forKey: "forge.quiet.mode.v1") {
@@ -222,6 +224,7 @@ final class AppStore: ObservableObject {
     /// Message currently being typewriter-revealed (nil when idle).
     @Published var streamingMessageId: String? = nil
     @Published var streamingVisibleCount: Int = 0
+    var streamingRevealTask: Task<Void, Never>?
 
     static let onboardedDefaultsKey = "forge.onboarding.completed"
     static let profileDefaultsKey = "forge.user.profile.v1"

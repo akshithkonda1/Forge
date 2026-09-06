@@ -272,7 +272,17 @@ final class AriaContextStore: ObservableObject {
     ) {
         if let goals { context.currentGoals = goals }
         if let constraints { context.constraints = constraints }
-        if let lifestyleTags { context.lifestyleTags = lifestyleTags }
+        if let lifestyleTags {
+            // Experience/level labels are owned here. Never replace the whole
+            // tag set — Chat used to wipe cycle, voice, emotion, and theme tags
+            // every time the tab appeared.
+            let owned = ["experience:", "level:"]
+            var next = context.lifestyleTags.filter { tag in
+                !owned.contains { tag.hasPrefix($0) } && !lifestyleTags.contains(tag)
+            }
+            next.append(contentsOf: lifestyleTags)
+            context.lifestyleTags = Array(Set(next)).sorted()
+        }
         context.lastUpdated = Date()
         persist()
     }
@@ -681,13 +691,21 @@ final class AriaContextStore: ObservableObject {
             context.lastInsights.insert(line, at: 0)
             if context.lastInsights.count > 15 { context.lastInsights = Array(context.lastInsights.prefix(15)) }
         }
-        // Constraints ARIA reasons over
         let habitConstraints = HabitEngine.constraints(for: habits)
+        context.recentPatterns = Array(patterns.suffix(12))
+        let owned = ["qol:", "stress:", "nutrition_score:", "sleep_quality:", "protein:", "steps:", "hydration:", "recovery:", "sleep:", "movement:", "meals_logged:", "habit_"]
+        var merged = context.lifestyleTags.filter { tag in
+            !owned.contains { tag.hasPrefix($0) }
+        }
+        merged.append(contentsOf: tags)
+        context.lifestyleTags = Array(Set(merged)).sorted()
+        context.constraints.removeAll { $0.hasPrefix("habit:") }
         for hc in habitConstraints where !context.constraints.contains(hc) {
             context.constraints.append(hc)
         }
-        context.recentPatterns = Array(patterns.suffix(12))
-        context.lifestyleTags = Array(Set(tags)).sorted()
+        if context.constraints.count > 40 {
+            context.constraints = Array(context.constraints.suffix(40))
+        }
         context.lastUpdated = Date()
         persist()
     }

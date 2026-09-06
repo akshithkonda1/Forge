@@ -9,19 +9,25 @@ extension HealthKitManager {
            Date().timeIntervalSince(lastClinicalAt) < Self.clinicalTTL {
             return clinicalSummary
         }
+        guard HKHealthStore.isHealthDataAvailable() else {
+            let empty = ClinicalRecordsSummary.empty
+            clinicalSummary = empty
+            lastClinicalAt = Date()
+            return empty
+        }
         let recordBuckets = await withTaskGroup(of: (StructuredHealthKind, [StructuredHealthItem]).self) { group in
             for identifier in Self.structuredHealthRecordIdentifiers {
                 group.addTask { [healthStore] in
                     guard let kind = StructuredHealthKind(identifier: identifier),
                           let type = HKObjectType.clinicalType(forIdentifier: identifier) else {
-                        return (.allergy, [])
+                        return (StructuredHealthKind(identifier: identifier) ?? .allergy, [])
                     }
                     let records = await Self.fetchClinicalRecords(type: type, healthStore: healthStore)
                     let items = records.map { record in
                         StructuredHealthItem(
-                            id: record.uuid.uuidString,
+                            id: record.uuid.uuidString + "." + kind.rawValue,
                             kind: kind,
-                            name: record.displayName,
+                            name: Self.safeClinicalName(record),
                             date: record.endDate,
                             source: record.sourceRevision.source.name
                         )

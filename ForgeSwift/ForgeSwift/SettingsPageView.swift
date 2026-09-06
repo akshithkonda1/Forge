@@ -19,7 +19,6 @@ struct SettingsPageView: View {
     @State private var showTrainingThemePicker = false
     @State private var showNutritionTargetsEditor = false
     @State private var showTermsSheet = false
-    @State private var showClinicalData = false
     @State private var showDataPermissions = false
     @State private var showGoalsEditor = false
     @State private var showScheduleEditor = false
@@ -515,11 +514,11 @@ struct SettingsPageView: View {
                 }
 
                 sectionHeader("Clinical Data (Non PHI)")
-                Button { showClinicalData = true } label: {
+                Button { store.openClinicalData() } label: {
                     SettingsRow(
                         icon: "pills.fill",
                         iconColor: .ember,
-                        label: "Allergies, meds, labs",
+                        label: "Medicine & records",
                         trailingText: clinicalTrailingText,
                         showChevron: true
                     )
@@ -652,9 +651,6 @@ struct SettingsPageView: View {
         }
         .sheet(isPresented: $showAbout) {
             ForgeAboutView()
-        }
-        .sheet(isPresented: $showClinicalData) {
-            ClinicalDataNonPHIView()
         }
         .sheet(isPresented: $showDataPermissions) {
             DataPermissionsView()
