@@ -130,6 +130,10 @@ extension AppStore {
         pendingHydrationOpen = true
     }
 
+    func openClinicalData() {
+        pendingClinicalOpen = true
+    }
+
     func logGlassFromWidget() async {
         try? await HealthKitManager.shared.logWater(
             milliliters: HydrationEngine.glassMilliliters
@@ -189,6 +193,9 @@ extension AppStore {
             return true
         case "lifestyle":
             activeTab = .lifestyle
+            return true
+        case "clinical", "medicine", "pharmacy", "meds", "medications":
+            openClinicalData()
             return true
         case "aria":
             if segments.dropFirst().first == "weekly" {

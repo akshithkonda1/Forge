@@ -1,80 +1,202 @@
 import SwiftUI
 import ForgeCore
 
-/// Usable lists of the six structured Health record types.
+/// Clinical data that is not a chart: Health lists + an on-device FDA pharmacy.
 /// Names, dates, and source only — never notes, coverage, or FHIR blobs.
 struct ClinicalDataNonPHIView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var health = HealthKitManager.shared
     @State private var loading = false
     @State private var error: String?
+    @State private var query = ""
+    @State private var results: [FDAMedication] = []
+    @State private var catalogCount = 0
+    @State private var refreshLabel = MedicationPharmacy.lastRefreshLabel()
+    @State private var saved = MedicationPharmacy.savedNames()
 
     private var summary: ClinicalRecordsSummary? { health.clinicalSummary }
 
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
-                    Text("Structured lists from Apple Health. Allergies, medications, conditions, immunizations, labs, and procedures. Not notes. Not insurance. Nothing leaves this iPhone.")
+                VStack(alignment: .leading, spacing: 22) {
+                    Text("Two steps. Connect Apple Health for the meds and allergies already on this iPhone. Then search the pharmacy — every product on the FDA NDC and drugs@FDA lists (the same codes CMS and CDC bill), plus CDC vaccines. Updates itself from openFDA.")
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    if !health.hasStructuredRecordsAccess {
-                        Button {
-                            Task { await connect() }
-                        } label: {
-                            Text(loading ? "Asking Health…" : "Allow from Apple Health")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(Color.ember)
-                                .cornerRadius(14)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(loading)
-                    } else if loading && summary == nil {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 24)
-                    } else if let error {
+                    healthStep
+                    pharmacyStep
+
+                    if let error {
                         Text(error)
                             .font(.system(size: 13))
                             .foregroundColor(.warning)
-                    } else if let summary, summary.hasData {
-                        ForEach(StructuredHealthKind.allCases) { kind in
-                            kindSection(kind, items: summary.items(for: kind))
-                        }
-                    } else {
-                        Text("No allergies, meds, labs, or other structured records in Apple Health yet.")
-                            .font(.system(size: 14))
-                            .foregroundColor(.textSecondary)
                     }
                 }
                 .padding(20)
+                .padding(.bottom, 40)
             }
             .background(Color.background.ignoresSafeArea())
-            .navigationTitle("Clinical Data (Non PHI)")
+            .navigationTitle("Medicine")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                 }
-                if health.hasStructuredRecordsAccess {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Refresh") {
-                            Task { await refresh() }
-                        }
-                        .disabled(loading)
-                    }
-                }
             }
             .task {
+                catalogCount = MedicationPharmacy.count
+                results = MedicationPharmacy.search(query)
                 if health.hasStructuredRecordsAccess {
-                    await refresh()
+                    await refreshHealth()
+                }
+                await MedicationPharmacy.refreshFromOpenFDAIfDue()
+                catalogCount = MedicationPharmacy.count
+                refreshLabel = MedicationPharmacy.lastRefreshLabel()
+                if !query.isEmpty {
+                    results = MedicationPharmacy.search(query)
                 }
             }
+        }
+    }
+
+    private var healthStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            stepHeader(number: "1", title: "Apple Health", subtitle: "Structured records only. Not notes. Not insurance.")
+
+            if !health.hasStructuredRecordsAccess {
+                Button {
+                    Task { await connect() }
+                } label: {
+                    Text(loading ? "Asking Health…" : "Allow medications from Apple Health")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.ember)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(loading)
+                .accessibilityLabel("Allow medications from Apple Health")
+            } else if loading && summary == nil {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+            } else if let summary, summary.hasData {
+                ForEach(StructuredHealthKind.allCases) { kind in
+                    kindSection(kind, items: summary.items(for: kind))
+                }
+                Button("Refresh Health lists") {
+                    Task { await refreshHealth() }
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.ember)
+                .disabled(loading)
+            } else {
+                Text("Health is connected. No allergies, meds, labs, or other structured records on file yet. Search the pharmacy below.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textTertiary)
+            }
+        }
+    }
+
+    private var pharmacyStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            stepHeader(
+                number: "2",
+                title: "Pharmacy",
+                subtitle: "\(catalogCount.formatted()) FDA-approved presentations · \(refreshLabel)"
+            )
+
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.textTertiary)
+                TextField("Search any medication", text: $query)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .foregroundColor(.textPrimary)
+                    .onChange(of: query) { _, value in
+                        results = MedicationPharmacy.search(value)
+                    }
+            }
+            .padding(12)
+            .background(Color.surfaceElevated)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            if !saved.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("On your list")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.textTertiary)
+                    ForEach(saved, id: \.self) { name in
+                        Text(name)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.textPrimary)
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+
+            if results.isEmpty, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text("No match in the FDA catalog for “\(query)”. Try the generic or the brand.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(results) { med in
+                    pharmacyRow(med)
+                }
+            }
+        }
+    }
+
+    private func pharmacyRow(_ med: FDAMedication) -> some View {
+        let isSaved = saved.contains { $0.caseInsensitiveCompare(med.name) == .orderedSame }
+        return Button {
+            MedicationPharmacy.toggleSaved(name: med.name)
+            saved = MedicationPharmacy.savedNames()
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: isSaved ? "pills.fill" : "pills")
+                    .foregroundColor(.ember)
+                    .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(med.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                        .multilineTextAlignment(.leading)
+                    Text([med.brand, med.therapeuticClass, "FDA"].compactMap { $0 }.joined(separator: " · "))
+                        .font(.system(size: 12))
+                        .foregroundColor(.textTertiary)
+                }
+                Spacer()
+            }
+            .padding(12)
+            .background(Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(med.name). \(isSaved ? "On your list" : "Add to your list")")
+    }
+
+    private func stepHeader(number: String, title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Text(number)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .frame(width: 22, height: 22)
+                    .background(Color.ember)
+                    .clipShape(Circle())
+                Text(title)
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundColor(.textPrimary)
+            }
+            Text(subtitle)
+                .font(.system(size: 12))
+                .foregroundColor(.textTertiary)
         }
     }
 
@@ -100,8 +222,7 @@ struct ClinicalDataNonPHIView: View {
                     .padding(.vertical, 4)
             } else {
                 VStack(spacing: 0) {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                        if index > 0 { Divider().background(Color.borderColor) }
+                    ForEach(items) { item in
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.name)
                                 .font(.system(size: 15, weight: .medium))
@@ -118,7 +239,7 @@ struct ClinicalDataNonPHIView: View {
         }
         .padding(14)
         .background(Color.surface)
-        .cornerRadius(16)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
     }
 
@@ -128,13 +249,13 @@ struct ClinicalDataNonPHIView: View {
         defer { loading = false }
         do {
             try await health.requestClinicalRecordsAuthorization()
-            await refresh()
+            await refreshHealth()
         } catch {
-            self.error = "Couldn't open Apple Health for these records."
+            self.error = "Couldn't open Apple Health for these records. The pharmacy still works."
         }
     }
 
-    private func refresh() async {
+    private func refreshHealth() async {
         loading = true
         error = nil
         defer { loading = false }
