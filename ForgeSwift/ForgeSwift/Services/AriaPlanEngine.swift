@@ -65,17 +65,11 @@ enum AriaPlanEngine {
             guidanceOnly: guidanceOnly
         )
 
-        // Annotate session title when cycle is actively shaping the plan.
-        if let cycle = context.cycleSnapshot, cycle.trackingEnabled, cycle.phase != .unknown {
-            session = SessionBlueprint(
-                title: session.title + " · \(cycle.phase.shortLabel)",
-                duration: session.duration,
-                intensity: session.intensity,
-                workoutType: session.workoutType,
-                moves: session.moves,
-                flavorLine: session.flavorLine + " " + cycle.trainingNote
-            )
-        }
+        // Cycle phase never leaves Cycle Health. Workout title stays generic
+        // (e.g. "Controlled gym", not "Controlled gym · Ovulation"). The
+        // training bias from cycle is applied via `band = stepDown` above, and
+        // the full coaching prescription stays inside MenstrualHealthView.
+        // No phase label is appended here.
 
         if !context.medicationLayer.planNote.isEmpty {
             session = SessionBlueprint(
