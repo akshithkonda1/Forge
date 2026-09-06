@@ -46,6 +46,9 @@ struct MenstrualTrackingSettings: Codable, Equatable {
     var confirmedPeriodEndDayKey: String?
     /// How much a support person may see. Default is Support coach — never a chart.
     var partnerShareTier: PartnerShareTier
+    /// Owner-composed holistic support line for supporters — single line, 280 chars max.
+    /// Vaulted. `symptoms`/`flow`/`notes` never travel; this line is explicit intent.
+    var supportCardLine: String?
 
     enum CodingKeys: String, CodingKey {
         case enabled, shareWithAria, averageCycleOverride, averagePeriodOverride
@@ -54,7 +57,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         case learnedLutealDays
         case bbtReminderEnabled, bbtReminderHour, fertileWindowAlertEnabled, periodReminderEnabled
         case cycleGoal, lifestyleGoal, periodTrainingStyle, discretionMode, cycleLockEnabled, needExtraCareDayKey
-        case condition, confirmedPeriodEndDayKey, partnerShareTier
+        case condition, confirmedPeriodEndDayKey, partnerShareTier, supportCardLine
     }
 
     static let `default` = MenstrualTrackingSettings(
@@ -100,7 +103,8 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         needExtraCareDayKey: String? = nil,
         condition: CycleCondition = .none,
         confirmedPeriodEndDayKey: String? = nil,
-        partnerShareTier: PartnerShareTier = .supportCoach
+        partnerShareTier: PartnerShareTier = .supportCoach,
+        supportCardLine: String? = nil
     ) {
         self.enabled = enabled
         self.shareWithAria = shareWithAria
@@ -127,6 +131,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         self.condition = condition
         self.confirmedPeriodEndDayKey = confirmedPeriodEndDayKey
         self.partnerShareTier = partnerShareTier
+        self.supportCardLine = supportCardLine
     }
 
     init(from decoder: Decoder) throws {
@@ -156,6 +161,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         condition = try c.decodeIfPresent(CycleCondition.self, forKey: .condition) ?? .none
         confirmedPeriodEndDayKey = try c.decodeIfPresent(String.self, forKey: .confirmedPeriodEndDayKey)
         partnerShareTier = try c.decodeIfPresent(PartnerShareTier.self, forKey: .partnerShareTier) ?? .supportCoach
+        supportCardLine = try c.decodeIfPresent(String.self, forKey: .supportCardLine)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -185,6 +191,7 @@ struct MenstrualTrackingSettings: Codable, Equatable {
         try c.encode(condition, forKey: .condition)
         try c.encodeIfPresent(confirmedPeriodEndDayKey, forKey: .confirmedPeriodEndDayKey)
         try c.encode(partnerShareTier, forKey: .partnerShareTier)
+        try c.encodeIfPresent(supportCardLine, forKey: .supportCardLine)
     }
 
     /// Effective luteal for calendar fallback.
