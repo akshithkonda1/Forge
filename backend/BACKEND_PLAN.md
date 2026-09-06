@@ -4,9 +4,11 @@
 > document.** It is an evaluation of `backend/` as it stands today plus a
 > prioritized set of proposed changes. Nothing here has been applied.
 
-Companion to [`infra/TERRAFORM_PLAN.md`](infra/TERRAFORM_PLAN.md). That plan
-covers *infrastructure*; this one covers the *application* the infrastructure
-deploys.
+Companion to [`infra/TERRAFORM_PLAN.md`](infra/TERRAFORM_PLAN.md) (infrastructure)
+and [`ARIA_INTELLIGENCE_PLAN.md`](ARIA_INTELLIGENCE_PLAN.md) (a deep, code-anchored
+roadmap for making ARIA's Python dramatically smarter). This document covers the
+*application* the infrastructure deploys; the ARIA plan drills into the reasoning
+engine specifically.
 
 ---
 
@@ -192,6 +194,27 @@ lowest‑risk cleanup because it's where infra and app disagree.
 | P2 | Use or drop the `gsi1` GSI (write‑cost) | `infra/main.tf`, storage layer |
 | P2 | Lazy per‑route imports to cut cold starts | `handler.py` |
 | P2 | Remove/fence the legacy `ai/app/` tree | `backend/ai/app/` |
+
+---
+
+## 7a. ARIA intelligence (see `ARIA_INTELLIGENCE_PLAN.md`)
+
+The single biggest lever for backend value is ARIA's reasoning quality. Today
+it is a rule-based template selector with fixed population thresholds, and a
+richer intelligence layer already in the repo (biometrics baselines/estimators,
+`CoachContextEngine` memory, the multi-model router) is **not wired into
+`/ai/chat`**. [`ARIA_INTELLIGENCE_PLAN.md`](ARIA_INTELLIGENCE_PLAN.md) lays out
+the phased upgrade, all deterministic-first and Bedrock-kill-switch-safe:
+
+| Priority | Item |
+|---|---|
+| P0 | One canonical user model (merge the 3 context builders) |
+| P0 | Personal baselines + derived confidence instead of population constants |
+| P0 | Wire `CoachContextEngine` memory into actual reasoning (not cosmetic) |
+| P0 | Make SimRunner score the **real** engine (close eval↔prod gap) |
+| P1 | Evidence-graph cross-signal fusion; port ACWR/sleep-debt/overtraining rules to prod |
+| P1 | Fill the 6 missing domain interpreters; live tool-use + output validation |
+| P2 | Better intent classifier (emit `plan`); multi-model deep-dives; forecasting/anomaly/RAG behind the inference seam |
 
 ---
 
