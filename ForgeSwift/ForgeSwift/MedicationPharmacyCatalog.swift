@@ -248,8 +248,8 @@ enum MedicationPharmacy {
 
     private static func rankedHits(query: String, catalog: [FDAMedication]) -> [FDAMedication] {
         let q = query.lowercased()
-        let tokens = tokenize(q)
-        guard !tokens.isEmpty else { return [] }
+        let queryTokens = tokenize(q)
+        guard !queryTokens.isEmpty else { return [] }
 
         lock.lock()
         let tokenList = sortedTokens
@@ -257,7 +257,7 @@ enum MedicationPharmacy {
         lock.unlock()
 
         var scores: [Int: Int] = [:]
-        for token in tokens {
+        for token in queryTokens {
             var union = Set<Int>()
             for key in tokens(startingWith: token, in: tokenList) {
                 for row in map[key] ?? [] { union.insert(row) }
@@ -276,7 +276,7 @@ enum MedicationPharmacy {
         for (index, _) in scores {
             guard catalog.indices.contains(index) else { continue }
             let row = catalog[index]
-            ranked.append((row, relevance(row, query: q, tokens: tokens)))
+            ranked.append((row, relevance(row, query: q, tokens: queryTokens)))
         }
         ranked.sort {
             if $0.1 != $1.1 { return $0.1 > $1.1 }
