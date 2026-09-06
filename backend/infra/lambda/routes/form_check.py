@@ -13,8 +13,7 @@ same `live_system_prompt()` every other live surface uses.
 
 Vision is not routed yet. `BedrockGateway.converse()` calls the native Converse
 operation, and whether image content blocks work through it against the
-configured models is unverified — see the Grok verification note in ai_router.py
-for the same class of unknown. Rather than guess, the vision mode answers
+configured models is unverified. Rather than guess, the vision mode answers
 `available: false`, which the client already knows how to handle: it falls back
 to the on-device heuristic it used whenever the API key was absent. The client
 integration point is therefore unchanged, and no key ships in the binary.

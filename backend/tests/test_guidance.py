@@ -32,6 +32,10 @@ class BandClassificationTests(unittest.TestCase):
         self.assertEqual(g.band, guidance.EMERGENCY)
         self.assertIn("988", g.prose)
         self.assertTrue(g.wants_escalation)
+        # A crisis message must not get generic physical first-aid steps.
+        low = g.prose.lower()
+        self.assertNotIn("chest compress", low)
+        self.assertNotIn("press firmly on the wound", low)
 
     def test_first_aid_howto(self):
         for msg in [
@@ -68,6 +72,23 @@ class BandClassificationTests(unittest.TestCase):
         ]:
             self.assertEqual(guidance.classify_band(msg), guidance.COACH, msg)
         self.assertIsNone(guidance.assess("should I train hard today?"))
+
+    def test_burn_substring_does_not_misfire_first_aid(self):
+        # "burn" must match as a whole word only — these are lifestyle topics,
+        # not first aid, and must never trigger a 911/CPR response.
+        for msg in [
+            "how do I recover from burnout",
+            "how to deal with heartburn",
+            "how do I prevent sunburn on long runs",
+        ]:
+            self.assertEqual(guidance.classify_band(msg), guidance.COACH, msg)
+
+    def test_real_burn_is_first_aid_with_burn_steps(self):
+        g = guidance.assess("how to treat a burn")
+        self.assertEqual(g.band, guidance.FIRST_AID)
+        low = g.prose.lower()
+        self.assertIn("cool", low)  # burn-specific guidance
+        self.assertNotIn("chest compress", low)  # not the generic CPR fallback
 
     def test_emergency_takes_precedence_over_diagnosis(self):
         # Phrased like a diagnosis question but describes acute danger.

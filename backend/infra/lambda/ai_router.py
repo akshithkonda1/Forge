@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import os
 import threading
@@ -7,6 +8,8 @@ import time
 from dataclasses import dataclass, field
 from queue import Empty, Queue
 from typing import Any
+
+_log = logging.getLogger("forge.ai_router")
 
 
 MAX_PACKAGE_BYTES = 10 * 1024 * 1024 * 1024
@@ -696,8 +699,15 @@ class AIRouter:
                     "finalizedByModel": self._model_descriptor(finalizer.model),
                     "fallbackUsed": False,
                 }
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 — never fail the request on consensus
+            # A consensus failure is recoverable (we fall back to the fastest
+            # answer), but swallowing it silently hides real Bedrock/prompt
+            # problems. Log it so the fallback is observable.
+            _log.warning(
+                "consensus finalization failed (model=%s): %s",
+                finalizer.model.model_id,
+                exc,
+            )
 
         return finalizer.answer, {
             "mode": f"{len(used_results)}-model-consensus",

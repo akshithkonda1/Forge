@@ -1910,12 +1910,26 @@ def _merge_live_envelope(
         merged["response_type"] = response_type
 
     confidence = _coerce_confidence(data.get("confidence"))
+    capped = False
     if confidence is not None:
+        # The deterministic calibration encodes data-sufficiency ceilings (e.g.
+        # no HRV history caps confidence at 0.65). The live model must never claim
+        # more certainty than the ground truth supports, so the deterministic
+        # value is an upper bound — the model may lower it, never raise it.
+        base_conf = base.get("confidence")
+        if isinstance(base_conf, (int, float)) and not isinstance(base_conf, bool):
+            if confidence > float(base_conf):
+                confidence = float(base_conf)
+                capped = True
         merged["confidence"] = confidence
 
     reason = data.get("confidence_reason")
     if isinstance(reason, str) and reason.strip():
         merged["confidence_reason"] = reason.strip()
+    if capped:
+        existing = str(merged.get("confidence_reason", "")).strip()
+        note = "Capped to the confidence the available data supports."
+        merged["confidence_reason"] = f"{existing.rstrip('.')}. {note}" if existing else note
 
     recommendation = data.get("recommendation")
     if isinstance(recommendation, str) and recommendation.strip():
@@ -1947,16 +1961,28 @@ def _merge_live_envelope(
 
 
 def _parse_model_envelope(text: str) -> dict[str, Any]:
-    """Best-effort extraction of the JSON envelope from a model response."""
+    """Best-effort extraction of the JSON envelope from a model response.
+
+    Tries a direct parse, then scans for the first valid JSON object with
+    ``raw_decode``. Using ``raw_decode`` (rather than first-``{``/last-``}``)
+    means a ``}`` inside a prose string no longer truncates or breaks parsing.
+    """
     cleaned = re.sub(r"```(?:json)?", "", text or "").replace("```", "").strip()
-    start, end = cleaned.find("{"), cleaned.rfind("}")
-    if start != -1 and end > start:
-        cleaned = cleaned[start:end + 1]
     try:
         data = json.loads(cleaned)
+        return data if isinstance(data, dict) else {}
     except (ValueError, TypeError):
-        return {}
-    return data if isinstance(data, dict) else {}
+        pass
+    decoder = json.JSONDecoder()
+    idx = cleaned.find("{")
+    while idx != -1:
+        try:
+            obj, _ = decoder.raw_decode(cleaned[idx:])
+        except ValueError:
+            idx = cleaned.find("{", idx + 1)
+            continue
+        return obj if isinstance(obj, dict) else {}
+    return {}
 
 
 def _coerce_confidence(value: Any) -> float | None:
