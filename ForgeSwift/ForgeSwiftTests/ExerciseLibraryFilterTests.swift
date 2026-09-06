@@ -133,6 +133,18 @@ final class ExerciseLibraryFilterTests: XCTestCase {
         XCTAssertTrue(cables.allSatisfy { $0.equipment == .cable })
     }
 
+    func testPlanEngineUsesMedicationAsForYouLifestyleNotAPrescription() {
+        var context = Self.fixtureContext()
+        context.medicationLayer = MedicationContext.resolve(savedNames: ["Xcopri"])
+        XCTAssertTrue(context.medicationLayer.shouldSoftenTraining)
+        XCTAssertTrue(context.medicationLayer.inferredNeeds.contains("Epilepsy"))
+        let plan = AriaPlanEngine.evaluate(input: "what should I train today?", context: context)
+        let text = (plan.narrative + " " + plan.workoutPlan.name).lowercased()
+        XCTAssertTrue(text.contains("no prescription") || text.contains("no dose"))
+        XCTAssertFalse(text.contains(" mg"))
+        XCTAssertFalse(text.contains("take two"))
+    }
+
     func testAriaSpeechPrepDropsEmptyAndCapsLength() {
         XCTAssertNil(AriaSpeechPrep.clipped("   "))
         XCTAssertNil(AriaSpeechPrep.clipped(""))

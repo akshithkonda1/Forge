@@ -47,8 +47,16 @@ enum AriaOnDeviceHealthPolicy {
         out.nutrition = ARIAContextPayload.NutritionDomain()
         out.progress = ARIAContextPayload.ProgressDomain()
         out.clinicalData = nil
+        if var layer = out.medicationLayer {
+            layer.onFile = []
+            layer.archetypes = Array(Set(layer.mentioned.map(\.archetype))).sorted()
+            layer.diseases = Array(Set(layer.mentioned.map(\.disease))).sorted()
+            out.medicationLayer = layer.isEmpty ? nil : layer
+        }
         out.lifestyle.cyclePhaseDirective = nil
-        out.lifestyle.tags = out.lifestyle.tags.filter { !isHealthLedgerTag($0) }
+        out.lifestyle.tags = out.lifestyle.tags.filter { tag in
+            !isHealthLedgerTag(tag) && !tag.hasPrefix("med_onfile:")
+        }
         out.lifestyle.recentPatterns = out.lifestyle.recentPatterns.filter { pattern in
             let p = pattern.lowercased()
             return !p.hasPrefix("cycle:") && !p.contains("cycle_phase")
@@ -57,6 +65,7 @@ enum AriaOnDeviceHealthPolicy {
             let l = line.lowercased()
             return !l.contains("menstru") && !l.contains("luteal") && !l.contains("follicular")
                 && !l.contains("ovulat") && !l.hasPrefix("cycle")
+                && !l.hasPrefix("med:health:") && !l.hasPrefix("med:saved:")
         }
         return out
     }

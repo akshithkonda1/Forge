@@ -153,6 +153,32 @@ final class CycleVaultAppTests: XCTestCase {
                 immunizations: [],
                 labResults: [],
                 procedures: []
+            ),
+            medicationLayer: MedicationContextLayer(
+                onFile: [
+                    MedicationContextEntry(
+                        id: "health:lipitor",
+                        name: "Lipitor",
+                        generic: "atorvastatin",
+                        brand: "Lipitor",
+                        archetype: "Cardiovascular",
+                        disease: "High cholesterol",
+                        source: "health"
+                    )
+                ],
+                mentioned: [
+                    MedicationContextEntry(
+                        id: "mentioned:xcopri",
+                        name: "Xcopri",
+                        generic: "cenobamate",
+                        brand: "Xcopri",
+                        archetype: "Neurology",
+                        disease: "Epilepsy",
+                        source: "mentioned"
+                    )
+                ],
+                archetypes: ["Cardiovascular", "Neurology"],
+                diseases: ["Epilepsy", "High cholesterol"]
             )
         )
         payload = AriaOnDeviceHealthPolicy.strippedForRemoteInference(payload)
@@ -162,6 +188,8 @@ final class CycleVaultAppTests: XCTestCase {
         XCTAssertNil(payload.progress.workoutsCompleted30d)
         XCTAssertNil(payload.lifestyle.cyclePhaseDirective)
         XCTAssertNil(payload.clinicalData)
+        XCTAssertEqual(payload.medicationLayer?.onFile.count, 0)
+        XCTAssertEqual(payload.medicationLayer?.mentioned.first?.generic, "cenobamate")
         XCTAssertFalse(payload.lifestyle.tags.contains { $0.hasPrefix("cycle") })
         XCTAssertTrue(payload.lifestyle.tags.contains("persona:stressed"))
         XCTAssertTrue(payload.profile.constraints.isEmpty)

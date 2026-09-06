@@ -732,10 +732,16 @@ struct UserHealthProfile {
 /// HealthKit can invoke a query handler more than once. Resume the
 /// continuation exactly once so the medicine page cannot crash on that path.
 private final class ClinicalQueryResumeOnce<T>: @unchecked Sendable {
+    private let lock = NSLock()
     private var done = false
     func finish(_ value: T, _ resume: (T) -> Void) {
-        guard !done else { return }
+        lock.lock()
+        if done {
+            lock.unlock()
+            return
+        }
         done = true
+        lock.unlock()
         resume(value)
     }
 }

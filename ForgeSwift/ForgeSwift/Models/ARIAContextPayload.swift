@@ -15,6 +15,9 @@ struct ARIAContextPayload: Codable, Equatable {
     var lifestyle: LifestyleDomain
     /// Structured Health records (Non PHI). Names only. Notes never included.
     var clinicalData: ClinicalDataDomain? = nil
+    /// Federal pharmacy context: Health/saved meds plus names mentioned this
+    /// turn, each resolved to brand, generic, archetype, and disease.
+    var medicationLayer: MedicationContextLayer? = nil
     /// Token-efficient conversational memory: a handful of verbatim recent
     /// turns plus compressed anchors for everything older. Optional so older
     /// backends that don't know the field simply ignore it.

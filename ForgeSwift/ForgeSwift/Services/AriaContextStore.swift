@@ -163,6 +163,7 @@ final class AriaContextStore: ObservableObject {
             hydrationMl3DayAvg: todayStats.map { HydrationEngine.milliliters(fromGlasses: $0.water) },
             calorieTarget: 2600
         )
+        let medicationLayer = applyMedicationLayer(query: query)
         let profileDomain = ARIAContextPayload.ProfileDomain(
             primaryGoal: store.userProfile.fitnessGoals.first?.rawValue,
             experienceLevel: store.userProfile.experienceLevel.rawValue,
@@ -204,6 +205,7 @@ final class AriaContextStore: ObservableObject {
             progress: progressDomain,
             lifestyle: lifestyleDomain,
             clinicalData: clinicalDomain(),
+            medicationLayer: medicationLayer.isEmpty ? nil : medicationLayer,
             conversation: store.conversationContextPayload()
         )
     }
@@ -220,6 +222,32 @@ final class AriaContextStore: ObservableObject {
         guard HealthKitManager.shared.hasStructuredRecordsAccess,
               let summary = HealthKitManager.shared.clinicalSummary else { return [] }
         return summary.ariaConstraintLines()
+    }
+
+    /// Resolve Health + saved + mentioned names against the federal catalog.
+    /// Mutates in-memory tags only — same as cross-zone. Not persisted.
+    @discardableResult
+    func applyMedicationLayer(query: String? = nil) -> MedicationContextLayer {
+        let healthNames: [String]
+        if HealthKitManager.shared.hasStructuredRecordsAccess,
+           let summary = HealthKitManager.shared.clinicalSummary {
+            healthNames = summary.ariaDomain().medications
+        } else {
+            healthNames = []
+        }
+        let layer = MedicationContext.resolve(
+            query: query,
+            healthNames: healthNames,
+            savedNames: MedicationPharmacy.savedNames()
+        )
+        context.constraints.removeAll { $0.hasPrefix("med:") }
+        for line in layer.constraintLines where !context.constraints.contains(line) {
+            context.constraints.append(line)
+        }
+        context.lifestyleTags.removeAll { $0.hasPrefix("med_") }
+        context.lifestyleTags.append(contentsOf: layer.tags)
+        context.lifestyleTags = Array(Set(context.lifestyleTags)).sorted()
+        return layer
     }
 
     func buildRichContext(from store: AppStore) -> AriaRichContext {

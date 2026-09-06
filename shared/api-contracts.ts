@@ -341,6 +341,30 @@ export interface AriaContext {
     labResults: string[];
     procedures: string[];
   };
+  /** Federal pharmacy context ARIA can pull: Health/saved plus names
+   *  mentioned this turn, each resolved to brand, generic, archetype, disease. */
+  medicationLayer?: {
+    onFile: Array<{
+      id: string;
+      name: string;
+      generic: string;
+      brand?: string | null;
+      archetype: string;
+      disease: string;
+      source: string;
+    }>;
+    mentioned: Array<{
+      id: string;
+      name: string;
+      generic: string;
+      brand?: string | null;
+      archetype: string;
+      disease: string;
+      source: string;
+    }>;
+    archetypes: string[];
+    diseases: string[];
+  };
   /** Token-efficient conversational memory. Recent turns arrive verbatim;
    *  everything older is compressed into `summary` anchors so long histories
    *  don't grow the prompt without bound. Optional for older clients. */

@@ -11,7 +11,7 @@ enum AriaDummyOrchestrator {
         store: AppStore,
         agent: AriaCoachAgent
     ) async -> AriaResponse {
-        let context = store.makeTrainerContext()
+        let context = store.makeTrainerContext(query: text)
         let life = context.lifeRead
         let trimmedName = store.userProfile.name.split(separator: " ").first.map(String.init) ?? ""
         let you = trimmedName.isEmpty ? "" : "\(trimmedName) — "

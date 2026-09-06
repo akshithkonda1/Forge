@@ -345,6 +345,35 @@ class ClinicalDataContext:
     procedures: list[str] = field(default_factory=list)
 
 
+@dataclass
+class MedicationLayerEntry:
+    name: str = ""
+    generic: str = ""
+    brand: str | None = None
+    archetype: str = ""
+    disease: str = ""
+    source: str = ""
+
+    def line(self) -> str:
+        names = [part for part in (self.brand, self.generic) if part]
+        shown = " / ".join(names) if names else (self.name or "unknown")
+        return f"{shown} · {self.archetype} · {self.disease}"
+
+
+@dataclass
+class MedicationLayerContext:
+    """Federal pharmacy context. Names and taxonomy only."""
+
+    on_file: list[MedicationLayerEntry] = field(default_factory=list)
+    mentioned: list[MedicationLayerEntry] = field(default_factory=list)
+    archetypes: list[str] = field(default_factory=list)
+    diseases: list[str] = field(default_factory=list)
+
+    @property
+    def is_empty(self) -> bool:
+        return not self.on_file and not self.mentioned
+
+
 # --- Quality of Life → "life rhythm" ----------------------------------------
 #
 # The client computes a holistic Quality of Life score (ForgeCore
@@ -464,6 +493,7 @@ class ARIAContext:
     progress: ProgressContext = field(default_factory=ProgressContext)
     lifestyle: LifestyleContext = field(default_factory=LifestyleContext)
     clinical_data: ClinicalDataContext = field(default_factory=ClinicalDataContext)
+    medication_layer: MedicationLayerContext = field(default_factory=MedicationLayerContext)
 
     @property
     def missing_fields(self) -> list[str]:
@@ -536,6 +566,7 @@ class ARIAContext:
         progress = data.get("progress") or {}
         lifestyle = data.get("lifestyle") or {}
         clinical = data.get("clinicalData") or data.get("clinical_data") or {}
+        layer = data.get("medicationLayer") or data.get("medication_layer") or {}
         return cls(
             timestamp=str(data.get("timestamp") or _utcnow_iso()),
             sleep=SleepContext(
@@ -606,6 +637,12 @@ class ARIAContext:
                 immunizations=_str_list(clinical.get("immunizations")),
                 lab_results=_str_list(clinical.get("labResults") or clinical.get("lab_results")),
                 procedures=_str_list(clinical.get("procedures")),
+            ),
+            medication_layer=MedicationLayerContext(
+                on_file=_parse_med_entries(layer.get("onFile") or layer.get("on_file")),
+                mentioned=_parse_med_entries(layer.get("mentioned")),
+                archetypes=_str_list(layer.get("archetypes")),
+                diseases=_str_list(layer.get("diseases")),
             ),
         )
 
@@ -683,6 +720,28 @@ class ARIAContext:
             f"- missing_fields: {', '.join(self.missing_fields) or 'none'}",
             f"- restricted_domains: {', '.join(restricted) or 'none'}",
         ]
+        layer = self.medication_layer
+        if "clinical_data" in restricted:
+            layer_on_file: list[MedicationLayerEntry] = []
+            layer_mentioned = list(layer.mentioned)
+        else:
+            layer_on_file = list(layer.on_file)
+            layer_mentioned = list(layer.mentioned)
+        if layer_on_file or layer_mentioned:
+            on_file = "; ".join(entry.line() for entry in layer_on_file[:12]) or "none"
+            mentioned = "; ".join(entry.line() for entry in layer_mentioned[:8]) or "none"
+            lines.append(f"- medication_layer.on_file: {on_file}")
+            lines.append(f"- medication_layer.mentioned: {mentioned}")
+            if layer.archetypes:
+                lines.append(f"- medication_layer.archetypes: {', '.join(layer.archetypes)}")
+            if layer.diseases:
+                lines.append(f"- medication_layer.diseases: {', '.join(layer.diseases)}")
+            lines.append(
+                "- medication_layer.rule: never prescribe; never name a dose, frequency, or timing; never start, stop, or change a medication; never treat a catalog disease as a diagnosis"
+            )
+            lines.append(
+                "- medication_layer.for_you: from what they already take, file likely needs and mutate lifestyle and training to this person — their data, not a population standard"
+            )
         # Life rhythm (holistic Quality of Life), only when the client sent it and
         # lifestyle is not redacted. Framed as a lifestyle signal, never medical.
         # Gate on `restricted` too: callers may pass an un-sanitized context with
@@ -766,6 +825,16 @@ def apply_permissions(ctx: ARIAContext, permissions: DataPermissions) -> tuple[A
     sanitized = ARIAContext(timestamp=ctx.timestamp, **{name: getattr(ctx, name) for name in ALL_DOMAINS})
     for domain in restricted:
         setattr(sanitized, domain, _DOMAIN_TYPES[domain]())
+    layer = ctx.medication_layer
+    if "clinical_data" in restricted:
+        sanitized.medication_layer = MedicationLayerContext(
+            on_file=[],
+            mentioned=list(layer.mentioned),
+            archetypes=sorted({entry.archetype for entry in layer.mentioned if entry.archetype}),
+            diseases=sorted({entry.disease for entry in layer.mentioned if entry.disease}),
+        )
+    else:
+        sanitized.medication_layer = layer
     return sanitized, restricted
 
 
@@ -1888,6 +1957,30 @@ def _str_list(value: Any) -> list[str]:
     if not isinstance(value, (list, tuple)):
         return []
     return [s for s in (_str(item) for item in value) if s]
+
+
+def _parse_med_entries(value: Any) -> list[MedicationLayerEntry]:
+    if not isinstance(value, (list, tuple)):
+        return []
+    entries: list[MedicationLayerEntry] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        name = _str(item.get("name")) or ""
+        generic = _str(item.get("generic")) or name
+        if not name and not generic:
+            continue
+        entries.append(
+            MedicationLayerEntry(
+                name=name or generic,
+                generic=generic or name,
+                brand=_str(item.get("brand")),
+                archetype=_str(item.get("archetype")) or "",
+                disease=_str(item.get("disease")) or "",
+                source=_str(item.get("source")) or "",
+            )
+        )
+    return entries
 
 
 def _coerce_metrics(raw: Any) -> dict[str, float]:

@@ -586,7 +586,9 @@ extension AppStore {
 
     /// Legacy method for backward compatibility - converts to async
     /// Builds a full `TrainerContext` including living ARIA tags/constraints + cycle.
-    func makeTrainerContext() -> TrainerContext {
+    /// Read-only: safe from SwiftUI computed properties. Pass `query` on a chat
+    /// turn so mentioned brand/generic names resolve into the medication layer.
+    func makeTrainerContext(query: String? = nil) -> TrainerContext {
         let ctx = AriaContextStore.shared.context
         let cycleStore = MenstrualHealthStore.shared
         // Read-only by design: this is called from SwiftUI computed properties, and
@@ -605,6 +607,16 @@ extension AppStore {
             roster.first(where: { $0.settings.partnerName == person.settings.partnerName
                 && $0.settings.supportRole == person.settings.supportRole })
         } ?? roster.first
+        let healthNames: [String] = {
+            guard HealthKitManager.shared.hasStructuredRecordsAccess,
+                  let summary = HealthKitManager.shared.clinicalSummary else { return [] }
+            return summary.ariaDomain().medications
+        }()
+        let medicationLayer = MedicationContext.resolve(
+            query: query,
+            healthNames: healthNames,
+            savedNames: MedicationPharmacy.savedNames()
+        )
         return TrainerContext(
             userProfile: userProfile,
             readiness: readiness,
@@ -620,7 +632,8 @@ extension AppStore {
             cycleSnapshot: cycle,
             partnerCycleSnapshot: activePerson?.snapshot,
             partnerCycleSettings: activePerson?.settings,
-            supportedPeople: roster
+            supportedPeople: roster,
+            medicationLayer: medicationLayer
         )
     }
 }

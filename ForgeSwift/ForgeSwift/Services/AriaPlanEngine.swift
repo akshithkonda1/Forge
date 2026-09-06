@@ -51,6 +51,11 @@ enum AriaPlanEngine {
             band = stepDown(band)
         }
 
+        // Medication context mutates training for this person — never a prescription.
+        if context.medicationLayer.shouldSoftenTraining {
+            band = stepDown(band)
+        }
+
         var session = buildSession(
             theme: theme,
             band: band,
@@ -69,6 +74,17 @@ enum AriaPlanEngine {
                 workoutType: session.workoutType,
                 moves: session.moves,
                 flavorLine: session.flavorLine + " " + cycle.trainingNote
+            )
+        }
+
+        if !context.medicationLayer.planNote.isEmpty {
+            session = SessionBlueprint(
+                title: session.title,
+                duration: session.duration,
+                intensity: session.intensity,
+                workoutType: session.workoutType,
+                moves: session.moves,
+                flavorLine: session.flavorLine + " " + context.medicationLayer.planNote
             )
         }
 
@@ -742,6 +758,11 @@ enum AriaPlanEngine {
             cycleLine += " \(cycle.readinessNote)"
             speech += "\n\n" + cycleLine
             _ = facts
+        }
+
+        if !context.medicationLayer.planNote.isEmpty,
+           !speech.localizedCaseInsensitiveContains("no prescription") {
+            speech += "\n\n" + context.medicationLayer.planNote
         }
 
         return speech
