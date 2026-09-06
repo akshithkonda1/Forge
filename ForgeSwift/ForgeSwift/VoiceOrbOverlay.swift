@@ -39,8 +39,8 @@ struct VoiceOrbOverlay: View {
                     if !reduceMotion {
                         RadialGradient(
                             colors: [
-                                mood.accentColor.opacity(0.28),
-                                Color(hex: "7B61FF").opacity(0.08),
+                                Color(hex: AriaSigilPalette.goldHex).opacity(0.16),
+                                Color(hex: AriaSigilPalette.bloodHex).opacity(0.10),
                                 .clear
                             ],
                             center: .center, startRadius: 16, endRadius: 170
@@ -54,7 +54,7 @@ struct VoiceOrbOverlay: View {
                         state:     speech.voiceState.orbState,
                         amplitude: max(speech.amplitude, 0.35),
                         mood:      mood,
-                        size:      148,
+                        size:      160,
                         followPresence: true
                     )
                         .scaleEffect(orbRevealed ? 1.0 : 0.7)

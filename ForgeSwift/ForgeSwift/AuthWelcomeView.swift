@@ -260,18 +260,19 @@ private struct AuthHookPageView: View {
                         FDS.haptic(.soft)
                         AriaPresence.shared.speak(AriaOnboardingGuide.welcomeSpokenLine, interrupt: true)
                     } label: {
-                        VStack(spacing: 8) {
+                        VStack(spacing: 10) {
                             AuroraOrbView(
                                 state: .idle,
                                 amplitude: 0.34,
                                 mood: .energized,
-                                size: 148,
+                                size: 168,
                                 followPresence: true
                             )
-                            .scaleEffect(isActive ? 1.0 + floatPhase * 0.02 : 0.92)
-                            Text("Tap me — I’m here")
-                                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                .foregroundColor(.ember.opacity(0.9))
+                            .scaleEffect(isActive ? 1.0 + floatPhase * 0.012 : 0.94)
+                            Text("ARIA")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .tracking(3.2)
+                                .foregroundColor(Color(hex: AriaSigilPalette.goldHex).opacity(0.78))
                         }
                     }
                     .buttonStyle(.plain)
@@ -309,7 +310,7 @@ private struct AuthHookPageView: View {
                         .offset(y: isActive ? -floatPhase * 6 : 0)
                 }
             }
-            .frame(height: 196)
+            .frame(height: 220)
             .onChange(of: isActive) { _, active in
                 guard page.id == "aria" else { return }
                 if active {
