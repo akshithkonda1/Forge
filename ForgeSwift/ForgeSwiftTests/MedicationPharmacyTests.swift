@@ -111,6 +111,7 @@ final class MedicationPharmacyTests: XCTestCase {
         let mentioned = MedicationContext.resolve(query: "I take xcopri and cenobamate")
         XCTAssertTrue(mentioned.mentioned.contains { $0.archetype == "Neurology" && $0.disease == "Epilepsy" })
         XCTAssertTrue(mentioned.mentioned.contains { $0.generic.localizedCaseInsensitiveContains("cenobamate") })
+        XCTAssertFalse(mentioned.mentioned.contains { $0.generic.localizedCaseInsensitiveContains("levonorgestrel") })
 
         let onFile = MedicationContext.resolve(savedNames: ["Lipitor"])
         XCTAssertTrue(onFile.onFile.contains { $0.generic.localizedCaseInsensitiveContains("atorvastatin") })

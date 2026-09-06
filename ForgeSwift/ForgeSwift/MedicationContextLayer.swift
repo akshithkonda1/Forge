@@ -419,9 +419,9 @@ enum MedicationContext {
                 source: source
             )
         }
-        let brandMatch = hit.brand?.localizedCaseInsensitiveContains(q) == true
-        let genericMatch = hit.generic.localizedCaseInsensitiveContains(q)
-        let nameMatch = hit.name.localizedCaseInsensitiveContains(q)
+        let brandMatch = tokenIn(hit.brand, q)
+        let genericMatch = tokenIn(hit.generic, q)
+        let nameMatch = tokenIn(hit.name, q)
         guard brandMatch || genericMatch || nameMatch || source != "mentioned" else { return nil }
         return MedicationContextEntry(
             id: "\(source):\(hit.id)",
@@ -439,6 +439,19 @@ enum MedicationContext {
         return query
             .split { !$0.isLetter && !$0.isNumber }
             .map(String.init)
-            .filter { $0.count >= 4 }
+            .filter { $0.count >= 5 && !mentionStopwords.contains($0.lowercased()) }
     }
+
+    private static func tokenIn(_ field: String?, _ token: String) -> Bool {
+        guard let field, !field.isEmpty else { return false }
+        return field.split { !$0.isLetter && !$0.isNumber }.contains {
+            $0.caseInsensitiveCompare(token) == .orderedSame
+        }
+    }
+
+    private static let mentionStopwords: Set<String> = [
+        "about", "after", "again", "being", "could", "every", "first", "their",
+        "there", "these", "those", "would", "should", "other", "where", "which",
+        "while", "still", "since", "today", "night",
+    ]
 }
