@@ -1583,6 +1583,29 @@ def generate_response(
     perms = permissions if isinstance(permissions, DataPermissions) else DataPermissions.allow_all()
     ctx, restricted = apply_permissions(ctx, perms)
 
+    # Safety boundary first: ARIA is a lifestyle coach, not a doctor. Emergencies,
+    # first-aid how-to, and diagnosis/prescription requests short-circuit the
+    # normal coaching path deterministically so the hard line can never drift or
+    # be talked around by the live model.
+    from services import guidance
+
+    guardrail = guidance.assess(message)
+    if guardrail is not None:
+        envelope = _envelope(
+            response_type="clarification",
+            confidence=1.0,
+            confidence_reason=guardrail.confidence_reason,
+            prose_summary=guardrail.prose,
+            card=None,
+            message=guardrail.message,
+            suggested_actions=guardrail.suggested_actions,
+            voice_mode=voice_mode,
+        )
+        envelope["restricted_domains"] = restricted
+        envelope["guidance_band"] = guardrail.band
+        envelope["emergency_escalation"] = guardrail.wants_escalation
+        return envelope
+
     response_type = classify_request(message, ctx)
 
     # A clarification never reads the interpreted signals, so gather them only on
@@ -1835,6 +1858,13 @@ def generate_response_live(
     base["agent"] = coach
     base["agents"] = roster
 
+    # A safety-band decision (emergency / first-aid / diagnosis-refusal) is
+    # enforced deterministically and must never be handed to the model to
+    # rephrase or override. Return it as-is.
+    if base.get("guidance_band"):
+        base["reasoning_source"] = "deterministic"
+        return base
+
     # Real Bedrock is opt-in. With no injected converse and the flag off, never
     # call out — return the deterministic envelope. This closes the aria_cli
     # --live bypass (it passes converse=None) while keeping the live path fully
@@ -1903,6 +1933,16 @@ def _merge_live_envelope(
     merged["message"] = prose
     merged["model"] = model_id
     merged["reasoning_source"] = "bedrock"
+
+    # Defense in depth: on the COACH path the model should never diagnose or
+    # prescribe. If its output slips into medical claim/dosing language, append a
+    # clinician disclaimer rather than trust it silently.
+    from services import guidance
+
+    if guidance.contains_prescriptive_medical_language(merged.get("message") or ""):
+        merged["message"] = guidance.append_clinician_disclaimer(merged["message"])
+        merged["prose_summary"] = guidance.append_clinician_disclaimer(merged["prose_summary"])
+        merged["safety_softened"] = True
     return merged
 
 
