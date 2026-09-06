@@ -108,6 +108,7 @@
 		C7C1E1120000000000000001 /* CycleReportPDF.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E1110000000000000001 /* CycleReportPDF.swift */; };
 		C7C1E1140000000000000001 /* CycleReportUploadClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E1130000000000000001 /* CycleReportUploadClient.swift */; };
 		C7C1E1160000000000000001 /* IntimacyFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E1150000000000000001 /* IntimacyFlowTests.swift */; };
+		C7C1E1180000000000000001 /* AriaHealthRiskBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E1170000000000000001 /* AriaHealthRiskBridge.swift */; };
 		1ARIA0422F9FF867004091AA /* Menstrual/MenstrualHealthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */; };
 		9EE00809EB0529B6F52B5C25 /* CycleSupportCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3C951B0286809343384EDB /* CycleSupportCards.swift */; };
 		16416824CF33C5A419A08AF2 /* CycleFertilityCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31F1B24D2EFD154619C5FB43 /* CycleFertilityCards.swift */; };
@@ -273,6 +274,7 @@
 		F0B100000000000000000035 /* SleepSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000026 /* SleepSummaryView.swift */; };
 		F0B100000000000000000036 /* KnownPlacesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000027 /* KnownPlacesStore.swift */; };
 		F0B100000000000000000037 /* WindDownScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000028 /* WindDownScheduler.swift */; };
+		F0B100000000000000000052 /* WatchHealthRiskBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000052 /* WatchHealthRiskBridge.swift */; };
 		F0B100000000000000000038 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000029 /* OnboardingView.swift */; };
 		F0B100000000000000000039 /* WatchAriaConfigBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000002A /* WatchAriaConfigBridge.swift */; };
 		F0F1000000000000000000A1 /* LifestyleTargets.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F1000000000000000000A2 /* LifestyleTargets.swift */; };
@@ -483,6 +485,7 @@
 		C7C1E1110000000000000001 /* CycleReportPDF.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleReportPDF.swift; sourceTree = "<group>"; };
 		C7C1E1130000000000000001 /* CycleReportUploadClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleReportUploadClient.swift; sourceTree = "<group>"; };
 		C7C1E1150000000000000001 /* IntimacyFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntimacyFlowTests.swift; sourceTree = "<group>"; };
+		C7C1E1170000000000000001 /* AriaHealthRiskBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaHealthRiskBridge.swift; sourceTree = "<group>"; };
 		1ARIA0432F9FF867004091AA /* Menstrual/MenstrualHealthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Menstrual/MenstrualHealthView.swift; sourceTree = "<group>"; };
 		BA3C951B0286809343384EDB /* CycleSupportCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Menstrual/CycleSupportCards.swift"; sourceTree = "<group>"; };
 		31F1B24D2EFD154619C5FB43 /* CycleFertilityCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Menstrual/CycleFertilityCards.swift"; sourceTree = "<group>"; };
@@ -649,6 +652,7 @@
 		F0F100000000000000000026 /* SleepSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSummaryView.swift; sourceTree = "<group>"; };
 		F0F100000000000000000027 /* KnownPlacesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownPlacesStore.swift; sourceTree = "<group>"; };
 		F0F100000000000000000028 /* WindDownScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindDownScheduler.swift; sourceTree = "<group>"; };
+		F0F100000000000000000052 /* WatchHealthRiskBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHealthRiskBridge.swift; sourceTree = "<group>"; };
 		F0F100000000000000000029 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		F0F10000000000000000002A /* WatchAriaConfigBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAriaConfigBridge.swift; sourceTree = "<group>"; };
 		F0F1000000000000000000A2 /* LifestyleTargets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleTargets.swift; sourceTree = "<group>"; };
@@ -821,6 +825,7 @@
 				C7C1E10D0000000000000001 /* IntimacyFlow.swift */,
 				C7C1E1110000000000000001 /* CycleReportPDF.swift */,
 				C7C1E1130000000000000001 /* CycleReportUploadClient.swift */,
+				C7C1E1170000000000000001 /* AriaHealthRiskBridge.swift */,
 				1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */,
 				1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */,
 				1ARIA0452F9FF867004091AA /* PartnerSupportCoach.swift */,
@@ -1102,6 +1107,7 @@
 				F0F10000000000000000001B /* PhoneLinkService.swift */,
 				F0F100000000000000000027 /* KnownPlacesStore.swift */,
 				F0F100000000000000000028 /* WindDownScheduler.swift */,
+				F0F100000000000000000052 /* WatchHealthRiskBridge.swift */,
 			);
 			path = Managers;
 			sourceTree = "<group>";
@@ -1448,6 +1454,7 @@
 				C7C1E1100000000000000001 /* DifficultyConceivingGuideView.swift in Sources */,
 				C7C1E1120000000000000001 /* CycleReportPDF.swift in Sources */,
 				C7C1E1140000000000000001 /* CycleReportUploadClient.swift in Sources */,
+				C7C1E1180000000000000001 /* AriaHealthRiskBridge.swift in Sources */,
 				1CYC0012F9FF867004091AA /* CycleDataEvaluator.swift in Sources */,
 				1CYC0032F9FF867004091AA /* CycleAriaAnalyst.swift in Sources */,
 				1ARIA0442F9FF867004091AA /* PartnerSupportCoach.swift in Sources */,
@@ -1618,6 +1625,7 @@
 				F0B100000000000000000035 /* SleepSummaryView.swift in Sources */,
 				F0B100000000000000000036 /* KnownPlacesStore.swift in Sources */,
 				F0B100000000000000000037 /* WindDownScheduler.swift in Sources */,
+				F0B100000000000000000052 /* WatchHealthRiskBridge.swift in Sources */,
 				F0B100000000000000000038 /* OnboardingView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
