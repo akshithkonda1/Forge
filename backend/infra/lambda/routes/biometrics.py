@@ -15,6 +15,7 @@ from typing import Any
 
 from responses import RouteError, ok
 from services import aria_engine
+from services import emergency
 from services.biometrics import BodyModel, classify_batch
 from services.biometrics.body_model import redact_snapshot
 from storage import dynamodb, keys
@@ -37,6 +38,40 @@ def _context_payload(ctx: aria_engine.ARIAContext) -> dict[str, Any]:
     payload = asdict(ctx)
     payload["missing_fields"] = ctx.missing_fields
     return payload
+
+
+def _apply_vitals_monitor(body: dict[str, Any], uid: str, payload: dict[str, Any]) -> None:
+    """Assess a ``vitals`` window for a life-threatening pattern and, when found,
+    fire + record an emergency escalation intent for the client to act on."""
+    vitals_raw = body.get("vitals")
+    if vitals_raw is None:
+        return
+    raw_list = vitals_raw if isinstance(vitals_raw, list) else [vitals_raw]
+    window = [
+        emergency.VitalsSample.from_dict(s) for s in raw_list[:50] if isinstance(s, dict)
+    ]
+    if not window:
+        return
+
+    session_active = bool(body.get("session_active", True))
+    assessment = emergency.assess_vitals(window, session_active=session_active)
+    payload["emergency"] = assessment.to_dict()
+
+    if not assessment.escalate:
+        payload["escalation"] = {"triggered": False}
+        return
+
+    intent = emergency.maybe_escalate(assessment, user_id=uid)
+    # Audit trail: an escalation decision must be recoverable after the fact.
+    if intent is not None:
+        key = keys.emergency_event_key(uid, intent.at.isoformat())
+        dynamodb.put_item({"pk": key["pk"], "sk": key["sk"], "intent": intent.to_dict()})
+        payload["escalation"] = {
+            "triggered": True,
+            "action": intent.action,
+            "reasons": intent.reasons,
+            "severity": intent.severity,
+        }
 
 
 def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> dict:
@@ -82,6 +117,12 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
         "aria_context": _context_payload(context),
         "restricted_domains": permissions.restricted(),
     }
+
+    # Real-time vitals safety monitor. During an active session, a sustained,
+    # plausibly-real life-threatening pattern raises an escalation intent that the
+    # client turns into an actual emergency call (Emergency SOS). The backend
+    # decides and records; it never dials 911 itself.
+    _apply_vitals_monitor(body, uid, payload)
 
     message = sanitize_user_text(str(body.get("message") or ""), max_chars=MAX_CHAT_MESSAGE_CHARS)
     if message:
