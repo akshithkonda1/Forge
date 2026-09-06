@@ -330,7 +330,9 @@ extension AppStore {
         persistChatHistory()
     }
 
-    private func completeAriaFirstBond() {
+    /// Ends the first-bond interview so a later CTA (intimacy, etc.) can
+    /// open a real ARIA turn instead of staying trapped in onboarding beats.
+    func completeAriaFirstBond() {
         completeAriaUseOnboarding()
         let nextLevel = min(10, AriaContextStore.shared.context.relationshipLevel + 1)
         AriaContextStore.shared.applyUpdates(["relationship_level": nextLevel])
