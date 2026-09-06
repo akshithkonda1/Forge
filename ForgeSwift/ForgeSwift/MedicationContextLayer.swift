@@ -88,19 +88,125 @@ struct MedicationContextLayer: Hashable, Sendable, Codable, Equatable {
         return Array(Set(tags)).sorted()
     }
 
+    /// Catalog diseases already implied by what the user put in — coaching needs, not a diagnosis.
+    var inferredNeeds: [String] {
+        Array(Set(all.map(\.disease).filter { !$0.isEmpty && $0 != "Unclassified" })).sorted()
+    }
+
+    /// Lifestyle and training mutate around those needs. Never a dose. Never a script.
+    var lifestyleMutations: [String] {
+        MedicationLifestyleBias.lines(for: archetypes)
+    }
+
+    /// Soften today's session when the on-file picture says intensity is not the point.
+    var shouldSoftenTraining: Bool {
+        let sensitive: Set<String> = [
+            MedicationArchetype.neurology.rawValue,
+            MedicationArchetype.cardiovascular.rawValue,
+            MedicationArchetype.pain.rawValue,
+            MedicationArchetype.respiratory.rawValue,
+            MedicationArchetype.rehabilitation.rawValue,
+            MedicationArchetype.hematology.rawValue,
+            MedicationArchetype.oncology.rawValue,
+            MedicationArchetype.rareDisease.rawValue,
+            MedicationArchetype.obstetrics.rawValue,
+            MedicationArchetype.nephrology.rawValue,
+            MedicationArchetype.hepatology.rawValue,
+        ]
+        return archetypes.contains { sensitive.contains($0) }
+    }
+
+    var planNote: String {
+        guard !isEmpty else { return "" }
+        let needs = inferredNeeds.prefix(4).joined(separator: ", ")
+        let pictured = needs.isEmpty ? archetypes.prefix(3).joined(separator: ", ") : needs
+        return "Built for you from what you already take (\(pictured)). Training and lifestyle flex around your data — not a general-population template. No prescription. No dose."
+    }
+
     var promptBlock: String {
-        guard !isEmpty else { return "Medication context: none on file, none mentioned." }
-        var lines = ["Medication context layer (federal catalog — brand and generic):"]
+        if isEmpty {
+            return """
+            Medication context: none on file, none mentioned.
+            \(Self.hardRules)
+            """
+        }
+        var lines = [
+            "Medication context layer — what they already take, filed by brand, generic, archetype, and disease.",
+            Self.hardRules,
+        ]
         if !onFile.isEmpty {
             lines.append("On file: " + onFile.prefix(12).map(\.line).joined(separator: "; "))
         }
         if !mentioned.isEmpty {
             lines.append("Mentioned this turn: " + mentioned.prefix(8).map(\.line).joined(separator: "; "))
         }
-        lines.append("Archetypes: " + archetypes.joined(separator: ", "))
-        lines.append("Diseases: " + diseases.joined(separator: ", "))
-        lines.append("Coach around these. Never prescribe, never change a dose, never diagnose.")
+        if !inferredNeeds.isEmpty {
+            lines.append("From what they put in, the catalog files these needs: " + inferredNeeds.joined(separator: ", ") + ".")
+            lines.append("Treat that as their picture — A, B, C for this person — not a diagnosis and not a population average.")
+        }
+        if !lifestyleMutations.isEmpty {
+            lines.append("Lifestyle is mutable around that picture:")
+            lines.append(contentsOf: lifestyleMutations)
+        }
+        lines.append("Build workouts from the library they already have. Scale to their readiness and these needs. For you, not for everyone.")
         return lines.joined(separator: "\n")
+    }
+
+    static let hardRules =
+        "ARIA never prescribes a medication. Never names a dose, frequency, or timing. Never starts, stops, or changes what someone takes. Never treats a catalog disease label as a diagnosis."
+}
+
+/// How each body-system archetype mutates lifestyle and training for this person.
+enum MedicationLifestyleBias {
+    static func lines(for archetypes: [String]) -> [String] {
+        let set = Set(archetypes)
+        var lines: [String] = []
+        if set.contains(MedicationArchetype.neurology.rawValue) {
+            lines.append("Neurology — keep sessions predictable and recovery-honest. No hero intensity if they feel off.")
+        }
+        if set.contains(MedicationArchetype.cardiovascular.rawValue) {
+            lines.append("Cardiovascular — mutate intensity and volume to their readiness, not a population heart-rate target.")
+        }
+        if set.contains(MedicationArchetype.metabolic.rawValue) {
+            lines.append("Metabolic — fuel and pacing follow their energy today. Never time a medication around a workout.")
+        }
+        if set.contains(MedicationArchetype.endocrine.rawValue) {
+            lines.append("Endocrine — watch how they actually feel this week; don't chase a generic calorie or volume standard.")
+        }
+        if set.contains(MedicationArchetype.psychiatry.rawValue) {
+            lines.append("Psychiatry — lifestyle first: sleep, daylight, honest effort. Never treat training as a substitute for care.")
+        }
+        if set.contains(MedicationArchetype.respiratory.rawValue) {
+            lines.append("Respiratory — longer warm-up, easier ceiling, stop if breathing turns into the session.")
+        }
+        if set.contains(MedicationArchetype.pain.rawValue) {
+            lines.append("Pain — use library moves they can own. Scale load. Pain is a signal, not a PR invite.")
+        }
+        if set.contains(MedicationArchetype.rehabilitation.rawValue) {
+            lines.append("Rehabilitation — controlled patterns, shorter sets, build on what they can already do.")
+        }
+        if set.contains(MedicationArchetype.hematology.rawValue) {
+            lines.append("Hematology — keep contact and max-strain work off the table unless they ask for something gentle.")
+        }
+        if set.contains(MedicationArchetype.oncology.rawValue) || set.contains(MedicationArchetype.rareDisease.rawValue) {
+            lines.append("Serious-care picture — recovery-first sessions from their own library. Presence over performance.")
+        }
+        if set.contains(MedicationArchetype.obstetrics.rawValue) {
+            lines.append("Obstetrics — soft, opted-in movement only. Never medical or obstetric advice.")
+        }
+        if set.contains(MedicationArchetype.nephrology.rawValue) || set.contains(MedicationArchetype.hepatology.rawValue) {
+            lines.append("Organ-care picture — hydrate-aware, heat-aware, no grind for grind's sake.")
+        }
+        if set.contains(MedicationArchetype.sleepMedicine.rawValue) {
+            lines.append("Sleep medicine — protect the night. Don't program late high-intensity as a default.")
+        }
+        if set.contains(MedicationArchetype.allergy.rawValue) {
+            lines.append("Allergy — outdoor sessions stay optional; have an exit if the environment turns.")
+        }
+        if lines.isEmpty, !archetypes.isEmpty {
+            lines.append("Mutate lifestyle and training to this person's file, not a standard template.")
+        }
+        return lines
     }
 }
 

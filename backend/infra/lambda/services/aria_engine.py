@@ -737,7 +737,10 @@ class ARIAContext:
             if layer.diseases:
                 lines.append(f"- medication_layer.diseases: {', '.join(layer.diseases)}")
             lines.append(
-                "- medication_layer.rule: coach around these — never prescribe, never change a dose, never diagnose"
+                "- medication_layer.rule: never prescribe; never name a dose, frequency, or timing; never start, stop, or change a medication; never treat a catalog disease as a diagnosis"
+            )
+            lines.append(
+                "- medication_layer.for_you: from what they already take, file likely needs and mutate lifestyle and training to this person — their data, not a population standard"
             )
         # Life rhythm (holistic Quality of Life), only when the client sent it and
         # lifestyle is not redacted. Framed as a lifestyle signal, never medical.

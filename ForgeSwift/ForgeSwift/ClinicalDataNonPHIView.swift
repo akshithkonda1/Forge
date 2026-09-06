@@ -118,7 +118,7 @@ struct ClinicalDataNonPHIView: View {
                     : "\(catalogCount.formatted()) presentations · \(refreshLabel)"
             )
 
-            Text("ARIA pulls this layer — brand, generic, archetype, and disease — so it can coach around what you take. It never prescribes or changes a dose.")
+            Text("ARIA never prescribes and never names a dose. It reads what you already take, files the likely needs, and mutates lifestyle and training for you — not a general-population template.")
                 .font(.system(size: 13))
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)

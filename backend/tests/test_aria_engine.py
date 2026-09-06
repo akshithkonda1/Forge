@@ -263,6 +263,10 @@ class ContextParsingTests(unittest.TestCase):
         self.assertIn("Lipitor / atorvastatin · Cardiovascular · High cholesterol", block)
         self.assertIn("Xcopri / cenobamate · Neurology · Epilepsy", block)
         self.assertIn("never prescribe", block)
+        self.assertIn("never name a dose", block)
+        self.assertIn("for_you", block)
+        self.assertNotIn(" mg", block)
+        self.assertNotIn("take 10", block)
 
         perms = aria_engine.DataPermissions.from_payload({"clinical_data": False})
         sanitized, restricted = aria_engine.apply_permissions(ctx, perms)

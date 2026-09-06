@@ -184,24 +184,23 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         let layer = context.medicationLayer
         var lines: [String] = []
         if layer.isEmpty {
-            lines.append("I can pull from the pharmacy as a medication context layer — brand, generic, archetype, and disease.")
-            lines.append("Nothing is on file yet. Save a medication on the Medicine page, connect Apple Health, or name one here.")
+            lines.append("I can use the pharmacy as a personal context layer — what you already take, not what to take.")
+            lines.append("Nothing is on file yet. Save a medication, connect Apple Health, or name one here.")
+            lines.append("I never prescribe, never name a dose, and never start or stop a medication.")
         } else {
-            lines.append("I pull from the pharmacy layer so I can coach around what you take.")
-            if !layer.onFile.isEmpty {
-                lines.append("On file: " + layer.onFile.prefix(8).map(\.line).joined(separator: "; ") + ".")
+            if !layer.inferredNeeds.isEmpty {
+                lines.append("From what you put in, this looks like your picture: " + layer.inferredNeeds.joined(separator: ", ") + ".")
+                lines.append("That's a filing from the catalog — not a diagnosis, and not a script for the general population.")
             }
-            if !layer.mentioned.isEmpty {
-                lines.append("You mentioned: " + layer.mentioned.prefix(6).map(\.line).joined(separator: "; ") + ".")
+            if !layer.lifestyleMutations.isEmpty {
+                lines.append(layer.lifestyleMutations.joined(separator: " "))
             }
-            if !layer.archetypes.isEmpty {
-                lines.append("Archetypes: " + layer.archetypes.joined(separator: ", ") + ".")
-            }
+            lines.append("Lifestyle and training can move around that. I'll build from the exercises you already have, scaled to you.")
+            lines.append(MedicationContextLayer.hardRules)
         }
-        lines.append("I never prescribe, change a dose, or diagnose.")
         return TrainerResponse(
             content: lines.joined(separator: " "),
-            suggestedActions: ["Open medicine", "What should I train today?"],
+            suggestedActions: ["What should I train today?", "Keep it light today", "Open medicine"],
             confidence: 0.86
         )
     }

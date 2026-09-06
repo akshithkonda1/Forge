@@ -120,6 +120,24 @@ final class MedicationPharmacyTests: XCTestCase {
         XCTAssertTrue(onFile.tags.contains { $0.hasPrefix("med_onfile:") })
     }
 
+    func testMedicationLayerNeverPrescribesAndMutatesLifestyleForYou() {
+        let layer = MedicationContext.resolve(query: "xcopri", savedNames: ["Lipitor"])
+        XCTAssertTrue(layer.inferredNeeds.contains("Epilepsy"))
+        XCTAssertTrue(layer.inferredNeeds.contains("High cholesterol"))
+        XCTAssertTrue(layer.shouldSoftenTraining)
+        XCTAssertTrue(layer.lifestyleMutations.contains { $0.contains("Neurology") })
+        XCTAssertTrue(layer.lifestyleMutations.contains { $0.contains("Cardiovascular") })
+        let block = layer.promptBlock.lowercased()
+        XCTAssertTrue(block.contains("never prescribes"))
+        XCTAssertTrue(block.contains("never names a dose"))
+        XCTAssertTrue(block.contains("for you, not for everyone"))
+        XCTAssertFalse(block.contains(" mg"))
+        XCTAssertFalse(block.contains("take 1"))
+        XCTAssertTrue(layer.planNote.lowercased().contains("no prescription"))
+        XCTAssertTrue(layer.planNote.lowercased().contains("no dose"))
+        XCTAssertTrue(MedicationContextLayer.hardRules.lowercased().contains("never starts, stops, or changes"))
+    }
+
     func testContextLayerTaxonomyCoversEachArchetypeFamily() {
         let samples: [(String, String, String)] = [
             ("atorvastatin", "Cardiovascular", "High cholesterol"),
