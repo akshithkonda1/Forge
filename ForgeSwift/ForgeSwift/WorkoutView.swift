@@ -58,11 +58,18 @@ struct WorkoutIdleView: View {
     var body: some View {
         ZStack {
             WorkoutBackground(accentColor: .ember).ignoresSafeArea()
+            VStack(spacing: 0) {
+                HStack {
+                    Spacer()
+                    AriaTrainMuteButton()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
             if let workout = store.todayWorkout {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 22) {
                         idleHeader(workout: workout)
-                            .padding(.horizontal, 20).padding(.top, 60)
+                            .padding(.horizontal, 20).padding(.top, 20)
 
                         quickActions
                             .padding(.horizontal, 16)
@@ -92,6 +99,7 @@ struct WorkoutIdleView: View {
                 }
             } else {
                 WorkoutEmptyState()
+            }
             }
         }
         .sheet(isPresented: $showLibrary) { ExerciseLibraryView() }

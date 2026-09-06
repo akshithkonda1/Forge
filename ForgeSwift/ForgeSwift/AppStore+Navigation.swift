@@ -99,7 +99,7 @@ extension AppStore {
         if let def {
             pendingShowHow = def
             if speakLocally {
-                AriaPresence.shared.speak(ExerciseLibrary.howToScript(for: def))
+                AriaTrainVoice.speakHowTo(def)
             }
         }
         if openChat || def == nil {

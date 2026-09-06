@@ -1,6 +1,6 @@
 import AVFoundation
 import Observation
-import UIKit
+import Foundation
 
 enum AROrbState: Equatable, Sendable {
     case idle, listening, processing, speaking
@@ -82,19 +82,9 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     /// already playing — onboarding uses that so an acknowledgment and the
     /// next question land as one conversation, not a cut-off.
     func speak(_ text: String, interrupt: Bool = true) {
-        guard let clipped = AriaSpeechPrep.clipped(text) else { return }
-        if interrupt, synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
-        let utterance = AVSpeechUtterance(string: clipped)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        if UIAccessibility.isVoiceOverRunning {
-            utterance.prefersAssistiveTechnologySettings = true
-        } else {
-            utterance.rate = 0.52
-            utterance.pitchMultiplier = 0.95
-        }
-        try? ForgePlaybackSession.spoken.activate()
+        let started = AriaSpeechPrep.enqueue(text, on: synthesizer, interrupt: interrupt)
+        guard started else { return }
         isSpeaking = true
-        synthesizer.speak(utterance)
     }
 
     func stopSpeaking() {
