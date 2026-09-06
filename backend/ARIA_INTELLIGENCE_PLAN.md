@@ -30,44 +30,77 @@ context builders. It is the sensory layer: everything downstream reasons over
 what ingestion produces, so ingestion has to be trustworthy, deduplicated, and
 plausibility-checked (it already is — keep and extend it, see §3.2, §6).
 
-### 0.2 A generative intelligence engine — a Grok + Claude ensemble on AWS
-ARIA's "brain" is a **multi-model generative engine that combines Grok and
-Claude**, configured through **AWS Bedrock**, to produce **personalized health
-insights and information**. This is the core of the "multi-model AI platform
-with extreme precision" idea: not one model, but a **Grok + Claude ensemble**
-where the models' strengths are blended/reconciled and Python owns the ground
-truth the models narrate.
+### 0.2 A generative intelligence engine — a Grok + Claude-family ensemble on AWS
+ARIA's "brain" is a **multi-model generative engine built from exactly two model
+families: Grok and the Claude family**, configured through **AWS Bedrock**, to
+produce **personalized health insights and information**. This is the core of the
+"multi-model AI platform with extreme precision" idea: not one model, but a
+**Grok + Claude ensemble** where the models' strengths are blended/reconciled and
+Python owns the ground truth the models narrate.
 
+- **There is no third vendor. Kimi K2.5 / Moonshot is removed entirely** — the
+  standing ensemble is **Grok + the Claude family** (Claude Opus / Sonnet
+  selected by task) and nothing else. Every current Kimi reference is deleted as
+  part of this work (exact locations in §5.2).
 - Today the router (`ai_router.py`) defaults to Claude Sonnet + Claude Opus +
-  Kimi K2.5; the chat path uses a **single** Claude model. Grok is referenced
-  only as a verification note. **The product intent is Claude + Grok as the
-  standing ensemble** (Kimi becomes optional/experimental).
+  Kimi (to be removed); the chat path uses a **single** Claude model, and Grok
+  appears only as a verification note. **The product intent is Claude family +
+  Grok as the standing ensemble.**
 - Implication for the plan: the multi-model consensus machinery (§5.2) is not a
   "hard-questions-only" nicety — it is **ARIA's generative engine**. Claude and
   Grok both answer; the finalizer reconciles; Python validates every number
-  (§5.3). Bedrock configuration and IAM already scope Anthropic model ARNs — add
-  Grok (xAI) to the Bedrock model access + the `bedrock:*` resource scope in
-  Terraform, and set the router slots to Claude + Grok.
+  (§5.3). Bedrock IAM currently scopes Anthropic ARNs only — add Grok (xAI)
+  model access + the `bedrock:*` resource scope in Terraform, and set the router
+  slots to Claude + Grok.
 
-### 0.3 A memory + companion engine (CoachContextEngine)
-`CoachContextEngine` is ARIA's long-term memory, and the **kind** of memory
-matters: it stores **life insights, relationships, and the day-to-day of what
-the user talks to ARIA about** — *not* a clinical record. "You mentioned your
-sister's wedding is in three weeks and you want to feel good in photos" is the
-memory that matters here, **not** "flu vaccination on 2025-03-01." Clinical
-facts stay in the permission-gated `clinical_data` domain and are never the
-substance of the relationship. This is what makes ARIA a **lifestyle
-companion**, not a chart reviewer (see §3.3, rewritten around this).
+### 0.3 A memory + companion engine (CoachContextEngine) — human-like, two-tier
+ARIA remembers **like a person**: it has **long-term** and **short-term** memory,
+and it must **actively decide what to keep and what to let go**.
 
-### 0.4 The companion mentality — bond first, facts always, prescriptions never
+- **Long-term memory = what ARIA knows about *you*.** Durable identity: who you
+  are, your goals and why they matter, your relationships, preferences,
+  constraints, sensitivities, recurring patterns, running jokes. This is the
+  substance of the bond and persists.
+- **Short-term memory = what you're telling it *right now*.** Time-bound, often
+  event-anchored: "I've got a wedding in three weeks." ARIA uses it while it's
+  relevant, then **forgets it once the event passes** — it should not clutter
+  the long-term model with expired specifics (though a *durable* takeaway can be
+  promoted, e.g. "cares about looking good for big events").
+- **ARIA evaluates its own memory.** A consolidation step decides what graduates
+  from short-term to long-term, what expires (TTL/event-completion), and what
+  was never worth keeping. Forgetting is a feature, not a bug.
+
+The **kind** of memory matters as much as the tiering: this is **life insights,
+relationships, and daily conversation**, *not* a clinical record. "Your sister's
+wedding is in three weeks and you want to feel good in photos" is the memory that
+counts — **not** "flu vaccination on 2025-03-01." Clinical facts stay in the
+permission-gated `clinical_data` domain and are never the substance of the
+relationship. This is what makes ARIA a **lifestyle companion**, not a chart
+reviewer (see §3.3, built around this).
+
+### 0.4 The companion mentality — bond first, facts always, and *where* the doctor line sits
 Forge is designed for ARIA to **organically develop a bond** with the user —
 through **jokes, comments, and general humor**, and through **facts and advice**
-— while holding a hard line: ARIA **suggests, it does not prescribe**. It names
-what the data shows and *offers* a next step; it never diagnoses or prescribes
-treatment. This ethos is already partly encoded (`ARIA_SYSTEM_PROMPT` L124:
-"adaptive lifestyle coach… not a wellness chatbot and not a commander"; L172/204:
-"Never invent diagnoses… Do not prescribe"). The plan **strengthens and
-enforces** it rather than inventing it (see §2a).
+— while holding a clear line about clinical territory.
+
+**Where the line sits (refined):** ARIA **suggests, it does not prescribe**, and
+it does not act as a doctor for anything serious. But **generic, widely-known
+first-aid and safety information is in-bounds** — how to apply a band-aid, basic
+first aid you'd give another person, common-knowledge safety steps. That's a
+helpful companion, not a physician.
+
+The **hard stop** is anything that requires clinical judgment: diagnosing or
+managing serious or internal conditions (e.g. internal bleeding), prescribing
+medication or treatment, or anything implying medical authority. There, ARIA
+**names the concern and directs to professional or emergency care** — it does not
+try to manage it.
+
+So the boundary is concrete: **generic first aid (band-aids, basic first aid to
+others) = fine; diagnosing/treating serious or internal medical problems =
+hard stop → defer to a professional.** This ethos is already partly encoded
+(`ARIA_SYSTEM_PROMPT` L124: "adaptive lifestyle coach… not a wellness chatbot and
+not a commander"; L172/204: "Never invent diagnoses… Do not prescribe"). The plan
+**strengthens, refines, and enforces** it (see §2a).
 
 ### 0.5 SimRunner is CI, not ARIA
 **SimRunner is testing infrastructure — a ship/hold gate — and is emphatically
@@ -78,6 +111,15 @@ telling the truth, when it prescribes instead of suggests, when it loses the
 tone. It never runs in the request path. The plan's "make SimRunner evaluate the
 real engine" item (§7) is precisely so this gate guards *actual* ARIA behavior —
 it does **not** make SimRunner part of ARIA (see §5a for the boundary).
+
+What SimRunner is *for*: it exists so ARIA can be trusted **at 100% of its
+context** — i.e. that ARIA actually uses everything it's given, correctly, every
+time. It does this with **isometric test algorithms**: structure-preserving
+checks that hold ARIA's behavior invariant under transformations that must not
+change the answer (same context re-ordered or re-expressed → same call; and the
+existing isometric-exercise discrimination so an isometric hold isn't mistaken
+for high-intensity load). That's how the gate proves ARIA is at full context and
+still deterministic and truthful (see §5a).
 
 ---
 
@@ -137,9 +179,11 @@ that combines **Claude** (Sonnet 4.6 primary, Opus 4.7 verifier) and **Grok**
 (`global.xai.grok-4.6`) on **Amazon Bedrock** to produce personalized health
 insight and guidance.
 **Today (real code):** the model roster already exists — `ai_router.default_models()`
-defines slot 1 Claude Sonnet 4.6, slot 2 Claude Opus 4.7, slot 3 swappable to
-Grok (`terraform.tfvars.example`: `ai_router_model_3_id = "global.xai.grok-4.6"`).
-But the ARIA *chat* path uses a **single** Bedrock model
+defines slot 1 Claude Sonnet 4.6, slot 2 Claude Opus, and a third slot that
+**currently defaults to Kimi K2.5 and must be removed** — the third slot becomes
+Grok (`global.xai.grok-4.6`) or is dropped so the ensemble is exactly Grok + the
+Claude family (see §5.2 for the exact Kimi references to destroy). The ARIA
+*chat* path also still uses a **single** Bedrock model
 (`aria_engine._default_converse`), so the Grok+Claude combination is not yet the
 generative brain behind `/ai/chat`.
 **Plan (first-class, was §5.2):** make ARIA's live path *be* this multi-model
@@ -241,13 +285,27 @@ treatment**. This is a first-class product requirement, not decoration.
 - **Bond via memory.** Real rapport comes from continuity (§3.3): remembering the
   wedding, the bad week, the running joke. Humor without memory is a chatbot;
   humor *with* memory is a companion.
-- **The bright line: suggest, never prescribe.** Encode a hard guardrail that
-  ARIA offers and explains, but never diagnoses, never prescribes medication or
-  treatment, and never implies clinical authority. This exists in prose today
-  ("Do not prescribe… Never invent diagnoses"); make it a **checked invariant**:
-  a deterministic post-filter scans output for prescriptive/diagnostic language
-  and downgrades or rewrites it, and SimRunner treats any prescription as a
-  **mission-critical violation** (§5a).
+- **The line: suggest, never prescribe — with an urgency carve-out.** Encode a
+  **tiered** guardrail (per §0.4), not a blanket ban:
+  - **Default (non-urgent):** ARIA offers and explains, but never diagnoses,
+    never prescribes medication or treatment, and never implies clinical
+    authority. This exists in prose today ("Do not prescribe… Never invent
+    diagnoses").
+  - **In-bounds:** generic, widely-known **first aid and safety** — how to apply
+    a band-aid, basic first aid you'd give another person, and **telling the user
+    to call 911 / emergency services** in an emergency. Withholding common-sense
+    safety help is the wrong failure mode.
+  - **Hard stop:** anything needing clinical judgment — diagnosing or managing
+    serious/internal conditions (e.g. internal bleeding), prescribing, or
+    implying medical authority. Here ARIA **names the concern and defers to a
+    professional / emergency care**, it does not try to manage it.
+  - **Rule of thumb encoded in the check:** *no diagnosis unless the situation is
+    urgent and the guidance is generic first aid / 911 escalation.*
+  Make it a **checked invariant**: a deterministic post-filter classifies output
+  as suggest / generic-first-aid / prescribe-or-diagnose, allows the first two,
+  rewrites or blocks the third, and SimRunner treats a prescription/serious-
+  diagnosis as a **mission-critical violation** while *not* penalizing a valid
+  first-aid/911 response (§5a).
 - **Facts stay true.** Humor never distorts a number. The output-validation step
   (§5.3) guarantees the numbers are real; the persona only changes *how* they're
   said, never *what* is true.
@@ -289,30 +347,41 @@ client payload + stored DynamoDB history + `BodyModel` projection into one
 trend and HRV-"7-day"-trend label mismatches the map found). `/ai/chat`,
 `/ai/observe`, and coach routes all consume the same builder.
 
-### 3.3 Wire *lifestyle/relationship* memory into the actual reasoning
+### 3.3 Two-tier, human-like memory wired into the actual reasoning
 **Where:** `CoachContextEngine` (`aria_context.py`), `user_model_block`
-(aria_engine L644), route `aria.py` (L94–129).
+(aria_engine L644), route `aria.py` (L94–129), the DynamoDB `ttl` attribute
+(already defined on the table in `infra/main.tf` L306–309 — reuse it).
 
-Per §0.3, this memory is a **companion memory**, not a medical chart. It should
-capture life context and the relationship, then bring it into reasoning:
+Per §0.3, ARIA remembers **like a person**: a durable long-term store and a
+transient short-term store, with an explicit consolidation/forgetting step. This
+is **companion memory**, not a medical chart.
 
-- **Expand the memory schema** beyond `last_insights` + `relationship_level` to
-  first-class **life-context** fields: stated goals and *why* they matter
-  (events, people), preferences and constraints, recurring themes from
-  conversation, running jokes/callbacks, and sensitivities to avoid. Keep it
-  clearly separated from `clinical_data` (which stays permission-gated and is
-  never the substance of rapport).
-- **Inject that memory** (recent, deduped life-context + `build_rich_context`
-  patterns like `low_readiness_streak`, `strong_sleep_recovery`) into
-  `user_model_block` so it enters both deterministic reasoning and the Grok +
-  Claude prompt — not just the cosmetic `memory_reference` prepend.
-- **Write memory back on every substantive turn** (today `add_insight()` fires
-  only on plan feedback): extract durable life-context and salient insights so
-  ARIA accumulates a real relationship and can follow up naturally ("how'd the
-  wedding photos go? your sleep held up the week before").
-- **Extraction is deterministic-first:** simple keyword/entity extraction with an
-  optional Bedrock structured pass (JSON) when enabled — always with the
-  deterministic extractor as fallback, and always permission-aware.
+- **Long-term store (durable "what ARIA knows about you").** Expand the schema
+  beyond `last_insights` + `relationship_level` to first-class **life-context**
+  fields: stated goals and *why* they matter (events, people), preferences,
+  constraints, recurring themes, running jokes/callbacks, sensitivities to avoid.
+  Persisted under `ARIA#CONTEXT`, no TTL. Kept clearly separate from
+  `clinical_data` (permission-gated, never the substance of rapport).
+- **Short-term store (transient "what you're telling it now").** Event-anchored
+  items like "wedding in three weeks" live under a separate short-term key (e.g.
+  `ARIA#STM#...`) **with a DynamoDB `ttl`** set to the event/expiry horizon, so
+  they auto-expire once complete and never clutter the durable model.
+- **Consolidation / forgetting (ARIA evaluates its own memory).** On each turn (or
+  a periodic pass), decide what **graduates** short-term → long-term (a durable
+  takeaway like "cares about looking good for big events"), what **expires** (the
+  specific date, once past), and what was never worth keeping. Forgetting is a
+  designed step, not neglect.
+- **Inject both tiers into reasoning.** Feed deduped long-term life-context +
+  active (non-expired) short-term items + `build_rich_context` patterns
+  (`low_readiness_streak`, `strong_sleep_recovery`) into `user_model_block` so
+  memory enters both the deterministic engine and the Grok + Claude prompt — not
+  just the cosmetic `memory_reference` prepend.
+- **Write-back every substantive turn** (today `add_insight()` fires only on plan
+  feedback) so ARIA can follow up naturally ("how'd the wedding photos go? your
+  sleep held up the week before").
+- **Extraction/consolidation is deterministic-first:** keyword/entity + simple
+  date parsing, with an optional Bedrock structured pass (JSON) when enabled —
+  always with the deterministic path as fallback, and always permission-aware.
 
 ### 3.4 Fill the missing interpreters
 **Where:** `_INTERPRETERS` tuple (L1154). Six of eleven domains have no
@@ -406,11 +475,29 @@ makes hallucinated metrics structurally impossible.
 Per §0.2, multi-model isn't a hard-questions-only garnish — it **is** the brain.
 
 **What:**
-- **Standing ensemble = Claude + Grok.** Set the router slots to a Claude model
-  (Opus/Sonnet by task via `select_model`) **and** Grok (xAI on Bedrock), with
-  Kimi demoted to optional/experimental. Update `default_models`, the
-  `AI_ROUTER_MODEL_*` env, and Terraform's Bedrock resource scope + model access
-  to include the xAI model ARNs (today the IAM statement is Anthropic-only).
+- **Standing ensemble = Grok + the Claude family, and nothing else.** Set the
+  router slots to Claude (Opus/Sonnet by task via `select_model`) **and** Grok
+  (xAI on Bedrock). Update `default_models`, the `AI_ROUTER_MODEL_*` env, and
+  Terraform's Bedrock resource scope + model access to include the xAI model ARNs
+  (today the IAM statement is Anthropic-only).
+- **Destroy every Kimi / Moonshot reference (P0).** Kimi K2.5 is not part of
+  ARIA. The third slot becomes Grok (or is dropped so the ensemble is exactly
+  Claude + Grok). Every one of these must go — verified locations:
+  - `infra/lambda/ai_router.py` L789–790 — the `"Kimi K2.5"` /
+    `"moonshotai.kimi-k2.5"` slot-3 defaults.
+  - `infra/main.tf` L453–454 — `AI_ROUTER_MODEL_3_ID/NAME` fallbacks to Kimi.
+  - `infra/variables.tf` L95 — Kimi mentioned in the slot-3 description.
+  - `infra/terraform.tfvars.example` L31 — "(Kimi K2.5)" comment.
+  - `backend/README.md` L93, L96, L161, L163 — Kimi as slot-3 fallback prose.
+  - `ai/simrunner/aria_simrunner/terraform_config.py` L29–30
+    (`_ROUTER3_ID_FALLBACK` / `_ROUTER3_NAME_FALLBACK`);
+    `backend_simulator/bedrock_catalog.py` L108–113;
+    `aria_simrunner/model_archetypes.py` L221, L248; `lifetime_suite.py` L14.
+  - Tests that assert the Kimi default: `tests/test_ai_router.py` (L94, L127,
+    L190, L227, L255, L285, L315, L353) and
+    `ai/simrunner/tests/test_terraform_config.py` (L29, L46–47, L55, L102–103,
+    L205, L221, L228, L242) — update these to the Grok/Claude slots so the gate
+    proves Kimi is gone rather than pinning it in place.
 - **Blend, don't first-win.** Today the primary is the *fastest* success
   (L489). Replace with **quality selection / reconciliation**: run the existing
   consensus finalizer, and pick/merge the answer that best agrees with the
@@ -439,17 +526,26 @@ SimRunner and SimRunner is not ARIA. It never runs in the request path. Its sole
 job is to answer, in CI, one question: **is this build of ARIA safe to ship?**
 
 **What SimRunner must guard (its ship/hold contract):**
+- **100% context fidelity via isometric algorithms** — SimRunner's reason to
+  exist is proving ARIA uses *all* of its context, correctly, every time. Its
+  **isometric (structure-preserving) test algorithms** hold behavior invariant
+  under transformations that must not change the answer: re-ordered / re-expressed
+  context → identical call, and the existing isometric-**exercise** discrimination
+  so an isometric hold is never scored as high-intensity load.
 - **Determinism** — the deterministic engine is reproducible; same seed/context →
   same grade + query type + directional call. The `determinism_checker` already
   targets ≥80% agreement across repeat runs; keep it a hard gate.
 - **Truthfulness** — no invented numbers, no fabricated baselines, epistemic
   honesty under sparse data (confidence tracks coverage).
-- **Suggest-not-prescribe** — any diagnosis or prescription is a
-  **mission-critical** failure that **holds the ship** (extend the
-  directional-correctness / safety rules to flag prescriptive language per §2a).
+- **Suggest-not-prescribe (with the urgency carve-out)** — a serious diagnosis or
+  a prescription is a **mission-critical** failure that **holds the ship**; a
+  valid generic first-aid / 911-escalation response is **not** penalized (§2a,
+  §0.4). Extend the safety rules to encode exactly that distinction.
 - **Directional safety** — never push intensity when readiness is low, etc. (the
   rules already scored in `aria_evaluator`).
 - **Tone** — companion warmth without cheerleading or evasion (`tone_compliance`).
+- **Model-roster hygiene** — assert the ensemble is **Grok + Claude only**; fail
+  if any Kimi/Moonshot id reappears (§5.2).
 
 **The one change that makes the gate real:** point SimRunner at the **actual
 `aria_engine.generate_response`** instead of its stub (§7), so the six-dimension
@@ -514,12 +610,13 @@ layer, gated by env (mirroring `BIOMETRICS_MODEL_ENDPOINT`).
 
 | Priority | Item | Section | Risk | Dep |
 |---|---|---|---|---|
+| P0 | **Destroy every Kimi/Moonshot reference** (code, TF, README, simrunner, tests) | 5.2 | low | none |
 | P0 | One canonical user model (ingestion → merge 3 context builders) | 0.1, 3.2 | low | none |
 | P0 | Personal baselines in interpreters + confidence | 3.1, 4.3 | low | 3.2 |
-| P0 | Wire **lifestyle/relationship** memory into reasoning | 0.3, 3.3 | low | none |
-| P0 | Suggest-not-prescribe as a checked invariant + tone | 0.4, 2a | low | none |
-| P0 | SimRunner evaluates the **real** engine (ship/hold gate) | 0.5, 5a, 7 | low | none |
-| P1 | Grok + Claude ensemble as ARIA's generative engine | 0.2, 5.2 | med | Bedrock + TF (add xAI model access/IAM) |
+| P0 | Two-tier **human-like memory** (long-term + short-term, consolidate/forget) wired into reasoning | 0.3, 3.3 | low | none |
+| P0 | Suggest-not-prescribe **with urgency/first-aid carve-out** as a checked invariant + tone | 0.4, 2a | low | none |
+| P0 | SimRunner evaluates the **real** engine (100%-context/isometric ship/hold gate) | 0.5, 5a, 7 | low | none |
+| P1 | Grok + Claude-family ensemble as ARIA's generative engine (no third vendor) | 0.2, 5.2 | med | Bedrock + TF (add xAI model access/IAM) |
 | P1 | Evidence-graph fusion + cross-signal patterns | 4.1 | med | 3.1 |
 | P1 | Port ACWR / sleep-debt / overtraining rules to prod | 4.2 | med | 3.2 |
 | P1 | Missing interpreters (chronotype/progress/QoL) | 3.4 | low | none |
