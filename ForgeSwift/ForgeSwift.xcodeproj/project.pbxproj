@@ -42,6 +42,7 @@
 		1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */; };
 		1SIGIL0022F9FF867004091AA /* AriaSigil.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SIGIL0012F9FF867004091AA /* AriaSigil.swift */; };
 		1ARIA0292F9FF867004091AA /* AriaPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0282F9FF867004091AA /* AriaPresence.swift */; };
+		1ARIA0612F9FF867004091AA /* AriaWelcomeChime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */; };
 		1VOICE0022F9FF867004091AA /* AriaInterviewVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */; };
 		1VOICE0042F9FF867004091AA /* AriaSpokenVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0032F9FF867004091AA /* AriaSpokenVoice.swift */; };
 		1XCAT0022F9FF867004091AA /* ExerciseCatalogExpansion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1XCAT0012F9FF867004091AA /* ExerciseCatalogExpansion.swift */; };
@@ -306,6 +307,7 @@
 		1TEST02400000000000000A /* AriaInterviewVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */; };
 		1TEST02600000000000000A /* AriaSigilTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02500000000000000A /* AriaSigilTests.swift */; };
 		1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */; };
+		1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02900000000000000A /* AriaLogoPresenceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -421,6 +423,7 @@
 		1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbComponents.swift; sourceTree = "<group>"; };
 		1SIGIL0012F9FF867004091AA /* AriaSigil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSigil.swift; sourceTree = "<group>"; };
 		1ARIA0282F9FF867004091AA /* AriaPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPresence.swift; sourceTree = "<group>"; };
+		1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaWelcomeChime.swift; sourceTree = "<group>"; };
 		1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewVoice.swift; sourceTree = "<group>"; };
 		1VOICE0032F9FF867004091AA /* AriaSpokenVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoice.swift; sourceTree = "<group>"; };
 		1XCAT0012F9FF867004091AA /* ExerciseCatalogExpansion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCatalogExpansion.swift; sourceTree = "<group>"; };
@@ -456,6 +459,7 @@
 		1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewVoiceTests.swift; sourceTree = "<group>"; };
 		1TEST02500000000000000A /* AriaSigilTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSigilTests.swift; sourceTree = "<group>"; };
 		1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoiceTests.swift; sourceTree = "<group>"; };
+		1TEST02900000000000000A /* AriaLogoPresenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaLogoPresenceTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
@@ -997,6 +1001,7 @@
 				1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */,
 				1SIGIL0012F9FF867004091AA /* AriaSigil.swift */,
 				1ARIA0282F9FF867004091AA /* AriaPresence.swift */,
+				1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */,
 				F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */,
 				F0F10000000000000000002A /* WatchAriaConfigBridge.swift */,
 				1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */,
@@ -1173,6 +1178,7 @@
 				1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */,
 				1TEST02500000000000000A /* AriaSigilTests.swift */,
 				1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */,
+				1TEST02900000000000000A /* AriaLogoPresenceTests.swift */,
 				1MED03000000000000000A /* MedicationPharmacyTests.swift */,
 			);
 			path = ForgeSwiftTests;
@@ -1544,6 +1550,7 @@
 				1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */,
 				1SIGIL0022F9FF867004091AA /* AriaSigil.swift in Sources */,
 				1ARIA0292F9FF867004091AA /* AriaPresence.swift in Sources */,
+				1ARIA0612F9FF867004091AA /* AriaWelcomeChime.swift in Sources */,
 				1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */,
 				35A81356CC836973378A412F /* LifestyleModels.swift in Sources */,
 				373EC9928467751C3ADEA77F /* LifestyleServices.swift in Sources */,
@@ -1721,6 +1728,7 @@
 				1TEST02400000000000000A /* AriaInterviewVoiceTests.swift in Sources */,
 				1TEST02600000000000000A /* AriaSigilTests.swift in Sources */,
 				1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */,
+				1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */,
 				1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
