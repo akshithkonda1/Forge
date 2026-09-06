@@ -396,6 +396,7 @@ discovered by hand.
 | `checks.tf` (new) | `check` blocks for secret + health | diagnosis |
 | `scripts/tf-doctor.sh`, `scripts/explain-tf-error.sh` (new) | preflight + decoder | diagnosis |
 | `.github/workflows/terraform.yml` | gated dev apply + decoder in summary | diagnosis |
+| `main.tf` (Bedrock IAM) | broaden the `bedrock:*` statement (L116–132) beyond `anthropic.*` to include xAI/Grok model ARNs for ARIA's Claude + Grok ensemble | see `ARIA_INTELLIGENCE_PLAN.md` §0.2, §5.2 |
 
 ---
 
