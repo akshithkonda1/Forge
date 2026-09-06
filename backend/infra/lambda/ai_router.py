@@ -786,9 +786,9 @@ def default_models() -> list[ModelConfig]:
         ),
         ModelConfig(
             slot=3,
-            name=os.getenv("AI_ROUTER_MODEL_3_NAME", "Kimi K2.5"),
-            model_id=os.getenv("AI_ROUTER_MODEL_3_ID", "moonshotai.kimi-k2.5"),
-            responsibility="Second fallback that pressure-tests edge cases and fills remaining gaps.",
+            name=os.getenv("AI_ROUTER_MODEL_3_NAME", "Grok"),
+            model_id=os.getenv("AI_ROUTER_MODEL_3_ID", "global.xai.grok-4.6"),
+            responsibility="Differently-trained second opinion (xAI Grok) that pressure-tests edge cases and fills remaining gaps.",
         ),
     ]
 
