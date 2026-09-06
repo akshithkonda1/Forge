@@ -10,6 +10,7 @@ enum AriaTrainVoice: Sendable {
         set { UserDefaults.standard.set(!newValue, forKey: mutedKey) }
     }
 
+    @MainActor
     static func speakHowTo(_ def: ExerciseDefinition) {
         guard isEnabled else { return }
         AriaPresence.shared.speak(ExerciseLibrary.howToScript(for: def))
