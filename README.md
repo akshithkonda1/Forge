@@ -41,13 +41,17 @@ The core problem: **fragmentation kills insight, and most apps ground you in sta
 | Siloed to one hardware ecosystem  | Aggregates 50+ sources via adapters + middleware |
 | Generic "move more" advice        | Multi-model ARIA coaching with a persistent companion memory |
 | Static dashboards                 | Adaptive plans that evolve with your patterns |
-| One-size-fits-all metrics         | Unified readiness + recovery intelligence  |
+| One-size-fits-all metrics         | Readiness scored against *your* baseline, not a population average |
 | Platform lock-in                  | Works with the hardware you already own    |
 | Bolt-on safety disclaimers        | Deterministic medical-boundary policy gates every AI response |
 
 ### Meet ARIA
 
-At the center of Forge is **ARIA** — the **Adaptive Recovery Interactive Assistant**. ARIA isn't a chatbot bolted onto a dashboard: it's a multi-model reasoning engine (Claude Sonnet + Claude Opus + Grok, reconciled into one answer) paired with a persistent companion memory that tracks your patterns across days, not just messages. And it knows exactly where its authority ends — a deterministic medical-boundary policy means ARIA suggests, hands real emergencies off to your phone's native Emergency SOS, and never diagnoses or prescribes. **Adaptive** to your recovery. **Interactive** like a coach who actually remembers you.
+At the center of Forge is **ARIA** — the **Adaptive Recovery Interactive Assistant**. ARIA isn't a chatbot bolted onto a dashboard: it's a multi-model reasoning engine (Claude Sonnet + Claude Opus + Grok, reconciled into one answer) paired with a persistent companion memory that tracks your patterns across days, not just messages.
+
+That memory is what lets Forge set a baseline that's actually *yours*, not a population average. A resting heart rate and sleep duration that would flag as a warning sign for most people can be an ordinary Tuesday for someone who trains six days a week — and "well-rested" looks completely different for a new parent running on broken sleep than for someone with a steady nine-to-five routine. Forge's context engine (`aria_context.py`, plus on-device circadian-rhythm and quality-of-life modeling) is built toward exactly that: it already backs the readiness scoring and daily check-ins shipping today, and keeps learning the shape of *your* normal the longer you use it.
+
+ARIA also knows exactly where its authority ends — a deterministic medical-boundary policy means it suggests, hands real emergencies off to your phone's native Emergency SOS, and never diagnoses or prescribes. **Adaptive** to your recovery. **Interactive** like a coach who actually remembers you.
 
 **Vision**: The health app that feels like it *knows* you — because it actually sees the full picture.
 
@@ -140,7 +144,7 @@ forge/
 2. **Layered AI Safety** — A multi-model ensemble reconciled through a deterministic medical-boundary policy and native-only emergency escalation, so safety gates generation rather than disclaiming it afterward.
 3. **SimRunner Safety Net** — 23-archetype deterministic eval, regression gates, and a ship/hold gate that reuses the production safety policy verbatim.
 4. **Production-Ready Backend Infra** — Terraform + Python Lambdas + DynamoDB + Bedrock, structured for scale — not a toy Flask app.
-5. **Unified Data Vision** — A well-thought-out normalization + scoring + ARIA context pipeline, even ahead of full end-to-end data flow.
+5. **Unified Data Vision** — A well-thought-out normalization + scoring + ARIA context pipeline aimed at *your* personal baseline instead of a population average, even ahead of full end-to-end data flow.
 6. **Monorepo Discipline** — Clear separation, strong CI (including automated redaction-boundary and duplicate-declaration checks), and high-signal documentation throughout.
 
 ---
@@ -150,6 +154,7 @@ forge/
 ### Home & Readiness
 - AI-generated daily greeting based on real data
 - Composite readiness ring (sleep + recovery + load + HR trends)
+- Baseline calibrated to your own history — not a generic population norm
 - Today's plan + quick actions
 - Live biometric snapshot
 
