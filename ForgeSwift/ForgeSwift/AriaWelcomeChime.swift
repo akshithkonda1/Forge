@@ -8,9 +8,9 @@ import CoreGraphics
 /// frame, no crop, on either platform.
 /// Pure gates so tests can lock quiet mode and Reduce Motion without audio.
 enum AriaWelcomeChime: Sendable {
-    static let assetName = "AriaLogo"
+    static let assetName = "ForgeMark"
     /// 1.0 — show the whole ember. Lockstep with `shared/aria-mark.json`.
-    static let cropScale: CGFloat = 1.0
+    static let cropScale: CGFloat = 1.0 // generic mark — no ARIA-specific crop
     static let heroMinimumSize: CGFloat = 90
 
     static func shouldPlay(
