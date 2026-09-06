@@ -210,6 +210,12 @@ extension AppStore {
         case "aria":
             if segments.dropFirst().first == "weekly" {
                 WeeklyAriaReviewStore.shared.showSheet = true
+            } else if segments.dropFirst().first == "check" {
+                if let opener = AriaHealthRiskBridge.consumePendingChatOpener() {
+                    openChat(with: opener, isProactive: false)
+                } else {
+                    activeTab = .chat
+                }
             } else {
                 activeTab = .chat
             }

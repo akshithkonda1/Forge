@@ -10,8 +10,10 @@ import ForgeCore
 // ForgeHealthQueries helpers so both platforms compute identical numbers.
 //
 // Privacy stance: everything here is read → computed → rendered on-device.
-// Nothing leaves the watch except what ARIAWatchService explicitly sends
-// for deeper coaching (and that path is opt-in + token-gated).
+// Compact vitals may cross WatchConnectivity to the paired iPhone's on-device
+// inbox so ARIA can see a wrist reading before Apple Health has synced.
+// Nothing is warehoused on Forge. Deeper coaching (`ARIAWatchService`) is
+// still opt-in + token-gated.
 
 /// HealthKit permits one `HKWorkoutSession` per process. The gym workout and
 /// the mindful HR tap both want one — this gate makes them take turns.
@@ -44,17 +46,26 @@ final class WatchHealthKitManager {
     private(set) var recentNights: [SleepNight] = []
     private(set) var hrvRecentMs: Double?
     private(set) var hrvTrendMs: Double?
+    private(set) var hrvBaselineMs: Double?
     private(set) var mindfulMinutesToday: Double = 0
     private(set) var hoursSinceLastWorkout: Double?
     private(set) var lastWorkoutType: String?
     private(set) var recentHeartRate: Double?
     private(set) var windDownPlan: WindDownPlan?
     private(set) var lastRefreshed: Date?
+    private(set) var bodyTemperatureF: Double?
+    private(set) var wristTemperatureDeviationC: Double?
+    private(set) var restingHeartRate: Double?
+    private(set) var restingHeartRateBaseline: Double?
+
+    private var observerQueries: [HKObserverQuery] = []
+    private var isObserving = false
+    private var liveRefreshTask: Task<Void, Never>?
 
     // MARK: Authorization
 
     private var readTypes: Set<HKObjectType> {
-        [
+        var types: Set<HKObjectType> = [
             HKQuantityType(.heartRate),
             HKQuantityType(.heartRateVariabilitySDNN),
             HKQuantityType(.restingHeartRate),
@@ -67,7 +78,10 @@ final class WatchHealthKitManager {
             // counts on the wrist; body mass sizes HydrationEngine's target.
             HKQuantityType(.dietaryWater),
             HKQuantityType(.bodyMass),
+            HKQuantityType(.bodyTemperature),
         ]
+        types.insert(HKQuantityType(.appleSleepingWristTemperature))
+        return types
     }
 
     private var writeTypes: Set<HKSampleType> {
@@ -86,6 +100,7 @@ final class WatchHealthKitManager {
         do {
             try await store.requestAuthorization(toShare: writeTypes, read: readTypes)
             isAuthorized = true
+            startBackgroundObservers()
         } catch {
             authorizationFailed = true
         }
@@ -108,10 +123,22 @@ final class WatchHealthKitManager {
         async let workout = ForgeHealthQueries.lastWorkout(store: store)
         async let nights = ForgeHealthQueries.recentSleepNights(store: store)
         async let recentHR = ForgeHealthQueries.latestHeartRate(store: store)
+        async let bodyTemp = ForgeHealthQueries.latestBodyTemperatureFahrenheit(store: store)
+        async let wristTemp = ForgeHealthQueries.latestSleepingWristTemperatureDeviationCelsius(store: store)
 
         sleepSummary = await sleep
         recentNights = await nights
         recentHeartRate = await recentHR
+        if let bodyTemp = await bodyTemp {
+            bodyTemperatureF = bodyTemp.value
+        } else {
+            bodyTemperatureF = nil
+        }
+        if let wristTemp = await wristTemp {
+            wristTemperatureDeviationC = wristTemp.value
+        } else {
+            wristTemperatureDeviationC = nil
+        }
 
         // Tonight's wind-down prediction from recent onsets + durations.
         windDownPlan = WindDownPredictor.plan(
@@ -121,6 +148,8 @@ final class WatchHealthKitManager {
         let latest = await hrvLatest
         hrvRecentMs = latest?.value
         hrvTrendMs = await hrvDelta
+        let hrvBaseValue = await hrvBase
+        hrvBaselineMs = hrvBaseValue
         mindfulMinutesToday = await mindful
 
         if let workout = await workout {
@@ -131,11 +160,16 @@ final class WatchHealthKitManager {
             lastWorkoutType = nil
         }
 
+        let rhrValue = await rhr
+        let rhrBaseValue = await rhrBase
+        restingHeartRate = rhrValue
+        restingHeartRateBaseline = rhrBaseValue
+
         let inputs = ReadinessInputs(
             hrvMs: latest?.value,
-            hrvBaselineMs: await hrvBase,
-            restingHR: await rhr,
-            restingHRBaseline: await rhrBase,
+            hrvBaselineMs: hrvBaseValue,
+            restingHR: rhrValue,
+            restingHRBaseline: rhrBaseValue,
             sleepMinutes: sleepSummary?.totalMinutes,
             deepSleepMinutes: sleepSummary?.deepMinutes,
             remSleepMinutes: sleepSummary?.remMinutes
@@ -143,6 +177,8 @@ final class WatchHealthKitManager {
         readiness = ReadinessCalculator.score(from: inputs)
         lastRefreshed = Date()
         publishSnapshot()
+        startBackgroundObservers()
+        pushVitalsAndEvaluateRisk()
     }
 
     private func publishSnapshot() {
@@ -155,6 +191,63 @@ final class WatchHealthKitManager {
             snapshot.sleepMinutes = sleepSummary?.totalMinutes
             snapshot.mindfulMinutesToday = mindfulMinutesToday
             snapshot.tonightWindDown = windDownPlan?.windDownStart
+            snapshot.bodyTemperatureF = bodyTemperatureF
+            snapshot.wristTemperatureDeviationC = wristTemperatureDeviationC
+        }
+    }
+
+    private func currentVitalsPayload() -> WatchVitalsPayload {
+        WatchVitalsPayload(
+            sampledAt: lastRefreshed ?? Date(),
+            bodyTemperatureF: bodyTemperatureF,
+            wristTemperatureDeviationC: wristTemperatureDeviationC,
+            restingHeartRate: restingHeartRate,
+            restingHeartRateBaseline: restingHeartRateBaseline,
+            hrvMs: hrvRecentMs,
+            hrvBaselineMs: hrvBaselineMs,
+            hoursSinceLastWorkout: hoursSinceLastWorkout,
+            source: "watch"
+        )
+    }
+
+    private func pushVitalsAndEvaluateRisk() {
+        let payload = currentVitalsPayload()
+        guard payload.hasAnySignal else { return }
+        WatchVitalsInbox.save(payload)
+        PhoneLinkService.shared.sendVitals(payload)
+        WatchHealthRiskBridge.consider(payload)
+    }
+
+    /// HK background delivery so temperature / HRV checks still run when
+    /// ForgeWatch is not on screen (complication + HealthKit wake).
+    func startBackgroundObservers() {
+        guard isAuthorized, !isObserving else { return }
+        isObserving = true
+        var observed: [HKSampleType] = [
+            HKQuantityType(.bodyTemperature),
+            HKQuantityType(.heartRateVariabilitySDNN),
+            HKQuantityType(.restingHeartRate),
+        ]
+        observed.append(HKQuantityType(.appleSleepingWristTemperature))
+        for type in observed {
+            let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completion, _ in
+                Task { @MainActor in
+                    self?.scheduleLiveRefresh()
+                }
+                completion()
+            }
+            store.execute(query)
+            observerQueries.append(query)
+            store.enableBackgroundDelivery(for: type, frequency: .immediate) { _, _ in }
+        }
+    }
+
+    private func scheduleLiveRefresh() {
+        liveRefreshTask?.cancel()
+        liveRefreshTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard !Task.isCancelled else { return }
+            await refreshAll()
         }
     }
 
@@ -184,6 +277,8 @@ final class WatchHealthKitManager {
         context.mindfulMinutesToday = mindfulMinutesToday
         context.sessionsCompletedToday = sessionsCompletedToday
         context.sleepFactors = sleepFactors.isEmpty ? nil : sleepFactors
+        context.bodyTemperatureF = bodyTemperatureF
+        context.wristTemperatureDeviationC = wristTemperatureDeviationC
         return context
     }
 

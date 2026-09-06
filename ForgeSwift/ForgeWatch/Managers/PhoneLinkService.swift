@@ -82,6 +82,20 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
         }
     }
 
+    func sendVitals(_ payload: WatchVitalsPayload) {
+        guard WCSession.isSupported(),
+              WCSession.default.activationState == .activated,
+              let data = try? JSONEncoder().encode(payload) else { return }
+        let envelope: [String: Any] = [WorkoutLinkKeys.vitals: data]
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(envelope, replyHandler: nil) { _ in
+                self.pushMergedApplicationContext(envelope)
+            }
+        } else {
+            pushMergedApplicationContext(envelope)
+        }
+    }
+
     /// Preserve companion config keys when streaming workout state so
     /// ARIA base URL / name survive a long session.
     private func pushMergedApplicationContext(_ payload: [String: Any]) {

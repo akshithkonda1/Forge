@@ -6,9 +6,12 @@ LocalTestingOrchestrator's own doc comment promises it never calls Forge's
 backend — "no URLSession, no baseURL... checkable by grep" — because a
 tester needs to trust that a local-testing session cannot quietly touch
 production. AriaWebResearch is the one intentional exception: a curated,
-keyless fetch to a handful of general reference URLs, gated to local
-testing and isolated in its own file specifically so that promise stays
-literally true rather than becoming a comment the code no longer matches.
+keyless fetch to a handful of general reference URLs over the device's
+(or Simulator host's) default network, gated to local testing and isolated
+in its own file specifically so that promise stays literally true rather
+than becoming a comment the code no longer matches. Source selection lives
+in ForgeCore (`AriaReferenceCatalog`) and is allowed to be imported anywhere
+because it holds no URLSession.
 
 Both halves of that design are silently violable by a future edit that
 looks harmless in review: URLSession creeping into LocalTestingOrchestrator

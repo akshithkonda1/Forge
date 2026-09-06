@@ -35,6 +35,7 @@ extension HealthKitManager {
             HKQuantityType(.stepCount),
             HKQuantityType(.activeEnergyBurned),
             HKQuantityType(.dietaryWater),
+            HKQuantityType(.bodyTemperature),
             HKWorkoutType.workoutType(),
             HKCategoryType(.menstrualFlow),
             HKQuantityType(.basalBodyTemperature),
@@ -63,6 +64,7 @@ extension HealthKitManager {
         let stepType = HKQuantityType(.stepCount)
         let energyType = HKQuantityType(.activeEnergyBurned)
         let waterType = HKQuantityType(.dietaryWater)
+        let tempType = HKQuantityType(.bodyTemperature)
         let milliSeconds = HKUnit.secondUnit(with: .milli)
         let bpm = HKUnit.count().unitDivided(by: .minute())
 
@@ -165,6 +167,20 @@ extension HealthKitManager {
                     quantity: HKQuantity(unit: .liter(), doubleValue: day.hydrationMl / 1_000),
                     start: drinkAt,
                     end: drinkAt.addingTimeInterval(30),
+                    metadata: packMetadata
+                )
+            )
+
+            var tempAt = calendar.date(bySettingHour: 7, minute: 10, second: 0, of: day.dayStart) ?? day.dayStart
+            if isToday, tempAt > now {
+                tempAt = now.addingTimeInterval(-120)
+            }
+            samples.append(
+                HKQuantitySample(
+                    type: tempType,
+                    quantity: HKQuantity(unit: .degreeFahrenheit(), doubleValue: day.bodyTemperatureF),
+                    start: tempAt,
+                    end: tempAt,
                     metadata: packMetadata
                 )
             )

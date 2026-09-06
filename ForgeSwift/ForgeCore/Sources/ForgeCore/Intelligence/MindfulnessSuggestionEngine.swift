@@ -33,6 +33,15 @@ public enum MindfulnessSuggestionEngine {
             )
         }
 
+        if context.temperatureLooksHigh {
+            return MindfulnessRecommendation(
+                practice: .bodyScan,
+                duration: 300,
+                reason: "Your Watch temperature is running a bit high versus your usual overnight reading. I'm not diagnosing anything — a clinician can — but ease today is the honest call.",
+                trigger: "elevated-temperature"
+            )
+        }
+
         if context.inLongDeskBlock && context.hrvIsDipping {
             return MindfulnessRecommendation(
                 practice: .physiologicalSigh,
@@ -119,6 +128,9 @@ public enum MindfulnessSuggestionEngine {
         }
 
         let band = ReadinessBand(score: readiness)
+        if context.temperatureLooksHigh {
+            return "\(opener) Wrist temperature is a bit high versus your usual overnight reading. I'm not diagnosing — take it easy, and a clinician is the source of truth if you feel off."
+        }
         if let mode = context.lifestyleMode {
             return "\(opener) \(band.supportiveDescriptor) \(modeAside(mode))"
         }

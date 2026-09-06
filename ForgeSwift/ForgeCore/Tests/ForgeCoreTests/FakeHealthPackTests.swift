@@ -71,6 +71,7 @@ final class FakeHealthPackTests: XCTestCase {
         XCTAssertEqual(a.days.count, FakeHealthPack.dayCount)
         XCTAssertEqual(a.days.map(\.isoDate), b.days.map(\.isoDate))
         XCTAssertEqual(a.days.map(\.hrvMs), b.days.map(\.hrvMs))
+        XCTAssertEqual(a.days.map(\.bodyTemperatureF), b.days.map(\.bodyTemperatureF))
         XCTAssertEqual(a.today?.night.totalMinutes, b.today?.night.totalMinutes)
     }
 
@@ -88,6 +89,7 @@ final class FakeHealthPackTests: XCTestCase {
         XCTAssertTrue((48...78).contains(today.restingHR))
         XCTAssertGreaterThan(today.steps, 0)
         XCTAssertGreaterThan(today.hydrationMl, 0)
+        XCTAssertTrue((97.0...99.4).contains(today.bodyTemperatureF), "today stays citable, not a fever")
         XCTAssertEqual(today.isoDate, "2026-08-25")
     }
 
@@ -163,6 +165,8 @@ final class FakeHealthPackTests: XCTestCase {
             XCTAssertTrue((28...95).contains(today.hrvMs), "seed \(seed) HRV out of range")
             XCTAssertTrue((48...78).contains(today.restingHR), "seed \(seed) RHR out of range")
             XCTAssertTrue(today.social.isEmpty, "today's evening has not happened yet")
+            XCTAssertTrue((97.0...99.4).contains(today.bodyTemperatureF), "seed \(seed) made today a fever")
+            XCTAssertTrue(pack.days.contains { $0.bodyTemperatureF >= 100.4 }, "seed \(seed) lost the warm-day story")
         }
     }
 
