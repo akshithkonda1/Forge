@@ -6,6 +6,10 @@ import ForgeCore
 /// The PDF is generated on this iPhone. Lambda never sees the bytes — it only
 /// mints a presigned PUT/GET. Nothing is written to DynamoDB. Objects live
 /// under `cycle-reports/` and expire in a day so the cloud bill stays small.
+///
+/// `@MainActor` because `ForgeAuthClient.shared` is main-actor isolated;
+/// callers (`CycleRhythmReportView`) already are.
+@MainActor
 enum CycleReportUploadClient {
     struct Ticket: Decodable, Equatable {
         var putUrl: URL

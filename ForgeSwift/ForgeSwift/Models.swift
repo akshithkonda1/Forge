@@ -210,6 +210,7 @@ struct UserProfile: Codable {
     var biologicalSex: BiologicalSex?
     /// Opted into My cycle even when biological sex does not auto-enable it.
     /// Males can turn this on at any time; Support remains available.
+    var educationalCycleMode: Bool = false
 
     /// Filename of the on-device profile photo in `ProfileAvatarStore` (JPEG in Application Support).
     /// The image itself is not stored on the profile to keep UserDefaults payloads small.
