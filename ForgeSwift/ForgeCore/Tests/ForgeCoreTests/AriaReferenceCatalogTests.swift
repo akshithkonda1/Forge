@@ -41,6 +41,16 @@ final class AriaReferenceCatalogTests: XCTestCase {
         XCTAssertTrue(picks.contains { $0.source.url.contains("ods.od.nih.gov") })
     }
 
+    func testHighBitSaltDoesNotTrapWhenPickingWindows() {
+        let picks = AriaReferenceCatalog.picks(
+            topic: .sleep,
+            question: "why do I wake at 3am",
+            salt: .max
+        )
+        XCTAssertFalse(picks.isEmpty)
+        XCTAssertTrue([0, 180, 360, 540].contains(picks[0].excerptStart))
+    }
+
     func testStableMixIsDeterministic() {
         XCTAssertEqual(
             AriaReferenceCatalog.stableMix("Hello", salt: 42),

@@ -147,7 +147,7 @@ public enum AriaReferenceCatalog {
         guard !unique.isEmpty else { return [] }
 
         let mix = stableMix(question, salt: salt)
-        let rotation = Int(mix % UInt64(unique.count))
+        let rotation = slot(mix, modulo: unique.count)
         let rotated = Array(unique[rotation...]) + Array(unique[..<rotation])
         let leads = [
             "I checked —",
@@ -155,16 +155,22 @@ public enum AriaReferenceCatalog {
             "Cross-checked a public source —",
             "Pulled a current page —",
         ]
-        let lead = leads[Int(mix % UInt64(leads.count))]
+        let lead = leads[slot(mix, modulo: leads.count)]
         let windows = [0, 180, 360, 540]
 
-        return Array(rotated.prefix(limit)).enumerated().map { index, source in
-            let start = windows[(Int(mix &+ UInt64(index)) ) % windows.count]
-            return AriaReferencePick(
+        return Array(rotated.prefix(limit)).enumerated().map { offset, source in
+            AriaReferencePick(
                 source: source,
-                excerptStart: start,
+                excerptStart: windows[slot(mix &+ UInt64(offset), modulo: windows.count)],
                 voiceLead: "\(lead) \(source.title) notes"
             )
         }
+    }
+
+    /// `Int(UInt64)` traps when the value is above `Int.max`. Always reduce
+    /// first so a high-bit djb2 mix cannot crash a lookup.
+    private static func slot(_ mix: UInt64, modulo: Int) -> Int {
+        guard modulo > 0 else { return 0 }
+        return Int(mix % UInt64(modulo))
     }
 }
