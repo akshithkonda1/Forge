@@ -744,15 +744,9 @@ enum AriaPlanEngine {
             themeOverride: theme
         )
 
-        // Accurate cycle coaching line (lifestyle only) when shared with ARIA.
-        if let cycle = context.cycleSnapshot, cycle.trackingEnabled, cycle.phase != .unknown {
-            var cycleLine = "Cycle: \(cycle.phase.label)"
-            if let day = cycle.dayInCycle { cycleLine += " · day \(day)" }
-            cycleLine += " · conf \(Int(cycle.confidence * 100))%."
-            cycleLine += " \(cycle.readinessNote)"
-            speech += "\n\n" + cycleLine
-            _ = facts
-        }
+        // Cycle phase stays in Cycle Health — not in workout chat.
+        // (Training bias already applied via band stepDown; prescription lives
+        // in MenstrualHealthView.)
 
         if !context.medicationLayer.planNote.isEmpty,
            !speech.localizedCaseInsensitiveContains("no prescription") {
