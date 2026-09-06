@@ -120,6 +120,10 @@ public struct FakeHealthDay: Sendable, Equatable {
     public var felt: String
     /// One human sentence that ties the evening, the night, and the body together.
     public var storyLine: String
+    /// Cycle overlay for this calendar day — flow, BBT, OPK, mucus, pain.
+    public var cycle: FakeCycleDayFacts?
+    /// Logged / Watch-adjacent body temperature in °F.
+    public var bodyTemperatureF: Double
 
     public init(
         dayStart: Date,
@@ -135,7 +139,9 @@ public struct FakeHealthDay: Sendable, Equatable {
         markers: [FakeLifestyleMarker] = [],
         social: [FakeSocialEvent] = [],
         felt: String = "steady",
-        storyLine: String = ""
+        storyLine: String = "",
+        cycle: FakeCycleDayFacts? = nil,
+        bodyTemperatureF: Double = 98.2
     ) {
         self.dayStart = dayStart
         self.isoDate = isoDate
@@ -151,6 +157,8 @@ public struct FakeHealthDay: Sendable, Equatable {
         self.social = social
         self.felt = felt
         self.storyLine = storyLine
+        self.cycle = cycle
+        self.bodyTemperatureF = bodyTemperatureF
     }
 }
 
@@ -258,6 +266,7 @@ public struct FakeHealthPack: Sendable, Equatable {
                     calendar: calendar,
                     plan: plan,
                     bias: bias,
+                    seed: effectiveSeed,
                     rng: &rng
                 )
             )
@@ -330,6 +339,9 @@ public struct FakeHealthPack: Sendable, Equatable {
         /// Offset into the 7-day training rotation, so the week does not always
         /// begin on the same day of the pack.
         var trainingPhase: Int = 0
+        /// One historical day (never today) runs warm so ARIA's risk path has
+        /// a temperature story without making first-launch "today" a fever.
+        var warmDay: Int = 2
 
         fileprivate init(count: Int, rng: inout SplitMix64) {
             var candidates = Array(1..<max(2, count))
@@ -348,6 +360,8 @@ public struct FakeHealthPack: Sendable, Equatable {
             lateNights = Set(remaining.prefix(lateCount))
 
             trainingPhase = rng.int(0...6)
+            let leftover = Array(remaining.dropFirst(lateCount))
+            warmDay = leftover.first ?? candidates.last ?? 2
         }
     }
 
@@ -359,6 +373,7 @@ public struct FakeHealthPack: Sendable, Equatable {
         calendar: Calendar,
         plan: DayPlan,
         bias: PersonaBias,
+        seed: Int,
         rng: inout SplitMix64
     ) -> FakeHealthDay {
         let weekday = calendar.component(.weekday, from: dayStart)   // 1 = Sunday
@@ -481,6 +496,14 @@ public struct FakeHealthPack: Sendable, Equatable {
             sleepScore: sleepScore
         )
 
+        // Tenths of a degree via int so SplitMix64 stays the only rng.
+        let bodyTemp: Double
+        if offset == plan.warmDay {
+            bodyTemp = 100.4 + Double(rng.int(0...4)) / 10
+        } else {
+            bodyTemp = 97.7 + Double(rng.int(0...8)) / 10
+        }
+
         return FakeHealthDay(
             dayStart: dayStart,
             isoDate: isoDate(dayStart, calendar: calendar),
@@ -495,7 +518,9 @@ public struct FakeHealthPack: Sendable, Equatable {
             markers: markers,
             social: social.map { [$0] } ?? [],
             felt: felt,
-            storyLine: storyLine
+            storyLine: storyLine,
+            cycle: FakeCycleOverlay.facts(offsetFromToday: offset, seed: seed),
+            bodyTemperatureF: bodyTemp
         )
     }
 

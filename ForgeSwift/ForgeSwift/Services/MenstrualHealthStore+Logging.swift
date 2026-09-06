@@ -286,15 +286,22 @@ extension MenstrualHealthStore {
         pushAriaTags()
     }
 
-    /// Local tester history only. Never HealthKit, never a physical-phone pack.
+    /// Local tester history. Refreshes when the session seed changes if logs
+    /// are still the synthetic pack — user-entered days always win.
     func seedTestReadyCycleIfNeeded(testReady: Bool) {
-        guard FakeCyclePack.shouldSeed(
+        let storedSeed = defaults.object(forKey: testReadyCycleSeedKey) as? Int
+        guard FakeCyclePack.shouldApply(
             testReady: testReady,
             trackingEnabled: settings.enabled,
-            logsEmpty: logs.isEmpty,
+            logs: logs,
+            blockedAfterWipe: defaults.bool(forKey: testReadyWipeBlockKey),
+            storedSeed: storedSeed,
+            sessionSeed: AppStore.testReadySessionSeed,
             alreadySeeded: defaults.bool(forKey: testReadySeededKey)
         ) else { return }
         logs = FakeCyclePack.generate(seed: AppStore.testReadySessionSeed)
+        defaults.set(AppStore.testReadySessionSeed, forKey: testReadyCycleSeedKey)
+        defaults.set(false, forKey: testReadyWipeBlockKey)
         defaults.set(true, forKey: testReadySeededKey)
         persistLogs()
         recompute()
@@ -321,6 +328,8 @@ extension MenstrualHealthStore {
         try? cycleVault.purgeMonths()
         persistLogs()
         defaults.set(true, forKey: testReadySeededKey)
+        defaults.set(true, forKey: testReadyWipeBlockKey)
+        defaults.removeObject(forKey: testReadyCycleSeedKey)
         // A wipe must also reset the learned bias — it was derived from the deleted data.
         var s = settings
         s.calibrationOffsetDays = 0

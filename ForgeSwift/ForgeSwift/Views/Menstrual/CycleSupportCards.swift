@@ -235,6 +235,7 @@ struct CycleAccuracyExplainerSheet: View {
 struct SexualHealthEntryCard: View {
     let store: AppStore
     let cycleStore: MenstrualHealthStore
+    @State private var showDifficultyGuide = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -248,48 +249,9 @@ struct SexualHealthEntryCard: View {
                 .foregroundColor(.textTertiary)
 
             VStack(spacing: 8) {
-                entryButton(
-                    icon: "heart.circle.fill",
-                    label: "Healthy & safe sex",
-                    subtitle: "Consent, condoms, STI literacy — not a prescription",
-                    prompt: SexualHealthCoach.intimacyPrompt(
-                        phase: cycleStore.snapshot.phase,
-                        snapshot: cycleStore.snapshot.phase != .unknown ? cycleStore.snapshot : nil
-                    )
-                )
-                entryButton(
-                    icon: "figure.stand",
-                    label: "Positions & things to try",
-                    subtitle: "Comfort first. Optional ideas, not a script",
-                    prompt: SexualHealthCoach.positionsPrompt(phase: cycleStore.snapshot.phase)
-                )
-                entryButton(
-                    icon: "drop.fill",
-                    label: "Sex during your period",
-                    subtitle: "What helps, what to skip, how to talk about it",
-                    prompt: SexualHealthCoach.periodSexPrompt(phase: cycleStore.snapshot.phase)
-                )
-                entryButton(
-                    icon: "person.2.fill",
-                    label: "Tips for you and a partner",
-                    subtitle: "Crossing friend → help without turning it into a quiz",
-                    prompt: SexualHealthCoach.partnerHelpPrompt(
-                        phase: cycleStore.snapshot.phase,
-                        relationshipLabel: nil
-                    )
-                )
-                entryButton(
-                    icon: "staroflife.fill",
-                    label: "Trying to conceive",
-                    subtitle: "Timing literacy. Forge is not a fertility clinic",
-                    prompt: SexualHealthCoach.ttcPrompt(snapshot: cycleStore.snapshot)
-                )
-                entryButton(
-                    icon: "clock.badge.questionmark",
-                    label: "If conceiving is taking longer",
-                    subtitle: "When to get help — literacy, not a diagnosis",
-                    prompt: SexualHealthCoach.difficultyConceivingPrompt(snapshot: cycleStore.snapshot)
-                )
+                ForEach(IntimacyFlow.allCases) { flow in
+                    entryButton(flow)
+                }
             }
 
             Text(SexualHealthCurriculum.medicalDisclaimer)
@@ -299,27 +261,37 @@ struct SexualHealthEntryCard: View {
         }
         .padding(16)
         .forgeGlassCard(accent: Color(hex: "EC4899"))
+        .sheet(isPresented: $showDifficultyGuide) {
+            DifficultyConceivingGuideView {
+                showDifficultyGuide = false
+                startFlow(.difficultyConceiving)
+            }
+        }
     }
 
-    private func entryButton(icon: String, label: String, subtitle: String, prompt: String) -> some View {
+    private func entryButton(_ flow: IntimacyFlow) -> some View {
         Button {
-            store.openChat(with: prompt, voice: false)
+            if flow == .difficultyConceiving {
+                showDifficultyGuide = true
+            } else {
+                startFlow(flow)
+            }
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: icon)
+                Image(systemName: flow.icon)
                     .font(.system(size: 15))
                     .foregroundColor(.ember)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(label)
+                    Text(flow.label)
                         .font(FDS.TypeScale.label(14))
                         .foregroundColor(.textPrimary)
-                    Text(subtitle)
+                    Text(flow.subtitle)
                         .font(FDS.TypeScale.body(11))
                         .foregroundColor(.textTertiary)
                 }
                 Spacer()
-                Image(systemName: "arrow.up.right")
+                Image(systemName: flow == .difficultyConceiving ? "chevron.right" : "arrow.up.right")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.textTertiary)
             }
@@ -329,6 +301,19 @@ struct SexualHealthEntryCard: View {
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityHint(flow.opensChat ? "Opens ARIA" : "Opens a guide")
+    }
+
+    private func startFlow(_ flow: IntimacyFlow) {
+        let todayKey = CycleDayKey.key()
+        let session = IntimacyFlowComposer.session(
+            flow,
+            phase: cycleStore.snapshot.phase,
+            snapshot: cycleStore.snapshot.phase == .unknown ? nil : cycleStore.snapshot,
+            todayLog: cycleStore.logs.first(where: { $0.dayKey == todayKey }),
+            relationshipLabel: cycleStore.partnerSettings.relationshipLabel
+        )
+        store.startIntimacyFlow(session)
     }
 }
 

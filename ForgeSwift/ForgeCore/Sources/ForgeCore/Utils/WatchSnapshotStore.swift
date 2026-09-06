@@ -42,6 +42,8 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
     public var cycleDiscretion: String?
     /// Lock-safe line when discretion is `.kind`. Never a phase name.
     public var cycleLockSafeLine: String?
+    public var bodyTemperatureF: Double?
+    public var wristTemperatureDeviationC: Double?
     public var updatedAt: Date
 
     public init(updatedAt: Date = Date()) {

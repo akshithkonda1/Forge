@@ -245,6 +245,34 @@ extension AppStore {
         persistChatHistory()
     }
 
+    /// Intimacy CTA: the human's short opener plus ARIA's on-device opening.
+    func seedIntimacyConversation(_ session: IntimacyChatSession) {
+        if isInAriaFirstBond {
+            completeAriaFirstBond()
+        }
+        let user = ChatMessage(
+            id: UUID().uuidString,
+            role: .user,
+            content: session.userOpener,
+            timestamp: Date()
+        )
+        let aria = ChatMessage(
+            id: UUID().uuidString,
+            role: .trainer,
+            content: session.ariaOpening,
+            timestamp: Date(),
+            confidence: 0.94,
+            suggestedActions: session.suggestedActions,
+            coachAgent: AriaCoachAgent.aria.rawValue
+        )
+        chatMessages.append(user)
+        chatMessages.append(aria)
+        lastSuggestedActions = session.suggestedActions
+        lastRoutedCoachAgent = .aria
+        beginStreamingReveal(for: aria.id, fullLength: aria.content.count)
+        persistChatHistory()
+    }
+
     // MARK: - Workout Actions
 
     func addMessage(_ message: ChatMessage) {
@@ -307,7 +335,9 @@ extension AppStore {
         persistChatHistory()
     }
 
-    private func completeAriaFirstBond() {
+    /// Ends the first-bond interview so a later CTA (intimacy, etc.) can
+    /// open a real ARIA turn instead of staying trapped in onboarding beats.
+    func completeAriaFirstBond() {
         completeAriaUseOnboarding()
         let nextLevel = min(10, AriaContextStore.shared.context.relationshipLevel + 1)
         AriaContextStore.shared.applyUpdates(["relationship_level": nextLevel])

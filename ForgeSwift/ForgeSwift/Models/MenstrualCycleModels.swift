@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import ForgeCore
 
 enum MenstrualFlowLevel: String, Codable, CaseIterable, Identifiable {
     case unspecified, none, spotting, light, medium, heavy
@@ -334,16 +335,35 @@ enum CycleDayKey {
     }
 }
 
-/// Local-only cycle history for testers. Never written to HealthKit or a phone pack.
+/// Local-only cycle history for testers. Never written on a physical phone pack.
 enum FakeCyclePack {
     static let source = "testReady"
-    static let cycleLength = 28
-    static let periodLength = 5
-    static let cycleCount = 4
+    static let cycleLength = FakeCycleOverlay.cycleLength
+    static let periodLength = FakeCycleOverlay.periodLength
+    static let cycleCount = FakeCycleOverlay.cycleCount
 
     /// Day-in-cycle for today, 10...16, so testers land in a named phase instead of bleeding.
     static func currentDayInCycle(seed: Int) -> Int {
-        10 + abs(seed % 7)
+        FakeCycleOverlay.currentDayInCycle(seed: seed)
+    }
+
+    static func shouldApply(
+        testReady: Bool,
+        trackingEnabled: Bool,
+        logs: [CycleDayLog],
+        blockedAfterWipe: Bool,
+        storedSeed: Int?,
+        sessionSeed: Int,
+        alreadySeeded: Bool
+    ) -> Bool {
+        guard testReady, trackingEnabled, !blockedAfterWipe else { return false }
+        if logs.isEmpty {
+            // Legacy wipe: seeded flag, empty logs, no stored seed.
+            if alreadySeeded && storedSeed == nil { return false }
+            return true
+        }
+        guard logs.allSatisfy({ $0.source == source }) else { return false }
+        return storedSeed != sessionSeed
     }
 
     static func shouldSeed(testReady: Bool, trackingEnabled: Bool, logsEmpty: Bool, alreadySeeded: Bool) -> Bool {
@@ -353,34 +373,36 @@ enum FakeCyclePack {
     static func generate(now: Date = Date(), seed: Int) -> [CycleDayLog] {
         let todayKey = CycleDayKey.key(for: now)
         let dayInCycle = currentDayInCycle(seed: seed)
-        guard let lastStart = CycleDayKey.addDays(todayKey, -(dayInCycle - 1)) else { return [] }
+        guard let lastStart = CycleDayKey.addDays(todayKey, -(dayInCycle - 1)),
+              let oldestStart = CycleDayKey.addDays(lastStart, -(cycleCount - 1) * cycleLength) else {
+            return []
+        }
 
         var logs: [CycleDayLog] = []
-        for cycleIndex in 0..<cycleCount {
-            guard let start = CycleDayKey.addDays(lastStart, -cycleIndex * cycleLength) else { continue }
-            for day in 0..<periodLength {
-                guard let key = CycleDayKey.addDays(start, day) else { continue }
-                if let delta = CycleDayKey.daysBetween(key, todayKey), delta < 0 { continue }
-                logs.append(
-                    CycleDayLog(
-                        dayKey: key,
-                        flow: flow(onPeriodDay: day),
-                        source: source,
-                        updatedAt: CycleDayKey.date(from: key) ?? now
-                    )
-                )
-            }
+        var cursor = oldestStart
+        while true {
+            if let delta = CycleDayKey.daysBetween(cursor, todayKey), delta < 0 { break }
+            let daysFromToday = CycleDayKey.daysBetween(cursor, todayKey) ?? 0
+            let facts = FakeCycleOverlay.facts(offsetFromToday: daysFromToday, seed: seed)
+            logs.append(log(dayKey: cursor, facts: facts, now: now))
+            guard let next = CycleDayKey.addDays(cursor, 1), next <= todayKey else { break }
+            cursor = next
         }
         return logs.sorted { $0.dayKey < $1.dayKey }
     }
 
-    private static func flow(onPeriodDay day: Int) -> MenstrualFlowLevel {
-        switch day {
-        case 0: return .medium
-        case 1: return .heavy
-        case 2: return .medium
-        case 3: return .light
-        default: return .spotting
-        }
+    private static func log(dayKey: String, facts: FakeCycleDayFacts, now: Date) -> CycleDayLog {
+        CycleDayLog(
+            dayKey: dayKey,
+            flow: MenstrualFlowLevel(rawValue: facts.flow) ?? .none,
+            symptoms: facts.symptoms.compactMap { CycleSymptom(rawValue: $0) },
+            bbtCelsius: facts.bbtCelsius,
+            ovulationTest: facts.ovulationTest.flatMap { OvulationTestResult(rawValue: $0) },
+            mucus: facts.cervicalMucus.flatMap { CervicalMucusQuality(rawValue: $0) },
+            notes: nil,
+            source: source,
+            updatedAt: CycleDayKey.date(from: dayKey) ?? now,
+            painScale: facts.painScale
+        )
     }
 }

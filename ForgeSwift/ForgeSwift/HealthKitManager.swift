@@ -382,6 +382,7 @@ class HealthKitManager: ObservableObject {
     // Sensitive lifestyle types stay opt-in so the first HealthKit connection stays stable.
     private let sensitiveLifestyleReadTypes: Set<HKObjectType> = [
         HKQuantityType(.bodyTemperature),
+        HKQuantityType(.appleSleepingWristTemperature),
         HKQuantityType(.bloodPressureSystolic),
         HKQuantityType(.bloodPressureDiastolic),
         HKCategoryType(.menstrualFlow),
@@ -490,6 +491,7 @@ class HealthKitManager: ObservableObject {
             HKQuantityType(.heartRateVariabilitySDNN),
             HKQuantityType(.restingHeartRate),
             HKQuantityType(.stepCount),
+            HKQuantityType(.bodyTemperature),
         ]
         try await requestHealthKitAuthorization(
             toShare: coreWriteTypes.union(extra),
@@ -605,6 +607,10 @@ class HealthKitManager: ObservableObject {
             HKQuantityType(.activeEnergyBurned),
             HKCategoryType(.sleepAnalysis),
             HKWorkoutType.workoutType(),
+            HKQuantityType(.bodyTemperature),
+            HKQuantityType(.appleSleepingWristTemperature),
+            HKQuantityType(.heartRateVariabilitySDNN),
+            HKQuantityType(.restingHeartRate),
         ]
 
         for type in observed {
@@ -626,6 +632,9 @@ class HealthKitManager: ObservableObject {
             try? await Task.sleep(nanoseconds: 350_000_000)
             guard !Task.isCancelled else { return }
             await refreshHydration()
+            await AriaHealthRiskBridge.evaluateFromHealthKit(
+                quietMode: UserDefaults.standard.bool(forKey: "forge.quiet.mode.v1")
+            )
         }
     }
 

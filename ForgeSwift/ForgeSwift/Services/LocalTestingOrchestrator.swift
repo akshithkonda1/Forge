@@ -104,8 +104,10 @@ enum AriaModelTier: String {
 /// The one intentional exception: `reply()` can call out to
 /// `AriaWebResearch`, a separate, clearly-named collaborator whose entire
 /// job is a curated, keyless fetch from a handful of general (non-Forge)
-/// reference URLs — gated to local testing, isolated in its own file so
-/// this file's own "no network" grep stays literally true.
+/// reference URLs over the device's (or Simulator Mac's) default network
+/// — gated to local testing, isolated in its own file so this file's own
+/// "no network" grep stays literally true. Source *selection* lives in
+/// ForgeCore's `AriaReferenceCatalog` (no URLSession).
 @MainActor
 final class LocalTestingOrchestrator {
 
@@ -251,27 +253,38 @@ final class LocalTestingOrchestrator {
             parts.append(toolNote)
         }
 
+        if let riskNote = riskBeat(for: text, rng: &rng) {
+            parts.append(riskNote)
+        }
+
         if let recall = recallBeat(for: domain, rng: &rng) {
             parts.append(recall)
         }
         if let crossover = affinityBeat(excluding: domain, rng: &rng) {
             parts.append(crossover)
         }
-        // Wired: when the human is asking for outside knowledge, reach the
-        // Mac's internet and blend the note humanly — feels connected, not cited.
+        // Device / Simulator default route (Wi-Fi, or the Mac's network in
+        // Simulator). Question + salt pick a different .gov page and excerpt
+        // so the same "should I" does not reprint the same paragraph.
         var usedWeb = false
         if AriaWebResearch.isResearchWorthy(text: text, leadingDomain: domain),
-           let webNote = await AriaWebResearch.lookUp(domain: domain) {
-            // Human blend, not a footnote dump
+           let webNote = await AriaWebResearch.lookUp(
+            domain: domain,
+            question: text,
+            salt: seed &+ UInt64(exchanges)
+           ) {
             let bridge = rng.pick([
                 "Pulled this live so it's not just me:",
                 "Checked against the outside so you get more than my take:",
                 "Quick live pull — here's the outside line:",
+                "Looked it up on this machine's network — not a canned card:",
+                "Grabbed a current public page rather than repeating myself:",
             ])
             let landing = rng.pick([
                 "Now, for you specifically —",
                 "Here's how that lands with your numbers —",
                 "For your context —",
+                "Against what your Watch and Health are showing —",
             ])
             parts.append("\(bridge)\n\(webNote)\n\(landing)")
             usedWeb = true
@@ -282,7 +295,7 @@ final class LocalTestingOrchestrator {
             : agent.label
         let engine = usingFoundationModels ? "on-device model" : "on-device rules"
 
-        let wiredTag = usedWeb ? " · live web (Mac) ✓" : ""
+        let wiredTag = usedWeb ? " · live web (system network) ✓" : ""
         let planRequested = AriaThemeResolver.isPlanRequest(text) || TargetMuscle.mentioned(in: text) != nil
         if planRequested || base.richCard?.type == .workoutPlan {
             let plan = AriaPlanEngine.evaluate(input: text, context: context)
@@ -382,6 +395,18 @@ final class LocalTestingOrchestrator {
     }
 
     // MARK: - Stateful beats
+
+    private func riskBeat(for text: String, rng: inout AriaSeededRNG) -> String? {
+        guard AriaHealthRiskMonitor.shouldSurfaceInChat(text: text) else { return nil }
+        guard let payload = WatchVitalsInbox.load() else { return nil }
+        let findings = AriaHealthRiskMonitor.evaluate(payload.asReading())
+        guard let finding = AriaHealthRiskMonitor.primary(findings) else { return nil }
+        let hedge = rng.pick([
+            finding.coachLine,
+            finding.coachLine + " That's my read of the Watch / Health numbers on this phone — not a diagnosis.",
+        ])
+        return hedge
+    }
 
     /// Recall is gated on familiarity because a coach who quotes you back on the
     /// first exchange sounds like it is reading a form, not listening.

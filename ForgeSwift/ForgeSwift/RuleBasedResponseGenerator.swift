@@ -105,6 +105,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         if isGreeting(lower) { return .profile }
         if AriaThemeResolver.isPlanRequest(input) || isTrainingRequest(lower) { return .training }
         if isCycleQuery(lower) { return .cycle }
+        if AriaReferenceCatalog.questionSuggestsFever(input) { return .body }
         if isLowEnergyMention(lower) { return .readiness }
         if isSleepQuery(lower) { return .sleep }
         if isPainMention(lower) { return .body }

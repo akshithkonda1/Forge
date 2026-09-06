@@ -287,7 +287,106 @@ enum SexualHealthCurriculum {
         Not conceiving yet is common and not a moral failure. Many clinicians suggest seeking care after about 12 months of trying if you are under 35, or about 6 months if you are 35 or older — sooner if periods are missing, very painful, or you already know a relevant condition.
         Forge can show what you have been tracking. It cannot diagnose infertility, run labs, or replace a reproductive endocrinologist.
         While you wait: sex you actually want (not a calendar hostage), sleep, alcohol in check, and a clinician if pain or bleeding is alarming.
+        First conversations are usually an OB-GYN or GP; an REI if the wait has been long; urology/andrology if a male partner's health is in the picture; a fertility counselor for the load.
         \(medicalDisclaimer)
         """
+    }
+
+    // MARK: - Period-sex evaluation from logs
+
+    struct PeriodSexEvaluation: Equatable {
+        enum Lean: String, Equatable {
+            case wait
+            case mixed
+            case optional
+            case unknown
+        }
+
+        var lean: Lean
+        var headline: String
+        var reasons: [String]
+
+        var asAriaSpeech: String {
+            let reasonBlock = reasons.isEmpty
+                ? ""
+                : "\n" + reasons.map { "• \($0)" }.joined(separator: "\n")
+            return "\(headline)\(reasonBlock)\n\nThis is a body read from your logs, not a moral verdict. You still decide. A period is not birth control."
+        }
+    }
+
+    static func periodSexEvaluation(
+        phase: MenstrualPhase,
+        isBleeding: Bool,
+        flow: MenstrualFlowLevel?,
+        painScale: Int?,
+        symptoms: [CycleSymptom],
+        dayInCycle: Int?
+    ) -> PeriodSexEvaluation {
+        var reasons: [String] = []
+        if let dayInCycle {
+            reasons.append("Cycle day \(dayInCycle) · \(phase.label).")
+        } else {
+            reasons.append("Phase: \(phase.label).")
+        }
+
+        let pain = painScale ?? 0
+        let heavyish = flow == .heavy || flow == .medium
+        let crampy = symptoms.contains(.cramps) || symptoms.contains(.pelvicPain)
+        let nauseous = symptoms.contains(.nausea)
+
+        if !isBleeding && phase != .menstruation {
+            reasons.append("You're not bleeding in today's log.")
+            if pain >= 6 || crampy {
+                reasons.append("Pain or pelvic symptoms are still on the log, so go slow even off-period.")
+                return PeriodSexEvaluation(
+                    lean: .mixed,
+                    headline: "Not bleeding today — mixed for sex. Pain is still on the ledger, so I'd treat penetration as optional and easy to stop.",
+                    reasons: reasons
+                )
+            }
+            return PeriodSexEvaluation(
+                lean: .optional,
+                headline: "Not bleeding today. Given the logs I have, sex looks physically workable if you want it — not owed, not scheduled.",
+                reasons: reasons
+            )
+        }
+
+        if let flow, flow.isBleeding {
+            reasons.append("Flow logged: \(flow.label).")
+        } else if isBleeding {
+            reasons.append("You're bleeding according to the current snapshot.")
+        }
+        if pain > 0 {
+            reasons.append("Pain scale \(pain)/10.")
+        }
+        if crampy { reasons.append("Cramps or pelvic pain are on today's log.") }
+        if nauseous { reasons.append("Nausea is on today's log.") }
+
+        if pain >= 7 || flow == .heavy || (crampy && pain >= 5) || nauseous {
+            return PeriodSexEvaluation(
+                lean: .wait,
+                headline: "Given today's logs, I'd lean wait on penetration — your body is working hard. Closeness without it is still intimacy.",
+                reasons: reasons
+            )
+        }
+        if pain >= 4 || heavyish || crampy {
+            return PeriodSexEvaluation(
+                lean: .mixed,
+                headline: "Mixed signal from today's logs. Sex can be okay if you want it — extra lube, a towel, a position you can leave, and stop if pain spikes.",
+                reasons: reasons
+            )
+        }
+        if isBleeding || phase == .menstruation {
+            return PeriodSexEvaluation(
+                lean: .optional,
+                headline: "You're bleeding, and the logs look relatively calm. Sex is optional. Mess is a towel, not a character flaw. You still decide.",
+                reasons: reasons
+            )
+        }
+        return PeriodSexEvaluation(
+            lean: .unknown,
+            headline: "I don't have enough of today's log to lean yes or wait. Default to comfort, a pause word, and whatever you actually want.",
+            reasons: reasons
+        )
     }
 }

@@ -20,6 +20,11 @@ extension HealthKitManager {
         try await deleteTestReadyPackSamples()
         try await saveQuantityAndSleep(from: pack)
         try await saveWorkouts(from: pack)
+        do {
+            try await saveCycle(from: pack)
+        } catch {
+            print("Test-ready cycle overlay skipped: \(error.localizedDescription)")
+        }
     }
 
     func deleteTestReadyPackSamples() async throws {
@@ -30,7 +35,12 @@ extension HealthKitManager {
             HKQuantityType(.stepCount),
             HKQuantityType(.activeEnergyBurned),
             HKQuantityType(.dietaryWater),
+            HKQuantityType(.bodyTemperature),
             HKWorkoutType.workoutType(),
+            HKCategoryType(.menstrualFlow),
+            HKQuantityType(.basalBodyTemperature),
+            HKCategoryType(.ovulationTestResult),
+            HKCategoryType(.cervicalMucusQuality),
         ]
         let predicate = HKQuery.predicateForObjects(
             withMetadataKey: Self.testReadyPackMetadataKey,
@@ -54,6 +64,7 @@ extension HealthKitManager {
         let stepType = HKQuantityType(.stepCount)
         let energyType = HKQuantityType(.activeEnergyBurned)
         let waterType = HKQuantityType(.dietaryWater)
+        let tempType = HKQuantityType(.bodyTemperature)
         let milliSeconds = HKUnit.secondUnit(with: .milli)
         let bpm = HKUnit.count().unitDivided(by: .minute())
 
@@ -159,6 +170,20 @@ extension HealthKitManager {
                     metadata: packMetadata
                 )
             )
+
+            var tempAt = calendar.date(bySettingHour: 7, minute: 10, second: 0, of: day.dayStart) ?? day.dayStart
+            if isToday, tempAt > now {
+                tempAt = now.addingTimeInterval(-120)
+            }
+            samples.append(
+                HKQuantitySample(
+                    type: tempType,
+                    quantity: HKQuantity(unit: .degreeFahrenheit(), doubleValue: day.bodyTemperatureF),
+                    start: tempAt,
+                    end: tempAt,
+                    metadata: packMetadata
+                )
+            )
         }
 
         var index = samples.startIndex
@@ -189,6 +214,107 @@ extension HealthKitManager {
             try await builder.addMetadata(meta)
             try await builder.endCollection(at: end)
             _ = try await builder.finishWorkout()
+        }
+    }
+
+    private func saveCycle(from pack: FakeHealthPack) async throws {
+        var samples: [HKSample] = []
+        let flowType = HKCategoryType(.menstrualFlow)
+        let bbtType = HKQuantityType(.basalBodyTemperature)
+        let opkType = HKCategoryType(.ovulationTestResult)
+        let mucusType = HKCategoryType(.cervicalMucusQuality)
+        let calendar = Calendar.current
+
+        for day in pack.days {
+            guard let cycle = day.cycle else { continue }
+            let dayStart = calendar.startOfDay(for: day.dayStart)
+            let end = calendar.date(byAdding: .day, value: 1, to: dayStart)?
+                .addingTimeInterval(-1) ?? dayStart
+
+            if cycle.isBleeding, let flowValue = menstrualFlowValue(cycle.flow) {
+                var meta = packMetadata
+                meta[HKMetadataKeyMenstrualCycleStart] = cycle.isCycleStart
+                samples.append(
+                    HKCategorySample(
+                        type: flowType,
+                        value: flowValue.rawValue,
+                        start: dayStart,
+                        end: end,
+                        metadata: meta
+                    )
+                )
+            }
+            if let celsius = cycle.bbtCelsius {
+                samples.append(
+                    HKQuantitySample(
+                        type: bbtType,
+                        quantity: HKQuantity(unit: .degreeCelsius(), doubleValue: celsius),
+                        start: dayStart,
+                        end: dayStart,
+                        metadata: packMetadata
+                    )
+                )
+            }
+            if let opk = cycle.ovulationTest, let value = ovulationValue(opk) {
+                samples.append(
+                    HKCategorySample(
+                        type: opkType,
+                        value: value.rawValue,
+                        start: dayStart,
+                        end: end,
+                        metadata: packMetadata
+                    )
+                )
+            }
+            if let mucus = cycle.cervicalMucus, let value = mucusValue(mucus) {
+                samples.append(
+                    HKCategorySample(
+                        type: mucusType,
+                        value: value.rawValue,
+                        start: dayStart,
+                        end: end,
+                        metadata: packMetadata
+                    )
+                )
+            }
+        }
+
+        var index = samples.startIndex
+        while index < samples.endIndex {
+            let next = samples.index(index, offsetBy: 100, limitedBy: samples.endIndex) ?? samples.endIndex
+            try await healthStore.save(Array(samples[index..<next]))
+            index = next
+        }
+    }
+
+    private func menstrualFlowValue(_ raw: String) -> HKCategoryValueMenstrualFlow? {
+        switch raw {
+        case "spotting", "light": return .light
+        case "medium": return .medium
+        case "heavy": return .heavy
+        default: return nil
+        }
+    }
+
+    private func ovulationValue(_ raw: String) -> HKCategoryValueOvulationTestResult? {
+        switch raw {
+        case "negative": return .negative
+        case "lhSurge": return .luteinizingHormoneSurge
+        case "estrogenSurge": return .estrogenSurge
+        case "positive": return .positive
+        case "indeterminate": return .indeterminate
+        default: return nil
+        }
+    }
+
+    private func mucusValue(_ raw: String) -> HKCategoryValueCervicalMucusQuality? {
+        switch raw {
+        case "dry": return .dry
+        case "sticky": return .sticky
+        case "creamy": return .creamy
+        case "watery": return .watery
+        case "eggWhite": return .eggWhite
+        default: return nil
         }
     }
 

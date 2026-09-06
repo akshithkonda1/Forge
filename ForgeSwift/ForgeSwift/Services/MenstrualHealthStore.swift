@@ -80,6 +80,8 @@ final class MenstrualHealthStore: ObservableObject {
     let cycleRelevantKey = "forge.menstrual.surface.relevant.v1"
     /// Stops a wipe from being immediately overwritten by the tester seed.
     let testReadySeededKey = "forge.menstrual.testReady.seeded.v1"
+    let testReadyCycleSeedKey = "forge.menstrual.testReady.seed.v1"
+    let testReadyWipeBlockKey = "forge.menstrual.testReady.wipeBlock.v1"
 
     private init() {
         settings = .default

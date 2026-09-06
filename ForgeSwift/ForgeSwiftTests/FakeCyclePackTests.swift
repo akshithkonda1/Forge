@@ -29,6 +29,10 @@ final class FakeCyclePackTests: XCTestCase {
         XCTAssertFalse(a.isEmpty)
         XCTAssertTrue(a.allSatisfy { $0.source == FakeCyclePack.source })
         XCTAssertEqual(FakeCyclePack.currentDayInCycle(seed: 2), 12)
+        XCTAssertTrue(a.contains { $0.bbtCelsius != nil })
+        XCTAssertTrue(a.contains { $0.ovulationTest == .lhSurge })
+        XCTAssertTrue(a.contains { ($0.painScale ?? 0) >= 6 })
+        XCTAssertTrue(a.contains { $0.symptoms.contains(.cramps) })
     }
 
     func testFourStartsAndTodayIsNotBleeding() {
@@ -36,7 +40,9 @@ final class FakeCyclePackTests: XCTestCase {
         let logs = FakeCyclePack.generate(now: now, seed: 2)
         let episodes = MenstrualCycleEngine.buildPeriodEpisodes(from: logs)
         XCTAssertEqual(episodes.count, FakeCyclePack.cycleCount)
-        XCTAssertEqual(logs.count, FakeCyclePack.cycleCount * FakeCyclePack.periodLength)
+        let bleedingDays = logs.filter { $0.flow.isBleeding }.count
+        XCTAssertEqual(bleedingDays, FakeCyclePack.cycleCount * FakeCyclePack.periodLength)
+        XCTAssertGreaterThan(logs.count, bleedingDays)
 
         let expectedStart = CycleDayKey.addDays("2026-09-03", -(FakeCyclePack.currentDayInCycle(seed: 2) - 1))
         XCTAssertEqual(episodes.last?.startDayKey, expectedStart)
@@ -59,5 +65,56 @@ final class FakeCyclePackTests: XCTestCase {
         XCTAssertEqual(snap.cyclesObserved, FakeCyclePack.cycleCount - 1)
         XCTAssertNotEqual(snap.phase, .unknown)
         XCTAssertFalse(snap.isCurrentlyBleeding)
+    }
+
+    func testShouldRefreshWhenSessionSeedChangesAndLogsAreStillThePack() {
+        let packLogs = FakeCyclePack.generate(now: CycleDayKey.date(from: "2026-09-03")!, seed: 2)
+        XCTAssertTrue(
+            FakeCyclePack.shouldApply(
+                testReady: true,
+                trackingEnabled: true,
+                logs: packLogs,
+                blockedAfterWipe: false,
+                storedSeed: 2,
+                sessionSeed: 99,
+                alreadySeeded: true
+            )
+        )
+        XCTAssertFalse(
+            FakeCyclePack.shouldApply(
+                testReady: true,
+                trackingEnabled: true,
+                logs: packLogs,
+                blockedAfterWipe: false,
+                storedSeed: 99,
+                sessionSeed: 99,
+                alreadySeeded: true
+            )
+        )
+        let mixed = packLogs + [CycleDayLog(dayKey: "2026-09-03", flow: .none, source: "manual")]
+        XCTAssertFalse(
+            FakeCyclePack.shouldApply(
+                testReady: true,
+                trackingEnabled: true,
+                logs: mixed,
+                blockedAfterWipe: false,
+                storedSeed: 2,
+                sessionSeed: 99,
+                alreadySeeded: true
+            ),
+            "user-entered days must not be overwritten"
+        )
+        XCTAssertFalse(
+            FakeCyclePack.shouldApply(
+                testReady: true,
+                trackingEnabled: true,
+                logs: [],
+                blockedAfterWipe: true,
+                storedSeed: nil,
+                sessionSeed: 1,
+                alreadySeeded: true
+            ),
+            "an explicit wipe must not be refilled"
+        )
     }
 }

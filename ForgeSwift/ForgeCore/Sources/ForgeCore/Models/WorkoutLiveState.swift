@@ -79,4 +79,5 @@ public struct WorkoutLiveState: Codable, Sendable, Equatable, Hashable {
 public enum WorkoutLinkKeys {
     public static let state = "forge.workout.liveState"
     public static let ended = "forge.workout.ended"
+    public static let vitals = WatchVitalsLinkKeys.snapshot
 }
