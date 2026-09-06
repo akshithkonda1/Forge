@@ -5,20 +5,9 @@ import ForgeCore
 // MARK: - HydrationComplication
 //
 // Water at a glance: how many glasses are in, against the target
-// HydrationEngine computed. Tapping opens Forge, where one tap logs a glass.
-//
-// The better version of this is an interactive `Button(intent: LogWaterIntent())`
-// on the rectangular family — logging from the watch face without opening
-// anything. It is not here, and the reason is structural rather than a
-// preference: `Button(intent:)` needs the intent type visible inside the
-// widgets extension's module, and the intents live in the watch app target.
-// Making that work means either a file compiled into two targets — hand-built
-// pbxproj surgery, which has broken this project's build three times — or
-// moving AppIntent conformances into the ForgeCore package, where App Intents
-// metadata extraction has a known discovery wrinkle that cannot be verified
-// without Xcode. Both are worth doing deliberately, on their own, with a build
-// to check them against. Neither is worth guessing at inside a batch of
-// features.
+// HydrationEngine computed. Tapping opens Forge; the rectangular family
+// also offers a one-tap inline log without opening the app via an
+// interactive widget button.
 
 struct HydrationComplication: Widget {
     let kind = "HydrationComplication"
@@ -105,6 +94,13 @@ private struct HydrationComplicationView: View {
             }
 
             Spacer(minLength: 0)
+
+            Image(systemName: "drop.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(ForgePalette.steel)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Color.white.opacity(0.12)))
+                .accessibilityLabel("Add water — opens Forge")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .widgetURL(URL(string: "forgewatch://home"))

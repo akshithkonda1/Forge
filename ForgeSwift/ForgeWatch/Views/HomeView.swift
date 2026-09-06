@@ -1,4 +1,5 @@
 import SwiftUI
+import WatchKit
 import ForgeCore
 
 // MARK: - HomeView (watch)
@@ -120,6 +121,20 @@ struct HomeView: View {
             .padding(.top, ForgeDS.Spacing.xs)
         }
         .buttonStyle(.plain)
+        .sensoryFeedback(.selection, trigger: health.readiness?.overall)
+        .contextMenu {
+            Button { path.append(.mindfulness) } label: {
+                Label("Start reset", systemImage: "leaf.fill")
+            }
+            Button { path.append(.workout) } label: {
+                Label("Start workout", systemImage: "figure.run")
+            }
+            Button { path.append(.sleep) } label: {
+                Label("Sleep summary", systemImage: "bed.double.fill")
+            }
+        }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("Tap for a reset. Long press for quick actions.")
     }
 
     // MARK: Sections
