@@ -78,9 +78,12 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     func setThinking(_ on: Bool) { isThinking = on }
     func markSpeaking(_ on: Bool) { isSpeaking = on }
 
-    func speak(_ text: String) {
+    /// Speaks `text`. Pass `interrupt: false` to queue behind a line that is
+    /// already playing — onboarding uses that so an acknowledgment and the
+    /// next question land as one conversation, not a cut-off.
+    func speak(_ text: String, interrupt: Bool = true) {
         guard let clipped = AriaSpeechPrep.clipped(text) else { return }
-        if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
+        if interrupt, synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
         let utterance = AVSpeechUtterance(string: clipped)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
         if UIAccessibility.isVoiceOverRunning {
@@ -100,10 +103,17 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in self?.isSpeaking = false }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            // A queued interview line may still be in the synthesizer.
+            if !self.synthesizer.isSpeaking { self.isSpeaking = false }
+        }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in self?.isSpeaking = false }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            if !self.synthesizer.isSpeaking { self.isSpeaking = false }
+        }
     }
 }

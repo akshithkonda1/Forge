@@ -29,7 +29,6 @@ final class OnboardingCoordinator {
     var healthProfile: UserHealthProfile?
     var healthSnapshot: HealthDataSnapshot?
     var healthPrefillNote: String?
-    var showHealthSourceBadge = false // optional — user taps "Show where this came from" if they want it
 
     var calendarState: HealthKitState = .unknown
     var calendarBusyToday: Int = 0
@@ -64,13 +63,49 @@ final class OnboardingCoordinator {
         !isCompleting && OnboardingGraph.previous(of: step.graph) != nil
     }
 
+    /// Bumped when the human interrupts (back, mic, a tap). In-flight think
+    /// beats drop so ARIA never talks over an answer she already heard.
+    private var utteranceGeneration = 0
+
     func goBack() {
         guard canGoBack, let prev = OnboardingGraph.previous(of: step.graph) else { return }
+        interruptInterviewVoice()
         FDS.haptic(.light)
         step = AriaInterviewStep(prev)
         freeText = ""
-        isTyping = false
         ariaOrbState = .listening
+        Task {
+            let line = AriaInterviewVoice.prompt(
+                step,
+                profile: profile,
+                healthAuthorized: healthKitState == .authorized,
+                healthPrefill: !profile.healthSourcedFields.isEmpty,
+                vo2Max: healthProfile?.vo2Max
+            )
+            guard !line.isEmpty else { return }
+            await ariaSay(line, mood: .focused)
+        }
+    }
+
+    /// Cut speech, drop a pending think beat, and treat the next line as a
+    /// fresh turn. Interview composers call this before applying an answer.
+    func interruptInterviewVoice() {
+        utteranceGeneration += 1
+        isTyping = false
+        AriaPresence.shared.stopSpeaking()
+        AriaPresence.shared.setThinking(false)
+        ariaOrbState = .listening
+    }
+
+    func replayLastAriaLine() {
+        guard let line = messages.last(where: { $0.role == .aria })?.text else { return }
+        AriaPresence.shared.speak(line, interrupt: true)
+        ariaOrbState = .listening
+        FDS.haptic(.soft)
+    }
+
+    func stopInterviewVoice() {
+        interruptInterviewVoice()
     }
 
     // MARK: - Start
@@ -97,104 +132,44 @@ final class OnboardingCoordinator {
     }
 
     private func runIntro() async {
-        let nameHint = profile.firstName
-        let quest = profile.fitnessGoals.first.map { " Quest: \($0.label)." } ?? ""
-        if !nameHint.isEmpty {
-            await ariaSay(
-                "Welcome, \(nameHint). I'm ARIA — lifestyle coach, not a doctor. Small changes that fit the life you already have.\(quest) About a minute.",
-                mood: .energized
-            )
-        } else {
-            await ariaSay(
-                "I'm Aria. I learn how you move, sleep, and live, then build plans that fit — not a doctor. About a minute.",
-                mood: .focused
-            )
-        }
+        await ariaSay(
+            AriaInterviewVoice.introLine(
+                firstName: profile.firstName,
+                questLabel: profile.fitnessGoals.first?.label
+            ),
+            mood: profile.firstName.isEmpty ? .focused : .energized
+        )
         await advanceTo(.name)
     }
 
     private func advanceTo(_ next: AriaInterviewStep) async {
         step = next
         freeText = ""
+        let line = AriaInterviewVoice.prompt(
+            next,
+            profile: profile,
+            healthAuthorized: healthKitState == .authorized,
+            healthPrefill: !profile.healthSourcedFields.isEmpty,
+            vo2Max: healthProfile?.vo2Max
+        )
         switch next {
         case .intro:
             break
-        case .name:
-            if profile.isPreferredNameValid {
-                await ariaSay(
-                    "I have you as \(profile.firstName) from sign-up. Confirm the spelling, add a last name if you want it on your profile, then continue.",
-                    mood: .focused
-                )
-            } else {
-                await ariaSay(
-                    "What should I call you? Your first name is enough — that's what I'll use in coaching. Last name is optional and stays on your profile.",
-                    mood: .focused
-                )
-            }
-            ariaOrbState = .listening
-        case .health:
-            await ariaSay(
-                "First Health, then your calendar — so I can fit training around your day, not the other way around. Health first: sleep, heart, and activity.",
-                mood: .energized
-            )
-            ariaOrbState = .listening
         case .details:
             showingEducationalCyclePrompt = false
-            if healthKitState == .authorized, !profile.healthSourcedFields.isEmpty {
-                await ariaSay(
-                    "Apple Health already has some of your details. Check date of birth, biological sex, height, and weight — change anything that's off.",
-                    mood: .focused
-                )
-            } else {
-                await ariaSay(
-                    "Your details next — date of birth, biological sex, height, and weight. I use these for heart-rate zones, calories, and Cycle Health. This is not gender.",
-                    mood: .focused
-                )
-            }
-            ariaOrbState = .listening
-        case .goals:
-            if profile.fitnessGoals.count == 1 {
-                // First quest already locked at sign-up — let them confirm or add more.
-                await ariaSay(
-                    "You already locked \(profile.fitnessGoals[0].label). Keep it, or add a second goal before we continue.",
-                    mood: .energized
-                )
-            } else {
-                await ariaSay(personalizedGoalsPrompt(), mood: .focused)
-            }
-            ariaOrbState = .listening
-        case .experience:
-            await ariaSay(experiencePrompt(), mood: .focused)
-            ariaOrbState = .listening
-        case .workouts:
-            await ariaSay(
-                "What training do you actually enjoy? Pick what sticks — adherence beats perfect programming.",
-                mood: .energized
-            )
-            ariaOrbState = .listening
-        case .sleep:
-            await ariaSay(
-                "When do you usually sleep and wake? Your rhythm shapes when hard sessions and wind-down make sense.",
-                mood: .calm
-            )
-            ariaOrbState = .listening
-        case .freeTime:
-            await ariaSay(
-                "Outside training — how do you like to spend free time? This helps me design a life you can keep.",
-                mood: .focused
-            )
-            ariaOrbState = .listening
-        case .conditions:
-            await ariaSay(
-                "Do you have any conditions I should respect when coaching — ADHD, epilepsy, an injury, a chronic illness, a disability, or something else? Optional. I'm a lifestyle coach, not a doctor. I won't diagnose or treat; I'll only use this to keep guidance safer and more realistic.",
-                mood: .focused
-            )
-            ariaOrbState = .listening
-        case .coaching:
-            await ariaSay("Last coaching choice: how should I talk to you day to day?", mood: .calm)
+            await ariaSay(line, mood: .focused, interrupt: false)
             ariaOrbState = .listening
         case .ready:
             await deliverReadinessSummary()
+        case .health, .workouts:
+            await ariaSay(line, mood: .energized, interrupt: false)
+            ariaOrbState = .listening
+        case .sleep, .coaching:
+            await ariaSay(line, mood: .calm, interrupt: false)
+            ariaOrbState = .listening
+        case .name, .goals, .experience, .freeTime, .conditions:
+            await ariaSay(line, mood: .focused, interrupt: false)
+            ariaOrbState = .listening
         }
     }
 
@@ -203,6 +178,7 @@ final class OnboardingCoordinator {
     func submitName() {
         guard step == .name else { return }
         guard profile.isPreferredNameValid else { return }
+        interruptInterviewVoice()
         let spoken = profile.profileDisplayName
         appendUser(spoken)
         FDS.haptic(.medium)
@@ -210,7 +186,10 @@ final class OnboardingCoordinator {
             lifestyleTags: ["onboarding:in_progress", "name:\(profile.trimmedName)"]
         )
         AriaContextStore.shared.addInsight("Met \(profile.trimmedName) during onboarding interview.")
-        Task { await advanceTo(.health) }
+        Task {
+            await ariaSay(AriaInterviewVoice.acknowledgeName(profile.firstName), mood: .energized)
+            await advanceTo(.health)
+        }
     }
 
     func confirmDetails() {
@@ -221,20 +200,47 @@ final class OnboardingCoordinator {
             return
         }
         guard profile.hasConfirmedDetails else { return }
+        interruptInterviewVoice()
         appendUser(profile.detailsSummaryLine)
         FDS.haptic(.light)
         syncPartialContext()
-        Task { await advanceTo(.goals) }
+        Task {
+            await ariaSay(AriaInterviewVoice.acknowledgeDetails(), mood: .focused)
+            await advanceTo(.goals)
+        }
     }
 
     func continueFromHealth() {
         guard step == .health else { return }
+        interruptInterviewVoice()
         appendUser(healthKitState == .authorized && calendarState == .authorized ? "Connected both" : healthKitState == .authorized ? "Health connected" : calendarState == .authorized ? "Calendar connected" : "Continue")
-        Task { await advanceTo(.details) }
+        FDS.haptic(.light)
+        Task {
+            await ariaSay(
+                AriaInterviewVoice.acknowledgeHealthContinue(health: healthKitState, calendar: calendarState),
+                mood: .focused
+            )
+            await advanceTo(.details)
+        }
+    }
+
+    func skipHealthAndContinue() {
+        guard step == .health else { return }
+        interruptInterviewVoice()
+        if healthKitState != .authorized {
+            healthKitState = healthKitState == .unavailable ? .unavailable : .denied
+        }
+        appendUser("I'll add it later")
+        FDS.haptic(.light)
+        Task {
+            await ariaSay(AriaInterviewVoice.acknowledgeHealthSkip(), mood: .calm)
+            await advanceTo(.details)
+        }
     }
 
     func connectHealthKit() {
         guard step == .health else { return }
+        interruptInterviewVoice()
         appendUser("Connect Apple Health")
         FDS.haptic(.medium)
         Task { await requestHealthKit() }
@@ -242,6 +248,7 @@ final class OnboardingCoordinator {
 
     func skipHealthKit() {
         guard step == .health else { return }
+        interruptInterviewVoice()
         appendUser("Skip for now")
         if healthKitState != .authorized {
             healthKitState = healthKitState == .unavailable ? .unavailable : .denied
@@ -270,11 +277,15 @@ final class OnboardingCoordinator {
 
     func confirmGoals() {
         guard step == .goals, !profile.fitnessGoals.isEmpty else { return }
-        let labels = profile.fitnessGoals.map(\.label).joined(separator: ", ")
-        appendUser(labels)
+        interruptInterviewVoice()
+        let labels = profile.fitnessGoals.map(\.label)
+        appendUser(labels.joined(separator: ", "))
         FDS.haptic(.light)
         syncPartialContext()
-        Task { await advanceTo(.experience) }
+        Task {
+            await ariaSay(AriaInterviewVoice.acknowledgeGoals(labels), mood: .energized)
+            await advanceTo(.experience)
+        }
     }
 
     func selectBiologicalSex(_ sex: BiologicalSex) {
@@ -300,11 +311,15 @@ final class OnboardingCoordinator {
 
     func selectExperience(_ level: ExperienceLevel) {
         guard step == .experience else { return }
+        interruptInterviewVoice()
         profile.experienceLevel = level
         appendUser(level.label)
         FDS.haptic(.light)
         syncPartialContext()
-        Task { await advanceTo(.workouts) }
+        Task {
+            await ariaSay(AriaInterviewVoice.acknowledgeExperience(level), mood: .focused)
+            await advanceTo(.workouts)
+        }
     }
 
     func toggleWorkout(_ workout: OnboardingWorkoutType) {
@@ -319,15 +334,20 @@ final class OnboardingCoordinator {
 
     func confirmWorkouts() {
         guard step == .workouts, !profile.preferredWorkouts.isEmpty else { return }
-        let labels = profile.preferredWorkouts.map(\.label).joined(separator: ", ")
-        appendUser(labels)
+        interruptInterviewVoice()
+        let labels = profile.preferredWorkouts.map(\.label)
+        appendUser(labels.joined(separator: ", "))
         FDS.haptic(.light)
         syncPartialContext()
-        Task { await advanceTo(.sleep) }
+        Task {
+            await ariaSay(AriaInterviewVoice.acknowledgeWorkouts(labels), mood: .energized)
+            await advanceTo(.sleep)
+        }
     }
 
     func selectSleepBand(_ band: SleepRhythmBand) {
         guard step == .sleep else { return }
+        interruptInterviewVoice()
         profile.sleepBand = band
         appendUser(band.label)
         FDS.haptic(.light)
@@ -346,7 +366,10 @@ final class OnboardingCoordinator {
             )
             AriaContextStore.shared.context.deepHabits = [habit]
         }
-        Task { await advanceTo(.freeTime) }
+        Task {
+            await ariaSay(AriaInterviewVoice.acknowledgeSleep(band), mood: .calm)
+            await advanceTo(.freeTime)
+        }
     }
 
     func toggleInterest(_ interest: LifestyleInterest) {
@@ -361,10 +384,12 @@ final class OnboardingCoordinator {
 
     func confirmInterests() {
         guard step == .freeTime else { return }
-        if profile.freeTimeInterests.isEmpty {
+        interruptInterviewVoice()
+        let labels = profile.freeTimeInterests.map(\.label)
+        if labels.isEmpty {
             appendUser("Skip")
         } else {
-            appendUser(profile.freeTimeInterests.map(\.label).joined(separator: ", "))
+            appendUser(labels.joined(separator: ", "))
         }
         FDS.haptic(.light)
         // Collapse: trainingTheme + lifeContext are now answered here — default to classic / preferNot
@@ -373,7 +398,10 @@ final class OnboardingCoordinator {
         // be force-read via `.rawValue` (that is what blocked the #168 compile).
         if profile.lifeContext == nil { profile.lifeContext = .preferNot }
         syncPartialContext()
-        Task { await advanceTo(AriaInterviewStep(OnboardingGraph.next(after: .confirmInterests))) }
+        Task {
+            await ariaSay(AriaInterviewVoice.acknowledgeInterests(labels), mood: .focused)
+            await advanceTo(AriaInterviewStep(OnboardingGraph.next(after: .confirmInterests)))
+        }
     }
 
     func toggleCondition(_ condition: ReportedCondition) {
@@ -398,13 +426,14 @@ final class OnboardingCoordinator {
 
     func confirmConditions() {
         guard step == .conditions else { return }
+        interruptInterviewVoice()
         if profile.reportedConditions.isEmpty {
             profile.reportedConditions = [.preferNot]
             profile.guidanceOnlyMode = false
         }
 
-        let labels = profile.reportedConditions.map(\.label).joined(separator: ", ")
-        appendUser(labels)
+        let labels = profile.reportedConditions.map(\.label)
+        appendUser(labels.joined(separator: ", "))
         if profile.reportedConditions.contains(.other), !freeText.trimmingCharacters(in: .whitespaces).isEmpty {
             profile.conditionsNote = freeText.trimmingCharacters(in: .whitespacesAndNewlines)
             freeText = ""
@@ -424,7 +453,7 @@ final class OnboardingCoordinator {
                     mood: .focused
                 )
             } else {
-                await ariaSay("Noted. Privacy respected.", mood: .calm)
+                await ariaSay("Noted. Privacy respected. That stays between us.", mood: .calm)
             }
             await advanceTo(AriaInterviewStep(OnboardingGraph.next(after: .confirmConditions)))
         }
@@ -432,10 +461,14 @@ final class OnboardingCoordinator {
 
     func selectCoachingStyle(_ style: OnboardingCoachingStyle) {
         guard step == .coaching else { return }
+        interruptInterviewVoice()
         profile.coachingStyle = style
         appendUser(style.label)
         FDS.haptic(.medium)
-        Task { await advanceTo(AriaInterviewStep(OnboardingGraph.next(after: .selectCoachingStyle))) }
+        Task {
+            await ariaSay(AriaInterviewVoice.acknowledgeCoaching(style), mood: AriaOnboardingGuide.mood(for: style))
+            await advanceTo(AriaInterviewStep(OnboardingGraph.next(after: .selectCoachingStyle)))
+        }
     }
 
     // MARK: - HealthKit parallel
@@ -493,7 +526,7 @@ final class OnboardingCoordinator {
                 mood: .calm
             )
         }
-        ariaOrbState = .idle
+        ariaOrbState = .listening
     }
 
     /// System Health sheet first, then (on the sim) write the Test-Ready pack
@@ -592,15 +625,16 @@ final class OnboardingCoordinator {
         if profile.guidanceOnlyMode {
             script += " Guidance mode only: structure and pacing, not medical care."
         }
-        script += " Ready when you are."
+        script += " I'll be here tomorrow morning. Ready when you are."
         await ariaSay(script, mood: AriaOnboardingGuide.mood(for: profile.coachingStyle))
-        ariaOrbState = .idle
+        ariaOrbState = .listening
     }
 
     func complete(in store: AppStore) {
         guard OnboardingGraph.allowsFinish(canFinish: canFinish, hasAgreedToTerms: hasAgreedToTerms) else { return }
         guard !isCompleting else { return }
         isCompleting = true
+        interruptInterviewVoice()
         ariaOrbState = .processing
 
         store.userProfile = profile.toCoreProfile()
@@ -668,6 +702,108 @@ final class OnboardingCoordinator {
         complete(in: store)
     }
 
+    // MARK: - Suggested replies + spoken turns
+
+    func applySuggestedReply(_ reply: AriaInterviewVoice.Reply) {
+        switch reply.kind {
+        case .startTalking:
+            break
+        case .confirmName:
+            submitName()
+        case .connectHealth:
+            connectHealthKit()
+        case .skipHealthAndContinue:
+            skipHealthAndContinue()
+        case .continueHealth:
+            continueFromHealth()
+        case .experience(let level):
+            selectExperience(level)
+        case .sleep(let band):
+            selectSleepBand(band)
+        case .coaching(let style):
+            selectCoachingStyle(style)
+        case .confirmGoals:
+            confirmGoals()
+        case .confirmWorkouts:
+            confirmWorkouts()
+        case .skipInterests, .confirmInterests:
+            confirmInterests()
+        case .skipConditions:
+            profile.reportedConditions = [.preferNot]
+            profile.guidanceOnlyMode = false
+            confirmConditions()
+        case .noneConditions:
+            profile.reportedConditions = [.none]
+            profile.guidanceOnlyMode = false
+            confirmConditions()
+        }
+    }
+
+    func handleSpokenReply(_ text: String) {
+        guard let match = AriaInterviewVoice.matchSpoken(text, step: step, profile: profile) else { return }
+        switch match {
+        case .missed:
+            Task { await ariaSay(AriaInterviewVoice.missedLine(), mood: .calm) }
+        case .fillName(let spoken):
+            applySpokenName(spoken)
+        case .confirmName:
+            submitName()
+        case .connectHealth:
+            connectHealthKit()
+        case .skipHealthAndContinue:
+            skipHealthAndContinue()
+        case .continueHealth:
+            continueFromHealth()
+        case .experience(let level):
+            selectExperience(level)
+        case .sleep(let band):
+            selectSleepBand(band)
+        case .coaching(let style):
+            selectCoachingStyle(style)
+        case .toggleGoals(let goals):
+            for goal in goals where !profile.fitnessGoals.contains(goal) {
+                toggleGoal(goal)
+            }
+        case .confirmGoals:
+            confirmGoals()
+        case .toggleWorkouts(let workouts):
+            for workout in workouts where !profile.preferredWorkouts.contains(workout) {
+                toggleWorkout(workout)
+            }
+        case .confirmWorkouts:
+            confirmWorkouts()
+        case .toggleInterests(let interests):
+            for interest in interests where !profile.freeTimeInterests.contains(interest) {
+                toggleInterest(interest)
+            }
+        case .skipInterests, .confirmInterests:
+            confirmInterests()
+        case .skipConditions:
+            profile.reportedConditions = [.preferNot]
+            profile.guidanceOnlyMode = false
+            confirmConditions()
+        case .noneConditions:
+            profile.reportedConditions = [.none]
+            profile.guidanceOnlyMode = false
+            confirmConditions()
+        case .fillConditionsNote(let note):
+            freeText = note
+            if !profile.reportedConditions.contains(.other) {
+                toggleCondition(.other)
+            }
+        }
+    }
+
+    func applySpokenName(_ spoken: String) {
+        let parts = spoken.split(separator: " ").map(String.init)
+        if parts.count >= 2 {
+            profile.name = parts[0]
+            profile.lastName = parts.dropFirst().joined(separator: " ")
+        } else {
+            profile.name = spoken
+        }
+    }
+
     // MARK: - Helpers
 
     private func appendUser(_ text: String) {
@@ -675,15 +811,25 @@ final class OnboardingCoordinator {
     }
 
     /// One short beat so the orb can flip to thinking — long enough to feel
-    /// human, short enough that a 12-step interview does not stall.
-    private func ariaSay(_ text: String, mood: ARIAMood) async {
+    /// like a person, short enough that a 12-step interview does not stall.
+    /// Pass `interrupt: false` to queue behind a line already in the air
+    /// (acknowledgment → next question).
+    private func ariaSay(_ text: String, mood: ARIAMood, interrupt: Bool = true) async {
+        let gen = utteranceGeneration
+        let alreadySpeaking = AriaPresence.shared.isSpeaking && !interrupt
         isTyping = true
         ariaOrbState = .processing
         ariaMood = mood
-        try? await Task.sleep(nanoseconds: 140_000_000)
+        if !alreadySpeaking {
+            AriaPresence.shared.setThinking(true)
+            try? await Task.sleep(nanoseconds: AriaInterviewVoice.thinkBeatNanoseconds)
+        }
+        guard gen == utteranceGeneration else { return }
         appendTranscript(AriaOnboardingMessage(role: .aria, text: text))
         isTyping = false
-        ariaOrbState = .idle
+        AriaPresence.shared.setThinking(false)
+        AriaPresence.shared.speak(text, interrupt: interrupt)
+        ariaOrbState = .listening
         FDS.haptic(.soft)
     }
 
@@ -691,24 +837,10 @@ final class OnboardingCoordinator {
     /// profile — holding the full transcript just costs layout on every step.
     private func appendTranscript(_ message: AriaOnboardingMessage) {
         messages.append(message)
-        let cap = 12
+        let cap = 16
         if messages.count > cap {
             messages.removeFirst(messages.count - cap)
         }
-    }
-
-    private func personalizedGoalsPrompt() -> String {
-        if !profile.firstName.isEmpty {
-            return "\(profile.firstName), what are we building toward? Pick every outcome that matters."
-        }
-        return "What are we building toward? Pick every outcome that matters."
-    }
-
-    private func experiencePrompt() -> String {
-        if let vo2 = healthProfile?.vo2Max, vo2 >= 45 {
-            return "Your Apple Health VO₂max looks solid. How would you rate your training experience?"
-        }
-        return "How long have you been training seriously?"
     }
 
     private func syncPartialContext() {

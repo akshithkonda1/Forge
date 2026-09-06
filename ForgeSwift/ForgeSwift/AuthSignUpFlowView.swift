@@ -25,7 +25,6 @@ struct AuthSignUpFlowView: View {
     @State private var codeDestination = ""
     @State private var celebrate = false
     @State private var appeared = false
-    @State private var nameFocused = false
     @FocusState private var nameFieldFocused: Bool
 
     enum SignUpStep: Int, CaseIterable {

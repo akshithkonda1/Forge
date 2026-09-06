@@ -1,11 +1,14 @@
 import datetime
 import io
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
+from backend.ai.simrunner.aria_simrunner import bedrock_client, terraform_config as tfc  # noqa: E402
 from backend.ai.simrunner.aria_simrunner.aria_engine import ARIAEngine, ARIAResponse  # noqa: E402
 from backend.ai.simrunner.aria_simrunner.aria_evaluator import evaluate, grade  # noqa: E402
 from backend.ai.simrunner.aria_simrunner.aria_generator import get_queries_for_tier  # noqa: E402
@@ -27,6 +30,24 @@ def _silent(fn, *args, **kwargs):
         return fn(*args, **kwargs)
     finally:
         sys.stdout = old
+
+
+def _captured(fn, *args, **kwargs):
+    """Like _silent, but returns (result, printed_text) instead of discarding it."""
+    old = sys.stdout
+    buf = io.StringIO()
+    sys.stdout = buf
+    try:
+        result = fn(*args, **kwargs)
+    finally:
+        sys.stdout = old
+    return result, buf.getvalue()
+
+
+def _fake_terraform_config(infra_dir: str, bedrock_enabled: bool) -> tfc.AriaTerraformConfig:
+    with open(f"{infra_dir}/terraform.tfvars", "w", encoding="utf-8") as fh:
+        fh.write(f"aria_bedrock_enabled = {'true' if bedrock_enabled else 'false'}\n")
+    return tfc.load(infra_dir=infra_dir)
 
 
 def _eval_model(model, reference_date=PIN):
@@ -81,6 +102,68 @@ class CLITests(unittest.TestCase):
 
     def test_catalog_model_runs_via_derived_persona(self):
         self.assertEqual(_silent(lifetime_suite.main, ["--model", "amazon.nova-pro-v1:0"]), 0)
+
+
+class LiveModeCLITests(unittest.TestCase):
+    def test_force_live_without_live_errors(self):
+        self.assertEqual(_silent(lifetime_suite.main, ["--force-live"]), 2)
+
+    def test_live_conflicts_with_matrix(self):
+        self.assertEqual(_silent(lifetime_suite.main, ["--live", "--matrix"]), 2)
+
+    def test_check_config_exits_zero_and_touches_nothing_live(self):
+        with mock.patch.object(bedrock_client, "converse") as conv:
+            code, text = _captured(lifetime_suite.main, ["--check-config"])
+        self.assertEqual(code, 0)
+        conv.assert_not_called()
+        self.assertIn("REAL AI CONFIGURATION", text)
+
+    def test_isometric_selects_exactly_the_two_isometric_archetypes(self):
+        parser_ns = type("Args", (), {"model": None, "isometric": True, "all": False, "tier": None})()
+        models = lifetime_suite._select_models(parser_ns)
+        self.assertEqual({m["model_id"] for m in models}, set(lifetime_suite._ISOMETRIC_MODEL_IDS))
+
+    def test_live_refuses_when_config_has_bedrock_off_without_force(self):
+        with tempfile.TemporaryDirectory() as d:
+            fake_config = _fake_terraform_config(d, bedrock_enabled=False)
+            with mock.patch.object(lifetime_suite.terraform_config, "load", return_value=fake_config), \
+                 mock.patch.object(bedrock_client, "converse") as conv:
+                code, text = _captured(lifetime_suite.main, ["--live", "--isometric"])
+        self.assertEqual(code, 2)
+        conv.assert_not_called()
+        self.assertIn("aria_bedrock_enabled=False", text)
+
+    def test_force_live_bypasses_the_bedrock_off_refusal(self):
+        envelope = '{"prose_summary":"Fine.","recommendation":"Train normally.","confidence":0.7}'
+        with tempfile.TemporaryDirectory() as d:
+            fake_config = _fake_terraform_config(d, bedrock_enabled=False)
+            with mock.patch.object(lifetime_suite.terraform_config, "load", return_value=fake_config), \
+                 mock.patch.object(bedrock_client, "converse", return_value=envelope):
+                code, text = _captured(lifetime_suite.main, ["--live", "--force-live", "--isometric"])
+        self.assertEqual(code, 0)
+        self.assertIn("testing MODEL CAPABILITY", text)
+
+    def test_live_proceeds_without_force_live_when_bedrock_is_on(self):
+        envelope = '{"prose_summary":"Fine.","recommendation":"Train normally.","confidence":0.7}'
+        with tempfile.TemporaryDirectory() as d:
+            fake_config = _fake_terraform_config(d, bedrock_enabled=True)
+            with mock.patch.object(lifetime_suite.terraform_config, "load", return_value=fake_config), \
+                 mock.patch.object(bedrock_client, "converse", return_value=envelope):
+                code, text = _captured(lifetime_suite.main, ["--live", "--isometric"])
+        self.assertEqual(code, 0)
+        self.assertNotIn("testing MODEL CAPABILITY", text)
+
+    def test_live_failure_aborts_the_whole_run_before_the_second_archetype(self):
+        with tempfile.TemporaryDirectory() as d:
+            fake_config = _fake_terraform_config(d, bedrock_enabled=True)
+            with mock.patch.object(lifetime_suite.terraform_config, "load", return_value=fake_config), \
+                 mock.patch.object(bedrock_client, "converse", side_effect=RuntimeError("simulated outage")) as conv:
+                code, text = _captured(lifetime_suite.main, ["--live", "--isometric"])
+        self.assertEqual(code, 3)
+        self.assertIn("LIVE CONFIG CHECK FAILED", text)
+        # Fails on the very first call -- the second isometric archetype's
+        # run_model is never reached, so converse is called exactly once.
+        conv.assert_called_once()
 
 
 class EngineTests(unittest.TestCase):

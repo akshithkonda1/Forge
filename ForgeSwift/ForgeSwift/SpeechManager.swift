@@ -71,6 +71,11 @@ final class SpeechManager: ObservableObject {
             return
         }
 
+        // Playback and record cannot share the session. If ARIA is mid-line,
+        // cut her off so the mic can take the hardware — that's a conversation.
+        AriaPresence.shared.stopSpeaking()
+        AriaPresence.shared.setThinking(false)
+
         // Tear down any prior session cleanly
         hardStop(clearText: true)
         recognizedText = ""

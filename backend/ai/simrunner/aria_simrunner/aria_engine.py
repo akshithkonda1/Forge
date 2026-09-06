@@ -66,6 +66,13 @@ def _safe_float(value, default: float) -> float:
         return default
 
 
+class LiveConfigError(RuntimeError):
+    """Raised by ARIAEngine.respond() when strict_live=True and a real
+    Bedrock call fails. The original exception is chained via __cause__ so
+    the precise reason (missing boto3, bad credentials, bad model id,
+    throttling, empty response, ...) survives into the message."""
+
+
 def _references_context(prose: str, context: ARIAContext) -> bool:
     t = context.today
     nums = {str(t.readiness_score), str(context.acwr), str(round(context.sleep_debt_7d_hours, 1))}
@@ -86,11 +93,15 @@ class ARIAEngine:
         prompt_variant: str = "v1",
         temperature: float = 0.3,
         model_archetype: str | ma.ModelArchetype | None = None,
+        strict_live: bool = False,
     ) -> None:
+        if strict_live and not use_real_api:
+            raise ValueError("strict_live=True requires use_real_api=True")
         self.use_real_api = use_real_api
         self.engine_models = engine_models  # routing-class -> Bedrock id overrides
         self.prompt_variant = prompt_variant
         self.temperature = temperature
+        self.strict_live = strict_live
         self._warned_real_api = False
 
         if model_archetype is None:
@@ -135,6 +146,8 @@ class ARIAEngine:
             try:
                 return self._call_claude(query, context)
             except Exception as exc:  # incl. NotImplementedError — never crash a run
+                if self.strict_live:
+                    raise LiveConfigError(f"{exc.__class__.__name__}: {exc}") from exc
                 if not self._warned_real_api:
                     reason = "not implemented in this offline harness" if isinstance(exc, NotImplementedError) else str(exc)
                     print(f"[simrunner] real-API path unavailable ({reason}); "
@@ -380,10 +393,18 @@ class ARIAEngine:
         hrv_bit = (
             f"HRV {t.hrv}ms (7-day avg {context.hrv_7d_avg})" if t.hrv is not None else "HRV not available"
         )
-        return (
+        phrase = (
             f"Readiness is {t.readiness_score}, {hrv_bit}, "
             f"ACWR {context.acwr}, sleep debt {context.sleep_debt_7d_hours}h."
         )
+        # Never true for an archetype that doesn't opt into isometric_emphasis,
+        # so this is a no-op for every archetype that predates this feature.
+        if context.last_workout_type == "isometric" and context.last_workout_peak_hr is not None:
+            phrase += (
+                f" Last workout was isometric — a brief HR spike to "
+                f"{context.last_workout_peak_hr}bpm, not sustained cardio load."
+            )
+        return phrase
 
     def _context_key(self, context: ARIAContext) -> str:
         t = context.today

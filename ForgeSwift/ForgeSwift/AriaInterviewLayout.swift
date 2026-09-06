@@ -4,6 +4,8 @@ struct AriaInterviewLayout: View {
     @Bindable var coordinator: OnboardingCoordinator
     let onFinish: () -> Void
     @StateObject private var dictation = SpeechManager()
+    private let presence = AriaPresence.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         // Header stays fixed in the safe area. Tall composers (e.g. 8 training
@@ -12,7 +14,7 @@ struct AriaInterviewLayout: View {
         GeometryReader { geo in
             let composerCap = coordinator.step == .details
                 ? max(300, geo.size.height * 0.64)
-                : max(220, geo.size.height * 0.50)
+                : max(248, geo.size.height * 0.52)
             VStack(spacing: 0) {
                 header
                 transcript
@@ -22,30 +24,47 @@ struct AriaInterviewLayout: View {
         }
         .onChange(of: dictation.recognizedText) { _, text in
             guard dictation.isListening || dictation.voiceState == .processing else { return }
-            // Live partials into free-text steps
             if coordinator.step == .conditions {
                 coordinator.freeText = text
             }
+            if coordinator.step == .name,
+               case .fillName(let name) = AriaInterviewVoice.matchSpoken(text, step: .name, profile: coordinator.profile) {
+                coordinator.applySpokenName(name)
+            }
         }
         .onChange(of: dictation.voiceState) { _, state in
-            // Mirror mic state onto ARIA orb
             switch state {
             case .listening:
+                coordinator.interruptInterviewVoice()
                 coordinator.ariaOrbState = .listening
             case .processing:
                 coordinator.ariaOrbState = .processing
             case .idle:
-                if coordinator.isTyping {
-                    coordinator.ariaOrbState = .processing
-                } else if !coordinator.isTyping {
-                    coordinator.ariaOrbState = .idle
-                }
+                coordinator.ariaOrbState = coordinator.isTyping ? .processing : .listening
             case .speaking:
                 coordinator.ariaOrbState = .speaking
             case .error:
-                coordinator.ariaOrbState = .idle
+                coordinator.ariaOrbState = .listening
             }
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active {
+                dictation.cancel()
+                coordinator.stopInterviewVoice()
+            }
+        }
+        .onDisappear {
+            dictation.cancel()
+            coordinator.stopInterviewVoice()
+        }
+    }
+
+    private var presenceCaption: String {
+        AriaInterviewVoice.presenceCaption(
+            listening: dictation.isListening,
+            speaking: presence.isSpeaking,
+            thinking: coordinator.isTyping || presence.isThinking
+        )
     }
 
     private var header: some View {
@@ -67,32 +86,43 @@ struct AriaInterviewLayout: View {
                     .accessibilityLabel("Back")
                 }
 
-                ZStack {
-                    if dictation.isListening || coordinator.ariaOrbState == .speaking {
-                        Circle()
-                            .fill(coordinator.ariaMood.accentColor.opacity(0.22))
-                            .frame(width: 54, height: 54)
-                            .blur(radius: 10)
+                Button {
+                    coordinator.replayLastAriaLine()
+                } label: {
+                    ZStack {
+                        if dictation.isListening || presence.isSpeaking || coordinator.isTyping {
+                            Circle()
+                                .fill(coordinator.ariaMood.accentColor.opacity(0.28))
+                                .frame(width: 72, height: 72)
+                                .blur(radius: 12)
+                        }
+                        AuroraOrbView(
+                            state: dictation.isListening ? .listening : coordinator.ariaOrbState,
+                            amplitude: dictation.isListening
+                                ? dictation.amplitude
+                                : (presence.isSpeaking ? 0.7 : 0.28),
+                            mood: coordinator.ariaMood,
+                            size: 58,
+                            followPresence: true
+                        )
                     }
-                    AuroraOrbView(
-                        state: dictation.isListening ? .listening : coordinator.ariaOrbState,
-                        amplitude: dictation.isListening
-                            ? dictation.amplitude
-                            : (coordinator.ariaOrbState == .speaking ? 0.55 : 0.22),
-                        mood: coordinator.ariaMood,
-                        size: 44,
-                        followPresence: true
-                    )
+                    .frame(width: 62, height: 62)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Replay ARIA")
+                .accessibilityHint("Plays her last line")
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(dictation.isListening ? "Listening" : "ARIA")
+                    Text(presenceCaption.uppercased())
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
                         .tracking(1.4)
                         .foregroundColor(coordinator.ariaMood.accentColor)
                     Text(coordinator.step.progressLabel)
                         .font(.system(size: 20, weight: .semibold, design: .rounded))
                         .foregroundColor(.textPrimary)
+                    Text("Tap ARIA to hear her again")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.textTertiary)
                 }
 
                 Spacer(minLength: 8)
@@ -103,6 +133,7 @@ struct AriaInterviewLayout: View {
                     .monospacedDigit()
             }
             .animation(FDS.Spring.snap, value: dictation.isListening)
+            .animation(FDS.Spring.snap, value: presence.isSpeaking)
             .animation(FDS.Spring.page, value: coordinator.step)
 
             GeometryReader { geo in
@@ -132,8 +163,12 @@ struct AriaInterviewLayout: View {
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     ForEach(coordinator.messages) { msg in
-                        MessageBubble(message: msg)
-                            .id(msg.id)
+                        MessageBubble(message: msg) {
+                            if msg.role == .aria {
+                                AriaPresence.shared.speak(msg.text, interrupt: true)
+                            }
+                        }
+                        .id(msg.id)
                     }
                     if coordinator.isTyping {
                         TypingIndicator()
@@ -177,10 +212,16 @@ struct AriaInterviewLayout: View {
                     .padding(.bottom, 8)
             }
 
+            suggestedRepliesBar
+
             ScrollView(showsIndicators: false) {
                 composerBody
             }
             .frame(minHeight: min(180, maxHeight), maxHeight: maxHeight, alignment: .top)
+
+            if AriaInterviewVoice.shouldShowVoiceDock(for: coordinator.step) {
+                voiceDock
+            }
         }
         .background {
             UnevenRoundedRectangle(
@@ -211,6 +252,88 @@ struct AriaInterviewLayout: View {
             .shadow(color: .black.opacity(0.45), radius: 28, y: -12)
         }
         .animation(FDS.Spring.page, value: coordinator.step)
+    }
+
+    @ViewBuilder
+    private var suggestedRepliesBar: some View {
+        let replies = AriaInterviewVoice.suggestedReplies(
+            step: coordinator.step,
+            profile: coordinator.profile,
+            health: coordinator.healthKitState,
+            calendar: coordinator.calendarState
+        )
+        if !replies.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("ANSWER ARIA")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .tracking(1.2)
+                    .foregroundColor(.textMuted)
+                    .padding(.horizontal, FDS.Spacing.xl)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(replies) { reply in
+                            Button {
+                                applyReply(reply)
+                            } label: {
+                                Text(reply.label)
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 9)
+                                    .background(Color.ember.opacity(0.22))
+                                    .clipShape(Capsule())
+                                    .overlay(
+                                        Capsule().stroke(Color.ember.opacity(0.55), lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(reply.label)
+                        }
+                    }
+                    .padding(.horizontal, FDS.Spacing.xl)
+                }
+            }
+            .padding(.bottom, 8)
+        }
+    }
+
+    private var voiceDock: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(dictation.isListening ? "ARIA is listening" : "Talk to ARIA")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundColor(dictation.isListening ? .ember : .textPrimary)
+                Text(dictation.isListening
+                     ? (dictation.recognizedText.isEmpty ? "Go ahead — I’m with you." : dictation.recognizedText)
+                     : AriaInterviewVoice.voiceHint(for: coordinator.step))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.textTertiary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 8)
+            DictationMicButton(dictation: dictation) {
+                let spoken = dictation.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !spoken.isEmpty else { return }
+                coordinator.handleSpokenReply(spoken)
+            }
+        }
+        .padding(.horizontal, FDS.Spacing.xl)
+        .padding(.top, 10)
+        .padding(.bottom, 18)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 0.5)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func applyReply(_ reply: AriaInterviewVoice.Reply) {
+        dictation.cancel()
+        if reply.kind == .startTalking {
+            coordinator.interruptInterviewVoice()
+            dictation.startListening()
+            return
+        }
+        coordinator.applySuggestedReply(reply)
     }
 
     @ViewBuilder
@@ -306,7 +429,7 @@ struct AriaInterviewLayout: View {
             }
         }
         .padding(.horizontal, 22)
-        .padding(.bottom, 34)
+        .padding(.bottom, 12)
         .id(coordinator.step)
         .transition(.asymmetric(
             insertion: .move(edge: .bottom).combined(with: .opacity),
