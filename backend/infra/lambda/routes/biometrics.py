@@ -69,6 +69,8 @@ def _apply_vitals_monitor(body: dict[str, Any], uid: str, payload: dict[str, Any
         payload["escalation"] = {
             "triggered": True,
             "action": intent.action,
+            "client_action": intent.client_action,
+            "channels": intent.channels,
             "reasons": intent.reasons,
             "severity": intent.severity,
         }

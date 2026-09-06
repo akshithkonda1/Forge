@@ -21,12 +21,25 @@ Two hard design constraints, because a false 911 call is its own harm:
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
 
 _log = logging.getLogger("forge.emergency")
+
+# Env config for the server-side dispatch to a certified emergency provider
+# (RapidSOS / carrier). Unset = inert (record only). This is how the escalation
+# "actually does it" in production without Forge ever being the 911 dialer.
+_DISPATCH_URL_ENV = "FORGE_EMERGENCY_DISPATCH_URL"
+_DISPATCH_TOKEN_ENV = "FORGE_EMERGENCY_DISPATCH_TOKEN"
+
+# What the client should do with an escalation: trigger the phone's native
+# Emergency SOS (the same flow the iPhone uses), which places the actual call and
+# shares location. The backend signals; the platform dials.
+CLIENT_ACTION = "trigger_emergency_sos"
 
 # --- Thresholds (SpO2 as a fraction 0-1). Documented and tunable. -----------
 WARNING_SPO2 = 0.90        # hypoxemia watch
@@ -245,13 +258,23 @@ def assess_vitals(
 @dataclass
 class EscalationIntent:
     """An auditable decision to summon emergency help. Not a phone call — the
-    signal a certified dispatch integration or the client's Emergency SOS acts on."""
+    signal a certified dispatch integration or the client's Emergency SOS acts on.
+
+    Escalation runs on two redundant channels so it survives either side being
+    unavailable:
+      * ``ios_emergency_sos`` — the client triggers the phone's native Emergency
+        SOS (the iPhone flow: places the 911 call, shares location).
+      * ``provider_webhook`` — the backend POSTs to a certified provider
+        (RapidSOS / carrier) when configured, for when the phone can't (app
+        backgrounded, watch-only)."""
 
     user_id: str
     reasons: list[str]
     severity: str
     at: datetime = field(default_factory=_utcnow)
     action: str = "Contact emergency services (911) and share the user's location."
+    client_action: str = CLIENT_ACTION
+    channels: list[str] = field(default_factory=lambda: ["ios_emergency_sos", "provider_webhook"])
     source: str = "forge-vitals-monitor"
 
     def to_dict(self) -> dict[str, Any]:
@@ -261,6 +284,8 @@ class EscalationIntent:
             "severity": self.severity,
             "at": self.at.isoformat(),
             "action": self.action,
+            "client_action": self.client_action,
+            "channels": self.channels,
             "source": self.source,
         }
 
@@ -269,13 +294,59 @@ Dispatcher = Callable[[EscalationIntent], None]
 
 
 def default_dispatcher(intent: EscalationIntent) -> None:
-    """SAFE default: record the intent, never place a real call.
-
-    Replace with a certified integration (RapidSOS / Apple Emergency SOS /
-    carrier) to actually dispatch. Wiring a live dialer here is intentionally
-    out of scope — it requires regulatory approval and platform entitlements.
-    """
+    """SAFE default: record the intent, never place a real call. Used in dev/CI
+    and whenever no certified provider is configured. The client still triggers
+    Emergency SOS from the returned directive."""
     _log.critical("EMERGENCY ESCALATION INTENT: %s", intent.to_dict())
+
+
+def _http_post_json(url: str, payload: dict[str, Any], *, token: str | None = None,
+                    timeout: float = 5.0) -> int:
+    """Minimal stdlib POST (no new deps). Imported lazily so the module stays
+    import-light on the Lambda hot path."""
+    import urllib.request
+
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, method="POST", headers=headers)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 — configured URL
+        return int(getattr(resp, "status", 0) or 0)
+
+
+class WebhookDispatcher:
+    """Server-side dispatch to a certified emergency provider (RapidSOS / carrier).
+
+    Inert unless ``FORGE_EMERGENCY_DISPATCH_URL`` is set — so dev, CI, and tests
+    never place a real call. Always records the intent first, then POSTs. A
+    provider failure is logged, never raised: a failed webhook must not stop the
+    client's Emergency SOS from firing."""
+
+    def __init__(self, url: str | None = None, token: str | None = None,
+                 poster: Callable[..., int] | None = None):
+        self.url = url if url is not None else os.getenv(_DISPATCH_URL_ENV, "")
+        self.token = token if token is not None else (os.getenv(_DISPATCH_TOKEN_ENV) or None)
+        self._poster = poster or _http_post_json
+
+    def enabled(self) -> bool:
+        return bool(self.url)
+
+    def __call__(self, intent: EscalationIntent) -> None:
+        default_dispatcher(intent)  # always audit-log
+        if not self.enabled():
+            return
+        try:
+            self._poster(self.url, intent.to_dict(), token=self.token)
+        except Exception as exc:  # noqa: BLE001 — dispatch must never raise into the request
+            _log.critical("emergency provider dispatch failed (%s): %s", self.url, exc)
+
+
+def resolve_dispatcher() -> Dispatcher:
+    """The active dispatcher: the provider webhook when configured, else the safe
+    recorder."""
+    webhook = WebhookDispatcher()
+    return webhook if webhook.enabled() else default_dispatcher
 
 
 def maybe_escalate(
@@ -294,5 +365,5 @@ def maybe_escalate(
         severity=assessment.severity,
         at=now or _utcnow(),
     )
-    (dispatcher or default_dispatcher)(intent)
+    (dispatcher or resolve_dispatcher())(intent)
     return intent

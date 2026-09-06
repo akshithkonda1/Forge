@@ -475,6 +475,12 @@ resource "aws_lambda_function" "backend" {
       AI_ROUTER_MODEL_3_NAME = var.ai_router_model_3_name != "" ? var.ai_router_model_3_name : "Kimi K2.5"
       UPLOADS_BUCKET_NAME    = aws_s3_bucket.uploads.bucket
       USER_POOL_ID           = aws_cognito_user_pool.forge.id
+      # Emergency escalation provider (RapidSOS / carrier). Empty = inert: the
+      # vitals monitor still records intents and the client still triggers
+      # Emergency SOS, but the backend places no server-side provider call. The
+      # provider auth token is injected separately (Secrets Manager / secret env
+      # as FORGE_EMERGENCY_DISPATCH_TOKEN), never as plaintext here.
+      FORGE_EMERGENCY_DISPATCH_URL = var.emergency_dispatch_url
     }
   }
 

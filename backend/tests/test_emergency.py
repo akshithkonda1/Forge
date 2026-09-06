@@ -117,6 +117,45 @@ class DispatcherTests(unittest.TestCase):
         self.assertIsNone(E.maybe_escalate(a, user_id="u1", dispatcher=fired.append))
         self.assertEqual(fired, [])
 
+    def test_intent_carries_client_directive(self):
+        d = E.EscalationIntent(user_id="u", reasons=["r"], severity=E.CRITICAL).to_dict()
+        self.assertEqual(d["client_action"], E.CLIENT_ACTION)
+        self.assertIn("ios_emergency_sos", d["channels"])
+        self.assertIn("provider_webhook", d["channels"])
+
+    def test_default_dispatcher_used_without_provider_env(self):
+        # No FORGE_EMERGENCY_DISPATCH_URL configured -> safe recorder, never a POST.
+        self.assertFalse(E.WebhookDispatcher(url="").enabled())
+        self.assertIs(E.resolve_dispatcher(), E.default_dispatcher)
+
+    def test_webhook_dispatcher_posts_when_configured(self):
+        posts = []
+
+        def fake_poster(url, payload, *, token=None, timeout=5.0):
+            posts.append((url, payload, token))
+            return 200
+
+        disp = E.WebhookDispatcher(
+            url="https://provider.example/emergency", token="secret", poster=fake_poster
+        )
+        self.assertTrue(disp.enabled())
+        intent = E.EscalationIntent(user_id="u9", reasons=["no heartbeat"], severity=E.CRITICAL)
+        disp(intent)
+        self.assertEqual(len(posts), 1)
+        url, payload, token = posts[0]
+        self.assertEqual(url, "https://provider.example/emergency")
+        self.assertEqual(token, "secret")
+        self.assertEqual(payload["user_id"], "u9")
+        self.assertEqual(payload["client_action"], E.CLIENT_ACTION)
+
+    def test_webhook_dispatcher_swallows_provider_errors(self):
+        def boom(url, payload, *, token=None, timeout=5.0):
+            raise RuntimeError("provider down")
+
+        disp = E.WebhookDispatcher(url="https://provider.example/emergency", poster=boom)
+        # Must not raise — a failed webhook can't block the client's Emergency SOS.
+        disp(E.EscalationIntent(user_id="u", reasons=["r"], severity=E.CRITICAL))
+
 
 class ObserveRouteWiringTests(unittest.TestCase):
     def setUp(self):
@@ -139,6 +178,8 @@ class ObserveRouteWiringTests(unittest.TestCase):
         out = self._observe(uid, {"vitals": window, "session_active": True})
         self.assertTrue(out["emergency"]["escalate"])
         self.assertTrue(out["escalation"]["triggered"])
+        self.assertEqual(out["escalation"]["client_action"], E.CLIENT_ACTION)
+        self.assertIn("ios_emergency_sos", out["escalation"]["channels"])
         # An audit record was written.
         events = dynamodb.query_prefix(keys.user_pk(uid), "EMERGENCY#")
         self.assertEqual(len(events), 1)

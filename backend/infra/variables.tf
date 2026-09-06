@@ -103,6 +103,12 @@ variable "ai_router_model_3_name" {
   default     = ""
 }
 
+variable "emergency_dispatch_url" {
+  description = "HTTPS endpoint of a certified emergency-dispatch provider (RapidSOS / carrier) that the vitals monitor POSTs an escalation intent to. Empty (default) keeps server-side dispatch inert — the client still triggers native Emergency SOS. The provider auth token is injected separately as FORGE_EMERGENCY_DISPATCH_TOKEN (Secrets Manager / secret env), never in Terraform."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Additional tags applied to all resources."
   type        = map(string)
