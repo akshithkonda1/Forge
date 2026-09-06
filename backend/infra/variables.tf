@@ -92,7 +92,7 @@ variable "aria_bedrock_enabled" {
 }
 
 variable "ai_router_model_3_id" {
-  description = "Bedrock model id for the AI router's third slot — the one agentic turns call in when a mode fans out to its own specialists and subagents. Empty keeps ai_router.py's own default (moonshotai.kimi-k2.5). Set per environment so a new tertiary can be proven in staging before production follows."
+  description = "Bedrock model id for the AI router's third slot — Grok (xAI), the differently-trained second opinion alongside the Claude family. Empty keeps ai_router.py's own default (global.xai.grok-4.6). Set per environment so a model swap can be proven in staging before production follows."
   type        = string
   default     = ""
 }
