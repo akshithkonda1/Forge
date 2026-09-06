@@ -579,7 +579,7 @@ enum MedicationPharmacy {
     private static func classify(_ row: FDAMedication) -> FDAMedication {
         var next = row
         if next.archetype.isEmpty || next.archetype == "Other" {
-            let inferred = inferTaxonomy(generic: next.generic, brand: next.brand ?? "", form: next.form)
+            let inferred = MedicationTaxonomy.infer(generic: next.generic, brand: next.brand ?? "", form: next.form)
             if next.archetype.isEmpty || inferred.0 != "Other" {
                 next.archetype = inferred.0
                 next.disease = inferred.1
@@ -588,82 +588,6 @@ enum MedicationPharmacy {
         if next.disease.isEmpty { next.disease = "Unclassified" }
         if next.archetype.isEmpty { next.archetype = "Other" }
         return next
-    }
-
-    private static func inferTaxonomy(generic: String, brand: String, form: String) -> (String, String) {
-        let blob = "\(generic) \(brand) \(form)".lowercased()
-        let pairs: [(String, String, String)] = [
-            ("cenobamate", "Neurology", "Epilepsy"),
-            ("xcopri", "Neurology", "Epilepsy"),
-            ("oxcarbazepine", "Neurology", "Epilepsy"),
-            ("oxtellar", "Neurology", "Epilepsy"),
-            ("carbamazepine", "Neurology", "Epilepsy"),
-            ("lamotrigine", "Neurology", "Epilepsy"),
-            ("levetiracetam", "Neurology", "Epilepsy"),
-            ("brivaracetam", "Neurology", "Epilepsy"),
-            ("topiramate", "Neurology", "Epilepsy"),
-            ("phenytoin", "Neurology", "Epilepsy"),
-            ("lacosamide", "Neurology", "Epilepsy"),
-            ("valpro", "Neurology", "Epilepsy"),
-            ("gabapentin", "Neurology", "Neuropathic pain"),
-            ("pregabalin", "Neurology", "Neuropathic pain"),
-            ("atorvastatin", "Cardiovascular", "High cholesterol"),
-            ("rosuvastatin", "Cardiovascular", "High cholesterol"),
-            ("simvastatin", "Cardiovascular", "High cholesterol"),
-            ("lipitor", "Cardiovascular", "High cholesterol"),
-            ("metformin", "Metabolic", "Diabetes"),
-            ("semaglutide", "Metabolic", "Diabetes"),
-            ("tirzepatide", "Metabolic", "Diabetes"),
-            ("insulin", "Metabolic", "Diabetes"),
-            ("lisinopril", "Cardiovascular", "Hypertension"),
-            ("losartan", "Cardiovascular", "Hypertension"),
-            ("amlodipine", "Cardiovascular", "Hypertension"),
-            ("sertraline", "Psychiatry", "Depression"),
-            ("escitalopram", "Psychiatry", "Depression"),
-            ("omeprazole", "Gastroenterology", "Acid reflux"),
-            ("amoxicillin", "Infectious disease", "Bacterial infection"),
-            ("ibuprofen", "Pain", "Pain and inflammation"),
-            ("acetaminophen", "Pain", "Pain and inflammation"),
-            ("albuterol", "Respiratory", "Asthma"),
-            ("levothyroxine", "Endocrine", "Hypothyroidism"),
-            ("vaccine", "Vaccine", "Immunization"),
-            ("allergen", "Allergy", "Allergy immunotherapy"),
-        ]
-        for (stem, arch, disease) in pairs where blob.contains(stem) {
-            return (arch, disease)
-        }
-        if blob.contains("pellet") || blob.contains("tincture") || blob.contains("homeopath") {
-            return ("Complementary", "Homeopathic")
-        }
-        let suffixes: [(String, String, String)] = [
-            ("statin", "Cardiovascular", "High cholesterol"),
-            ("sartan", "Cardiovascular", "Hypertension"),
-            ("pril", "Cardiovascular", "Hypertension"),
-            ("olol", "Cardiovascular", "Hypertension"),
-            ("dipine", "Cardiovascular", "Hypertension"),
-            ("prazole", "Gastroenterology", "Acid reflux"),
-            ("tidine", "Gastroenterology", "Acid reflux"),
-            ("cillin", "Infectious disease", "Bacterial infection"),
-            ("cycline", "Infectious disease", "Bacterial infection"),
-            ("floxacin", "Infectious disease", "Bacterial infection"),
-            ("conazole", "Infectious disease", "Fungal infection"),
-            ("vir", "Infectious disease", "Viral infection"),
-            ("azepam", "Psychiatry", "Anxiety"),
-            ("azolam", "Psychiatry", "Anxiety"),
-            ("oxetine", "Psychiatry", "Depression"),
-            ("pramine", "Psychiatry", "Depression"),
-            ("caine", "Pain", "Local anesthesia"),
-            ("codone", "Pain", "Severe pain"),
-            ("mab", "Immunology", "Autoimmune disease"),
-            ("nib", "Oncology", "Cancer"),
-        ]
-        let words = tokenize(generic)
-        for word in words {
-            for (suffix, arch, disease) in suffixes where word.hasSuffix(suffix) && word.count > suffix.count + 2 {
-                return (arch, disease)
-            }
-        }
-        return ("Other", "Unclassified")
     }
 
     private static func fallbackSeeds() -> [FDAMedication] {

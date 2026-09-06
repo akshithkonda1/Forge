@@ -100,6 +100,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         
         Time: \(context.isEarlyMorning ? "Early morning (before 7am)" : context.isLateNight ? "Late night (after 10pm)" : "Daytime")
         \(cyclePromptBlock(input, context))
+        \(context.medicationLayer.promptBlock)
         
         \(CyclePrivacy.ariaDirective)
         

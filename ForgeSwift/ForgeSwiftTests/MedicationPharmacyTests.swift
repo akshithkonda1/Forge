@@ -97,4 +97,116 @@ final class MedicationPharmacyTests: XCTestCase {
         XCTAssertTrue(ClinicalRecordsSummary.empty.items.isEmpty)
         XCTAssertTrue(ClinicalRecordsSummary.empty.items(for: .medication).isEmpty)
     }
+
+    func testEveryDiseaseArchetypeIsKnown() {
+        XCTAssertEqual(MedicationArchetype.allCases.count, 34)
+        XCTAssertEqual(Set(MedicationTaxonomy.allArchetypes).count, 34)
+        XCTAssertTrue(MedicationArchetype.allCases.contains(.neurology))
+        XCTAssertTrue(MedicationArchetype.allCases.contains(.rareDisease))
+        XCTAssertTrue(MedicationArchetype.allCases.contains(.obstetrics))
+        XCTAssertTrue(MedicationArchetype.allCases.contains(.rehabilitation))
+    }
+
+    func testContextLayerResolvesXcopriAndLipitor() {
+        let mentioned = MedicationContext.resolve(query: "I take xcopri and cenobamate")
+        XCTAssertTrue(mentioned.mentioned.contains { $0.archetype == "Neurology" && $0.disease == "Epilepsy" })
+        XCTAssertTrue(mentioned.mentioned.contains { $0.generic.localizedCaseInsensitiveContains("cenobamate") })
+
+        let onFile = MedicationContext.resolve(savedNames: ["Lipitor"])
+        XCTAssertTrue(onFile.onFile.contains { $0.generic.localizedCaseInsensitiveContains("atorvastatin") })
+        XCTAssertTrue(onFile.onFile.contains { $0.archetype == "Cardiovascular" })
+        XCTAssertTrue(onFile.constraintLines.contains { $0.hasPrefix("med:saved:") })
+        XCTAssertTrue(onFile.tags.contains { $0.hasPrefix("med_onfile:") })
+    }
+
+    func testContextLayerTaxonomyCoversEachArchetypeFamily() {
+        let samples: [(String, String, String)] = [
+            ("atorvastatin", "Cardiovascular", "High cholesterol"),
+            ("metformin", "Metabolic", "Diabetes"),
+            ("levothyroxine", "Endocrine", "Hypothyroidism"),
+            ("cenobamate", "Neurology", "Epilepsy"),
+            ("sertraline", "Psychiatry", "Depression"),
+            ("amoxicillin", "Infectious disease", "Bacterial infection"),
+            ("imatinib", "Oncology", "Cancer"),
+            ("adalimumab", "Immunology", "Autoimmune disease"),
+            ("albuterol", "Respiratory", "Asthma"),
+            ("omeprazole", "Gastroenterology", "Acid reflux"),
+            ("sofosbuvir", "Hepatology", "Hepatitis"),
+            ("sevelamer", "Nephrology", "Chronic kidney disease"),
+            ("warfarin", "Hematology", "Clot prevention"),
+            ("methotrexate", "Rheumatology", "Autoimmune disease"),
+            ("tretinoin", "Dermatology", "Acne"),
+            ("latanoprost", "Ophthalmology", "Glaucoma"),
+            ("oxymetazoline", "Otolaryngology", "Nasal congestion"),
+            ("tamsulosin", "Urology", "Benign prostatic hyperplasia"),
+            ("estradiol", "Women's health", "Hormone therapy"),
+            ("finasteride", "Men's health", "Benign prostatic hyperplasia"),
+            ("oxytocin", "Obstetrics", "Labor"),
+            ("palivizumab", "Pediatrics", "RSV prevention"),
+            ("ibuprofen", "Pain", "Pain and inflammation"),
+            ("zolpidem", "Sleep medicine", "Insomnia"),
+            ("cetirizine", "Allergy", "Allergy"),
+            ("cholecalciferol", "Nutrition", "Vitamin deficiency"),
+            ("naloxone", "Toxicology", "Overdose reversal"),
+            ("alendronate", "Musculoskeletal", "Osteoporosis"),
+            ("baclofen", "Rehabilitation", "Spasticity"),
+            ("ivacaftor", "Rare disease", "Cystic fibrosis"),
+        ]
+        for (name, arch, disease) in samples {
+            let inferred = MedicationTaxonomy.infer(generic: name, brand: "", form: "")
+            XCTAssertEqual(inferred.0, arch, "\(name) archetype")
+            XCTAssertEqual(inferred.1, disease, "\(name) disease")
+        }
+    }
+
+    func testRemoteStripDropsOnFileKeepsMentioned() {
+        let onFile = MedicationContextEntry(
+            id: "health:lipitor",
+            name: "Lipitor",
+            generic: "atorvastatin",
+            brand: "Lipitor",
+            archetype: "Cardiovascular",
+            disease: "High cholesterol",
+            source: "health"
+        )
+        let mentioned = MedicationContextEntry(
+            id: "mentioned:xcopri",
+            name: "Xcopri",
+            generic: "cenobamate",
+            brand: "Xcopri",
+            archetype: "Neurology",
+            disease: "Epilepsy",
+            source: "mentioned"
+        )
+        var payload = ARIAContextPayload(
+            timestamp: "2026-09-06T00:00:00Z",
+            sleep: .init(),
+            readiness: .init(),
+            training: .init(),
+            activity: .init(),
+            chronotype: .init(),
+            body: .init(),
+            nutrition: .init(),
+            profile: .init(constraints: [
+                "med:health:Cardiovascular:High cholesterol:atorvastatin",
+                "med:mentioned:Neurology:Epilepsy:cenobamate",
+            ]),
+            progress: .init(),
+            lifestyle: .init(tags: ["med_onfile:atorvastatin", "med_archetype:Neurology"]),
+            medicationLayer: MedicationContextLayer(
+                onFile: [onFile],
+                mentioned: [mentioned],
+                archetypes: ["Cardiovascular", "Neurology"],
+                diseases: ["Epilepsy", "High cholesterol"]
+            )
+        )
+        payload = AriaOnDeviceHealthPolicy.strippedForRemoteInference(payload)
+        XCTAssertEqual(payload.medicationLayer?.onFile.count, 0)
+        XCTAssertEqual(payload.medicationLayer?.mentioned.count, 1)
+        XCTAssertEqual(payload.medicationLayer?.mentioned.first?.generic, "cenobamate")
+        XCTAssertFalse(payload.profile.constraints.contains { $0.hasPrefix("med:health:") })
+        XCTAssertTrue(payload.profile.constraints.contains { $0.hasPrefix("med:mentioned:") })
+        XCTAssertFalse(payload.lifestyle.tags.contains { $0.hasPrefix("med_onfile:") })
+        XCTAssertTrue(payload.lifestyle.tags.contains("med_archetype:Neurology"))
+    }
 }

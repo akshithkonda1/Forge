@@ -26,7 +26,7 @@ struct ClinicalDataNonPHIView: View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 22) {
-                    Text("Two steps. Connect Apple Health for the meds already on this iPhone. Then search every federal-list product by brand or generic — sorted by archetype and by disease.")
+                    Text("Two steps. Connect Apple Health for the meds already on this iPhone. Then search every federal-list product by brand or generic — every body-system archetype and disease. ARIA reads this as its medication context layer and can pull from here.")
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -117,6 +117,11 @@ struct ClinicalDataNonPHIView: View {
                     ? "Loading the federal catalog…"
                     : "\(catalogCount.formatted()) presentations · \(refreshLabel)"
             )
+
+            Text("ARIA pulls this layer — brand, generic, archetype, and disease — so it can coach around what you take. It never prescribes or changes a dose.")
+                .font(.system(size: 13))
+                .foregroundColor(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
@@ -243,6 +248,7 @@ struct ClinicalDataNonPHIView: View {
         return Button {
             MedicationPharmacy.toggleSaved(name: med.name)
             saved = MedicationPharmacy.savedNames()
+            AriaContextStore.shared.applyMedicationLayer()
         } label: {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: isSaved ? "pills.fill" : "pills")
@@ -388,5 +394,6 @@ struct ClinicalDataNonPHIView: View {
         error = nil
         defer { healthLoading = false }
         _ = await health.fetchClinicalRecordsSummary()
+        AriaContextStore.shared.applyMedicationLayer()
     }
 }

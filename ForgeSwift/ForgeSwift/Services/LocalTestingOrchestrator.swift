@@ -231,7 +231,7 @@ final class LocalTestingOrchestrator {
             )
         }
 
-        var context = store.makeTrainerContext()
+        var context = store.makeTrainerContext(query: text)
         // Feed session depth into the voice layer. `AriaVoiceEngine` infers
         // relationship level from `totalMessageCount` and folds the same number
         // into its phrasing salt, so this both deepens and rotates the voice.

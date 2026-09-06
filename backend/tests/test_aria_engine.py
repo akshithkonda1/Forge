@@ -230,6 +230,49 @@ class ContextParsingTests(unittest.TestCase):
         self.assertEqual(ctx.readiness.hrv_7day_trend, -10)
         self.assertTrue(ctx.has_hrv)
 
+    def test_medication_layer_is_parsed_into_user_model(self):
+        ctx = ARIAContext.from_payload({
+            "context": {
+                "medicationLayer": {
+                    "onFile": [{
+                        "id": "health:lipitor",
+                        "name": "Lipitor",
+                        "generic": "atorvastatin",
+                        "brand": "Lipitor",
+                        "archetype": "Cardiovascular",
+                        "disease": "High cholesterol",
+                        "source": "health",
+                    }],
+                    "mentioned": [{
+                        "id": "mentioned:xcopri",
+                        "name": "Xcopri",
+                        "generic": "cenobamate",
+                        "brand": "Xcopri",
+                        "archetype": "Neurology",
+                        "disease": "Epilepsy",
+                        "source": "mentioned",
+                    }],
+                    "archetypes": ["Cardiovascular", "Neurology"],
+                    "diseases": ["Epilepsy", "High cholesterol"],
+                }
+            }
+        })
+        self.assertEqual(ctx.medication_layer.on_file[0].generic, "atorvastatin")
+        self.assertEqual(ctx.medication_layer.mentioned[0].disease, "Epilepsy")
+        block = ctx.user_model_block()
+        self.assertIn("Lipitor / atorvastatin · Cardiovascular · High cholesterol", block)
+        self.assertIn("Xcopri / cenobamate · Neurology · Epilepsy", block)
+        self.assertIn("never prescribe", block)
+
+        perms = aria_engine.DataPermissions.from_payload({"clinical_data": False})
+        sanitized, restricted = aria_engine.apply_permissions(ctx, perms)
+        self.assertIn("clinical_data", restricted)
+        self.assertEqual(sanitized.medication_layer.on_file, [])
+        self.assertEqual(sanitized.medication_layer.mentioned[0].generic, "cenobamate")
+        redacted = sanitized.user_model_block(restricted)
+        self.assertNotIn("atorvastatin", redacted)
+        self.assertIn("cenobamate", redacted)
+
 
 class SystemPromptTests(unittest.TestCase):
     def test_prompt_encodes_the_four_required_behaviors(self):
