@@ -52,6 +52,20 @@ def _has(text: str, needles: tuple[str, ...]) -> bool:
     return any(n in text for n in needles)
 
 
+_WORD_RE_CACHE: dict[tuple[str, ...], re.Pattern[str]] = {}
+
+
+def _has_word(text: str, needles: tuple[str, ...]) -> bool:
+    """Whole-word match. Prevents short medical tokens from matching inside
+    unrelated words — e.g. "burn" must not fire on "burnout"/"heartburn"/
+    "sunburn", which are ordinary lifestyle topics, not first aid."""
+    pattern = _WORD_RE_CACHE.get(needles)
+    if pattern is None:
+        pattern = re.compile(r"\b(?:" + "|".join(re.escape(n) for n in needles) + r")\b")
+        _WORD_RE_CACHE[needles] = pattern
+    return bool(pattern.search(text))
+
+
 # --- Emergency (acute danger, right now) ------------------------------------
 # Explicit request to summon help, or a description of a life-threatening state.
 _ESCALATION_REQUEST = (
@@ -79,11 +93,11 @@ _HOWTO_CUES = (
     "steps to", "how would i", "teach me", "walk me through", "show me how",
 )
 _FIRST_AID_TOPICS = (
-    "cpr", "rescue breath", "heimlich", "choking", "aed", "defibrillat",
-    "recovery position", "stop the bleeding", "stop bleeding", "bleeding",
-    "tourniquet", "first aid", "first-aid", "someone is choking",
-    "someone collapsed", "someone passed out", "burn", "drowning", "seizure",
-    "nosebleed",
+    "cpr", "rescue breath", "heimlich", "choking", "aed", "defibrillator",
+    "defibrillate", "recovery position", "stop the bleeding", "stop bleeding",
+    "bleeding", "tourniquet", "first aid", "first-aid", "someone is choking",
+    "someone collapsed", "someone passed out", "burn", "burns", "scald",
+    "scalded", "drowning", "seizure", "nosebleed",
 )
 
 # --- Refer-out (diagnosis / prescription hard line) -------------------------
@@ -162,6 +176,8 @@ def _detect_first_aid_topics(lower: str) -> list[str]:
         topics.append("unconscious")
     if _has(lower, ("seizure", "convulsing")):
         topics.append("seizure")
+    if _has_word(lower, ("burn", "burns", "scald", "scalded", "scalds")):
+        topics.append("burn")
     return topics or ["general"]
 
 
@@ -197,6 +213,14 @@ _FIRST_AID_STEPS: dict[str, str] = {
         "up. Clear space around them, cushion their head, and don't hold them down "
         "or put anything in their mouth. Turn them on their side once it eases."
     ),
+    "burn": (
+        "Burn: Cool it under cool (not ice-cold) running water for about 20 "
+        "minutes and take off nearby rings or tight clothing before swelling "
+        "starts. Cover it loosely with a clean, non-stick dressing or cling film. "
+        "Don't pop blisters or put butter/toothpaste on it. Call 911 for a burn "
+        "that's large, deep, on the face/hands/genitals, or from chemicals or "
+        "electricity."
+    ),
     "general": (
         "Call 911 (or have someone nearby call) and stay with the person. If they "
         "aren't breathing, start CPR — hard, fast chest compressions in the center "
@@ -223,7 +247,7 @@ def classify_band(message: str) -> str:
         return EMERGENCY
     if _has(lower, _ESCALATION_REQUEST) or _has(lower, _EMERGENCY_STATE):
         return EMERGENCY
-    if _has(lower, _HOWTO_CUES) and _has(lower, _FIRST_AID_TOPICS):
+    if _has(lower, _HOWTO_CUES) and _has_word(lower, _FIRST_AID_TOPICS):
         return FIRST_AID
     if _is_prescription_request(lower) or _is_diagnosis_request(lower):
         return REFER_OUT
@@ -243,8 +267,10 @@ def assess(message: str) -> Guidance | None:
             "right now — or use your phone's Emergency SOS. That comes first."
         ]
         if _has(lower, _SELF_HARM):
+            # A crisis message gets the lifeline, not generic CPR/bleeding steps.
             parts.append(_CRISIS_LINE)
-        parts.append(_first_aid_body(lower))
+        else:
+            parts.append(_first_aid_body(lower))
         parts.append(
             "I'm a lifestyle coach, not a doctor, so I can't diagnose what's "
             "happening — but getting emergency help matters most right now."
