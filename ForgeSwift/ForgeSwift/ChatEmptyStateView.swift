@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct ChatEmptyStateView: View {
     let mood: ARIAMood
@@ -41,8 +42,8 @@ struct ChatEmptyStateView: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color(hex: AriaSigilPalette.emberHex).opacity(orbGlow ? 0.12 : 0.04),
-                                Color(hex: AriaSigilPalette.tealHex).opacity(orbGlow ? 0.06 : 0.02),
+                                ForgePalette.ember.opacity(orbGlow ? 0.12 : 0.04),
+                                ForgePalette.teal.opacity(orbGlow ? 0.06 : 0.02),
                                 .clear
                             ],
                             center: .center, startRadius: 8, endRadius: 120
