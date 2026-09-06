@@ -55,6 +55,9 @@ def check(path: Path) -> list[str]:
 
 def main() -> int:
     errors: list[str] = []
+    for jpg in ROOT.rglob("*"):
+        if jpg.suffix.lower() in {".jpg", ".jpeg"} and "aria" in jpg.name.lower():
+            errors.append(f"dead jpeg still in tree: {jpg}")
     for path in PATHS:
         errors.extend(check(path))
     if errors:

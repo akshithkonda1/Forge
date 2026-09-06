@@ -29,7 +29,7 @@ This is **not** an MIT license. This is **not** an enterprise license.
 **When in doubt**: If you're looking at Forge code while writing your code — especially anything related to health data normalization, AI coaching context engines, cross-device recovery intelligence, or the Aria reasoning layer — you're probably infringing.
 ---
 ## Why This License?
-Forge exists to solve a real problem: health data is fragmented across dozens of apps and devices, and users deserve coherent, personalized, trustworthy intelligence about their own bodies from products that don't typically make it easier to get an idea of what one's health is really like. 
+Forge exists to solves two real problems: health data is fragmented across dozens of apps and devices, and users deserve coherent, personalized, trustworthy intelligence about their own bodies from products that don't typically make it easier to get an idea of what one's health is really like and the other is that the stats the these wearables typically give is based on standarized stats based off of the average person not you.
 
 Building that well is extremely difficult, and using new technologies such as Generative AI, Machine Learning, and large data modules makes it harder. 
 It requires deep integration across the fitness technology ecosystem we're part of. 

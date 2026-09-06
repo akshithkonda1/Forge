@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 // MARK: - Root
 
@@ -52,9 +53,9 @@ struct ForgeSplashScreen: View {
 
             RadialGradient(
                 colors: [
-                    Color(hex: AriaSigilPalette.goldHex).opacity(0.08 * glowIntensity),
-                    Color(hex: AriaSigilPalette.bloodHex).opacity(0.06 * glowIntensity),
-                    Color(hex: AriaSigilPalette.voidMidHex).opacity(0.4 * glowIntensity),
+                    ForgePalette.amber.opacity(0.08 * glowIntensity),
+                    ForgePalette.ember.opacity(0.06 * glowIntensity),
+                    ForgePalette.background.opacity(0.4 * glowIntensity),
                     .clear
                 ],
                 center: .center,
@@ -73,7 +74,7 @@ struct ForgeSplashScreen: View {
                 )
                     .scaleEffect(logoScale)
                     .opacity(logoOpacity)
-                    .shadow(color: Color(hex: AriaSigilPalette.goldHex).opacity(0.22 * glowIntensity), radius: 36, y: 6)
+                    .shadow(color: ForgePalette.amber.opacity(0.22 * glowIntensity), radius: 36, y: 6)
 
                 VStack(spacing: 10) {
                     Text("FORGE")
@@ -396,8 +397,8 @@ struct ARIATabButton: View {
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    Color(hex: AriaSigilPalette.goldHex).opacity(isActive ? 0.16 : 0.07),
-                                    Color(hex: AriaSigilPalette.bloodHex).opacity(0.10),
+                                    ForgePalette.amber.opacity(isActive ? 0.16 : 0.07),
+                                    ForgePalette.ember.opacity(0.10),
                                     .clear
                                 ],
                                 center: .center,

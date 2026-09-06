@@ -2,9 +2,10 @@ import AVFoundation
 import CoreGraphics
 
 /// Welcome arrive-sound and the shared raster-mark contract (`shared/aria-mark.json`,
-/// used for web parity). iOS's own mark is drawn natively by `PulseSigil` in
-/// `AuroraOrbComponents.swift` and no longer renders this asset directly — no
-/// ring, no glass frame to crop past, on either platform.
+/// used for web parity — see `src/lib/aria-mark.ts`, `shared/brand/aria-mark.png`).
+/// iOS's own mark is drawn natively by `PulseSigil` in `AuroraOrbComponents.swift`
+/// and no longer renders the 4-lobe ember asset directly — no ring, no glass
+/// frame, no crop, on either platform.
 /// Pure gates so tests can lock quiet mode and Reduce Motion without audio.
 enum AriaWelcomeChime: Sendable {
     static let assetName = "AriaLogo"

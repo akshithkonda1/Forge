@@ -1,4 +1,5 @@
 import SwiftUI
+import WatchKit
 import ForgeCore
 
 // MARK: - WorkoutCoordinatorView
@@ -176,6 +177,10 @@ private struct SessionControlsPage: View {
 private struct SessionMetricsPage: View {
     @Environment(WorkoutSessionManager.self) private var workout
     @Environment(\.isLuminanceReduced) private var luminanceReduced
+    @State private var metricMode: MetricMode = .heart
+    @State private var zoneTapFlash = false
+
+    enum MetricMode { case heart, calories, pace }
 
     var body: some View {
         VStack(alignment: .leading, spacing: ForgeDS.Spacing.sm) {
@@ -187,14 +192,16 @@ private struct SessionMetricsPage: View {
                     .accessibilityLabel("Elapsed \(elapsedLabel)")
             }
 
+            // Tap to cycle metric display — HR / calories / zone detail.
             HStack(spacing: ForgeDS.Spacing.sm) {
-                Image(systemName: "heart.fill")
-                    .foregroundStyle(workout.currentZone?.color ?? ForgePalette.textTertiary)
-                    .opacity(luminanceReduced ? 0.6 : 1)
-                Text(workout.heartRate.map { "\(Int($0))" } ?? "—")
+                Image(systemName: metricIcon)
+                    .foregroundStyle(metricColor.opacity(luminanceReduced ? 0.6 : 1))
+                    .contentTransition(.symbolEffect(.replace))
+                Text(metricText)
                     .font(ForgeType.metric(24))
                     .monospacedDigit()
-                if let zone = workout.currentZone {
+                    .contentTransition(.numericText())
+                if let zone = workout.currentZone, metricMode == .heart {
                     Text(zone.label)
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(zone.color)
@@ -202,25 +209,91 @@ private struct SessionMetricsPage: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(heartAccessibility)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    metricMode = nextMode
+                }
+                WKInterfaceDevice.current().play(.click)
+            }
+            .contextMenu {
+                ForEach([MetricMode.heart, .calories, .pace], id: \.self) { mode in
+                    Button(modeLabel(mode)) { metricMode = mode }
+                }
+            }
 
             zoneBar
 
-            if let calories = workout.activeCalories {
+            if let calories = workout.activeCalories, metricMode == .calories {
                 Label("\(Int(calories)) cal", systemImage: "flame.fill")
                     .font(.system(size: 13))
                     .foregroundStyle(ForgePalette.amber)
-            }
-
-            if let cue = workout.coachingCue {
+                    .transition(.opacity)
+            } else if let cue = workout.coachingCue {
                 Text(cue)
                     .font(.system(size: 11))
                     .foregroundStyle(ForgePalette.textSecondary)
                     .lineLimit(3)
                     .accessibilityLabel("Coach: \(cue)")
             }
+
+            // Hint row
+            HStack(spacing: 4) {
+                Image(systemName: "hand.tap.fill")
+                    .font(.system(size: 7))
+                    .foregroundStyle(ForgePalette.textTertiary.opacity(0.5))
+                Text("Tap metric to cycle")
+                    .font(.system(size: 8))
+                    .foregroundStyle(ForgePalette.textTertiary.opacity(0.55))
+                Spacer(minLength: 0)
+            }
+
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 4)
+        .animation(.easeInOut(duration: 0.2), value: metricMode)
+    }
+
+    private var nextMode: MetricMode {
+        switch metricMode {
+        case .heart: return .calories
+        case .calories: return .pace
+        case .pace: return .heart
+        }
+    }
+
+    private var metricIcon: String {
+        switch metricMode {
+        case .heart: return "heart.fill"
+        case .calories: return "flame.fill"
+        case .pace: return "speedometer"
+        }
+    }
+
+    private var metricColor: Color {
+        switch metricMode {
+        case .heart: return workout.currentZone?.color ?? ForgePalette.textTertiary
+        case .calories: return ForgePalette.amber
+        case .pace: return ForgePalette.steel
+        }
+    }
+
+    private var metricText: String {
+        switch metricMode {
+        case .heart: return workout.heartRate.map { "\(Int($0))" } ?? "—"
+        case .calories: return workout.activeCalories.map { "\(Int($0))" } ?? "—"
+        case .pace:
+            // Pace not yet tracked live; show zone as proxy with haptic cue.
+            return workout.currentZone.map { "Z\($0.zone)" } ?? "—"
+        }
+    }
+
+    private func modeLabel(_ mode: MetricMode) -> String {
+        switch mode {
+        case .heart: return "Heart rate"
+        case .calories: return "Calories"
+        case .pace: return "Zone"
+        }
     }
 
     private var elapsedLabel: String {
@@ -239,16 +312,30 @@ private struct SessionMetricsPage: View {
 
     /// Five-segment zone bar; the active zone is lit. Epilepsy-safe: the
     /// bar only changes when the zone changes (breath-slow at most).
+    /// Tap any segment for haptic zone feedback.
     private var zoneBar: some View {
         HStack(spacing: 3) {
             ForEach(1...5, id: \.self) { number in
                 let zone = ForgeHRZones.zone(number: number)
+                let isActive = workout.currentZone?.zone == number
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(zone.color.opacity(workout.currentZone?.zone == number ? 1 : 0.25))
-                    .frame(height: 6)
+                    .fill(zone.color.opacity(isActive ? 1 : 0.25))
+                    .frame(height: isActive ? 8 : 6)
+                    .animation(.easeInOut(duration: 0.2), value: workout.currentZone?.zone)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        WKInterfaceDevice.current().play(isActive ? .success : .click)
+                        withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                            zoneTapFlash.toggle()
+                        }
+                    }
+                    .accessibilityLabel("Zone \(number)")
+                    .accessibilityValue(isActive ? "Active" : "Inactive")
             }
         }
-        .accessibilityHidden(true)
+        .accessibilityHidden(false)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Heart rate zones, current \(workout.currentZone?.label ?? "unknown")")
     }
 }
 
@@ -310,14 +397,47 @@ private struct SessionExercisePage: View {
                 .font(ForgeType.metric(44))
                 .foregroundStyle(ForgePalette.steelLight)
                 .monospacedDigit()
-                .accessibilityLabel("\(remaining) seconds of rest left. Wrist taps count the last three.")
+                .contentTransition(.numericText())
+                .scaleEffect(remaining <= 3 ? 1.08 : 1)
+                .animation(.spring(response: 0.25, dampingFraction: 0.6), value: remaining)
+                .accessibilityLabel("\(remaining) seconds of rest left. Wrist taps count the last three. Turn crown to skip.")
+            // Crown-scrub to skip — flick crown to dismiss rest.
+            Color.clear
+                .frame(height: 0)
+                .focusable(true)
+                .digitalCrownRotation(
+                    Binding(
+                        get: { Double(remaining) },
+                        set: { newValue in
+                            if newValue < Double(remaining) - 1.2 {
+                                workout.skipRest()
+                                WKInterfaceDevice.current().play(.click)
+                            }
+                        }
+                    ),
+                    from: 0,
+                    through: Double(remaining),
+                    by: 1,
+                    sensitivity: .high,
+                    isContinuous: false,
+                    isHapticFeedbackEnabled: true
+                )
+
             HapticButton(haptic: .click) {
                 workout.skipRest()
             } label: {
                 Text("Skip rest").font(.system(size: 12))
             }
             .buttonStyle(.bordered)
-            .accessibilityHint("Ends the rest early.")
+            .accessibilityHint("Ends the rest early. Or turn the Digital Crown.")
+            HStack(spacing: 4) {
+                Image(systemName: "digitalcrown.horizontal.arrow.counterclockwise.fill")
+                    .font(.system(size: 8))
+                    .foregroundStyle(ForgePalette.textTertiary.opacity(0.5))
+                Text("Crown to skip")
+                    .font(.system(size: 9))
+                    .foregroundStyle(ForgePalette.textTertiary.opacity(0.6))
+            }
         }
         .frame(maxWidth: .infinity)
     }

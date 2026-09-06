@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct ChatHeaderView: View {
     @EnvironmentObject var store: AppStore
@@ -62,7 +63,7 @@ struct ChatHeaderView: View {
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(Color.ember.opacity(0.8))
                     } else {
-                        Circle().fill(Color(hex: AriaSigilPalette.goldHex)).frame(width: 5, height: 5)
+                        Circle().fill(ForgePalette.amber).frame(width: 5, height: 5)
                         Text(headerStatusLine)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.textSecondary)

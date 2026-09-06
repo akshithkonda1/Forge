@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 // MARK: - Auth Welcome — cinematic Day 0
 
@@ -272,7 +273,7 @@ private struct AuthHookPageView: View {
                             Text("ARIA")
                                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                                 .tracking(3.2)
-                                .foregroundColor(Color(hex: AriaSigilPalette.goldHex).opacity(0.78))
+                                .foregroundColor(ForgePalette.amber.opacity(0.78))
                         }
                     }
                     .buttonStyle(.plain)

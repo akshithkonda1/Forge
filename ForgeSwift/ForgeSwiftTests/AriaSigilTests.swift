@@ -14,27 +14,28 @@ final class AriaSigilTests: XCTestCase {
             AriaSigilGeometry.hueShiftDegrees(time: 0, state: .idle, reduceMotion: true),
             AriaSigilGeometry.hueShiftDegrees(time: 40, state: .idle, reduceMotion: true)
         )
-        let still = AriaSigilGeometry.edgeUndulation(time: 12, reduceMotion: true)
-        XCTAssertEqual(still.x, 0)
-        XCTAssertEqual(still.y, 0)
+        XCTAssertEqual(AriaSigilGeometry.uniformScale(breath: 1, reduceMotion: true), 1)
     }
 
     func testIdleIsSlowerThanProcessing() {
         XCTAssertLessThan(AriaSigilGeometry.idleBreathHz, AriaSigilGeometry.processingBreathHz)
-        XCTAssertLessThan(AriaSigilGeometry.idleBreathHz, 0.4, "idle must feel like a coach, not a spinner")
+        XCTAssertLessThan(AriaSigilGeometry.idleBreathHz, 0.55, "idle is a coach breath, not a spinner")
     }
 
-    func testMotionStaysGentle() {
-        XCTAssertLessThanOrEqual(AriaSigilGeometry.maxHueDegrees, 8, "iridescence is a shimmer, not a carnival")
-        XCTAssertLessThanOrEqual(AriaSigilGeometry.maxEdgeUndulation, 0.02)
-        XCTAssertLessThanOrEqual(AriaSigilGeometry.breathScale, 0.04)
-        XCTAssertLessThanOrEqual(AriaSigilGeometry.corePulseAmount, 0.05)
+    func testScaleIsUniformAndVisible() {
+        XCTAssertEqual(AriaSigilGeometry.maxEdgeUndulation, 0, "never nonuniform stretch")
+        XCTAssertEqual(AriaSigilGeometry.breathScale, 0.04, accuracy: 0.0001)
+        let still = AriaSigilGeometry.uniformScale(breath: 0, reduceMotion: false)
+        let peak = AriaSigilGeometry.uniformScale(breath: 1, reduceMotion: false)
+        XCTAssertEqual(still, 1, accuracy: 0.0001)
+        XCTAssertEqual(peak, 1.04, accuracy: 0.0001)
+    }
+
+    func testHueShimmerIsVisibleButBounded() {
+        XCTAssertEqual(AriaSigilGeometry.maxHueDegrees, 12, accuracy: 0.001)
         for t in stride(from: 0.0, through: 40, by: 0.37) {
             let hue = AriaSigilGeometry.hueShiftDegrees(time: t, state: .idle, reduceMotion: false)
             XCTAssertLessThanOrEqual(abs(hue), AriaSigilGeometry.maxHueDegrees + 0.0001)
-            let edge = AriaSigilGeometry.edgeUndulation(time: t, reduceMotion: false)
-            XCTAssertLessThanOrEqual(abs(edge.x), AriaSigilGeometry.maxEdgeUndulation + 0.0001)
-            XCTAssertLessThanOrEqual(abs(edge.y), AriaSigilGeometry.maxEdgeUndulation + 0.0001)
         }
     }
 
@@ -42,7 +43,7 @@ final class AriaSigilTests: XCTestCase {
         let idle = AriaSigilGeometry.corePulse(time: 0.4, state: .idle, reduceMotion: false)
         let talk = AriaSigilGeometry.corePulse(time: 0.4, state: .speaking, reduceMotion: false)
         XCTAssertGreaterThan(talk, idle)
-        XCTAssertLessThan(talk, 0.12, "speaking stays a glow, not a strobe")
+        XCTAssertLessThan(talk, 0.22, "speaking stays a glow, not a strobe")
     }
 
     func testReduceMotionFreezesCoreAndHue() {
@@ -80,15 +81,5 @@ final class AriaSigilTests: XCTestCase {
             AriaSigilGeometry.sparkTwinkle(time: 90, index: 0, reduceMotion: true),
             "Reduce Motion must freeze spark twinkle"
         )
-    }
-
-    func testPaletteStaysPreciousNotNeon() {
-        XCTAssertEqual(AriaSigilPalette.goldHex, "C9A36A")
-        XCTAssertEqual(AriaSigilPalette.voidDeepHex, "030207")
-        XCTAssertEqual(AriaSigilPalette.bloodHex, "4A1018")
-        XCTAssertEqual(AriaSigilPalette.ivoryHex, "F3EBDD")
-        XCTAssertEqual(AriaSigilPalette.emberHex, "FF6A1A")
-        XCTAssertNotEqual(AriaSigilPalette.photonPrimary(for: .energized), "00D2FF")
-        XCTAssertNotEqual(AriaSigilPalette.photonPrimary(for: .focused), "22C55E")
     }
 }
