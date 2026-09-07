@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from backend.ai.simrunner.aria_simrunner import bedrock_client, prompts  # noqa: E402
 from backend.ai.simrunner.aria_simrunner.aria_engine import (  # noqa: E402
-    ARIAEngine, ARIAResponse, _parse_envelope, _references_context, _safe_float,
+    ARIAEngine, ARIAResponse, LiveConfigError, _parse_envelope, _references_context, _safe_float,
 )
 from backend.ai.simrunner.backend_simulator import model_registry as reg  # noqa: E402
 from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream  # noqa: E402
@@ -137,6 +137,37 @@ class RealApiEngineTests(unittest.TestCase):
         self.assertEqual(resp.raw["scenario"], "real_api")
         self.assertIn("just words", resp.prose_summary)
         self.assertAlmostEqual(resp.confidence, 0.6, places=2)  # default when absent
+
+    def test_strict_live_raises_instead_of_falling_back(self):
+        with mock.patch.object(bedrock_client, "converse", side_effect=RuntimeError("no creds")):
+            engine = ARIAEngine(use_real_api=True, strict_live=True)
+            with self.assertRaises(LiveConfigError) as ctx:
+                engine.respond("Should I train today?", _ctx(), 42)
+        self.assertIn("RuntimeError", str(ctx.exception))
+        self.assertIn("no creds", str(ctx.exception))
+        self.assertIsInstance(ctx.exception.__cause__, RuntimeError)
+
+    def test_strict_live_success_is_unaffected(self):
+        envelope = ('{"prose_summary":"Fine to train today.","recommendation":"Train normally.",'
+                    '"confidence":0.7}')
+        with mock.patch.object(bedrock_client, "converse", return_value=envelope):
+            engine = ARIAEngine(use_real_api=True, strict_live=True, engine_model="anthropic.claude-opus-4-8")
+            resp = engine.respond("Should I train today?", _ctx(), 42)
+        self.assertEqual(resp.raw["scenario"], "real_api")
+        self.assertEqual(resp.recommendation, "Train normally.")
+
+    def test_strict_live_requires_use_real_api(self):
+        with self.assertRaises(ValueError):
+            ARIAEngine(use_real_api=False, strict_live=True)
+
+    def test_lenient_fallback_still_works_when_strict_live_is_default(self):
+        # Zero regression: strict_live defaults to False, so an unrelated
+        # use_real_api=True caller keeps today's silent-fallback behavior.
+        with mock.patch.object(bedrock_client, "converse", side_effect=RuntimeError("no creds")):
+            engine = ARIAEngine(use_real_api=True)
+            resp = _silent(engine.respond, "Should I train today?", _ctx(), 42)
+        self.assertIsInstance(resp, ARIAResponse)
+        self.assertNotEqual(resp.raw.get("scenario"), "real_api")
 
 
 class BedrockClientTests(unittest.TestCase):

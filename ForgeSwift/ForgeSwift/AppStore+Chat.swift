@@ -62,6 +62,9 @@ extension AppStore {
     }
 
     func persistChatSession() {
+        if chatMessages.count > Self.maxPersistedMessages {
+            chatMessages = Array(chatMessages.suffix(Self.maxPersistedMessages))
+        }
         let recent = Array(chatMessages.suffix(Self.maxPersistedMessages))
         let doc = ChatSessionDocument(
             version: 3,
@@ -212,15 +215,17 @@ extension AppStore {
     }
     /// when the backend returns a full message. Does not mutate stored content.
     func beginStreamingReveal(for messageId: String, fullLength: Int) {
+        streamingRevealTask?.cancel()
         streamingMessageId = messageId
         streamingVisibleCount = min(24, fullLength)
-        Task { @MainActor in
+        streamingRevealTask = Task { @MainActor in
             let step = max(3, fullLength / 40)
-            while streamingMessageId == messageId, streamingVisibleCount < fullLength {
+            while !Task.isCancelled, streamingMessageId == messageId, streamingVisibleCount < fullLength {
                 try? await Task.sleep(nanoseconds: 18_000_000)
+                guard !Task.isCancelled else { return }
                 streamingVisibleCount = min(fullLength, streamingVisibleCount + step)
             }
-            if streamingMessageId == messageId {
+            if !Task.isCancelled, streamingMessageId == messageId {
                 streamingMessageId = nil
                 streamingVisibleCount = 0
             }
@@ -309,6 +314,34 @@ extension AppStore {
         persistChatHistory()
     }
 
+    /// Intimacy CTA: the human's short opener plus ARIA's on-device opening.
+    func seedIntimacyConversation(_ session: IntimacyChatSession) {
+        if isInAriaFirstBond {
+            completeAriaFirstBond()
+        }
+        let user = ChatMessage(
+            id: UUID().uuidString,
+            role: .user,
+            content: session.userOpener,
+            timestamp: Date()
+        )
+        let aria = ChatMessage(
+            id: UUID().uuidString,
+            role: .trainer,
+            content: session.ariaOpening,
+            timestamp: Date(),
+            confidence: 0.94,
+            suggestedActions: session.suggestedActions,
+            coachAgent: AriaCoachAgent.aria.rawValue
+        )
+        chatMessages.append(user)
+        chatMessages.append(aria)
+        lastSuggestedActions = session.suggestedActions
+        lastRoutedCoachAgent = .aria
+        beginStreamingReveal(for: aria.id, fullLength: aria.content.count)
+        persistChatHistory()
+    }
+
     // MARK: - Workout Actions
 
     func addMessage(_ message: ChatMessage) {
@@ -371,7 +404,9 @@ extension AppStore {
         persistChatHistory()
     }
 
-    private func completeAriaFirstBond() {
+    /// Ends the first-bond interview so a later CTA (intimacy, etc.) can
+    /// open a real ARIA turn instead of staying trapped in onboarding beats.
+    func completeAriaFirstBond() {
         completeAriaUseOnboarding()
         let nextLevel = min(10, AriaContextStore.shared.context.relationshipLevel + 1)
         AriaContextStore.shared.applyUpdates(["relationship_level": nextLevel])
@@ -381,6 +416,7 @@ extension AppStore {
 
     /// Send a message through ARIA (remote when available, local fallback).
     func sendMessage(_ text: String, ariaPayload: String? = nil) async {
+        guard !isGeneratingResponse else { return }
         if isInAriaFirstBond, !hasCompletedAriaUseOnboarding {
             let turn = AriaFirstBond.advance(
                 beat: ariaFirstBondBeat,
@@ -630,7 +666,9 @@ extension AppStore {
 
     /// Legacy method for backward compatibility - converts to async
     /// Builds a full `TrainerContext` including living ARIA tags/constraints + cycle.
-    func makeTrainerContext() -> TrainerContext {
+    /// Read-only: safe from SwiftUI computed properties. Pass `query` on a chat
+    /// turn so mentioned brand/generic names resolve into the medication layer.
+    func makeTrainerContext(query: String? = nil) -> TrainerContext {
         let ctx = AriaContextStore.shared.context
         let cycleStore = MenstrualHealthStore.shared
         // Read-only by design: this is called from SwiftUI computed properties, and
@@ -642,13 +680,23 @@ extension AppStore {
         }()
         let roster: [(settings: PartnerCycleSettings, snapshot: MenstrualCycleSnapshot)] =
             cycleStore.consentedPeople.compactMap { person in
-                guard person.settings.shareWithAria else { return nil }
+                guard person.settings.enabled, person.settings.shareWithAria else { return nil }
                 return (person.settings, cycleStore.personSnapshots[person.id] ?? .empty)
             }
         let activePerson = cycleStore.selectedPerson.flatMap { person in
             roster.first(where: { $0.settings.partnerName == person.settings.partnerName
                 && $0.settings.supportRole == person.settings.supportRole })
         } ?? roster.first
+        let healthNames: [String] = {
+            guard HealthKitManager.shared.hasStructuredRecordsAccess,
+                  let summary = HealthKitManager.shared.clinicalSummary else { return [] }
+            return summary.ariaDomain().medications
+        }()
+        let medicationLayer = MedicationContext.resolve(
+            query: query,
+            healthNames: healthNames,
+            savedNames: MedicationPharmacy.savedNames()
+        )
         return TrainerContext(
             userProfile: userProfile,
             readiness: readiness,
@@ -664,7 +712,8 @@ extension AppStore {
             cycleSnapshot: cycle,
             partnerCycleSnapshot: activePerson?.snapshot,
             partnerCycleSettings: activePerson?.settings,
-            supportedPeople: roster
+            supportedPeople: roster,
+            medicationLayer: medicationLayer
         )
     }
 }

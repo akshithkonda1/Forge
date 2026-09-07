@@ -1,6 +1,6 @@
 """ARIA SimRunner — single entry point.
 
-Runs the full offline pipeline against one archetype, a tier, or all 20:
+Runs the full offline pipeline against one archetype, a tier, or all 23:
 
     python -m backend.simrunner                       # tier 1 (fast sanity)
     python -m backend.simrunner --model <model_id>
@@ -11,9 +11,16 @@ Model archetypes (named styles + full Bedrock text library):
 
     python -m backend.simrunner --list-model-archetypes
     python -m backend.simrunner --model-archetype grok-direct --tier 1
-    python -m backend.simrunner --model-archetype moonshotai.kimi-k2.5 --tier 1
+    python -m backend.simrunner --model-archetype global.xai.grok-4.6 --tier 1
     python -m backend.simrunner --matrix --tier 1            # user × named styles
     python -m backend.simrunner --matrix-bedrock --tier 1    # user × every Bedrock text model
+
+Real-config live evaluation (needs boto3 + real AWS credentials; --check-config
+alone does not):
+
+    python -m backend.simrunner --check-config               # print ARIA's real Terraform config, exit
+    python -m backend.simrunner --isometric --live            # real Bedrock call, refuses if Bedrock is off
+    python -m backend.simrunner --isometric --live --force-live  # test model capability regardless
 """
 
 from __future__ import annotations
@@ -22,8 +29,8 @@ import argparse
 import os
 import re
 
-from .aria_simrunner import _stats, baseline, diagnostics, model_archetypes, report_builder
-from .aria_simrunner.aria_engine import ARIAEngine
+from .aria_simrunner import _stats, baseline, diagnostics, model_archetypes, query_router, report_builder, terraform_config
+from .aria_simrunner.aria_engine import ARIAEngine, LiveConfigError
 from .aria_simrunner.aria_evaluator import DimensionScores, evaluate
 from .aria_simrunner.aria_generator import get_queries_for_tier
 from .aria_simrunner.determinism_checker import check_determinism
@@ -44,6 +51,7 @@ _DEFAULTS = {
     "snapshot_days": [7, 14, 21, 29],
     "determinism_sample_size": 5,
     "use_real_api": False,
+    "strict_live": False,
     "report_format": "both",
     "engine_model": None,
     "engine_models": None,
@@ -115,6 +123,7 @@ def _validate_config(config: dict) -> dict:
     if out.get("report_format") not in ("text", "json", "both"):
         out["report_format"] = "both"
     out["use_real_api"] = bool(out.get("use_real_api", False))
+    out["strict_live"] = bool(out.get("strict_live", False))
 
     em = out.get("engine_model")
     out["engine_model"] = str(em) if em and str(em).strip().lower() not in ("none", "null", "") else None
@@ -149,6 +158,8 @@ def load_config(path: str = _CONFIG_PATH) -> dict:
             pass
     if os.getenv("USE_REAL_API", "").lower() == "true":
         config["use_real_api"] = True
+    if os.getenv("SIMRUNNER_STRICT_LIVE", "").lower() == "true":
+        config["strict_live"] = True
     env_model = os.getenv("SIMRUNNER_ENGINE_MODEL")
     if env_model:
         config["engine_model"] = env_model
@@ -180,7 +191,7 @@ def _eval_seed(model: dict, config: dict, engine: ARIAEngine, seed: int):
     return results, contexts, snapshot_days, queries, stream
 
 
-def run_model(model: dict, config: dict, engine: ARIAEngine) -> dict:
+def run_model(model: dict, config: dict, engine: ARIAEngine, config_report: dict | None = None) -> dict:
     profile = model["behavioral_profile"]
     tier = model["difficulty_tier"]
     seed = int(config["seed"])
@@ -219,7 +230,7 @@ def run_model(model: dict, config: dict, engine: ARIAEngine) -> dict:
     engine_model = engine.detect_model()
     paths = report_builder.save_reports(
         model, stability, determinism, primary_results, _REPORTS_DIR, config["report_format"],
-        engine_model=engine_model, diagnostic=diagnostic, multiseed=multiseed,
+        engine_model=engine_model, diagnostic=diagnostic, multiseed=multiseed, config_report=config_report,
     )
 
     det_rate = determinism.semantic_determinism_rate if determinism else None
@@ -259,9 +270,16 @@ def run_model(model: dict, config: dict, engine: ARIAEngine) -> dict:
     return rec
 
 
+# The two isometric archetypes live in different tiers (3 and 4) alongside
+# four unrelated personas each, so --tier alone can't select just these two.
+_ISOMETRIC_MODEL_IDS = ("mistral.mistral-large-2-isometric", "meta.llama4-maverick-isometric-confound")
+
+
 def _select_models(args) -> list[dict]:
     if args.model:
         return [model_registry.resolve_archetype(args.model)]
+    if args.isometric:
+        return [model_registry.get_model(mid) for mid in _ISOMETRIC_MODEL_IDS]
     if args.all:
         return list(model_registry.BEDROCK_MODEL_REGISTRY)
     if args.tier:
@@ -269,8 +287,15 @@ def _select_models(args) -> list[dict]:
     return model_registry.get_models_by_tier(1)
 
 
+def matches_production_routing(engine: ARIAEngine) -> bool:
+    """Whether this engine's active models are the real, unpinned /ai/chat
+    routing table -- so a report can never let a pinned --model-archetype
+    masquerade as testing the real configuration."""
+    return engine.active_models() == query_router.ROUTING_MODELS
+
+
 def _print_catalog() -> None:
-    print("ARIA SimRunner — 20 curated *user* archetypes (use a model_id with --model);")
+    print("ARIA SimRunner — 23 curated *user* archetypes (use a model_id with --model);")
     print("any Bedrock model id also works via --model (see --list-bedrock).")
     for tier in range(1, 6):
         print(f"\nTier {tier}:")
@@ -400,7 +425,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="backend.simrunner",
         description="ARIA SimRunner — offline evaluation harness",
     )
-    parser.add_argument("--list", action="store_true", help="list the 20 curated user archetypes and exit")
+    parser.add_argument("--list", action="store_true", help="list the 23 curated user archetypes and exit")
     parser.add_argument("--list-bedrock", action="store_true", help="list the full Bedrock model catalog and exit")
     parser.add_argument(
         "--list-model-archetypes",
@@ -410,7 +435,9 @@ def main(argv: list[str] | None = None) -> int:
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--model", help="user archetype model_id OR any Bedrock catalog id")
     group.add_argument("--tier", type=int, choices=[1, 2, 3, 4, 5], help="test all user archetypes in a tier")
-    group.add_argument("--all", action="store_true", help="test all 20 user archetypes")
+    group.add_argument("--all", action="store_true", help="test all 23 user archetypes")
+    group.add_argument("--isometric", action="store_true",
+                        help="test just the 2 isometric archetypes (tiers 3+4 each mix in 4 unrelated others)")
     parser.add_argument(
         "--model-archetype",
         default=None,
@@ -436,6 +463,14 @@ def main(argv: list[str] | None = None) -> int:
                         help="diff this run against a committed baseline (default dir: baselines/)")
     parser.add_argument("--gate", action="store_true",
                         help="fail (exit 2) on a composite regression or a new mission-critical failure")
+    parser.add_argument("--check-config", action="store_true",
+                        help="print ARIA's real Terraform-configured AI behavior and exit (no boto3/AWS needed)")
+    parser.add_argument("--live", action="store_true",
+                        help="call the real configured Bedrock model instead of the offline stub; "
+                             "refuses (exit 2) if the real config has Bedrock off, unless --force-live")
+    parser.add_argument("--force-live", action="store_true",
+                        help="with --live, test model capability even when aria_bedrock_enabled=False "
+                             "in the real config (will not reflect current production /ai/chat behavior)")
     parser.add_argument(
         "--test-ready",
         action="store_true",
@@ -468,6 +503,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.list_model_archetypes:
         _print_model_archetypes()
         return 0
+    if args.check_config:
+        print(terraform_config.render_text(terraform_config.load()))
+        return 0
+
+    if args.force_live and not args.live:
+        print("error: --force-live requires --live")
+        return 2
+    if args.live and (args.matrix or args.matrix_bedrock):
+        print("error: --live cannot be combined with --matrix/--matrix-bedrock "
+              "(a live matrix sweep would abort on the first archetype "
+              "whose Bedrock model isn't enabled for this account).")
+        return 2
 
     config = load_config()
     if args.seeds is not None:
@@ -479,6 +526,22 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: {exc}")
             return 2
         config["model_archetype"] = args.model_archetype.strip()
+
+    config_report = None
+    if args.live:
+        tf_config = terraform_config.load()
+        config_report = terraform_config.to_dict(tf_config)
+        print(terraform_config.render_text(tf_config))
+        if not tf_config.bedrock_live_for_chat and not args.force_live:
+            print("error: aria_bedrock_enabled=False in the real config — POST /ai/chat "
+                  "would not call live Bedrock right now. Pass --force-live to test model "
+                  "capability anyway (this will NOT reflect current production behavior).")
+            return 2
+        if not tf_config.bedrock_live_for_chat:
+            print("NOTE: --force-live set — testing MODEL CAPABILITY, not current "
+                  "production /ai/chat behavior (aria_bedrock_enabled=False).")
+        config["use_real_api"] = True
+        config["strict_live"] = True
 
     try:
         models = _select_models(args)
@@ -497,24 +560,38 @@ def main(argv: list[str] | None = None) -> int:
     else:
         arch_ids = [config["model_archetype"]]
 
-    scope = args.model or (f"tier {args.tier}" if args.tier else ("all 20" if args.all else "tier 1 (default)"))
+    scope = args.model or (
+        "isometric (2 archetypes)" if args.isometric else
+        f"tier {args.tier}" if args.tier else
+        ("all 23" if args.all else "tier 1 (default)")
+    )
     arch_scope = ", ".join(arch_ids) if len(arch_ids) <= 3 else f"{len(arch_ids)} model archetypes"
     print(f"ARIA SimRunner — scope: {scope}  ·  model_archetype={arch_scope}  ·  "
           f"real_api={config['use_real_api']}  ·  seed={config['seed']}  ·  seeds={config['seed_count']}")
     print("-" * 70)
 
     records: list[dict] = []
-    for arch_id in arch_ids:
-        engine = ARIAEngine(
-            use_real_api=bool(config["use_real_api"]),
-            engine_models=config.get("engine_models"),
-            engine_model=config.get("engine_model"),
-            model_archetype=arch_id,
-        )
-        if len(arch_ids) > 1:
-            print(f"\n─ model archetype: {engine.archetype.display_name} ({arch_id}) ─")
-        for model in models:
-            records.append(run_model(model, config, engine))
+    try:
+        for arch_id in arch_ids:
+            engine = ARIAEngine(
+                use_real_api=bool(config["use_real_api"]),
+                engine_models=config.get("engine_models"),
+                engine_model=config.get("engine_model"),
+                model_archetype=arch_id,
+                strict_live=bool(config.get("strict_live", False)),
+            )
+            if len(arch_ids) > 1:
+                print(f"\n─ model archetype: {engine.archetype.display_name} ({arch_id}) ─")
+            if args.live:
+                routing_note = ("matches /ai/chat's real routing" if matches_production_routing(engine)
+                                 else "pinned via --model/--model-archetype, NOT /ai/chat's real routing")
+                print(f"Testing model(s): {', '.join(sorted(set(engine.active_models().values())))} — {routing_note}")
+            for model in models:
+                records.append(run_model(model, config, engine, config_report=config_report))
+    except LiveConfigError as exc:
+        print("-" * 70)
+        print(f"LIVE CONFIG CHECK FAILED: {exc}")
+        return 3
 
     print("-" * 70)
     if len(records) > 1:
@@ -524,7 +601,7 @@ def main(argv: list[str] | None = None) -> int:
         crit = sum(s["critical_failures"] for s in records)
         mc = sum(s["mission_critical_count"] for s in records)
         held = sum(1 for s in records if not s["system_passed"])
-        path = report_builder.save_combined_summary(records, _REPORTS_DIR)
+        path = report_builder.save_combined_summary(records, _REPORTS_DIR, config_report=config_report)
         print(f"Suite: {len(records)} runs · avg composite {avg}/100 · avg determinism {det} · "
               f"{crit} critical · {mc} mission-critical · {held} held")
         print(f"Combined summary → {os.path.relpath(path, _HERE)}")

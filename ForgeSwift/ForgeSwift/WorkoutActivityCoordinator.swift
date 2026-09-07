@@ -63,6 +63,15 @@ final class WorkoutActivityCoordinator: NSObject, WCSessionDelegate {
             }
             return
         }
+        if let data = payload[WorkoutLinkKeys.vitals] as? Data,
+           let vitals = try? JSONDecoder().decode(WatchVitalsPayload.self, from: data) {
+            Task { @MainActor in
+                AriaHealthRiskBridge.consider(
+                    vitals,
+                    quietMode: UserDefaults.standard.bool(forKey: "forge.quiet.mode.v1")
+                )
+            }
+        }
         if payload[WorkoutLinkKeys.ended] != nil {
             Task { await self.endActivity() }
             return

@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// Voice capture surface. Deliberately *non-modal*: it rises from the bottom
 /// over a light scrim so the conversation stays visible and the user never
@@ -39,8 +40,8 @@ struct VoiceOrbOverlay: View {
                     if !reduceMotion {
                         RadialGradient(
                             colors: [
-                                mood.accentColor.opacity(0.28),
-                                Color(hex: "7B61FF").opacity(0.08),
+                                ForgePalette.amber.opacity(0.16),
+                                ForgePalette.ember.opacity(0.10),
                                 .clear
                             ],
                             center: .center, startRadius: 16, endRadius: 170
@@ -54,7 +55,7 @@ struct VoiceOrbOverlay: View {
                         state:     speech.voiceState.orbState,
                         amplitude: max(speech.amplitude, 0.35),
                         mood:      mood,
-                        size:      148,
+                        size:      160,
                         followPresence: true
                     )
                         .scaleEffect(orbRevealed ? 1.0 : 0.7)
@@ -175,11 +176,11 @@ struct VoiceOrbOverlay: View {
 
     private func orbAccent(_ state: VoiceState) -> Color {
         switch state {
-        case .idle:       return Color(hex: "00D2FF")
-        case .listening:  return Color.ember
-        case .processing: return Color(hex: "A855F7")
-        case .speaking:   return Color(hex: "22C55E")
-        case .error:      return Color(hex: "EF4444")
+        case .idle:       return ForgePalette.teal
+        case .listening:  return ForgePalette.ember
+        case .processing: return ForgePalette.steel
+        case .speaking:   return ForgePalette.emberLight
+        case .error:      return ForgePalette.danger
         }
     }
 }

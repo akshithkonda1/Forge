@@ -43,7 +43,7 @@ struct AddSupportedPersonSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("Partner, daughter, sister, friend — each person is their own. ARIA will not treat a child as a partner.")
+                    Text("Partner, relative, or parent — including a parent of a minor. Each person is their own. They need an iPhone; invites are iMessage only.")
                         .font(FDS.TypeScale.body(14))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -51,7 +51,7 @@ struct AddSupportedPersonSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("WHO")
                             .forgeSectionLabel()
-                        ForEach(CycleSupportRole.allCases) { option in
+                        ForEach(CycleSupportRole.selectableRoles) { option in
                             Button {
                                 role = option
                                 label = option.suggestedLabels.first ?? label
@@ -235,47 +235,23 @@ struct CycleAccuracyExplainerSheet: View {
 struct SexualHealthEntryCard: View {
     let store: AppStore
     let cycleStore: MenstrualHealthStore
+    @State private var showDifficultyGuide = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("SEXUAL HEALTH & CONTRACEPTION")
+            Text("SEXUAL HEALTH & INTIMACY")
                 .font(FDS.TypeScale.label(11))
                 .foregroundColor(.textTertiary)
                 .tracking(0.8)
 
+            Text("Healthy sex, safe sex, positions, period sex, and how a partner can actually help — on this iPhone. Forge is not a contraceptive.")
+                .font(FDS.TypeScale.body(11))
+                .foregroundColor(.textTertiary)
+
             VStack(spacing: 8) {
-                entryButton(
-                    icon: "pills.fill",
-                    label: "Contraception methods",
-                    subtitle: "Biology-first overview with effectiveness data",
-                    prompt: SexualHealthCoach.contraceptionOverviewPrompt(
-                        biologicalSex: store.userProfile.biologicalSex,
-                        snapshot: cycleStore.snapshot.phase != .unknown ? cycleStore.snapshot : nil,
-                        isEducational: store.userProfile.educationalCycleMode,
-                        isHormonal: cycleStore.settings.usesHormonalContraception
-                    )
-                )
-                entryButton(
-                    icon: "calendar.badge.checkmark",
-                    label: "Fertility awareness (FAM)",
-                    subtitle: "How reliable is FAM for your cycle specifically",
-                    prompt: SexualHealthCoach.famReliabilityPrompt(snapshot: cycleStore.snapshot)
-                )
-                entryButton(
-                    icon: "heart.circle.fill",
-                    label: "Wellbeing in my phase",
-                    subtitle: "Hormonal context for energy, mood & libido",
-                    prompt: SexualHealthCoach.phaseWellnessPrompt(
-                        phase: cycleStore.snapshot.phase,
-                        snapshot: cycleStore.snapshot.phase != .unknown ? cycleStore.snapshot : nil
-                    )
-                )
-                entryButton(
-                    icon: "clock.badge.checkmark",
-                    label: "Fertility timing (TTC)",
-                    subtitle: "Optimise timing using your ovulation data",
-                    prompt: SexualHealthCoach.ttcPrompt(snapshot: cycleStore.snapshot)
-                )
+                ForEach(IntimacyFlow.allCases) { flow in
+                    entryButton(flow)
+                }
             }
 
             Text(SexualHealthCurriculum.medicalDisclaimer)
@@ -285,27 +261,37 @@ struct SexualHealthEntryCard: View {
         }
         .padding(16)
         .forgeGlassCard(accent: Color(hex: "EC4899"))
+        .sheet(isPresented: $showDifficultyGuide) {
+            DifficultyConceivingGuideView {
+                showDifficultyGuide = false
+                startFlow(.difficultyConceiving)
+            }
+        }
     }
 
-    private func entryButton(icon: String, label: String, subtitle: String, prompt: String) -> some View {
+    private func entryButton(_ flow: IntimacyFlow) -> some View {
         Button {
-            store.openChat(with: prompt, voice: false)
+            if flow == .difficultyConceiving {
+                showDifficultyGuide = true
+            } else {
+                startFlow(flow)
+            }
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: icon)
+                Image(systemName: flow.icon)
                     .font(.system(size: 15))
                     .foregroundColor(.ember)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(label)
+                    Text(flow.label)
                         .font(FDS.TypeScale.label(14))
                         .foregroundColor(.textPrimary)
-                    Text(subtitle)
+                    Text(flow.subtitle)
                         .font(FDS.TypeScale.body(11))
                         .foregroundColor(.textTertiary)
                 }
                 Spacer()
-                Image(systemName: "arrow.up.right")
+                Image(systemName: flow == .difficultyConceiving ? "chevron.right" : "arrow.up.right")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.textTertiary)
             }
@@ -315,6 +301,19 @@ struct SexualHealthEntryCard: View {
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityHint(flow.opensChat ? "Opens ARIA" : "Opens a guide")
+    }
+
+    private func startFlow(_ flow: IntimacyFlow) {
+        let todayKey = CycleDayKey.key()
+        let session = IntimacyFlowComposer.session(
+            flow,
+            phase: cycleStore.snapshot.phase,
+            snapshot: cycleStore.snapshot.phase == .unknown ? nil : cycleStore.snapshot,
+            todayLog: cycleStore.logs.first(where: { $0.dayKey == todayKey }),
+            relationshipLabel: cycleStore.partnerSettings.relationshipLabel
+        )
+        store.startIntimacyFlow(session)
     }
 }
 

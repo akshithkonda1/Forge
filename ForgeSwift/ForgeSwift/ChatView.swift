@@ -61,6 +61,7 @@ struct ChatView: View {
 
     // Cancellable timers for transient UI so nothing fires after teardown.
     @State private var proactiveInsightTask:  Task<Void, Never>? = nil
+    @State private var sendTask: Task<Void, Never>? = nil
 
     @FocusState private var isInputFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
@@ -204,8 +205,7 @@ struct ChatView: View {
             )
             speech.conversationalMood = ariaMood
             ariaContext.updateProfile(
-                goals: store.userProfile.fitnessGoals.map(\.label),
-                lifestyleTags: [store.userProfile.experienceLevel.label]
+                goals: store.userProfile.fitnessGoals.map(\.label)
             )
             Task { await store.syncChatHistoryFromCloud() }
             proactiveInsightTask?.cancel()
@@ -222,6 +222,9 @@ struct ChatView: View {
             }
         }
         .onChange(of: store.ariaPendingChatPrompt) { _, _ in
+            tryConsumeHandoff()
+        }
+        .onChange(of: store.pendingIntimacySession) { _, _ in
             tryConsumeHandoff()
         }
         .onChange(of: store.ariaVoiceLaunch) { _, _ in
@@ -242,6 +245,8 @@ struct ChatView: View {
             // Nothing should keep running once chat is off-screen.
             speech.cancel()
             proactiveInsightTask?.cancel()
+            sendTask?.cancel()
+            isTyping = false
             showVoiceOrb = false
         }
         .onChange(of: speech.recognizedText) { _, text in
@@ -255,19 +260,32 @@ struct ChatView: View {
 
     /// Home / tab → chat bridge (prompt + optional one-shot voice orb).
     private func tryConsumeHandoff() {
-        guard store.ariaPendingChatPrompt != nil || store.ariaVoiceLaunch else { return }
+        guard store.ariaPendingChatPrompt != nil
+                || store.ariaVoiceLaunch
+                || store.pendingIntimacySession != nil else { return }
         consumePendingHomeHandoff()
     }
 
     private func consumePendingHomeHandoff() {
         let result = ARIAChatHandoff.consume(
-            .init(pendingPrompt: store.ariaPendingChatPrompt, voiceLaunch: store.ariaVoiceLaunch)
+            .init(
+                pendingPrompt: store.ariaPendingChatPrompt,
+                voiceLaunch: store.ariaVoiceLaunch,
+                intimacySession: store.pendingIntimacySession
+            )
         )
         store.ariaPendingChatPrompt = nil
         store.ariaVoiceLaunch = false
+        store.pendingIntimacySession = nil
 
         if result.startVoice {
             startVoiceCapture()
+        }
+
+        if let session = result.intimacySession {
+            store.seedIntimacyConversation(session)
+            showQuickActions = true
+            return
         }
 
         if let prompt = result.prompt {
@@ -291,7 +309,7 @@ struct ChatView: View {
 
     func sendMessage(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, !isTyping else { return }
+        guard !trimmed.isEmpty, !isTyping, !store.isGeneratingResponse else { return }
 
         choreographedHaptic(.messageSent, mood: ariaMood)
 
@@ -305,8 +323,10 @@ struct ChatView: View {
         swipeReplyTarget = nil
         proactiveInsight = nil
 
-        Task {
+        sendTask?.cancel()
+        sendTask = Task {
             await store.sendMessage(trimmed)
+            guard !Task.isCancelled else { return }
             isTyping = false
             if store.isInAriaFirstBond { showQuickActions = true }
             choreographedHaptic(.messageReceived, mood: ariaMood)

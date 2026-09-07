@@ -176,6 +176,7 @@ struct ActiveWorkoutView: View {
                 simulatedHR = max(simulatedHR, store.dailyMetrics.restingHR)
             }
             syncVoiceCoach()
+            voiceCoach.setVoiceEnabled(AriaTrainVoice.isEnabled)
             voiceCoach.announceWorkoutStart()
             publishLiveActivity()
         }
@@ -222,7 +223,7 @@ struct ActiveWorkoutView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
             HStack(spacing: 8) {
-                VoiceToggleButton(coach: voiceCoach)
+                AriaTrainMuteButton(coach: voiceCoach)
                 elapsedChip
                 endButton
             }

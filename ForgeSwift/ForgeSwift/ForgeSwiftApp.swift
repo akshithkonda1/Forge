@@ -60,6 +60,7 @@ struct ForgeSwiftApp: App {
                         await store.flushPendingWidgetWater(openHydrationOnSuccess: true)
                         store.publishHomeWidgets()
                         await MenstrualHealthStore.shared.syncSharedPeriodFinished()
+                        await AriaHealthRiskBridge.evaluateFromHealthKit(quietMode: store.quietMode)
                     }
                 }
                 .onOpenURL { url in

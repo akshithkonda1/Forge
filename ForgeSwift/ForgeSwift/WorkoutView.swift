@@ -51,6 +51,7 @@ struct WorkoutIdleView: View {
     @State private var selectedExerciseIndex: Int? = nil
     @State private var showLibrary = false
     @State private var showDashboard = false
+    @State private var showWeekPicker = false
     @State private var scalingApplied = false
 
     private var scaling: PlanScaling { AdaptiveEngine.scaling(readiness: store.readiness, experience: store.userProfile.experienceLevel) }
@@ -58,11 +59,23 @@ struct WorkoutIdleView: View {
     var body: some View {
         ZStack {
             WorkoutBackground(accentColor: .ember).ignoresSafeArea()
+            VStack(spacing: 0) {
+                HStack {
+                    Spacer()
+                    AriaTrainMuteButton()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
             if let workout = store.todayWorkout {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 22) {
                         idleHeader(workout: workout)
-                            .padding(.horizontal, 20).padding(.top, 60)
+                            .padding(.horizontal, 20).padding(.top, 20)
+
+                        weekActions
+                            .padding(.horizontal, 16)
+                            .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 10)
+                            .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.18), value: appeared)
 
                         quickActions
                             .padding(.horizontal, 16)
@@ -93,8 +106,15 @@ struct WorkoutIdleView: View {
             } else {
                 WorkoutEmptyState()
             }
+            }
         }
         .sheet(isPresented: $showLibrary) { ExerciseLibraryView() }
+        .sheet(isPresented: $showWeekPicker) {
+            WeekSessionPicker { weekday in
+                store.adoptSplitSession(weekday: weekday)
+                showWeekPicker = false
+            }
+        }
         .sheet(item: $store.pendingShowHow) { def in
             ExerciseDetailSheet(def: def)
         }
@@ -108,6 +128,33 @@ struct WorkoutIdleView: View {
             withAnimation(.spring(response: 0.72, dampingFraction: 0.8).delay(0.08)) { appeared = true }
             withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) { pulseOrb = true }
         }
+    }
+
+    private var weekActions: some View {
+        HStack(spacing: 10) {
+            idleActionTile(
+                icon: "arrow.uturn.backward",
+                title: "Yesterday",
+                subtitle: yesterdaySubtitle,
+                accent: Color(hex: "A855F7")
+            ) {
+                store.adoptSplitSession(replayPrior: true)
+            }
+            idleActionTile(
+                icon: "calendar",
+                title: "This week",
+                subtitle: "Pick a day",
+                accent: Color(hex: "38BDF8")
+            ) {
+                showWeekPicker = true
+            }
+        }
+    }
+
+    private var yesterdaySubtitle: String {
+        let day = (WeeklySplit.sun0(from: Date()) + 6) % 7
+        let slot = WeeklySplit.slot(for: day, in: store.userProfile.weeklySplit)
+        return slot.title
     }
 
     private var quickActions: some View {
@@ -620,6 +667,46 @@ struct WorkoutInsightsView: View {
         .shadow(color: .black.opacity(0.05), radius: 12, y: 5)
         .onAppear { appeared = true }
         .task { store.shareWorkoutInsightsIfNeeded(insights.map(\.text)) }
+    }
+}
+
+struct WeekSessionPicker: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    let onPick: (Int) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(WeeklySplit.normalized(store.userProfile.weeklySplit)) { slot in
+                    Button {
+                        onPick(slot.weekday)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(WeeklySplit.dayNames[slot.weekday])
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.textPrimary)
+                                Text(slot.isRest ? "Rest · easy core if you want it" : "\(slot.title) · \(slot.exerciseCount) exercises")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.textSecondary)
+                            }
+                            Spacer()
+                            if slot.weekday == WeeklySplit.sun0(from: Date()) {
+                                Text("Today")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.ember)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("This week")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 

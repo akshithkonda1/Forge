@@ -77,10 +77,10 @@ enum CycleStage: String, Codable, Equatable {
     /// Same arc, phrased for the person supporting them.
     func partnerLabel(name: String) -> String {
         switch self {
-        case .period: return "\(name) is on her period"
+        case .period: return "\(name) is on their period"
         case .postPeriod: return "\(name)'s period has finished"
-        case .fertile: return "\(name) is in her fertile window"
-        case .ovulation: return "\(name) is around ovulation"
+        case .fertile: return "\(name) is in a higher-energy window"
+        case .ovulation: return "\(name) is around mid-cycle"
         case .premenstrual: return "\(name) is pre-menstrual"
         case .unknown: return "Still learning \(name)'s rhythm"
         }
@@ -154,7 +154,9 @@ enum MenstrualPhase: String, Codable, CaseIterable, Identifiable {
 }
 
 enum CycleGoal: String, Codable, CaseIterable, Identifiable {
-    case general, ttc, avoidPregnancy
+    case general
+    case ttc
+    case intimacy
 
     var id: String { rawValue }
 
@@ -162,7 +164,7 @@ enum CycleGoal: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .general: return "General Wellness"
         case .ttc: return "Trying to Conceive"
-        case .avoidPregnancy: return "Family Planning"
+        case .intimacy: return "Intimacy & sex"
         }
     }
 
@@ -170,8 +172,23 @@ enum CycleGoal: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .general: return "heart.text.square.fill"
         case .ttc: return "staroflife.fill"
-        case .avoidPregnancy: return "shield.fill"
+        case .intimacy: return "heart.circle.fill"
         }
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        let raw = (try? c.decode(String.self)) ?? "general"
+        switch raw {
+        case "ttc": self = .ttc
+        case "intimacy", "avoidPregnancy": self = .intimacy
+        default: self = .general
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
     }
 }
 
@@ -335,6 +352,8 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
     var stageNarrative: String = ""
     /// Days until next period median estimate (negative if overdue); nil when unknown.
     var daysUntilNextPeriod: Int? = nil
+    /// Owner requested extra thoughtfulness without sharing details.
+    var extraCareRequested: Bool = false
 
     static let empty = MenstrualCycleSnapshot(
         asOfDayKey: "",
@@ -379,7 +398,8 @@ struct MenstrualCycleSnapshot: Codable, Equatable {
         currentPeriodDayCount: nil,
         currentPeriodEndDayKey: nil,
         stageNarrative: "",
-        daysUntilNextPeriod: nil
+        daysUntilNextPeriod: nil,
+        extraCareRequested: false
     )
 }
 

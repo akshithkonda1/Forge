@@ -134,9 +134,13 @@ final class AriaContextStore: ObservableObject {
         }
         let trainingDomain = ARIAContextPayload.TrainingDomain(
             lastWorkoutType: lastWorkout?.type.rawValue,
+            lastWorkoutName: lastWorkout?.name,
             lastWorkoutDurationMinutes: lastWorkout.map { Double($0.duration) },
             hoursSinceLastWorkout: hoursSinceWorkout,
-            weeklyLoadScore: weeklyLoad
+            weeklyLoadScore: weeklyLoad,
+            schedulePlanningMode: store.userProfile.schedulePlanningMode.rawValue,
+            weeklySplit: WeeklySplit.normalized(store.userProfile.weeklySplit),
+            sun0Weekday: WeeklySplit.sun0(from: Date())
         )
         let activityCalories: Double? = store.dailyMetrics.activeCalories > 0
             ? Double(store.dailyMetrics.activeCalories)
@@ -163,6 +167,7 @@ final class AriaContextStore: ObservableObject {
             hydrationMl3DayAvg: todayStats.map { HydrationEngine.milliliters(fromGlasses: $0.water) },
             calorieTarget: 2600
         )
+        let medicationLayer = applyMedicationLayer(query: query)
         let profileDomain = ARIAContextPayload.ProfileDomain(
             primaryGoal: store.userProfile.fitnessGoals.first?.rawValue,
             experienceLevel: store.userProfile.experienceLevel.rawValue,
@@ -204,6 +209,7 @@ final class AriaContextStore: ObservableObject {
             progress: progressDomain,
             lifestyle: lifestyleDomain,
             clinicalData: clinicalDomain(),
+            medicationLayer: medicationLayer.isEmpty ? nil : medicationLayer,
             conversation: store.conversationContextPayload()
         )
     }
@@ -220,6 +226,32 @@ final class AriaContextStore: ObservableObject {
         guard HealthKitManager.shared.hasStructuredRecordsAccess,
               let summary = HealthKitManager.shared.clinicalSummary else { return [] }
         return summary.ariaConstraintLines()
+    }
+
+    /// Resolve Health + saved + mentioned names against the federal catalog.
+    /// Mutates in-memory tags only — same as cross-zone. Not persisted.
+    @discardableResult
+    func applyMedicationLayer(query: String? = nil) -> MedicationContextLayer {
+        let healthNames: [String]
+        if HealthKitManager.shared.hasStructuredRecordsAccess,
+           let summary = HealthKitManager.shared.clinicalSummary {
+            healthNames = summary.ariaDomain().medications
+        } else {
+            healthNames = []
+        }
+        let layer = MedicationContext.resolve(
+            query: query,
+            healthNames: healthNames,
+            savedNames: MedicationPharmacy.savedNames()
+        )
+        context.constraints.removeAll { $0.hasPrefix("med:") }
+        for line in layer.constraintLines where !context.constraints.contains(line) {
+            context.constraints.append(line)
+        }
+        context.lifestyleTags.removeAll { $0.hasPrefix("med_") }
+        context.lifestyleTags.append(contentsOf: layer.tags)
+        context.lifestyleTags = Array(Set(context.lifestyleTags)).sorted()
+        return layer
     }
 
     func buildRichContext(from store: AppStore) -> AriaRichContext {
@@ -272,7 +304,17 @@ final class AriaContextStore: ObservableObject {
     ) {
         if let goals { context.currentGoals = goals }
         if let constraints { context.constraints = constraints }
-        if let lifestyleTags { context.lifestyleTags = lifestyleTags }
+        if let lifestyleTags {
+            // Experience/level labels are owned here. Never replace the whole
+            // tag set — Chat used to wipe cycle, voice, emotion, and theme tags
+            // every time the tab appeared.
+            let owned = ["experience:", "level:"]
+            var next = context.lifestyleTags.filter { tag in
+                !owned.contains { tag.hasPrefix($0) } && !lifestyleTags.contains(tag)
+            }
+            next.append(contentsOf: lifestyleTags)
+            context.lifestyleTags = Array(Set(next)).sorted()
+        }
         context.lastUpdated = Date()
         persist()
     }
@@ -392,6 +434,7 @@ final class AriaContextStore: ObservableObject {
             tags.append("cycle:bleeding")
         }
         tags.append("cycle:goal:\(snap.cycleGoal?.rawValue ?? "general")")
+        tags.append("cycle:lifestyle:\(MenstrualHealthStore.shared.settings.lifestyleGoal.rawValue)")
         if let tww = snap.twwDaysElapsed {
             tags.append("cycle:tww_day:\(tww)")
         }
@@ -680,13 +723,21 @@ final class AriaContextStore: ObservableObject {
             context.lastInsights.insert(line, at: 0)
             if context.lastInsights.count > 15 { context.lastInsights = Array(context.lastInsights.prefix(15)) }
         }
-        // Constraints ARIA reasons over
         let habitConstraints = HabitEngine.constraints(for: habits)
+        context.recentPatterns = Array(patterns.suffix(12))
+        let owned = ["qol:", "stress:", "nutrition_score:", "sleep_quality:", "protein:", "steps:", "hydration:", "recovery:", "sleep:", "movement:", "meals_logged:", "habit_"]
+        var merged = context.lifestyleTags.filter { tag in
+            !owned.contains { tag.hasPrefix($0) }
+        }
+        merged.append(contentsOf: tags)
+        context.lifestyleTags = Array(Set(merged)).sorted()
+        context.constraints.removeAll { $0.hasPrefix("habit:") }
         for hc in habitConstraints where !context.constraints.contains(hc) {
             context.constraints.append(hc)
         }
-        context.recentPatterns = Array(patterns.suffix(12))
-        context.lifestyleTags = Array(Set(tags)).sorted()
+        if context.constraints.count > 40 {
+            context.constraints = Array(context.constraints.suffix(40))
+        }
         context.lastUpdated = Date()
         persist()
     }

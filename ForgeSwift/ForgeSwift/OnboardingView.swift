@@ -27,6 +27,7 @@ struct OnboardingView: View {
         }
         .animation(FDS.Spring.hero, value: coordinator.showAgeBlocked)
         .onAppear { coordinator.startIfNeeded() }
+        .onDisappear { coordinator.stopInterviewVoice() }
     }
 }
 

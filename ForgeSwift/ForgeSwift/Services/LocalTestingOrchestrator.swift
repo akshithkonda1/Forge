@@ -104,8 +104,10 @@ enum AriaModelTier: String {
 /// The one intentional exception: `reply()` can call out to
 /// `AriaWebResearch`, a separate, clearly-named collaborator whose entire
 /// job is a curated, keyless fetch from a handful of general (non-Forge)
-/// reference URLs — gated to local testing, isolated in its own file so
-/// this file's own "no network" grep stays literally true.
+/// reference URLs over the device's (or Simulator Mac's) default network
+/// — gated to local testing, isolated in its own file so this file's own
+/// "no network" grep stays literally true. Source *selection* lives in
+/// ForgeCore's `AriaReferenceCatalog` (no URLSession).
 @MainActor
 final class LocalTestingOrchestrator {
 
@@ -208,7 +210,7 @@ final class LocalTestingOrchestrator {
             hasSubagents: routed.count > 1
         )
 
-        await simulateThinking(tier: tier)
+        await simulateThinking(tier: tier, force: AriaCycleTools.shouldHandle(text))
 
         let domain = domainClassifier.domain(of: text)
         affinity[domain, default: 0] += 1
@@ -231,7 +233,7 @@ final class LocalTestingOrchestrator {
             )
         }
 
-        var context = store.makeTrainerContext()
+        var context = store.makeTrainerContext(query: text)
         // Feed session depth into the voice layer. `AriaVoiceEngine` infers
         // relationship level from `totalMessageCount` and folds the same number
         // into its phrasing salt, so this both deepens and rotates the voice.
@@ -247,27 +249,42 @@ final class LocalTestingOrchestrator {
         var rng = AriaSeededRNG(seed: seed &+ UInt64(exchanges))
         var parts: [String] = [base.content]
 
+        if let toolNote = AriaCycleTools.run(text: text) {
+            parts.append(toolNote)
+        }
+
+        if let riskNote = riskBeat(for: text, rng: &rng) {
+            parts.append(riskNote)
+        }
+
         if let recall = recallBeat(for: domain, rng: &rng) {
             parts.append(recall)
         }
         if let crossover = affinityBeat(excluding: domain, rng: &rng) {
             parts.append(crossover)
         }
-        // Wired: when the human is asking for outside knowledge, reach the
-        // Mac's internet and blend the note humanly — feels connected, not cited.
+        // Device / Simulator default route (Wi-Fi, or the Mac's network in
+        // Simulator). Question + salt pick a different .gov page and excerpt
+        // so the same "should I" does not reprint the same paragraph.
         var usedWeb = false
         if AriaWebResearch.isResearchWorthy(text: text, leadingDomain: domain),
-           let webNote = await AriaWebResearch.lookUp(domain: domain) {
-            // Human blend, not a footnote dump
+           let webNote = await AriaWebResearch.lookUp(
+            domain: domain,
+            question: text,
+            salt: seed &+ UInt64(exchanges)
+           ) {
             let bridge = rng.pick([
                 "Pulled this live so it's not just me:",
                 "Checked against the outside so you get more than my take:",
                 "Quick live pull — here's the outside line:",
+                "Looked it up on this machine's network — not a canned card:",
+                "Grabbed a current public page rather than repeating myself:",
             ])
             let landing = rng.pick([
                 "Now, for you specifically —",
                 "Here's how that lands with your numbers —",
                 "For your context —",
+                "Against what your Watch and Health are showing —",
             ])
             parts.append("\(bridge)\n\(webNote)\n\(landing)")
             usedWeb = true
@@ -278,7 +295,7 @@ final class LocalTestingOrchestrator {
             : agent.label
         let engine = usingFoundationModels ? "on-device model" : "on-device rules"
 
-        let wiredTag = usedWeb ? " · live web (Mac) ✓" : ""
+        let wiredTag = usedWeb ? " · live web (system network) ✓" : ""
         let planRequested = AriaThemeResolver.isPlanRequest(text) || TargetMuscle.mentioned(in: text) != nil
         if planRequested || base.richCard?.type == .workoutPlan {
             let plan = AriaPlanEngine.evaluate(input: text, context: context)
@@ -320,13 +337,17 @@ final class LocalTestingOrchestrator {
     /// genuine on-device inference with its own real latency; stacking this
     /// synthetic delay on top of that would just make an honest wait feel
     /// sluggish for no reason, so it's skipped in that case.
-    private func simulateThinking(tier: AriaModelTier) async {
-        guard !usingFoundationModels else { return }
+    ///
+    /// Cycle / intimacy / clinician-report turns still take extra time: ARIA
+    /// is running on-device tools against Apple Health, not returning a canned
+    /// one-liner. `force` keeps that wait even when Foundation Models is on.
+    private func simulateThinking(tier: AriaModelTier, force: Bool = false) async {
+        guard force || !usingFoundationModels else { return }
         var rng = AriaSeededRNG(seed: seed &+ UInt64(exchanges &* 7 &+ 1))
         // Agentic turns fan out to several specialists before anything comes
         // back, so they take visibly longer. A local mode where the hard
         // question returns as fast as "hey" is the tell that nothing fanned out.
-        let range = tier == .tertiary ? 1_600..<3_200 : 800..<2_000
+        let range = (force || tier == .tertiary) ? 1_600..<3_200 : 800..<2_000
         let milliseconds = rng.int(in: range)
         try? await Task.sleep(nanoseconds: UInt64(milliseconds) * 1_000_000)
     }
@@ -374,6 +395,18 @@ final class LocalTestingOrchestrator {
     }
 
     // MARK: - Stateful beats
+
+    private func riskBeat(for text: String, rng: inout AriaSeededRNG) -> String? {
+        guard AriaHealthRiskMonitor.shouldSurfaceInChat(text: text) else { return nil }
+        guard let payload = WatchVitalsInbox.load() else { return nil }
+        let findings = AriaHealthRiskMonitor.evaluate(payload.asReading())
+        guard let finding = AriaHealthRiskMonitor.primary(findings) else { return nil }
+        let hedge = rng.pick([
+            finding.coachLine,
+            finding.coachLine + " That's my read of the Watch / Health numbers on this phone — not a diagnosis.",
+        ])
+        return hedge
+    }
 
     /// Recall is gated on familiarity because a coach who quotes you back on the
     /// first exchange sounds like it is reading a form, not listening.

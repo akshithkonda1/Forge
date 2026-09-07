@@ -62,6 +62,7 @@ struct HomeWinCard: View {
                 )
             }
         }
+    }
 }
 
 struct HomeAgendaCard: View {

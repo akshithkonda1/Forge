@@ -1,4 +1,6 @@
 import SwiftUI
+import LocalAuthentication
+import ForgeCore
 
 /// Flagship menstrual intelligence UI — self tracking + family support.
 struct MenstrualHealthView: View {
@@ -68,6 +70,8 @@ struct MenstrualHealthView: View {
     /// snapped Support back to My cycle after a sheet dismissed.
     @State private var didApplyLaunchPane = false
     @State private var coldStartDate = Date()
+    @State private var showRhythmReport = false
+    @State private var supportCardDraft = ""
 
     private var accent: Color {
         let phase = pane == .me ? cycleStore.snapshot.phase : cycleStore.partnerSnapshot.phase
@@ -128,6 +132,9 @@ struct MenstrualHealthView: View {
                     .environmentObject(store)
                     .preferredColorScheme(.dark)
             }
+            .sheet(isPresented: $showRhythmReport) {
+                CycleRhythmReportView(cycleStore: cycleStore)
+            }
             .sheet(isPresented: $showAddPerson) {
                 AddSupportedPersonSheet(cycleStore: cycleStore) { person in
                     partnerNameDraft = person.settings.partnerName
@@ -187,6 +194,32 @@ struct MenstrualHealthView: View {
             .navigationTitle("Cycle Health")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { cycleToolbar }
+            .overlay {
+                if !cycleStore.cycleUnlockedThisSession,
+                   cycleStore.settings.enabled,
+                   cycleStore.settings.cycleLockEnabled || cycleStore.settings.discretionMode == .stealth {
+                    ZStack {
+                        Color.background.opacity(0.96).ignoresSafeArea()
+                        VStack(spacing: 16) {
+                            Image(systemName: "lock.shield.fill")
+                                .font(.system(size: 36))
+                                .foregroundStyle(Color.vitality)
+                            Text("Cycle Health is locked")
+                                .font(FDS.TypeScale.title(20))
+                                .foregroundColor(.textPrimary)
+                            Text("Face ID or your device passcode. Discretion Mode is on.")
+                                .font(FDS.TypeScale.body(14))
+                                .foregroundColor(.textSecondary)
+                                .multilineTextAlignment(.center)
+                            Button("Unlock") { unlockCycleIfNeeded() }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.ember)
+                        }
+                        .padding(28)
+                    }
+                    .accessibilityElement(children: .contain)
+                }
+            }
     }
 
     private var rootStack: some View {
@@ -249,8 +282,8 @@ struct MenstrualHealthView: View {
         phaseOrbitCard
         coldStartCard
         quickLogCard
+        sexualHealthCard
         Group {
-            shareSupportCard
             settingsCard
             disclaimerFooter
         }
@@ -260,6 +293,9 @@ struct MenstrualHealthView: View {
     private var meEnabledPrimary: some View {
         phaseOrbitCard
         cycleStageCard
+        supportCardComposer
+        extraCareCard
+        trainingPrescriptionCard
         if let condition = cycleStore.settings.condition.activeCase {
             conditionCard(condition)
         }
@@ -283,7 +319,11 @@ struct MenstrualHealthView: View {
             }
             CycleGoalSelectorCard(
                 goal: cycleStore.settings.cycleGoal,
-                onUpdate: { cycleStore.updateCycleGoal($0) }
+                lifestyleGoal: cycleStore.settings.lifestyleGoal,
+                periodTrainingStyle: cycleStore.settings.periodTrainingStyle,
+                onUpdate: { cycleStore.updateCycleGoal($0) },
+                onLifestyle: { goal in cycleStore.updateSettings { $0.lifestyleGoal = goal } },
+                onPeriodStyle: { style in cycleStore.updateSettings { $0.periodTrainingStyle = style } }
             )
             twwSection
         }
@@ -296,16 +336,88 @@ struct MenstrualHealthView: View {
         // children, and adding sharing as an eleventh sibling is a compile
         // error with a diagnostic that points nowhere near the real cause.
         Group {
-            shareSupportCard
             settingsCard
             disclaimerFooter
         }
     }
 
-    /// Entry point to partner sharing. Sits below the coaching cards and above
-    /// settings on purpose: sharing your cycle with someone is a considered
-    /// decision, not a toggle you should meet before you have looked at your
-    /// own data.
+    /// Owner-authored holistic Support card — single line, 280 chars, vaulted.
+    /// Whole-person intent (`symptoms`/`flow`/`notes` stay vaulted) that travels
+    /// in `PartnerCycleDigest` so male can grasp conversations ARIA has *and*
+    /// things she didn't tell him directly — without auto-sharing a diary.
+    /// Female keeps full snapshot (phase, scores, training) inside Cycle Health;
+    /// this card is the only holistic line that leaves it, and workout listing
+    /// never shows period phases.
+    private var supportCardComposer: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "heart.text.square.fill")
+                    .foregroundStyle(Color.ember)
+                Text("Support card for partner").font(FDS.TypeScale.label(13)).foregroundColor(.textPrimary)
+                Spacer()
+                Text("\(supportCardDraft.count)/280").font(FDS.TypeScale.micro(11)).foregroundColor(.textTertiary)
+            }
+            Text("What helps you, in your words. Shared on Support coach + Timing. Never auto-filled from cramps/pain/notes.").font(FDS.TypeScale.body(11)).foregroundColor(.textTertiary).fixedSize(horizontal: false, vertical: true)
+            TextField("e.g. tea + quiet tonight, heat pad helps, space first 2 days…", text: $supportCardDraft, axis: .vertical)
+                .textFieldStyle(.plain).lineLimit(3...4).padding(12).background(Color.surfaceElevated).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .onChange(of: supportCardDraft) { _, v in if v.count > 280 { supportCardDraft = String(v.prefix(280)) } }
+                .onAppear { supportCardDraft = cycleStore.settings.supportCardLine ?? "" }
+                .onChange(of: cycleStore.settings.supportCardLine) { _, v in supportCardDraft = v ?? "" }
+            let trimmedPreview = supportCardDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let preview = (trimmedPreview.isEmpty ? nil : trimmedPreview) ?? cycleStore.settings.supportCardLine {
+                HStack(spacing: 8) { Image(systemName: "eye.fill").foregroundStyle(Color(hex: "6366F1")); Text("Partner will see: \"\(preview)\"").font(FDS.TypeScale.body(12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true); Spacer(minLength: 0) }.padding(.horizontal, 2)
+            }
+            HStack(spacing: 10) {
+                Button { cycleStore.updateSupportCard(supportCardDraft); FDS.notificationHaptic(.success) } label: { Text("Save card").font(FDS.TypeScale.label(14)).foregroundColor(.white).padding(.horizontal, 16).padding(.vertical, 10).background(Color.ember).clipShape(Capsule()) }.buttonStyle(.plain).disabled(supportCardDraft.trimmingCharacters(in: .whitespacesAndNewlines) == (cycleStore.settings.supportCardLine ?? ""))
+                if cycleStore.settings.supportCardLine != nil {
+                    Button { supportCardDraft = ""; cycleStore.updateSupportCard(nil); FDS.haptic(.light) } label: { Text("Clear").font(FDS.TypeScale.label(14)).foregroundColor(.ember) }.buttonStyle(.plain)
+                }
+                Spacer()
+            }
+        }.padding(18).forgeGlassCard(accent: Color.ember)
+    }
+
+    /// Extra care ping for supporters — stays on My cycle because it is about
+    /// *today's* body, not an invite.
+    private var extraCareCard: some View {
+        let active = cycleStore.settings.extraCareIsActive()
+        return Button {
+            cycleStore.updateSettings { s in
+                s.needExtraCareDayKey = active ? nil : CycleDayKey.key()
+            }
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: active ? "heart.circle.fill" : "heart.circle")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color.ember)
+                    .frame(width: 30)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(active ? "Extra care is on" : "Need extra care today")
+                        .font(FDS.TypeScale.label(15))
+                        .foregroundColor(.textPrimary)
+                    Text("Supporters see a thoughtfulness ping — not why. Expires in 48 hours.")
+                        .font(FDS.TypeScale.body(12))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .forgeGlassCard(accent: .ember)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var trainingPrescriptionCard: some View {
+        CycleTrainingPrescriptionCard(prescription: cycleStore.trainingPrescription) {
+            let rx = cycleStore.trainingPrescription
+            store.openChat(with: "My goal is \(cycleStore.settings.lifestyleGoal.label). I'm in \(cycleStore.snapshot.phase.label). \(rx.headline) \(rx.volumeLine) Shape today's session.")
+        }
+    }
+
+    /// Invite lives on Support. My cycle is the owner's log — not the place
+    /// you send someone a share.
     private var shareSupportCard: some View {
         Button {
             showSharing = true
@@ -437,6 +549,7 @@ struct MenstrualHealthView: View {
         // seeing a digest on their next visit, not whenever a push happens to
         // arrive.
         Task { await cycleStore.syncSharedPeriodFinished() }
+        unlockCycleIfNeeded()
         withAnimation(FDS.Spring.hero.delay(0.05)) { appeared = true }
         guard !UIAccessibility.isReduceMotionEnabled else { return }
         withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
@@ -858,26 +971,36 @@ struct MenstrualHealthView: View {
 
     // MARK: Enable self
 
+    private var isCyclePhysiologyProfile: Bool {
+        store.userProfile.biologicalSex?.cycleAutoEnabled == true
+            || store.userProfile.gender == .female
+    }
+
     private var enableCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(Color(hex: "EF4444").opacity(0.15))
+                    .fill(Color(hex: "22C55E").opacity(0.15))
                     .frame(width: 72, height: 72)
-                Image(systemName: "drop.fill")
+                Image(systemName: isCyclePhysiologyProfile ? "drop.fill" : "person.crop.circle.badge.checkmark")
                     .font(.system(size: 28))
-                    .foregroundStyle(Color(hex: "EF4444"))
+                    .foregroundStyle(Color(hex: isCyclePhysiologyProfile ? "EF4444" : "22C55E"))
             }
-            Text("Track with precision")
+            Text(isCyclePhysiologyProfile ? "Track with precision" : "This is my cycle")
                 .font(FDS.TypeScale.title(20))
                 .foregroundColor(.textPrimary)
-            Text("Log flow, symptoms, and optional BBT. ARIA personalizes cycle length, ovulation estimates, and training bias — never medical diagnosis.")
+            Text(isCyclePhysiologyProfile
+                 ? "Log flow, symptoms, and optional BBT. ARIA personalizes cycle length, ovulation estimates, and training bias — never medical diagnosis."
+                 : "Cycle tracking is built for the person whose cycle it is — typically female physiology. You can turn it on anytime if that's you. If you are here to help someone else, stay on Support.")
                 .font(FDS.TypeScale.body(14))
                 .foregroundColor(.textSecondary)
             featureRow("drop.circle.fill", "Period episodes & predictions")
             featureRow("waveform.path.ecg", "Multi-signal confidence + feedback MAE")
             featureRow("sparkles", "Phase-aware ARIA coaching")
             featureRow("lock.shield.fill", CyclePrivacy.shortPromise)
+            if !isCyclePhysiologyProfile {
+                featureRow("checkmark.seal.fill", "Males can opt in at any time — Support stays available")
+            }
 
             Toggle(isOn: $privacyAccepted) {
                 Text("I understand cycle data is for my coaching only — never sold")
@@ -893,11 +1016,14 @@ struct MenstrualHealthView: View {
                     $0.shareWithAria = false
                     $0.privacyAcknowledged = true
                 }
+                if !isCyclePhysiologyProfile {
+                    store.userProfile.educationalCycleMode = true
+                }
                 FDS.haptic(.medium)
                 showToast("Cycle tracking on")
                 Task { await cycleStore.syncFromHealthKit() }
             } label: {
-                Text("Enable my cycle")
+                Text(isCyclePhysiologyProfile ? "Enable my cycle" : "Turn on my cycle")
                     .font(FDS.TypeScale.label(16))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -1220,6 +1346,26 @@ struct MenstrualHealthView: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    private func unlockCycleIfNeeded() {
+        let locked = cycleStore.settings.cycleLockEnabled
+            || cycleStore.settings.discretionMode == .stealth
+        guard locked, cycleStore.settings.enabled, !cycleStore.cycleUnlockedThisSession else {
+            cycleStore.cycleUnlockedThisSession = true
+            return
+        }
+        let ctx = LAContext()
+        var error: NSError?
+        guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            cycleStore.cycleUnlockedThisSession = true
+            return
+        }
+        ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Unlock Cycle Health") { success, _ in
+            DispatchQueue.main.async {
+                cycleStore.cycleUnlockedThisSession = success
+            }
+        }
     }
 
     private func showToast(_ msg: String) {
@@ -1773,10 +1919,14 @@ struct MenstrualHealthView: View {
 
     private var ariaCoachCard: some View {
         Button {
-            let phase = cycleStore.snapshot.phase.label
-            let prompt = cycleStore.settings.shareWithAria
-                ? "I'm in \(phase) — how should I train and recover today?"
-                : "Help me train and recover today."
+            let prompt: String = {
+                if cycleStore.settings.shareWithAria {
+                    let phase = cycleStore.snapshot.phase.label
+                    let rx = cycleStore.trainingPrescription
+                    return "My goal is \(cycleStore.settings.lifestyleGoal.label). I'm in \(phase). \(rx.headline) How should I train today?"
+                }
+                return "Help me train and recover today."
+            }()
             store.openChat(with: prompt, voice: false)
         } label: {
             HStack(spacing: 14) {
@@ -1833,9 +1983,9 @@ struct MenstrualHealthView: View {
                 set: { v in cycleStore.updateSettings { $0.shareWithAria = v } }
             )) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Share cycle with ARIA")
+                    Text("ARIA reads cycle on this iPhone")
                         .foregroundColor(.textPrimary)
-                    Text("Off until you turn it on. ARIA never sees phase unless you opt in.")
+                    Text("ARIA may mention your cycle in chat on this iPhone. Samples never leave the device. Claude/Grok do not get your chart.")
                         .font(FDS.TypeScale.body(11))
                         .foregroundColor(.textTertiary)
                 }
@@ -1858,12 +2008,41 @@ struct MenstrualHealthView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("High-accuracy mode")
                         .foregroundColor(.textPrimary)
-                    Text("BBT/OPK cues + same-day confirms. Lifestyle only — not contraception.")
+                    Text("On or off — always. When on, BBT/OPK cues and learned period-end prefs tighten today's training cap.")
                         .font(FDS.TypeScale.body(11))
                         .foregroundColor(.textTertiary)
                 }
             }
             .tint(Color(hex: "A855F7"))
+
+            Picker("Discretion", selection: Binding(
+                get: { cycleStore.settings.discretionMode },
+                set: { mode in cycleStore.updateSettings { $0.discretionMode = mode } }
+            )) {
+                ForEach(CycleDiscretionMode.allCases) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            Text(cycleStore.settings.discretionMode.detail)
+                .font(FDS.TypeScale.body(11))
+                .foregroundColor(.textTertiary)
+
+            Button {
+                showRhythmReport = true
+            } label: {
+                HStack {
+                    Image(systemName: "lock.rectangle.stack.fill")
+                    Text("Apple Cycle report")
+                        .font(FDS.TypeScale.label(14))
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.textTertiary)
+                }
+                .foregroundColor(.textPrimary)
+                .padding(.vertical, 8)
+            }
+            .buttonStyle(.plain)
 
             Toggle(isOn: Binding(
                 get: { cycleStore.settings.enabled },
@@ -2104,6 +2283,12 @@ struct MenstrualHealthView: View {
             // outranks a guess assembled from manual entries.
             sharedWithMeSection
 
+            shareSupportCard
+
+            if !cycleStore.settings.enabled {
+                myCycleOptInCard
+            }
+
             peopleStrip
 
             if cycleStore.supportedPeople.isEmpty {
@@ -2124,6 +2309,40 @@ struct MenstrualHealthView: View {
                     .foregroundColor(.textTertiary)
             }
         }
+    }
+
+    /// Support is help-someone. My cycle is *this body*. Males can opt in
+    /// anytime without redoing onboarding.
+    private var myCycleOptInCard: some View {
+        Button {
+            pane = .me
+            FDS.selectionHaptic()
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color(hex: "22C55E"))
+                    .frame(width: 30)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("This is my cycle — turn on tracking")
+                        .font(FDS.TypeScale.label(15))
+                        .foregroundColor(.textPrimary)
+                    Text(isCyclePhysiologyProfile
+                         ? "Open My cycle to enable your log."
+                         : "Cycle tracking is for the person whose cycle it is. You can opt in anytime. Support stays here for helping someone else.")
+                        .font(FDS.TypeScale.body(12))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.textTertiary)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .forgeGlassCard(accent: Color(hex: "22C55E"))
+        }
+        .buttonStyle(.plain)
     }
 
     /// Partner, daughter, sister — each is a chip, not a rewrite of the last one.
@@ -2285,7 +2504,7 @@ struct MenstrualHealthView: View {
                 .forgeSectionLabel()
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(CycleSupportRole.allCases) { role in
+                    ForEach(CycleSupportRole.selectableRoles) { role in
                         Button {
                             supportRole = role
                             partnerRelDraft = role.suggestedLabels.first ?? partnerRelDraft
@@ -2573,8 +2792,8 @@ struct MenstrualHealthView: View {
                 set: { v in cycleStore.updatePartnerSettings { $0.shareWithAria = v } }
             )) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Share with ARIA").foregroundColor(.textPrimary)
-                    Text("Off until you turn it on. ARIA coaches you from what you log.")
+                    Text("ARIA reads this on this iPhone").foregroundColor(.textPrimary)
+                    Text("Never uploaded to Forge. Claude/Grok do not get their chart.")
                         .font(FDS.TypeScale.body(11))
                         .foregroundColor(.textTertiary)
                 }

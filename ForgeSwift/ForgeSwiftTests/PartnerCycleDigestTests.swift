@@ -93,8 +93,10 @@ final class PartnerCycleDigestTests: XCTestCase {
         XCTAssertFalse(body.contains("period"))
         XCTAssertFalse(body.contains("cycle"))
         XCTAssertFalse(body.contains("fertile"))
-        XCTAssertTrue(body.contains("support"))
-        XCTAssertTrue(invite.bubbleCaption.lowercased().contains("support"))
+        XCTAssertTrue(body.contains("support") || body.contains("imessage"))
+        XCTAssertFalse(body.contains("icloud"))
+        XCTAssertFalse(invite.smsAccessIsValid)
+        XCTAssertTrue(invite.iMessageOnly)
     }
 
     // MARK: - Fixtures

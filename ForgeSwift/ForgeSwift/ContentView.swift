@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 // MARK: - Root
 
@@ -52,9 +53,9 @@ struct ForgeSplashScreen: View {
 
             RadialGradient(
                 colors: [
-                    Color.ember.opacity(0.10 * glowIntensity),
-                    Color(hex: "7B61FF").opacity(0.06 * glowIntensity),
-                    Color.aurora.opacity(0.03 * glowIntensity),
+                    ForgePalette.amber.opacity(0.08 * glowIntensity),
+                    ForgePalette.ember.opacity(0.06 * glowIntensity),
+                    ForgePalette.background.opacity(0.4 * glowIntensity),
                     .clear
                 ],
                 center: .center,
@@ -73,7 +74,7 @@ struct ForgeSplashScreen: View {
                 )
                     .scaleEffect(logoScale)
                     .opacity(logoOpacity)
-                    .shadow(color: Color.ember.opacity(0.35 * glowIntensity), radius: 48, y: 8)
+                    .shadow(color: ForgePalette.amber.opacity(0.22 * glowIntensity), radius: 36, y: 6)
 
                 VStack(spacing: 10) {
                     Text("FORGE")
@@ -124,8 +125,13 @@ struct MainTabView: View {
     /// `pendingCycleHealthOpen` flag, which blanked or stuck the page.
     @State private var showCycleHealth = false
     @State private var showHydration = false
+    @State private var showClinicalData = false
     @State private var cycleInitialPane: MenstrualHealthView.Pane = .me
     @ObservedObject private var wakeStore = SleepWakeStore.shared
+
+    private var waitingToMeetAria: Bool {
+        !store.hasMetAria && (store.activeTab == .chat || store.showAriaMeetOnLaunch)
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -162,7 +168,23 @@ struct MainTabView: View {
             .transition(.opacity)
             .animation(.easeOut(duration: 0.12), value: store.activeTab)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ForgeBottomNav(namespace: namespace)
+                if !waitingToMeetAria {
+                    ForgeBottomNav(namespace: namespace)
+                }
+            }
+
+            if waitingToMeetAria {
+                AriaMeetView(
+                    onTalk: {
+                        store.meetAria()
+                        store.activeTab = .chat
+                    },
+                    onSkip: {
+                        store.showAriaMeetOnLaunch = false
+                        store.activeTab = .home
+                    }
+                )
+                .zIndex(40)
             }
         }
         .onChange(of: store.pendingCycleHealthOpen) { _, open in
@@ -173,12 +195,19 @@ struct MainTabView: View {
             guard open else { return }
             presentHydration()
         }
+        .onChange(of: store.pendingClinicalOpen) { _, open in
+            guard open else { return }
+            presentClinical()
+        }
         .onAppear {
             if store.pendingCycleHealthOpen {
                 presentCycleHealth()
             }
             if store.pendingHydrationOpen {
                 presentHydration()
+            }
+            if store.pendingClinicalOpen {
+                presentClinical()
             }
         }
         .fullScreenCover(isPresented: $showCycleHealth) {
@@ -201,6 +230,10 @@ struct MainTabView: View {
             }
             .preferredColorScheme(.dark)
             .environmentObject(store)
+        }
+        .fullScreenCover(isPresented: $showClinicalData) {
+            ClinicalDataNonPHIView()
+                .environmentObject(store)
         }
         .fullScreenCover(isPresented: $showHydration) {
             NavigationStack {
@@ -236,6 +269,11 @@ struct MainTabView: View {
     private func presentHydration() {
         showHydration = true
         store.pendingHydrationOpen = false
+    }
+
+    private func presentClinical() {
+        showClinicalData = true
+        store.pendingClinicalOpen = false
     }
 
     private func presentCycleHealth() {
@@ -379,29 +417,14 @@ struct ARIATabButton: View {
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    (isVoiceMode ? Color.steel : Color.ember).opacity(isActive ? 0.3 : 0.14),
-                                    (isVoiceMode ? Color(hex: "00D2FF") : Color.ember).opacity(0.04),
+                                    ForgePalette.amber.opacity(isActive ? 0.16 : 0.07),
+                                    ForgePalette.ember.opacity(0.10),
                                     .clear
                                 ],
                                 center: .center,
-                                startRadius: 10,
-                                endRadius: 32
+                                startRadius: 8,
+                                endRadius: 30
                             )
-                        )
-                        .frame(width: 56, height: 56)
-                        .shadow(color: (isVoiceMode ? Color.steel : Color.ember).opacity(isActive ? 0.55 : 0.22), radius: 14, y: 4)
-                    Circle()
-                        .stroke(
-                            AngularGradient(
-                                colors: [
-                                    (isVoiceMode ? Color.steelLight : Color.emberLight).opacity(0.6),
-                                    (isVoiceMode ? Color(hex: "00D2FF") : Color(hex: "FF2D55")).opacity(0.2),
-                                    (isVoiceMode ? Color.steel : Color.ember).opacity(0.4),
-                                    .clear
-                                ],
-                                center: .center
-                            ),
-                            lineWidth: 1.2
                         )
                         .frame(width: 56, height: 56)
                     ARIAIdentityMark(

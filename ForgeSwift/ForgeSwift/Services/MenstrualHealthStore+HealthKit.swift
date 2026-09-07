@@ -102,16 +102,35 @@ extension MenstrualHealthStore {
     }
 
     func writeFlowToHealthKitIfNeeded(_ log: CycleDayLog) async {
-        guard log.flow.isBleeding, log.source == "manual" || log.source == "merged" else { return }
-        // Only the first bleeding day of an episode is a cycle *start*. Tagging every
-        // bleeding day as a start told Apple Health each day began a new cycle.
-        let isEpisodeStart = MenstrualCycleEngine.buildPeriodEpisodes(from: logs)
-            .contains { $0.startDayKey == log.dayKey }
-        await HealthKitManager.shared.saveMenstrualFlow(
-            dayKey: log.dayKey,
-            flow: log.flow,
-            isCycleStart: isEpisodeStart
-        )
+        await writeCycleDayToAppleHealth(log)
+    }
+
+    /// Apple Cycle Tracking is the source of truth. Forge writes, then later
+    /// reads the same samples to template a clinician report. Nothing is posted
+    /// to a Forge database.
+    func writeCycleDayToAppleHealth(_ log: CycleDayLog) async {
+        guard log.source == "manual" || log.source == "merged" else { return }
+        let hk = HealthKitManager.shared
+        if log.flow.isBleeding || log.flow == .none {
+            let isEpisodeStart = MenstrualCycleEngine.buildPeriodEpisodes(from: logs)
+                .contains { $0.startDayKey == log.dayKey }
+            if log.flow.isBleeding {
+                await hk.saveMenstrualFlow(
+                    dayKey: log.dayKey,
+                    flow: log.flow,
+                    isCycleStart: isEpisodeStart
+                )
+            }
+        }
+        if let bbt = log.bbtCelsius {
+            await hk.saveBasalBodyTemperature(dayKey: log.dayKey, celsius: bbt)
+        }
+        if let opk = log.ovulationTest {
+            await hk.saveOvulationTest(dayKey: log.dayKey, result: opk)
+        }
+        if let mucus = log.mucus {
+            await hk.saveCervicalMucus(dayKey: log.dayKey, quality: mucus)
+        }
     }
 
     // MARK: ARIA bridge

@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct ChatEmptyStateView: View {
     let mood: ARIAMood
@@ -6,8 +7,6 @@ struct ChatEmptyStateView: View {
     var onVoiceTap: (() -> Void)? = nil
     @EnvironmentObject var store: AppStore
     @State private var appeared  = false
-    @State private var orbPulse  = false
-    @State private var orbGlow   = false
 
     // Greeting message varies by mood
     private var greeting: String {
@@ -37,36 +36,25 @@ struct ChatEmptyStateView: View {
             Spacer(minLength: 36)
 
             ZStack {
-                ForEach(0..<3, id: \.self) { i in
-                    let ringSize = CGFloat(168 + i * 52)
-                    let ringAnimation = Animation.easeOut(duration: 3.6 + Double(i) * 0.8)
-                        .repeatForever(autoreverses: false)
-                        .delay(Double(i) * 0.9)
-
-                    Circle()
-                        .stroke(mood.accentColor.opacity(0.07 - Double(i) * 0.018), lineWidth: 0.6)
-                        .frame(width: ringSize, height: ringSize)
-                        .scaleEffect(orbPulse ? 1.22 : 1.0)
-                        .opacity(orbPulse ? 0 : 0.85)
-                        .animation(ringAnimation, value: orbPulse)
-                }
-
                 Circle()
-                    .fill(RadialGradient(
-                        colors: [
-                            mood.accentColor.opacity(orbGlow ? 0.18 : 0.05),
-                            Color(hex: "7B61FF").opacity(orbGlow ? 0.06 : 0.015),
-                            .clear
-                        ],
-                        center: .center, startRadius: 8, endRadius: 110
-                    ))
-                    .frame(width: 220, height: 220).blur(radius: 36)
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                ForgePalette.ember.opacity(0.08),
+                                ForgePalette.teal.opacity(0.03),
+                                .clear
+                            ],
+                            center: .center, startRadius: 8, endRadius: 120
+                        )
+                    )
+                    .frame(width: 240, height: 240)
+                    .blur(radius: 28)
 
                 AuroraOrbView(
                     state: .idle,
                     amplitude: 0.32,
                     mood: mood,
-                    size: 128,
+                    size: 148,
                     followPresence: true
                 )
             }
@@ -201,8 +189,6 @@ struct ChatEmptyStateView: View {
         }
         .onAppear {
             appeared = true
-            withAnimation(.easeOut(duration: 3.4).repeatForever(autoreverses: false)) { orbPulse = true }
-            withAnimation(.easeInOut(duration: 4.2).repeatForever(autoreverses: true)) { orbGlow = true }
         }
     }
 }

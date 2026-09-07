@@ -39,15 +39,20 @@ struct VoiceCoachBar: View {
                                 removal: .move(edge: .top).combined(with: .opacity)
                             ))
                             .id(coach.lastCoachMessage)
+                    } else if !coach.isVoiceEnabled {
+                        Text("Voice is muted")
+                            .font(.system(size: 13))
+                            .foregroundColor(.textTertiary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
-                        Text("Tap the mic and ask Forge anything")
+                        Text("Tap the mic and ask ARIA")
                             .font(.system(size: 13))
                             .foregroundColor(.textTertiary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 
-                // Mic button
+                AriaTrainMuteButton(coach: coach)
                 MicButton(coach: coach)
             }
             .padding(16)
@@ -188,16 +193,10 @@ struct MicButton: View {
         if coach.isListening {
             coach.stopListening()
         } else {
-            // Stop speaking if Forge is mid-sentence
             if coach.isSpeaking {
-                coach.toggleVoice()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    coach.toggleVoice()
-                    coach.startListening()
-                }
-            } else {
-                coach.startListening()
+                coach.interruptSpeech()
             }
+            coach.startListening()
         }
     }
 }
@@ -234,16 +233,45 @@ struct ThinkingDotsView: View {
 
 struct VoiceToggleButton: View {
     @Bindable var coach: VoiceCoachManager
-    
+
     var body: some View {
-        Button(action: { coach.toggleVoice() }) {
-            Image(systemName: coach.isVoiceEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(coach.isVoiceEnabled ? .textSecondary : .textMuted)
+        AriaTrainMuteButton(coach: coach)
+    }
+}
+
+/// Mute ARIA's Train voice. Idle, library, and the live set all share one
+/// UserDefaults flag so mute actually sticks.
+struct AriaTrainMuteButton: View {
+    @AppStorage("aria.train.voiceMuted") private var muted = false
+    var coach: VoiceCoachManager? = nil
+
+    var body: some View {
+        Button(action: toggle) {
+            Image(systemName: muted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(muted ? .danger : .textSecondary)
                 .frame(width: 36, height: 36)
                 .background(Color.surfaceElevated)
                 .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(muted ? Color.danger.opacity(0.4) : Color.borderColor.opacity(0.45), lineWidth: 1)
+                )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(muted ? "Unmute ARIA voice" : "Mute ARIA voice")
+        .accessibilityValue(muted ? "Muted" : "On")
+        .accessibilityHint("Turns coaching speech on or off in Train")
+    }
+
+    private func toggle() {
+        FDS.haptic(.light)
+        muted.toggle()
+        if let coach {
+            coach.setVoiceEnabled(!muted)
+        } else {
+            AriaTrainVoice.isEnabled = !muted
+            if muted { AriaPresence.shared.stopSpeaking() }
+        }
     }
 }

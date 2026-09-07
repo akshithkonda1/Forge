@@ -113,6 +113,9 @@ struct CycleAIContext: Codable, Equatable {
     var irregular: Bool
     var lastUserAction: String?
     var isPartner: Bool
+    var lifestyleGoal: String = "none"
+    var trainingHeadline: String?
+    var periodTrainingStyle: String = "easy"
 }
 
 /// One actual period start vs the prediction that was live before it.

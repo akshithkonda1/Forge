@@ -52,7 +52,9 @@ public struct CompanionConfig: Equatable, Sendable {
     /// An unrecognised key has no defined destination, and defaulting it to the
     /// plist is the failure mode this type exists to prevent.
     public static func parse(_ message: [String: Any]) -> CompanionConfig? {
-        if message[WorkoutLinkKeys.state] != nil || message[WorkoutLinkKeys.ended] != nil {
+        if message[WorkoutLinkKeys.state] != nil
+            || message[WorkoutLinkKeys.ended] != nil
+            || message[WorkoutLinkKeys.vitals] != nil {
             return nil
         }
 

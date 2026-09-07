@@ -1,6 +1,7 @@
 import AVFoundation
+import CoreGraphics
+import Foundation
 import Observation
-import UIKit
 
 enum AROrbState: Equatable, Sendable {
     case idle, listening, processing, speaking
@@ -20,10 +21,11 @@ enum AriaSpeechPrep: Sendable {
 
 /// Playback categories used by ARIA speech, sleep soundscapes, and the wake alarm.
 /// One place so those three cannot drift into incompatible session options.
-enum ForgePlaybackSession: Sendable {
+enum ForgePlaybackSession: Equatable, Sendable {
     case spoken
     case sleepMix
     case alarm
+    case chime
 
     func activate() throws {
         let session = AVAudioSession.sharedInstance()
@@ -34,7 +36,7 @@ enum ForgePlaybackSession: Sendable {
                 mode: .spokenAudio,
                 options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
             )
-        case .sleepMix:
+        case .sleepMix, .chime:
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
         case .alarm:
             try session.setCategory(.playback, mode: .default, options: [])
@@ -57,6 +59,7 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     private(set) var isSpeaking = false
     private(set) var isListening = false
     private(set) var isThinking = false
+    private(set) var didPlayWelcomeChime = false
     var amplitude: Float = 0.18
 
     var orbState: AROrbState {
@@ -78,20 +81,28 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     func setThinking(_ on: Bool) { isThinking = on }
     func markSpeaking(_ on: Bool) { isSpeaking = on }
 
-    func speak(_ text: String) {
-        guard let clipped = AriaSpeechPrep.clipped(text) else { return }
-        if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
-        let utterance = AVSpeechUtterance(string: clipped)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        if UIAccessibility.isVoiceOverRunning {
-            utterance.prefersAssistiveTechnologySettings = true
-        } else {
-            utterance.rate = 0.52
-            utterance.pitchMultiplier = 0.95
-        }
-        try? ForgePlaybackSession.spoken.activate()
+    /// Hero marks call this on appear. Tab-sized marks never chime.
+    func playWelcomeChimeIfNeeded(size: CGFloat, reduceMotion: Bool) {
+        let quiet = AriaContextStore.shared.context.lifestyleTags.contains("quiet_mode:true")
+            || AriaContextStore.shared.context.constraints.contains("quiet_mode:true")
+        guard AriaWelcomeChime.shouldPlay(
+            size: size,
+            reduceMotion: reduceMotion,
+            quietMode: quiet,
+            alreadyPlayed: didPlayWelcomeChime,
+            isSpeaking: isSpeaking
+        ) else { return }
+        didPlayWelcomeChime = true
+        AriaWelcomeChime.play()
+    }
+
+    /// Speaks `text`. Pass `interrupt: false` to queue behind a line that is
+    /// already playing — onboarding uses that so an acknowledgment and the
+    /// next question land as one conversation, not a cut-off.
+    func speak(_ text: String, interrupt: Bool = true) {
+        let started = AriaSpeechPrep.enqueue(text, on: synthesizer, interrupt: interrupt)
+        guard started else { return }
         isSpeaking = true
-        synthesizer.speak(utterance)
     }
 
     func stopSpeaking() {
@@ -100,10 +111,17 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in self?.isSpeaking = false }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            // A queued interview line may still be in the synthesizer.
+            if !self.synthesizer.isSpeaking { self.isSpeaking = false }
+        }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in self?.isSpeaking = false }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            if !self.synthesizer.isSpeaking { self.isSpeaking = false }
+        }
     }
 }

@@ -38,6 +38,12 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
     public var cyclePhase: String?
     public var cycleDayInCycle: Int?
     public var cycleNextPeriodDaysAway: Int?
+    /// stealth | kind | clinical. Widgets must honor this or they leak.
+    public var cycleDiscretion: String?
+    /// Lock-safe line when discretion is `.kind`. Never a phase name.
+    public var cycleLockSafeLine: String?
+    public var bodyTemperatureF: Double?
+    public var wristTemperatureDeviationC: Double?
     public var updatedAt: Date
 
     public init(updatedAt: Date = Date()) {

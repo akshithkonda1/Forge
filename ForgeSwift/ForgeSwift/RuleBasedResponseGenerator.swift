@@ -47,6 +47,11 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             return generateTrainingResponse(input: input, context: context)
         }
 
+        // Medication context layer — Health, saved pharmacy, or a name in this turn.
+        if isMedicationQuery(lower, context: context) {
+            return generateMedicationContextResponse(context: context)
+        }
+
         // Menstrual / cycle coaching
         if isCycleQuery(lower) {
             return await generateCycleResponse(context: context, input: input)
@@ -104,7 +109,9 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         let lower = input.lowercased()
         if isGreeting(lower) { return .profile }
         if AriaThemeResolver.isPlanRequest(input) || isTrainingRequest(lower) { return .training }
+        if isMedicationQuery(lower, context: nil) { return .clinicalData }
         if isCycleQuery(lower) { return .cycle }
+        if AriaReferenceCatalog.questionSuggestsFever(input) { return .body }
         if isLowEnergyMention(lower) { return .readiness }
         if isSleepQuery(lower) { return .sleep }
         if isPainMention(lower) { return .body }
@@ -160,15 +167,51 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         AriaThemeResolver.isPlanRequest(text)
     }
 
+    private func isMedicationQuery(_ text: String, context: TrainerContext?) -> Bool {
+        if text.contains("medicat") || text.contains("pharmacy") || text.contains("prescription")
+            || text.contains("pill") || text.contains("xcopri") || text.contains("oxtellar")
+            || text.contains("cenobamate") || text.contains("oxcarbazepine") {
+            return true
+        }
+        guard let layer = context?.medicationLayer, !layer.isEmpty else { return false }
+        return layer.all.contains { entry in
+            text.contains(entry.generic.lowercased())
+                || text.contains(entry.name.lowercased())
+                || (entry.brand?.lowercased().isEmpty == false && text.contains(entry.brand!.lowercased()))
+        }
+    }
+
+    private func generateMedicationContextResponse(context: TrainerContext) -> TrainerResponse {
+        let layer = context.medicationLayer
+        var lines: [String] = []
+        if layer.isEmpty {
+            lines.append("I can use the pharmacy as a personal context layer — what you already take, not what to take.")
+            lines.append("Nothing is on file yet. Save a medication, connect Apple Health, or name one here.")
+            lines.append("I never prescribe, never name a dose, and never start or stop a medication.")
+        } else {
+            if !layer.inferredNeeds.isEmpty {
+                lines.append("From what you put in, this looks like your picture: " + layer.inferredNeeds.joined(separator: ", ") + ".")
+                lines.append("That's a filing from the catalog — not a diagnosis, and not a script for the general population.")
+            }
+            if !layer.lifestyleMutations.isEmpty {
+                lines.append(layer.lifestyleMutations.joined(separator: " "))
+            }
+            lines.append("Lifestyle and training can move around that. I'll build from the exercises you already have, scaled to you.")
+            lines.append(MedicationContextLayer.hardRules)
+        }
+        return TrainerResponse(
+            content: lines.joined(separator: " "),
+            suggestedActions: ["What should I train today?", "Keep it light today", "Open medicine"],
+            confidence: 0.86
+        )
+    }
+
     private func isCycleQuery(_ text: String) -> Bool {
-        text.contains("period") || text.contains("menstrual") || text.contains("cycle day")
-            || text.contains("luteal") || text.contains("follicular") || text.contains("ovulat")
-            || text.contains("pms") || text.contains("cramp") || text.contains("my cycle")
-            || text.contains("time of the month")
+        AriaCoachAgentRouter.isCycleQuery(text)
+            || text.contains("period") || text.contains("menstrual") || text.contains("cycle day")
             || text.contains("partner cycle") || text.contains("her period") || text.contains("her cycle")
             || text.contains("girlfriend") || text.contains("wife") || text.contains("my partner")
-            || text.contains("support her") || text.contains("sync with") || text.contains("her pms")
-            || text.contains("date night") && (text.contains("cycle") || text.contains("period"))
+            || text.contains("support her") || text.contains("her pms")
     }
 
     private func isPartnerCycleQuery(_ text: String) -> Bool {
@@ -423,6 +466,20 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         }
 
         guard let cycle = context.cycleSnapshot, cycle.trackingEnabled else {
+            if AriaCycleTools.shouldHandle(input),
+               let intimacy = AriaCycleTools.compose(
+                text: input,
+                phase: .unknown,
+                relationshipLabel: nil,
+                reportText: nil,
+                trainingText: nil
+               ) {
+                return TrainerResponse(
+                    content: intimacy,
+                    suggestedActions: ["Healthy & safe sex", "Positions to try", "Tips for a partner"],
+                    confidence: 0.86
+                )
+            }
             let msg = """
             I can coach around your cycle once tracking is on — open Cycle Health to log periods, BBT, and OPKs, or sync Apple Health.
 
@@ -466,7 +523,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
 
         return TrainerResponse(
             content: lines.joined(separator: "\n\n"),
-            suggestedActions: ["Build a phase-aware workout", "Log period start", "Explain fertile window"],
+            suggestedActions: ["Healthy & safe sex", "Positions to try", "Log period start"],
             confidence: max(0.85, cycle.confidence)
         )
     }

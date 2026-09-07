@@ -272,3 +272,77 @@ class DummyOrchestratorTests(unittest.TestCase):
                 self.assertEqual(lifetime_suite.main(["--voice-check", "--gate"]), 0)
         finally:
             sys.stdout = old
+
+    def test_train_ask_attaches_a_body_session(self):
+        row = dummy.respond("What should I train today?", seed=1)
+        session = row.get("session")
+        self.assertIsInstance(session, dict)
+        self.assertTrue(session.get("exercises"))
+        self.assertTrue(session.get("title"))
+        self.assertNotRegex(session.get("reason") or "", r"\d+\s?(ms|bpm|sets)")
+
+    def test_orchestration_envelope_is_a_real_pipeline(self):
+        row = dummy.respond("I slept badly — what should I train and eat?", seed=1)
+        orch = row["orchestration"]
+        self.assertEqual(orch["stages"], list(dummy.ORCH_STAGES))
+        kinds = {h["kind"] for h in orch["intents"]}
+        self.assertTrue({"sleep", "workout", "lifestyle"} <= kinds)
+        self.assertEqual(orch["primary"], row["agent"])
+        self.assertIn(orch["signals"]["sleep"], ("thin", "decent", "rebuilt", "unknown"))
+        self.assertIn(orch["signals"]["recovery"], ("asking", "steady", "ready"))
+        self.assertTrue(orch["persona"]["occupation"])
+        self.assertGreaterEqual(orch["latency_ms"], 40)
+        self.assertLess(orch["latency_ms"], 130)
+        self.assertIn("Heard", row["thinking"])
+
+    def test_intent_weights_prefer_what_they_opened_with(self):
+        hits = dummy.score_intents("I slept badly — what should I train and eat?")
+        by_kind = {h.kind: h for h in hits}
+        self.assertGreaterEqual(by_kind["sleep"].weight, 2)  # slept + lead bonus
+        self.assertTrue(by_kind["workout"].cues)
+        self.assertTrue(by_kind["lifestyle"].cues)
+
+    def test_prior_turns_are_acknowledged_without_breaking_determinism(self):
+        a = dummy.respond(
+            "What should I train today?",
+            seed=3,
+            prior_turns=["How did I sleep last night?"],
+        )
+        b = dummy.respond(
+            "What should I train today?",
+            seed=3,
+            prior_turns=["How did I sleep last night?"],
+        )
+        self.assertEqual(a["prose_summary"], b["prose_summary"])
+        self.assertTrue(
+            a["prose_summary"].startswith("You were asking about the night")
+            or a["prose_summary"].startswith("Picking up from last night")
+        )
+        self.assertEqual(a["orchestration"]["prior_turns"], 1)
+        fresh = dummy.respond("What should I train today?", seed=3)
+        self.assertNotEqual(fresh["prose_summary"], a["prose_summary"])
+
+    def test_persona_colors_lifestyle_without_dumping_fields(self):
+        # Default tier-1 persona is a teacher. Lifestyle asides should sound
+        # like they know the life, not like they read a spreadsheet.
+        row = dummy.respond("I slept badly — what should I train and eat?", seed=1)
+        self.assertIn("teacher", (row["orchestration"]["persona"]["occupation"] or "").lower())
+        joined = row["message"].lower()
+        self.assertNotRegex(row["message"], r"Readiness is \d")
+        self.assertNotRegex(row["message"], r"\bHRV \d")
+        # Either the lifestyle specialist or the life aside mentions the week.
+        self.assertTrue(
+            "teacher" in joined or "protein and water" in joined,
+            row["message"],
+        )
+
+    def test_read_signals_never_exposes_raw_metrics(self):
+        from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream
+        from backend.ai.simrunner.backend_simulator.data_generator import build_context
+        from backend.ai.simrunner.backend_simulator import model_registry
+
+        profile = model_registry.get_models_by_tier(1)[0]["behavioral_profile"]
+        ctx = build_context(generate_stream(profile, 42), profile, 29)
+        signals = dummy.read_signals(ctx)
+        blob = f"{signals.sleep} {signals.recovery} {signals.load} {signals.life}"
+        self.assertNotRegex(blob, r"\d")

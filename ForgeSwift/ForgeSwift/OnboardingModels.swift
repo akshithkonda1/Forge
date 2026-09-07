@@ -1,16 +1,5 @@
 import SwiftUI
 
-extension LinearGradient {
-    static let ember = LinearGradient(
-        colors: [Color.ember, Color.ember.opacity(0.82)],
-        startPoint: .topLeading, endPoint: .bottomTrailing
-    )
-    static let deepEmber = LinearGradient(
-        colors: [Color(hex: "1A0800"), Color(hex: "0A0A0A")],
-        startPoint: .top, endPoint: .bottom
-    )
-}
-
 enum OnboardingFitnessGoal: String, CaseIterable, Identifiable {
     case loseWeight, buildMuscle, improveEndurance, increaseFlexibility,
          betterSleep, reducStress, athleticPerformance, generalHealth
@@ -147,6 +136,8 @@ struct OnboardingProfile {
     var experienceLevel: ExperienceLevel = .intermediate
     var preferredWorkouts: [OnboardingWorkoutType] = []
     var coachingStyle: OnboardingCoachingStyle = .balanced
+    var schedulePlanningMode: SchedulePlanningMode = .rotate
+    var weeklySplit: [WeeklySplitSlot] = WeeklySplitSlot.defaultWeek
 
     // Lifestyle
     var sleepBand: SleepRhythmBand?
@@ -182,7 +173,9 @@ struct OnboardingProfile {
             preferredWorkouts: Array(Set(preferredWorkouts.map(\.coreType))),
             coachingStyle: coachingStyle.coreStyle,
             connectedDevices: [],
-            weeklySchedule: [],
+            weeklySchedule: WeeklySplit.trainingDays(in: weeklySplit),
+            schedulePlanningMode: schedulePlanningMode,
+            weeklySplit: WeeklySplit.normalized(weeklySplit),
             trainingEquipment: .commercialGym,
             age: hasBirthday ? ageYears : nil,
             weight: weightKg,

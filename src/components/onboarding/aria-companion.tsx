@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import type { AriaWhisper } from "@/lib/aria-onboarding";
+import { AriaMark } from "@/components/brand/aria-mark";
 
 const moodAccent: Record<AriaWhisper["mood"], string> = {
   energized: "#FF4D00",
@@ -16,8 +17,9 @@ interface AriaCompanionProps {
   className?: string;
 }
 
+/** Thin wrapper — every prior AriaOrb call site now shows the living ember. */
 export function AriaOrb({
-  mood = "focused",
+  mood: _mood = "focused",
   size = 48,
   speaking = false,
 }: {
@@ -25,34 +27,7 @@ export function AriaOrb({
   size?: number;
   speaking?: boolean;
 }) {
-  const accent = moodAccent[mood];
-  return (
-    <div
-      className="relative shrink-0"
-      style={{ width: size, height: size }}
-      aria-hidden
-    >
-      <div
-        className={cn("absolute inset-[-30%] rounded-full blur-xl aria-orb-glow")}
-        style={{ background: accent, animationDuration: speaking ? "1.4s" : "2.8s" }}
-      />
-      <div
-        className={cn(
-          "absolute inset-0 rounded-full",
-          speaking ? "aria-orb-breathe-speak" : "aria-orb-breathe"
-        )}
-        style={{
-          background: `radial-gradient(circle at 35% 30%, #1a1a1a 0%, ${accent}55 55%, #0A0A0A 100%)`,
-          boxShadow: `0 0 24px ${accent}44`,
-        }}
-      />
-      <div
-        className="absolute inset-[-8%] rounded-full border"
-        style={{ borderColor: `${accent}66` }}
-      />
-      <div className="absolute left-1/2 top-1/2 h-[18%] w-[18%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/40 blur-[1px]" />
-    </div>
-  );
+  return <AriaMark size={size} speaking={speaking} />;
 }
 
 export default function AriaCompanion({
@@ -77,7 +52,7 @@ export default function AriaCompanion({
       <div className="flex items-start gap-3">
         <AriaOrb mood={whisper.mood} size={compact ? 40 : 48} />
         <div className="min-w-0 flex-1">
-          <div className="mb-1 flex items-center gap-2">
+          <div className="mb-1 flex items-start gap-2">
             <span
               className="text-[10px] font-black uppercase tracking-[0.18em]"
               style={{ color: accent }}

@@ -91,6 +91,22 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         response["agent"] = roster[0]
         response["agents"] = roster
 
+    # Companion memory (lifestyle-gated): ingest calendar, run ARIA's daily
+    # self-evaluation once per day, and offer a daily check-in. All deterministic
+    # and side-effect-scoped to the user's own memory.
+    memory_block = ""
+    checkin_payload: dict[str, Any] | None = None
+    calendar_ingested: list[dict[str, Any]] = []
+    if permissions.allows("lifestyle"):
+        events = body.get("calendar_events")
+        if isinstance(events, list):
+            calendar_ingested = [m.to_dict() for m in _context.ingest_calendar_events(uid, events)]
+        if _context.needs_daily_evaluation(uid):
+            _context.evaluate_memory(uid)
+        checkin = _context.daily_checkin(uid)
+        checkin_payload = checkin.to_dict() if checkin else None
+        memory_block = _context.memory_prompt_block(uid)
+
     memory = _context.memory_reference(uid, message) if permissions.allows("lifestyle") else None
     # Phase 1: relationship only grows on non-clarification + >24h since last promotion
     # (prevents chat spam inflating trust). Uses dedicated last_promoted_at, not last_updated.
@@ -124,6 +140,9 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             "rich_card": None,
             "context_updates": {"relationship_level": updated_level},
             "memory_reference": memory,
+            "memory": memory_block or None,
+            "checkin": checkin_payload,
+            "calendar_ingested": calendar_ingested,
             "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
             "user_id": uid,
         }

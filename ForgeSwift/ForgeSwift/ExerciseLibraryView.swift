@@ -63,7 +63,10 @@ struct ExerciseLibraryView: View {
             .navigationTitle("Exercise Library")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.foregroundColor(.ember).fontWeight(.semibold) } }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { AriaTrainMuteButton() }
+                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.foregroundColor(.ember).fontWeight(.semibold) }
+            }
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Movements, muscles, gear")
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
@@ -213,7 +216,7 @@ struct ExerciseLibraryView: View {
             Button {
                 FDS.haptic(.medium)
                 selected = def
-                AriaPresence.shared.speak(ExerciseLibrary.howToScript(for: def))
+                AriaTrainVoice.speakHowTo(def)
             } label: {
                 VStack(spacing: 4) {
                     ARIAIdentityMark(state: .speaking, mood: .energized, size: 22, amplitude: 0.4)
@@ -301,7 +304,7 @@ struct ExerciseDetailSheet: View {
                         }
                         Button {
                             FDS.haptic(.medium)
-                            AriaPresence.shared.speak(ExerciseLibrary.howToScript(for: def))
+                            AriaTrainVoice.speakHowTo(def)
                         } label: {
                             HStack(spacing: 10) {
                                 ARIAIdentityMark(state: .speaking, mood: .energized, size: 28, amplitude: 0.5)

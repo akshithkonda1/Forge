@@ -23,7 +23,6 @@ enum ForgeNotificationScheduler {
         static let cycleOPKWindow = "forge.notif.cycle.opk"
         static let cycleFertileWindow = "forge.notif.cycle.fertile"
         static let cyclePeriodReminder = "forge.notif.cycle.period"
-        static let cyclePhaseTransition = "forge.notif.cycle.phase"
         /// Local, on the supporter's phone. Body is lock-safe — never a phase.
         static let partnerSupport = "forge.notif.partner.support"
     }
@@ -128,7 +127,7 @@ enum ForgeNotificationScheduler {
             ID.lifestyleHydration, ID.lifestyleLunch, ID.lifestyleDinner, ID.lifestyleSleep,
             ID.briefMorning, ID.briefEvening, ID.weeklyAriaReview,
             ID.cycleBBTReminder, ID.cycleOPKWindow, ID.cycleFertileWindow,
-            ID.cyclePeriodReminder, ID.cyclePhaseTransition,
+            ID.cyclePeriodReminder,
         ]
         center.removePendingNotificationRequests(withIdentifiers: ids)
         center.removeDeliveredNotifications(withIdentifiers: ids)
@@ -142,12 +141,15 @@ enum ForgeNotificationScheduler {
     ) async {
         let cycleIds = [
             ID.cycleBBTReminder, ID.cycleOPKWindow, ID.cycleFertileWindow,
-            ID.cyclePeriodReminder, ID.cyclePhaseTransition,
+            ID.cyclePeriodReminder,
         ]
         center.removePendingNotificationRequests(withIdentifiers: cycleIds)
         center.removeDeliveredNotifications(withIdentifiers: cycleIds)
 
         guard settings.enabled else { return }
+        if settings.discretionMode == .stealth { return }
+
+        let kind = settings.discretionMode == .kind
 
         // 1. Daily BBT reminder at user-configured hour
         if settings.bbtReminderEnabled {
@@ -155,13 +157,15 @@ enum ForgeNotificationScheduler {
                 id: ID.cycleBBTReminder,
                 hour: settings.bbtReminderHour,
                 minute: 0,
-                title: "Log your BBT",
-                body: "Take your temperature before getting up — consistency improves your cycle accuracy."
+                title: kind ? "Morning log" : "Log your BBT",
+                body: kind
+                    ? "A quiet morning reading when you have a moment."
+                    : "Take your temperature before getting up — consistency improves your cycle accuracy."
             )
         }
 
         // 2. OPK window alert — 3 days before predicted ovulation
-        if settings.highAccuracyMode,
+        if settings.highAccuracyMode, !kind,
            let ovulationDayKey = snapshot.nextOvulationDayKey,
            let ovulationDate = CycleDayKey.date(from: ovulationDayKey) {
             let opkStart = Calendar.current.date(byAdding: .day, value: -3, to: ovulationDate) ?? ovulationDate
@@ -176,7 +180,7 @@ enum ForgeNotificationScheduler {
         }
 
         // 3. Fertile window alert — 2 days before window opens
-        if settings.fertileWindowAlertEnabled,
+        if settings.fertileWindowAlertEnabled, !kind,
            let nextPeriodMedian = snapshot.nextPeriod.flatMap({ CycleDayKey.date(from: $0.medianDayKey) }) {
             let luteal = settings.typicalLutealDays
             let ovulationDate = Calendar.current.date(byAdding: .day, value: -luteal, to: nextPeriodMedian) ?? nextPeriodMedian
@@ -193,16 +197,18 @@ enum ForgeNotificationScheduler {
         }
 
         // 4. Period reminder — 1 day before predicted start
-        if settings.periodReminderEnabled,
-           let nextPeriod = snapshot.nextPeriod,
-           let nextPeriodDate = CycleDayKey.date(from: nextPeriod.medianDayKey) {
+        if settings.periodReminderEnabled {
+            guard let nextPeriod = snapshot.nextPeriod,
+                  let nextPeriodDate = CycleDayKey.date(from: nextPeriod.medianDayKey) else { return }
             let reminderDate = Calendar.current.date(byAdding: .day, value: -1, to: nextPeriodDate) ?? nextPeriodDate
             if reminderDate > Date() {
                 await scheduleOnce(
                     id: ID.cyclePeriodReminder,
                     date: reminderDate,
-                    title: "Period predicted tomorrow",
-                    body: "Your period is expected to start around tomorrow (\(nextPeriod.earliestDayKey) – \(nextPeriod.latestDayKey))."
+                    title: kind ? "Take it easy tomorrow" : "Period predicted tomorrow",
+                    body: kind
+                        ? "A little extra care may land well. Open Forge for the rest."
+                        : "Your period is expected to start around tomorrow (\(nextPeriod.earliestDayKey) – \(nextPeriod.latestDayKey))."
                 )
             }
         }

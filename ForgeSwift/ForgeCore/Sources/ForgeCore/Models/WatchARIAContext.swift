@@ -41,8 +41,23 @@ public struct WatchARIAContext: Codable, Sendable, Equatable {
     // One-tap sleep factors the user logged for last night / today.
     public var sleepFactors: [SleepFactor]?
 
+    /// Oral / logged body temperature in °F when HealthKit has a recent sample.
+    public var bodyTemperatureF: Double?
+    /// Apple Watch sleeping wrist temperature: deviation from baseline in °C.
+    public var wristTemperatureDeviationC: Double?
+
     public init(timestamp: Date = Date()) {
         self.timestamp = timestamp
+    }
+
+    public var temperatureLooksHigh: Bool {
+        if let body = bodyTemperatureF, body >= AriaHealthRiskMonitor.slightlyHighBodyTempF {
+            return true
+        }
+        if let delta = wristTemperatureDeviationC, delta >= AriaHealthRiskMonitor.wristRiseWatchC {
+            return true
+        }
+        return false
     }
 
     // MARK: Convenience signals used by the suggestion engine

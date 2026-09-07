@@ -129,6 +129,12 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
     /// never leaves it, so the sentence travels instead of the inputs.
     let supportHeadline: String
 
+    /// Owner-authored holistic line (280 chars max). Vaulted, explicit disclosure.
+    /// Example: "tea + quiet tonight, heat pad helps". `nil` when not set or empty.
+    /// Preferred over `supportHeadline` when non-nil — lets whole-person intent travel
+    /// while `symptoms`/`flow`/`notes` stay vaulted and never enter the digest.
+    let supportCardLine: String?
+
     /// When the owner's device produced this. Lets the partner UI say "as of
     /// yesterday" rather than implying live access.
     let asOfDayKey: String
@@ -177,6 +183,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
             supportHeadline: SupporterGuidance.headline(phase: .unknown,
                                                         energy: .steady,
                                                         thoughtfulnessHelps: false),
+            supportCardLine: nil,
             asOfDayKey: dayKey,
             periodFinished: false,
             periodFinishedDayKey: nil
@@ -192,6 +199,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
                  periodDay: Int?,
                  extraThoughtfulnessHelps: Bool,
                  supportHeadline: String,
+                 supportCardLine: String? = nil,
                  asOfDayKey: String,
                  periodFinished: Bool = false,
                  periodFinishedDayKey: String? = nil) {
@@ -201,6 +209,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
         self.periodDay = periodDay
         self.extraThoughtfulnessHelps = extraThoughtfulnessHelps
         self.supportHeadline = supportHeadline
+        self.supportCardLine = supportCardLine
         self.asOfDayKey = asOfDayKey
         self.periodFinished = periodFinished
         self.periodFinishedDayKey = periodFinishedDayKey
@@ -216,6 +225,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
             periodDay: nil,
             extraThoughtfulnessHelps: false,
             supportHeadline: "Period finished. Everyday support is enough.",
+            supportCardLine: nil,
             asOfDayKey: dayKey,
             periodFinished: true,
             periodFinishedDayKey: dayKey
@@ -230,13 +240,12 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
     /// partner-visible.** Every field is either coarsened or dropped; nothing is
     /// copied across verbatim except the date stamp.
     ///
-    /// The headline is *not* a parameter. It used to be, and that was a hole: a
-    /// caller holding the full snapshot could write "great week to try" and hand
-    /// it in, moving the disclosure out of the fields and into the prose where
-    /// nothing checks it. It is now derived from the coarse values this
-    /// initialiser has already computed, so the digest cannot say more than the
-    /// digest contains.
-    init(redacting snapshot: MenstrualCycleSnapshot, tier: PartnerShareTier = .supportCoach) {
+    /// `supportCardLine` is the one explicit disclosure exception: an owner-authored,
+    /// vaulted 280-char line (e.g. "tea + quiet tonight") that already single-line
+    /// trims. It travels as-is when non-nil, so whole-person intent can travel while
+    /// `symptoms`/`flow`/`notes` stay vaulted. `supportHeadline` remains derived and
+    /// never a parameter.
+    init(redacting snapshot: MenstrualCycleSnapshot, supportCardLine: String? = nil, tier: PartnerShareTier = .supportCoach) {
         // Everything is resolved into locals first and assigned in one block at
         // the end. The headline is a function of the other fields, and reading a
         // half-initialised `self` to compute it is the kind of thing that works
@@ -307,17 +316,28 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
 
         let thoughtful = (resolvedPhase == .bleeding)
             || (resolvedPhase == .winding && snapshot.recommendRecoveryBias)
+            || snapshot.extraCareRequested
+
+        let trimmedCard: String? = {
+            guard let raw = supportCardLine else { return nil }
+            let single = raw.replacingOccurrences(of: "\n", with: " ")
+                .components(separatedBy: .whitespaces).filter { !$0.isEmpty }.joined(separator: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !single.isEmpty else { return nil }
+            return String(single.prefix(280))
+        }()
 
         phase = resolvedPhase
         energy = resolvedEnergy
         daysUntilNextPeriodApprox = approxDays
         periodDay = bleedDay
         extraThoughtfulnessHelps = thoughtful
+        self.supportCardLine = trimmedCard
         let finished = snapshot.periodEndConfirmed && !snapshot.isCurrentlyBleeding
         supportHeadline = {
             if finished { return "Period finished. Everyday support is enough." }
             if tier == .onPeriod {
-                return resolvedPhase == .bleeding
+                return (resolvedPhase == .bleeding || snapshot.extraCareRequested)
                     ? "Be extra kind this week."
                     : "Everyday support is enough."
             }
@@ -337,7 +357,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case phase, energy, daysUntilNextPeriodApprox, periodDay, extraThoughtfulnessHelps
-        case supportHeadline, asOfDayKey, periodFinished, periodFinishedDayKey
+        case supportHeadline, supportCardLine, asOfDayKey, periodFinished, periodFinishedDayKey
     }
 
     init(from decoder: Decoder) throws {
@@ -352,6 +372,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
         periodDay = try c.decodeIfPresent(Int.self, forKey: .periodDay)
         extraThoughtfulnessHelps = try c.decode(Bool.self, forKey: .extraThoughtfulnessHelps)
         supportHeadline = try c.decode(String.self, forKey: .supportHeadline)
+        supportCardLine = try c.decodeIfPresent(String.self, forKey: .supportCardLine)
         asOfDayKey = try c.decode(String.self, forKey: .asOfDayKey)
         periodFinished = try c.decodeIfPresent(Bool.self, forKey: .periodFinished) ?? false
         periodFinishedDayKey = try c.decodeIfPresent(String.self, forKey: .periodFinishedDayKey)
@@ -365,6 +386,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
         try c.encodeIfPresent(periodDay, forKey: .periodDay)
         try c.encode(extraThoughtfulnessHelps, forKey: .extraThoughtfulnessHelps)
         try c.encode(supportHeadline, forKey: .supportHeadline)
+        try c.encodeIfPresent(supportCardLine, forKey: .supportCardLine)
         try c.encode(asOfDayKey, forKey: .asOfDayKey)
         try c.encode(periodFinished, forKey: .periodFinished)
         try c.encodeIfPresent(periodFinishedDayKey, forKey: .periodFinishedDayKey)
@@ -484,12 +506,12 @@ struct PartnerCycleInvite: Codable, Equatable {
         self.createdAt = createdAt
     }
 
-    /// Fallback text for the plain-SMS path, when the recipient has no iMessage or
-    /// no Forge app. Deliberately vague about *what* is being shared — the sender
-    /// should decide who knows they track a cycle, not a lock-screen preview.
-    var fallbackMessageBody: String {
-        "\(fromDisplayName) is sharing a support view in Forge — not a full log. \(shareURL.absoluteString)"
-    }
+    /// SMS is not a valid access path. iPhone + iMessage only. The CloudKit
+    /// URL is withheld so a lock-screen text cannot redeem the share.
+    var fallbackMessageBody: String { messagePayload.fallbackMessageBody }
+
+    var iMessageOnly: Bool { true }
+    var smsAccessIsValid: Bool { false }
 
     /// Bubble caption for the Messages extension. Same discretion rule.
     var bubbleCaption: String { "\(fromDisplayName) would like your support" }

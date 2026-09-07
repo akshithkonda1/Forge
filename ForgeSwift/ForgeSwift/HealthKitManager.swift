@@ -201,6 +201,15 @@ struct ClinicalRecordsSummary: Identifiable, Codable {
     let connectedSourceNames: [String]
     let hasData: Bool
 
+    static let empty = ClinicalRecordsSummary(
+        items: [],
+        totalRecordCount: 0,
+        recordCountsByType: [:],
+        recentRecordNames: [],
+        connectedSourceNames: [],
+        hasData: false
+    )
+
     func items(for kind: StructuredHealthKind) -> [StructuredHealthItem] {
         items.filter { $0.kind == kind }
     }
@@ -373,6 +382,7 @@ class HealthKitManager: ObservableObject {
     // Sensitive lifestyle types stay opt-in so the first HealthKit connection stays stable.
     private let sensitiveLifestyleReadTypes: Set<HKObjectType> = [
         HKQuantityType(.bodyTemperature),
+        HKQuantityType(.appleSleepingWristTemperature),
         HKQuantityType(.bloodPressureSystolic),
         HKQuantityType(.bloodPressureDiastolic),
         HKCategoryType(.menstrualFlow),
@@ -433,6 +443,8 @@ class HealthKitManager: ObservableObject {
             HKCategoryType(.mindfulSession),
             HKCategoryType(.menstrualFlow),
             HKQuantityType(.basalBodyTemperature),
+            HKCategoryType(.cervicalMucusQuality),
+            HKCategoryType(.ovulationTestResult),
         ])
     }
     
@@ -479,6 +491,7 @@ class HealthKitManager: ObservableObject {
             HKQuantityType(.heartRateVariabilitySDNN),
             HKQuantityType(.restingHeartRate),
             HKQuantityType(.stepCount),
+            HKQuantityType(.bodyTemperature),
         ]
         try await requestHealthKitAuthorization(
             toShare: coreWriteTypes.union(extra),
@@ -534,8 +547,9 @@ class HealthKitManager: ObservableObject {
     }
 
     /// Distinct HealthKit source names this phone has already seen.
-    /// Feeds the device shelf so a wearable that writes to Apple Health can
-    /// appear without a catalog update.
+    /// Feeds the device shelf so a wearable that writes to Apple Health
+    /// (Oura, Garmin, Watch, …) can appear without a catalog update.
+    /// ARIA reads those samples on this iPhone. Forge does not scrape vendor accounts.
     func knownHealthSources() async -> [String] {
         guard isHealthDataAvailable() else { return [] }
 
@@ -593,6 +607,10 @@ class HealthKitManager: ObservableObject {
             HKQuantityType(.activeEnergyBurned),
             HKCategoryType(.sleepAnalysis),
             HKWorkoutType.workoutType(),
+            HKQuantityType(.bodyTemperature),
+            HKQuantityType(.appleSleepingWristTemperature),
+            HKQuantityType(.heartRateVariabilitySDNN),
+            HKQuantityType(.restingHeartRate),
         ]
 
         for type in observed {
@@ -614,6 +632,9 @@ class HealthKitManager: ObservableObject {
             try? await Task.sleep(nanoseconds: 350_000_000)
             guard !Task.isCancelled else { return }
             await refreshHydration()
+            await AriaHealthRiskBridge.evaluateFromHealthKit(
+                quietMode: UserDefaults.standard.bool(forKey: "forge.quiet.mode.v1")
+            )
         }
     }
 
@@ -636,21 +657,27 @@ class HealthKitManager: ObservableObject {
     
 
     
+    nonisolated static func safeClinicalName(_ record: HKClinicalRecord) -> String {
+        let name = record.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? "Untitled record" : name
+    }
+
     nonisolated static func fetchClinicalRecords(type: HKClinicalType, healthStore: HKHealthStore) async -> [HKClinicalRecord] {
         await withCheckedContinuation { continuation in
+            let once = ClinicalQueryResumeOnce<[HKClinicalRecord]>()
             let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
             let query = HKSampleQuery(
                 sampleType: type,
                 predicate: nil,
-                limit: 20,
+                limit: 40,
                 sortDescriptors: [sortDescriptor]
             ) { _, samples, _ in
-                continuation.resume(returning: (samples as? [HKClinicalRecord]) ?? [])
+                once.finish((samples as? [HKClinicalRecord]) ?? []) { continuation.resume(returning: $0) }
             }
             healthStore.execute(query)
         }
     }
-    
+
     // MARK: - Cycle Health
     
 
@@ -699,6 +726,23 @@ struct UserHealthProfile {
     
     var hasData: Bool {
         age != nil || dateOfBirth != nil || biologicalSex != nil || bloodType != nil || weightKg != nil || heightCm != nil || bodyMassIndex != nil || leanBodyMassKg != nil || bodyFatPercentage != nil || restingHeartRate != nil || vo2Max != nil || averageHRV != nil || cycleSummary?.hasData == true || clinicalSummary?.hasData == true
+    }
+}
+
+/// HealthKit can invoke a query handler more than once. Resume the
+/// continuation exactly once so the medicine page cannot crash on that path.
+private final class ClinicalQueryResumeOnce<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+    func finish(_ value: T, _ resume: (T) -> Void) {
+        lock.lock()
+        if done {
+            lock.unlock()
+            return
+        }
+        done = true
+        lock.unlock()
+        resume(value)
     }
 }
 

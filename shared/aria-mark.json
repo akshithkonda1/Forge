@@ -1,0 +1,12 @@
+{
+  "assetName": "AriaLogo",
+  "webPath": "/aria-mark.png",
+  "sharedPath": "shared/brand/aria-mark.png",
+  "cropScale": 1.0,
+  "heroMinimumSize": 90,
+  "idleBreathHz": 0.42,
+  "speakingBreathHz": 0.68,
+  "stillPose": 1.72,
+  "maxGaze": 0.14,
+  "lobeCount": 4
+}

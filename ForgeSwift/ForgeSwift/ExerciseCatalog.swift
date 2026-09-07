@@ -268,7 +268,7 @@ extension ExerciseDefinition {
 
 enum ExerciseLibrary {
 
-    static let all: [ExerciseDefinition] = pushChest + shoulders + pull + arms + legsQuad + legsPosterior + coreCarry + conditioning + mobility
+    static let all: [ExerciseDefinition] = pushChest + shoulders + pull + arms + legsQuad + legsPosterior + coreCarry + conditioning + mobility + expansion
 
     // ── Horizontal / chest push ──────────────────────────────────────────────
     static let pushChest: [ExerciseDefinition] = [
@@ -734,14 +734,13 @@ enum ExerciseLibrary {
 
     /// Spoken walkthrough ARIA uses for Show me how.
     static func howToScript(for def: ExerciseDefinition) -> String {
-        var parts: [String] = ["Here's how to do \(def.name)."]
-        parts.append("It's a \(def.pattern.label.lowercased()) on \(def.equipment.label.lowercased()). Primary: \(def.primary.map(\.label).joined(separator: ", ")).")
+        var parts: [String] = ["Alright — \(def.name)."]
+        parts.append("It's a \(def.pattern.label.lowercased()) with a \(def.equipment.label.lowercased()).")
         if !def.cues.isEmpty {
-            let numbered = def.cues.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: " ")
-            parts.append("Cues: \(numbered)")
+            parts.append(def.cues.joined(separator: ". ") + ".")
         }
         if !def.faults.isEmpty {
-            parts.append("Watch for: \(def.faults.joined(separator: ". ")).")
+            parts.append("Watch for \(def.faults.joined(separator: ", ").lowercased()).")
         }
         if let regress = def.regressions.first {
             parts.append("If it feels off, switch to \(regress).")

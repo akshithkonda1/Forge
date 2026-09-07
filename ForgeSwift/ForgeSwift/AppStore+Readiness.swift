@@ -189,6 +189,11 @@ extension AppStore {
         if let today = pack.today {
             if !today.felt.isEmpty { tags.append("felt:\(today.felt)") }
             if !today.storyLine.isEmpty { tags.append("story:\(today.storyLine)") }
+            if let cycle = today.cycle {
+                tags.append("cycle:phase:\(cycle.phase)")
+                tags.append("cycle:day:\(cycle.dayInCycle)")
+                if cycle.isBleeding { tags.append("cycle:bleeding") }
+            }
         }
 
         // Last night is the one the user is living in right now, so it gets to
@@ -306,6 +311,30 @@ extension AppStore {
             input: "Build today's session from my sleep, readiness, cycle, equipment, and the time I actually have.",
             context: makeTrainerContext()
         )
+        var workout = plan.workoutPlan
+        let dayKey: String = {
+            let f = DateFormatter()
+            f.calendar = Calendar.current
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "yyyy-MM-dd"
+            return f.string(from: Date())
+        }()
+        workout.id = "life-\(dayKey)-\(workout.name)"
+        todayWorkout = workout
+    }
+
+    /// Open a specific weekday (or yesterday) from the walking week.
+    func adoptSplitSession(weekday: Int? = nil, replayPrior: Bool = false) {
+        guard !isWorkoutActive else { return }
+        let input: String
+        if replayPrior {
+            input = "Do yesterday's session"
+        } else if let weekday, (0...6).contains(weekday) {
+            input = "Do \(WeeklySplit.dayNames[weekday])'s session"
+        } else {
+            input = "Build today's session from my sleep, readiness, cycle, equipment, and the time I actually have."
+        }
+        let plan = AriaPlanEngine.evaluate(input: input, context: makeTrainerContext(query: input))
         var workout = plan.workoutPlan
         let dayKey: String = {
             let f = DateFormatter()

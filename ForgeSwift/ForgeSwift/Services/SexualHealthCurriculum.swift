@@ -5,7 +5,10 @@ import Foundation
 /// ARIA uses this as the factual substrate for personalised coaching.
 enum SexualHealthCurriculum {
 
-    static let medicalDisclaimer = "I'm an AI health coach, not a medical professional. This information is educational and based on reproductive physiology — consult a doctor or qualified clinician for personal medical advice."
+    static let medicalDisclaimer = "I'm an AI health coach, not a medical professional. This is educational — not a birth-control method, not an FDA-regulated contraceptive, not a diagnosis. Talk to a clinician you trust for personal medical advice."
+
+    static let intimacyDisclaimer =
+        "Consent, comfort, and stop-means-stop come first. Tips are optional ideas, not a script and not a medical protocol."
 
     // MARK: - Contraception Methods
 
@@ -63,7 +66,7 @@ enum SexualHealthCurriculum {
             perfectUseEffectiveness: "95–99.6% (symptothermal method with perfect use)",
             suitableFor: "Those with regular cycles (≤2 days variability), consistent daily logging habits, and a thorough understanding of the method",
             notSuitableFor: "Highly irregular cycles, perimenopause, recent hormonal contraception use, postpartum",
-            cycleImpact: "Requires consistent daily tracking — this is the method Forge's cycle engine supports. Reliability improves with more confirmed cycles."
+            cycleImpact: "Requires consistent daily tracking with a clinician-guided method. Forge does not sell or clear fertility awareness as contraception."
         ),
         ContraceptionMethod(
             name: "Male Condom",
@@ -129,7 +132,7 @@ enum SexualHealthCurriculum {
             ovulationNote = "Adding LH tests or BBT tracking would significantly improve your ovulation detection."
         }
 
-        return "\(accuracyNote) \(ovulationNote) The fertile window is typically the 5 days before ovulation plus the day of ovulation itself. \(medicalDisclaimer)"
+        return "\(accuracyNote) \(ovulationNote) If you are trying to conceive, many people time sex across the days leading up to a confirmed LH surge. Forge is a tracker and a coach, not a fertility clinic. \(medicalDisclaimer)"
     }
 
     // MARK: - FAM Reliability for User's Cycle
@@ -138,11 +141,11 @@ enum SexualHealthCurriculum {
     static func famReliability(dataQuality: String, cycleLengthMAD: Double) -> String {
         let regularity: String
         if cycleLengthMAD <= 1.5 {
-            regularity = "Your cycles are very regular (variability ≤1.5 days) — this is ideal for FAM."
+            regularity = "Your cycles are very regular (variability ≤1.5 days)."
         } else if cycleLengthMAD <= 3.0 {
-            regularity = "Your cycles have moderate variability (±\(String(format: "%.1f", cycleLengthMAD)) days), which requires wider abstinence/barrier windows for FAM."
+            regularity = "Your cycles have moderate variability (±\(String(format: "%.1f", cycleLengthMAD)) days)."
         } else {
-            regularity = "Your cycle variability is high (±\(String(format: "%.1f", cycleLengthMAD)) days) — FAM carries higher pregnancy risk with irregular cycles."
+            regularity = "Your cycle variability is high (±\(String(format: "%.1f", cycleLengthMAD)) days)."
         }
 
         let dataNote: String
@@ -150,11 +153,240 @@ enum SexualHealthCurriculum {
         case "highSignal", "solid":
             dataNote = "Your tracking data quality is strong, which supports more accurate fertile window identification."
         case "mixed", "noisy":
-            dataNote = "Improving log consistency (daily flow, BBT, or LH tests) would strengthen FAM reliability."
+            dataNote = "Improving log consistency (daily flow, BBT, or LH tests) would strengthen timing estimates."
         default:
-            dataNote = "More logged cycles are needed before FAM can be considered reliable for you specifically."
+            dataNote = "More logged cycles are needed before timing estimates get personal."
         }
 
-        return "\(regularity) \(dataNote) Even with perfect use, FAM has ~0.4–4% failure rate in clinical studies. \(medicalDisclaimer)"
+        return "\(regularity) \(dataNote) Forge does not offer fertility awareness as contraception. If pregnancy timing matters, use a clinician-guided method. \(medicalDisclaimer)"
+    }
+
+    // MARK: - Intimacy, safe sex, positions, partner help
+
+    static func safeSexBasics() -> String {
+        """
+        Healthy sex is consent plus comfort plus protection you actually chose.
+        • Ask, then listen. Enthusiastic yes. Stop is always allowed, including mid-way.
+        • Condoms (and non-latex options) are the only common method that also cuts STI risk. Lube — water-based with latex — prevents micro-tears.
+        • Dental dams or a condom cut open help for oral sex if STI risk is on the table.
+        • Protection used is a conversation, not a test. Forge can log sexual activity to Apple Health if you want; it never has to.
+        • Aftercare counts: water, a towel, a check-in. Sharp or new pain is a reason to pause and, if it stays, see a clinician.
+        \(intimacyDisclaimer)
+        """
+    }
+
+    static func periodSex(phase: MenstrualPhase) -> String {
+        let core = """
+        Sex during a period is allowed if everyone wants it. Blood is not an emergency. Mess is a towel and dark sheets, not a character flaw.
+        • Extra lube — menstrual blood is not the same as arousal fluid.
+        • Positions that don't fold the abdomen hard (side-lying, spooning, you on top so you control depth) often hurt less if cramps are running.
+        • A menstrual disc can work for some people who want less mess; tampons and cups usually come out first.
+        • Orgasm can ease cramps for some and worsen them for others. Believe today's body.
+        • Condoms still matter for STI risk. A period is not birth control.
+        """
+        if phase == .menstruation {
+            return core + " You are bleeding now — optional, never owed. \(intimacyDisclaimer)"
+        }
+        return core + " \(intimacyDisclaimer)"
+    }
+
+    static func positionsAndIdeas(for phase: MenstrualPhase) -> String {
+        let menu = """
+        A short menu — pick what sounds kind, skip the rest:
+        • Side-lying / spooning — least athletic, easy to pause, good if the abdomen is tender.
+        • You on top — you set depth and tempo. Stop is one shift away.
+        • Modified missionary — pillow under hips or a knee, not a fold in half.
+        • Seated / lap sit — face-to-face, hands free for check-ins.
+        • From behind with a shallower angle — only if it does not punch the cervix; say so early.
+        • Hands, mouth, a toy, or just kissing — sex is not a penetration requirement.
+        Start slower than you think. Lube is a tool, not a mood killer. Switch if something pinches.
+        """
+        switch phase {
+        case .menstruation:
+            return """
+            While bleeding: side-lying, spooning, and you-on-top usually hurt less than anything that needs a long plank. A towel, dark sheets, extra lube. Skip deep flexion if cramps are loud. \(menu)
+            \(intimacyDisclaimer)
+            """
+        case .follicular, .fertileWindow, .ovulation:
+            return """
+            Energy and desire often run higher here. If you both want novelty: trade who leads, change the angle, slow the build. Warm up joints — laxity can sneak up on deep flexion. \(menu)
+            \(intimacyDisclaimer)
+            """
+        case .luteal:
+            return """
+            Later-cycle: more lube, less athletic, more time. Spooning, a pillow, or a lap sit can feel kinder than core-endurance positions. Mood can swing — check in twice. \(menu)
+            \(intimacyDisclaimer)
+            """
+        case .unknown:
+            return """
+            Not enough cycle signal yet. Default to a position you can leave easily, a pause word, and the menu below. \(menu)
+            \(intimacyDisclaimer)
+            """
+        }
+    }
+
+    /// Optional experiments — never a chore list.
+    static func thingsYouCanTry(for phase: MenstrualPhase) -> String {
+        let shared = """
+        Things you can try (optional, reversible, no score):
+        • Agree a pause word in daylight. Use it once so it is not theoretical.
+        • Make lube the default, not the apology.
+        • Trade who starts. One night they lead; one night you do.
+        • Ten minutes of only kissing / only hands before anyone escalates.
+        • Change the room: lights lower, a towel ready, phone in another room.
+        • Aftercare as part of it: water, a shower, “was that good for you?”
+        If it feels like homework, it is too much. Drop it.
+        """
+        if phase == .menstruation {
+            return """
+            Period-week extras: a menstrual disc if you want less mess; heat on the back while you stay close without penetration; permission for a quiet night to still be intimacy. \(shared)
+            \(intimacyDisclaimer)
+            """
+        }
+        return "\(shared)\n\(intimacyDisclaimer)"
+    }
+
+    /// Crossing the friend/help border without turning into a clinician or a creep.
+    static func partnerAndYouTips(roleHint: String?) -> String {
+        let who = (roleHint ?? "").lowercased()
+        if who.contains("parent") || who.contains("mom") || who.contains("dad") {
+            return """
+            Parent lane: supplies, heat, flexibility on plans, and dignity. No body commentary, no sex tips, no “are you on your period?” quizzes. Help is logistics. \(intimacyDisclaimer)
+            """
+        }
+        if who.contains("relative") || who.contains("sister") || who.contains("brother") || who.contains("friend") {
+            return """
+            Friend / relative lane — this is the friend→help border:
+            Help looks like: show up, heat, food, covering a shift, “I’ve got the dishes.”
+            Help does not look like: asking for a chart, diagnosing PMS, or sliding into sex talk they did not start.
+            If they want to talk intimacy, they will open it. You do not. \(intimacyDisclaimer)
+            """
+        }
+        return """
+        The friend→help border (and the help→intimacy border):
+
+        For you:
+        • You do not owe anyone sex, a mood, or an explanation of your cycle.
+        • You can want closeness and still want a quiet night.
+        • “Not tonight” is a complete sentence. So is “yes, and slower.”
+        • Tell them what help looks like *today* — heat, space, errands, or invited closeness.
+
+        For a partner:
+        • Friend-level help is practical, not investigative. Heating pad out. Do not interrogate. Ask “comfort, space, or distraction?” once.
+        • Help is not a quiz about their body. You are not their clinician.
+        • Intimate help (massage, sex, closeness) is invited, never assumed from a phase label.
+        • If you want to try something new — positions, period sex, a slower night — ask in daylight, not as a surprise in bed.
+        • After they say what they need, do that thing. Do not upgrade it into a performance.
+
+        Crossing into intimacy: they ask, or they reach first, or you ask and wait for a real yes. A cycle phase is not a yes. \(intimacyDisclaimer)
+        """
+    }
+
+    static func difficultyConceiving() -> String {
+        """
+        Not conceiving yet is common and not a moral failure. Many clinicians suggest seeking care after about 12 months of trying if you are under 35, or about 6 months if you are 35 or older — sooner if periods are missing, very painful, or you already know a relevant condition.
+        Forge can show what you have been tracking. It cannot diagnose infertility, run labs, or replace a reproductive endocrinologist.
+        While you wait: sex you actually want (not a calendar hostage), sleep, alcohol in check, and a clinician if pain or bleeding is alarming.
+        First conversations are usually an OB-GYN or GP; an REI if the wait has been long; urology/andrology if a male partner's health is in the picture; a fertility counselor for the load.
+        \(medicalDisclaimer)
+        """
+    }
+
+    // MARK: - Period-sex evaluation from logs
+
+    struct PeriodSexEvaluation: Equatable {
+        enum Lean: String, Equatable {
+            case wait
+            case mixed
+            case optional
+            case unknown
+        }
+
+        var lean: Lean
+        var headline: String
+        var reasons: [String]
+
+        var asAriaSpeech: String {
+            let reasonBlock = reasons.isEmpty
+                ? ""
+                : "\n" + reasons.map { "• \($0)" }.joined(separator: "\n")
+            return "\(headline)\(reasonBlock)\n\nThis is a body read from your logs, not a moral verdict. You still decide. A period is not birth control."
+        }
+    }
+
+    static func periodSexEvaluation(
+        phase: MenstrualPhase,
+        isBleeding: Bool,
+        flow: MenstrualFlowLevel?,
+        painScale: Int?,
+        symptoms: [CycleSymptom],
+        dayInCycle: Int?
+    ) -> PeriodSexEvaluation {
+        var reasons: [String] = []
+        if let dayInCycle {
+            reasons.append("Cycle day \(dayInCycle) · \(phase.label).")
+        } else {
+            reasons.append("Phase: \(phase.label).")
+        }
+
+        let pain = painScale ?? 0
+        let heavyish = flow == .heavy || flow == .medium
+        let crampy = symptoms.contains(.cramps) || symptoms.contains(.pelvicPain)
+        let nauseous = symptoms.contains(.nausea)
+
+        if !isBleeding && phase != .menstruation {
+            reasons.append("You're not bleeding in today's log.")
+            if pain >= 6 || crampy {
+                reasons.append("Pain or pelvic symptoms are still on the log, so go slow even off-period.")
+                return PeriodSexEvaluation(
+                    lean: .mixed,
+                    headline: "Not bleeding today — mixed for sex. Pain is still on the ledger, so I'd treat penetration as optional and easy to stop.",
+                    reasons: reasons
+                )
+            }
+            return PeriodSexEvaluation(
+                lean: .optional,
+                headline: "Not bleeding today. Given the logs I have, sex looks physically workable if you want it — not owed, not scheduled.",
+                reasons: reasons
+            )
+        }
+
+        if let flow, flow.isBleeding {
+            reasons.append("Flow logged: \(flow.label).")
+        } else if isBleeding {
+            reasons.append("You're bleeding according to the current snapshot.")
+        }
+        if pain > 0 {
+            reasons.append("Pain scale \(pain)/10.")
+        }
+        if crampy { reasons.append("Cramps or pelvic pain are on today's log.") }
+        if nauseous { reasons.append("Nausea is on today's log.") }
+
+        if pain >= 7 || flow == .heavy || (crampy && pain >= 5) || nauseous {
+            return PeriodSexEvaluation(
+                lean: .wait,
+                headline: "Given today's logs, I'd lean wait on penetration — your body is working hard. Closeness without it is still intimacy.",
+                reasons: reasons
+            )
+        }
+        if pain >= 4 || heavyish || crampy {
+            return PeriodSexEvaluation(
+                lean: .mixed,
+                headline: "Mixed signal from today's logs. Sex can be okay if you want it — extra lube, a towel, a position you can leave, and stop if pain spikes.",
+                reasons: reasons
+            )
+        }
+        if isBleeding || phase == .menstruation {
+            return PeriodSexEvaluation(
+                lean: .optional,
+                headline: "You're bleeding, and the logs look relatively calm. Sex is optional. Mess is a towel, not a character flaw. You still decide.",
+                reasons: reasons
+            )
+        }
+        return PeriodSexEvaluation(
+            lean: .unknown,
+            headline: "I don't have enough of today's log to lean yes or wait. Default to comfort, a pause word, and whatever you actually want.",
+            reasons: reasons
+        )
     }
 }

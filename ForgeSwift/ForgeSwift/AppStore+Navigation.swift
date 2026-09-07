@@ -12,21 +12,27 @@ enum ARIAChatHandoff {
     struct Intake: Equatable {
         var pendingPrompt: String?
         var voiceLaunch: Bool
+        var intimacySession: IntimacyChatSession? = nil
     }
 
     struct Result: Equatable {
         var prompt: String?
         var startVoice: Bool
         var autoSend: Bool
+        var intimacySession: IntimacyChatSession? = nil
     }
 
     static func consume(_ intake: Intake) -> Result {
+        if let session = intake.intimacySession {
+            return Result(prompt: nil, startVoice: false, autoSend: false, intimacySession: session)
+        }
         let trimmed = intake.pendingPrompt?.trimmingCharacters(in: .whitespacesAndNewlines)
         let prompt = (trimmed?.isEmpty == false) ? trimmed : nil
         return Result(
             prompt: prompt,
             startVoice: intake.voiceLaunch,
-            autoSend: prompt != nil && !intake.voiceLaunch
+            autoSend: prompt != nil && !intake.voiceLaunch,
+            intimacySession: nil
         )
     }
 }
@@ -101,13 +107,24 @@ extension AppStore {
         activeTab = .chat
     }
 
+    /// Sexual Health & Intimacy CTAs. ARIA speaks first; the human's opener stays short.
+    func startIntimacyFlow(_ session: IntimacyChatSession) {
+        if isInAriaFirstBond {
+            completeAriaFirstBond()
+        }
+        pendingIntimacySession = session
+        ariaVoiceMode = false
+        ariaVoiceLaunch = false
+        activeTab = .chat
+    }
+
     /// Train → library card + ARIA talking the athlete through the lift.
     func showHowToPerform(_ name: String, speakLocally: Bool = true, openChat: Bool = false) {
         let def = ExerciseLibrary.match(name)
         if let def {
             pendingShowHow = def
             if speakLocally {
-                AriaPresence.shared.speak(ExerciseLibrary.howToScript(for: def))
+                AriaTrainVoice.speakHowTo(def)
             }
         }
         if openChat || def == nil {
@@ -136,6 +153,10 @@ extension AppStore {
 
     func openHydration() {
         pendingHydrationOpen = true
+    }
+
+    func openClinicalData() {
+        pendingClinicalOpen = true
     }
 
     func logGlassFromWidget() async {
@@ -208,6 +229,9 @@ extension AppStore {
                 pendingLifestyleSegment = leaf
             }
             return true
+        case "clinical", "medicine", "pharmacy", "meds", "medications":
+            openClinicalData()
+            return true
         case "progress":
             activeTab = .progress
             return true
@@ -217,6 +241,12 @@ extension AppStore {
         case "aria", "chat":
             if segments.dropFirst().first == "weekly" {
                 WeeklyAriaReviewStore.shared.showSheet = true
+            } else if segments.dropFirst().first == "check" {
+                if let opener = AriaHealthRiskBridge.consumePendingChatOpener() {
+                    openChat(with: opener, isProactive: false)
+                } else {
+                    activeTab = .chat
+                }
             } else {
                 let prompt = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                     .queryItems?.first(where: { $0.name.lowercased() == "prompt" })?

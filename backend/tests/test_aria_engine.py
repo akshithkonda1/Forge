@@ -230,6 +230,53 @@ class ContextParsingTests(unittest.TestCase):
         self.assertEqual(ctx.readiness.hrv_7day_trend, -10)
         self.assertTrue(ctx.has_hrv)
 
+    def test_medication_layer_is_parsed_into_user_model(self):
+        ctx = ARIAContext.from_payload({
+            "context": {
+                "medicationLayer": {
+                    "onFile": [{
+                        "id": "health:lipitor",
+                        "name": "Lipitor",
+                        "generic": "atorvastatin",
+                        "brand": "Lipitor",
+                        "archetype": "Cardiovascular",
+                        "disease": "High cholesterol",
+                        "source": "health",
+                    }],
+                    "mentioned": [{
+                        "id": "mentioned:xcopri",
+                        "name": "Xcopri",
+                        "generic": "cenobamate",
+                        "brand": "Xcopri",
+                        "archetype": "Neurology",
+                        "disease": "Epilepsy",
+                        "source": "mentioned",
+                    }],
+                    "archetypes": ["Cardiovascular", "Neurology"],
+                    "diseases": ["Epilepsy", "High cholesterol"],
+                }
+            }
+        })
+        self.assertEqual(ctx.medication_layer.on_file[0].generic, "atorvastatin")
+        self.assertEqual(ctx.medication_layer.mentioned[0].disease, "Epilepsy")
+        block = ctx.user_model_block()
+        self.assertIn("Lipitor / atorvastatin · Cardiovascular · High cholesterol", block)
+        self.assertIn("Xcopri / cenobamate · Neurology · Epilepsy", block)
+        self.assertIn("never prescribe", block)
+        self.assertIn("never name a dose", block)
+        self.assertIn("for_you", block)
+        self.assertNotIn(" mg", block)
+        self.assertNotIn("take 10", block)
+
+        perms = aria_engine.DataPermissions.from_payload({"clinical_data": False})
+        sanitized, restricted = aria_engine.apply_permissions(ctx, perms)
+        self.assertIn("clinical_data", restricted)
+        self.assertEqual(sanitized.medication_layer.on_file, [])
+        self.assertEqual(sanitized.medication_layer.mentioned[0].generic, "cenobamate")
+        redacted = sanitized.user_model_block(restricted)
+        self.assertNotIn("atorvastatin", redacted)
+        self.assertIn("cenobamate", redacted)
+
 
 class SystemPromptTests(unittest.TestCase):
     def test_prompt_encodes_the_four_required_behaviors(self):
@@ -540,6 +587,27 @@ class LiveBedrockDegradeTests(unittest.TestCase):
             "should I train today?", full_context(), converse=lambda *a: "not json at all")
         self.assertEqual(resp["reasoning_source"], "deterministic")
 
+    def test_live_parses_json_with_brace_in_prose(self):
+        # A closing brace inside a prose string used to truncate the naive
+        # first-{/last-} extraction; raw_decode handles it correctly.
+        payload = json.dumps(
+            {"prose_summary": "Your load is fine (see the {load} note).",
+             "response_type": "insight"}
+        )
+        resp = aria_engine.generate_response_live(
+            "how did I sleep?", full_context(), converse=lambda *a: payload)
+        self.assertEqual(resp["reasoning_source"], "bedrock")
+        self.assertIn("{load}", resp["message"])
+
+    def test_live_parses_json_with_trailing_prose(self):
+        payload = (
+            '{"prose_summary": "All good."}\n\nHope that helps!'
+        )
+        resp = aria_engine.generate_response_live(
+            "how did I sleep?", full_context(), converse=lambda *a: payload)
+        self.assertEqual(resp["reasoning_source"], "bedrock")
+        self.assertEqual(resp["prose_summary"], "All good.")
+
     def test_live_falls_back_when_prose_is_missing(self):
         payload = json.dumps({"response_type": "insight", "confidence": 0.5})
         resp = aria_engine.generate_response_live(
@@ -554,10 +622,35 @@ class LiveBedrockDegradeTests(unittest.TestCase):
         self.assertEqual(resp["confidence"], base["confidence"])
 
     def test_live_clamps_out_of_range_confidence(self):
+        base = aria_engine.generate_response("how did I sleep?", full_context())
         payload = json.dumps({"prose_summary": "Sleep looks solid.", "confidence": 1.9})
         resp = aria_engine.generate_response_live(
             "how did I sleep?", full_context(), converse=lambda *a: payload)
-        self.assertEqual(resp["confidence"], 1.0)
+        # Out of range AND above the data-supported ceiling: coerced into [0,1]
+        # and then capped to the deterministic confidence — never inflated past
+        # what the ground truth supports.
+        self.assertLessEqual(resp["confidence"], 1.0)
+        self.assertEqual(resp["confidence"], base["confidence"])
+
+    def test_live_confidence_cannot_exceed_deterministic_ceiling(self):
+        # The deterministic calibration caps confidence when data is thin; the
+        # model must not be able to claim more certainty than that.
+        base = aria_engine.generate_response("how did I sleep?", full_context())
+        payload = json.dumps(
+            {"prose_summary": "Sleep looks solid.", "confidence": base["confidence"] + 0.2}
+        )
+        resp = aria_engine.generate_response_live(
+            "how did I sleep?", full_context(), converse=lambda *a: payload)
+        self.assertEqual(resp["confidence"], base["confidence"])
+        self.assertIn("data", resp["confidence_reason"].lower())
+
+    def test_live_confidence_may_be_lowered_by_model(self):
+        base = aria_engine.generate_response("how did I sleep?", full_context())
+        lower = round(base["confidence"] - 0.3, 2)
+        payload = json.dumps({"prose_summary": "Sleep looks solid.", "confidence": lower})
+        resp = aria_engine.generate_response_live(
+            "how did I sleep?", full_context(), converse=lambda *a: payload)
+        self.assertEqual(resp["confidence"], lower)
 
     def test_live_voice_mode_suppresses_card_and_routes_to_fast_model(self):
         payload = json.dumps({"prose_summary": "Keep it easy today.", "card": {"x": 1}})

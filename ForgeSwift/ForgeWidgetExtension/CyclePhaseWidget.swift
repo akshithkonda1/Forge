@@ -33,6 +33,10 @@ struct CyclePhaseWidgetView: View {
     let entry: CyclePhaseEntry
     @Environment(\.widgetFamily) var family
 
+    private var mode: CycleDiscretionMode {
+        CycleDiscretionMode(rawValue: entry.snapshot?.cycleDiscretion ?? "") ?? .clinical
+    }
+
     private var phaseIcon: String {
         switch entry.snapshot?.cyclePhase {
         case "menstruation":  return "drop.fill"
@@ -56,6 +60,53 @@ struct CyclePhaseWidgetView: View {
     }
 
     var body: some View {
+        switch mode {
+        case .stealth:
+            stealth
+        case .kind:
+            kind
+        case .clinical:
+            clinical
+        }
+    }
+
+    private var stealth: some View {
+        Image(systemName: "lock.fill")
+            .foregroundStyle(.secondary)
+            .accessibilityLabel("Cycle Health is hidden")
+    }
+
+    private var kind: some View {
+        let line = entry.snapshot?.cycleLockSafeLine ?? "Take it easy"
+        return Group {
+            switch family {
+            case .accessoryCircular:
+                VStack(spacing: 2) {
+                    Image(systemName: "heart.fill")
+                        .font(.caption)
+                    Text("Easy")
+                        .font(.caption2)
+                }
+            case .accessoryRectangular:
+                Label(line, systemImage: "heart.fill")
+                    .font(.caption)
+            default:
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("CYCLE")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(0.6)
+                    Text(line)
+                        .font(.headline)
+                    Spacer(minLength: 0)
+                }
+                .padding(16)
+            }
+        }
+        .accessibilityLabel(line)
+    }
+
+    @ViewBuilder
+    private var clinical: some View {
         if let snap = entry.snapshot, snap.cyclePhase != nil {
             switch family {
             case .accessoryCircular:
@@ -122,7 +173,7 @@ struct CyclePhaseWidget: Widget {
                 .widgetURL(ForgeWidgetLink.cycle)
         }
         .configurationDisplayName("Cycle Phase")
-        .description("Your current cycle phase and day, on the Home Screen or Lock Screen.")
+        .description("Cycle glance. Discretion Mode in Settings controls whether phase is visible.")
         .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryRectangular])
         .contentMarginsDisabled()
     }

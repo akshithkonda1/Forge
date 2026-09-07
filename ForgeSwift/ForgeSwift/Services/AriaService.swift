@@ -52,12 +52,13 @@ final class AriaService: ObservableObject {
         agents: [String]? = nil
     ) async throws -> AriaResponse {
         let isInsight = mode == "insight"
+        // Catalog must exist before ARIA resolves brand/generic/archetype.
+        await MedicationPharmacy.prepare()
         // Full chat may read structured records. Lifestyle cards must not.
         if !isInsight, HealthKitManager.shared.hasStructuredRecordsAccess {
             _ = await HealthKitManager.shared.fetchClinicalRecordsSummary()
         }
         let domainContext = contextStore.buildARIAContext(from: store, query: text)
-        let legacyMetrics = contextStore.buildRichContext(from: store).recentMetrics
 
         // Device Hub / dev-override / loopback testers stay on the fast,
         // deterministic dummy orchestra, checked before the general local-
@@ -100,11 +101,15 @@ final class AriaService: ObservableObject {
         }
         isTestReady = false
 
+        // Claude / Grok may run off-device. The HealthKit ledger does not.
+        // Wearable samples (Oura, Garmin, Watch, Cycle) were already read on
+        // this iPhone; the remote model gets the user message, not the warehouse.
+        let remoteContext = AriaOnDeviceHealthPolicy.strippedForRemoteInference(domainContext)
         let request = AriaChatRequest(
             userId: contextStore.context.userId,
             message: text,
-            context: domainContext,
-            recentMetrics: legacyMetrics,
+            context: remoteContext,
+            recentMetrics: nil,
             permissions: DataPermissionsStore.shared.payloadIfRestricted(),
             voiceMode: voiceMode || store.ariaVoiceMode,
             mode: mode,
@@ -138,7 +143,7 @@ final class AriaService: ObservableObject {
             }
             // Backend prose without a card still gets a concrete themed plan card.
             if AriaThemeResolver.isPlanRequest(text), response.richCard == nil {
-                let plan = AriaPlanEngine.evaluate(input: text, context: store.makeTrainerContext())
+                let plan = AriaPlanEngine.evaluate(input: text, context: store.makeTrainerContext(query: text))
                 if plan.shouldPersistTheme {
                     store.setTrainingTheme(plan.theme, source: "chat")
                 }
@@ -197,20 +202,13 @@ final class AriaService: ObservableObject {
         rich: AriaRichContext,
         agent: AriaCoachAgent = .aria
     ) async throws -> AriaResponse {
-        let trainerContext = store.makeTrainerContext()
+        let trainerContext = store.makeTrainerContext(query: text)
 
         // Prefer the dynamic plan engine for any training / theme request so
         // Solo Leveling (and siblings) always get a real themed session.
         let local: TrainerResponse
         let lower = text.lowercased()
-        let isCycle = lower.contains("period") || lower.contains("cycle") || lower.contains("luteal")
-            || lower.contains("follicular") || lower.contains("ovulat") || lower.contains("pms")
-            || lower.contains("girlfriend") || lower.contains("wife") || lower.contains("partner cycle")
-            || lower.contains("support her") || lower.contains("her period") || lower.contains("her pms")
-            || lower.contains("daughter") || lower.contains("as a dad") || lower.contains("as a father")
-            || lower.contains("my kid") || lower.contains("my child")
-            || AriaRelationalCoach.mentionsSupportContext(lower)
-            || lower.contains("show up for") || lower.contains("help me support")
+        let isCycle = AriaCycleTools.shouldHandle(text)
         let isEmotional = AriaEmotionalSupportCoach.isEmotionalSupportQuery(text, context: trainerContext)
         let isArchetype = AriaArchetypeIntent.parse(text) != nil
         if isArchetype {
@@ -239,6 +237,9 @@ final class AriaService: ObservableObject {
         let memory = contextStore.memoryReference(for: text)
 
         var message = local.content
+        if isCycle, let toolNote = AriaCycleTools.run(text: text) {
+            message += "\n\n" + toolNote
+        }
         if let memory, local.confidence >= 0.85 {
             message = "\(memory)\n\n\(local.content)"
         }
@@ -306,15 +307,15 @@ enum AriaOnboardingGuide {
 
         switch style {
         case .driven:
-            return "\(name) — standards first. Week one targets \(goal)\(workouts.isEmpty ? "" : " through \(workouts)").\(sleep)\(themeLine)\(healthLine)"
+            return "\(name) — I'm in the loop tomorrow morning. Week one targets \(goal)\(workouts.isEmpty ? "" : " through \(workouts)").\(sleep)\(themeLine)\(healthLine) Don't wait until you feel like it."
         case .balanced:
-            return "\(name), first block balances work and recovery around \(goal)\(workouts.isEmpty ? "" : ", favoring \(workouts)").\(sleep)\(themeLine)\(healthLine)"
+            return "\(name), I'm with you in the mornings now. First block balances work and recovery around \(goal)\(workouts.isEmpty ? "" : ", favoring \(workouts)").\(sleep)\(themeLine)\(healthLine)"
         case .supportive:
-            return "\(name), we make this doable from day one — small wins toward \(goal).\(sleep)\(themeLine)\(healthLine)"
+            return "\(name), we make this doable from day one — small wins toward \(goal) that you'll still do when the day is messy.\(sleep)\(themeLine)\(healthLine)"
         case .scientist:
-            return "\(name) — load and recovery will map back to \(goal). I'll explain the why.\(sleep)\(themeLine)\(healthLine)"
+            return "\(name) — load and recovery will map back to \(goal). I'll explain the why, every day.\(sleep)\(themeLine)\(healthLine)"
         case .elite:
-            return "\(name), readiness and output pointed at \(goal).\(sleep)\(themeLine)\(healthLine)"
+            return "\(name), readiness and output pointed at \(goal). I'll be in the morning numbers.\(sleep)\(themeLine)\(healthLine)"
         }
     }
 
@@ -329,7 +330,7 @@ enum AriaOnboardingGuide {
 
     static func welcomeChatMessage(profile: OnboardingProfile, healthConnected: Bool) -> String {
         var message = firstSessionScript(profile: profile, healthConnected: healthConnected)
-        message += "\n\nOpen chat anytime — I'm already tracking the context we built together in onboarding."
+        message += "\n\nOpen chat anytime — I'm already tracking the context we built together. I'll be here every day. That's the job."
         message += "\n\nOne human thing: if there's a partner, wife, or daughter whose cycle days you try to show up for, tell me in plain words. A lot of people do — I'll keep it practical and never clinical for them."
         if profile.guidanceOnlyMode {
             message += "\n\nReminder: for any conditions you shared, I only provide lifestyle guidance — not diagnosis, treatment, or medical solutions."
@@ -403,66 +404,48 @@ extension AriaService {
     }
 
     func observe(store: AppStore, message: String? = nil) async throws -> ObserveResponse {
-        if Self.shouldUseTestReadyDummy {
-            let samples = observationSamples(from: store)
-            return ObserveResponse(
-                classification: ClassificationSummary(accepted: samples.count, rejected: 0),
-                snapshot: BodySnapshot(
-                    confidence: store.readiness.overall > 0 ? 0.82 : 0.4,
-                    observationCount: samples.count,
-                    sources: ["apple-health"],
-                    systems: [
-                        "recovery": SystemStateDTO(
-                            system: "recovery",
-                            status: store.readiness.overall >= 70 ? "ready" : "protect",
-                            summary: "Readiness \(store.readiness.overall)",
-                            confidence: 0.8
-                        )
-                    ],
-                    derived: [
-                        "hrv": BiometricEstimate(
-                            name: "hrv",
-                            value: Double(store.dailyMetrics.hrv),
-                            state: store.dailyMetrics.hrv >= 50 ? "ok" : "low",
-                            confidence: 0.8,
-                            method: "local-day",
-                            detail: "Today's HRV on this phone"
-                        ),
-                        "steps": BiometricEstimate(
-                            name: "steps",
-                            value: Double(store.dailyMetrics.steps),
-                            state: "ok",
-                            confidence: 0.8,
-                            method: "local-day",
-                            detail: "Today's steps"
-                        )
-                    ],
-                    anomalies: []
-                ),
-                restrictedDomains: DataPermissionsStore.shared.restrictedDomains.isEmpty
-                    ? nil
-                    : DataPermissionsStore.shared.restrictedDomains,
-                ariaResponse: nil
-            )
-        }
-
-        let request = ObserveRequest(
-            userId: contextStore.context.userId,
-            samples: observationSamples(from: store),
-            includeStored: true,
-            ageYears: nil,
-            permissions: DataPermissionsStore.shared.payloadIfRestricted(),
-            message: message,
-            voiceMode: nil
+        // Wearable / Apple Health samples stay on this iPhone. ARIA reads them
+        // locally and gives an opinion. Forge is not a health warehouse.
+        _ = message
+        let samples = observationSamples(from: store)
+        return ObserveResponse(
+            classification: ClassificationSummary(accepted: samples.count, rejected: 0),
+            snapshot: BodySnapshot(
+                confidence: store.readiness.overall > 0 ? 0.82 : 0.4,
+                observationCount: samples.count,
+                sources: ["apple-health"],
+                systems: [
+                    "recovery": SystemStateDTO(
+                        system: "recovery",
+                        status: store.readiness.overall >= 70 ? "ready" : "protect",
+                        summary: "Readiness \(store.readiness.overall)",
+                        confidence: 0.8
+                    )
+                ],
+                derived: [
+                    "hrv": BiometricEstimate(
+                        name: "hrv",
+                        value: Double(store.dailyMetrics.hrv),
+                        state: store.dailyMetrics.hrv >= 50 ? "ok" : "low",
+                        confidence: 0.8,
+                        method: "local-day",
+                        detail: "Today's HRV on this phone"
+                    ),
+                    "steps": BiometricEstimate(
+                        name: "steps",
+                        value: Double(store.dailyMetrics.steps),
+                        state: "ok",
+                        confidence: 0.8,
+                        method: "local-day",
+                        detail: "Today's steps"
+                    )
+                ],
+                anomalies: []
+            ),
+            restrictedDomains: DataPermissionsStore.shared.restrictedDomains.isEmpty
+                ? nil
+                : DataPermissionsStore.shared.restrictedDomains,
+            ariaResponse: nil
         )
-
-        let url = baseURL.appendingPathComponent("ai/observe")
-        var urlRequest = URLRequest(url: url)
-        urlRequest.httpMethod = "POST"
-        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.httpBody = try JSONEncoder().encode(request)
-
-        let (data, _) = try await ForgeAPI.send(urlRequest)
-        return try JSONDecoder().decode(ObserveResponse.self, from: data)
     }
 }

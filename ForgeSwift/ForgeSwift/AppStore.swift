@@ -84,6 +84,8 @@ final class AppStore: ObservableObject {
     @Published var pendingHydrationOpen: Bool = false
     /// Sleep page leaf: `alarms` / `wake` opens the Wake tab.
     @Published var pendingSleepTab: String? = nil
+    /// Shell presents the Medicine / clinical-data (non-PHI) page.
+    @Published var pendingClinicalOpen: Bool = false
 
     // Quiet mode — damp proactive noise (persisted)
     @Published var quietMode: Bool = UserDefaults.standard.bool(forKey: "forge.quiet.mode.v1") {
@@ -136,6 +138,8 @@ final class AppStore: ObservableObject {
     /// after consume so a sticky Voice tab does not re-listen on every visit.
     @Published var ariaVoiceLaunch: Bool = false
     @Published var ariaPendingChatPrompt: String? = nil
+    /// Cycle intimacy CTA → seeded ARIA conversation (user opener + ARIA opening).
+    @Published var pendingIntimacySession: IntimacyChatSession? = nil
     @Published var lastSuggestedActions: [String] = []
     @Published var healthKitLive: Bool = false
     /// Last successful metrics refresh (Home status pill).
@@ -150,6 +154,17 @@ final class AppStore: ObservableObject {
     @Published var lastCloudSyncAt: Date? = nil
     @Published var remoteSleepInsight: String? = nil
     @Published var remoteProgressReview: String? = nil
+
+    /// Visual first-meet page. Completes once; first login or first ARIA tap.
+    @Published var hasMetAria: Bool = UserDefaults.standard.bool(forKey: AppStore.ariaMeetKey) {
+        didSet { UserDefaults.standard.set(hasMetAria, forKey: AppStore.ariaMeetKey) }
+    }
+    @Published var showAriaMeetOnLaunch: Bool = true
+
+    func meetAria() {
+        hasMetAria = true
+        showAriaMeetOnLaunch = false
+    }
 
     /// First conversation with ARIA. Completes once; replay from Settings.
     @Published var hasCompletedAriaUseOnboarding: Bool = UserDefaults.standard.bool(forKey: AriaUseOnboarding.storageKey) {
@@ -248,12 +263,14 @@ final class AppStore: ObservableObject {
     /// Message currently being typewriter-revealed (nil when idle).
     @Published var streamingMessageId: String? = nil
     @Published var streamingVisibleCount: Int = 0
+    var streamingRevealTask: Task<Void, Never>?
 
     static let onboardedDefaultsKey = "forge.onboarding.completed"
     static let profileDefaultsKey = "forge.user.profile.v1"
     static let authDefaultsKey = "forge.auth.session.v1"
     static let authProviderKey = "forge.auth.provider.v1"
     static let authEmailKey = "forge.auth.email.v1"
+    static let ariaMeetKey = "forge.aria.meet.v1"
 
     private func persistUserProfile() {
         guard let data = try? JSONEncoder().encode(userProfile) else { return }
