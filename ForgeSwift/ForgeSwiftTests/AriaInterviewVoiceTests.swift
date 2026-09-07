@@ -118,7 +118,7 @@ final class AriaInterviewVoiceTests: XCTestCase {
                 step: .details, profile: empty, health: .unknown, calendar: .unknown
             ).isEmpty
         )
-        XCTAssertEqual(AriaInterviewStep.allCases.count, 12)
+        XCTAssertEqual(AriaInterviewStep.allCases.count, 13)
         XCTAssertTrue(AriaInterviewVoice.shouldShowVoiceDock(for: .name))
         XCTAssertFalse(AriaInterviewVoice.shouldShowVoiceDock(for: .ready))
     }
@@ -211,29 +211,25 @@ final class AriaInterviewVoiceTests: XCTestCase {
         XCTAssertEqual(coordinator.step, .freeTime)
     }
 
-    func testWorkoutsStepHearsSportsAndCalisthenics() {
+    func testScheduleVoicePicksRotateOrFixed() {
         let profile = OnboardingProfile()
         XCTAssertEqual(
-            AriaInterviewVoice.matchSpoken("I play basketball and tennis", step: .workouts, profile: profile),
-            .toggleWorkouts([.basketball, .tennis])
+            AriaInterviewVoice.matchSpoken("rotate for me", step: .schedule, profile: profile),
+            .scheduleRotate
         )
         XCTAssertEqual(
-            AriaInterviewVoice.matchSpoken("calisthenics and hoops", step: .workouts, profile: profile),
-            .toggleWorkouts([.calisthenics, .basketball])
+            AriaInterviewVoice.matchSpoken("I'll pick the days", step: .schedule, profile: profile),
+            .scheduleFixed
+        )
+        XCTAssertEqual(
+            AriaInterviewVoice.matchSpoken("that's the week", step: .schedule, profile: profile),
+            .confirmSchedule
         )
         let line = AriaInterviewVoice.prompt(
-            .workouts,
-            profile: profile,
-            healthAuthorized: false,
-            healthPrefill: false,
-            vo2Max: nil
+            .schedule, profile: profile, healthAuthorized: false, healthPrefill: false, vo2Max: nil
         )
-        XCTAssertTrue(line.localizedCaseInsensitiveContains("sports"))
-        XCTAssertTrue(line.localizedCaseInsensitiveContains("calisthenics"))
+        XCTAssertTrue(line.localizedCaseInsensitiveContains("tuesday"))
+        XCTAssertTrue(line.localizedCaseInsensitiveContains("chest"))
         XCTAssertLessThan(line.count, AriaSpeechPrep.characterLimit)
-        XCTAssertTrue(OnboardingWorkoutType.allCases.contains(.basketball))
-        XCTAssertTrue(OnboardingWorkoutType.allCases.contains(.soccer))
-        XCTAssertEqual(OnboardingWorkoutType.basketball.coreType, .sportSpecific)
-        XCTAssertEqual(OnboardingWorkoutType.calisthenics.coreType, .strength)
     }
 }

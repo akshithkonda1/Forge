@@ -25,6 +25,18 @@ struct ProgressPageView: View {
                     subtitle: "History, PRs, streaks — your training story",
                     accent: Color(hex: "3B82F6")
                 ) {
+                    Button(action: { store.openChat(with: "Walk me through my progress, PRs, and what to train next.", voice: false) }) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.surfaceElevated)
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.ember)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Ask ARIA about progress")
                     Button(action: { showShareSheet = true }) {
                         ZStack {
                             Circle()
@@ -51,8 +63,8 @@ struct ProgressPageView: View {
                         title: "No sessions yet",
                         message: "Complete a workout and your history, PRs, and streaks will show up here.",
                         accent: .ember,
-                        cta: "Start a session",
-                        action: { store.openDestination(.workout) }
+                        cta: "Ask ARIA to write a session",
+                        action: { store.openChat(with: HomeInsightFlow.todayPlanPrompt, voice: false) }
                     )
                 } else {
                     TimeRangePicker(selection: $selectedTimeRange)
@@ -398,6 +410,9 @@ struct BehavioralInsightView: View {
     }
 
     private var insightBody: String {
+        if let remote = store.remoteProgressReview, !remote.isEmpty {
+            return remote
+        }
         if let insight = store.primaryTrainingInsight {
             return "\(insight.observation) \(insight.recommendation)"
         }
@@ -408,26 +423,33 @@ struct BehavioralInsightView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "chart.line.uptrend.xyaxis")
-                .font(.system(size: 18))
-                .foregroundColor(.ember)
-                .frame(width: 36, height: 36)
+        Button {
+            store.openChat(with: "Review my last 30 days. One win, one risk, one recommendation.", voice: false)
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 18))
+                    .foregroundColor(.ember)
+                    .frame(width: 36, height: 36)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text(insightTitle)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.textPrimary)
-                Text(insightBody)
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
-                    .lineSpacing(3)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(insightTitle)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                    Text(insightBody)
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+                        .lineSpacing(3)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
             }
+            .padding(16)
+            .background(Color.surface)
+            .cornerRadius(16)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor, lineWidth: 1))
         }
-        .padding(16)
-        .background(Color.surface)
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor, lineWidth: 1))
+        .buttonStyle(.plain)
         .task { store.shareProgressInsightIfNeeded() }
     }
 }

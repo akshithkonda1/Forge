@@ -109,27 +109,70 @@ extension AppStore {
     }
 
     func loadDashboardFromAPI() async {
-        await Task.yield()
+        dataLoadState = .loading
+        await syncHealthBatchAndDashboard()
+        await applyRemoteDailyPlan()
+        await refreshCoachInsightsIfNeeded()
+        publishHomeWidgets()
+        dataLoadState = .loaded
         objectWillChange.send()
     }
 
     func signOut() {
+        persistChatSession()
         ForgeAuthClient.shared.signOut()
+        AriaContextStore.shared.configure(userId: "local-\(UUID().uuidString)")
         isAuthenticated = false
         isOnboarded = false
         authProvider = ""
         authEmail = ""
+        AriaForgePrepHandoff.clearInterviewComplete()
         UserDefaults.standard.set(false, forKey: "forge.auth.session.v1")
         UserDefaults.standard.removeObject(forKey: "forge.auth.provider.v1")
         UserDefaults.standard.removeObject(forKey: "forge.auth.email.v1")
+        resetInMemoryChat()
+        lastCloudSyncError = nil
+        remoteSleepInsight = nil
+        remoteProgressReview = nil
+        metricSources = []
         activeTab = .home
         onboardingStep = 0
+    }
+
+    func exportUserDataJSON() -> String {
+        let payload: [String: Any] = [
+            "exportedAt": ISO8601DateFormatter().string(from: Date()),
+            "userId": persistenceUserId(),
+            "profileName": userProfile.name,
+            "readiness": readiness.overall,
+            "dailyMetrics": [
+                "steps": dailyMetrics.steps,
+                "activeCalories": dailyMetrics.activeCalories,
+                "hrv": dailyMetrics.hrv,
+                "restingHR": dailyMetrics.restingHR,
+                "totalSleepMinutes": dailyMetrics.totalSleep,
+            ],
+            "sources": metricSources,
+            "workouts": workoutHistory.map {
+                ["id": $0.id, "date": $0.date, "name": $0.name, "duration": $0.duration]
+            },
+            "personalRecords": personalRecords.map {
+                ["exercise": $0.exercise, "value": $0.value, "unit": $0.unit, "date": $0.date]
+            },
+        ]
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]),
+              let text = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return text
     }
 
     /// Force HealthKit reconnect from Settings / Home offline pill.
     func reconnectHealthKit() async {
         do {
             try await HealthKitManager.shared.requestAuthorization()
+            await HealthKitManager.shared.applyConnectedHealthToForge()
             healthKitLive = await HealthKitManager.shared.checkAuthorizationStatus()
             if healthKitLive {
                 await refreshDailyData()

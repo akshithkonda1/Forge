@@ -100,6 +100,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         
         Time: \(context.isEarlyMorning ? "Early morning (before 7am)" : context.isLateNight ? "Late night (after 10pm)" : "Daytime")
         \(cyclePromptBlock(input, context))
+        \(context.medicationLayer.promptBlock)
         
         \(CyclePrivacy.ariaDirective)
         
@@ -107,6 +108,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         
         Respond in-character with the voice profile above. If they want a workout or themed plan, describe the session clearly.
         Use cycle context for training bias only — never medical or contraceptive advice.
+        Use medication context only to personalize lifestyle and training for this person. Never prescribe. Never name a dose. Never diagnose. For you, not for everyone.
         If emotional keywords appear (fight, anxious, overwhelmed, sad, parenting stress, PMS mood), lead with human emotional support: validate, practical moves, optional scripts. Not therapy. Crisis → urge real emergency resources.
         \(emotionalPromptBlock(input, context))
         """

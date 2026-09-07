@@ -18,10 +18,10 @@ extension HealthKitManager {
         let recordBuckets = await withTaskGroup(of: (StructuredHealthKind, [StructuredHealthItem]).self) { group in
             for identifier in Self.structuredHealthRecordIdentifiers {
                 group.addTask { [healthStore] in
-                    guard let kind = StructuredHealthKind(identifier: identifier),
-                          let type = HKObjectType.clinicalType(forIdentifier: identifier) else {
-                        return (StructuredHealthKind(identifier: identifier) ?? .allergy, [])
+                    guard let kind = StructuredHealthKind(identifier: identifier) else {
+                        return (.allergy, [])
                     }
+                    let type = HKClinicalType(identifier)
                     let records = await Self.fetchClinicalRecords(type: type, healthStore: healthStore)
                     let items = records.map { record in
                         StructuredHealthItem(
@@ -45,11 +45,11 @@ extension HealthKitManager {
 
         let items = recordBuckets.flatMap(\.1).sorted { $0.date > $1.date }
         // uniquingKeysWith, not uniqueKeysWithValues: every identifier falls
-        // back to the same (.allergy, []) bucket if HKObjectType.clinicalType
-        // ever returns nil for it (line 16-18 above) -- two such collisions
-        // in the same batch would trap here otherwise. Not currently
-        // reachable (the six identifiers are stable pre-iOS-12 API), but
-        // this is the identical failure class already fixed once in
+        // back to the same (.allergy, []) bucket if StructuredHealthKind
+        // does not recognize it -- two such collisions in the same batch
+        // would trap here otherwise. Not currently reachable (the six
+        // identifiers are stable pre-iOS-12 API), but this is the identical
+        // failure class already fixed once in
         // MenstrualHealthStore+HealthKit.swift, so it's summed rather than
         // left to collide -- recordCountsByType should still add up to
         // items.count either way.
@@ -93,7 +93,7 @@ extension HealthKitManager {
         let reproductiveValues = await (ovulationResult, progesteroneResult, pregnancyResult, basalTemperature, sexualActivitySamples, pregnancySamples, lactationSamples)
         
         let periodSamples = flow.filter { sample in
-            guard let value = HKCategoryValueMenstrualFlow(rawValue: sample.value) else { return false }
+            guard let value = HKCategoryValueVaginalBleeding(rawValue: sample.value) else { return false }
             return value != .none
         }
         let cycleStart = periodSamples.first { sample in
@@ -150,7 +150,7 @@ extension HealthKitManager {
         let bbt = await bbtSamples
 
         let flowMapped: [(date: Date, flow: MenstrualFlowLevel)] = flow.compactMap { sample in
-            guard let value = HKCategoryValueMenstrualFlow(rawValue: sample.value) else { return nil }
+            guard let value = HKCategoryValueVaginalBleeding(rawValue: sample.value) else { return nil }
             let level: MenstrualFlowLevel
             switch value {
             case .none: level = .none
@@ -187,7 +187,7 @@ extension HealthKitManager {
             case .luteinizingHormoneSurge: r = .lhSurge
             case .indeterminate: r = .indeterminate
             case .estrogenSurge: r = .estrogenSurge
-            case .positive: r = .positive
+            case .positive: r = .lhSurge
             @unknown default: r = .unknown
             }
             return (sample.startDate, r)
@@ -223,7 +223,8 @@ extension HealthKitManager {
         }
         let expandedRequested = UserDefaults.standard.bool(forKey: expandedAuthorizationRequestedKey)
         let clinicalRequested = UserDefaults.standard.bool(forKey: clinicalAuthorizationRequestedKey)
-        let cycle = expandedRequested ? await fetchCycleSummary() : nil
+            || canRequestStructuredRecords
+        let cycle = expandedRequested || isAuthorized ? await fetchCycleSummary() : nil
         let clinical = clinicalRequested ? await fetchClinicalRecordsSummary() : nil
 
         return UserHealthProfile(
@@ -287,7 +288,7 @@ extension HealthKitManager {
     }
 
     private func fetchMostRecentWeight() async -> Double? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: .bodyMass) else { return nil }
+        let type = HKQuantityType(.bodyMass)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
         
         return await withCheckedContinuation { continuation in
@@ -309,7 +310,7 @@ extension HealthKitManager {
     }
 
     private func fetchHeight() async -> Double? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: .height) else { return nil }
+        let type = HKQuantityType(.height)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
         
         return await withCheckedContinuation { continuation in
@@ -331,7 +332,7 @@ extension HealthKitManager {
     }
 
     func fetchMostRecentVO2Max() async -> Double? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: .vo2Max) else { return nil }
+        let type = HKQuantityType(.vo2Max)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
         
         return await withCheckedContinuation { continuation in

@@ -71,6 +71,7 @@ struct MenstrualHealthView: View {
     @State private var didApplyLaunchPane = false
     @State private var coldStartDate = Date()
     @State private var showRhythmReport = false
+    @State private var supportCardDraft = ""
 
     private var accent: Color {
         let phase = pane == .me ? cycleStore.snapshot.phase : cycleStore.partnerSnapshot.phase
@@ -292,6 +293,7 @@ struct MenstrualHealthView: View {
     private var meEnabledPrimary: some View {
         phaseOrbitCard
         cycleStageCard
+        supportCardComposer
         extraCareCard
         trainingPrescriptionCard
         if let condition = cycleStore.settings.condition.activeCase {
@@ -337,6 +339,42 @@ struct MenstrualHealthView: View {
             settingsCard
             disclaimerFooter
         }
+    }
+
+    /// Owner-authored holistic Support card — single line, 280 chars, vaulted.
+    /// Whole-person intent (`symptoms`/`flow`/`notes` stay vaulted) that travels
+    /// in `PartnerCycleDigest` so male can grasp conversations ARIA has *and*
+    /// things she didn't tell him directly — without auto-sharing a diary.
+    /// Female keeps full snapshot (phase, scores, training) inside Cycle Health;
+    /// this card is the only holistic line that leaves it, and workout listing
+    /// never shows period phases.
+    private var supportCardComposer: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "heart.text.square.fill")
+                    .foregroundStyle(Color.ember)
+                Text("Support card for partner").font(FDS.TypeScale.label(13)).foregroundColor(.textPrimary)
+                Spacer()
+                Text("\(supportCardDraft.count)/280").font(FDS.TypeScale.micro(11)).foregroundColor(.textTertiary)
+            }
+            Text("What helps you, in your words. Shared on Support coach + Timing. Never auto-filled from cramps/pain/notes.").font(FDS.TypeScale.body(11)).foregroundColor(.textTertiary).fixedSize(horizontal: false, vertical: true)
+            TextField("e.g. tea + quiet tonight, heat pad helps, space first 2 days…", text: $supportCardDraft, axis: .vertical)
+                .textFieldStyle(.plain).lineLimit(3...4).padding(12).background(Color.surfaceElevated).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .onChange(of: supportCardDraft) { _, v in if v.count > 280 { supportCardDraft = String(v.prefix(280)) } }
+                .onAppear { supportCardDraft = cycleStore.settings.supportCardLine ?? "" }
+                .onChange(of: cycleStore.settings.supportCardLine) { _, v in supportCardDraft = v ?? "" }
+            let trimmedPreview = supportCardDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let preview = (trimmedPreview.isEmpty ? nil : trimmedPreview) ?? cycleStore.settings.supportCardLine {
+                HStack(spacing: 8) { Image(systemName: "eye.fill").foregroundStyle(Color(hex: "6366F1")); Text("Partner will see: \"\(preview)\"").font(FDS.TypeScale.body(12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true); Spacer(minLength: 0) }.padding(.horizontal, 2)
+            }
+            HStack(spacing: 10) {
+                Button { cycleStore.updateSupportCard(supportCardDraft); FDS.notificationHaptic(.success) } label: { Text("Save card").font(FDS.TypeScale.label(14)).foregroundColor(.white).padding(.horizontal, 16).padding(.vertical, 10).background(Color.ember).clipShape(Capsule()) }.buttonStyle(.plain).disabled(supportCardDraft.trimmingCharacters(in: .whitespacesAndNewlines) == (cycleStore.settings.supportCardLine ?? ""))
+                if cycleStore.settings.supportCardLine != nil {
+                    Button { supportCardDraft = ""; cycleStore.updateSupportCard(nil); FDS.haptic(.light) } label: { Text("Clear").font(FDS.TypeScale.label(14)).foregroundColor(.ember) }.buttonStyle(.plain)
+                }
+                Spacer()
+            }
+        }.padding(18).forgeGlassCard(accent: Color.ember)
     }
 
     /// Extra care ping for supporters — stays on My cycle because it is about

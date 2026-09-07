@@ -1,15 +1,44 @@
 import SwiftUI
+import UIKit
+import ForgeCore
 
 struct SleepDayTab: View {
+    @EnvironmentObject var store: AppStore
+
+    private var isInitialLoading: Bool {
+        store.dataLoadState == .loading && store.sleepData.isEmpty
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 28) {
-                EnergyScheduleCard()
-                SleepLastNightStrip()
-                AISleepPredictionCard()
-                AISmartRecommendationsView()
-                SleepStreakCard()
-                SleepWeekRhythm()
+                if isInitialLoading {
+                    ForgeSkeletonBlock(height: 88, cornerRadius: 16)
+                    ForgeSkeletonBlock(height: 160, cornerRadius: 16)
+                    ForgeSkeletonBlock(height: 120, cornerRadius: 16)
+                } else if store.sleepData.isEmpty {
+                    ForgeEmptyStateCard(
+                        icon: "moon.zzz.fill",
+                        title: "Connect Apple Health to unlock sleep",
+                        message: "Forge reads last night's stages from Apple Health. Once a night lands, ARIA can explain recovery and bedtime.",
+                        accent: Color(hex: "6366F1"),
+                        cta: store.healthKitLive ? "Ask ARIA about tonight" : "Reconnect Apple Health",
+                        action: {
+                            if store.healthKitLive {
+                                store.openChat(with: "How did I sleep last night, and what should I change tonight?", voice: false)
+                            } else {
+                                Task { await store.reconnectHealthKit() }
+                            }
+                        }
+                    )
+                } else {
+                    EnergyScheduleCard()
+                    SleepLastNightStrip()
+                    AISleepPredictionCard()
+                    AISmartRecommendationsView()
+                    SleepStreakCard()
+                    SleepWeekRhythm()
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 12)
@@ -38,6 +67,7 @@ struct SleepNightTab: View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
                 SleepTonightHero(coach: coach)
+                SleepEveningStoryCard(store: store, coach: coach)
                 SleepWindDownRitual(coach: coach, onSounds: { showSounds = true })
                 SleepTonightSoundDock(onMore: { showSounds = true })
                 Button {
@@ -128,9 +158,79 @@ struct SleepTonightHero: View {
     }
 }
 
+struct SleepEveningStoryCard: View {
+    let store: AppStore
+    let coach: SleepBedtimeCoach
+
+    private var lastNight: SleepNight? {
+        guard let night = store.sleepData.first else { return nil }
+        let start = night.onset ?? Date().addingTimeInterval(-night.totalHours * 3600)
+        var cursor = start
+        var segments: [SleepStageSegment] = []
+        func add(_ minutes: Int, _ stage: SleepStage) {
+            guard minutes > 0 else { return }
+            let end = cursor.addingTimeInterval(Double(minutes) * 60)
+            segments.append(SleepStageSegment(start: cursor, end: end, stage: stage))
+            cursor = end
+        }
+        add(night.deepMinutes, .deep)
+        add(night.remMinutes, .rem)
+        add(night.lightMinutes, .core)
+        add(night.awakeMinutes, .awake)
+        return segments.isEmpty ? nil : SleepNight(segments: segments)
+    }
+
+    private var windDown: WindDownPlan? {
+        let onsets = store.sleepData.compactMap(\.onset)
+        let minutes = store.sleepData.map { $0.totalHours * 60 }
+        return WindDownPredictor.plan(
+            recentOnsets: onsets,
+            recentSleepMinutes: minutes
+        )
+    }
+
+    var body: some View {
+        let story = SleepStoryEngine.story(
+            night: lastNight,
+            readiness: ReadinessScore(
+                overall: store.readiness.overall,
+                sleepQuality: store.readiness.sleepQuality,
+                recovery: store.readiness.recoveryScore,
+                confidence: store.healthKitLive ? 0.8 : 0.4
+            )
+        )
+        let plan = SleepStoryEngine.tonightPlan(plan: windDown, night: lastNight)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("EVENING NARRATIVE")
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(1.2)
+                .foregroundColor(.textTertiary)
+            Text(story)
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .foregroundColor(.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(plan)
+                .font(.system(size: 14))
+                .foregroundColor(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Wind-down \(coach.countdownLabel == "now" ? "is now" : "in \(coach.countdownLabel)") · lights out \(coach.bedtimeLabel)")
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundColor(.aurora)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+}
+
 struct SleepWindDownRitual: View {
     let coach: SleepBedtimeCoach
     var onSounds: () -> Void
+    @State private var dimmed = false
+    @State private var parked = false
+    @State private var previousBrightness: CGFloat?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -138,11 +238,26 @@ struct SleepWindDownRitual: View {
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(1.2)
                 .foregroundColor(.textTertiary)
-            ritualRow(
-                step: "1",
-                title: "Dim the room",
-                detail: "Lights and screens down. Melatonin does not argue with a bright kitchen."
-            )
+            Button {
+                FDS.haptic(.light)
+                if !dimmed {
+                    previousBrightness = UIScreen.main.brightness
+                    UIScreen.main.brightness = min(UIScreen.main.brightness, 0.18)
+                    dimmed = true
+                } else if let previousBrightness {
+                    UIScreen.main.brightness = previousBrightness
+                    dimmed = false
+                }
+            } label: {
+                ritualRow(
+                    step: "1",
+                    title: dimmed ? "Room dimmed" : "Dim the room",
+                    detail: dimmed
+                        ? "Brightness is down. Tap again to restore."
+                        : "Lights and screens down. Melatonin does not argue with a bright kitchen."
+                )
+            }
+            .buttonStyle(.plain)
             Button(action: onSounds) {
                 ritualRow(
                     step: "2",
@@ -151,13 +266,24 @@ struct SleepWindDownRitual: View {
                 )
             }
             .buttonStyle(.plain)
-            ritualRow(
-                step: "3",
-                title: "Phone stays here",
-                detail: coach.phase == .overdue || coach.phase == .lightsOut
-                    ? "Charge it outside the bed. The next scroll is not worth tomorrow."
-                    : "Set it down when the sound starts. Bed is the next room, not the next tab."
-            )
+            Button {
+                FDS.haptic(.medium)
+                parked = true
+                if !SleepWindDownPlayer.shared.isPlaying {
+                    SleepWindDownPlayer.shared.start(kind: .brown, minutes: 30)
+                }
+            } label: {
+                ritualRow(
+                    step: "3",
+                    title: parked ? "Phone is parked" : "Phone stays here",
+                    detail: parked
+                        ? "Wind-down sound is on. Charge it outside the bed."
+                        : (coach.phase == .overdue || coach.phase == .lightsOut
+                           ? "Charge it outside the bed. The next scroll is not worth tomorrow."
+                           : "Set it down when the sound starts. Bed is the next room, not the next tab.")
+                )
+            }
+            .buttonStyle(.plain)
         }
     }
 

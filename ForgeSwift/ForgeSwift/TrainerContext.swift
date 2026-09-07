@@ -65,6 +65,8 @@ struct TrainerContext {
     var partnerCycleSettings: PartnerCycleSettings? = nil
     /// Every consented person ARIA may coach the user about.
     var supportedPeople: [(settings: PartnerCycleSettings, snapshot: MenstrualCycleSnapshot)] = []
+    /// Federal pharmacy layer: Health/saved meds plus names mentioned this turn.
+    var medicationLayer: MedicationContextLayer = .empty
     
     var hour: Int {
         Calendar.current.component(.hour, from: currentTime)

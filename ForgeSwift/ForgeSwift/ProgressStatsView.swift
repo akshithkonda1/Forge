@@ -387,6 +387,15 @@ struct ShareProgressView: View {
                         )
                     }
                     .buttonStyle(.plain)
+
+                    ShareLink(item: store.exportUserDataJSON()) {
+                        ShareOptionRow(
+                            icon: "doc.text.fill",
+                            title: "Export JSON",
+                            subtitle: "Workouts, PRs, and today's metrics"
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal)
 

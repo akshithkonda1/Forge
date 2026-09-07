@@ -1,5 +1,6 @@
 import SwiftUI
 import ForgeCore
+import UserNotifications
 
 // MARK: - ForgeWatchApp
 //
@@ -15,6 +16,22 @@ enum WatchRoute: Hashable {
     case week
 }
 
+@MainActor
+final class WatchNotificationRouter: NSObject, UNUserNotificationCenterDelegate {
+    var onWindDown: (() -> Void)?
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        let destination = response.notification.request.content.userInfo["destination"] as? String
+        if response.notification.request.identifier == "forge.watch.winddown"
+            || destination == "forgewatch://mindfulness" {
+            onWindDown?()
+        }
+    }
+}
+
 @main
 struct ForgeWatchApp: App {
     @Environment(\.scenePhase) private var scenePhase
@@ -25,6 +42,7 @@ struct ForgeWatchApp: App {
     @State private var workout = WorkoutSessionManager()
     @State private var hydration = HydrationManager()
     @State private var path: [WatchRoute] = []
+    @State private var notificationRouter = WatchNotificationRouter()
 
     init() {
         // Earlier builds wrote the session token the phone sends into
@@ -65,6 +83,12 @@ struct ForgeWatchApp: App {
             .environment(hydration)
             .environment(\.forgeMinimalAnimation, contextEngine.minimalAnimation)
             .onOpenURL(perform: route(_:))
+            .onAppear {
+                notificationRouter.onWindDown = {
+                    if path.last != .mindfulness { path.append(.mindfulness) }
+                }
+                UNUserNotificationCenter.current().delegate = notificationRouter
+            }
             .onReceive(NotificationCenter.default.publisher(for: PhoneLinkService.companionConfigDidUpdate)) { _ in
                 // iPhone pushed ARIA base URL / first name — refresh greeting immediately.
                 aria.refresh(

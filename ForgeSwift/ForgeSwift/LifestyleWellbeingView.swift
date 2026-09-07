@@ -28,15 +28,15 @@ struct MindfulTrendCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text("This week")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundColor(.textPrimary)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(Color.textPrimary)
                 Spacer()
                 Text("\(total) min")
-                    .font(.system(size: 11, weight: .medium)).foregroundColor(.textTertiary).monospacedDigit()
+                    .font(.system(size: 11, weight: .medium)).foregroundStyle(Color.textTertiary).monospacedDigit()
             }
 
             if trend.isEmpty || trend.allSatisfy({ $0.minutes == 0 }) {
                 Text("No sessions yet — 5 minutes still counts.")
-                    .font(.system(size: 12)).foregroundColor(.textSecondary)
+                    .font(.system(size: 12)).foregroundStyle(Color.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 6)
             } else {
@@ -65,7 +65,7 @@ struct MindfulTrendCard: View {
         .padding(18)
         .background(Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.07), lineWidth: 1))
+        .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.07), lineWidth: 1) }
         .shadow(color: .black.opacity(0.02), radius: 6, y: 3)
     }
 }
@@ -80,20 +80,20 @@ struct QOLTrendCard: View {
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 16)).foregroundColor(.ember)
+                        .font(.system(size: 16)).foregroundStyle(Color.ember)
                     Text("Quality of Life Trend")
-                        .font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                        .font(.system(size: 18, weight: .bold)).foregroundStyle(Color.textPrimary)
                 }
                 Spacer()
                 if let last = recent.last {
                     Text("\(last.score)/100")
-                        .font(.system(size: 12, weight: .semibold)).foregroundColor(.ember)
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.ember)
                 }
             }
 
             if recent.count < 2 {
                 Text("Your QOL trend appears after a couple of days of tracking.")
-                    .font(.system(size: 13)).foregroundColor(.textSecondary)
+                    .font(.system(size: 13)).foregroundStyle(Color.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)
             } else {
@@ -134,7 +134,7 @@ struct QOLTrendCard: View {
         }
         .padding(20)
         .background(Color.surface)
-        .cornerRadius(20)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
     }
 }
@@ -148,12 +148,12 @@ struct DailyHabitsCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Daily Habits")
-                    .font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                    .font(.system(size: 18, weight: .bold)).foregroundStyle(Color.textPrimary)
                 Spacer()
                 Text("\(completed)/\(habits.count)")
-                    .font(.system(size: 13, weight: .bold)).foregroundColor(.ember)
+                    .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.ember)
                     .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(Color.ember.opacity(0.12)).cornerRadius(8)
+                    .background(Color.ember.opacity(0.12)).clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
             // Progress bar
@@ -162,7 +162,7 @@ struct DailyHabitsCard: View {
                     Capsule().fill(Color.borderColor.opacity(0.3))
                     Capsule().fill(LinearGradient(colors: [.ember, .ember.opacity(0.7)], startPoint: .leading, endPoint: .trailing))
                         .frame(width: geo.size.width * CGFloat(completed) / CGFloat(habits.count))
-                        .animation(.spring(response: 0.6, dampingFraction: 0.72), value: completed)
+                        .animation(.spring(duration: 0.6, bounce: 0.28), value: completed)
                 }
             }
             .frame(height: 6)
@@ -171,30 +171,30 @@ struct DailyHabitsCard: View {
             VStack(spacing: 2) {
                 ForEach($habits) { $habit in
                     HabitRow(name: habit.name, isDone: habit.done) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                        withAnimation(.spring(duration: 0.3, bounce: 0.35)) {
                             habit.done.toggle()
                         }
                         LifestyleWellbeingStore.saveHabits(habits)
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        FDS.haptic(.light)
                     }
                 }
             }
 
             // Streak
             HStack(spacing: 8) {
-                Image(systemName: "flame.fill").foregroundColor(.ember)
-                Text("\(LifestyleWellbeingStore.habitStreak())-day streak").font(.system(size: 15, weight: .bold)).foregroundColor(.textPrimary)
+                Image(systemName: "flame.fill").foregroundStyle(Color.ember)
+                Text("\(LifestyleWellbeingStore.habitStreak())-day streak").font(.system(size: 15, weight: .bold)).foregroundStyle(Color.textPrimary)
                 Spacer()
-                Text("Keep it up 🔥").font(.system(size: 13)).foregroundColor(.textSecondary)
+                Text("Keep it up 🔥").font(.system(size: 13)).foregroundStyle(Color.textSecondary)
             }
             .padding(14)
             .background(Color.ember.opacity(0.08))
-            .cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ember.opacity(0.2), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay { RoundedRectangle(cornerRadius: 12).stroke(Color.ember.opacity(0.2), lineWidth: 1) }
         }
         .padding(20)
         .background(Color.surface)
-        .cornerRadius(20)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
     }
 }
@@ -213,12 +213,12 @@ struct HabitRow: View {
                         .frame(width: 24, height: 24)
                     if isDone {
                         Circle().fill(Color.ember).frame(width: 24, height: 24)
-                        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundColor(.white)
+                        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
                     }
                 }
                 Text(name)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(isDone ? .textTertiary : .textPrimary)
+                    .foregroundStyle(isDone ? Color.textTertiary : Color.textPrimary)
                     .strikethrough(isDone, color: .textTertiary)
                 Spacer()
             }
@@ -286,11 +286,11 @@ struct MindfulnessCard: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Mindfulness")
                     .font(.system(size: 17, weight: .semibold, design: .rounded))
-                    .foregroundColor(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                 Spacer()
                 Text("\(max(vm.mindfulMinutesToday, 0)) min · \(max(vm.mindfulMinutesWeek, 0)) this week")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.textTertiary)
+                    .foregroundStyle(Color.textTertiary)
                     .monospacedDigit()
             }
 
@@ -299,12 +299,12 @@ struct MindfulnessCard: View {
                 ForEach(MindfulPractice.allCases) { item in
                     Button {
                         practice = item
-                        UISelectionFeedbackGenerator().selectionChanged()
+                        FDS.selectionHaptic()
                     } label: {
                         VStack(spacing: 4) {
                             Text(item.title)
                                 .font(.system(size: 12, weight: practice == item ? .semibold : .medium))
-                                .foregroundColor(practice == item ? .textPrimary : .textTertiary)
+                                .foregroundStyle(practice == item ? Color.textPrimary : Color.textTertiary)
                             // underline, not filled pill
                             Rectangle()
                                 .fill(practice == item ? Color.textPrimary : Color.clear)
@@ -323,7 +323,7 @@ struct MindfulnessCard: View {
 
             Text(practice.line)
                 .font(.system(size: 12.5, weight: .regular))
-                .foregroundColor(.textSecondary)
+                .foregroundStyle(Color.textSecondary)
                 .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -335,11 +335,11 @@ struct MindfulnessCard: View {
                         } label: {
                             Text("\(n)m")
                                 .font(.system(size: 12, weight: minutes == n ? .semibold : .medium))
-                                .foregroundColor(minutes == n ? .textPrimary : .textTertiary)
+                                .foregroundStyle(minutes == n ? Color.textPrimary : Color.textTertiary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 7)
                                 .background(minutes == n ? Color.surfaceElevated : Color.clear)
-                                .overlay(RoundedRectangle(cornerRadius: 999).stroke(minutes == n ? Color.borderColor : Color.clear, lineWidth: 1))
+                                .overlay { RoundedRectangle(cornerRadius: 999).stroke(minutes == n ? Color.borderColor : Color.clear, lineWidth: 1) }
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
@@ -365,20 +365,20 @@ struct MindfulnessCard: View {
                     if isRunning {
                         Text(timeString(remainingSeconds))
                             .font(.system(size: 26, weight: .light, design: .rounded))
-                            .foregroundColor(.textPrimary)
+                            .foregroundStyle(Color.textPrimary)
                             .monospacedDigit()
                         Text(inhale ? "in" : "out")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.textTertiary)
+                            .foregroundStyle(Color.textTertiary)
                             .textCase(.uppercase).tracking(0.8)
                     } else {
                         Text("\(minutes):00")
                             .font(.system(size: 24, weight: .light, design: .rounded))
-                            .foregroundColor(.textPrimary)
+                            .foregroundStyle(Color.textPrimary)
                             .monospacedDigit()
                         Text(practice.title.lowercased())
                             .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(.textTertiary)
+                            .foregroundStyle(Color.textTertiary)
                     }
                 }
             }
@@ -394,19 +394,19 @@ struct MindfulnessCard: View {
             } label: {
                 Text(isRunning ? "End" : "Begin \(practice.title.lowercased())")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(isRunning ? .textPrimary : .white)
+                    .foregroundStyle(isRunning ? Color.textPrimary : .white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
                     .background(isRunning ? Color.surfaceElevated : Color.textPrimary)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor.opacity(isRunning ? 0.12 : 0), lineWidth: 1))
+                    .overlay { RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor.opacity(isRunning ? 0.12 : 0), lineWidth: 1) }
             }
             .buttonStyle(.plain)
         }
         .padding(18)
         .background(Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.borderColor.opacity(0.07), lineWidth: 1))
+        .overlay { RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.borderColor.opacity(0.07), lineWidth: 1) }
         .shadow(color: .black.opacity(0.03), radius: 8, y: 4)
         .onDisappear { timer?.invalidate() }
     }
@@ -467,23 +467,23 @@ struct StressManagementCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Stress").font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundColor(.textPrimary)
+                Text("Stress").font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(Color.textPrimary)
                 Spacer()
-                Text(["low","balanced","high"][selectedLevel]).font(.system(size: 11, weight: .medium)).foregroundColor(.textTertiary)
+                Text(["low","balanced","high"][selectedLevel]).font(.system(size: 11, weight: .medium)).foregroundStyle(Color.textTertiary)
             }
 
             HStack(spacing: 6) {
                 ForEach(Array(levels.enumerated()), id: \.offset) { i, level in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selectedLevel = i }
+                        withAnimation(.spring(duration: 0.3, bounce: 0.3)) { selectedLevel = i }
                         LifestyleWellbeingStore.saveStressLevel(i)
                     } label: {
                         Text(level.label)
                             .font(.system(size: 12, weight: selectedLevel == i ? .semibold : .medium))
-                            .foregroundColor(selectedLevel == i ? .textPrimary : .textTertiary)
+                            .foregroundStyle(selectedLevel == i ? Color.textPrimary : Color.textTertiary)
                             .frame(maxWidth: .infinity).padding(.vertical, 9)
                             .background(selectedLevel == i ? Color.surfaceElevated : Color.clear)
-                            .overlay(RoundedRectangle(cornerRadius: 999).stroke(selectedLevel == i ? Color.borderColor : Color.clear, lineWidth: 1))
+                            .overlay { RoundedRectangle(cornerRadius: 999).stroke(selectedLevel == i ? Color.borderColor : Color.clear, lineWidth: 1) }
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -492,14 +492,14 @@ struct StressManagementCard: View {
 
             Text(stressTip)
                 .font(.system(size: 12, weight: .regular))
-                .foregroundColor(.textSecondary)
+                .foregroundStyle(Color.textSecondary)
                 .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(18)
         .background(Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.07), lineWidth: 1))
+        .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.07), lineWidth: 1) }
         .shadow(color: .black.opacity(0.02), radius: 6, y: 3)
         .onAppear {
             if let stats, stats.hrv > 0 {
@@ -530,26 +530,26 @@ struct SleepOptimizationCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Sleep Optimization").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+            Text("Sleep Optimization").font(.system(size: 18, weight: .bold)).foregroundStyle(Color.textPrimary)
 
             VStack(spacing: 10) {
                 ForEach(tips, id: \.tip) { tip in
                     HStack(spacing: 12) {
                         ZStack {
                             Circle().fill(tip.color.opacity(0.12)).frame(width: 36, height: 36)
-                            Image(systemName: tip.icon).font(.system(size: 15)).foregroundColor(tip.color)
+                            Image(systemName: tip.icon).font(.system(size: 15)).foregroundStyle(tip.color)
                         }
-                        Text(tip.tip).font(.system(size: 13, weight: .medium)).foregroundColor(.textSecondary)
+                        Text(tip.tip).font(.system(size: 13, weight: .medium)).foregroundStyle(Color.textSecondary)
                         Spacer()
                     }
                     .padding(12)
-                    .background(Color.surfaceElevated).cornerRadius(12)
+                    .background(Color.surfaceElevated).clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             }
         }
         .padding(20)
         .background(Color.surface)
-        .cornerRadius(20)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
     }
 }
@@ -610,45 +610,47 @@ struct AIInsightsModal: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.65).ignoresSafeArea()
-                .onTapGesture { dismiss() }
+        GeometryReader { geo in
+            ZStack {
+                Color.black.opacity(0.65).ignoresSafeArea()
+                    .onTapGesture { dismiss() }
 
-            VStack(spacing: 0) {
-                Spacer()
                 VStack(spacing: 0) {
-                    // Drag handle
-                    Capsule().fill(Color.textTertiary.opacity(0.5))
-                        .frame(width: 36, height: 4).padding(.top, 14).padding(.bottom, 20)
+                    Spacer()
+                    VStack(spacing: 0) {
+                        // Drag handle
+                        Capsule().fill(Color.textTertiary.opacity(0.5))
+                            .frame(width: 36, height: 4).padding(.top, 14).padding(.bottom, 20)
 
-                    HStack {
-                        HStack(spacing: 10) {
-                            Image(systemName: "sparkles").font(.system(size: 22)).foregroundColor(.ember)
-                            Text("AI Life Insights").font(.system(size: 24, weight: .bold)).foregroundColor(.textPrimary)
-                        }
-                        Spacer()
-                        Button { dismiss() } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 28)).foregroundColor(.textTertiary.opacity(0.7))
-                        }
-                    }
-                    .padding(.horizontal, 20).padding(.bottom, 20)
-
-                    ScrollView(showsIndicators: false) {
-                        LazyVStack(spacing: 14) {
-                            if let summary {
-                                ariaBanner(summary)
+                        HStack {
+                            HStack(spacing: 10) {
+                                Image(systemName: "sparkles").font(.system(size: 22)).foregroundStyle(Color.ember)
+                                Text("AI Life Insights").font(.system(size: 24, weight: .bold)).foregroundStyle(Color.textPrimary)
                             }
-                            ForEach(insights) { insight in
-                                AIInsightCard(insight: insight)
+                            Spacer()
+                            Button { dismiss() } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 28)).foregroundStyle(Color.textTertiary.opacity(0.7))
                             }
                         }
-                        .padding(.horizontal, 20).padding(.bottom, 40)
+                        .padding(.horizontal, 20).padding(.bottom, 20)
+
+                        ScrollView(showsIndicators: false) {
+                            LazyVStack(spacing: 14) {
+                                if let summary {
+                                    ariaBanner(summary)
+                                }
+                                ForEach(insights) { insight in
+                                    AIInsightCard(insight: insight)
+                                }
+                            }
+                            .padding(.horizontal, 20).padding(.bottom, 40)
+                        }
                     }
+                    .frame(maxHeight: geo.size.height * 0.78)
+                    .background(Color.surface)
+                    .cornerRadius(28, corners: [.topLeft, .topRight])
                 }
-                .frame(maxHeight: UIScreen.main.bounds.height * 0.78)
-                .background(Color.surface)
-                .cornerRadius(28, corners: [.topLeft, .topRight])
             }
         }
     }
@@ -657,14 +659,14 @@ struct AIInsightsModal: View {
     private func ariaBanner(_ text: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: "sparkles").font(.system(size: 13)).foregroundColor(.ember)
+                Image(systemName: "sparkles").font(.system(size: 13)).foregroundStyle(Color.ember)
                 Text(isLive ? "ARIA · LIVE" : "ARIA")
-                    .font(.system(size: 11, weight: .bold)).tracking(0.5).foregroundColor(.ember)
+                    .font(.system(size: 11, weight: .bold)).tracking(0.5).foregroundStyle(Color.ember)
                 Spacer()
             }
             Text(text)
                 .font(.system(size: 14))
-                .foregroundColor(.textPrimary)
+                .foregroundStyle(Color.textPrimary)
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -674,12 +676,12 @@ struct AIInsightsModal: View {
             LinearGradient(colors: [Color.ember.opacity(0.12), Color.ember.opacity(0.04)],
                            startPoint: .topLeading, endPoint: .bottomTrailing)
         )
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.ember.opacity(0.25), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color.ember.opacity(0.25), lineWidth: 1) }
     }
 
     private func dismiss() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { isPresented = false }
+        withAnimation(.spring(duration: 0.35, bounce: 0.25)) { isPresented = false }
     }
 }
 
@@ -692,30 +694,30 @@ struct AIInsightCard: View {
             HStack {
                 Circle().fill(insight.color).frame(width: 8, height: 8)
                     .shadow(color: insight.color.opacity(0.6), radius: 4)
-                Text(insight.title).font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
+                Text(insight.title).font(.system(size: 16, weight: .bold)).foregroundStyle(Color.textPrimary)
                 Spacer()
             }
             Text(insight.insight)
-                .font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
+                .font(.system(size: 13)).foregroundStyle(Color.textSecondary).lineSpacing(4)
                 .lineLimit(expanded ? nil : 3)
                 .animation(.easeInOut(duration: 0.25), value: expanded)
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) { expanded.toggle() }
+                withAnimation(.spring(duration: 0.3, bounce: 0.28)) { expanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.right.circle.fill").font(.system(size: 13))
                     Text(insight.action).font(.system(size: 13, weight: .semibold))
                 }
-                .foregroundColor(insight.color)
+                .foregroundStyle(insight.color)
             }
         }
         .padding(16)
         .background(Color.surfaceElevated)
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(insight.color.opacity(0.2), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay { RoundedRectangle(cornerRadius: 16).stroke(insight.color.opacity(0.2), lineWidth: 1) }
         .contentShape(Rectangle())
         .onTapGesture {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) { expanded.toggle() }
+            withAnimation(.spring(duration: 0.3, bounce: 0.28)) { expanded.toggle() }
         }
     }
 }

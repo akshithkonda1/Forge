@@ -222,7 +222,7 @@ extension MenstrualHealthStore {
             pushAriaTags()
             return
         }
-        var entry = sanitizedPartnerLog(log)
+        let entry = sanitizedPartnerLog(log)
         if let idx = supportedPeople[pidx].logs.firstIndex(where: { $0.dayKey == entry.dayKey }) {
             var merged = supportedPeople[pidx].logs[idx]
             merged.flow = entry.flow
@@ -429,6 +429,26 @@ extension MenstrualHealthStore {
     /// forget to clear. `PartnerCycleDigest.init(redacting:)` is the only
     /// crossing point, and this is the only thing that calls it.
     var supporterDigest: PartnerCycleDigest {
-        PartnerCycleDigest(redacting: snapshot, tier: settings.partnerShareTier)
+        PartnerCycleDigest(redacting: snapshot, supportCardLine: settings.supportCardLine, tier: settings.partnerShareTier)
+    }
+
+    /// Owner-composed holistic Support card — single line, 280 chars, vaulted.
+    /// `symptoms`/`flow`/`notes` never travel; this line is explicit intent.
+    func updateSupportCard(_ line: String?) {
+        let clamped: String? = {
+            guard let raw = line else { return nil }
+            let single = raw.replacingOccurrences(of: "\n", with: " ")
+                .components(separatedBy: .whitespaces).filter { !$0.isEmpty }.joined(separator: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !single.isEmpty else { return nil }
+            return String(single.prefix(280))
+        }()
+        if settings.supportCardLine == clamped { return }
+        settings.supportCardLine = clamped
+        persistVault()
+        recompute()
+        // Publish updated digest if sharing active — `recompute()` already queued
+        // `publishIfChanged` in +Recompute, but for immediate Support card we also
+        // trigger via snapshot change path; no extra CloudKit write needed here.
     }
 }

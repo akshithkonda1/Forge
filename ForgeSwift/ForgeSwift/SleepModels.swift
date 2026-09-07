@@ -38,6 +38,20 @@ enum AlarmSoundOption: String, CaseIterable, Codable {
         case .windChimes, .tibetanBell, .softPiano:    return "Tones"
         }
     }
+
+    /// Frequencies the wake DSP uses so each picker option sounds different.
+    var wakeFrequencies: (Double, Double) {
+        switch self {
+        case .gentleRise:  return (392, 523.25)
+        case .sunriseGlow: return (349.23, 440)
+        case .forestBirds: return (1800, 2400)
+        case .oceanWaves:  return (110, 165)
+        case .windChimes:  return (523.25, 783.99)
+        case .tibetanBell: return (220, 330)
+        case .rainDrop:    return (280, 640)
+        case .softPiano:   return (261.63, 329.63)
+        }
+    }
 }
 
 struct ForgeAlarm: Identifiable, Codable, Equatable {

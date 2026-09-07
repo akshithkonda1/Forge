@@ -287,7 +287,7 @@ extension HealthKitManager {
         }
     }
 
-    private func menstrualFlowValue(_ raw: String) -> HKCategoryValueMenstrualFlow? {
+    private func menstrualFlowValue(_ raw: String) -> HKCategoryValueVaginalBleeding? {
         switch raw {
         case "spotting", "light": return .light
         case "medium": return .medium
@@ -301,7 +301,7 @@ extension HealthKitManager {
         case "negative": return .negative
         case "lhSurge": return .luteinizingHormoneSurge
         case "estrogenSurge": return .estrogenSurge
-        case "positive": return .positive
+        case "positive": return .luteinizingHormoneSurge
         case "indeterminate": return .indeterminate
         default: return nil
         }

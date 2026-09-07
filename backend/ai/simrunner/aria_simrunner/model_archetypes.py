@@ -218,11 +218,6 @@ _PROVIDER_DEFAULTS: dict[str, dict[str, float]] = {
         "capitulation_penalty": 0.22, "cheer_penalty": 0.35, "specificity_boost": 0.00,
         "directness": -0.05, "safety_bias": 0.12,
     },
-    "moonshot": {
-        "hedge_boost": -0.12, "confidence_scale": 1.08, "refusal_boost": -0.15,
-        "capitulation_penalty": 0.00, "cheer_penalty": 0.18, "specificity_boost": 0.12,
-        "directness": 0.28, "safety_bias": 0.00,
-    },
     "xai": {
         "hedge_boost": -0.28, "confidence_scale": 1.10, "refusal_boost": -0.35,
         "capitulation_penalty": -0.05, "cheer_penalty": 0.35, "specificity_boost": 0.18,
@@ -244,10 +239,6 @@ _FAMILY_OVERRIDES: dict[str, dict[str, float]] = {
     },
     "deepseek": {
         "confidence_scale": 1.18, "directness": 0.22, "specificity_boost": 0.20,
-    },
-    "kimi": {
-        "hedge_boost": -0.15, "confidence_scale": 1.10, "directness": 0.30,
-        "refusal_boost": -0.18, "specificity_boost": 0.15,
     },
     "command": {
         "specificity_boost": 0.18, "hedge_boost": 0.10,

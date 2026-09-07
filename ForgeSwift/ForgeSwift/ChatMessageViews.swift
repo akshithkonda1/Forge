@@ -229,6 +229,14 @@ struct MessageBubbleView: View {
                         RichCardView(card: card).padding(.top, 4)
                     }
 
+                    if isTrainer, let tools = message.toolCallsMade, !tools.isEmpty {
+                        Text("ARIA used your data · " + tools.joined(separator: " · "))
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.textMuted)
+                            .padding(.horizontal, 4)
+                            .padding(.top, 2)
+                    }
+
                     // Timestamp
                     if showTimestamp {
                         HStack(spacing: 4) {

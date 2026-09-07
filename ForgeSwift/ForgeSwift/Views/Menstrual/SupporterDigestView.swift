@@ -129,10 +129,23 @@ struct SupporterDigestView: View {
                 Spacer(minLength: 0)
             }
 
-            Text(guidance.headline)
-                .font(FDS.TypeScale.body(15))
-                .foregroundColor(.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
+            // Support card is whole-person intent — single line, 280 chars, owner-authored.
+            // It travels while cramping/flow/notes stay vaulted. Prefer it when present.
+            if let card = digest.supportCardLine, !card.isEmpty {
+                Label(card, systemImage: "heart.text.square.fill")
+                    .font(FDS.TypeScale.body(15))
+                    .foregroundColor(.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(guidance.headline)
+                    .font(FDS.TypeScale.body(13))
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text(guidance.headline)
+                    .font(FDS.TypeScale.body(15))
+                    .foregroundColor(.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             // A rough distance, never a date. A date invites counting down, and
             // a supporter counting down is the failure mode this avoids.

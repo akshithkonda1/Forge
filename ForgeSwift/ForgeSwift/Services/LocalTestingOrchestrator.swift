@@ -233,7 +233,7 @@ final class LocalTestingOrchestrator {
             )
         }
 
-        var context = store.makeTrainerContext()
+        var context = store.makeTrainerContext(query: text)
         // Feed session depth into the voice layer. `AriaVoiceEngine` infers
         // relationship level from `totalMessageCount` and folds the same number
         // into its phrasing salt, so this both deepens and rotates the voice.
@@ -310,7 +310,7 @@ final class LocalTestingOrchestrator {
                     proseSummary: plan.narrative,
                     message: ([plan.narrative] + parts.dropFirst()).joined(separator: "\n\n"),
                     richCard: AriaService.payload(from: plan.richCard),
-                    suggestedActions: plan.suggestedActions ?? base.suggestedActions,
+                    suggestedActions: plan.suggestedActions,
                     contextUpdates: ["relationship_level": familiarity],
                     confidence: base.confidence
                 )
@@ -349,7 +349,7 @@ final class LocalTestingOrchestrator {
         // question returns as fast as "hey" is the tell that nothing fanned out.
         let range = (force || tier == .tertiary) ? 1_600..<3_200 : 800..<2_000
         let milliseconds = rng.int(in: range)
-        try? await Task.sleep(nanoseconds: UInt64(milliseconds) * 1_000_000)
+        try? await Task.sleep(for: .milliseconds(milliseconds))
     }
 
     // MARK: - Fact capture

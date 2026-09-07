@@ -74,7 +74,7 @@ final class AriaContextStore: ObservableObject {
         let lastWorkout = store.workoutHistory.first
         let hoursSinceWorkout: Double? = {
             guard let lastWorkout,
-                  let date = ISO8601DateFormatter().date(from: lastWorkout.date) else { return nil }
+                  let date = iso.date(from: lastWorkout.date) else { return nil }
             return Date().timeIntervalSince(date) / 3600
         }()
 
@@ -105,9 +105,10 @@ final class AriaContextStore: ObservableObject {
         let hrvTrend: Double? = observedReadiness?.hrv7DayTrend
         let hrvDaysAvailable: Int? = observedReadiness?.hrvDaysAvailable
 
+        let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date())
         let workouts30d = store.workoutHistory.filter {
-            guard let date = ISO8601DateFormatter().date(from: $0.date) else { return false }
-            return date > Calendar.current.date(byAdding: .day, value: -30, to: Date())!
+            guard let date = iso.date(from: $0.date), let cutoff else { return false }
+            return date > cutoff
         }.count
 
         let sleepDomain = ARIAContextPayload.SleepDomain(
@@ -134,9 +135,13 @@ final class AriaContextStore: ObservableObject {
         }
         let trainingDomain = ARIAContextPayload.TrainingDomain(
             lastWorkoutType: lastWorkout?.type.rawValue,
+            lastWorkoutName: lastWorkout?.name,
             lastWorkoutDurationMinutes: lastWorkout.map { Double($0.duration) },
             hoursSinceLastWorkout: hoursSinceWorkout,
-            weeklyLoadScore: weeklyLoad
+            weeklyLoadScore: weeklyLoad,
+            schedulePlanningMode: store.userProfile.schedulePlanningMode.rawValue,
+            weeklySplit: WeeklySplit.normalized(store.userProfile.weeklySplit),
+            sun0Weekday: WeeklySplit.sun0(from: Date())
         )
         let activityCalories: Double? = store.dailyMetrics.activeCalories > 0
             ? Double(store.dailyMetrics.activeCalories)
@@ -163,6 +168,7 @@ final class AriaContextStore: ObservableObject {
             hydrationMl3DayAvg: todayStats.map { HydrationEngine.milliliters(fromGlasses: $0.water) },
             calorieTarget: 2600
         )
+        let medicationLayer = applyMedicationLayer(query: query)
         let profileDomain = ARIAContextPayload.ProfileDomain(
             primaryGoal: store.userProfile.fitnessGoals.first?.rawValue,
             experienceLevel: store.userProfile.experienceLevel.rawValue,
@@ -204,6 +210,7 @@ final class AriaContextStore: ObservableObject {
             progress: progressDomain,
             lifestyle: lifestyleDomain,
             clinicalData: clinicalDomain(),
+            medicationLayer: medicationLayer.isEmpty ? nil : medicationLayer,
             conversation: store.conversationContextPayload()
         )
     }
@@ -220,6 +227,46 @@ final class AriaContextStore: ObservableObject {
         guard HealthKitManager.shared.hasStructuredRecordsAccess,
               let summary = HealthKitManager.shared.clinicalSummary else { return [] }
         return summary.ariaConstraintLines()
+    }
+
+    /// First-connect tags so ARIA sees Health from the start, not only Medicine.
+    func applyHealthConnectTags(
+        bloodType: String?,
+        hasClinical: Bool,
+        clinicalCount: Int
+    ) {
+        context.lifestyleTags = HealthKitAuthorizationPlan.healthConnectTags(
+            existing: context.lifestyleTags,
+            bloodType: bloodType,
+            hasClinical: hasClinical,
+            clinicalCount: clinicalCount
+        )
+    }
+
+    /// Resolve Health + saved + mentioned names against the federal catalog.
+    /// Mutates in-memory tags only — same as cross-zone. Not persisted.
+    @discardableResult
+    func applyMedicationLayer(query: String? = nil) -> MedicationContextLayer {
+        let healthNames: [String]
+        if HealthKitManager.shared.hasStructuredRecordsAccess,
+           let summary = HealthKitManager.shared.clinicalSummary {
+            healthNames = summary.ariaDomain().medications
+        } else {
+            healthNames = []
+        }
+        let layer = MedicationContext.resolve(
+            query: query,
+            healthNames: healthNames,
+            savedNames: MedicationPharmacy.savedNames()
+        )
+        context.constraints.removeAll { $0.hasPrefix("med:") }
+        for line in layer.constraintLines where !context.constraints.contains(line) {
+            context.constraints.append(line)
+        }
+        context.lifestyleTags.removeAll { $0.hasPrefix("med_") }
+        context.lifestyleTags.append(contentsOf: layer.tags)
+        context.lifestyleTags = Array(Set(context.lifestyleTags)).sorted()
+        return layer
     }
 
     func buildRichContext(from store: AppStore) -> AriaRichContext {
@@ -711,7 +758,7 @@ final class AriaContextStore: ObservableObject {
     }
 
     func shouldBeProactive() -> Bool {
-        context.relationshipLevel >= 3 && !context.recentPatterns.isEmpty
+        context.relationshipLevel >= 2
     }
 
     /// Merge lifestyle history tags, replacing the whole family each time.
@@ -735,7 +782,6 @@ final class AriaContextStore: ObservableObject {
             return
         }
         let readiness = store.readiness.overall
-        let theme = trainingTheme
         let cycleStore = MenstrualHealthStore.shared
         let day = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
         let salt = UInt64(day * 31 + readiness + context.relationshipLevel * 7)

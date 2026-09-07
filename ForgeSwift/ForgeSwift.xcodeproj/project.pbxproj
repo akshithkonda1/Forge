@@ -42,12 +42,14 @@
 		1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */; };
 		1SIGIL0022F9FF867004091AA /* AriaSigil.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SIGIL0012F9FF867004091AA /* AriaSigil.swift */; };
 		1ARIA0292F9FF867004091AA /* AriaPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0282F9FF867004091AA /* AriaPresence.swift */; };
+		1ARIA0612F9FF867004091AA /* AriaWelcomeChime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */; };
 		1VOICE0022F9FF867004091AA /* AriaInterviewVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */; };
 		1VOICE0042F9FF867004091AA /* AriaSpokenVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0032F9FF867004091AA /* AriaSpokenVoice.swift */; };
 		1XCAT0022F9FF867004091AA /* ExerciseCatalogExpansion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1XCAT0012F9FF867004091AA /* ExerciseCatalogExpansion.swift */; };
 		1SLEEP013F9FF867004091AA /* SleepSoundEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */; };
 		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
 		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
+		1HKPLAN022F9FF867004091AA /* HealthKitAuthorizationPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HKPLAN012F9FF867004091AA /* HealthKitAuthorizationPlan.swift */; };
 		B5516E84A984973E2E0A546A /* HealthKitManager+Queries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */; };
 		393B4C47DAF62A8BFD1D0BC7 /* HealthKitManager+DailyStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */; };
 		D0F5A89396724B3BA3E7CC4B /* HealthKitManager+Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */; };
@@ -66,6 +68,7 @@
 		1ARIA1002F9FF867004091AA /* AriaWebResearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0992F9FF867004091AA /* AriaWebResearch.swift */; };
 		1ARIA0832F9FF867004091AA /* AriaFirstHealthBriefing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */; };
 		1ARIA0912F9FF867004091AA /* AriaUseOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */; };
+		1ARIA1032F9FF867004091AA /* AriaMeetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA1022F9FF867004091AA /* AriaMeetView.swift */; };
 
 		1TEST01600000000000000A /* AriaCoachAgentRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */; };
 		AA00010000000000000000B2 /* PartnerCycleSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B2 /* PartnerCycleSharing.swift */; };
@@ -78,6 +81,8 @@
 		1ARIA0262F9FF867004091AA /* Theme+Readiness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0272F9FF867004091AA /* Theme+Readiness.swift */; };
 		1ARIA0302F9FF867004091AA /* AriaTrainingTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */; };
 		1ARIA0322F9FF867004091AA /* AriaPlanEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */; };
+		1BODY0022F9FF867004091AA /* NextSessionFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BODY0012F9FF867004091AA /* NextSessionFocus.swift */; };
+		1BODY0042F9FF867004091AA /* WeeklySplit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BODY0032F9FF867004091AA /* WeeklySplit.swift */; };
 		1ARIA0342F9FF867004091AA /* AriaVoiceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */; };
 		720BDCB7970B26F219A0E3A6 /* AriaVoiceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58F793F880B626970035DF6E /* AriaVoiceModels.swift */; };
 		1HCM0022F9FF867004091AA /* HomeCookedMeals.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */; };
@@ -128,12 +133,16 @@
 		1AUTH0052F9FF867004091AA /* AuthSignUpFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */; };
 		1AUTH0072F9FF867004091AA /* ForgeAuthClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */; };
 		1API00010000000000000001 /* ForgeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1API00020000000000000001 /* ForgeAPI.swift */; };
+		1CLD00010000000000000001 /* ForgeCloudSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CLD00020000000000000001 /* ForgeCloudSync.swift */; };
 		1CYC0012F9FF867004091AA /* CycleDataEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */; };
 		1CYC0032F9FF867004091AA /* CycleAriaAnalyst.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */; };
 		1E44AFC830182A1F00D1C14D /* PeriodEndFeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */; };
 		1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */; };
 		1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */; };
 		1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */; };
+		1PREP0022F9FF867004091AA /* AriaForgePrep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1PREP0012F9FF867004091AA /* AriaForgePrep.swift */; };
+		1PREP0042F9FF867004091AA /* AriaForgePrepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1PREP0032F9FF867004091AA /* AriaForgePrepView.swift */; };
+		1TEST03200000000000000A /* AriaForgePrepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03100000000000000A /* AriaForgePrepTests.swift */; };
 		C82BC7E19F20D94DAE955D97 /* OnboardingInterviewModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */; };
 		1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */; };
 		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
@@ -222,6 +231,8 @@
 		651B4E5D41EE26C57D1E169E /* ForgeAboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */; };
 		BCC7261848DBE6001B2DBC5C /* ClinicalDataNonPHIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */; };
 		1MED02000000000000000A /* MedicationPharmacyCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MED01000000000000000A /* MedicationPharmacyCatalog.swift */; };
+		1MED08002F9FF867004091AA /* MedicationContextLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MED07002F9FF867004091AA /* MedicationContextLayer.swift */; };
+		1MED0A002F9FF867004091AA /* MedicationBottleScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MED09002F9FF867004091AA /* MedicationBottleScanner.swift */; };
 		1MED06002F9FF867004091AA /* fda_pharmacy_catalog.deflate in Resources */ = {isa = PBXBuildFile; fileRef = 1MED05002F9FF867004091AA /* fda_pharmacy_catalog.deflate */; };
 		1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MED03000000000000000A /* MedicationPharmacyTests.swift */; };
 		AA6AB39BF736B5FD37746022 /* ProfileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9638727829C4D00A83E2F4 /* ProfileModels.swift */; };
@@ -305,7 +316,9 @@
 		1TEST02400000000000000A /* AriaInterviewVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */; };
 		1TEST02600000000000000A /* AriaSigilTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02500000000000000A /* AriaSigilTests.swift */; };
 		1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */; };
-		1TEST02A00000000000000A /* AriaDummyOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02900000000000000A /* AriaDummyOrchestratorTests.swift */; };
+		1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02900000000000000A /* AriaLogoPresenceTests.swift */; };
+		1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */; };
+		1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -421,6 +434,7 @@
 		1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbComponents.swift; sourceTree = "<group>"; };
 		1SIGIL0012F9FF867004091AA /* AriaSigil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSigil.swift; sourceTree = "<group>"; };
 		1ARIA0282F9FF867004091AA /* AriaPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPresence.swift; sourceTree = "<group>"; };
+		1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaWelcomeChime.swift; sourceTree = "<group>"; };
 		1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewVoice.swift; sourceTree = "<group>"; };
 		1VOICE0032F9FF867004091AA /* AriaSpokenVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoice.swift; sourceTree = "<group>"; };
 		1XCAT0012F9FF867004091AA /* ExerciseCatalogExpansion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCatalogExpansion.swift; sourceTree = "<group>"; };
@@ -428,6 +442,7 @@
 		1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MusicControllerFactory.swift; sourceTree = SOURCE_ROOT; };
 		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
 		1E4DF7152F9FF867004091AA /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
+		1HKPLAN012F9FF867004091AA /* HealthKitAuthorizationPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitAuthorizationPlan.swift; sourceTree = "<group>"; };
 		405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+Queries.swift"; sourceTree = "<group>"; };
 		8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+DailyStats.swift"; sourceTree = "<group>"; };
 		84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+Logging.swift"; sourceTree = "<group>"; };
@@ -446,9 +461,11 @@
 		1ARIA0992F9FF867004091AA /* AriaWebResearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaWebResearch.swift; sourceTree = "<group>"; };
 		1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaFirstHealthBriefing.swift; sourceTree = "<group>"; };
 		1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaUseOnboarding.swift; sourceTree = "<group>"; };
+		1ARIA1022F9FF867004091AA /* AriaMeetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaMeetView.swift; sourceTree = "<group>"; };
 
 		1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgentRouterTests.swift; sourceTree = "<group>"; };
 		1TEST01700000000000000A /* OnboardingGraphLockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGraphLockTests.swift; sourceTree = "<group>"; };
+		1TEST03100000000000000A /* AriaForgePrepTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaForgePrepTests.swift; sourceTree = "<group>"; };
 		1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseLibraryFilterTests.swift; sourceTree = "<group>"; };
 		1TEST01B00000000000000A /* CycleHealthLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleHealthLaunchTests.swift; sourceTree = "<group>"; };
 		1TEST01D00000000000000A /* FakeCyclePackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeCyclePackTests.swift; sourceTree = "<group>"; };
@@ -457,7 +474,9 @@
 		1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewVoiceTests.swift; sourceTree = "<group>"; };
 		1TEST02500000000000000A /* AriaSigilTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSigilTests.swift; sourceTree = "<group>"; };
 		1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoiceTests.swift; sourceTree = "<group>"; };
-		1TEST02900000000000000A /* AriaDummyOrchestratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestratorTests.swift; sourceTree = "<group>"; };
+		1TEST02900000000000000A /* AriaLogoPresenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaLogoPresenceTests.swift; sourceTree = "<group>"; };
+		1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentPracticeAPITests.swift; sourceTree = "<group>"; };
+		1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitAuthorizationPlanTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
@@ -468,6 +487,8 @@
 		1ARIA0272F9FF867004091AA /* Theme+Readiness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Theme+Readiness.swift"; sourceTree = "<group>"; };
 		1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaTrainingTheme.swift; sourceTree = "<group>"; };
 		1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPlanEngine.swift; sourceTree = "<group>"; };
+		1BODY0012F9FF867004091AA /* NextSessionFocus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NextSessionFocus.swift; sourceTree = "<group>"; };
+		1BODY0032F9FF867004091AA /* WeeklySplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklySplit.swift; sourceTree = "<group>"; };
 		1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceEngine.swift; sourceTree = "<group>"; };
 		58F793F880B626970035DF6E /* AriaVoiceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceModels.swift; sourceTree = "<group>"; };
 		1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCookedMeals.swift; sourceTree = "<group>"; };
@@ -518,12 +539,15 @@
 		1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSignUpFlowView.swift; sourceTree = "<group>"; };
 		1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAuthClient.swift; sourceTree = "<group>"; };
 		1API00020000000000000001 /* ForgeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAPI.swift; sourceTree = "<group>"; };
+		1CLD00020000000000000001 /* ForgeCloudSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeCloudSync.swift; sourceTree = "<group>"; };
 		1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleDataEvaluator.swift; sourceTree = "<group>"; };
 		1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleAriaAnalyst.swift; sourceTree = "<group>"; };
 		1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeriodEndFeedbackView.swift; sourceTree = "<group>"; };
 		1E7A68E52FA2FD6500B0DD08 /* ForgeDesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeDesignSystem.swift; sourceTree = "<group>"; };
 		1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+ForgeCardShadow.swift"; sourceTree = "<group>"; };
 		1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCoordinator.swift; sourceTree = "<group>"; };
+		1PREP0012F9FF867004091AA /* AriaForgePrep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaForgePrep.swift; sourceTree = "<group>"; };
+		1PREP0032F9FF867004091AA /* AriaForgePrepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaForgePrepView.swift; sourceTree = "<group>"; };
 		20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingInterviewModels.swift; sourceTree = "<group>"; };
 		1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachManager.swift; sourceTree = "<group>"; };
 		1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachViews.swift; sourceTree = "<group>"; };
@@ -612,6 +636,8 @@
 		6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAboutView.swift; sourceTree = "<group>"; };
 		3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClinicalDataNonPHIView.swift; sourceTree = "<group>"; };
 		1MED01000000000000000A /* MedicationPharmacyCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationPharmacyCatalog.swift; sourceTree = "<group>"; };
+		1MED07002F9FF867004091AA /* MedicationContextLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationContextLayer.swift; sourceTree = "<group>"; };
+		1MED09002F9FF867004091AA /* MedicationBottleScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationBottleScanner.swift; sourceTree = "<group>"; };
 		1MED05002F9FF867004091AA /* fda_pharmacy_catalog.deflate */ = {isa = PBXFileReference; lastKnownFileType = file; path = fda_pharmacy_catalog.deflate; sourceTree = "<group>"; };
 		1MED03000000000000000A /* MedicationPharmacyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationPharmacyTests.swift; sourceTree = "<group>"; };
 		BB9638727829C4D00A83E2F4 /* ProfileModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileModels.swift; sourceTree = "<group>"; };
@@ -821,6 +847,7 @@
 				1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */,
 				1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */,
 				1API00020000000000000001 /* ForgeAPI.swift */,
+				1CLD00020000000000000001 /* ForgeCloudSync.swift */,
 				AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */,
 				AA00020000000000000000B2 /* PartnerCycleSharing.swift */,
 				AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */,
@@ -830,6 +857,8 @@
 				AA00020000000000000000F6 /* WeeklyAriaReview.swift */,
 				1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */,
 				1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */,
+				1BODY0012F9FF867004091AA /* NextSessionFocus.swift */,
+				1BODY0032F9FF867004091AA /* WeeklySplit.swift */,
 				1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */,
 				58F793F880B626970035DF6E /* AriaVoiceModels.swift */,
 				1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */,
@@ -952,6 +981,8 @@
 				6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */,
 				3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */,
 				1MED01000000000000000A /* MedicationPharmacyCatalog.swift */,
+				1MED07002F9FF867004091AA /* MedicationContextLayer.swift */,
+				1MED09002F9FF867004091AA /* MedicationBottleScanner.swift */,
 				1MED05002F9FF867004091AA /* fda_pharmacy_catalog.deflate */,
 				BB9638727829C4D00A83E2F4 /* ProfileModels.swift */,
 				D455F77E6B09ACDEEB1CA89D /* AppStore+Profile.swift */,
@@ -982,6 +1013,7 @@
 				1ARIA0162F9FF867004091AA /* Views */,
 				1EHKS0032F9FF867004091AA /* Services */,
 				1E4DF7152F9FF867004091AA /* HealthKitManager.swift */,
+				1HKPLAN012F9FF867004091AA /* HealthKitAuthorizationPlan.swift */,
 				405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */,
 				8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */,
 				84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */,
@@ -995,10 +1027,14 @@
 				1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */,
 				1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */,
 				1SIGIL0012F9FF867004091AA /* AriaSigil.swift */,
+				1ARIA1022F9FF867004091AA /* AriaMeetView.swift */,
 				1ARIA0282F9FF867004091AA /* AriaPresence.swift */,
+				1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */,
 				F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */,
 				F0F10000000000000000002A /* WatchAriaConfigBridge.swift */,
 				1E86B2FE2FDC095F00B9DAEB /* OnboardingCoordinator.swift */,
+				1PREP0012F9FF867004091AA /* AriaForgePrep.swift */,
+				1PREP0032F9FF867004091AA /* AriaForgePrepView.swift */,
 				20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */,
 			);
 			path = ForgeSwift;
@@ -1164,6 +1200,7 @@
 				C7C1E1150000000000000001 /* IntimacyFlowTests.swift */,
 				1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */,
 				1TEST01700000000000000A /* OnboardingGraphLockTests.swift */,
+				1TEST03100000000000000A /* AriaForgePrepTests.swift */,
 				1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */,
 				1TEST01B00000000000000A /* CycleHealthLaunchTests.swift */,
 				1TEST01D00000000000000A /* FakeCyclePackTests.swift */,
@@ -1172,7 +1209,9 @@
 				1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */,
 				1TEST02500000000000000A /* AriaSigilTests.swift */,
 				1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */,
-				1TEST02900000000000000A /* AriaDummyOrchestratorTests.swift */,
+				1TEST02900000000000000A /* AriaLogoPresenceTests.swift */,
+				1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */,
+				1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */,
 				1MED03000000000000000A /* MedicationPharmacyTests.swift */,
 			);
 			path = ForgeSwiftTests;
@@ -1435,6 +1474,7 @@
 				1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */,
 				AA0001000000000000000002 /* Theme.swift in Sources */,
 				1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */,
+				1HKPLAN022F9FF867004091AA /* HealthKitAuthorizationPlan.swift in Sources */,
 				B5516E84A984973E2E0A546A /* HealthKitManager+Queries.swift in Sources */,
 				393B4C47DAF62A8BFD1D0BC7 /* HealthKitManager+DailyStats.swift in Sources */,
 				D0F5A89396724B3BA3E7CC4B /* HealthKitManager+Logging.swift in Sources */,
@@ -1453,6 +1493,7 @@
 				1ARIA1002F9FF867004091AA /* AriaWebResearch.swift in Sources */,
 				1ARIA0832F9FF867004091AA /* AriaFirstHealthBriefing.swift in Sources */,
 				1ARIA0912F9FF867004091AA /* AriaUseOnboarding.swift in Sources */,
+				1ARIA1032F9FF867004091AA /* AriaMeetView.swift in Sources */,
 				AA00010000000000000000B2 /* PartnerCycleSharing.swift in Sources */,
 				1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */,
 				1WC1012F9FF867004091AA /* CrossZoneConsistency.swift in Sources */,
@@ -1465,6 +1506,8 @@
 				1ARIA0302F9FF867004091AA /* AriaTrainingTheme.swift in Sources */,
 				1ARIA0562F9FF867004091AA /* CyclePrivacy.swift in Sources */,
 				1ARIA0322F9FF867004091AA /* AriaPlanEngine.swift in Sources */,
+				1BODY0022F9FF867004091AA /* NextSessionFocus.swift in Sources */,
+				1BODY0042F9FF867004091AA /* WeeklySplit.swift in Sources */,
 				1ARIA0342F9FF867004091AA /* AriaVoiceEngine.swift in Sources */,
 				720BDCB7970B26F219A0E3A6 /* AriaVoiceModels.swift in Sources */,
 				1ARIA0422F9FF867004091AA /* Menstrual/MenstrualHealthView.swift in Sources */,
@@ -1533,6 +1576,7 @@
 				1AUTH0052F9FF867004091AA /* AuthSignUpFlowView.swift in Sources */,
 				1AUTH0072F9FF867004091AA /* ForgeAuthClient.swift in Sources */,
 				1API00010000000000000001 /* ForgeAPI.swift in Sources */,
+				1CLD00010000000000000001 /* ForgeCloudSync.swift in Sources */,
 				AA0001000000000000000006 /* OnboardingView.swift in Sources */,
 				D1919B244B3A650517464755 /* OnboardingModels.swift in Sources */,
 				616F3C419B3EB7ADAE50115B /* AriaInterviewLayout.swift in Sources */,
@@ -1545,6 +1589,7 @@
 				1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */,
 				1SIGIL0022F9FF867004091AA /* AriaSigil.swift in Sources */,
 				1ARIA0292F9FF867004091AA /* AriaPresence.swift in Sources */,
+				1ARIA0612F9FF867004091AA /* AriaWelcomeChime.swift in Sources */,
 				1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */,
 				35A81356CC836973378A412F /* LifestyleModels.swift in Sources */,
 				373EC9928467751C3ADEA77F /* LifestyleServices.swift in Sources */,
@@ -1580,6 +1625,8 @@
 				ACE45AF3C089322AD1CE0744 /* VoiceOrbOverlay.swift in Sources */,
 				8A35071816F1EA8B299F27D5 /* ChatRichCards.swift in Sources */,
 				1E86B2FF2FDC095F00B9DAEB /* OnboardingCoordinator.swift in Sources */,
+				1PREP0022F9FF867004091AA /* AriaForgePrep.swift in Sources */,
+				1PREP0042F9FF867004091AA /* AriaForgePrepView.swift in Sources */,
 				C82BC7E19F20D94DAE955D97 /* OnboardingInterviewModels.swift in Sources */,
 				AA0001000000000000000009 /* WorkoutView.swift in Sources */,
 				1AB79BAC8BDB10BD5B60057F /* ExerciseCatalog.swift in Sources */,
@@ -1613,6 +1660,8 @@
 				651B4E5D41EE26C57D1E169E /* ForgeAboutView.swift in Sources */,
 				BCC7261848DBE6001B2DBC5C /* ClinicalDataNonPHIView.swift in Sources */,
 				1MED02000000000000000A /* MedicationPharmacyCatalog.swift in Sources */,
+				1MED08002F9FF867004091AA /* MedicationContextLayer.swift in Sources */,
+				1MED0A002F9FF867004091AA /* MedicationBottleScanner.swift in Sources */,
 				AA6AB39BF736B5FD37746022 /* ProfileModels.swift in Sources */,
 				B82A3D64CC815A754DC8A65D /* AppStore+Profile.swift in Sources */,
 				195FDA7D73290864DD73F5BC /* ProfileComponents.swift in Sources */,
@@ -1712,6 +1761,7 @@
 				C7C1E1160000000000000001 /* IntimacyFlowTests.swift in Sources */,
 				1TEST01600000000000000A /* AriaCoachAgentRouterTests.swift in Sources */,
 				1TEST01800000000000000A /* OnboardingGraphLockTests.swift in Sources */,
+				1TEST03200000000000000A /* AriaForgePrepTests.swift in Sources */,
 				1TEST01A00000000000000A /* ExerciseLibraryFilterTests.swift in Sources */,
 				1TEST01C00000000000000A /* CycleHealthLaunchTests.swift in Sources */,
 				1TEST01E00000000000000A /* FakeCyclePackTests.swift in Sources */,
@@ -1720,7 +1770,9 @@
 				1TEST02400000000000000A /* AriaInterviewVoiceTests.swift in Sources */,
 				1TEST02600000000000000A /* AriaSigilTests.swift in Sources */,
 				1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */,
-				1TEST02A00000000000000A /* AriaDummyOrchestratorTests.swift in Sources */,
+				1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */,
+				1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */,
+				1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */,
 				1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1950,11 +2002,11 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Forge ";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to photograph medication bottles so you can add what you already take when search cannot find it, and to scan food barcodes for meals. The photo stays on this iPhone.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Forge looks for contacts who already use Forge so you can train together. Contacts stay on this iPhone — Forge never uploads your address book.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, nutrition, and structured records to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
-				INFOPLIST_KEY_NSHealthClinicalHealthRecordsUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, and procedures — so ARIA can coach around what you already take. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
+				INFOPLIST_KEY_NSHealthClinicalHealthRecordsUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, procedures, and clinical vitals — so ARIA can coach around what is already on this iPhone. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows (not titles) so ARIA can fit training around your day. Event details stay on this iPhone — Forge never uploads your calendar.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses the microphone so you can talk to your coach and log workouts hands-free. Audio is transcribed on this iPhone and is never stored or uploaded.";
@@ -1994,11 +2046,11 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Forge ";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to scan food barcodes so you can log meals and nutrition quickly.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to photograph medication bottles so you can add what you already take when search cannot find it, and to scan food barcodes for meals. The photo stays on this iPhone.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Forge looks for contacts who already use Forge so you can train together. Contacts stay on this iPhone — Forge never uploads your address book.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, nutrition, and structured records to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
-				INFOPLIST_KEY_NSHealthClinicalHealthRecordsUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, and procedures — so ARIA can coach around what you already take. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
+				INFOPLIST_KEY_NSHealthClinicalHealthRecordsUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, procedures, and clinical vitals — so ARIA can coach around what is already on this iPhone. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows (not titles) so ARIA can fit training around your day. Event details stay on this iPhone — Forge never uploads your calendar.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses the microphone so you can talk to your coach and log workouts hands-free. Audio is transcribed on this iPhone and is never stored or uploaded.";

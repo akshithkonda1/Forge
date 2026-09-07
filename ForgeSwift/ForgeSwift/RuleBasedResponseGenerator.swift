@@ -47,6 +47,11 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             return generateTrainingResponse(input: input, context: context)
         }
 
+        // Medication context layer — Health, saved pharmacy, or a name in this turn.
+        if isMedicationQuery(lower, context: context) {
+            return generateMedicationContextResponse(context: context)
+        }
+
         // Menstrual / cycle coaching
         if isCycleQuery(lower) {
             return await generateCycleResponse(context: context, input: input)
@@ -104,6 +109,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         let lower = input.lowercased()
         if isGreeting(lower) { return .profile }
         if AriaThemeResolver.isPlanRequest(input) || isTrainingRequest(lower) { return .training }
+        if isMedicationQuery(lower, context: nil) { return .clinicalData }
         if isCycleQuery(lower) { return .cycle }
         if AriaReferenceCatalog.questionSuggestsFever(input) { return .body }
         if isLowEnergyMention(lower) { return .readiness }
@@ -159,6 +165,45 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
     
     private func isTrainingRequest(_ text: String) -> Bool {
         AriaThemeResolver.isPlanRequest(text)
+    }
+
+    private func isMedicationQuery(_ text: String, context: TrainerContext?) -> Bool {
+        if text.contains("medicat") || text.contains("pharmacy") || text.contains("prescription")
+            || text.contains("pill") || text.contains("xcopri") || text.contains("oxtellar")
+            || text.contains("cenobamate") || text.contains("oxcarbazepine") {
+            return true
+        }
+        guard let layer = context?.medicationLayer, !layer.isEmpty else { return false }
+        return layer.all.contains { entry in
+            text.contains(entry.generic.lowercased())
+                || text.contains(entry.name.lowercased())
+                || (entry.brand?.lowercased().isEmpty == false && text.contains(entry.brand!.lowercased()))
+        }
+    }
+
+    private func generateMedicationContextResponse(context: TrainerContext) -> TrainerResponse {
+        let layer = context.medicationLayer
+        var lines: [String] = []
+        if layer.isEmpty {
+            lines.append("I can use the pharmacy as a personal context layer — what you already take, not what to take.")
+            lines.append("Nothing is on file yet. Save a medication, connect Apple Health, or name one here.")
+            lines.append("I never prescribe, never name a dose, and never start or stop a medication.")
+        } else {
+            if !layer.inferredNeeds.isEmpty {
+                lines.append("From what you put in, this looks like your picture: " + layer.inferredNeeds.joined(separator: ", ") + ".")
+                lines.append("That's a filing from the catalog — not a diagnosis, and not a script for the general population.")
+            }
+            if !layer.lifestyleMutations.isEmpty {
+                lines.append(layer.lifestyleMutations.joined(separator: " "))
+            }
+            lines.append("Lifestyle and training can move around that. I'll build from the exercises you already have, scaled to you.")
+            lines.append(MedicationContextLayer.hardRules)
+        }
+        return TrainerResponse(
+            content: lines.joined(separator: " "),
+            suggestedActions: ["What should I train today?", "Keep it light today", "Open medicine"],
+            confidence: 0.86
+        )
     }
 
     private func isCycleQuery(_ text: String) -> Bool {

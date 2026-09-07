@@ -10,6 +10,16 @@ import FoundationModels
 extension AppStore {
 
     func refreshDailyData() async {
+        let previous = refreshDailyDataTail
+        let task = Task { @MainActor in
+            await previous?.value
+            await self.executeRefreshDailyData()
+        }
+        refreshDailyDataTail = task
+        await task.value
+    }
+
+    private func executeRefreshDailyData() async {
         dataLoadState = .loading
         let hk = HealthKitManager.shared
         let seeded = await seedTestReadyHealthKitIfNeeded()
@@ -65,9 +75,13 @@ extension AppStore {
         }
         learnFromFirstHealthConnectIfNeeded()
 
-        lastMetricsRefresh = Date()
-        rebuildTodayPlanFromLife()
+        await syncHealthBatchAndDashboard()
+        if todayWorkout == nil || todayWorkout?.exercises.isEmpty == true {
+            rebuildTodayPlanFromLife()
+        }
+        await applyRemoteDailyPlan()
         recomputeStreak()
+        await refreshCoachInsightsIfNeeded()
         await flushPendingWidgetWater()
         publishHomeWidgets()
         dataLoadState = .loaded
@@ -320,6 +334,197 @@ extension AppStore {
         }()
         workout.id = "life-\(dayKey)-\(workout.name)"
         todayWorkout = workout
+    }
+
+    /// Open a specific weekday (or yesterday) from the walking week.
+    func adoptSplitSession(weekday: Int? = nil, replayPrior: Bool = false) {
+        guard !isWorkoutActive else { return }
+        let input: String
+        if replayPrior {
+            input = "Do yesterday's session"
+        } else if let weekday, (0...6).contains(weekday) {
+            input = "Do \(WeeklySplit.dayNames[weekday])'s session"
+        } else {
+            input = "Build today's session from my sleep, readiness, cycle, equipment, and the time I actually have."
+        }
+        let plan = AriaPlanEngine.evaluate(input: input, context: makeTrainerContext(query: input))
+        var workout = plan.workoutPlan
+        let dayKey: String = {
+            let f = DateFormatter()
+            f.calendar = Calendar.current
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "yyyy-MM-dd"
+            return f.string(from: Date())
+        }()
+        workout.id = "life-\(dayKey)-\(workout.name)"
+        todayWorkout = workout
+    }
+
+    func syncHealthBatchAndDashboard() async {
+        lastMetricsRefresh = Date()
+        guard ForgeCloudSync.shared.isRemoteEligible else { return }
+        do {
+            let metrics = ForgeCloudSync.healthMetrics(from: self)
+            if !metrics.isEmpty {
+                _ = try await ForgeCloudSync.shared.postHealthBatch(metrics)
+            }
+            let dashboard = try await ForgeCloudSync.shared.fetchDashboard()
+            applyDashboard(dashboard)
+            lastCloudSyncError = nil
+            lastCloudSyncAt = Date()
+        } catch let failure as ForgeAPI.Failure {
+            if !failure.deservesOfflineFallback {
+                lastCloudSyncError = failure.userMessage
+            }
+        } catch {
+            lastCloudSyncError = nil
+        }
+    }
+
+    func applyRemoteDailyPlan() async {
+        guard ForgeCloudSync.shared.isRemoteEligible, !isWorkoutActive else { return }
+        do {
+            let plan = try await ForgeCloudSync.shared.generateWorkoutPlan()
+            applyCoachWorkoutPlan(plan)
+            lastCloudSyncError = nil
+        } catch let failure as ForgeAPI.Failure {
+            if !failure.deservesOfflineFallback {
+                lastCloudSyncError = failure.userMessage
+            }
+        } catch {
+            lastCloudSyncError = nil
+        }
+    }
+
+    func refreshCoachInsightsIfNeeded() async {
+        guard ForgeCloudSync.shared.isRemoteEligible else { return }
+        if remoteSleepInsight == nil {
+            if let insight = try? await ForgeCloudSync.shared.fetchSleepInsight(), !insight.insight.isEmpty {
+                remoteSleepInsight = insight.insight
+            }
+        }
+        if remoteProgressReview == nil {
+            if let review = try? await ForgeCloudSync.shared.fetchProgressReview(), !review.review.isEmpty {
+                remoteProgressReview = review.review
+            }
+        }
+    }
+
+    func applyDashboard(_ dashboard: CloudDashboardToday) {
+        if let readinessPayload = dashboard.readiness, readinessPayload.isUsable, let overall = readinessPayload.overall {
+            readiness.overall = overall
+            if let value = readinessPayload.sleepQuality { readiness.sleepQuality = value }
+            if let value = readinessPayload.recoveryScore { readiness.recoveryScore = value }
+            if let value = readinessPayload.stressLevel { readiness.stressLevel = value }
+            if let value = readinessPayload.energyBank { readiness.energyBank = value }
+            usingTestReadyHealthPack = false
+        }
+
+        var sources = dashboard.dailyMetrics?.sources ?? []
+        sources.append(contentsOf: dashboard.connections.map(\.provider).filter { !$0.isEmpty })
+        if healthKitLive { sources.insert("apple-health", at: 0) }
+        var seen = Set<String>()
+        metricSources = sources.filter { seen.insert($0).inserted }
+
+        if let metrics = dashboard.dailyMetrics {
+            let preferServer = !healthKitLive
+            if preferServer || dailyMetrics.steps == 0, let value = metrics.steps { dailyMetrics.steps = value }
+            if preferServer || dailyMetrics.activeCalories == 0, let value = metrics.activeCalories { dailyMetrics.activeCalories = value }
+            if preferServer || dailyMetrics.hrv == 0, let value = metrics.hrv { dailyMetrics.hrv = value }
+            if preferServer || dailyMetrics.restingHR == 0, let value = metrics.restingHR { dailyMetrics.restingHR = value }
+            if preferServer || dailyMetrics.deepSleep == 0, let value = metrics.deepSleep { dailyMetrics.deepSleep = value }
+            if preferServer || dailyMetrics.totalSleep == 0, let value = metrics.totalSleep { dailyMetrics.totalSleep = value }
+        }
+
+        if !isWorkoutActive, let plan = dashboard.todayWorkout, !plan.exercises.isEmpty {
+            todayWorkout = mapCloudWorkoutPlan(plan)
+        }
+
+        if !healthKitLive {
+            let nights = dashboard.recentSleep.compactMap { night -> SleepData? in
+                guard !night.date.isEmpty else { return nil }
+                return SleepData(
+                    date: night.date,
+                    totalHours: night.totalHours,
+                    deepMinutes: night.deepMinutes,
+                    remMinutes: night.remMinutes,
+                    lightMinutes: night.lightMinutes,
+                    awakeMinutes: night.awakeMinutes,
+                    score: night.score
+                )
+            }
+            mergeSleepDataLocally(nights)
+
+            if workoutHistory.isEmpty {
+                workoutHistory = dashboard.recentWorkouts.map { item in
+                    WorkoutHistory(
+                        id: item.id,
+                        date: item.date,
+                        name: item.name,
+                        type: WorkoutType(rawValue: item.type ?? "") ?? .strength,
+                        duration: item.duration,
+                        volume: item.volume,
+                        intensity: WorkoutIntensity(rawValue: item.intensity ?? "") ?? .moderate
+                    )
+                }
+            }
+        }
+
+        if personalRecords.isEmpty {
+            personalRecords = dashboard.personalRecords.filter { !$0.exercise.isEmpty }.map { record in
+                PersonalRecord(
+                    exercise: record.exercise,
+                    value: record.value,
+                    unit: record.unit,
+                    date: record.date
+                )
+            }
+        }
+    }
+
+    func applyCoachWorkoutPlan(_ plan: CloudCoachWorkoutPlan) {
+        guard !isWorkoutActive else { return }
+        if let remote = plan.todayPlan, !remote.exercises.isEmpty {
+            todayWorkout = mapCloudWorkoutPlan(remote)
+            return
+        }
+        if todayWorkout == nil {
+            rebuildTodayPlanFromLife()
+        }
+        if var workout = todayWorkout {
+            if let name = plan.todayPlan?.name, !name.isEmpty {
+                workout.name = name
+            } else if let focus = plan.baseline?.focus, !focus.isEmpty {
+                workout.name = "\(focus.capitalized) Focus"
+            }
+            if let intensity = plan.todayPlan?.intensity ?? plan.baseline?.intensity,
+               let mapped = WorkoutIntensity(rawValue: intensity) {
+                workout.intensity = mapped
+            }
+            todayWorkout = workout
+        }
+    }
+
+    func mapCloudWorkoutPlan(_ plan: CloudWorkoutPlanDTO) -> WorkoutPlan {
+        let exercises = plan.exercises.enumerated().map { index, move in
+            Exercise(
+                id: move.id ?? "cloud-\(index)",
+                name: move.name,
+                sets: move.sets,
+                reps: move.reps,
+                weight: move.weight,
+                restSeconds: move.restSeconds ?? 60,
+                notes: move.notes
+            )
+        }
+        return WorkoutPlan(
+            id: plan.id ?? "cloud-today",
+            name: plan.name,
+            type: WorkoutType(rawValue: plan.type ?? "") ?? .strength,
+            duration: plan.duration ?? max(20, exercises.count * 8),
+            intensity: WorkoutIntensity(rawValue: plan.intensity ?? "") ?? .moderate,
+            exercises: exercises
+        )
     }
 
     /// Write the session from *this* moment's life, then open Train.

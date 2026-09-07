@@ -5,7 +5,7 @@ import UIKit
 /// onboarding. Pure so tests can lock the relationship beats without spinning
 /// the synthesizer or HealthKit.
 ///
-/// The graph stays 12 steps. What changes is the beat *inside* each step:
+/// The graph stays 13 steps (week calendar sits after training). What changes is the beat *inside* each step:
 /// ARIA thinks, speaks, hears a tap or a spoken reply, then answers *this*
 /// person before the next ask.
 enum AriaInterviewVoice {
@@ -41,6 +41,7 @@ enum AriaInterviewVoice {
         case .goals: return "Name a goal, or say “continue.”"
         case .experience: return "Say beginner, a few years, advanced, or elite."
         case .workouts: return "Name a training style, or say “continue.”"
+        case .schedule: return "Say rotate, or I’ll pick the days."
         case .sleep: return "Say early bird, night owl, average, or irregular."
         case .freeTime: return "Name how you spend free time, or say skip."
         case .coaching: return "Say push me, balanced, patient, explain, or elite."
@@ -67,6 +68,9 @@ enum AriaInterviewVoice {
             case coaching(OnboardingCoachingStyle)
             case confirmGoals
             case confirmWorkouts
+            case scheduleRotate
+            case scheduleFixed
+            case confirmSchedule
             case skipInterests
             case confirmInterests
             case skipConditions
@@ -119,6 +123,12 @@ enum AriaInterviewVoice {
         case .workouts:
             return profile.preferredWorkouts.isEmpty ? [] : [
                 Reply(id: "wo-go", label: "That’s what I do", kind: .confirmWorkouts),
+            ]
+        case .schedule:
+            return [
+                Reply(id: "sk-rot", label: "Rotate for me", kind: .scheduleRotate),
+                Reply(id: "sk-fix", label: "I’ll pick the days", kind: .scheduleFixed),
+                Reply(id: "sk-go", label: "That’s the week", kind: .confirmSchedule),
             ]
         case .sleep:
             return [
@@ -186,7 +196,9 @@ enum AriaInterviewVoice {
         case .experience:
             return experiencePrompt(vo2Max: vo2Max)
         case .workouts:
-            return "What training do you actually enjoy? Gym, calisthenics, sports — pick what you'll still do on a messy Tuesday. I can log a match as part of the session."
+            return "What training do you actually enjoy? Pick what you'll still do on a messy Tuesday — adherence is the whole game."
+        case .schedule:
+            return "The week walks day by day — Tuesday legs, Wednesday chest and abs. I can rotate that, or you pick which days do what. You can always go back a day."
         case .sleep:
             return "When do you actually sleep and wake? I'll put hard sessions and wind-down on your clock, not a generic 6am."
         case .freeTime:
@@ -267,6 +279,15 @@ enum AriaInterviewVoice {
         return "\(listed). That's what I'll program when motivation is lying."
     }
 
+    static func acknowledgeSchedule(_ mode: SchedulePlanningMode) -> String {
+        switch mode {
+        case .rotate:
+            return "I'll rotate the week. Tuesday legs, Wednesday chest and abs — unless you flip a day."
+        case .fixed:
+            return "Your week. I'll open that day's library, and you can still replay yesterday or pick another."
+        }
+    }
+
     static func acknowledgeSleep(_ band: SleepRhythmBand) -> String {
         switch band {
         case .earlyBird:
@@ -321,6 +342,9 @@ enum AriaInterviewVoice {
         case confirmGoals
         case toggleWorkouts([OnboardingWorkoutType])
         case confirmWorkouts
+        case scheduleRotate
+        case scheduleFixed
+        case confirmSchedule
         case toggleInterests([LifestyleInterest])
         case skipInterests
         case confirmInterests
@@ -378,6 +402,18 @@ enum AriaInterviewVoice {
                     || lower.contains(w.rawValue.replacingOccurrences(of: "_", with: " "))
             }
             if !hits.isEmpty { return .toggleWorkouts(hits) }
+            return .missed
+        case .schedule:
+            let folded = foldApostrophes(lower)
+            if folded.contains("rotate") || folded.contains("random") || folded.contains("you pick")
+                || folded.contains("for me") {
+                return .scheduleRotate
+            }
+            if folded.contains("i'll pick") || folded.contains("ill pick") || folded.contains("i pick")
+                || folded.contains("fixed") || folded.contains("choose") {
+                return .scheduleFixed
+            }
+            if isContinuePhrase(lower) || folded.contains("the week") { return .confirmSchedule }
             return .missed
         case .sleep:
             if let band = matchSleep(lower) { return .sleep(band) }

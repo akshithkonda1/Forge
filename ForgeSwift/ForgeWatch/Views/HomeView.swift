@@ -1,4 +1,5 @@
 import SwiftUI
+import WatchKit
 import ForgeCore
 
 // MARK: - HomeView (watch)
@@ -120,6 +121,9 @@ struct HomeView: View {
             .padding(.top, ForgeDS.Spacing.xs)
         }
         .buttonStyle(.plain)
+        .sensoryFeedback(.selection, trigger: health.readiness?.overall)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("Opens the guided reset. Workout and sleep are further down Home.")
     }
 
     // MARK: Sections
@@ -205,33 +209,31 @@ struct HomeView: View {
     }
 
     private var sleepGlance: some View {
-        Group {
-            if let sleep = health.sleepSummary {
-                HapticButton(haptic: .click) {
-                    path.append(.sleep)
-                } label: {
-                    HStack(spacing: ForgeDS.Spacing.sm) {
-                        Image(systemName: "bed.double.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(ForgePalette.indigo)
-                        Text(sleepLine(sleep))
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(ForgePalette.textSecondary)
-                        Spacer(minLength: 0)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 9))
-                            .foregroundStyle(ForgePalette.textTertiary)
-                    }
-                    .padding(ForgeDS.Spacing.md)
-                    .background(RoundedRectangle(cornerRadius: ForgeDS.Radius.lg).fill(ForgePalette.surface))
-                }
-                .buttonStyle(.plain)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Last night: \(sleepLine(sleep))")
-                .accessibilityHint("Opens the full sleep summary with tonight's plan.")
-                .accessibilityAddTraits(.isButton)
+        HapticButton(haptic: .click) {
+            path.append(.sleep)
+        } label: {
+            HStack(spacing: ForgeDS.Spacing.sm) {
+                Image(systemName: "bed.double.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(ForgePalette.indigo)
+                Text(health.sleepSummary.map(sleepLine) ?? "Sleep summary")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(ForgePalette.textSecondary)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9))
+                    .foregroundStyle(ForgePalette.textTertiary)
             }
+            .padding(ForgeDS.Spacing.md)
+            .background(RoundedRectangle(cornerRadius: ForgeDS.Radius.lg).fill(ForgePalette.surface))
         }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            health.sleepSummary.map { "Last night: \(sleepLine($0))" } ?? "Sleep summary"
+        )
+        .accessibilityHint("Opens the full sleep summary with tonight's plan.")
+        .accessibilityAddTraits(.isButton)
     }
 
     /// Deliberately last and deliberately quiet. Looking back is a thing you

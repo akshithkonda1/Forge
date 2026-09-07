@@ -40,7 +40,11 @@ struct SettingsPageView: View {
     }
 
     var scheduleDays: String {
-        store.userProfile.weeklySchedule.map { dayLabels[$0] }.joined(separator: " / ")
+        let split = store.userProfile.weeklySplit
+        if split.isEmpty {
+            return store.userProfile.weeklySchedule.map { dayLabels[$0] }.joined(separator: " / ")
+        }
+        return WeeklySplit.summary(mode: store.userProfile.schedulePlanningMode, split: split)
     }
 
     // Mirrors NutritionTargetsEditorView.load()'s own useCustom check.
@@ -224,6 +228,18 @@ struct SettingsPageView: View {
                         label: "Session",
                         trailingText: store.isAuthenticated ? "Active" : "None"
                     )
+                    Divider().background(Color.borderColor)
+                    SettingsRow(
+                        icon: "clock.arrow.circlepath",
+                        iconColor: .steel,
+                        label: "Last sync",
+                        trailingText: {
+                            if let at = store.lastCloudSyncAt ?? store.lastMetricsRefresh {
+                                return at.formatted(date: .omitted, time: .shortened)
+                            }
+                            return "Not yet"
+                        }()
+                    )
                 }
 
                 // Health
@@ -343,13 +359,26 @@ struct SettingsPageView: View {
                     }
                     Divider().background(Color.borderColor)
                     Button {
-                        store.openCycleHealth(pane: "me")
+                        store.openCycleHealth()
                     } label: {
                         SettingsRow(
                             icon: "house.fill",
                             iconColor: Color(hex: "EF4444"),
                             label: "Open Cycle Health",
-                            trailingText: "Home",
+                            trailingText: "My cycle",
+                            showChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    Divider().background(Color.borderColor)
+                    Button {
+                        store.openCycleHealth(pane: "partner")
+                    } label: {
+                        SettingsRow(
+                            icon: "person.2.fill",
+                            iconColor: Color(hex: "EC4899"),
+                            label: "Open Support",
+                            trailingText: "Partner",
                             showChevron: true
                         )
                     }
@@ -363,6 +392,17 @@ struct SettingsPageView: View {
                     Button { showDataPermissions = true } label: {
                         SettingsRow(icon: "lock.shield.fill", iconColor: .steel, label: "ARIA Data Permissions",
                                     trailingText: "Manage", showChevron: true)
+                    }
+                    .buttonStyle(.plain)
+                    Divider().background(Color.borderColor)
+                    ShareLink(item: store.exportUserDataJSON()) {
+                        SettingsRow(
+                            icon: "square.and.arrow.up",
+                            iconColor: .ember,
+                            label: "Export my data",
+                            trailingText: "JSON",
+                            showChevron: true
+                        )
                     }
                     .buttonStyle(.plain)
                 }
@@ -556,8 +596,21 @@ struct SettingsPageView: View {
                     }
                     .buttonStyle(.plain)
                     Divider().background(Color.borderColor)
-                    SettingsRow(icon: "creditcard.fill", iconColor: .textSecondary, label: "Subscription",
-                                trailingText: "Coming soon")
+                    Button {
+                        store.openChat(
+                            with: "When can I subscribe to Forge? What does membership include?",
+                            voice: false
+                        )
+                    } label: {
+                        SettingsRow(
+                            icon: "creditcard.fill",
+                            iconColor: .textSecondary,
+                            label: "Subscription",
+                            trailingText: "Ask ARIA",
+                            showChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
                     Divider().background(Color.borderColor)
                     // Was a flat label showing an address you couldn't tap. Now it opens
                     // a pre-addressed mail draft with the diagnostics a support reply needs.
