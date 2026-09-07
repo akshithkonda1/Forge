@@ -229,6 +229,23 @@ final class AriaContextStore: ObservableObject {
         return summary.ariaConstraintLines()
     }
 
+    /// First-connect tags so ARIA sees Health from the start, not only Medicine.
+    func applyHealthConnectTags(
+        bloodType: String?,
+        hasClinical: Bool,
+        clinicalCount: Int
+    ) {
+        context.lifestyleTags.removeAll { $0.hasPrefix("healthkit:") }
+        context.lifestyleTags.append("healthkit:connected")
+        if let bloodType, !bloodType.isEmpty {
+            context.lifestyleTags.append("healthkit:blood_type:\(bloodType)")
+        }
+        if hasClinical {
+            context.lifestyleTags.append("healthkit:records:\(clinicalCount)")
+        }
+        context.lifestyleTags = Array(Set(context.lifestyleTags)).sorted()
+    }
+
     /// Resolve Health + saved + mentioned names against the federal catalog.
     /// Mutates in-memory tags only — same as cross-zone. Not persisted.
     @discardableResult

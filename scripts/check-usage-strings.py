@@ -57,7 +57,7 @@ REQUIREMENTS: list[tuple[str, str, str]] = [
     (r"\bHKHealthStore\b",
      "NSHealthShareUsageDescription",
      "Health data"),
-    (r"\bHKClinicalType\b|\.medicationRecord\b|\.allergyRecord\b|requestClinicalRecordsAuthorization\b",
+    (r"\bHKClinicalType\b|\.medicationRecord\b|\.allergyRecord\b|requestClinicalRecordsAuthorization\b|requestFullAppleHealthAuthorization\b|supportsHealthRecords\b",
      "NSHealthClinicalHealthRecordsUsageDescription",
      "clinical health records"),
     (r"\bAVCaptureSession\b|\bAVCaptureDevice\b",

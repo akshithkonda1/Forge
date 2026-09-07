@@ -11,6 +11,16 @@
 	     an invite, landing in userDidAcceptCloudKitShareWith. Without it the
 	     share URL opens in Safari and stops there, which is the whole accept
 	     path for partner sharing. -->
+	<!-- Health usage strings also live as INFOPLIST_KEY_* build settings.
+	     Duplicating them here means a missing build-setting merge cannot
+	     ship an app that aborts on the first Allow tap. -->
+	<key>NSHealthShareUsageDescription</key>
+	<string>Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, nutrition, and structured records to personalize training, recovery, and coaching.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.</string>
+	<key>NSHealthClinicalHealthRecordsUsageDescription</key>
+	<string>Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, procedures, and clinical vitals — so ARIA can coach around what is already on this iPhone. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.</string>
+
 	<key>CKSharingSupported</key>
 	<true/>
 

@@ -172,6 +172,7 @@ extension AppStore {
     func reconnectHealthKit() async {
         do {
             try await HealthKitManager.shared.requestAuthorization()
+            await HealthKitManager.shared.applyConnectedHealthToForge()
             healthKitLive = await HealthKitManager.shared.checkAuthorizationStatus()
             if healthKitLive {
                 await refreshDailyData()

@@ -223,7 +223,8 @@ extension HealthKitManager {
         }
         let expandedRequested = UserDefaults.standard.bool(forKey: expandedAuthorizationRequestedKey)
         let clinicalRequested = UserDefaults.standard.bool(forKey: clinicalAuthorizationRequestedKey)
-        let cycle = expandedRequested ? await fetchCycleSummary() : nil
+            || canRequestStructuredRecords
+        let cycle = expandedRequested || isAuthorized ? await fetchCycleSummary() : nil
         let clinical = clinicalRequested ? await fetchClinicalRecordsSummary() : nil
 
         return UserHealthProfile(

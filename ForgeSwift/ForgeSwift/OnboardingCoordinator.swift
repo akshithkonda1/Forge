@@ -551,6 +551,7 @@ final class OnboardingCoordinator {
         do {
             try await connectAppleHealthForFirstTime()
             healthKitState = .authorized
+            await HealthKitManager.shared.applyConnectedHealthToForge()
             await refreshHealthDataQuietly()
             let snap = briefingSnapshot()
             await ariaSay(
