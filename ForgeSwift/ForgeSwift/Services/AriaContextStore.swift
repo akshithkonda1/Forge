@@ -235,15 +235,12 @@ final class AriaContextStore: ObservableObject {
         hasClinical: Bool,
         clinicalCount: Int
     ) {
-        context.lifestyleTags.removeAll { $0.hasPrefix("healthkit:") }
-        context.lifestyleTags.append("healthkit:connected")
-        if let bloodType, !bloodType.isEmpty {
-            context.lifestyleTags.append("healthkit:blood_type:\(bloodType)")
-        }
-        if hasClinical {
-            context.lifestyleTags.append("healthkit:records:\(clinicalCount)")
-        }
-        context.lifestyleTags = Array(Set(context.lifestyleTags)).sorted()
+        context.lifestyleTags = HealthKitAuthorizationPlan.healthConnectTags(
+            existing: context.lifestyleTags,
+            bloodType: bloodType,
+            hasClinical: hasClinical,
+            clinicalCount: clinicalCount
+        )
     }
 
     /// Resolve Health + saved + mentioned names against the federal catalog.

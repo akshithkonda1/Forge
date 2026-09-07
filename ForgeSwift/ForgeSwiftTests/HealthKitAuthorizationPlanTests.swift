@@ -5,15 +5,6 @@ import HealthKit
 /// Locks the Allow-tap contract: clinical types never go to HealthKit when
 /// Health Records are unavailable, and first connect uses the full catalog.
 final class HealthKitAuthorizationPlanTests: XCTestCase {
-    private var savedTags: [String] = []
-
-    override func setUp() {
-        savedTags = AriaContextStore.shared.context.lifestyleTags
-    }
-
-    override func tearDown() {
-        AriaContextStore.shared.context.lifestyleTags = savedTags
-    }
 
     func testSimulatorMustNotRequestClinicalTypes() {
         XCTAssertFalse(
@@ -81,14 +72,17 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
     }
 
     func testHealthConnectTagsReplacePreviousHealthkitPrefix() {
-        let store = AriaContextStore.shared
-        store.context.lifestyleTags = ["healthkit:records:3", "keep_me"]
-        store.applyHealthConnectTags(bloodType: "O+", hasClinical: true, clinicalCount: 7)
-        XCTAssertTrue(store.context.lifestyleTags.contains("keep_me"))
-        XCTAssertTrue(store.context.lifestyleTags.contains("healthkit:connected"))
-        XCTAssertTrue(store.context.lifestyleTags.contains("healthkit:blood_type:O+"))
-        XCTAssertTrue(store.context.lifestyleTags.contains("healthkit:records:7"))
-        XCTAssertFalse(store.context.lifestyleTags.contains("healthkit:records:3"))
+        let tags = HealthKitAuthorizationPlan.healthConnectTags(
+            existing: ["healthkit:records:3", "keep_me"],
+            bloodType: "O+",
+            hasClinical: true,
+            clinicalCount: 7
+        )
+        XCTAssertTrue(tags.contains("keep_me"))
+        XCTAssertTrue(tags.contains("healthkit:connected"))
+        XCTAssertTrue(tags.contains("healthkit:blood_type:O+"))
+        XCTAssertTrue(tags.contains("healthkit:records:7"))
+        XCTAssertFalse(tags.contains("healthkit:records:3"))
     }
 
     func testVitalKindMapsFromVitalSignRecordIdentifier() {

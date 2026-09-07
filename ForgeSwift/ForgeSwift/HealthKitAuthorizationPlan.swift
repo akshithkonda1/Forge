@@ -38,6 +38,24 @@ enum HealthKitAuthorizationPlan: Sendable {
         healthDataAvailable && supportsHealthRecords
     }
 
+    /// First-connect lifestyle tags. Pure so tests do not touch AriaContextStore.
+    static func healthConnectTags(
+        existing: [String],
+        bloodType: String?,
+        hasClinical: Bool,
+        clinicalCount: Int
+    ) -> [String] {
+        var tags = existing.filter { !$0.hasPrefix("healthkit:") }
+        tags.append("healthkit:connected")
+        if let bloodType, !bloodType.isEmpty {
+            tags.append("healthkit:blood_type:\(bloodType)")
+        }
+        if hasClinical {
+            tags.append("healthkit:records:\(clinicalCount)")
+        }
+        return Array(Set(tags)).sorted()
+    }
+
     /// Drop clinical types when Health Records are unavailable. Never returns
     /// a set that would abort `requestAuthorization`.
     static func sanitizedReadTypes(
