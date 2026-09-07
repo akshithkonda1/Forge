@@ -5,9 +5,11 @@ import ForgeCore
 
 struct ContentView: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showSplash = true
 
     var body: some View {
+        @Bindable var neuralVoiceGate = AriaNeuralVoiceGate.shared
         ZStack {
             Group {
                 if !store.isAuthenticated {
@@ -26,6 +28,14 @@ struct ContentView: View {
                 ForgeSplashScreen()
                     .transition(.opacity)
                     .zIndex(999)
+            }
+        }
+        .sheet(isPresented: $neuralVoiceGate.showPrompt) {
+            AriaNeuralVoiceSheet(gate: neuralVoiceGate)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                AriaNeuralVoiceGate.shared.refreshCatalog()
             }
         }
         .onAppear {
@@ -453,6 +463,9 @@ struct ARIATabButton: View {
                 store.ariaVoiceMode.toggle()
                 store.activeTab = .chat
                 store.ariaVoiceLaunch = store.ariaVoiceMode
+            }
+            if store.ariaVoiceMode {
+                AriaNeuralVoiceGate.shared.requestPromptIfNeeded()
             }
         }
     }

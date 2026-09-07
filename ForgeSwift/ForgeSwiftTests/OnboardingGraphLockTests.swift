@@ -94,6 +94,12 @@ final class OnboardingGraphLockTests: XCTestCase {
         XCTAssertFalse(coordinator.canGoBack)
         coordinator.goBack()
         XCTAssertEqual(coordinator.step, .ready)
+
+        coordinator.isCompleting = false
+        coordinator.isPrepping = true
+        coordinator.isCompleting = true
+        XCTAssertFalse(coordinator.canFinish)
+        XCTAssertFalse(coordinator.canGoBack)
     }
 
     func testWelcomeHookSaysLearningNotListening() {

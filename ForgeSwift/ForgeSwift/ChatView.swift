@@ -254,7 +254,10 @@ struct ChatView: View {
             inputText = text
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await store.refreshDailyData() } }
+            if phase == .active {
+                AriaNeuralVoiceGate.shared.refreshCatalog()
+                Task { await store.refreshDailyData() }
+            }
         }
     }
 
@@ -301,6 +304,7 @@ struct ChatView: View {
     private func startVoiceCapture() {
         choreographedHaptic(.voiceStart, mood: ariaMood)
         speech.conversationalMood = ariaMood
+        AriaNeuralVoiceGate.shared.requestPromptIfNeeded()
         withAnimation(FDS.Spring.hero) { showVoiceOrb = true }
         speech.startListening()
     }

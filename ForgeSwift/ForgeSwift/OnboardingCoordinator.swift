@@ -14,6 +14,15 @@ final class OnboardingCoordinator {
     var messages: [AriaOnboardingMessage] = []
     var isTyping = false
     var isCompleting = false
+    var isPrepping = false
+    var prepStage: AriaForgePrep.Stage = .profile
+    var prepProgress: Double = 0
+    var prepHealthConnected = false
+    /// Tests and DEBUG skip-wait inject these. Production uses the system clock
+    /// and real Health / cloud loads.
+    var prepClock: AriaForgePrepClock = AriaForgePrepSystemClock()
+    var skipPrepHold = false
+    var prepWorkOverride: (() async -> Void)?
     var showAgeBlocked = false
     var showingEducationalCyclePrompt = false
     private var hasStarted = false
@@ -110,11 +119,28 @@ final class OnboardingCoordinator {
 
     // MARK: - Start
 
-    func startIfNeeded() {
+    func startIfNeeded(in store: AppStore) {
+        if store.needsForgePrep {
+            resumePrep(in: store)
+            return
+        }
         guard !hasStarted else { return }
         hasStarted = true
         seedFromSignUpDraft()
         Task { await runIntro() }
+    }
+
+    /// Kill-app mid-prep: interview is already persisted, so skip the questions
+    /// and continue loading profiles / Health like a console boot.
+    func resumePrep(in store: AppStore) {
+        guard !isPrepping else { return }
+        hasStarted = true
+        isCompleting = true
+        isPrepping = true
+        interruptInterviewVoice()
+        ariaOrbState = .processing
+        prepHealthConnected = store.healthKitLive || healthKitState == .authorized
+        Task { await runPrep(in: store) }
     }
 
     /// Pulls name, last name, and first quest chosen during Day 0 sign-up.
@@ -670,14 +696,17 @@ final class OnboardingCoordinator {
         guard OnboardingGraph.allowsFinish(canFinish: canFinish, hasAgreedToTerms: hasAgreedToTerms) else { return }
         guard !isCompleting else { return }
         isCompleting = true
+        isPrepping = true
         interruptInterviewVoice()
         ariaOrbState = .processing
 
         store.userProfile = profile.toCoreProfile()
+        store.markOnboardingInterviewComplete()
         if let sex = profile.biologicalSex {
             MenstrualHealthStore.shared.enableForBiologicalSexIfNeeded(sex)
         }
         let healthConnected = healthKitState == .authorized
+        prepHealthConnected = healthConnected
 
         AriaContextStore.shared.seedFromOnboarding(
             name: profile.trimmedName,
@@ -694,22 +723,65 @@ final class OnboardingCoordinator {
         FDS.haptic(.heavy)
         FDS.notificationHaptic(.success)
 
-        Task { @MainActor in
-            if healthConnected {
-                await store.refreshDailyData()
-            }
-            store.learnFromFirstHealthConnectIfNeeded()
-            if profile.trainingTheme != .classic || store.readiness.overall > 0 {
-                let plan = AriaPlanEngine.evaluate(
-                    input: "Build my first \(profile.trainingTheme.label) training plan",
-                    context: store.makeTrainerContext()
-                )
-                store.todayWorkout = plan.workoutPlan
-            }
-            AriaContextStore.shared.addInsight("Onboarding interview complete.")
-            store.activeTab = .chat
-            store.isOnboarded = true
+        Task { await runPrep(in: store) }
+    }
+
+    func skipPrepHoldForDebug() {
+        skipPrepHold = true
+    }
+
+    private func runPrep(in store: AppStore) async {
+        let healthConnected = prepHealthConnected || store.healthKitLive || healthKitState == .authorized
+        prepHealthConnected = healthConnected
+        let cycleTracking = profile.biologicalSex?.cycleAutoEnabled == true
+            || profile.educationalCycleMode
+            || store.userProfile.biologicalSex?.cycleAutoEnabled == true
+            || store.userProfile.educationalCycleMode
+            || MenstrualHealthStore.shared.settings.enabled
+        let initial = AriaForgePrep.Load.estimated(
+            healthConnected: healthConnected,
+            cycleTracking: cycleTracking,
+            remoteEligible: ForgeCloudSync.shared.isRemoteEligible
+        )
+        let theme = profile.trainingTheme != .classic
+            ? profile.trainingTheme
+            : store.userProfile.trainingTheme
+
+        if profile.trimmedName.isEmpty, !store.userProfile.name.isEmpty {
+            AriaContextStore.shared.seedFromOnboarding(
+                name: store.userProfile.name,
+                goals: store.userProfile.fitnessGoals.map(\.label),
+                experienceLevel: store.userProfile.experienceLevel.rawValue,
+                preferredWorkouts: store.userProfile.preferredWorkouts.map(\.label),
+                coachingStyle: store.userProfile.coachingStyle.label,
+                healthConnected: healthConnected,
+                lifestyleTags: store.userProfile.interestTags,
+                trainingTheme: theme
+            )
         }
+
+        await AriaForgePrep.runSequence(
+            initialLoad: initial,
+            clock: prepClock,
+            shouldSkipHold: { [weak self] in self?.skipPrepHold == true },
+            measuredLoad: { AriaForgePrep.measuredLoad(from: store) },
+            onTick: { [weak self] stage, progress in
+                self?.prepStage = stage
+                self?.prepProgress = progress
+                self?.ariaOrbState = stage == .ready ? .idle : .processing
+            },
+            work: { [weak self] in
+                if let override = self?.prepWorkOverride {
+                    await override()
+                    return
+                }
+                await AriaForgePrep.loadUserData(into: store, trainingTheme: theme)
+            }
+        )
+
+        store.activeTab = .chat
+        store.finishForgePrep()
+        isPrepping = false
     }
 
     func resetAfterAgeBlock() {
@@ -735,6 +807,7 @@ final class OnboardingCoordinator {
         profile.guidanceOnlyMode = false
         hasAgreedToTerms = true
         step = .ready
+        skipPrepHold = true
         complete(in: store)
     }
 
@@ -870,7 +943,7 @@ final class OnboardingCoordinator {
         isTyping = true
         ariaOrbState = .processing
         ariaMood = mood
-        if !alreadySpeaking {
+        if !alreadySpeaking, AriaSpokenMute.allowsSpeech {
             AriaPresence.shared.setThinking(true)
             try? await Task.sleep(nanoseconds: AriaInterviewVoice.thinkBeatNanoseconds)
         }
@@ -878,7 +951,9 @@ final class OnboardingCoordinator {
         appendTranscript(AriaOnboardingMessage(role: .aria, text: text))
         isTyping = false
         AriaPresence.shared.setThinking(false)
-        AriaPresence.shared.speak(text, interrupt: interrupt)
+        if AriaSpokenMute.allowsSpeech {
+            AriaPresence.shared.speak(text, interrupt: interrupt)
+        }
         ariaOrbState = .listening
         FDS.haptic(.soft)
     }

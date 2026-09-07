@@ -264,6 +264,9 @@ final class AppStore: ObservableObject {
     @Published var streamingMessageId: String? = nil
     @Published var streamingVisibleCount: Int = 0
     var streamingRevealTask: Task<Void, Never>?
+    /// Serializes overlapping refreshDailyData() so the empty-profile launch
+    /// fetch and the post-interview prep fetch cannot clobber each other.
+    var refreshDailyDataTail: Task<Void, Never>?
 
     static let onboardedDefaultsKey = "forge.onboarding.completed"
     static let profileDefaultsKey = "forge.user.profile.v1"
@@ -279,19 +282,18 @@ final class AppStore: ObservableObject {
 
     // MARK: - Onboarding → ARIA handoff
 
-    
+    var needsForgePrep: Bool {
+        AriaForgePrepHandoff.needsPrep(isOnboarded: isOnboarded)
+    }
 
-    
+    func markOnboardingInterviewComplete() {
+        AriaForgePrepHandoff.markInterviewComplete()
+    }
 
-    
-    
-    
-    
-    
-    
-
-    
-
+    func finishForgePrep() {
+        isOnboarded = true
+        AriaForgePrepHandoff.clearInterviewComplete()
+    }
     
 }
 

@@ -6,6 +6,7 @@ struct AriaInterviewLayout: View {
     @StateObject private var dictation = SpeechManager()
     private let presence = AriaPresence.shared
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(AriaSpokenMute.mutedKey) private var spokenMuted = true
 
     var body: some View {
         // Header stays fixed in the safe area. Tall composers (e.g. 8 training
@@ -114,12 +115,14 @@ struct AriaInterviewLayout: View {
                     Text(coordinator.step.progressLabel)
                         .font(.system(size: 20, weight: .semibold, design: .rounded))
                         .foregroundColor(.textPrimary)
-                    Text("Tap ARIA to hear her again")
+                    Text(spokenMuted ? "Voice is muted" : "Tap ARIA to hear her again")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.textTertiary)
                 }
 
                 Spacer(minLength: 8)
+
+                AriaSpokenMuteButton()
 
                 Text("\(coordinator.progressStepIndex) / \(coordinator.progressStepCount)")
                     .font(.system(size: 12, weight: .medium, design: .rounded))

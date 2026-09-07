@@ -126,6 +126,7 @@ extension AppStore {
         isOnboarded = false
         authProvider = ""
         authEmail = ""
+        AriaForgePrepHandoff.clearInterviewComplete()
         UserDefaults.standard.set(false, forKey: "forge.auth.session.v1")
         UserDefaults.standard.removeObject(forKey: "forge.auth.provider.v1")
         UserDefaults.standard.removeObject(forKey: "forge.auth.email.v1")
