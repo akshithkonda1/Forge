@@ -134,6 +134,7 @@ final class AriaContextStore: ObservableObject {
         }
         let trainingDomain = ARIAContextPayload.TrainingDomain(
             lastWorkoutType: lastWorkout?.type.rawValue,
+            lastWorkoutName: lastWorkout?.name,
             lastWorkoutDurationMinutes: lastWorkout.map { Double($0.duration) },
             hoursSinceLastWorkout: hoursSinceWorkout,
             weeklyLoadScore: weeklyLoad

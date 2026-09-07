@@ -92,6 +92,16 @@ enum AriaPlanEngine {
         // for that muscle instead of a generic theme template.
         if let muscle = TargetMuscle.mentioned(in: input) {
             session = overlayLibraryMuscle(muscle, onto: session, equipment: equipment)
+        } else if !context.workoutHistory.isEmpty,
+                  NextSessionFocus.isSessionAsk(input) || AriaThemeResolver.isPlanRequest(input) {
+            // Yesterday's region decides today's library (legs → chest+abs).
+            let focus = NextSessionFocus.suggest(
+                history: context.workoutHistory,
+                now: context.currentTime,
+                experience: experience,
+                readiness: readiness
+            )
+            session = overlayLibraryFocus(focus, onto: session, equipment: equipment)
         }
 
         let narrative = buildNarrative(
@@ -256,6 +266,59 @@ enum AriaPlanEngine {
             workoutType: session.workoutType,
             moves: moves,
             flavorLine: "Built from the library around \(muscle.label.lowercased()). \(session.flavorLine)"
+        )
+    }
+
+    /// Open a whole body-region library (and an optional second — chest+abs).
+    private static func overlayLibraryFocus(
+        _ focus: NextSessionFocus.Suggestion,
+        onto session: SessionBlueprint,
+        equipment: TrainingEquipment
+    ) -> SessionBlueprint {
+        let gear: GearType? = {
+            switch equipment {
+            case .bodyweight: return .bodyweight
+            case .hotelGym: return .dumbbell
+            case .homeGym, .commercialGym, .crossfitBox: return nil
+            }
+        }()
+
+        func picks(for region: TargetMuscle.Region, limit: Int) -> [ExerciseDefinition] {
+            var rows = ExerciseLibrary.all.filter { $0.region == region }
+            if let gear {
+                let matched = rows.filter { $0.equipment == gear }
+                if !matched.isEmpty { rows = matched }
+            }
+            let compounds = rows.filter(\.isCompound)
+            let ordered = (compounds.isEmpty ? rows : compounds + rows.filter { !$0.isCompound })
+            return Array(ordered.prefix(limit))
+        }
+
+        let primaryLimit = focus.extra == nil ? 6 : 4
+        var defs = focus.title == "Full body"
+            ? picks(for: .push, limit: 2) + picks(for: .pull, limit: 2) + picks(for: .legs, limit: 2)
+            : picks(for: focus.region, limit: primaryLimit)
+        if let extra = focus.extra {
+            defs += picks(for: extra, limit: 2)
+        }
+        guard !defs.isEmpty else { return session }
+
+        let moves = defs.map { def in
+            Move(
+                name: def.name,
+                sets: def.defaultSets,
+                reps: def.repRangeLabel,
+                restSeconds: def.restSeconds,
+                note: def.muscleSummary
+            )
+        }
+        return SessionBlueprint(
+            title: "\(focus.title) · \(session.title)",
+            duration: session.duration,
+            intensity: session.intensity,
+            workoutType: session.workoutType,
+            moves: moves,
+            flavorLine: "\(focus.reason) \(session.flavorLine)"
         )
     }
 

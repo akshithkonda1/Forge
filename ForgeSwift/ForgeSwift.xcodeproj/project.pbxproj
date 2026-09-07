@@ -78,6 +78,7 @@
 		1ARIA0262F9FF867004091AA /* Theme+Readiness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0272F9FF867004091AA /* Theme+Readiness.swift */; };
 		1ARIA0302F9FF867004091AA /* AriaTrainingTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */; };
 		1ARIA0322F9FF867004091AA /* AriaPlanEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */; };
+		1BODY0022F9FF867004091AA /* NextSessionFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BODY0012F9FF867004091AA /* NextSessionFocus.swift */; };
 		1ARIA0342F9FF867004091AA /* AriaVoiceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */; };
 		720BDCB7970B26F219A0E3A6 /* AriaVoiceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58F793F880B626970035DF6E /* AriaVoiceModels.swift */; };
 		1HCM0022F9FF867004091AA /* HomeCookedMeals.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */; };
@@ -470,6 +471,7 @@
 		1ARIA0272F9FF867004091AA /* Theme+Readiness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Theme+Readiness.swift"; sourceTree = "<group>"; };
 		1ARIA0312F9FF867004091AA /* AriaTrainingTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaTrainingTheme.swift; sourceTree = "<group>"; };
 		1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPlanEngine.swift; sourceTree = "<group>"; };
+		1BODY0012F9FF867004091AA /* NextSessionFocus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NextSessionFocus.swift; sourceTree = "<group>"; };
 		1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceEngine.swift; sourceTree = "<group>"; };
 		58F793F880B626970035DF6E /* AriaVoiceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceModels.swift; sourceTree = "<group>"; };
 		1HCM0012F9FF867004091AA /* HomeCookedMeals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCookedMeals.swift; sourceTree = "<group>"; };
@@ -833,6 +835,7 @@
 				AA00020000000000000000F6 /* WeeklyAriaReview.swift */,
 				1WC1022F9FF867004091AA /* CrossZoneConsistency.swift */,
 				1ARIA0332F9FF867004091AA /* AriaPlanEngine.swift */,
+				1BODY0012F9FF867004091AA /* NextSessionFocus.swift */,
 				1ARIA0352F9FF867004091AA /* AriaVoiceEngine.swift */,
 				58F793F880B626970035DF6E /* AriaVoiceModels.swift */,
 				1ARIA0412F9FF867004091AA /* MenstrualHealthStore.swift */,
@@ -1470,6 +1473,7 @@
 				1ARIA0302F9FF867004091AA /* AriaTrainingTheme.swift in Sources */,
 				1ARIA0562F9FF867004091AA /* CyclePrivacy.swift in Sources */,
 				1ARIA0322F9FF867004091AA /* AriaPlanEngine.swift in Sources */,
+				1BODY0022F9FF867004091AA /* NextSessionFocus.swift in Sources */,
 				1ARIA0342F9FF867004091AA /* AriaVoiceEngine.swift in Sources */,
 				720BDCB7970B26F219A0E3A6 /* AriaVoiceModels.swift in Sources */,
 				1ARIA0422F9FF867004091AA /* Menstrual/MenstrualHealthView.swift in Sources */,

@@ -290,6 +290,7 @@ export interface AriaContext {
   };
   training: {
     lastWorkoutType: string | null;
+    lastWorkoutName: string | null;
     lastWorkoutDurationMinutes: number | null;
     hoursSinceLastWorkout: number | null;
     weeklyLoadScore: number | null; // null if < 3 sessions

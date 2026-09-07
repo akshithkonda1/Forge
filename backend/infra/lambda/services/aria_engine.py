@@ -272,6 +272,7 @@ class ReadinessContext:
 @dataclass
 class TrainingContext:
     last_workout_type: str | None = None
+    last_workout_name: str | None = None
     last_workout_duration_minutes: float | None = None
     hours_since_last_workout: float | None = None
     weekly_load_score: float | None = None  # normalized, null if < 3 sessions
@@ -586,6 +587,7 @@ class ARIAContext:
             ),
             training=TrainingContext(
                 last_workout_type=_str(training.get("lastWorkoutType")),
+                last_workout_name=_str(training.get("lastWorkoutName") or training.get("name")),
                 last_workout_duration_minutes=_num(training.get("lastWorkoutDurationMinutes")),
                 hours_since_last_workout=_num(training.get("hoursSinceLastWorkout")),
                 weekly_load_score=_num(training.get("weeklyLoadScore")),
@@ -701,6 +703,7 @@ class ARIAContext:
             f"- readiness.recovery_score: {_fmt(self.readiness.recovery_score)}",
             f"- activity.steps_3day_avg: {_fmt(self.activity.steps_3day_avg)}",
             f"- training.hours_since_last_workout: {_fmt(self.training.hours_since_last_workout)}",
+            f"- training.last_workout: {self.training.last_workout_name or self.training.last_workout_type or 'null'}",
             f"- training.weekly_load_score: {_fmt(self.training.weekly_load_score)}",
             f"- body.weight_trend_kg: {_fmt(self.body.weight_trend_kg)}",
             f"- body.vo2_max: {_fmt(self.body.vo2_max)}",
@@ -1622,6 +1625,21 @@ def generate_response(
             envelope = _insight_response(message, ctx, signals, restricted, voice_mode)
 
     envelope["restricted_domains"] = restricted
+    if response_type == "recommendation" and "training" not in restricted:
+        from services import body_library
+
+        session = body_library.maybe_suggest(
+            message,
+            last_workout_type=ctx.training.last_workout_type,
+            last_workout_name=ctx.training.last_workout_name,
+            hours_since=ctx.training.hours_since_last_workout,
+            experience=ctx.profile.experience_level or "intermediate",
+            readiness=int(ctx.readiness.recovery_score)
+            if isinstance(ctx.readiness.recovery_score, (int, float))
+            else None,
+        )
+        if session is not None:
+            envelope["session"] = session.to_dict()
     return envelope
 
 

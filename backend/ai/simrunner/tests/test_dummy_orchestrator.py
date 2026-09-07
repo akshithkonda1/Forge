@@ -273,6 +273,14 @@ class DummyOrchestratorTests(unittest.TestCase):
         finally:
             sys.stdout = old
 
+    def test_train_ask_attaches_a_body_session(self):
+        row = dummy.respond("What should I train today?", seed=1)
+        session = row.get("session")
+        self.assertIsInstance(session, dict)
+        self.assertTrue(session.get("exercises"))
+        self.assertTrue(session.get("title"))
+        self.assertNotRegex(session.get("reason") or "", r"\d+\s?(ms|bpm|sets)")
+
     def test_orchestration_envelope_is_a_real_pipeline(self):
         row = dummy.respond("I slept badly — what should I train and eat?", seed=1)
         orch = row["orchestration"]

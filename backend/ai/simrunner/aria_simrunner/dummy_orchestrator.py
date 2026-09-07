@@ -892,6 +892,39 @@ def _response_type(scenario: str) -> str:
     return "recommendation"
 
 
+def _body_library():
+    """Lazy import of the production body-session library. Dummy stays
+    import-light and still works if the Lambda path isn't on sys.path."""
+    try:
+        from backend._paths import ensure_lambda_on_path
+        ensure_lambda_on_path()
+        from services import body_library
+        return body_library
+    except Exception:
+        return None
+
+
+def _suggest_body_session(message: str, context) -> dict | None:
+    lib = _body_library()
+    if lib is None:
+        return None
+    hours = None
+    days = getattr(context, "days_since_last_workout", None)
+    if context.today.workout_logged:
+        hours = 0.0
+    elif isinstance(days, (int, float)):
+        hours = float(days) * 24.0
+    suggestion = lib.maybe_suggest(
+        message,
+        last_workout_type=getattr(context, "last_workout_type", None),
+        last_workout_name=getattr(context, "last_workout_type", None),
+        hours_since=hours,
+        experience=getattr(context, "experience_level", None) or "intermediate",
+        readiness=getattr(context.today, "readiness_score", None),
+    )
+    return suggestion
+
+
 def _orchestration_latency_ms(message: str, seed: int, worker_count: int) -> int:
     """Fake-but-stable overhead: scoring + fan-out, not a wall-clock sleep."""
     return 40 + (_fnv(message) ^ (seed * 16777619) ^ (worker_count * 31)) % 90
@@ -953,6 +986,15 @@ def respond(
     prose = humanize_prose(
         message, stub, ctx, plan, seed=seed, prior_turns=prior_turns,
     )
+    body_session = _suggest_body_session(message, ctx)
+    if (
+        body_session is not None
+        and plan.primary.kind == "workout"
+        and scenario in ("train", "recovery_first", "")
+    ):
+        spoken = body_session.spoken()
+        if spoken and spoken not in prose:
+            prose = f"{prose} {spoken}"
     chat = prose if not extras else f"{prose}\n\n" + "\n".join(extras)
     recovery_needed = scenario == "recovery_first" or ctx.today.readiness_score < 50
 
@@ -985,6 +1027,7 @@ def respond(
         "thinking": thinking_line(scenario, ctx, plan, intents),
         "scenario": scenario,
         "stub_prose": stub.prose_summary,
+        "session": body_session.to_dict() if body_session is not None else None,
         "orchestration": {
             "stages": list(ORCH_STAGES),
             "intents": [

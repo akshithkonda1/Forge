@@ -42,6 +42,7 @@ struct ARIAContextPayload: Codable, Equatable {
 
     struct TrainingDomain: Codable, Equatable {
         var lastWorkoutType: String? = nil
+        var lastWorkoutName: String? = nil
         var lastWorkoutDurationMinutes: Double? = nil
         var hoursSinceLastWorkout: Double? = nil
         var weeklyLoadScore: Double? = nil

@@ -145,6 +145,53 @@ final class ExerciseLibraryFilterTests: XCTestCase {
         XCTAssertFalse(text.contains("take two"))
     }
 
+    func testNextSessionAfterLegsIsChestAndAbs() {
+        let yesterday = Calendar(identifier: .gregorian).date(byAdding: .hour, value: -20, to: Date())!
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        let context = TrainerContext(
+            userProfile: Self.fixtureContext().userProfile,
+            readiness: Self.fixtureContext().readiness,
+            dailyMetrics: Self.fixtureContext().dailyMetrics,
+            sleepData: [],
+            workoutHistory: [
+                WorkoutHistory(
+                    id: "w1",
+                    date: iso.string(from: yesterday),
+                    name: "Tuesday Leg Day",
+                    type: .strength,
+                    duration: 55,
+                    volume: 8000,
+                    intensity: .high
+                )
+            ],
+            currentTime: Date(),
+            conversationHistory: []
+        )
+        let focus = NextSessionFocus.suggest(
+            history: context.workoutHistory,
+            now: context.currentTime,
+            experience: .intermediate,
+            readiness: 72
+        )
+        XCTAssertEqual(focus.region, .push)
+        XCTAssertEqual(focus.extra, .core)
+        XCTAssertEqual(focus.avoided, .legs)
+        XCTAssertEqual(focus.title, "Chest and abs")
+
+        let plan = AriaPlanEngine.evaluate(input: "What should I train today?", context: context)
+        let name = plan.workoutPlan.name.lowercased()
+        XCTAssertTrue(name.contains("chest") || name.contains("abs") || name.contains("push"))
+        XCTAssertFalse(plan.workoutPlan.exercises.contains { $0.name.localizedCaseInsensitiveContains("squat") })
+        XCTAssertFalse(plan.workoutPlan.exercises.isEmpty)
+    }
+
+    func testInferRegionFromWorkoutName() {
+        XCTAssertEqual(NextSessionFocus.inferRegion(name: "Tuesday Leg Day", type: .strength), .legs)
+        XCTAssertEqual(NextSessionFocus.inferRegion(name: "Bench night", type: .strength), .push)
+        XCTAssertEqual(NextSessionFocus.inferRegion(name: "Easy run", type: .cardio), .conditioning)
+    }
+
     func testAriaSpeechPrepDropsEmptyAndCapsLength() {
         XCTAssertNil(AriaSpeechPrep.clipped("   "))
         XCTAssertNil(AriaSpeechPrep.clipped(""))
