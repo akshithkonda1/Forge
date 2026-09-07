@@ -306,6 +306,63 @@ enum AriaPlanEngine {
         )
     }
 
+    /// Open a whole body-region library (and an optional second — chest+abs).
+    private static func overlayLibraryFocus(
+        _ focus: NextSessionFocus.Suggestion,
+        onto session: SessionBlueprint,
+        equipment: TrainingEquipment
+    ) -> SessionBlueprint {
+        let gear: GearType? = {
+            switch equipment {
+            case .bodyweight: return .bodyweight
+            case .hotelGym: return .dumbbell
+            case .homeGym, .commercialGym, .crossfitBox: return nil
+            }
+        }()
+
+        func picks(for region: TargetMuscle.Region, limit: Int) -> [ExerciseDefinition] {
+            var rows = ExerciseLibrary.all.filter { $0.region == region }
+            if let gear {
+                let matched = rows.filter { $0.equipment == gear }
+                if !matched.isEmpty { rows = matched }
+            }
+            let compounds = rows.filter(\.isCompound)
+            let ordered = (compounds.isEmpty ? rows : compounds + rows.filter { !$0.isCompound })
+            return Array(ordered.prefix(limit))
+        }
+
+        let count = max(2, min(8, focus.exerciseCount))
+        let extraLimit = focus.extra == nil ? 0 : (count >= 5 ? 2 : 1)
+        let primaryLimit = focus.extra == nil ? count : max(2, count - extraLimit)
+        var defs = focus.title == "Full body"
+            ? picks(for: .push, limit: max(1, count / 3))
+                + picks(for: .pull, limit: max(1, count / 3))
+                + picks(for: .legs, limit: max(1, count - 2 * max(1, count / 3)))
+            : picks(for: focus.region, limit: primaryLimit)
+        if let extra = focus.extra {
+            defs += picks(for: extra, limit: extraLimit)
+        }
+        guard !defs.isEmpty else { return session }
+
+        let moves = defs.map { def in
+            Move(
+                name: def.name,
+                sets: def.defaultSets,
+                reps: def.repRangeLabel,
+                restSeconds: def.restSeconds,
+                note: def.muscleSummary
+            )
+        }
+        return SessionBlueprint(
+            title: "\(focus.title) · \(session.title)",
+            duration: session.duration,
+            intensity: session.intensity,
+            workoutType: session.workoutType,
+            moves: moves,
+            flavorLine: "\(focus.reason) \(session.flavorLine)"
+        )
+    }
+
     // MARK: - Solo Leveling
 
     /// Inspired by the System's daily quests + progressive hunter rank-up:

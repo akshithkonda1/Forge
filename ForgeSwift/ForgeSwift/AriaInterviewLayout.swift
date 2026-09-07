@@ -12,7 +12,7 @@ struct AriaInterviewLayout: View {
         // themes) scroll inside a capped region so they never crush the
         // transcript or push content under the status bar / Dynamic Island.
         GeometryReader { geo in
-            let composerCap = coordinator.step == .details
+            let composerCap = (coordinator.step == .details || coordinator.step == .schedule)
                 ? max(300, geo.size.height * 0.64)
                 : max(248, geo.size.height * 0.52)
             VStack(spacing: 0) {
@@ -386,6 +386,8 @@ struct AriaInterviewLayout: View {
                     continueTitle: "Continue",
                     onContinue: { coordinator.confirmWorkouts() }
                 )
+            case .schedule:
+                ScheduleComposer(coordinator: coordinator)
             case .sleep:
                 OptionCardsComposer(
                     options: SleepRhythmBand.allCases.map {

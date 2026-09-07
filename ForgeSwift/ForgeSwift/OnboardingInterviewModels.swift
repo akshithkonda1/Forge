@@ -26,6 +26,7 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
     case goals
     case experience
     case workouts
+    case schedule
     case sleep
     case freeTime // now covers interests + training theme + life context in one ask
     case coaching
@@ -41,6 +42,7 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
         case .goals:          return "What we’re building"
         case .experience:     return "Level"
         case .workouts:       return "Training"
+        case .schedule:       return "Your week"
         case .sleep:          return "Your clock"
         case .freeTime:       return "Your life"
         case .conditions:     return "Boundaries"
@@ -58,6 +60,7 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
         case .goals: return .goals
         case .experience: return .experience
         case .workouts: return .workouts
+        case .schedule: return .schedule
         case .sleep: return .sleep
         case .freeTime: return .freeTime
         case .coaching: return .coaching
@@ -75,6 +78,7 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
         case .goals: self = .goals
         case .experience: self = .experience
         case .workouts: self = .workouts
+        case .schedule: self = .schedule
         case .sleep: self = .sleep
         case .freeTime: self = .freeTime
         case .coaching: self = .coaching

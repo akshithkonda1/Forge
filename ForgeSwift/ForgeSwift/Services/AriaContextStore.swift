@@ -134,9 +134,13 @@ final class AriaContextStore: ObservableObject {
         }
         let trainingDomain = ARIAContextPayload.TrainingDomain(
             lastWorkoutType: lastWorkout?.type.rawValue,
+            lastWorkoutName: lastWorkout?.name,
             lastWorkoutDurationMinutes: lastWorkout.map { Double($0.duration) },
             hoursSinceLastWorkout: hoursSinceWorkout,
-            weeklyLoadScore: weeklyLoad
+            weeklyLoadScore: weeklyLoad,
+            schedulePlanningMode: store.userProfile.schedulePlanningMode.rawValue,
+            weeklySplit: WeeklySplit.normalized(store.userProfile.weeklySplit),
+            sun0Weekday: WeeklySplit.sun0(from: Date())
         )
         let activityCalories: Double? = store.dailyMetrics.activeCalories > 0
             ? Double(store.dailyMetrics.activeCalories)

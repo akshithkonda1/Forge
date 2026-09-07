@@ -194,6 +194,10 @@ struct UserProfile: Codable {
     var coachingStyle: CoachingStyle
     var connectedDevices: [String]
     var weeklySchedule: [Int]
+    /// `rotate` lets ARIA walk complementary days; `fixed` honors `weeklySplit`.
+    var schedulePlanningMode: SchedulePlanningMode
+    /// Sunday=0 … Saturday=6. Empty decodes as the default walking week.
+    var weeklySplit: [WeeklySplitSlot]
     var trainingEquipment: TrainingEquipment
     
     // HealthKit-derived health metrics
@@ -223,6 +227,7 @@ struct UserProfile: Codable {
     enum CodingKeys: String, CodingKey {
         case name, gender, fitnessGoals, experienceLevel, preferredWorkouts
         case coachingStyle, connectedDevices, weeklySchedule, trainingEquipment
+        case schedulePlanningMode, weeklySplit
         case age, weight, height, trainingTheme, interestTags
         case biologicalSex, educationalCycleMode, avatarFileName
     }
@@ -236,6 +241,8 @@ struct UserProfile: Codable {
         coachingStyle: CoachingStyle,
         connectedDevices: [String],
         weeklySchedule: [Int],
+        schedulePlanningMode: SchedulePlanningMode = .rotate,
+        weeklySplit: [WeeklySplitSlot] = WeeklySplitSlot.defaultWeek,
         trainingEquipment: TrainingEquipment,
         age: Int? = nil,
         weight: Double? = nil,
@@ -254,6 +261,8 @@ struct UserProfile: Codable {
         self.coachingStyle = coachingStyle
         self.connectedDevices = connectedDevices
         self.weeklySchedule = weeklySchedule
+        self.schedulePlanningMode = schedulePlanningMode
+        self.weeklySplit = WeeklySplit.normalized(weeklySplit)
         self.trainingEquipment = trainingEquipment
         self.age = age
         self.weight = weight
@@ -275,6 +284,10 @@ struct UserProfile: Codable {
         coachingStyle = try c.decode(CoachingStyle.self, forKey: .coachingStyle)
         connectedDevices = try c.decode([String].self, forKey: .connectedDevices)
         weeklySchedule = try c.decode([Int].self, forKey: .weeklySchedule)
+        schedulePlanningMode = try c.decodeIfPresent(SchedulePlanningMode.self, forKey: .schedulePlanningMode) ?? .rotate
+        weeklySplit = WeeklySplit.normalized(
+            try c.decodeIfPresent([WeeklySplitSlot].self, forKey: .weeklySplit) ?? WeeklySplitSlot.defaultWeek
+        )
         trainingEquipment = try c.decode(TrainingEquipment.self, forKey: .trainingEquipment)
         age = try c.decodeIfPresent(Int.self, forKey: .age)
         weight = try c.decodeIfPresent(Double.self, forKey: .weight)
@@ -296,6 +309,8 @@ struct UserProfile: Codable {
         try c.encode(coachingStyle, forKey: .coachingStyle)
         try c.encode(connectedDevices, forKey: .connectedDevices)
         try c.encode(weeklySchedule, forKey: .weeklySchedule)
+        try c.encode(schedulePlanningMode, forKey: .schedulePlanningMode)
+        try c.encode(weeklySplit, forKey: .weeklySplit)
         try c.encode(trainingEquipment, forKey: .trainingEquipment)
         try c.encodeIfPresent(age, forKey: .age)
         try c.encodeIfPresent(weight, forKey: .weight)

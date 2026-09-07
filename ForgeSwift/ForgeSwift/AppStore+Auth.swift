@@ -83,6 +83,8 @@ extension AppStore {
         experienceLevel: ExperienceLevel? = nil,
         preferredWorkouts: [WorkoutType]? = nil,
         weeklySchedule: [Int]? = nil,
+        schedulePlanningMode: SchedulePlanningMode? = nil,
+        weeklySplit: [WeeklySplitSlot]? = nil,
         trainingEquipment: TrainingEquipment? = nil,
         connectedDevices: [String]? = nil,
         age: Int? = nil,
@@ -99,6 +101,8 @@ extension AppStore {
         if let level = experienceLevel { userProfile.experienceLevel = level }
         if let preferredWorkouts { userProfile.preferredWorkouts = preferredWorkouts }
         if let weeklySchedule { userProfile.weeklySchedule = weeklySchedule.sorted() }
+        if let schedulePlanningMode { userProfile.schedulePlanningMode = schedulePlanningMode }
+        if let weeklySplit { userProfile.weeklySplit = WeeklySplit.normalized(weeklySplit) }
         if let trainingEquipment { userProfile.trainingEquipment = trainingEquipment }
         if let connectedDevices { userProfile.connectedDevices = connectedDevices }
         if let age { userProfile.age = age }

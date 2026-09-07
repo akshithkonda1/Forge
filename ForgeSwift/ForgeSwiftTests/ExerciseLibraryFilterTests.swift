@@ -145,12 +145,136 @@ final class ExerciseLibraryFilterTests: XCTestCase {
         XCTAssertFalse(text.contains("take two"))
     }
 
+    func testNextSessionAfterLegsIsChestAndAbs() {
+        let yesterday = Calendar(identifier: .gregorian).date(byAdding: .hour, value: -20, to: Date())!
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        let context = TrainerContext(
+            userProfile: Self.fixtureContext().userProfile,
+            readiness: Self.fixtureContext().readiness,
+            dailyMetrics: Self.fixtureContext().dailyMetrics,
+            sleepData: [],
+            workoutHistory: [
+                WorkoutHistory(
+                    id: "w1",
+                    date: iso.string(from: yesterday),
+                    name: "Tuesday Leg Day",
+                    type: .strength,
+                    duration: 55,
+                    volume: 8000,
+                    intensity: .high
+                )
+            ],
+            currentTime: Date(),
+            conversationHistory: []
+        )
+        let focus = NextSessionFocus.suggest(
+            history: context.workoutHistory,
+            now: context.currentTime,
+            experience: .intermediate,
+            readiness: 72
+        )
+        XCTAssertEqual(focus.region, .push)
+        XCTAssertEqual(focus.extra, .core)
+        XCTAssertEqual(focus.avoided, .legs)
+        XCTAssertEqual(focus.title, "Chest and abs")
+
+        let plan = AriaPlanEngine.evaluate(input: "What should I train today?", context: context)
+        let name = plan.workoutPlan.name.lowercased()
+        XCTAssertTrue(name.contains("chest") || name.contains("abs") || name.contains("push"))
+        XCTAssertFalse(plan.workoutPlan.exercises.contains { $0.name.localizedCaseInsensitiveContains("squat") })
+        XCTAssertFalse(plan.workoutPlan.exercises.isEmpty)
+    }
+
+    func testWednesdayWithoutHistoryOpensChestAndAbsFromTheWeek() {
+        let wednesday = Self.weekdayDate(4) // Calendar weekday: 1=Sun … 4=Wed
+        XCTAssertEqual(WeeklySplit.sun0(from: wednesday), 3)
+
+        let focus = NextSessionFocus.suggest(
+            history: [],
+            now: wednesday,
+            experience: .intermediate,
+            readiness: 72,
+            mode: .rotate,
+            split: WeeklySplitSlot.defaultWeek
+        )
+        XCTAssertEqual(focus.region, .push)
+        XCTAssertEqual(focus.extra, .core)
+        XCTAssertEqual(focus.title, "Chest and abs")
+        XCTAssertEqual(focus.exerciseCount, 6)
+        XCTAssertEqual(focus.weekday, 3)
+    }
+
+    func testReplayPriorOpensYesterdaysSlot() {
+        let wednesday = Self.weekdayDate(4)
+        let focus = NextSessionFocus.suggest(
+            history: [],
+            now: wednesday,
+            experience: .intermediate,
+            readiness: 70,
+            replayPrior: true
+        )
+        XCTAssertEqual(focus.region, .legs)
+        XCTAssertEqual(focus.weekday, 2)
+        XCTAssertTrue(focus.reason.lowercased().contains("back"))
+    }
+
+    func testFixedThursdayIsPullEvenAfterLegs() {
+        let thursday = Self.weekdayDate(5) // Thursday
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        let yesterday = thursday.addingTimeInterval(-20 * 3600)
+        let focus = NextSessionFocus.suggest(
+            history: [
+                WorkoutHistory(
+                    id: "w1",
+                    date: iso.string(from: yesterday),
+                    name: "Tuesday Leg Day",
+                    type: .strength,
+                    duration: 55,
+                    volume: 8000,
+                    intensity: .high
+                )
+            ],
+            now: thursday,
+            experience: .intermediate,
+            readiness: 74,
+            mode: .fixed
+        )
+        XCTAssertEqual(focus.region, .pull)
+        XCTAssertEqual(focus.weekday, 4)
+        XCTAssertEqual(focus.planningMode, .fixed)
+    }
+
+    func testParseWeekdayAndReplayPhrases() {
+        XCTAssertEqual(WeeklySplit.parseWeekday(in: "Do Tuesday's session"), 2)
+        XCTAssertTrue(WeeklySplit.wantsReplayPrior("Do yesterday's session"))
+        XCTAssertFalse(WeeklySplit.wantsReplayPrior("Build today's session from my sleep"))
+    }
+
+    func testInferRegionFromWorkoutName() {
+        XCTAssertEqual(NextSessionFocus.inferRegion(name: "Tuesday Leg Day", type: .strength), .legs)
+        XCTAssertEqual(NextSessionFocus.inferRegion(name: "Bench night", type: .strength), .push)
+        XCTAssertEqual(NextSessionFocus.inferRegion(name: "Easy run", type: .cardio), .conditioning)
+    }
+
     func testAriaSpeechPrepDropsEmptyAndCapsLength() {
         XCTAssertNil(AriaSpeechPrep.clipped("   "))
         XCTAssertNil(AriaSpeechPrep.clipped(""))
         XCTAssertEqual(AriaSpeechPrep.clipped("  Hello ARIA  "), "Hello ARIA")
         let long = String(repeating: "a", count: AriaSpeechPrep.characterLimit + 40)
         XCTAssertEqual(AriaSpeechPrep.clipped(long)?.count, AriaSpeechPrep.characterLimit)
+    }
+
+    private static func weekdayDate(_ weekday: Int) -> Date {
+        var cal = Calendar.current
+        cal.locale = Locale(identifier: "en_US_POSIX")
+        var comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())
+        comps.weekday = weekday
+        comps.hour = 12
+        comps.minute = 0
+        comps.second = 0
+        return cal.date(from: comps) ?? Date()
     }
 
     private static func fixtureContext() -> TrainerContext {

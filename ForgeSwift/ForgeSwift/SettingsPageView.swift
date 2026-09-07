@@ -40,7 +40,11 @@ struct SettingsPageView: View {
     }
 
     var scheduleDays: String {
-        store.userProfile.weeklySchedule.map { dayLabels[$0] }.joined(separator: " / ")
+        let split = store.userProfile.weeklySplit
+        if split.isEmpty {
+            return store.userProfile.weeklySchedule.map { dayLabels[$0] }.joined(separator: " / ")
+        }
+        return WeeklySplit.summary(mode: store.userProfile.schedulePlanningMode, split: split)
     }
 
     // Mirrors NutritionTargetsEditorView.load()'s own useCustom check.
