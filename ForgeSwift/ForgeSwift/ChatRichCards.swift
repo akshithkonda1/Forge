@@ -79,7 +79,12 @@ struct WorkoutRichCardView: View {
             Divider().background(Color.borderColor.opacity(0.3))
 
             Button {
-                store.startWorkout(); store.activeTab = .workout
+                store.adoptWorkoutFromRichCard(card)
+                if store.todayWorkout != nil {
+                    store.startExistingWorkout()
+                } else {
+                    store.openChat(with: HomeInsightFlow.todayPlanPrompt, voice: false)
+                }
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "play.fill").font(.system(size: 13, weight: .bold))

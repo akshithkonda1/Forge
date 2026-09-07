@@ -232,6 +232,7 @@ public enum HomeWidgetBoardStore {
 public enum ForgeWidgetLink {
     public static let readiness = URL(string: "forge://home")!
     public static let hydration = URL(string: "forge://hydration")!
+    public static let hydrationLog = URL(string: "forge://hydration/log")!
     public static let sleep     = URL(string: "forge://sleep")!
     public static let cycle     = URL(string: "forge://cycle")!
     public static let support   = URL(string: "forge://cycle/support")!

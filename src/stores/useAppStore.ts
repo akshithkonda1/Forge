@@ -39,6 +39,8 @@ interface AppState {
   setOnboardingStep: (step: number) => void;
   resetSession: () => void;
   seedAriaWelcome: () => void;
+  hasMetAria: boolean;
+  meetAria: () => void;
 
   // User Profile
   userProfile: UserProfile;
@@ -172,12 +174,15 @@ export const useAppStore = create<AppState>()(
   onboardingStep: 0,
   setOnboarded: (val) => set({ isOnboarded: val }),
   setOnboardingStep: (step) => set({ onboardingStep: Math.max(0, step) }),
+  hasMetAria: false,
+  meetAria: () => set({ hasMetAria: true }),
   resetSession: () =>
     set({
       isOnboarded: false,
       onboardingStep: 0,
       activeTab: "home",
       chatMessages: [],
+      hasMetAria: false,
     }),
   seedAriaWelcome: () => {
     const profile = get().userProfile;
@@ -279,6 +284,7 @@ export const useAppStore = create<AppState>()(
         userProfile: state.userProfile,
         activeTab: state.activeTab,
         notificationPrefs: state.notificationPrefs,
+        hasMetAria: state.hasMetAria,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

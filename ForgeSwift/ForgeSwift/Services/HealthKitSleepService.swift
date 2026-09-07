@@ -34,11 +34,23 @@ final class HealthKitSleepService: ObservableObject {
     private init() {
         userProfile = Self.loadUserSleepProfile() ?? UserSleepProfile()
         currentSunriseConfig = AdaptiveSunriseConfig(
-            durationMinutes: Chronotype.bear.baseSunriseDuration,
-            colorTemp: Chronotype.bear.baseSunriseColorTemp,
+            durationMinutes: UserDefaults.standard.object(forKey: Self.sunriseDurationKey) as? Int
+                ?? Chronotype.bear.baseSunriseDuration,
+            colorTemp: UserDefaults.standard.object(forKey: Self.sunriseColorKey) as? Double
+                ?? Chronotype.bear.baseSunriseColorTemp,
             intensity: Chronotype.bear.baseSunriseIntensity,
             rationale: "Balanced sunrise for your chronotype"
         )
+    }
+
+    private static let sunriseDurationKey = "forge.sunrise.durationMinutes"
+    private static let sunriseColorKey = "forge.sunrise.colorTemp"
+
+    func applySunriseOverrides(durationMinutes: Int, colorTemp: Double) {
+        currentSunriseConfig.durationMinutes = min(60, max(5, durationMinutes))
+        currentSunriseConfig.colorTemp = min(1, max(0, colorTemp))
+        UserDefaults.standard.set(currentSunriseConfig.durationMinutes, forKey: Self.sunriseDurationKey)
+        UserDefaults.standard.set(currentSunriseConfig.colorTemp, forKey: Self.sunriseColorKey)
     }
 
     // MARK: - Authorization

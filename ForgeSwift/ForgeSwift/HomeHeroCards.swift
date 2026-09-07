@@ -430,7 +430,9 @@ private struct HomePrimaryCTA: View {
 
     private func perform() {
         switch action {
-        case .startWorkout, .continueWorkout, .recoveryDay, .buildPlan:
+        case .startWorkout, .continueWorkout:
+            store.startExistingWorkout()
+        case .recoveryDay, .buildPlan:
             store.startLifeShapedSession()
         }
     }

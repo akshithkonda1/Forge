@@ -332,7 +332,7 @@ struct PartnerCycleDigest: Codable, Equatable, Hashable {
         daysUntilNextPeriodApprox = approxDays
         periodDay = bleedDay
         extraThoughtfulnessHelps = thoughtful
-        supportCardLine = trimmedCard
+        self.supportCardLine = trimmedCard
         let finished = snapshot.periodEndConfirmed && !snapshot.isCurrentlyBleeding
         supportHeadline = {
             if finished { return "Period finished. Everyday support is enough." }

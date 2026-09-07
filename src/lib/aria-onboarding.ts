@@ -138,5 +138,5 @@ export function welcomeChatMessage(ctx: {
   coachingStyle: CoachingStyle;
   devicesConnected?: number;
 }): string {
-  return `${firstSessionScript(ctx)} Open chat anytime — I'm already tracking what we built.`;
+  return "I'm ARIA. Ask about today, last night, or what's in the way.";
 }

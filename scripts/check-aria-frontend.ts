@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { coachReply } from "../src/lib/aria-coach.ts";
-import { ARIA_CINEMATIC_LINES, firstSessionScript, whisperForStep } from "../src/lib/aria-onboarding.ts";
-import { ARIA_MARK } from "../src/lib/aria-mark.ts";
+import { ARIA_CINEMATIC_LINES, firstSessionScript, whisperForStep, welcomeChatMessage } from "../src/lib/aria-onboarding.ts";
+import { ARIA_INTRO } from "../src/lib/aria-intro.ts";
+import { ARIA_LOBES, ARIA_MARK, clampGaze, emberCoreRadius, emberLobe } from "../src/lib/aria-mark.ts";
 import type { DailyMetrics, ReadinessData, UserProfile } from "../src/types/index.ts";
 
 const profile: UserProfile = {
@@ -40,14 +41,40 @@ assert(ARIA_MARK.assetName === "AriaLogo", "ARIA mark asset is AriaLogo");
 assert(ARIA_MARK.assetName === contract.assetName, "web assetName matches shared/aria-mark.json");
 assert(ARIA_MARK.cropScale === 1, "ember mark is not zoom-cropped past a ring");
 assert(ARIA_MARK.cropScale === contract.cropScale, "web cropScale matches shared/aria-mark.json");
-assert(ARIA_MARK.maxHueDegrees === contract.maxHueDegrees, "web hue matches shared/aria-mark.json");
-assert(ARIA_MARK.maxHueDegrees === 12, "hue shimmer is visible");
-assert(ARIA_MARK.maxEdgeUndulation === 0, "never nonuniform stretch");
-assert(ARIA_MARK.breathScale === 0.04, "uniform breath is 1.0 to 1.04");
-assert(existsSync("public/aria-mark.png"), "web ARIA mark asset is present");
-assert(existsSync("shared/brand/aria-mark.png"), "shared ARIA mark asset is present");
+assert(ARIA_MARK.lobeCount === 4, "living ember has four lobes");
+assert(ARIA_MARK.lobeCount === contract.lobeCount, "web lobeCount matches shared/aria-mark.json");
+assert(ARIA_LOBES.length === ARIA_MARK.lobeCount, "lobe table matches lobeCount");
+assert(ARIA_MARK.idleBreathHz === contract.idleBreathHz, "web idle breath matches shared/aria-mark.json");
+assert(ARIA_MARK.speakingBreathHz === contract.speakingBreathHz, "web speaking breath matches shared/aria-mark.json");
+assert(ARIA_MARK.maxGaze === 0.14, "gaze stays inside the mark");
+assert(ARIA_MARK.maxGaze === contract.maxGaze, "web maxGaze matches shared/aria-mark.json");
+assert(ARIA_MARK.stillPose === contract.stillPose, "web stillPose matches shared/aria-mark.json");
+assert(existsSync("public/aria-mark.png"), "still-frame web ARIA mark asset is present");
+assert(existsSync("shared/brand/aria-mark.png"), "still-frame shared ARIA mark asset is present");
+
+const stillA = emberLobe(0, 1, false, true);
+const stillB = emberLobe(0, 99, true, true);
+assert(stillA.x === stillB.x && stillA.y === stillB.y && stillA.r === stillB.r, "reduce-motion freezes lobes");
+assert(emberCoreRadius(1, true, true) === emberCoreRadius(40, false, true), "reduce-motion freezes the core");
+assert(emberCoreRadius(0.4, true, false) > emberCoreRadius(0.4, false, false), "speaking core is larger");
+assert(clampGaze(1) === ARIA_MARK.maxGaze && clampGaze(-1) === -ARIA_MARK.maxGaze, "gaze is clamped");
+const liveA = emberLobe(1, 0.4, false, false);
+const liveB = emberLobe(1, 1.1, false, false);
+assert(liveA.x !== liveB.x || liveA.y !== liveB.y || liveA.r !== liveB.r, "idle lobes move when alive");
 
 assert(ARIA_CINEMATIC_LINES.length === 1, "welcome is one beat");
+assert(ARIA_INTRO.title === "This is ARIA", "first-meet title is This is ARIA");
+assert(!ARIA_INTRO.lead.includes(ARIA_INTRO.pairingForbidden), "intro does not pair Forge × ARIA");
+assert(ARIA_INTRO.lead.includes("designed for Forge"), "ARIA was designed for Forge");
+assert(ARIA_INTRO.capabilities.length === 4, "intro names four things ARIA can do");
+assert(!welcomeChatMessage({
+  name: "Jack",
+  goals: ["build-muscle"],
+  experience: "intermediate",
+  workouts: ["strength"],
+  coachingStyle: "balanced",
+  devicesConnected: 0,
+}).includes("Jack"), "first ARIA line is not a name pairing");
 
 const welcome = whisperForStep("welcome");
 assert(!welcome.message.includes("HRV"), "welcome does not dump HRV");

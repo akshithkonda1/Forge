@@ -30,11 +30,27 @@ extension AppStore {
             authProvider = authProvider.isEmpty ? "legacy" : authProvider
         }
         guard UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) else { return }
+        restoreUserProfileForCurrentUser()
+        isOnboarded = true
+    }
+
+    func restoreUserProfileForCurrentUser() {
+        let scoped = profileStorageKey()
+        if let data = UserDefaults.standard.data(forKey: scoped),
+           let saved = try? JSONDecoder().decode(UserProfile.self, from: data) {
+            userProfile = saved
+            return
+        }
+        if scoped != Self.profileDefaultsKey,
+           let data = UserDefaults.standard.data(forKey: Self.profileDefaultsKey),
+           let saved = try? JSONDecoder().decode(UserProfile.self, from: data) {
+            userProfile = saved
+            return
+        }
         if let data = UserDefaults.standard.data(forKey: Self.profileDefaultsKey),
            let saved = try? JSONDecoder().decode(UserProfile.self, from: data) {
             userProfile = saved
         }
-        isOnboarded = true
     }
 
     /// Sign-up path: mark authenticated then run onboarding (HealthKit + profile).
@@ -47,13 +63,18 @@ extension AppStore {
     }
 
     func applyAuthSession(_ session: ForgeAuthSession, isNewAccount: Bool) {
+        if !chatMessages.isEmpty {
+            persistChatSession()
+        }
+        AriaContextStore.shared.configure(userId: session.userId)
         authenticate(
             provider: session.provider,
             email: session.email,
             displayName: session.displayName,
             isNewAccount: isNewAccount
         )
-        AriaContextStore.shared.configure(userId: session.userId)
+        restoreUserProfileForCurrentUser()
+        restoreChatHistory()
         WatchAriaConfigBridge.sync(firstName: session.displayName.split(separator: " ").first.map(String.init))
     }
 
@@ -70,6 +91,8 @@ extension AppStore {
         if isNewAccount || !UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) {
             isOnboarded = false
             onboardingStep = 0
+            hasMetAria = false
+            showAriaMeetOnLaunch = true
         } else {
             isOnboarded = true
             Task { await refreshDailyData() }

@@ -1,10 +1,10 @@
 import AVFoundation
 import CoreGraphics
 
-/// Welcome arrive-sound and the shared raster-mark contract (`shared/aria-mark.json`,
-/// used for web parity — see `src/lib/aria-mark.ts`, `shared/brand/aria-mark.png`).
-/// iOS renders `AriaLogo` in `AuroraOrbView` — the whole 4-lobe ember, no ring
-/// crop, no glass frame. Lockstep with web.
+/// Welcome arrive-sound and the shared still-frame mark contract
+/// (`shared/aria-mark.json`, `shared/brand/aria-mark.png`).
+/// Live ARIA is a procedural 4-lobe ember (`AuroraOrbView` / web canvas).
+/// The PNG stays on disk as the Reduce Motion / fallback still.
 /// Pure gates so tests can lock quiet mode and Reduce Motion without audio.
 enum AriaWelcomeChime: Sendable {
     static let assetName = "AriaLogo"

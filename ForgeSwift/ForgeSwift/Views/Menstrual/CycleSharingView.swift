@@ -83,11 +83,12 @@ struct CycleSharingView: View {
                 Text("They stop receiving updates. Anyone else you've invited is unaffected.")
             }
             .task {
-                // Participants are fetched, never assumed. The local invite says
-                // only that this device created a share — it cannot know whether
-                // anyone accepted, or whether they have since been removed on
-                // another device.
                 await sharing.refreshParticipants()
+                if sharing.currentInvite != nil {
+                    sharing.stageSupportUpdateForMessages()
+                    sharing.publishSupportSurfaces()
+                }
+                _ = await sharing.fetchSharedDigest()
             }
         }
     }
@@ -492,5 +493,7 @@ struct CycleSharingView: View {
             fromDisplayName: resolvedName,
             digest: digest
         )
+        sharing.stageSupportUpdateForMessages()
+        sharing.publishSupportSurfaces()
     }
 }

@@ -743,7 +743,7 @@ final class AriaContextStore: ObservableObject {
     }
 
     func shouldBeProactive() -> Bool {
-        context.relationshipLevel >= 3 && !context.recentPatterns.isEmpty
+        context.relationshipLevel >= 2
     }
 
     /// Merge lifestyle history tags, replacing the whole family each time.
