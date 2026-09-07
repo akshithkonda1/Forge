@@ -34,7 +34,7 @@ struct ClinicalDataNonPHIView: View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 22) {
-                    Text("Two steps. Connect Apple Health for the meds already on this iPhone. Then search every federal-list product by brand or generic — or photograph the bottle when you cannot find it. ARIA reads what you already take so lifestyle and training can be for you. It never prescribes and never names a dose.")
+                    Text("Two steps. Allow Apple Health — the same full catalog Forge asks at first connect — so allergies, meds, conditions, shots, labs, procedures, and vitals already on this iPhone land in Forge. Then search every federal-list product by brand or generic, or photograph the bottle. ARIA never prescribes and never names a dose.")
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -116,13 +116,18 @@ struct ClinicalDataNonPHIView: View {
 
     private var healthStep: some View {
         VStack(alignment: .leading, spacing: 12) {
-            stepHeader(number: "1", title: "Apple Health", subtitle: "Structured records only. Not notes. Not insurance.")
+            stepHeader(number: "1", title: "Apple Health", subtitle: "Every structured record Forge can read. Not notes. Not insurance.")
 
-            if !health.hasStructuredRecordsAccess {
+            if !health.canRequestStructuredRecords {
+                Text("Health Records need a real iPhone with Health Records turned on. The Simulator cannot open that sheet — asking anyway used to crash the app. The pharmacy below still works.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if !health.hasStructuredRecordsAccess {
                 Button {
                     Task { await connect() }
                 } label: {
-                    Text(healthLoading ? "Asking Health…" : "Allow medications from Apple Health")
+                    Text(healthLoading ? "Asking Health…" : "Allow Apple Health records")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -132,7 +137,7 @@ struct ClinicalDataNonPHIView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(healthLoading)
-                .accessibilityLabel("Allow medications from Apple Health")
+                .accessibilityLabel("Allow Apple Health records")
             } else if healthLoading && summary == nil {
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -444,6 +449,7 @@ struct ClinicalDataNonPHIView: View {
         defer { healthLoading = false }
         do {
             try await health.requestClinicalRecordsAuthorization()
+            await health.applyConnectedHealthToForge()
             await refreshHealth()
         } catch {
             self.error = "Couldn't open Apple Health for these records. The pharmacy still works."

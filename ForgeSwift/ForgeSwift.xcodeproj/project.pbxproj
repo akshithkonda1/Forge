@@ -49,6 +49,7 @@
 		1SLEEP013F9FF867004091AA /* SleepSoundEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */; };
 		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
 		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
+		1HKPLAN022F9FF867004091AA /* HealthKitAuthorizationPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HKPLAN012F9FF867004091AA /* HealthKitAuthorizationPlan.swift */; };
 		B5516E84A984973E2E0A546A /* HealthKitManager+Queries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */; };
 		393B4C47DAF62A8BFD1D0BC7 /* HealthKitManager+DailyStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */; };
 		D0F5A89396724B3BA3E7CC4B /* HealthKitManager+Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */; };
@@ -316,6 +317,7 @@
 		1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */; };
 		1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02900000000000000A /* AriaLogoPresenceTests.swift */; };
 		1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */; };
+		1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -439,6 +441,7 @@
 		1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MusicControllerFactory.swift; sourceTree = SOURCE_ROOT; };
 		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
 		1E4DF7152F9FF867004091AA /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
+		1HKPLAN012F9FF867004091AA /* HealthKitAuthorizationPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitAuthorizationPlan.swift; sourceTree = "<group>"; };
 		405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+Queries.swift"; sourceTree = "<group>"; };
 		8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+DailyStats.swift"; sourceTree = "<group>"; };
 		84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HealthKitManager+Logging.swift"; sourceTree = "<group>"; };
@@ -471,6 +474,7 @@
 		1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoiceTests.swift; sourceTree = "<group>"; };
 		1TEST02900000000000000A /* AriaLogoPresenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaLogoPresenceTests.swift; sourceTree = "<group>"; };
 		1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentPracticeAPITests.swift; sourceTree = "<group>"; };
+		1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitAuthorizationPlanTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
@@ -1006,6 +1010,7 @@
 				1ARIA0162F9FF867004091AA /* Views */,
 				1EHKS0032F9FF867004091AA /* Services */,
 				1E4DF7152F9FF867004091AA /* HealthKitManager.swift */,
+				1HKPLAN012F9FF867004091AA /* HealthKitAuthorizationPlan.swift */,
 				405FEA0F50FB1671B6B78EBB /* HealthKitManager+Queries.swift */,
 				8FC2F9F0C38ACAA8BBCFF95E /* HealthKitManager+DailyStats.swift */,
 				84EF36562050EA55729857E5 /* HealthKitManager+Logging.swift */,
@@ -1203,6 +1208,7 @@
 				1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */,
 				1TEST02900000000000000A /* AriaLogoPresenceTests.swift */,
 				1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */,
+				1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */,
 				1MED03000000000000000A /* MedicationPharmacyTests.swift */,
 			);
 			path = ForgeSwiftTests;
@@ -1465,6 +1471,7 @@
 				1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */,
 				AA0001000000000000000002 /* Theme.swift in Sources */,
 				1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */,
+				1HKPLAN022F9FF867004091AA /* HealthKitAuthorizationPlan.swift in Sources */,
 				B5516E84A984973E2E0A546A /* HealthKitManager+Queries.swift in Sources */,
 				393B4C47DAF62A8BFD1D0BC7 /* HealthKitManager+DailyStats.swift in Sources */,
 				D0F5A89396724B3BA3E7CC4B /* HealthKitManager+Logging.swift in Sources */,
@@ -1761,6 +1768,7 @@
 				1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */,
 				1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */,
 				1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */,
+				1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */,
 				1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1992,9 +2000,9 @@
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to photograph medication bottles so you can add what you already take when search cannot find it, and to scan food barcodes for meals. The photo stays on this iPhone.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Forge looks for contacts who already use Forge so you can train together. Contacts stay on this iPhone — Forge never uploads your address book.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, nutrition, and structured records to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
-				INFOPLIST_KEY_NSHealthClinicalHealthRecordsUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, and procedures — so ARIA can coach around what you already take. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
+				INFOPLIST_KEY_NSHealthClinicalHealthRecordsUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, procedures, and clinical vitals — so ARIA can coach around what is already on this iPhone. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows (not titles) so ARIA can fit training around your day. Event details stay on this iPhone — Forge never uploads your calendar.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses the microphone so you can talk to your coach and log workouts hands-free. Audio is transcribed on this iPhone and is never stored or uploaded.";
@@ -2036,9 +2044,9 @@
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to photograph medication bottles so you can add what you already take when search cannot find it, and to scan food barcodes for meals. The photo stays on this iPhone.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Forge looks for contacts who already use Forge so you can train together. Contacts stay on this iPhone — Forge never uploads your address book.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, nutrition, and structured records to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
-				INFOPLIST_KEY_NSHealthClinicalHealthRecordsUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, and procedures — so ARIA can coach around what you already take. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
+				INFOPLIST_KEY_NSHealthClinicalHealthRecordsUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, procedures, and clinical vitals — so ARIA can coach around what is already on this iPhone. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows (not titles) so ARIA can fit training around your day. Event details stay on this iPhone — Forge never uploads your calendar.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses the microphone so you can talk to your coach and log workouts hands-free. Audio is transcribed on this iPhone and is never stored or uploaded.";

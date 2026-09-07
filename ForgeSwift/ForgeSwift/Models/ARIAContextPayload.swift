@@ -109,10 +109,12 @@ struct ARIAContextPayload: Codable, Equatable {
         var immunizations: [String]
         var labResults: [String]
         var procedures: [String]
+        var vitalSigns: [String] = []
 
         var isEmpty: Bool {
             allergies.isEmpty && medications.isEmpty && conditions.isEmpty
                 && immunizations.isEmpty && labResults.isEmpty && procedures.isEmpty
+                && vitalSigns.isEmpty
         }
     }
 
