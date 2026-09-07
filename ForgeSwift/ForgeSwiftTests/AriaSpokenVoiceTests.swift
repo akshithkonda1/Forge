@@ -311,15 +311,37 @@ final class AriaSpokenVoiceTests: XCTestCase {
         XCTAssertEqual(line, "Rest 2.5 minutes then go.")
     }
 
-    func testTrainMuteGateRoundTrips() {
-        let original = AriaTrainVoice.isEnabled
-        defer { AriaTrainVoice.isEnabled = original }
-        AriaTrainVoice.isEnabled = false
+    func testSpokenMuteDefaultsToOnWhenUnset() {
+        let defaults = UserDefaults.standard
+        let original = defaults.object(forKey: AriaSpokenMute.mutedKey)
+        defaults.removeObject(forKey: AriaSpokenMute.mutedKey)
+        defer {
+            if let original {
+                defaults.set(original, forKey: AriaSpokenMute.mutedKey)
+            } else {
+                defaults.removeObject(forKey: AriaSpokenMute.mutedKey)
+            }
+        }
+        XCTAssertTrue(AriaSpokenMute.isMuted, "Unset mute is on — she does not talk until unmuted")
+        XCTAssertFalse(AriaSpokenMute.allowsSpeech)
         XCTAssertFalse(AriaTrainVoice.isEnabled)
-        XCTAssertTrue(UserDefaults.standard.bool(forKey: AriaTrainVoice.mutedKey))
-        AriaTrainVoice.isEnabled = true
+    }
+
+    func testSpokenMuteRoundTripsAndStopsTrainVoice() {
+        let originalMuted = AriaSpokenMute.isMuted
+        defer { AriaSpokenMute.isMuted = originalMuted }
+        AriaSpokenMute.isMuted = true
+        XCTAssertTrue(AriaSpokenMute.isMuted)
+        XCTAssertFalse(AriaSpokenMute.allowsSpeech)
+        XCTAssertFalse(AriaTrainVoice.isEnabled)
+        XCTAssertTrue(UserDefaults.standard.bool(forKey: AriaSpokenMute.mutedKey))
+        AriaSpokenMute.isMuted = false
+        XCTAssertFalse(AriaSpokenMute.isMuted)
+        XCTAssertTrue(AriaSpokenMute.allowsSpeech)
         XCTAssertTrue(AriaTrainVoice.isEnabled)
-        XCTAssertFalse(UserDefaults.standard.bool(forKey: AriaTrainVoice.mutedKey))
+        XCTAssertFalse(UserDefaults.standard.bool(forKey: AriaSpokenMute.mutedKey))
+        AriaTrainVoice.isEnabled = false
+        XCTAssertTrue(AriaSpokenMute.isMuted)
     }
 
     func testHowToScriptStaysConversationalNamedAndOneUtterance() throws {

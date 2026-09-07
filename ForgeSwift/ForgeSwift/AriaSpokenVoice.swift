@@ -3,13 +3,34 @@ import Observation
 import SwiftUI
 import UIKit
 
-/// Train-only mute. Chat and onboarding keep talking; the gym floor can go quiet.
+/// App-wide spoken mute. Missing key means muted — ARIA does not talk until
+/// the user unmutes. Compact TTS reading every screen is the Hawking fail;
+/// silence until they ask is the product.
+enum AriaSpokenMute: Sendable {
+    static let mutedKey = "aria.spoken.muted"
+
+    /// When the key has never been written, she stays quiet.
+    static var isMuted: Bool {
+        get {
+            let defaults = UserDefaults.standard
+            if defaults.object(forKey: mutedKey) == nil { return true }
+            return defaults.bool(forKey: mutedKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: mutedKey)
+        }
+    }
+
+    static var allowsSpeech: Bool { !isMuted }
+}
+
+/// Train how-to and gym cues share the same spoken mute as chat and onboarding.
 enum AriaTrainVoice: Sendable {
-    static let mutedKey = "aria.train.voiceMuted"
+    static let mutedKey = AriaSpokenMute.mutedKey
 
     static var isEnabled: Bool {
-        get { !UserDefaults.standard.bool(forKey: mutedKey) }
-        set { UserDefaults.standard.set(!newValue, forKey: mutedKey) }
+        get { AriaSpokenMute.allowsSpeech }
+        set { AriaSpokenMute.isMuted = !newValue }
     }
 
     @MainActor
@@ -392,6 +413,7 @@ extension AriaSpeechPrep {
         stopAt boundary: AVSpeechBoundary = .immediate,
         session: ForgePlaybackSession = .spoken
     ) -> Bool {
+        guard AriaSpokenMute.allowsSpeech else { return false }
         guard canSpeak(text: text, hasNeuralIdentity: AriaSpokenVoice.hasInstalledIdentity()) else {
             return false
         }

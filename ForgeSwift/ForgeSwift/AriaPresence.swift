@@ -116,6 +116,7 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
         stopAt: AVSpeechBoundary = .immediate,
         session: ForgePlaybackSession = .spoken
     ) {
+        guard AriaSpokenMute.allowsSpeech else { return }
         guard AriaSpeechPrep.spokenLine(in: text) != nil else { return }
         guard AriaSpokenVoice.hasInstalledIdentity() else {
             AriaNeuralVoiceGate.shared.requestPromptIfNeeded()

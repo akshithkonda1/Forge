@@ -83,6 +83,8 @@ struct ChatHeaderView: View {
 
             Spacer()
 
+            AriaSpokenMuteButton()
+
             VStack(spacing: 2) {
                 ZStack {
                     Circle()

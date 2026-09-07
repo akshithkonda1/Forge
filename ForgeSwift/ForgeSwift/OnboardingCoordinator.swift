@@ -870,7 +870,7 @@ final class OnboardingCoordinator {
         isTyping = true
         ariaOrbState = .processing
         ariaMood = mood
-        if !alreadySpeaking {
+        if !alreadySpeaking, AriaSpokenMute.allowsSpeech {
             AriaPresence.shared.setThinking(true)
             try? await Task.sleep(nanoseconds: AriaInterviewVoice.thinkBeatNanoseconds)
         }
@@ -878,7 +878,9 @@ final class OnboardingCoordinator {
         appendTranscript(AriaOnboardingMessage(role: .aria, text: text))
         isTyping = false
         AriaPresence.shared.setThinking(false)
-        AriaPresence.shared.speak(text, interrupt: interrupt)
+        if AriaSpokenMute.allowsSpeech {
+            AriaPresence.shared.speak(text, interrupt: interrupt)
+        }
         ariaOrbState = .listening
         FDS.haptic(.soft)
     }
