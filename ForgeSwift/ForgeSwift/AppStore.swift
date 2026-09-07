@@ -156,8 +156,8 @@ final class AppStore: ObservableObject {
     @Published var remoteProgressReview: String? = nil
 
     /// Visual first-meet page. Completes once; first login or first ARIA tap.
-    @Published var hasMetAria: Bool = UserDefaults.standard.bool(forKey: Self.ariaMeetKey) {
-        didSet { UserDefaults.standard.set(hasMetAria, forKey: Self.ariaMeetKey) }
+    @Published var hasMetAria: Bool = UserDefaults.standard.bool(forKey: AppStore.ariaMeetKey) {
+        didSet { UserDefaults.standard.set(hasMetAria, forKey: AppStore.ariaMeetKey) }
     }
     @Published var showAriaMeetOnLaunch: Bool = true
 
