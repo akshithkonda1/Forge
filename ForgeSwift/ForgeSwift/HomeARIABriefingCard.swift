@@ -26,6 +26,7 @@ enum HomeInsightFlow {
         return .chat
     }
 
+    @MainActor
     static func open(_ insight: String, store: AppStore) {
         switch destination(for: insight) {
         case .sleep:
@@ -47,12 +48,14 @@ enum HomeInsightFlow {
         return "Continue from today's briefing. \(trimmed)"
     }
 
+    @MainActor
     static func persistBriefing(_ briefing: String) {
         let trimmed = briefing.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         AriaContextStore.shared.addInsight("Home briefing: \(trimmed)")
     }
 
+    @MainActor
     static func continueAndPersist(briefing: String) -> String {
         persistBriefing(briefing)
         return continuePrompt(briefing: briefing)

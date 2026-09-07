@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// First-meet copy. Lockstep with `src/lib/aria-intro.ts`.
 enum AriaMeetCopy: Sendable {
