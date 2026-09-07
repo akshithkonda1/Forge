@@ -101,8 +101,8 @@ final class WeeklyAriaReviewStore: ObservableObject {
     }
 
     private struct RemoteResult {
-        var summary: String
-        var facts: [String]
+        let summary: String
+        let facts: [String]
     }
 
     private func postReview(answers: [String: String]) async -> RemoteResult? {

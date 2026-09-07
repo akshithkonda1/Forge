@@ -84,20 +84,19 @@ final class SpeechManager: ObservableObject {
         AriaPresence.shared.setListening(true)
         amplitude = 0.15
 
-        SFSpeechRecognizer.requestAuthorization { [weak self] status in
-            Task { @MainActor in
-                guard let self else { return }
-                switch status {
-                case .authorized:
-                    self.beginRecognition()
-                case .denied, .restricted:
-                    self.authorizationDenied = true
-                    self.voiceState = .error("Mic / speech access needed")
-                case .notDetermined:
-                    self.voiceState = .idle
-                @unknown default:
-                    self.voiceState = .idle
-                }
+        Task { [weak self] in
+            let status = await SFSpeechRecognizer.requestAuthorization()
+            guard let self else { return }
+            switch status {
+            case .authorized:
+                self.beginRecognition()
+            case .denied, .restricted:
+                self.authorizationDenied = true
+                self.voiceState = .error("Mic / speech access needed")
+            case .notDetermined:
+                self.voiceState = .idle
+            @unknown default:
+                self.voiceState = .idle
             }
         }
     }
@@ -113,9 +112,10 @@ final class SpeechManager: ObservableObject {
             recordUtteranceLength(recognizedText)
             voiceState = .processing
             hardStop(clearText: false)
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            FDS.notificationHaptic(.success)
             // Deliver final idle so overlays can fire onRecognized
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            Task { [weak self] in
+                try? await Task.sleep(for: .milliseconds(150))
                 guard let self else { return }
                 self.voiceState = .idle
                 self.preserveTranscriptOnStop = false
@@ -209,7 +209,7 @@ final class SpeechManager: ObservableObject {
         }
     }
 
-    private func updateAmplitude(from buffer: AVAudioPCMBuffer) {
+    nonisolated private func updateAmplitude(from buffer: AVAudioPCMBuffer) {
         guard let channel = buffer.floatChannelData?[0] else { return }
         let frameCount = Int(buffer.frameLength)
         guard frameCount > 0 else { return }

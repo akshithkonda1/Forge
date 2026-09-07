@@ -32,15 +32,9 @@ extension HealthKitManager {
     // MARK: - Individual Data Fetchers
 
     func fetchMostRecentRestingHeartRate() async -> Int? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: .restingHeartRate) else { return nil }
+        let type = HKQuantityType(.restingHeartRate)
         
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
-        _ = HKSampleQuery(
-            sampleType: type,
-            predicate: nil,
-            limit: 1,
-            sortDescriptors: [sortDescriptor]
-        ) { _, samples, _ in }
         
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
@@ -61,7 +55,7 @@ extension HealthKitManager {
     }
 
     private func fetchTodayActiveCalories() async -> Int? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else { return nil }
+        let type = HKQuantityType(.activeEnergyBurned)
         
         let now = Date()
         let startOfDay = Calendar.current.startOfDay(for: now)
@@ -85,7 +79,7 @@ extension HealthKitManager {
     }
 
     private func fetchTodaySteps() async -> Int? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: .stepCount) else { return nil }
+        let type = HKQuantityType(.stepCount)
         
         let now = Date()
         let startOfDay = Calendar.current.startOfDay(for: now)
@@ -372,7 +366,7 @@ extension HealthKitManager {
     // MARK: - Nutrition Logging
 
     private func fetchTodayRestingHeartRate() async -> Int? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: .restingHeartRate) else { return nil }
+        let type = HKQuantityType(.restingHeartRate)
         
         let now = Date()
         let startOfDay = Calendar.current.startOfDay(for: now)
@@ -398,7 +392,7 @@ extension HealthKitManager {
     }
 
     private func fetchTodayHRV() async -> Double? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN) else { return nil }
+        let type = HKQuantityType(.heartRateVariabilitySDNN)
         
         let now = Date()
         let startOfDay = Calendar.current.startOfDay(for: now)
@@ -465,7 +459,7 @@ extension HealthKitManager {
     }
 
     private func fetchSteps(from start: Date, to end: Date) async -> Int? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: .stepCount) else { return nil }
+        let type = HKQuantityType(.stepCount)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
         
         return await withCheckedContinuation { continuation in
@@ -486,7 +480,7 @@ extension HealthKitManager {
     }
 
     private func fetchActiveCalories(from start: Date, to end: Date) async -> Int? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else { return nil }
+        let type = HKQuantityType(.activeEnergyBurned)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
         
         return await withCheckedContinuation { continuation in
@@ -540,7 +534,7 @@ extension HealthKitManager {
     }
 
     func fetchAverageHRV(from start: Date, to end: Date) async -> Double? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN) else { return nil }
+        let type = HKQuantityType(.heartRateVariabilitySDNN)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
         
         return await withCheckedContinuation { continuation in
@@ -563,9 +557,9 @@ extension HealthKitManager {
     // MARK: - Structured Health records (no notes)
 
     func fetchAverageHRV() async -> Double? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN) else { return nil }
+        let type = HKQuantityType(.heartRateVariabilitySDNN)
         
-        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
+        guard let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) else { return nil }
         let predicate = HKQuery.predicateForSamples(withStart: sevenDaysAgo, end: Date(), options: .strictStartDate)
         
         return await withCheckedContinuation { continuation in

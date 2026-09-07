@@ -38,32 +38,20 @@ extension HealthKitManager {
         var samples: [HKQuantitySample] = []
         
         // Calories
-        if let calorieType = HKQuantityType.quantityType(forIdentifier: .dietaryEnergyConsumed) {
-            let calorieQuantity = HKQuantity(unit: .kilocalorie(), doubleValue: meal.calories)
-            let calorieSample = HKQuantitySample(type: calorieType, quantity: calorieQuantity, start: now, end: now)
-            samples.append(calorieSample)
-        }
-        
+        let calorieQuantity = HKQuantity(unit: .kilocalorie(), doubleValue: meal.calories)
+        samples.append(HKQuantitySample(type: HKQuantityType(.dietaryEnergyConsumed), quantity: calorieQuantity, start: now, end: now))
+
         // Protein
-        if let proteinType = HKQuantityType.quantityType(forIdentifier: .dietaryProtein) {
-            let proteinQuantity = HKQuantity(unit: .gram(), doubleValue: meal.protein)
-            let proteinSample = HKQuantitySample(type: proteinType, quantity: proteinQuantity, start: now, end: now)
-            samples.append(proteinSample)
-        }
-        
+        let proteinQuantity = HKQuantity(unit: .gram(), doubleValue: meal.protein)
+        samples.append(HKQuantitySample(type: HKQuantityType(.dietaryProtein), quantity: proteinQuantity, start: now, end: now))
+
         // Carbs
-        if let carbType = HKQuantityType.quantityType(forIdentifier: .dietaryCarbohydrates) {
-            let carbQuantity = HKQuantity(unit: .gram(), doubleValue: meal.carbs)
-            let carbSample = HKQuantitySample(type: carbType, quantity: carbQuantity, start: now, end: now)
-            samples.append(carbSample)
-        }
-        
+        let carbQuantity = HKQuantity(unit: .gram(), doubleValue: meal.carbs)
+        samples.append(HKQuantitySample(type: HKQuantityType(.dietaryCarbohydrates), quantity: carbQuantity, start: now, end: now))
+
         // Fat
-        if let fatType = HKQuantityType.quantityType(forIdentifier: .dietaryFatTotal) {
-            let fatQuantity = HKQuantity(unit: .gram(), doubleValue: meal.fat)
-            let fatSample = HKQuantitySample(type: fatType, quantity: fatQuantity, start: now, end: now)
-            samples.append(fatSample)
-        }
+        let fatQuantity = HKQuantity(unit: .gram(), doubleValue: meal.fat)
+        samples.append(HKQuantitySample(type: HKQuantityType(.dietaryFatTotal), quantity: fatQuantity, start: now, end: now))
         
         try await healthStore.save(samples)
         
@@ -78,9 +66,7 @@ extension HealthKitManager {
     func logWater(milliliters: Double) async throws {
         guard isAuthorized else { throw HealthKitError.authorizationDenied }
         guard milliliters > 0 else { return }
-        guard let waterType = HKQuantityType.quantityType(forIdentifier: .dietaryWater) else {
-            throw HealthKitError.saveFailed
-        }
+        let waterType = HKQuantityType(.dietaryWater)
 
         let now = Date()
         let quantity = HKQuantity(unit: .liter(), doubleValue: milliliters / 1_000)
@@ -100,16 +86,15 @@ extension HealthKitManager {
 
     func deleteWaterLog(_ log: WaterLog) async throws {
         guard isAuthorized else { throw HealthKitError.authorizationDenied }
-        guard let waterType = HKQuantityType.quantityType(forIdentifier: .dietaryWater) else {
-            throw HealthKitError.saveFailed
-        }
-        let deleted: Int = await withCheckedContinuation { continuation in
-            healthStore.deleteObjects(
+        let waterType = HKQuantityType(.dietaryWater)
+        let deleted: Int
+        do {
+            deleted = try await healthStore.deleteObjects(
                 of: waterType,
                 predicate: HKQuery.predicateForObject(with: log.id)
-            ) { success, count, _ in
-                continuation.resume(returning: success ? count : 0)
-            }
+            )
+        } catch {
+            throw HealthKitError.saveFailed
         }
         guard deleted > 0 else { throw HealthKitError.saveFailed }
         await refreshHydration()
@@ -149,11 +134,11 @@ extension HealthKitManager {
     }
 
     func fetchTodayWaterLogs() async {
-        guard isAuthorized,
-              let waterType = HKQuantityType.quantityType(forIdentifier: .dietaryWater) else {
+        guard isAuthorized else {
             todayWaterLogs = []
             return
         }
+        let waterType = HKQuantityType(.dietaryWater)
         let now = Date()
         let start = Calendar.current.startOfDay(for: now)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: now, options: .strictStartDate)

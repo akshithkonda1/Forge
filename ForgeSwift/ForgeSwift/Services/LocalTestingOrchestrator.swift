@@ -349,7 +349,7 @@ final class LocalTestingOrchestrator {
         // question returns as fast as "hey" is the tell that nothing fanned out.
         let range = (force || tier == .tertiary) ? 1_600..<3_200 : 800..<2_000
         let milliseconds = rng.int(in: range)
-        try? await Task.sleep(nanoseconds: UInt64(milliseconds) * 1_000_000)
+        try? await Task.sleep(for: .milliseconds(milliseconds))
     }
 
     // MARK: - Fact capture

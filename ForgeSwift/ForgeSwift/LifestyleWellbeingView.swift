@@ -162,7 +162,7 @@ struct DailyHabitsCard: View {
                     Capsule().fill(Color.borderColor.opacity(0.3))
                     Capsule().fill(LinearGradient(colors: [.ember, .ember.opacity(0.7)], startPoint: .leading, endPoint: .trailing))
                         .frame(width: geo.size.width * CGFloat(completed) / CGFloat(habits.count))
-                        .animation(.spring(response: 0.6, dampingFraction: 0.72), value: completed)
+                        .animation(.spring(duration: 0.6, bounce: 0.28), value: completed)
                 }
             }
             .frame(height: 6)
@@ -171,11 +171,11 @@ struct DailyHabitsCard: View {
             VStack(spacing: 2) {
                 ForEach($habits) { $habit in
                     HabitRow(name: habit.name, isDone: habit.done) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                        withAnimation(.spring(duration: 0.3, bounce: 0.35)) {
                             habit.done.toggle()
                         }
                         LifestyleWellbeingStore.saveHabits(habits)
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        FDS.haptic(.light)
                     }
                 }
             }
@@ -299,7 +299,7 @@ struct MindfulnessCard: View {
                 ForEach(MindfulPractice.allCases) { item in
                     Button {
                         practice = item
-                        UISelectionFeedbackGenerator().selectionChanged()
+                        FDS.selectionHaptic()
                     } label: {
                         VStack(spacing: 4) {
                             Text(item.title)
@@ -475,7 +475,7 @@ struct StressManagementCard: View {
             HStack(spacing: 6) {
                 ForEach(Array(levels.enumerated()), id: \.offset) { i, level in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selectedLevel = i }
+                        withAnimation(.spring(duration: 0.3, bounce: 0.3)) { selectedLevel = i }
                         LifestyleWellbeingStore.saveStressLevel(i)
                     } label: {
                         Text(level.label)
@@ -610,45 +610,47 @@ struct AIInsightsModal: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.65).ignoresSafeArea()
-                .onTapGesture { dismiss() }
+        GeometryReader { geo in
+            ZStack {
+                Color.black.opacity(0.65).ignoresSafeArea()
+                    .onTapGesture { dismiss() }
 
-            VStack(spacing: 0) {
-                Spacer()
                 VStack(spacing: 0) {
-                    // Drag handle
-                    Capsule().fill(Color.textTertiary.opacity(0.5))
-                        .frame(width: 36, height: 4).padding(.top, 14).padding(.bottom, 20)
+                    Spacer()
+                    VStack(spacing: 0) {
+                        // Drag handle
+                        Capsule().fill(Color.textTertiary.opacity(0.5))
+                            .frame(width: 36, height: 4).padding(.top, 14).padding(.bottom, 20)
 
-                    HStack {
-                        HStack(spacing: 10) {
-                            Image(systemName: "sparkles").font(.system(size: 22)).foregroundColor(.ember)
-                            Text("AI Life Insights").font(.system(size: 24, weight: .bold)).foregroundColor(.textPrimary)
-                        }
-                        Spacer()
-                        Button { dismiss() } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 28)).foregroundColor(.textTertiary.opacity(0.7))
-                        }
-                    }
-                    .padding(.horizontal, 20).padding(.bottom, 20)
-
-                    ScrollView(showsIndicators: false) {
-                        LazyVStack(spacing: 14) {
-                            if let summary {
-                                ariaBanner(summary)
+                        HStack {
+                            HStack(spacing: 10) {
+                                Image(systemName: "sparkles").font(.system(size: 22)).foregroundColor(.ember)
+                                Text("AI Life Insights").font(.system(size: 24, weight: .bold)).foregroundColor(.textPrimary)
                             }
-                            ForEach(insights) { insight in
-                                AIInsightCard(insight: insight)
+                            Spacer()
+                            Button { dismiss() } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 28)).foregroundColor(.textTertiary.opacity(0.7))
                             }
                         }
-                        .padding(.horizontal, 20).padding(.bottom, 40)
+                        .padding(.horizontal, 20).padding(.bottom, 20)
+
+                        ScrollView(showsIndicators: false) {
+                            LazyVStack(spacing: 14) {
+                                if let summary {
+                                    ariaBanner(summary)
+                                }
+                                ForEach(insights) { insight in
+                                    AIInsightCard(insight: insight)
+                                }
+                            }
+                            .padding(.horizontal, 20).padding(.bottom, 40)
+                        }
                     }
+                    .frame(maxHeight: geo.size.height * 0.78)
+                    .background(Color.surface)
+                    .cornerRadius(28, corners: [.topLeft, .topRight])
                 }
-                .frame(maxHeight: UIScreen.main.bounds.height * 0.78)
-                .background(Color.surface)
-                .cornerRadius(28, corners: [.topLeft, .topRight])
             }
         }
     }
@@ -679,7 +681,7 @@ struct AIInsightsModal: View {
     }
 
     private func dismiss() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { isPresented = false }
+        withAnimation(.spring(duration: 0.35, bounce: 0.25)) { isPresented = false }
     }
 }
 
@@ -700,7 +702,7 @@ struct AIInsightCard: View {
                 .lineLimit(expanded ? nil : 3)
                 .animation(.easeInOut(duration: 0.25), value: expanded)
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) { expanded.toggle() }
+                withAnimation(.spring(duration: 0.3, bounce: 0.28)) { expanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.right.circle.fill").font(.system(size: 13))
@@ -715,7 +717,7 @@ struct AIInsightCard: View {
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(insight.color.opacity(0.2), lineWidth: 1))
         .contentShape(Rectangle())
         .onTapGesture {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) { expanded.toggle() }
+            withAnimation(.spring(duration: 0.3, bounce: 0.28)) { expanded.toggle() }
         }
     }
 }

@@ -310,6 +310,7 @@
 		1TEST02600000000000000A /* AriaSigilTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02500000000000000A /* AriaSigilTests.swift */; };
 		1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */; };
 		1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02900000000000000A /* AriaLogoPresenceTests.swift */; };
+		1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -462,6 +463,7 @@
 		1TEST02500000000000000A /* AriaSigilTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSigilTests.swift; sourceTree = "<group>"; };
 		1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoiceTests.swift; sourceTree = "<group>"; };
 		1TEST02900000000000000A /* AriaLogoPresenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaLogoPresenceTests.swift; sourceTree = "<group>"; };
+		1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentPracticeAPITests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
@@ -1185,6 +1187,7 @@
 				1TEST02500000000000000A /* AriaSigilTests.swift */,
 				1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */,
 				1TEST02900000000000000A /* AriaLogoPresenceTests.swift */,
+				1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */,
 				1MED03000000000000000A /* MedicationPharmacyTests.swift */,
 			);
 			path = ForgeSwiftTests;
@@ -1737,6 +1740,7 @@
 				1TEST02600000000000000A /* AriaSigilTests.swift in Sources */,
 				1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */,
 				1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */,
+				1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */,
 				1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Preferred name + optional last name. Modeled on Claude/Grok ("what should we call you")
 /// and Apple Health Health Details (first / last as separate fields).
@@ -228,7 +227,7 @@ struct DetailsComposer: View {
                 )
                 .datePickerStyle(.wheel)
                 .labelsHidden()
-                .colorScheme(.dark)
+                .preferredColorScheme(.dark)
                 .frame(maxHeight: 120)
             }
         }
@@ -746,7 +745,7 @@ struct ReadyComposer: View {
             }
             // Liability disclaimer — must be agreed at the very end
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                withAnimation(.spring(duration: 0.3, bounce: 0.2)) {
                     coordinator.hasAgreedToTerms.toggle()
                     if coordinator.hasAgreedToTerms { FDS.haptic(.light) }
                 }

@@ -289,7 +289,7 @@ struct SoundscapeDSP: Sendable {
             let swell = Float(0.45 + 0.55 * sin(t * 0.22))
             return brownClamped * swell * 0.85 + pinkVal * 0.08 * swell
         case .forest:
-            var s = pinkVal * 0.16 + brownClamped * 0.12
+            let s = pinkVal * 0.16 + brownClamped * 0.12
             if frames == eventAt {
                 eventAmp = 0.18
                 eventAt = frames + boundedInt(12_000...40_000)

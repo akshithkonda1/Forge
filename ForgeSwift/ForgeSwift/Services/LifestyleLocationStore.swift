@@ -105,12 +105,6 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
 
     func startTracking() {
         guard isAuthorized else { return }
-        if !CLLocationManager.locationServicesEnabled() {
-            lastError = Self.noHardwareGPS && ProcessInfo.processInfo.isiOSAppOnMac
-                ? "Location Services are off on this Mac. System Settings → Privacy & Security → Location Services."
-                : "Location Services are off. Enable them in Settings."
-            return
-        }
         if currentLocation == nil {
             if let live = Self.usable(manager.location) {
                 adopt(live, source: .cached)
@@ -159,7 +153,7 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
                 adopt(live, source: .cached)
                 return live
             }
-            try? await Task.sleep(nanoseconds: 200_000_000)
+            try? await Task.sleep(for: .milliseconds(200))
         }
         if let live = Self.usable(manager.location) {
             adopt(live, source: .cached)
@@ -211,10 +205,8 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
     }
 
     func openCurrentLocationInMaps() {
-        guard let currentLocation else { return }
-        let item = MKMapItem(placemark: MKPlacemark(coordinate: currentLocation.coordinate))
-        item.name = "Current Location"
-        item.openInMaps(launchOptions: nil)
+        guard currentLocation != nil else { return }
+        MKMapItem.forCurrentLocation().openInMaps(launchOptions: nil)
     }
 
     private func adopt(_ location: CLLocation, source: AnchorSource) {
@@ -263,8 +255,12 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
     }
 
     nonisolated private static func place(from item: MKMapItem, relativeTo origin: CLLocation) -> NearbyPlace? {
-        guard let coord = item.placemark.location?.coordinate else { return nil }
-        let meters = item.placemark.location?.distance(from: origin) ?? 0
+        guard let location = item.location else { return nil }
+        let coord = location.coordinate
+        let meters = location.distance(from: origin)
+        let rawAddress = (item.address?.shortAddress ?? item.address?.fullAddress)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let addressLine = (rawAddress?.isEmpty == false) ? rawAddress : nil
         return NearbyPlace(
             name: item.name ?? "Place",
             category: item.pointOfInterestCategory?.rawValue,
@@ -272,11 +268,7 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
             coordinate: coord,
             distanceMeters: meters,
             mapItem: item,
-            address: [
-                item.placemark.subThoroughfare,
-                item.placemark.thoroughfare,
-                item.placemark.locality,
-            ].compactMap { $0 }.joined(separator: " "),
+            address: addressLine,
             phoneNumber: item.phoneNumber,
             url: item.url
         )
