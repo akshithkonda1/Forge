@@ -775,7 +775,9 @@ struct ReadyComposer: View {
             .buttonStyle(.plain)
 
             PrimaryCTA(
-                title: coordinator.isCompleting ? "Starting…" : "Start with ARIA",
+                title: coordinator.isPrepping
+                    ? "Prepping Forge…"
+                    : (coordinator.isCompleting ? "Starting…" : "Start with ARIA"),
                 icon: "arrow.right",
                 enabled: !coordinator.isCompleting && coordinator.canFinish,
                 action: onFinish

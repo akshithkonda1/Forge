@@ -15,6 +15,9 @@ struct OnboardingView: View {
             if coordinator.showAgeBlocked {
                 AgeBlockedView { coordinator.resetAfterAgeBlock() }
                     .transition(.scale(scale: 0.96).combined(with: .opacity))
+            } else if coordinator.isPrepping || store.needsForgePrep {
+                AriaForgePrepView(coordinator: coordinator)
+                    .transition(.opacity)
             } else {
                 AriaInterviewLayout(coordinator: coordinator) {
                     coordinator.complete(in: store)
@@ -26,7 +29,8 @@ struct OnboardingView: View {
             #endif
         }
         .animation(FDS.Spring.hero, value: coordinator.showAgeBlocked)
-        .onAppear { coordinator.startIfNeeded() }
+        .animation(FDS.Spring.hero, value: coordinator.isPrepping)
+        .onAppear { coordinator.startIfNeeded(in: store) }
         .onDisappear { coordinator.stopInterviewVoice() }
     }
 }
@@ -78,13 +82,23 @@ private struct DevSkipButton: View {
             HStack {
                 Spacer()
                 if expanded {
-                    Button("Skip All →") { coordinator.devSkipToEnd(in: store) }
-                        .font(.caption.weight(.black))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Color.ember)
-                        .clipShape(Capsule())
+                    if coordinator.isPrepping {
+                        Button("Skip wait →") { coordinator.skipPrepHoldForDebug() }
+                            .font(.caption.weight(.black))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Color.ember)
+                            .clipShape(Capsule())
+                    } else {
+                        Button("Skip All →") { coordinator.devSkipToEnd(in: store) }
+                            .font(.caption.weight(.black))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Color.ember)
+                            .clipShape(Capsule())
+                    }
                 } else {
                     Button("DEV") { withAnimation(FDS.Spring.snap) { expanded = true } }
                         .font(.system(size: 9, weight: .black))

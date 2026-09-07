@@ -29,9 +29,15 @@ extension AppStore {
             isAuthenticated = true
             authProvider = authProvider.isEmpty ? "legacy" : authProvider
         }
-        guard UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) else { return }
+        guard UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) else {
+            if AriaForgePrepHandoff.isInterviewComplete {
+                restoreUserProfileForCurrentUser()
+            }
+            return
+        }
         restoreUserProfileForCurrentUser()
         isOnboarded = true
+        AriaForgePrepHandoff.clearInterviewComplete()
     }
 
     func restoreUserProfileForCurrentUser() {
@@ -60,6 +66,7 @@ extension AppStore {
         UserDefaults.standard.set("signup", forKey: Self.authProviderKey)
         isOnboarded = false
         onboardingStep = 0
+        AriaForgePrepHandoff.clearInterviewComplete()
     }
 
     func applyAuthSession(_ session: ForgeAuthSession, isNewAccount: Bool) {
@@ -93,8 +100,10 @@ extension AppStore {
             onboardingStep = 0
             hasMetAria = false
             showAriaMeetOnLaunch = true
+            AriaForgePrepHandoff.clearInterviewComplete()
         } else {
             isOnboarded = true
+            AriaForgePrepHandoff.clearInterviewComplete()
             Task { await refreshDailyData() }
         }
     }

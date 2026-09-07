@@ -10,6 +10,16 @@ import FoundationModels
 extension AppStore {
 
     func refreshDailyData() async {
+        let previous = refreshDailyDataTail
+        let task = Task { @MainActor in
+            await previous?.value
+            await self.executeRefreshDailyData()
+        }
+        refreshDailyDataTail = task
+        await task.value
+    }
+
+    private func executeRefreshDailyData() async {
         dataLoadState = .loading
         let hk = HealthKitManager.shared
         let seeded = await seedTestReadyHealthKitIfNeeded()
