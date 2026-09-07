@@ -92,7 +92,7 @@ final class ExerciseLibraryFilterTests: XCTestCase {
         let ids = sections.flatMap { $0.items.map(\.id) }
         XCTAssertEqual(Set(ids).count, ids.count, "a move should appear in only one region group")
         XCTAssertEqual(Set(ids), Set(ExerciseLibrary.all.map(\.id)))
-        XCTAssertEqual(ExerciseLibrary.OrganizeBy.allCases.map(\.label), ["Region", "Muscle", "Pattern", "Gear"])
+        XCTAssertEqual(ExerciseLibrary.OrganizeBy.allCases.map(\.label), ["Style", "Region", "Muscle", "Pattern", "Gear"])
     }
 
     func testGroupedByMusclePutsCompoundsFirst() {
@@ -118,6 +118,46 @@ final class ExerciseLibraryFilterTests: XCTestCase {
         XCTAssertTrue(script.localizedCaseInsensitiveContains("horizontal push") || script.localizedCaseInsensitiveContains("barbell"))
         XCTAssertTrue(script.contains("Pin the shoulder blades"))
         XCTAssertTrue(script.contains("Watch for") || bench.faults.isEmpty)
+    }
+
+    func testStyleGroupsCalisthenicsAndSportsSeparately() {
+        let sections = ExerciseLibrary.grouped(query: "", muscle: nil, equipment: nil, pattern: nil, by: .style)
+        XCTAssertEqual(sections.map(\.title).first, "Calisthenics")
+        XCTAssertTrue(sections.contains { $0.title == "Sports" })
+        let ids = sections.flatMap { $0.items.map(\.id) }
+        XCTAssertEqual(Set(ids).count, ids.count, "a move should appear in only one style group")
+        XCTAssertEqual(Set(ids), Set(ExerciseLibrary.all.map(\.id)))
+
+        let cali = sections.first { $0.title == "Calisthenics" }
+        XCTAssertNotNil(cali)
+        XCTAssertTrue(cali?.items.contains { $0.name == "Push-Up" } == true)
+        XCTAssertTrue(cali?.items.contains { $0.name == "Pike Push-Up" } == true)
+        XCTAssertFalse(cali?.items.contains { $0.name == "Foam Roll Flow" } == true)
+        XCTAssertTrue(cali?.items.allSatisfy { $0.modality != .mobility } == true)
+
+        let sports = sections.first { $0.title == "Sports" }
+        XCTAssertTrue(sports?.items.contains { $0.name == "Basketball" } == true)
+        XCTAssertTrue(sports?.items.contains { $0.name == "Tennis" } == true)
+        XCTAssertTrue(sports?.items.allSatisfy { $0.trainingStyle == .sports } == true)
+        XCTAssertGreaterThanOrEqual(ExerciseLibrary.sports.count, 12)
+        XCTAssertEqual(ExerciseLibrary.matchSport(in: "I played hoops")?.name, "Basketball")
+        XCTAssertEqual(ExerciseLibrary.matchSport(in: "log pickleball")?.name, "Pickleball")
+        XCTAssertEqual(ExerciseLibrary.welcomeSubtitle, "Find a move. I'll walk you through it.")
+    }
+
+    func testCalisthenicsPlanUsesLibraryMoves() {
+        let plan = ExerciseLibrary.calisthenicsPlan(keepLight: true, skipLegs: true)
+        XCTAssertTrue(plan.name.localizedCaseInsensitiveContains("calisthenic"))
+        XCTAssertFalse(plan.exercises.isEmpty)
+        XCTAssertFalse(plan.exercises.contains { $0.name.localizedCaseInsensitiveContains("squat") })
+    }
+
+    func testSportSessionIsPartOfTraining() {
+        let plan = ExerciseLibrary.sportSession(named: "Tennis", minutes: 45, completed: true)
+        XCTAssertEqual(plan.type, .sportSpecific)
+        XCTAssertEqual(plan.duration, 45)
+        XCTAssertTrue(plan.exercises.contains { $0.name == "Tennis" })
+        XCTAssertTrue(plan.exercises.contains { $0.reps.contains("45") })
     }
 
     func testGroupedByPatternKeepsEveryMove() {

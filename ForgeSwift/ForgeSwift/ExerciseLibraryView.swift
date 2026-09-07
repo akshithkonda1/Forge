@@ -7,7 +7,7 @@ struct ExerciseLibraryView: View {
     @State private var muscle: TargetMuscle? = nil
     @State private var equipment: GearType? = nil
     @State private var pattern: MovementPattern? = nil
-    @State private var organize: ExerciseLibrary.OrganizeBy = .region
+    @State private var organize: ExerciseLibrary.OrganizeBy = .style
     @State private var collapsed: Set<String> = []
     @State private var selected: ExerciseDefinition? = nil
 
@@ -22,22 +22,32 @@ struct ExerciseLibraryView: View {
             ZStack {
                 Color.background.ignoresSafeArea()
                 VStack(spacing: 0) {
+                    welcomeStrip
                     organizeRow
                     filterRow
                     if sections.isEmpty {
                         ContentUnavailableView {
-                            Label("No movements match", systemImage: "magnifyingglass")
+                            Label("Nothing in this corner yet", systemImage: "figure.gymnastics")
                         } description: {
-                            Text("Try a different search or clear a filter.")
+                            Text("Try Calisthenics or Sports, search a muscle, or clear a filter.")
                         }
                         .foregroundStyle(Color.textTertiary)
                     } else {
                         ScrollView(showsIndicators: false) {
                             LazyVStack(alignment: .leading, spacing: 18, pinnedViews: [.sectionHeaders]) {
                                 HStack {
-                                    Text("\(resultCount) MOVEMENTS · \(sections.count) GROUPS")
+                                    Text("\(resultCount) moves ready · \(sections.count) groups")
                                         .forgeSectionLabel()
                                     Spacer()
+                                    if organize == .style {
+                                        Button("Build calisthenics") {
+                                            FDS.haptic(.medium)
+                                            store.adoptCalisthenicsSession()
+                                            dismiss()
+                                        }
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundColor(.ember)
+                                    }
                                     if let muscle {
                                         Button("Build session") {
                                             FDS.haptic(.medium)
@@ -67,7 +77,7 @@ struct ExerciseLibraryView: View {
                 ToolbarItem(placement: .topBarLeading) { AriaTrainMuteButton() }
                 ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.foregroundColor(.ember).fontWeight(.semibold) }
             }
-            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Movements, muscles, gear")
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "A move, a muscle, calisthenics, or a sport")
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .sensoryFeedback(.selection, trigger: organize)
@@ -106,6 +116,14 @@ struct ExerciseLibraryView: View {
             .accessibilityLabel("\(section.title), \(section.items.count) movements")
             .accessibilityHint(open ? "Collapse" : "Expand")
 
+            if open, let blurb = section.blurb {
+                Text(blurb)
+                    .font(.system(size: 13, design: .rounded))
+                    .foregroundColor(.textTertiary)
+                    .padding(.leading, 18)
+                    .padding(.bottom, 4)
+            }
+
             if open {
                 ForEach(section.items) { def in
                     libraryCard(def)
@@ -114,10 +132,26 @@ struct ExerciseLibraryView: View {
         }
     }
 
+    private var welcomeStrip: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(ExerciseLibrary.welcomeSubtitle)
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .foregroundColor(.textSecondary)
+            if organize == .style {
+                Text("Calisthenics and sports sit up front. Ask ARIA to log a match.")
+                    .font(.system(size: 12, design: .rounded))
+                    .foregroundColor(.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
+    }
+
     private var organizeRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                Text("GROUP")
+                Text("GROUP BY")
                     .forgeSectionLabel()
                 ForEach(ExerciseLibrary.OrganizeBy.allCases) { mode in
                     Button {

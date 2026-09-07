@@ -210,4 +210,30 @@ final class AriaInterviewVoiceTests: XCTestCase {
         coordinator.goBack()
         XCTAssertEqual(coordinator.step, .freeTime)
     }
+
+    func testWorkoutsStepHearsSportsAndCalisthenics() {
+        let profile = OnboardingProfile()
+        XCTAssertEqual(
+            AriaInterviewVoice.matchSpoken("I play basketball and tennis", step: .workouts, profile: profile),
+            .toggleWorkouts([.basketball, .tennis])
+        )
+        XCTAssertEqual(
+            AriaInterviewVoice.matchSpoken("calisthenics and hoops", step: .workouts, profile: profile),
+            .toggleWorkouts([.calisthenics, .basketball])
+        )
+        let line = AriaInterviewVoice.prompt(
+            .workouts,
+            profile: profile,
+            healthAuthorized: false,
+            healthPrefill: false,
+            vo2Max: nil
+        )
+        XCTAssertTrue(line.localizedCaseInsensitiveContains("sports"))
+        XCTAssertTrue(line.localizedCaseInsensitiveContains("calisthenics"))
+        XCTAssertLessThan(line.count, AriaSpeechPrep.characterLimit)
+        XCTAssertTrue(OnboardingWorkoutType.allCases.contains(.basketball))
+        XCTAssertTrue(OnboardingWorkoutType.allCases.contains(.soccer))
+        XCTAssertEqual(OnboardingWorkoutType.basketball.coreType, .sportSpecific)
+        XCTAssertEqual(OnboardingWorkoutType.calisthenics.coreType, .strength)
+    }
 }

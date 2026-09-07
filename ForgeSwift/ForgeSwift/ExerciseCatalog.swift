@@ -135,7 +135,7 @@ enum MovementPattern: String, CaseIterable, Identifiable, Hashable {
 }
 
 enum GearType: String, CaseIterable, Identifiable, Hashable {
-    case barbell, dumbbell, kettlebell, machine, cable, bodyweight, bands, trx, medicineBall, sled, cardioMachine
+    case barbell, dumbbell, kettlebell, machine, cable, bodyweight, bands, trx, medicineBall, sled, cardioMachine, sport
     var id: String { rawValue }
     var label: String {
         switch self {
@@ -150,6 +150,7 @@ enum GearType: String, CaseIterable, Identifiable, Hashable {
         case .medicineBall: return "Med Ball"
         case .sled: return "Sled"
         case .cardioMachine: return "Cardio"
+        case .sport: return "Sport"
         }
     }
     var icon: String {
@@ -165,6 +166,7 @@ enum GearType: String, CaseIterable, Identifiable, Hashable {
         case .medicineBall: return "circle.circle.fill"
         case .sled: return "figure.american.football"
         case .cardioMachine: return "figure.run"
+        case .sport: return "sportscourt.fill"
         }
     }
 }
@@ -174,7 +176,7 @@ enum Mechanic: String, Hashable { case compound, isolation }
 enum ForceType: String, Hashable { case push, pull, isometric }
 
 enum TrainingModality: String, Hashable, CaseIterable {
-    case strength, hypertrophy, power, endurance, conditioning, mobility
+    case strength, hypertrophy, power, endurance, conditioning, mobility, sport
     var label: String { rawValue.capitalized }
 }
 
@@ -210,6 +212,8 @@ struct ExerciseDefinition: Identifiable, Hashable {
     var repRangeLabel: String { repLow == repHigh ? "\(repLow)" : "\(repLow)–\(repHigh)" }
     var region: TargetMuscle.Region { primary.first?.region ?? .conditioning }
     var accent: Color { primary.first?.accent ?? .ember }
+    /// Calisthenics, weights, conditioning, mobility, or tools — how the library greets a move.
+    var trainingStyle: ExerciseLibrary.TrainingStyle { ExerciseLibrary.TrainingStyle.classify(self) }
 
     var icon: String {
         switch pattern {
@@ -651,11 +655,67 @@ enum ExerciseLibrary {
         all.filter { $0.primary.contains(muscle) || $0.secondary.contains(muscle) }.count
     }
 
-    enum OrganizeBy: String, CaseIterable, Identifiable {
-        case region, muscle, pattern, equipment
+    /// How a person actually picks a session: calisthenics first, then load, then the rest.
+    enum TrainingStyle: String, CaseIterable, Identifiable {
+        case calisthenics, sports, weights, conditioning, mobility, tools
         var id: String { rawValue }
         var label: String {
             switch self {
+            case .calisthenics: return "Calisthenics"
+            case .sports: return "Sports"
+            case .weights: return "Weights"
+            case .conditioning: return "Conditioning"
+            case .mobility: return "Mobility"
+            case .tools: return "Tools"
+            }
+        }
+        var blurb: String {
+            switch self {
+            case .calisthenics: return "Your body is the gym. I'll walk you through every skill."
+            case .sports: return "Court, field, water, trail — tell me you played, and I'll log it as training."
+            case .weights: return "Barbells, dumbbells, machines — load you can progress."
+            case .conditioning: return "Heart and lungs. Work you can recover from."
+            case .mobility: return "Range, reset, and the work that keeps you training."
+            case .tools: return "Bands, rings, sleds, and the kit around the floor."
+            }
+        }
+        var accent: Color {
+            switch self {
+            case .calisthenics: return .ember
+            case .sports: return Color(hex: "38BDF8")
+            case .weights: return .steel
+            case .conditioning: return .warning
+            case .mobility: return .success
+            case .tools: return Color(hex: "A855F7")
+            }
+        }
+
+        static func classify(_ def: ExerciseDefinition) -> TrainingStyle {
+            if def.modality == .sport || def.equipment == .sport { return .sports }
+            if def.equipment == .bodyweight {
+                if def.modality == .mobility { return .mobility }
+                if def.modality == .conditioning || def.modality == .endurance { return .conditioning }
+                return .calisthenics
+            }
+            if def.modality == .mobility { return .mobility }
+            if def.modality == .conditioning || def.modality == .endurance { return .conditioning }
+            switch def.equipment {
+            case .bands, .trx, .medicineBall, .sled, .cardioMachine:
+                return .tools
+            default:
+                return .weights
+            }
+        }
+    }
+
+    static let welcomeSubtitle = "Find a move. I'll walk you through it."
+
+    enum OrganizeBy: String, CaseIterable, Identifiable {
+        case style, region, muscle, pattern, equipment
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .style: return "Style"
             case .region: return "Region"
             case .muscle: return "Muscle"
             case .pattern: return "Pattern"
@@ -669,6 +729,7 @@ enum ExerciseLibrary {
         let title: String
         let accent: Color
         let items: [ExerciseDefinition]
+        var blurb: String? = nil
     }
 
     static func grouped(
@@ -680,6 +741,10 @@ enum ExerciseLibrary {
     ) -> [Section] {
         let rows = Self.catalogSorted(filter(query: query, muscle: muscle, equipment: equipment, pattern: pattern))
         switch organize {
+        case .style:
+            return bucket(rows, keys: TrainingStyle.allCases, key: { TrainingStyle.classify($0) }) { style, items in
+                Section(id: style.rawValue, title: style.label, accent: style.accent, items: items, blurb: style.blurb)
+            }
         case .region:
             return bucket(rows, keys: TargetMuscle.Region.allCases, key: \.region) { region, items in
                 Section(id: region.rawValue, title: region.label, accent: items[0].accent, items: items)
@@ -746,6 +811,130 @@ enum ExerciseLibrary {
             parts.append("If it feels off, switch to \(regress).")
         }
         return parts.joined(separator: " ")
+    }
+
+    /// Bodyweight strength and skill — not yoga, not foam rolling, not a bike.
+    static var calisthenics: [ExerciseDefinition] {
+        catalogSorted(all.filter { TrainingStyle.classify($0) == .calisthenics })
+    }
+
+    static var sports: [ExerciseDefinition] {
+        catalogSorted(all.filter { TrainingStyle.classify($0) == .sports })
+    }
+
+    static func asPlanRow(_ def: ExerciseDefinition) -> Exercise {
+        Exercise(
+            id: def.id,
+            name: def.name,
+            sets: def.defaultSets,
+            reps: def.repRangeLabel.replacingOccurrences(of: "–", with: "-"),
+            weight: def.equipment == .bodyweight ? nil : (def.mechanic == .compound ? 95 : 25),
+            restSeconds: def.restSeconds,
+            notes: def.cues.first,
+            videoURL: nil,
+            has3DModel: false
+        )
+    }
+
+    /// A ready-to-train calisthenics session pulled from the library, not invented names.
+    static func calisthenicsPlan(keepLight: Bool, skipLegs: Bool) -> WorkoutPlan {
+        var pool = calisthenics
+        if skipLegs {
+            pool = pool.filter { !isLowerBodyCalisthenics($0.name) }
+        }
+        let preferred = [
+            "Push-Up", "Inverted Row", "Pike Push-Up", "Air Squat",
+            "Chin-Up", "Hanging Knee Raise", "Plank", "Diamond Push-Up",
+            "Hollow Hold", "Pike Push-Up",
+        ]
+        var picked: [ExerciseDefinition] = []
+        for name in preferred {
+            guard let def = pool.first(where: { $0.name == name }) else { continue }
+            if picked.contains(where: { $0.id == def.id }) { continue }
+            picked.append(def)
+        }
+        if picked.count < (keepLight ? 4 : 6) {
+            for def in pool where def.isCompound && !picked.contains(where: { $0.id == def.id }) {
+                picked.append(def)
+                if picked.count >= 6 { break }
+            }
+        }
+        if keepLight { picked = Array(picked.prefix(4)) }
+        if picked.isEmpty { picked = Array(pool.prefix(4)) }
+        return WorkoutPlan(
+            id: "calisthenics-\(UUID().uuidString.prefix(6))",
+            name: skipLegs ? "Upper Calisthenics" : "Calisthenics Session",
+            type: .strength,
+            duration: keepLight ? 25 : 40,
+            intensity: keepLight ? .low : .moderate,
+            exercises: picked.map(asPlanRow)
+        )
+    }
+
+    private static func isLowerBodyCalisthenics(_ name: String) -> Bool {
+        let lower = name.lowercased()
+        return ["squat", "lunge", "pistol", "shrimp", "wall sit"].contains { lower.contains($0) }
+    }
+
+    /// Match "basketball", "hoops", "I played tennis" to a library sport.
+    static func matchSport(in text: String) -> ExerciseDefinition? {
+        let lower = text.lowercased()
+        let aliases: [(String, String)] = [
+            ("pickleball", "Pickleball"),
+            ("table tennis", "Table Tennis"),
+            ("ping pong", "Table Tennis"),
+            ("ultimate frisbee", "Ultimate Frisbee"),
+            ("american football", "Football"),
+            ("martial arts", "Martial Arts"),
+            ("rock climbing", "Rock Climbing"),
+            ("basketball", "Basketball"),
+            ("hoops", "Basketball"),
+            ("soccer", "Soccer"),
+            ("futbol", "Soccer"),
+            ("tennis", "Tennis"),
+            ("volleyball", "Volleyball"),
+            ("baseball", "Baseball"),
+            ("softball", "Softball"),
+            ("golf", "Golf"),
+            ("hockey", "Hockey"),
+            ("lacrosse", "Lacrosse"),
+            ("rugby", "Rugby"),
+            ("football", "Football"),
+            ("hiking", "Hiking"),
+            ("boxing", "Boxing"),
+            ("climbing", "Rock Climbing"),
+            ("skiing", "Skiing"),
+            ("snowboarding", "Snowboarding"),
+            ("surfing", "Surfing"),
+            ("skateboarding", "Skateboarding"),
+            ("badminton", "Badminton"),
+            ("dance", "Dance"),
+        ]
+        for (needle, name) in aliases where lower.contains(needle) {
+            if let def = sports.first(where: { $0.name == name }) { return def }
+            if let def = match(name) { return def }
+        }
+        return sports.first { lower.contains($0.name.lowercased()) }
+    }
+
+    /// One sport as a session row ARIA can put on today's plan or into history.
+    static func sportSession(named: String, minutes: Int, completed: Bool) -> WorkoutPlan {
+        let def = match(named) ?? sports.first { $0.name.compare(named, options: .caseInsensitive) == .orderedSame }
+            ?? sports.first
+            ?? calisthenics.first!
+        var row = asPlanRow(def)
+        row.sets = 1
+        row.reps = "\(max(10, minutes)) min"
+        row.notes = completed ? "Logged by ARIA" : def.cues.first
+        let intensity: WorkoutIntensity = minutes >= 75 ? .high : (minutes >= 40 ? .moderate : .low)
+        return WorkoutPlan(
+            id: "sport-\(UUID().uuidString.prefix(6))",
+            name: def.name,
+            type: .sportSpecific,
+            duration: max(10, minutes),
+            intensity: intensity,
+            exercises: [row]
+        )
     }
 }
 

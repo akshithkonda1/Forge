@@ -186,7 +186,7 @@ enum AriaInterviewVoice {
         case .experience:
             return experiencePrompt(vo2Max: vo2Max)
         case .workouts:
-            return "What training do you actually enjoy? Pick what you'll still do on a messy Tuesday — adherence is the whole game."
+            return "What training do you actually enjoy? Gym, calisthenics, sports — pick what you'll still do on a messy Tuesday. I can log a match as part of the session."
         case .sleep:
             return "When do you actually sleep and wake? I'll put hard sessions and wind-down on your clock, not a generic 6am."
         case .freeTime:
@@ -374,6 +374,8 @@ enum AriaInterviewVoice {
             if isContinuePhrase(lower), !profile.preferredWorkouts.isEmpty { return .confirmWorkouts }
             let hits = OnboardingWorkoutType.allCases.filter { w in
                 lower.contains(w.label.lowercased())
+                    || lower.contains(w.spokenAlias)
+                    || lower.contains(w.rawValue.replacingOccurrences(of: "_", with: " "))
             }
             if !hits.isEmpty { return .toggleWorkouts(hits) }
             return .missed

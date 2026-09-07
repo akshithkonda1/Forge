@@ -372,7 +372,7 @@ struct AriaInterviewLayout: View {
                 )
             case .workouts:
                 MultiChipComposer(
-                    title: "Workouts",
+                    title: "Training & sports",
                     items: OnboardingWorkoutType.allCases.map { ($0.id, $0.label) },
                     isSelected: { id in
                         coordinator.profile.preferredWorkouts.contains { $0.id == id }
