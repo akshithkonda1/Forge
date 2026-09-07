@@ -54,9 +54,9 @@ private final class ChimePlayer {
             return noErr
         }
         engine.attach(source)
-        engine.connect(source, to: engine.mainMixerNode, format: format)
         engine.mainMixerNode.outputVolume = 0.28
         do {
+            try engine.connectNode(source, to: engine.mainMixerNode, format: format)
             try ForgePlaybackSession.chime.activate()
             try engine.start()
         } catch {
