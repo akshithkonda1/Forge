@@ -258,7 +258,7 @@ struct AriaInterviewLayout: View {
         )
         if !replies.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                Text("ANSWER ARIA")
+                Text("Reply")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
                     .tracking(1.2)
                     .foregroundColor(.textMuted)
