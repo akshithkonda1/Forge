@@ -84,20 +84,19 @@ final class SpeechManager: ObservableObject {
         AriaPresence.shared.setListening(true)
         amplitude = 0.15
 
-        SFSpeechRecognizer.requestAuthorization { [weak self] status in
-            Task { @MainActor in
-                guard let self else { return }
-                switch status {
-                case .authorized:
-                    self.beginRecognition()
-                case .denied, .restricted:
-                    self.authorizationDenied = true
-                    self.voiceState = .error("Mic / speech access needed")
-                case .notDetermined:
-                    self.voiceState = .idle
-                @unknown default:
-                    self.voiceState = .idle
-                }
+        Task { [weak self] in
+            let status = await Self.requestSpeechAuthorization()
+            guard let self else { return }
+            switch status {
+            case .authorized:
+                self.beginRecognition()
+            case .denied, .restricted:
+                self.authorizationDenied = true
+                self.voiceState = .error("Mic / speech access needed")
+            case .notDetermined:
+                self.voiceState = .idle
+            @unknown default:
+                self.voiceState = .idle
             }
         }
     }
@@ -113,9 +112,10 @@ final class SpeechManager: ObservableObject {
             recordUtteranceLength(recognizedText)
             voiceState = .processing
             hardStop(clearText: false)
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            FDS.notificationHaptic(.success)
             // Deliver final idle so overlays can fire onRecognized
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            Task { [weak self] in
+                try? await Task.sleep(for: .milliseconds(150))
                 guard let self else { return }
                 self.voiceState = .idle
                 self.preserveTranscriptOnStop = false
@@ -161,10 +161,6 @@ final class SpeechManager: ObservableObject {
         }
 
         inputNode.removeTap(onBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            recognitionRequest.append(buffer)
-            self?.updateAmplitude(from: buffer)
-        }
 
         recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
             guard let self else { return }
@@ -188,6 +184,11 @@ final class SpeechManager: ObservableObject {
         }
 
         do {
+            let tapFrames = AVAudioFrameCount(max(4096, (format.sampleRate * 0.15).rounded()))
+            try inputNode.installAudioTap(onBus: 0, bufferSize: tapFrames, format: format) { [weak self] buffer, _ in
+                recognitionRequest.append(AVAudioPCMBuffer(copying: buffer))
+                self?.updateAmplitude(from: buffer)
+            }
             audioEngine.prepare()
             try audioEngine.start()
             voiceState = .listening
@@ -195,6 +196,14 @@ final class SpeechManager: ObservableObject {
         } catch {
             voiceState = .error("Microphone error")
             hardStop(clearText: true)
+        }
+    }
+
+    /// iOS 27 has no parameterless async `requestAuthorization()`; wrap the
+    /// current callback API so callers stay `async` without a fake overload.
+    private static func requestSpeechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
         }
     }
 
@@ -209,16 +218,34 @@ final class SpeechManager: ObservableObject {
         }
     }
 
-    private func updateAmplitude(from buffer: AVAudioPCMBuffer) {
-        guard let channel = buffer.floatChannelData?[0] else { return }
-        let frameCount = Int(buffer.frameLength)
-        guard frameCount > 0 else { return }
-        var sum: Float = 0
-        for i in 0..<frameCount {
-            let s = channel[i]
-            sum += s * s
+    nonisolated private func updateAmplitude(from buffer: AVReadOnlyAudioPCMBuffer) {
+        guard buffer.frameLength > 0 else { return }
+        let rms: Float
+        switch buffer.channelData(0) {
+        case .float(let samples):
+            guard !samples.isEmpty else { return }
+            var sum: Float = 0
+            for s in samples { sum += s * s }
+            rms = sqrt(sum / Float(samples.count))
+        case .int16(let samples):
+            guard !samples.isEmpty else { return }
+            var sum: Float = 0
+            for s in samples {
+                let f = Float(s) / Float(Int16.max)
+                sum += f * f
+            }
+            rms = sqrt(sum / Float(samples.count))
+        case .int32(let samples):
+            guard !samples.isEmpty else { return }
+            var sum: Float = 0
+            for s in samples {
+                let f = Float(s) / Float(Int32.max)
+                sum += f * f
+            }
+            rms = sqrt(sum / Float(samples.count))
+        @unknown default:
+            return
         }
-        let rms = sqrt(sum / Float(frameCount))
         let level = min(1, max(0.08, rms * 12))
         Task { @MainActor in
             self.amplitude = level

@@ -422,7 +422,7 @@ class HealthKitManager: ObservableObject {
     ]
 
     private static let structuredHealthRecordTypes: Set<HKObjectType> = Set(
-        structuredHealthRecordIdentifiers.compactMap { HKObjectType.clinicalType(forIdentifier: $0) }
+        structuredHealthRecordIdentifiers.map { HKClinicalType($0) as HKObjectType }
     )
 
     // Types to write during the primary onboarding prompt.
@@ -629,7 +629,7 @@ class HealthKitManager: ObservableObject {
     private func scheduleLiveRefresh() {
         liveRefreshTask?.cancel()
         liveRefreshTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 350_000_000)
+            try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
             await refreshHydration()
             await AriaHealthRiskBridge.evaluateFromHealthKit(

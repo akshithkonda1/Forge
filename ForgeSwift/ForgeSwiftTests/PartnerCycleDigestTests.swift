@@ -74,13 +74,22 @@ final class PartnerCycleDigestTests: XCTestCase {
 
             let allowed: Set<String> = [
                 "phase", "energy", "daysUntilNextPeriodApprox", "periodDay",
-                "extraThoughtfulnessHelps", "supportHeadline", "asOfDayKey",
-                "periodFinished", "periodFinishedDayKey",
+                "extraThoughtfulnessHelps", "supportHeadline", "supportCardLine",
+                "asOfDayKey", "periodFinished", "periodFinishedDayKey",
             ]
             for key in object.keys {
                 XCTAssertTrue(allowed.contains(key), "unexpected digest key \(key)")
             }
         }
+    }
+
+    func testRedactingInitStoresTrimmedSupportCardOnSelf() {
+        let digest = PartnerCycleDigest(
+            redacting: bleedingSnapshot(),
+            supportCardLine: "  tea + quiet  \n tonight  ",
+            tier: .supportCoach
+        )
+        XCTAssertEqual(digest.supportCardLine, "tea + quiet tonight")
     }
 
     func testInviteFallbackNamesNoCycleDetails() {

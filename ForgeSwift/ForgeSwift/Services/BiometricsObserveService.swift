@@ -30,13 +30,11 @@ final class BiometricsObserveService {
     /// Dated HealthKit samples ARIA already has on this iPhone.
     /// Used for on-device opinions — not uploaded to Forge.
     func samplesFromStore(_ store: AppStore) -> [HealthSamplePayload] {
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime]
-        let now = iso.string(from: Date())
+        let now = Date.now.ISO8601Format()
         var samples: [HealthSamplePayload] = []
 
         for day in HealthKitManager.shared.weeklyTrends {
-            let stamp = iso.string(from: day.date)
+            let stamp = day.date.ISO8601Format()
             if day.avgHRV > 0 {
                 samples.append(.init(metric: "hrv", value: day.avgHRV, unit: "ms",
                                      timestamp: stamp, source: "apple-health"))

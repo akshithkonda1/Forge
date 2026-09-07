@@ -209,17 +209,13 @@ private struct SessionMetricsPage: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(heartAccessibility)
+            .accessibilityHint("Tap to switch between heart rate, calories, and pace.")
             .contentShape(Rectangle())
             .onTapGesture {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     metricMode = nextMode
                 }
                 WKInterfaceDevice.current().play(.click)
-            }
-            .contextMenu {
-                ForEach([MetricMode.heart, .calories, .pace], id: \.self) { mode in
-                    Button(modeLabel(mode)) { metricMode = mode }
-                }
             }
 
             zoneBar
@@ -285,14 +281,6 @@ private struct SessionMetricsPage: View {
         case .pace:
             // Pace not yet tracked live; show zone as proxy with haptic cue.
             return workout.currentZone.map { "Z\($0.zone)" } ?? "—"
-        }
-    }
-
-    private func modeLabel(_ mode: MetricMode) -> String {
-        switch mode {
-        case .heart: return "Heart rate"
-        case .calories: return "Calories"
-        case .pace: return "Zone"
         }
     }
 

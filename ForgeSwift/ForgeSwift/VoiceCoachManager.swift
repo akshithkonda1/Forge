@@ -95,12 +95,11 @@ final class VoiceCoachManager {
     func startListening() {
         guard isVoiceEnabled else { return }
         guard !audioEngine.isRunning else { return }
-        
-        SFSpeechRecognizer.requestAuthorization { [weak self] status in
+
+        Task {
+            let status = await Self.requestSpeechAuthorization()
             guard status == .authorized else { return }
-            Task { @MainActor in
-                self?.beginRecognition()
-            }
+            beginRecognition()
         }
     }
     
@@ -210,15 +209,26 @@ final class VoiceCoachManager {
         }
         
         let format = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-            recognitionRequest.append(buffer)
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            self.error = "No microphone input"
+            return
         }
-        
+        inputNode.removeTap(onBus: 0)
         do {
+            let tapFrames = AVAudioFrameCount(max(4096, (format.sampleRate * 0.15).rounded()))
+            try inputNode.installAudioTap(onBus: 0, bufferSize: tapFrames, format: format) { buffer, _ in
+                recognitionRequest.append(AVAudioPCMBuffer(copying: buffer))
+            }
             try audioEngine.start()
             isListening = true
         } catch {
             self.error = "Microphone error: \(error.localizedDescription)"
+        }
+    }
+
+    private static func requestSpeechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
         }
     }
     
@@ -311,7 +321,7 @@ final class VoiceCoachManager {
         try? AVAudioSession.sharedInstance().setCategory(
             .playAndRecord,
             mode: .default,
-            options: [.defaultToSpeaker, .allowBluetoothA2DP, .duckOthers]
+            options: [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP, .duckOthers]
         )
         try? AVAudioSession.sharedInstance().setActive(true)
     }

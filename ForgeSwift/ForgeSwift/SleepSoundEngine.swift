@@ -25,20 +25,28 @@ final class SleepWindDownPlayer {
 
     @ObservationIgnored private var engine: AVAudioEngine?
     @ObservationIgnored private var countdown: Task<Void, Never>?
-    @ObservationIgnored private var interruptionTask: Task<Void, Never>?
+    @ObservationIgnored private var sessionObservers: [NotificationCenter.ObservationToken] = []
     @ObservationIgnored private var wasInterrupted = false
     @ObservationIgnored private let renderer = SoundscapeRenderer()
 
     private init() {
-        interruptionTask = Task { @MainActor [weak self] in
-            let stream = NotificationCenter.default.notifications(
-                named: AVAudioSession.interruptionNotification,
-                object: AVAudioSession.sharedInstance()
-            )
-            for await note in stream {
-                self?.handleInterruption(note)
+        let session = AVAudioSession.sharedInstance()
+        sessionObservers.append(
+            NotificationCenter.default.addObserver(
+                of: session,
+                for: AVAudioSession.DidBecomeInactiveMessage.self
+            ) { [weak self] _ in
+                self?.pauseForInterruption()
             }
-        }
+        )
+        sessionObservers.append(
+            NotificationCenter.default.addObserver(
+                of: session,
+                for: AVAudioSession.ResumptionRecommendationMessage.self
+            ) { [weak self] message in
+                self?.resumeIfRecommended(message.recommendation)
+            }
+        )
     }
 
     func start(kind: SleepSoundKind? = nil, minutes: Int = 30) {
@@ -60,9 +68,9 @@ final class SleepWindDownPlayer {
             return noErr
         }
         engine.attach(source)
-        engine.connect(source, to: engine.mainMixerNode, format: format)
         engine.mainMixerNode.outputVolume = Float(volume)
         do {
+            try engine.connectNode(source, to: engine.mainMixerNode, format: format)
             try ForgePlaybackSession.sleepMix.activate()
             try engine.start()
         } catch {
@@ -108,34 +116,24 @@ final class SleepWindDownPlayer {
         }
     }
 
-    private func handleInterruption(_ note: Notification) {
-        guard
-            let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-            let type = AVAudioSession.InterruptionType(rawValue: raw)
-        else { return }
-        switch type {
-        case .began:
-            guard isPlaying else { return }
-            wasInterrupted = true
-            countdown?.cancel()
-            countdown = nil
-            engine?.pause()
-        case .ended:
-            guard wasInterrupted, isPlaying else { return }
-            wasInterrupted = false
-            let options = AVAudioSession.InterruptionOptions(
-                rawValue: note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
-            )
-            guard options.contains(.shouldResume) else { return }
-            do {
-                try ForgePlaybackSession.sleepMix.activate()
-                try engine?.start()
-                startCountdown()
-            } catch {
-                stop()
-            }
-        @unknown default:
-            break
+    private func pauseForInterruption() {
+        guard isPlaying else { return }
+        wasInterrupted = true
+        countdown?.cancel()
+        countdown = nil
+        engine?.pause()
+    }
+
+    private func resumeIfRecommended(_ recommendation: AVAudioSession.ResumptionRecommendation) {
+        guard wasInterrupted, isPlaying else { return }
+        wasInterrupted = false
+        guard recommendation == .shouldResume else { return }
+        do {
+            try ForgePlaybackSession.sleepMix.activate()
+            try engine?.start()
+            startCountdown()
+        } catch {
+            stop()
         }
     }
 }
@@ -170,8 +168,8 @@ final class SleepWakePlayer {
             return noErr
         }
         engine.attach(source)
-        engine.connect(source, to: engine.mainMixerNode, format: format)
         do {
+            try engine.connectNode(source, to: engine.mainMixerNode, format: format)
             try ForgePlaybackSession.alarm.activate()
             try engine.start()
         } catch {
@@ -209,7 +207,9 @@ final class SoundscapeRenderer: @unchecked Sendable {
     }
 
     func render(into data: UnsafeMutablePointer<Float>, frames: Int) {
-        lock.withLock { dsp in
+        // Audio-thread pointer is not Sendable; `withLockUnchecked` is the
+        // realtime-safe escape hatch (no extra buffer allocation).
+        lock.withLockUnchecked { dsp in
             for i in 0..<frames {
                 data[i] = dsp.nextSample()
             }
@@ -225,7 +225,7 @@ final class WakeToneRenderer: @unchecked Sendable {
     }
 
     func render(into data: UnsafeMutablePointer<Float>, frames: Int) {
-        lock.withLock { dsp in
+        lock.withLockUnchecked { dsp in
             for i in 0..<frames {
                 data[i] = dsp.nextSample()
             }
@@ -289,7 +289,7 @@ struct SoundscapeDSP: Sendable {
             let swell = Float(0.45 + 0.55 * sin(t * 0.22))
             return brownClamped * swell * 0.85 + pinkVal * 0.08 * swell
         case .forest:
-            var s = pinkVal * 0.16 + brownClamped * 0.12
+            let s = pinkVal * 0.16 + brownClamped * 0.12
             if frames == eventAt {
                 eventAmp = 0.18
                 eventAt = frames + boundedInt(12_000...40_000)

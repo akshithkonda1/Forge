@@ -74,7 +74,7 @@ final class AriaContextStore: ObservableObject {
         let lastWorkout = store.workoutHistory.first
         let hoursSinceWorkout: Double? = {
             guard let lastWorkout,
-                  let date = ISO8601DateFormatter().date(from: lastWorkout.date) else { return nil }
+                  let date = iso.date(from: lastWorkout.date) else { return nil }
             return Date().timeIntervalSince(date) / 3600
         }()
 
@@ -105,9 +105,10 @@ final class AriaContextStore: ObservableObject {
         let hrvTrend: Double? = observedReadiness?.hrv7DayTrend
         let hrvDaysAvailable: Int? = observedReadiness?.hrvDaysAvailable
 
+        let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date())
         let workouts30d = store.workoutHistory.filter {
-            guard let date = ISO8601DateFormatter().date(from: $0.date) else { return false }
-            return date > Calendar.current.date(byAdding: .day, value: -30, to: Date())!
+            guard let date = iso.date(from: $0.date), let cutoff else { return false }
+            return date > cutoff
         }.count
 
         let sleepDomain = ARIAContextPayload.SleepDomain(
@@ -767,7 +768,6 @@ final class AriaContextStore: ObservableObject {
             return
         }
         let readiness = store.readiness.overall
-        let theme = trainingTheme
         let cycleStore = MenstrualHealthStore.shared
         let day = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
         let salt = UInt64(day * 31 + readiness + context.relationshipLevel * 7)

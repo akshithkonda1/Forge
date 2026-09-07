@@ -222,7 +222,7 @@ extension MenstrualHealthStore {
             pushAriaTags()
             return
         }
-        var entry = sanitizedPartnerLog(log)
+        let entry = sanitizedPartnerLog(log)
         if let idx = supportedPeople[pidx].logs.firstIndex(where: { $0.dayKey == entry.dayKey }) {
             var merged = supportedPeople[pidx].logs[idx]
             merged.flow = entry.flow
