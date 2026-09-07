@@ -129,6 +129,10 @@ struct MainTabView: View {
     @State private var cycleInitialPane: MenstrualHealthView.Pane = .me
     @ObservedObject private var wakeStore = SleepWakeStore.shared
 
+    private var waitingToMeetAria: Bool {
+        !store.hasMetAria && (store.activeTab == .chat || store.showAriaMeetOnLaunch)
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             // Premium ambient canvas
@@ -164,7 +168,23 @@ struct MainTabView: View {
             .transition(.opacity)
             .animation(.easeOut(duration: 0.12), value: store.activeTab)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ForgeBottomNav(namespace: namespace)
+                if !waitingToMeetAria {
+                    ForgeBottomNav(namespace: namespace)
+                }
+            }
+
+            if waitingToMeetAria {
+                AriaMeetView(
+                    onTalk: {
+                        store.meetAria()
+                        store.activeTab = .chat
+                    },
+                    onSkip: {
+                        store.showAriaMeetOnLaunch = false
+                        store.activeTab = .home
+                    }
+                )
+                .zIndex(40)
             }
         }
         .onChange(of: store.pendingCycleHealthOpen) { _, open in

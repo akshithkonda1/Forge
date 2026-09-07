@@ -70,6 +70,8 @@ extension AppStore {
         if isNewAccount || !UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) {
             isOnboarded = false
             onboardingStep = 0
+            hasMetAria = false
+            showAriaMeetOnLaunch = true
         } else {
             isOnboarded = true
             Task { await refreshDailyData() }

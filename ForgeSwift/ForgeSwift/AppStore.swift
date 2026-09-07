@@ -148,6 +148,17 @@ final class AppStore: ObservableObject {
     /// because Apple Health had nothing. Never set from a real sample.
     @Published var usingTestReadyHealthPack: Bool = false
 
+    /// Visual first-meet page. Completes once; first login or first ARIA tap.
+    @Published var hasMetAria: Bool = UserDefaults.standard.bool(forKey: Self.ariaMeetKey) {
+        didSet { UserDefaults.standard.set(hasMetAria, forKey: Self.ariaMeetKey) }
+    }
+    @Published var showAriaMeetOnLaunch: Bool = true
+
+    func meetAria() {
+        hasMetAria = true
+        showAriaMeetOnLaunch = false
+    }
+
     /// First conversation with ARIA. Completes once; replay from Settings.
     @Published var hasCompletedAriaUseOnboarding: Bool = UserDefaults.standard.bool(forKey: AriaUseOnboarding.storageKey) {
         didSet { UserDefaults.standard.set(hasCompletedAriaUseOnboarding, forKey: AriaUseOnboarding.storageKey) }
@@ -233,6 +244,7 @@ final class AppStore: ObservableObject {
     static let authDefaultsKey = "forge.auth.session.v1"
     static let authProviderKey = "forge.auth.provider.v1"
     static let authEmailKey = "forge.auth.email.v1"
+    static let ariaMeetKey = "forge.aria.meet.v1"
 
     private func persistUserProfile() {
         guard let data = try? JSONEncoder().encode(userProfile) else { return }

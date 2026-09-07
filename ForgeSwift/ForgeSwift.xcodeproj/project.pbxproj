@@ -66,6 +66,7 @@
 		1ARIA1002F9FF867004091AA /* AriaWebResearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0992F9FF867004091AA /* AriaWebResearch.swift */; };
 		1ARIA0832F9FF867004091AA /* AriaFirstHealthBriefing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */; };
 		1ARIA0912F9FF867004091AA /* AriaUseOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */; };
+		1ARIA1032F9FF867004091AA /* AriaMeetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA1022F9FF867004091AA /* AriaMeetView.swift */; };
 
 		1TEST01600000000000000A /* AriaCoachAgentRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */; };
 		AA00010000000000000000B2 /* PartnerCycleSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B2 /* PartnerCycleSharing.swift */; };
@@ -450,6 +451,7 @@
 		1ARIA0992F9FF867004091AA /* AriaWebResearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaWebResearch.swift; sourceTree = "<group>"; };
 		1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaFirstHealthBriefing.swift; sourceTree = "<group>"; };
 		1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaUseOnboarding.swift; sourceTree = "<group>"; };
+		1ARIA1022F9FF867004091AA /* AriaMeetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaMeetView.swift; sourceTree = "<group>"; };
 
 		1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgentRouterTests.swift; sourceTree = "<group>"; };
 		1TEST01700000000000000A /* OnboardingGraphLockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGraphLockTests.swift; sourceTree = "<group>"; };
@@ -1006,6 +1008,7 @@
 				1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */,
 				1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */,
 				1SIGIL0012F9FF867004091AA /* AriaSigil.swift */,
+				1ARIA1022F9FF867004091AA /* AriaMeetView.swift */,
 				1ARIA0282F9FF867004091AA /* AriaPresence.swift */,
 				1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */,
 				F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */,
@@ -1464,6 +1467,7 @@
 				1ARIA1002F9FF867004091AA /* AriaWebResearch.swift in Sources */,
 				1ARIA0832F9FF867004091AA /* AriaFirstHealthBriefing.swift in Sources */,
 				1ARIA0912F9FF867004091AA /* AriaUseOnboarding.swift in Sources */,
+				1ARIA1032F9FF867004091AA /* AriaMeetView.swift in Sources */,
 				AA00010000000000000000B2 /* PartnerCycleSharing.swift in Sources */,
 				1ARIA0082F9FF867004091AA /* AriaContextStore.swift in Sources */,
 				1WC1012F9FF867004091AA /* CrossZoneConsistency.swift in Sources */,

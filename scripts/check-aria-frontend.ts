@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { coachReply } from "../src/lib/aria-coach.ts";
-import { ARIA_CINEMATIC_LINES, firstSessionScript, whisperForStep } from "../src/lib/aria-onboarding.ts";
+import { ARIA_CINEMATIC_LINES, firstSessionScript, whisperForStep, welcomeChatMessage } from "../src/lib/aria-onboarding.ts";
+import { ARIA_INTRO } from "../src/lib/aria-intro.ts";
 import { ARIA_LOBES, ARIA_MARK, clampGaze, emberCoreRadius, emberLobe } from "../src/lib/aria-mark.ts";
 import type { DailyMetrics, ReadinessData, UserProfile } from "../src/types/index.ts";
 
@@ -62,6 +63,18 @@ const liveB = emberLobe(1, 1.1, false, false);
 assert(liveA.x !== liveB.x || liveA.y !== liveB.y || liveA.r !== liveB.r, "idle lobes move when alive");
 
 assert(ARIA_CINEMATIC_LINES.length === 1, "welcome is one beat");
+assert(ARIA_INTRO.title === "This is ARIA", "first-meet title is This is ARIA");
+assert(!ARIA_INTRO.lead.includes(ARIA_INTRO.pairingForbidden), "intro does not pair Forge × ARIA");
+assert(ARIA_INTRO.lead.includes("designed for Forge"), "ARIA was designed for Forge");
+assert(ARIA_INTRO.capabilities.length === 4, "intro names four things ARIA can do");
+assert(!welcomeChatMessage({
+  name: "Jack",
+  goals: ["build-muscle"],
+  experience: "intermediate",
+  workouts: ["strength"],
+  coachingStyle: "balanced",
+  devicesConnected: 0,
+}).includes("Jack"), "first ARIA line is not a name pairing");
 
 const welcome = whisperForStep("welcome");
 assert(!welcome.message.includes("HRV"), "welcome does not dump HRV");

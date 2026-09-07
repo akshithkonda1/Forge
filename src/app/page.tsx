@@ -10,6 +10,7 @@ import { WorkoutPage } from "@/components/workout/workout-page";
 import { SleepPage } from "@/components/sleep/sleep-page";
 import { ProfileTab } from "@/components/profile/profile-tab";
 import { AriaOrb } from "@/components/onboarding/aria-companion";
+import { AriaIntro } from "@/components/brand/aria-intro";
 import { cn } from "@/lib/utils";
 
 const TABS: TabId[] = ["home", "chat", "workout", "sleep", "profile"];
@@ -19,7 +20,7 @@ function BootSplash() {
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background">
       <AriaOrb mood="focused" size={88} />
       <p className="mt-5 text-[11px] font-black uppercase tracking-[0.28em] text-ember">
-        FORGE × ARIA
+        This is ARIA
       </p>
     </div>
   );
@@ -54,6 +55,8 @@ function TabPane({
 export default function Page() {
   const router = useRouter();
   const isOnboarded = useAppStore((s) => s.isOnboarded);
+  const hasMetAria = useAppStore((s) => s.hasMetAria);
+  const meetAria = useAppStore((s) => s.meetAria);
   const hasHydrated = useAppStore((s) => s.hasHydrated);
   const setHasHydrated = useAppStore((s) => s.setHasHydrated);
   const activeTab = useAppStore((s) => s.activeTab);
@@ -61,6 +64,7 @@ export default function Page() {
   const workoutActive = useAppStore((s) => s.activeWorkout.isActive);
   const mainRef = useRef<HTMLElement>(null);
   const [visited, setVisited] = useState<TabId[]>([activeTab]);
+  const [showLaunchMeet, setShowLaunchMeet] = useState(true);
 
   useEffect(() => {
     const finish = () => setHasHydrated(true);
@@ -88,6 +92,25 @@ export default function Page() {
 
   if (!isOnboarded) {
     return <BootSplash />;
+  }
+
+  const waitingToMeet = !hasMetAria && (activeTab === "chat" || showLaunchMeet);
+  if (waitingToMeet) {
+    return (
+      <div className="app-shell relative mx-auto min-h-[100dvh] w-full max-w-lg bg-background">
+        <AriaIntro
+          onContinue={() => {
+            meetAria();
+            setShowLaunchMeet(false);
+            setActiveTab("chat");
+          }}
+          onSkip={() => {
+            setShowLaunchMeet(false);
+            setActiveTab("home");
+          }}
+        />
+      </div>
+    );
   }
 
   const lockViewport = activeTab === "chat" || (activeTab === "workout" && workoutActive);

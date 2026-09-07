@@ -119,9 +119,7 @@ struct HomeARIABriefingCard: View {
     }
 
     private var briefingKicker: String {
-        let first = store.userProfile.name.components(separatedBy: " ").first ?? ""
-        if first.isEmpty { return "A note for you" }
-        return "A note for \(first)"
+        "What I see today"
     }
 
     private var themedPlanLabel: String { "Today’s plan" }

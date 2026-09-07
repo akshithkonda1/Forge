@@ -47,6 +47,14 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertLessThan(talk, 0.4)
     }
 
+    func testMeetCopyIsARIANotAForgePairing() {
+        XCTAssertEqual(AriaMeetCopy.title, "This is ARIA")
+        XCTAssertTrue(AriaMeetCopy.lead.contains("designed for Forge"))
+        XCTAssertFalse(AriaMeetCopy.lead.contains(AriaMeetCopy.pairingForbidden))
+        XCTAssertFalse(AriaMeetCopy.title.contains("FORGE"))
+        XCTAssertEqual(AriaMeetCopy.capabilities.count, 4)
+    }
+
     func testPaletteStaysPreciousNotNeon() {
         XCTAssertEqual(AriaSigilPalette.goldHex, "C9A36A")
         XCTAssertEqual(AriaSigilPalette.voidDeepHex, "030207")
