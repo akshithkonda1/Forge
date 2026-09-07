@@ -421,13 +421,17 @@ extension AppStore {
                 agent: plan.primary.kind,
                 agents: plan.backendIds
             )
-            let extras = await AriaCoachAgentRouter.supportingBriefs(
-                plan: plan,
-                store: self,
-                primaryText: aria.message
-            )
-            if !extras.isEmpty {
-                aria.message += "\n\n" + extras.joined(separator: "\n")
+            // Dummy already wove every worker into one causal reply. Tacking
+            // supporting briefs on would double-speak and break the fill-in.
+            if !AriaService.shared.isTestReady {
+                let extras = await AriaCoachAgentRouter.supportingBriefs(
+                    plan: plan,
+                    store: self,
+                    primaryText: aria.message
+                )
+                if !extras.isEmpty {
+                    aria.message += "\n\n" + extras.joined(separator: "\n")
+                }
             }
 
             lastSuggestedActions = aria.suggestedActions ?? []
