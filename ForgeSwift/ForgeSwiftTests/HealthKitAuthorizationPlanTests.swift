@@ -52,7 +52,7 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
                 continue
             }
             XCTAssertFalse(
-                HealthKitAuthorizationPlan.forbiddenClinicalRawValues.contains(clinicalType.identifier.rawValue)
+                HealthKitAuthorizationPlan.forbiddenClinicalRawValues.contains(clinicalType.identifier)
             )
         }
     }

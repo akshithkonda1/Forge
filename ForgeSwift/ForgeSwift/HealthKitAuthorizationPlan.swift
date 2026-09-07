@@ -49,7 +49,7 @@ enum HealthKitAuthorizationPlan: Sendable {
         }
         return types.filter { type in
             guard let clinical = type as? HKClinicalType else { return true }
-            return !forbiddenClinicalRawValues.contains(clinical.identifier.rawValue)
+            return !forbiddenClinicalRawValues.contains(clinical.identifier)
         }
     }
 
@@ -141,7 +141,7 @@ enum HealthKitAuthorizationPlan: Sendable {
     static let categoryIdentifiers: [HKCategoryTypeIdentifier] = [
         .sleepAnalysis, .mindfulSession, .appleStandHour,
         .highHeartRateEvent, .lowHeartRateEvent, .irregularHeartRhythmEvent,
-        .lowCardioFitnessEvent, .audioExposureEvent,
+        .lowCardioFitnessEvent, .environmentalAudioExposureEvent,
         .toothbrushingEvent, .handwashingEvent,
         .menstrualFlow, .intermenstrualBleeding,
         .infrequentMenstrualCycles, .irregularMenstrualCycles,
