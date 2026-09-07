@@ -102,7 +102,7 @@ final class VoiceCoachManager: NSObject {
         guard !audioEngine.isRunning else { return }
 
         Task {
-            let status = await SFSpeechRecognizer.requestAuthorization()
+            let status = await Self.requestSpeechAuthorization()
             guard status == .authorized else { return }
             beginRecognition()
         }
@@ -221,15 +221,21 @@ final class VoiceCoachManager: NSObject {
             return
         }
         inputNode.removeTap(onBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-            recognitionRequest.append(buffer)
-        }
-        
         do {
+            let tapFrames = AVAudioFrameCount(max(4096, (format.sampleRate * 0.15).rounded()))
+            try inputNode.installAudioTap(onBus: 0, bufferSize: tapFrames, format: format) { buffer, _ in
+                recognitionRequest.append(AVAudioPCMBuffer(copying: buffer))
+            }
             try audioEngine.start()
             isListening = true
         } catch {
             self.error = "Microphone error: \(error.localizedDescription)"
+        }
+    }
+
+    private static func requestSpeechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
         }
     }
     

@@ -768,7 +768,6 @@ final class AriaContextStore: ObservableObject {
             return
         }
         let readiness = store.readiness.overall
-        let theme = trainingTheme
         let cycleStore = MenstrualHealthStore.shared
         let day = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
         let salt = UInt64(day * 31 + readiness + context.relationshipLevel * 7)

@@ -310,7 +310,7 @@ final class LocalTestingOrchestrator {
                     proseSummary: plan.narrative,
                     message: ([plan.narrative] + parts.dropFirst()).joined(separator: "\n\n"),
                     richCard: AriaService.payload(from: plan.richCard),
-                    suggestedActions: plan.suggestedActions ?? base.suggestedActions,
+                    suggestedActions: plan.suggestedActions,
                     contextUpdates: ["relationship_level": familiarity],
                     confidence: base.confidence
                 )
