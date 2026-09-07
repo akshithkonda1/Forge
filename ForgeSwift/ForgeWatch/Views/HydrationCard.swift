@@ -24,9 +24,6 @@ struct HydrationCard: View {
         let clamped = min(max(0, Int(crownIndex.rounded())), max(0, presets.count - 1))
         return presets[clamped]
     }
-    private var glass: HydrationEngine.Preset {
-        HydrationEngine.presets.first { $0.id == "glass" } ?? HydrationEngine.presets[0]
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: ForgeDS.Spacing.sm) {
@@ -120,16 +117,6 @@ struct HydrationCard: View {
         }
         .padding(ForgeDS.Spacing.md)
         .background(RoundedRectangle(cornerRadius: ForgeDS.Radius.lg).fill(ForgePalette.surface))
-        .contextMenu {
-            Button { Task { await hydration.log(preset: glass) } } label: {
-                Label("Log glass · \(Int(glass.milliliters)) ml", systemImage: "drop.fill")
-            }
-            ForEach(presets.filter { $0.id != glass.id }) { preset in
-                Button { Task { await hydration.log(preset: preset) } } label: {
-                    Label("\(preset.title) · \(Int(preset.milliliters)) ml", systemImage: preset.symbolName)
-                }
-            }
-        }
         .sheet(isPresented: $showingSizes) { sizePicker }
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: crownIndex)
     }

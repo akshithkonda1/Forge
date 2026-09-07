@@ -306,13 +306,7 @@ private struct ActiveSessionView: View {
                 .scaleEffect(tapPauseFlash ? 0.98 : 1)
                 .animation(.easeInOut(duration: 0.15), value: tapPauseFlash)
                 .accessibilityLabel(session.state == .paused ? "Tap to resume" : "Tap orb to pause")
-                .accessibilityHint("Double Tap also starts from Home.")
-                .contextMenu {
-                    Button(session.state == .paused ? "Resume" : "Pause") {
-                        if session.state == .paused { session.resume(health: health) } else { session.pause() }
-                    }
-                    Button("End now", role: .destructive) { session.endEarly(health: health) }
-                }
+                .accessibilityHint("Double Tap also starts from Home. Pause and end are the buttons below.")
             }
 
             // Remaining time + live HR, quiet and small — the orb leads.
