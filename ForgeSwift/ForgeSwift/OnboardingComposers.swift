@@ -14,7 +14,7 @@ struct NameComposer: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Preferred name")
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.textSecondary)
+                    .foregroundStyle(Color.textSecondary)
                 HStack(spacing: 10) {
                     TextField("Maya", text: $coordinator.profile.name)
                         .focused($focusedField, equals: .preferred)
@@ -22,7 +22,7 @@ struct NameComposer: View {
                         .textInputAutocapitalization(.words)
                         .autocorrectionDisabled()
                         .font(.system(size: 28, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.textPrimary)
+                        .foregroundStyle(Color.textPrimary)
                         .onSubmit { focusedField = .last }
                 }
                 .padding(.horizontal, 16)
@@ -40,17 +40,17 @@ struct NameComposer: View {
                 }
                 Text("What you’ll hear every morning and after training. First name is enough.")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.textTertiary)
+                    .foregroundStyle(Color.textTertiary)
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     Text("Last name")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.textSecondary)
+                        .foregroundStyle(Color.textSecondary)
                     Text("optional")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(.textMuted)
+                        .foregroundStyle(Color.textMuted)
                 }
 
                 TextField("Chen", text: $coordinator.profile.lastName)
@@ -59,7 +59,7 @@ struct NameComposer: View {
                     .textInputAutocapitalization(.words)
                     .autocorrectionDisabled()
                     .font(.system(size: 18, weight: .medium, design: .rounded))
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                     .background(Color.surfaceElevated)
@@ -74,17 +74,17 @@ struct NameComposer: View {
                     .onSubmit { submit() }
                 Text("Stays on your profile. ARIA won’t say it unless you ask.")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.textTertiary)
+                    .foregroundStyle(Color.textTertiary)
             }
 
             if coordinator.profile.isPreferredNameValid {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkle")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.ember)
+                        .foregroundStyle(Color.ember)
                     Text("ARIA will call you \(coordinator.profile.firstName) — every day.")
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.textPrimary)
+                        .foregroundStyle(Color.textPrimary)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
@@ -153,7 +153,7 @@ struct DetailsComposer: View {
             if !coordinator.profile.detailsSummaryLine.isEmpty {
                 Text(coordinator.profile.detailsSummaryLine)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -186,7 +186,7 @@ struct DetailsComposer: View {
             )
             Text("Heart-rate zones, recovery norms, and 13+ safety.")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.textTertiary)
+                .foregroundStyle(Color.textTertiary)
 
             if coordinator.profile.birthday == nil, !showBirthdayPicker {
                 Button {
@@ -197,11 +197,11 @@ struct DetailsComposer: View {
                     HStack {
                         Text("Select date")
                             .font(.system(size: 16, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.textPrimary)
+                            .foregroundStyle(Color.textPrimary)
                         Spacer()
                         Image(systemName: "calendar")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.ember)
+                            .foregroundStyle(Color.ember)
                     }
                     .padding(16)
                     .background(Color.surfaceElevated)
@@ -212,11 +212,11 @@ struct DetailsComposer: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text(coordinator.isUnderage ? "Must be 13+" : "\(coordinator.profile.ageYears)")
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
-                        .foregroundStyle(coordinator.isUnderage ? .danger : .textPrimary)
+                        .foregroundStyle(coordinator.isUnderage ? Color.danger : Color.textPrimary)
                         .contentTransition(.numericText())
                     Text(coordinator.isUnderage ? "" : "years old")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(.textSecondary)
+                        .foregroundStyle(Color.textSecondary)
                     Spacer()
                 }
                 DatePicker(
@@ -248,7 +248,7 @@ struct DetailsComposer: View {
             )
             Text("Calories, heart-rate zones, Cycle Health. Not gender — that’s in Profile.")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.textTertiary)
+                .foregroundStyle(Color.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
 
             BiologicalSexStepView(coordinator: coordinator)
@@ -280,7 +280,7 @@ struct DetailsComposer: View {
             }
             Text("Optional. Used for calorie and load math.")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.textTertiary)
+                .foregroundStyle(Color.textTertiary)
 
             if coordinator.profile.usesMetricUnits {
                 HStack(spacing: 10) {
@@ -320,7 +320,7 @@ struct DetailsComposer: View {
         HStack(spacing: 8) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(.textSecondary)
+                .foregroundStyle(Color.textSecondary)
             if sourced {
                 HStack(spacing: 4) {
                     Image(systemName: "heart.fill")
@@ -328,7 +328,7 @@ struct DetailsComposer: View {
                     Text("Apple Health")
                         .font(.system(size: 10, weight: .semibold))
                 }
-                .foregroundStyle(.vitality)
+                .foregroundStyle(Color.vitality)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(Color.vitality.opacity(0.14))
@@ -347,7 +347,7 @@ struct DetailsComposer: View {
                 .onChange(of: text.wrappedValue) { _, _ in onChange() }
             Text(unit)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
         }
         .padding(.horizontal, 10)
         .background(Color.background.opacity(0.55))
@@ -367,7 +367,7 @@ struct DetailsComposer: View {
                 }
             Text(unit)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
         }
         .padding(.horizontal, 10)
         .frame(maxWidth: .infinity)
@@ -456,7 +456,7 @@ struct DictationMicButton: View {
                 }
                 Image(systemName: dictation.isListening ? "waveform" : "mic.fill")
                     .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(dictation.isListening ? .ember : .textSecondary)
+                    .foregroundStyle(dictation.isListening ? Color.ember : Color.textSecondary)
                     .symbolEffect(.variableColor.iterative, isActive: dictation.isListening)
             }
         }
@@ -500,12 +500,12 @@ struct HealthComposer: View {
 
             Text("Both optional — but Health is how I become something you open before coffee, not when you remember. One tap each, or skip.")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
                 .multilineTextAlignment(.center)
 
             Button("Continue") { coordinator.continueFromHealth() }
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.textPrimary)
+                .foregroundStyle(Color.textPrimary)
                 .frame(maxWidth: .infinity).frame(height: 44)
                 .background(Color.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -525,12 +525,12 @@ private struct ConnectionRow: View {
                     ProgressView().tint(color)
                 } else {
                     Image(systemName: state == .authorized ? "checkmark.seal.fill" : icon)
-                        .font(.system(size: 22, weight: .semibold)).foregroundStyle(state == .authorized ? .success : color)
+                        .font(.system(size: 22, weight: .semibold)).foregroundStyle(state == .authorized ? Color.success : color)
                 }
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(.textPrimary)
-                Text(state == .authorized ? "Connected" : subtitle).font(.system(size: 12, weight: .medium)).foregroundStyle(state == .authorized ? .success : .textTertiary).lineLimit(2)
+                Text(title).font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(Color.textPrimary)
+                Text(state == .authorized ? "Connected" : subtitle).font(.system(size: 12, weight: .medium)).foregroundStyle(state == .authorized ? Color.success : Color.textTertiary).lineLimit(2)
             }
             Spacer()
             if state != .authorized {
@@ -539,7 +539,7 @@ private struct ConnectionRow: View {
                         .padding(.horizontal, 14).padding(.vertical, 8).background(color).clipShape(RoundedRectangle(cornerRadius: 9))
                 }.disabled(state == .requesting)
             } else {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.success)
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.success)
             }
         }
         .padding(14).background(Color.surfaceElevated.opacity(0.7)).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -560,7 +560,7 @@ struct MultiChipComposer: View {
         VStack(alignment: .leading, spacing: 14) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(.textSecondary)
+                .foregroundStyle(Color.textSecondary)
 
             OnboardingFlowLayout(spacing: 8) {
                 ForEach(items, id: \.id) { item in
@@ -568,7 +568,7 @@ struct MultiChipComposer: View {
                     Button { onToggle(item.id) } label: {
                         Text(item.label)
                             .font(.system(size: 14, weight: .semibold, design: .rounded))
-                            .foregroundStyle(selected ? .white : .textSecondary)
+                            .foregroundStyle(selected ? .white : Color.textSecondary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
                             .background(selected ? Color.ember.opacity(0.88) : Color.surfaceElevated)
@@ -598,18 +598,18 @@ struct OptionCardsComposer: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(opt.title)
                                 .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.textPrimary)
+                                .foregroundStyle(Color.textPrimary)
                             if !opt.subtitle.isEmpty {
                                 Text(opt.subtitle)
                                     .font(.system(size: 13, weight: .medium))
-                                    .foregroundStyle(.textTertiary)
+                                    .foregroundStyle(Color.textTertiary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                     }
                     .padding(16)
                     .background(Color.surfaceElevated.opacity(0.8))
@@ -633,11 +633,11 @@ struct ConditionsComposer: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Conditions to respect")
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(.textSecondary)
+                .foregroundStyle(Color.textSecondary)
 
             Text("Optional. Lifestyle coach only — not medical care.")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.textTertiary)
+                .foregroundStyle(Color.textTertiary)
 
             OnboardingFlowLayout(spacing: 8) {
                 ForEach(ReportedCondition.allCases) { cond in
@@ -645,7 +645,7 @@ struct ConditionsComposer: View {
                     Button { coordinator.toggleCondition(cond) } label: {
                         Text(cond.label)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(selected ? .white : .textSecondary)
+                            .foregroundStyle(selected ? .white : Color.textSecondary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 9)
                             .background(selected ? Color.ember.opacity(0.85) : Color.surface)
@@ -668,7 +668,7 @@ struct ConditionsComposer: View {
             if coordinator.profile.guidanceOnlyMode {
                 Text("Guidance mode will be on: structure & pacing only — never treatment plans.")
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.warning)
+                    .foregroundStyle(Color.warning)
             }
 
             PrimaryCTA(
@@ -702,10 +702,10 @@ struct CoachingComposer: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(style.label)
                                 .font(.subheadline.weight(.bold))
-                                .foregroundStyle(.textPrimary)
+                                .foregroundStyle(Color.textPrimary)
                             Text(style.description)
                                 .font(.caption)
-                                .foregroundStyle(.textTertiary)
+                                .foregroundStyle(Color.textTertiary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         Spacer()
@@ -733,14 +733,14 @@ struct ReadyComposer: View {
             if !coordinator.profile.firstName.isEmpty {
                 Text("You’re set, \(coordinator.profile.firstName). I’ll be here tomorrow.")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
             }
             if coordinator.profile.guidanceOnlyMode {
                 Text("ARIA will coach with guidance only for the conditions you shared.")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.textTertiary)
+                    .foregroundStyle(Color.textTertiary)
                     .multilineTextAlignment(.center)
             }
             // Liability disclaimer — must be agreed at the very end
@@ -762,7 +762,7 @@ struct ReadyComposer: View {
                     }
                     Text("By agreeing to our Terms of Use, you acknowledge that Forge is an assistive coaching tool, not medical care. You are responsible for your own health. Any actions taken or injuries sustained are not the liability of Forge. Forge is designed to assist and advise, not to compel. By checking this box you waive all liability towards Forge.")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.textTertiary)
+                        .foregroundStyle(Color.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
                 }
@@ -781,7 +781,7 @@ struct ReadyComposer: View {
             )
             if !coordinator.hasAgreedToTerms {
                 Text("Please agree to the Terms to continue.")
-                    .font(.caption.weight(.semibold)).foregroundStyle(.warning)
+                    .font(.caption.weight(.semibold)).foregroundStyle(Color.warning)
             }
         }
     }
@@ -825,7 +825,7 @@ struct MessageBubble: View {
                 HStack(alignment: .top, spacing: 0) {
                     Text(message.text)
                         .font(.system(size: 16, weight: .regular, design: .rounded))
-                        .foregroundStyle(.textPrimary)
+                        .foregroundStyle(Color.textPrimary)
                         .lineSpacing(4)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 13)
@@ -861,7 +861,7 @@ struct MessageBubble: View {
                     Spacer()
                     Label(message.text, systemImage: "heart.text.square.fill")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.textMuted)
+                        .foregroundStyle(Color.textMuted)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(Color.white.opacity(0.05))
@@ -891,7 +891,7 @@ struct ScheduleComposer: View {
             if coordinator.profile.schedulePlanningMode == .fixed {
                 Text("Tap a day to change the library and how many moves.")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.textTertiary)
+                    .foregroundStyle(Color.textTertiary)
                 VStack(spacing: 8) {
                     ForEach(WeeklySplit.normalized(coordinator.profile.weeklySplit)) { slot in
                         dayRow(slot)
@@ -900,7 +900,7 @@ struct ScheduleComposer: View {
             } else {
                 Text(WeeklySplit.summary(mode: .rotate, split: coordinator.profile.weeklySplit))
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.textSecondary)
+                    .foregroundStyle(Color.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -925,10 +925,10 @@ struct ScheduleComposer: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(mode.label)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(on ? .white : .textPrimary)
+                    .foregroundStyle(on ? .white : Color.textPrimary)
                 Text(mode == .rotate ? "ARIA walks it" : "You assign days")
                     .font(.system(size: 11))
-                    .foregroundStyle(on ? .white.opacity(0.8) : .textTertiary)
+                    .foregroundStyle(on ? .white.opacity(0.8) : Color.textTertiary)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
@@ -944,7 +944,7 @@ struct ScheduleComposer: View {
             HStack {
                 Text(WeeklySplit.dayLabels[slot.weekday])
                     .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                     .frame(width: 36, alignment: .leading)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
@@ -960,7 +960,7 @@ struct ScheduleComposer: View {
                             } label: {
                                 Text(choice.label)
                                     .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(selected ? .white : .textSecondary)
+                                    .foregroundStyle(selected ? .white : Color.textSecondary)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 6)
                                     .background(selected ? Color.ember : Color.surface)
@@ -975,7 +975,7 @@ struct ScheduleComposer: View {
                 HStack(spacing: 10) {
                     Text("\(slot.exerciseCount) exercises")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.textTertiary)
+                        .foregroundStyle(Color.textTertiary)
                     Spacer()
                     Button {
                         coordinator.setSplitSlot(WeeklySplitSlot(
@@ -985,7 +985,7 @@ struct ScheduleComposer: View {
                             exerciseCount: max(3, slot.exerciseCount - 1)
                         ))
                     } label: {
-                        Image(systemName: "minus.circle.fill").foregroundStyle(.textSecondary)
+                        Image(systemName: "minus.circle.fill").foregroundStyle(Color.textSecondary)
                     }
                     Button {
                         coordinator.setSplitSlot(WeeklySplitSlot(
@@ -995,7 +995,7 @@ struct ScheduleComposer: View {
                             exerciseCount: min(8, slot.exerciseCount + 1)
                         ))
                     } label: {
-                        Image(systemName: "plus.circle.fill").foregroundStyle(.ember)
+                        Image(systemName: "plus.circle.fill").foregroundStyle(Color.ember)
                     }
                 }
             }

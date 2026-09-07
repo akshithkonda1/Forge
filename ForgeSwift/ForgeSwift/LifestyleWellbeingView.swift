@@ -28,15 +28,15 @@ struct MindfulTrendCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text("This week")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(.textPrimary)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(Color.textPrimary)
                 Spacer()
                 Text("\(total) min")
-                    .font(.system(size: 11, weight: .medium)).foregroundStyle(.textTertiary).monospacedDigit()
+                    .font(.system(size: 11, weight: .medium)).foregroundStyle(Color.textTertiary).monospacedDigit()
             }
 
             if trend.isEmpty || trend.allSatisfy({ $0.minutes == 0 }) {
                 Text("No sessions yet — 5 minutes still counts.")
-                    .font(.system(size: 12)).foregroundStyle(.textSecondary)
+                    .font(.system(size: 12)).foregroundStyle(Color.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 6)
             } else {
@@ -80,20 +80,20 @@ struct QOLTrendCard: View {
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 16)).foregroundStyle(.ember)
+                        .font(.system(size: 16)).foregroundStyle(Color.ember)
                     Text("Quality of Life Trend")
-                        .font(.system(size: 18, weight: .bold)).foregroundStyle(.textPrimary)
+                        .font(.system(size: 18, weight: .bold)).foregroundStyle(Color.textPrimary)
                 }
                 Spacer()
                 if let last = recent.last {
                     Text("\(last.score)/100")
-                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(.ember)
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.ember)
                 }
             }
 
             if recent.count < 2 {
                 Text("Your QOL trend appears after a couple of days of tracking.")
-                    .font(.system(size: 13)).foregroundStyle(.textSecondary)
+                    .font(.system(size: 13)).foregroundStyle(Color.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)
             } else {
@@ -148,10 +148,10 @@ struct DailyHabitsCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Daily Habits")
-                    .font(.system(size: 18, weight: .bold)).foregroundStyle(.textPrimary)
+                    .font(.system(size: 18, weight: .bold)).foregroundStyle(Color.textPrimary)
                 Spacer()
                 Text("\(completed)/\(habits.count)")
-                    .font(.system(size: 13, weight: .bold)).foregroundStyle(.ember)
+                    .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.ember)
                     .padding(.horizontal, 10).padding(.vertical, 5)
                     .background(Color.ember.opacity(0.12)).clipShape(RoundedRectangle(cornerRadius: 8))
             }
@@ -182,10 +182,10 @@ struct DailyHabitsCard: View {
 
             // Streak
             HStack(spacing: 8) {
-                Image(systemName: "flame.fill").foregroundStyle(.ember)
-                Text("\(LifestyleWellbeingStore.habitStreak())-day streak").font(.system(size: 15, weight: .bold)).foregroundStyle(.textPrimary)
+                Image(systemName: "flame.fill").foregroundStyle(Color.ember)
+                Text("\(LifestyleWellbeingStore.habitStreak())-day streak").font(.system(size: 15, weight: .bold)).foregroundStyle(Color.textPrimary)
                 Spacer()
-                Text("Keep it up 🔥").font(.system(size: 13)).foregroundStyle(.textSecondary)
+                Text("Keep it up 🔥").font(.system(size: 13)).foregroundStyle(Color.textSecondary)
             }
             .padding(14)
             .background(Color.ember.opacity(0.08))
@@ -218,7 +218,7 @@ struct HabitRow: View {
                 }
                 Text(name)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(isDone ? .textTertiary : .textPrimary)
+                    .foregroundStyle(isDone ? Color.textTertiary : Color.textPrimary)
                     .strikethrough(isDone, color: .textTertiary)
                 Spacer()
             }
@@ -286,11 +286,11 @@ struct MindfulnessCard: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Mindfulness")
                     .font(.system(size: 17, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                 Spacer()
                 Text("\(max(vm.mindfulMinutesToday, 0)) min · \(max(vm.mindfulMinutesWeek, 0)) this week")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.textTertiary)
+                    .foregroundStyle(Color.textTertiary)
                     .monospacedDigit()
             }
 
@@ -304,7 +304,7 @@ struct MindfulnessCard: View {
                         VStack(spacing: 4) {
                             Text(item.title)
                                 .font(.system(size: 12, weight: practice == item ? .semibold : .medium))
-                                .foregroundStyle(practice == item ? .textPrimary : .textTertiary)
+                                .foregroundStyle(practice == item ? Color.textPrimary : Color.textTertiary)
                             // underline, not filled pill
                             Rectangle()
                                 .fill(practice == item ? Color.textPrimary : Color.clear)
@@ -323,7 +323,7 @@ struct MindfulnessCard: View {
 
             Text(practice.line)
                 .font(.system(size: 12.5, weight: .regular))
-                .foregroundStyle(.textSecondary)
+                .foregroundStyle(Color.textSecondary)
                 .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -335,7 +335,7 @@ struct MindfulnessCard: View {
                         } label: {
                             Text("\(n)m")
                                 .font(.system(size: 12, weight: minutes == n ? .semibold : .medium))
-                                .foregroundStyle(minutes == n ? .textPrimary : .textTertiary)
+                                .foregroundStyle(minutes == n ? Color.textPrimary : Color.textTertiary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 7)
                                 .background(minutes == n ? Color.surfaceElevated : Color.clear)
@@ -365,20 +365,20 @@ struct MindfulnessCard: View {
                     if isRunning {
                         Text(timeString(remainingSeconds))
                             .font(.system(size: 26, weight: .light, design: .rounded))
-                            .foregroundStyle(.textPrimary)
+                            .foregroundStyle(Color.textPrimary)
                             .monospacedDigit()
                         Text(inhale ? "in" : "out")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.textTertiary)
+                            .foregroundStyle(Color.textTertiary)
                             .textCase(.uppercase).tracking(0.8)
                     } else {
                         Text("\(minutes):00")
                             .font(.system(size: 24, weight: .light, design: .rounded))
-                            .foregroundStyle(.textPrimary)
+                            .foregroundStyle(Color.textPrimary)
                             .monospacedDigit()
                         Text(practice.title.lowercased())
                             .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.textTertiary)
+                            .foregroundStyle(Color.textTertiary)
                     }
                 }
             }
@@ -394,7 +394,7 @@ struct MindfulnessCard: View {
             } label: {
                 Text(isRunning ? "End" : "Begin \(practice.title.lowercased())")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(isRunning ? .textPrimary : .white)
+                    .foregroundStyle(isRunning ? Color.textPrimary : .white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
                     .background(isRunning ? Color.surfaceElevated : Color.textPrimary)
@@ -467,9 +467,9 @@ struct StressManagementCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Stress").font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(.textPrimary)
+                Text("Stress").font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(Color.textPrimary)
                 Spacer()
-                Text(["low","balanced","high"][selectedLevel]).font(.system(size: 11, weight: .medium)).foregroundStyle(.textTertiary)
+                Text(["low","balanced","high"][selectedLevel]).font(.system(size: 11, weight: .medium)).foregroundStyle(Color.textTertiary)
             }
 
             HStack(spacing: 6) {
@@ -480,7 +480,7 @@ struct StressManagementCard: View {
                     } label: {
                         Text(level.label)
                             .font(.system(size: 12, weight: selectedLevel == i ? .semibold : .medium))
-                            .foregroundStyle(selectedLevel == i ? .textPrimary : .textTertiary)
+                            .foregroundStyle(selectedLevel == i ? Color.textPrimary : Color.textTertiary)
                             .frame(maxWidth: .infinity).padding(.vertical, 9)
                             .background(selectedLevel == i ? Color.surfaceElevated : Color.clear)
                             .overlay { RoundedRectangle(cornerRadius: 999).stroke(selectedLevel == i ? Color.borderColor : Color.clear, lineWidth: 1) }
@@ -492,7 +492,7 @@ struct StressManagementCard: View {
 
             Text(stressTip)
                 .font(.system(size: 12, weight: .regular))
-                .foregroundStyle(.textSecondary)
+                .foregroundStyle(Color.textSecondary)
                 .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -530,7 +530,7 @@ struct SleepOptimizationCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Sleep Optimization").font(.system(size: 18, weight: .bold)).foregroundStyle(.textPrimary)
+            Text("Sleep Optimization").font(.system(size: 18, weight: .bold)).foregroundStyle(Color.textPrimary)
 
             VStack(spacing: 10) {
                 ForEach(tips, id: \.tip) { tip in
@@ -539,7 +539,7 @@ struct SleepOptimizationCard: View {
                             Circle().fill(tip.color.opacity(0.12)).frame(width: 36, height: 36)
                             Image(systemName: tip.icon).font(.system(size: 15)).foregroundStyle(tip.color)
                         }
-                        Text(tip.tip).font(.system(size: 13, weight: .medium)).foregroundStyle(.textSecondary)
+                        Text(tip.tip).font(.system(size: 13, weight: .medium)).foregroundStyle(Color.textSecondary)
                         Spacer()
                     }
                     .padding(12)
@@ -624,13 +624,13 @@ struct AIInsightsModal: View {
 
                         HStack {
                             HStack(spacing: 10) {
-                                Image(systemName: "sparkles").font(.system(size: 22)).foregroundStyle(.ember)
-                                Text("AI Life Insights").font(.system(size: 24, weight: .bold)).foregroundStyle(.textPrimary)
+                                Image(systemName: "sparkles").font(.system(size: 22)).foregroundStyle(Color.ember)
+                                Text("AI Life Insights").font(.system(size: 24, weight: .bold)).foregroundStyle(Color.textPrimary)
                             }
                             Spacer()
                             Button { dismiss() } label: {
                                 Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 28)).foregroundStyle(.textTertiary.opacity(0.7))
+                                    .font(.system(size: 28)).foregroundStyle(Color.textTertiary.opacity(0.7))
                             }
                         }
                         .padding(.horizontal, 20).padding(.bottom, 20)
@@ -659,14 +659,14 @@ struct AIInsightsModal: View {
     private func ariaBanner(_ text: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: "sparkles").font(.system(size: 13)).foregroundStyle(.ember)
+                Image(systemName: "sparkles").font(.system(size: 13)).foregroundStyle(Color.ember)
                 Text(isLive ? "ARIA · LIVE" : "ARIA")
-                    .font(.system(size: 11, weight: .bold)).tracking(0.5).foregroundStyle(.ember)
+                    .font(.system(size: 11, weight: .bold)).tracking(0.5).foregroundStyle(Color.ember)
                 Spacer()
             }
             Text(text)
                 .font(.system(size: 14))
-                .foregroundStyle(.textPrimary)
+                .foregroundStyle(Color.textPrimary)
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -694,11 +694,11 @@ struct AIInsightCard: View {
             HStack {
                 Circle().fill(insight.color).frame(width: 8, height: 8)
                     .shadow(color: insight.color.opacity(0.6), radius: 4)
-                Text(insight.title).font(.system(size: 16, weight: .bold)).foregroundStyle(.textPrimary)
+                Text(insight.title).font(.system(size: 16, weight: .bold)).foregroundStyle(Color.textPrimary)
                 Spacer()
             }
             Text(insight.insight)
-                .font(.system(size: 13)).foregroundStyle(.textSecondary).lineSpacing(4)
+                .font(.system(size: 13)).foregroundStyle(Color.textSecondary).lineSpacing(4)
                 .lineLimit(expanded ? nil : 3)
                 .animation(.easeInOut(duration: 0.25), value: expanded)
             Button {

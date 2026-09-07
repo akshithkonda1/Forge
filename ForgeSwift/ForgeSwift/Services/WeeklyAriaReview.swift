@@ -135,23 +135,23 @@ struct WeeklyAriaReviewSheet: View {
                 VStack(alignment: .leading, spacing: 18) {
                     Text("Once a week ARIA sits down and actually asks — not a score, a conversation. Answers stay in your context on this device and, when the backend is up, on your account.")
                         .font(.system(size: 14))
-                        .foregroundStyle(.textSecondary)
+                        .foregroundStyle(Color.textSecondary)
 
                     // Last habit breaker + outcome — closes the loop you asked for
                     if let habit = lastHabit {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 6) {
-                                Image(systemName: habit.category.icon).font(.system(size: 11, weight: .semibold)).foregroundStyle(.ember)
-                                Text("Last habit: \(habit.title)").font(.system(size: 12, weight: .bold)).foregroundStyle(.ember)
+                                Image(systemName: habit.category.icon).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.ember)
+                                Text("Last habit: \(habit.title)").font(.system(size: 12, weight: .bold)).foregroundStyle(Color.ember)
                             }
-                            Text(habit.breaker).font(.system(size: 13)).foregroundStyle(.textPrimary)
-                            Text(habit.evidence).font(.system(size: 11)).foregroundStyle(.textTertiary)
+                            Text(habit.breaker).font(.system(size: 13)).foregroundStyle(Color.textPrimary)
+                            Text(habit.evidence).font(.system(size: 11)).foregroundStyle(Color.textTertiary)
                             if let pending = pendingHabit, pending.habitId == habit.id {
                                 Text("You tried this — did it work? Answer in Wellbeing → Today's Loop.")
-                                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(.success)
+                                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.success)
                             } else if let tried = HabitFeedbackStore.tried().first(where: { $0.habitId == habit.id && $0.feedback != nil }) {
                                 Text(tried.feedback == "yeah" ? "You said it worked ✓" : "You said it was too big — next breaker will be smaller")
-                                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(tried.feedback == "yeah" ? .success : .warning)
+                                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(tried.feedback == "yeah" ? Color.success : Color.warning)
                             }
                         }
                         .padding(12).background(Color.ember.opacity(0.06)).clipShape(RoundedRectangle(cornerRadius: 12))
@@ -162,10 +162,10 @@ struct WeeklyAriaReviewSheet: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(question.prompt)
                                 .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(.textPrimary)
+                                .foregroundStyle(Color.textPrimary)
                             Text(question.hint)
                                 .font(.system(size: 12))
-                                .foregroundStyle(.textTertiary)
+                                .foregroundStyle(Color.textTertiary)
                             TextField("Your answer", text: Binding(
                                 get: { review.answers[question.id] ?? "" },
                                 set: { review.answers[question.id] = $0 }
