@@ -294,6 +294,17 @@ export interface AriaContext {
     lastWorkoutDurationMinutes: number | null;
     hoursSinceLastWorkout: number | null;
     weeklyLoadScore: number | null; // null if < 3 sessions
+    /** How the week is owned: user-fixed days, or ARIA rotates. */
+    schedulePlanningMode: "fixed" | "rotate" | null;
+    /** Sunday=0 … Saturday=6. Empty / omitted → default walking week. */
+    weeklySplit: Array<{
+      weekday: number;
+      primary: string;
+      extra: string | null;
+      exerciseCount: number;
+    }> | null;
+    /** 0=Sunday … 6=Saturday in the user's local calendar. */
+    sun0Weekday: number | null;
   };
   activity: {
     steps3DayAvg: number | null;

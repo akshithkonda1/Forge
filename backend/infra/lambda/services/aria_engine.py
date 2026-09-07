@@ -276,6 +276,9 @@ class TrainingContext:
     last_workout_duration_minutes: float | None = None
     hours_since_last_workout: float | None = None
     weekly_load_score: float | None = None  # normalized, null if < 3 sessions
+    schedule_planning_mode: str | None = None  # fixed | rotate
+    weekly_split: list | None = None
+    sun0_weekday: int | None = None  # 0=Sun … 6=Sat
 
 
 @dataclass
@@ -591,6 +594,15 @@ class ARIAContext:
                 last_workout_duration_minutes=_num(training.get("lastWorkoutDurationMinutes")),
                 hours_since_last_workout=_num(training.get("hoursSinceLastWorkout")),
                 weekly_load_score=_num(training.get("weeklyLoadScore")),
+                schedule_planning_mode=_str(
+                    training.get("schedulePlanningMode") or training.get("schedule_planning_mode")
+                ),
+                weekly_split=training.get("weeklySplit")
+                if isinstance(training.get("weeklySplit"), list)
+                else training.get("weekly_split")
+                if isinstance(training.get("weekly_split"), list)
+                else None,
+                sun0_weekday=_int(training.get("sun0Weekday") or training.get("sun0_weekday")),
             ),
             activity=ActivityContext(
                 steps_3day_avg=_num(activity.get("steps3DayAvg")),
@@ -1637,6 +1649,11 @@ def generate_response(
             readiness=int(ctx.readiness.recovery_score)
             if isinstance(ctx.readiness.recovery_score, (int, float))
             else None,
+            planning_mode=ctx.training.schedule_planning_mode,
+            weekly_split=ctx.training.weekly_split,
+            sun0_weekday=ctx.training.sun0_weekday
+            if ctx.training.sun0_weekday is not None
+            else body_library.sun0_from_iso(ctx.timestamp),
         )
         if session is not None:
             envelope["session"] = session.to_dict()

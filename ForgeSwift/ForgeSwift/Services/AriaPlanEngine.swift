@@ -99,7 +99,11 @@ enum AriaPlanEngine {
                 history: context.workoutHistory,
                 now: context.currentTime,
                 experience: experience,
-                readiness: readiness
+                readiness: readiness,
+                mode: context.userProfile.schedulePlanningMode,
+                split: context.userProfile.weeklySplit,
+                pickWeekday: WeeklySplit.parseWeekday(in: input),
+                replayPrior: WeeklySplit.wantsReplayPrior(input)
             )
             session = overlayLibraryFocus(focus, onto: session, equipment: equipment)
         }
@@ -294,12 +298,16 @@ enum AriaPlanEngine {
             return Array(ordered.prefix(limit))
         }
 
-        let primaryLimit = focus.extra == nil ? 6 : 4
+        let count = max(2, min(8, focus.exerciseCount))
+        let extraLimit = focus.extra == nil ? 0 : (count >= 5 ? 2 : 1)
+        let primaryLimit = focus.extra == nil ? count : max(2, count - extraLimit)
         var defs = focus.title == "Full body"
-            ? picks(for: .push, limit: 2) + picks(for: .pull, limit: 2) + picks(for: .legs, limit: 2)
+            ? picks(for: .push, limit: max(1, count / 3))
+                + picks(for: .pull, limit: max(1, count / 3))
+                + picks(for: .legs, limit: max(1, count - 2 * max(1, count / 3)))
             : picks(for: focus.region, limit: primaryLimit)
         if let extra = focus.extra {
-            defs += picks(for: extra, limit: 2)
+            defs += picks(for: extra, limit: extraLimit)
         }
         guard !defs.isEmpty else { return session }
 

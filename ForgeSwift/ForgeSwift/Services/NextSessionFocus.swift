@@ -12,6 +12,9 @@ enum NextSessionFocus {
         let reason: String
         let alternatives: [TargetMuscle.Region]
         let avoided: TargetMuscle.Region?
+        var exerciseCount: Int = 6
+        var weekday: Int? = nil
+        var planningMode: SchedulePlanningMode = .rotate
 
         var muscles: [TargetMuscle] {
             TargetMuscle.allCases.filter { $0.region == region }
@@ -27,6 +30,8 @@ enum NextSessionFocus {
             "train", "workout", "session", "lift", "gym", "exercise",
             "today's plan", "todays plan", "what should i do today",
             "leg day", "push day", "pull day",
+            "yesterday's session", "yesterdays session", "do yesterday",
+            "day prior", "this week's", "this weeks",
         ]
         return needles.contains { lower.contains($0) }
     }
@@ -76,7 +81,11 @@ enum NextSessionFocus {
         history: [WorkoutHistory],
         now: Date,
         experience: ExperienceLevel,
-        readiness: Int
+        readiness: Int,
+        mode: SchedulePlanningMode = .rotate,
+        split: [WeeklySplitSlot] = WeeklySplitSlot.defaultWeek,
+        pickWeekday: Int? = nil,
+        replayPrior: Bool = false
     ) -> Suggestion {
         let last = history.first
         let lastRegion = last.flatMap { inferRegion(name: $0.name, type: $0.type) }
@@ -85,7 +94,18 @@ enum NextSessionFocus {
         let longGap = hours == nil || hours! >= fullBodyHours
         let avoided: TargetMuscle.Region? = stillFresh ? lastRegion : nil
         let beginner = experience == .beginner
-        let weekday = Calendar.current.component(.weekday, from: now) // 1=Sun
+        let today = WeeklySplit.sun0(from: now)
+        let week = WeeklySplit.normalized(split)
+
+        if replayPrior || pickWeekday != nil {
+            let day = replayPrior ? (today + 6) % 7 : ((pickWeekday! % 7) + 7) % 7
+            let slot = WeeklySplit.slot(for: day, in: week)
+            var reason = slotReason(slot, prefix: replayPrior ? "Going back one day." : "You picked \(WeeklySplit.dayNames[day]).")
+            if let avoided, slot.region == avoided {
+                reason = "\(avoided.label) is still fresh — your call. \(reason)"
+            }
+            return from(slot: slot, reason: reason, avoided: avoided, mode: mode)
+        }
 
         if readiness < 55 {
             return Suggestion(
@@ -94,11 +114,24 @@ enum NextSessionFocus {
                 title: "Easy core",
                 reason: "Recovery is asking for care, so I'm keeping the floor small.",
                 alternatives: [.conditioning],
-                avoided: avoided
+                avoided: avoided,
+                exerciseCount: 4,
+                weekday: today,
+                planningMode: mode
             )
         }
 
-        // Tuesday legs → Wednesday chest + abs.
+        if mode == .fixed {
+            let todaySlot = WeeklySplit.slot(for: today, in: week)
+            let open = nextOpenSlot(from: todaySlot, week: week, avoided: avoided)
+            var prefix: String? = nil
+            if open.weekday != todaySlot.weekday, let avoided {
+                prefix = "\(avoided.label) is still fresh, so I'm opening the next day on your week."
+            }
+            return from(slot: open, reason: slotReason(open, prefix: prefix), avoided: avoided, mode: .fixed)
+        }
+
+        // Tuesday legs → Wednesday chest + abs (rotate after yesterday).
         if avoided == .legs {
             return Suggestion(
                 region: .push,
@@ -106,8 +139,17 @@ enum NextSessionFocus {
                 title: "Chest and abs",
                 reason: yesterdayReason(last: last, region: lastRegion, hours: hours),
                 alternatives: [.pull, .conditioning],
-                avoided: .legs
+                avoided: .legs,
+                exerciseCount: 6,
+                weekday: today,
+                planningMode: mode
             )
+        }
+
+        // No last session — walk the calendar (Tue legs, Wed chest+abs).
+        if lastRegion == nil {
+            let slot = WeeklySplit.slot(for: today, in: week)
+            return from(slot: slot, reason: slotReason(slot), avoided: avoided, mode: mode)
         }
 
         if beginner || longGap {
@@ -119,7 +161,10 @@ enum NextSessionFocus {
                     ? "It's been a few days, so a full-body session from the libraries fits."
                     : "Keeping it full-body — consistency beats a split you don't need yet.",
                 alternatives: [.push, .legs],
-                avoided: avoided
+                avoided: avoided,
+                exerciseCount: 6,
+                weekday: today,
+                planningMode: mode
             )
         }
 
@@ -132,7 +177,8 @@ enum NextSessionFocus {
         case .conditioning: next = .push; alts = [.pull, .legs]
         case .legs, .none: next = .push; alts = [.pull, .core]
         }
-        if weekday == 1 || weekday == 7 { // weekend
+        let calWeekday = Calendar.current.component(.weekday, from: now) // 1=Sun
+        if calWeekday == 1 || calWeekday == 7 {
             alts = [.conditioning] + alts
         }
         return Suggestion(
@@ -141,8 +187,81 @@ enum NextSessionFocus {
             title: next.label,
             reason: yesterdayReason(last: last, region: lastRegion, hours: hours),
             alternatives: Array(alts.prefix(2)),
-            avoided: avoided
+            avoided: avoided,
+            exerciseCount: 5,
+            weekday: today,
+            planningMode: mode
         )
+    }
+
+    private static func from(
+        slot: WeeklySplitSlot,
+        reason: String,
+        avoided: TargetMuscle.Region?,
+        mode: SchedulePlanningMode
+    ) -> Suggestion {
+        if slot.isRest {
+            return Suggestion(
+                region: .core,
+                extra: nil,
+                title: "Rest day",
+                reason: reason,
+                alternatives: [.conditioning],
+                avoided: avoided,
+                exerciseCount: max(2, min(4, slot.exerciseCount == 0 ? 3 : slot.exerciseCount)),
+                weekday: slot.weekday,
+                planningMode: mode
+            )
+        }
+        if slot.primary == "full_body" {
+            return Suggestion(
+                region: .conditioning,
+                extra: nil,
+                title: "Full body",
+                reason: reason,
+                alternatives: [.push, .legs],
+                avoided: avoided,
+                exerciseCount: max(4, slot.exerciseCount),
+                weekday: slot.weekday,
+                planningMode: mode
+            )
+        }
+        return Suggestion(
+            region: slot.region ?? .push,
+            extra: slot.extraRegion,
+            title: slot.title,
+            reason: reason,
+            alternatives: [.pull, .legs],
+            avoided: avoided,
+            exerciseCount: max(2, min(8, slot.exerciseCount)),
+            weekday: slot.weekday,
+            planningMode: mode
+        )
+    }
+
+    private static func slotReason(_ slot: WeeklySplitSlot, prefix: String? = nil) -> String {
+        let day = WeeklySplit.dayNames[slot.weekday]
+        let body: String
+        if slot.isRest {
+            body = "\(day) on your week is a rest slot — easy core if you still want to move."
+        } else {
+            body = "\(day) on your week is \(slot.title.lowercased())."
+        }
+        if let prefix, !prefix.isEmpty { return "\(prefix) \(body)" }
+        return body
+    }
+
+    private static func nextOpenSlot(
+        from start: WeeklySplitSlot,
+        week: [WeeklySplitSlot],
+        avoided: TargetMuscle.Region?
+    ) -> WeeklySplitSlot {
+        guard let avoided, !start.isRest, start.region == avoided else { return start }
+        for delta in 1...6 {
+            let nxt = WeeklySplit.slot(for: start.weekday + delta, in: week)
+            if !nxt.isRest, nxt.region != avoided { return nxt }
+        }
+        return start
     }
 
     private static func typeRegion(_ type: WorkoutType?) -> TargetMuscle.Region? {

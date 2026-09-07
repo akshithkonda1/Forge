@@ -161,7 +161,7 @@ final class OnboardingCoordinator {
             ariaOrbState = .listening
         case .ready:
             await deliverReadinessSummary()
-        case .health, .workouts:
+        case .health, .workouts, .schedule:
             await ariaSay(line, mood: .energized, interrupt: false)
             ariaOrbState = .listening
         case .sleep, .coaching:
@@ -341,6 +341,42 @@ final class OnboardingCoordinator {
         syncPartialContext()
         Task {
             await ariaSay(AriaInterviewVoice.acknowledgeWorkouts(labels), mood: .energized)
+            await advanceTo(.schedule)
+        }
+    }
+
+    func selectScheduleMode(_ mode: SchedulePlanningMode) {
+        guard step == .schedule else { return }
+        FDS.selectionHaptic()
+        profile.schedulePlanningMode = mode
+        if profile.weeklySplit.isEmpty {
+            profile.weeklySplit = WeeklySplitSlot.defaultWeek
+        }
+    }
+
+    func setSplitSlot(_ slot: WeeklySplitSlot) {
+        guard step == .schedule else { return }
+        FDS.selectionHaptic()
+        var week = WeeklySplit.normalized(profile.weeklySplit)
+        if let idx = week.firstIndex(where: { $0.weekday == slot.weekday }) {
+            week[idx] = slot
+        }
+        profile.weeklySplit = week
+        profile.schedulePlanningMode = .fixed
+    }
+
+    func confirmSchedule() {
+        guard step == .schedule else { return }
+        interruptInterviewVoice()
+        profile.weeklySplit = WeeklySplit.normalized(profile.weeklySplit)
+        let label = profile.schedulePlanningMode == .fixed
+            ? WeeklySplit.summary(mode: .fixed, split: profile.weeklySplit)
+            : "Rotate the week"
+        appendUser(label)
+        FDS.haptic(.light)
+        syncPartialContext()
+        Task {
+            await ariaSay(AriaInterviewVoice.acknowledgeSchedule(profile.schedulePlanningMode), mood: .energized)
             await advanceTo(.sleep)
         }
     }
@@ -726,6 +762,13 @@ final class OnboardingCoordinator {
             confirmGoals()
         case .confirmWorkouts:
             confirmWorkouts()
+        case .scheduleRotate:
+            selectScheduleMode(.rotate)
+            confirmSchedule()
+        case .scheduleFixed:
+            selectScheduleMode(.fixed)
+        case .confirmSchedule:
+            confirmSchedule()
         case .skipInterests, .confirmInterests:
             confirmInterests()
         case .skipConditions:
@@ -772,6 +815,13 @@ final class OnboardingCoordinator {
             }
         case .confirmWorkouts:
             confirmWorkouts()
+        case .scheduleRotate:
+            selectScheduleMode(.rotate)
+            confirmSchedule()
+        case .scheduleFixed:
+            selectScheduleMode(.fixed)
+        case .confirmSchedule:
+            confirmSchedule()
         case .toggleInterests(let interests):
             for interest in interests where !profile.freeTimeInterests.contains(interest) {
                 toggleInterest(interest)

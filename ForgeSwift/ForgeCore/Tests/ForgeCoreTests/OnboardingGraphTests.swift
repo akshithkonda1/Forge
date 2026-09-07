@@ -46,19 +46,21 @@ final class OnboardingGraphTests: XCTestCase {
     }
 
     func testHeaderProgressUsesActiveStepsNotAllCases() {
-        XCTAssertEqual(OnboardingGraph.activeSteps.count, 12)
-        XCTAssertEqual(OnboardingGraph.Step.allCases.count, 14)
+        XCTAssertEqual(OnboardingGraph.activeSteps.count, 13)
+        XCTAssertEqual(OnboardingGraph.Step.allCases.count, 15)
         XCTAssertFalse(OnboardingGraph.activeSteps.contains(.trainingTheme))
         XCTAssertFalse(OnboardingGraph.activeSteps.contains(.lifeContext))
+        XCTAssertTrue(OnboardingGraph.activeSteps.contains(.schedule))
         XCTAssertEqual(OnboardingGraph.displayCount, OnboardingGraph.activeSteps.count)
         XCTAssertNotEqual(OnboardingGraph.displayCount, OnboardingGraph.Step.allCases.count)
 
         XCTAssertEqual(OnboardingGraph.progress(at: .intro), 0)
         XCTAssertEqual(OnboardingGraph.progress(at: .ready), 1)
-        XCTAssertEqual(OnboardingGraph.displayIndex(for: .ready), 12)
-        XCTAssertEqual(OnboardingGraph.displayIndex(for: .freeTime), 9)
+        XCTAssertEqual(OnboardingGraph.displayIndex(for: .ready), 13)
+        XCTAssertEqual(OnboardingGraph.displayIndex(for: .freeTime), 10)
+        XCTAssertEqual(OnboardingGraph.displayIndex(for: .schedule), 8)
 
-        // allCases would leave Ready at 11/13 and print "12 / 14".
+        // allCases would leave Ready short of a full bar (legacy theme/context).
         let allCasesReady = Double(OnboardingGraph.Step.allCases.firstIndex(of: .ready)!)
             / Double(OnboardingGraph.Step.allCases.count - 1)
         XCTAssertNotEqual(OnboardingGraph.progress(at: .ready), allCasesReady)
@@ -68,6 +70,8 @@ final class OnboardingGraphTests: XCTestCase {
         XCTAssertNil(OnboardingGraph.previous(of: .intro))
         XCTAssertNil(OnboardingGraph.previous(of: .name))
         XCTAssertEqual(OnboardingGraph.previous(of: .health), .name)
+        XCTAssertEqual(OnboardingGraph.previous(of: .schedule), .workouts)
+        XCTAssertEqual(OnboardingGraph.previous(of: .sleep), .schedule)
         XCTAssertEqual(OnboardingGraph.previous(of: .freeTime), .sleep)
         XCTAssertEqual(OnboardingGraph.previous(of: .coaching), .freeTime)
         XCTAssertEqual(OnboardingGraph.previous(of: .conditions), .coaching)

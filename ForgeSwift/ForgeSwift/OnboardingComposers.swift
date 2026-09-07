@@ -879,6 +879,134 @@ struct MessageBubble: View {
     }
 }
 
+struct ScheduleComposer: View {
+    @Bindable var coordinator: OnboardingCoordinator
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                modeChip(.rotate)
+                modeChip(.fixed)
+            }
+
+            if coordinator.profile.schedulePlanningMode == .fixed {
+                Text("Tap a day to change the library and how many moves.")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.textTertiary)
+                VStack(spacing: 8) {
+                    ForEach(WeeklySplit.normalized(coordinator.profile.weeklySplit)) { slot in
+                        dayRow(slot)
+                    }
+                }
+            } else {
+                Text(WeeklySplit.summary(mode: .rotate, split: coordinator.profile.weeklySplit))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(action: { coordinator.confirmSchedule() }) {
+                Text("That’s the week")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.ember)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func modeChip(_ mode: SchedulePlanningMode) -> some View {
+        let on = coordinator.profile.schedulePlanningMode == mode
+        return Button {
+            coordinator.selectScheduleMode(mode)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(mode.label)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(on ? .white : .textPrimary)
+                Text(mode == .rotate ? "ARIA walks it" : "You assign days")
+                    .font(.system(size: 11))
+                    .foregroundColor(on ? .white.opacity(0.8) : .textTertiary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(on ? Color.ember : Color.surfaceElevated)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func dayRow(_ slot: WeeklySplitSlot) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(WeeklySplit.dayLabels[slot.weekday])
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(.textPrimary)
+                    .frame(width: 36, alignment: .leading)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(WeeklySplit.focusChoices, id: \.label) { choice in
+                            let selected = slot.primary == choice.id && slot.extra == choice.extra
+                            Button {
+                                coordinator.setSplitSlot(WeeklySplitSlot(
+                                    weekday: slot.weekday,
+                                    primary: choice.id,
+                                    extra: choice.extra,
+                                    exerciseCount: choice.id == "rest" ? 0 : max(3, slot.exerciseCount)
+                                ))
+                            } label: {
+                                Text(choice.label)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(selected ? .white : .textSecondary)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 6)
+                                    .background(selected ? Color.ember : Color.surface)
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            if !slot.isRest {
+                HStack(spacing: 10) {
+                    Text("\(slot.exerciseCount) exercises")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                    Spacer()
+                    Button {
+                        coordinator.setSplitSlot(WeeklySplitSlot(
+                            weekday: slot.weekday,
+                            primary: slot.primary,
+                            extra: slot.extra,
+                            exerciseCount: max(3, slot.exerciseCount - 1)
+                        ))
+                    } label: {
+                        Image(systemName: "minus.circle.fill").foregroundColor(.textSecondary)
+                    }
+                    Button {
+                        coordinator.setSplitSlot(WeeklySplitSlot(
+                            weekday: slot.weekday,
+                            primary: slot.primary,
+                            extra: slot.extra,
+                            exerciseCount: min(8, slot.exerciseCount + 1)
+                        ))
+                    } label: {
+                        Image(systemName: "plus.circle.fill").foregroundColor(.ember)
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .background(Color.surfaceElevated)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
 struct TypingIndicator: View {
     @State private var phase = 0.0
 

@@ -110,6 +110,107 @@ class SuggestionTests(unittest.TestCase):
         self.assertIn("push", s.combo)
 
 
+class WeeklySplitTests(unittest.TestCase):
+    def test_default_week_is_tuesday_legs_wednesday_chest_abs(self):
+        week = B.default_week()
+        self.assertEqual(len(week), 7)
+        self.assertEqual(week[0].primary, "rest")
+        self.assertEqual(week[0].exercise_count, 0)
+        self.assertEqual(week[2].primary, "legs")
+        self.assertEqual(week[2].exercise_count, 6)
+        self.assertEqual(week[3].primary, "push")
+        self.assertEqual(week[3].extra, "core")
+
+    def test_wednesday_without_history_opens_chest_and_abs(self):
+        s = B.suggest_session(
+            last_region=None,
+            sun0_weekday=3,
+            experience="intermediate",
+            readiness=72,
+        )
+        self.assertIn("push", s.combo)
+        self.assertIn("core", s.combo)
+        self.assertEqual(s.weekday, 3)
+        self.assertEqual(len(s.exercises), 6)
+        spoken = s.spoken()
+        self.assertNotRegex(spoken, r"\d")
+        self.assertIn("wednesday", spoken.lower())
+
+    def test_tuesday_without_history_opens_legs(self):
+        s = B.suggest_session(
+            last_region=None,
+            sun0_weekday=2,
+            experience="intermediate",
+            readiness=70,
+        )
+        self.assertEqual(s.region, "legs")
+        self.assertEqual(s.weekday, 2)
+        self.assertEqual(len(s.exercises), 6)
+        self.assertTrue(any("squat" in m.name.lower() or "lunge" in m.name.lower() for m in s.exercises))
+
+    def test_fixed_week_honors_today_even_after_legs(self):
+        s = B.suggest_session(
+            last_region="legs",
+            hours_since=20,
+            sun0_weekday=4,  # Thursday = pull
+            planning_mode="fixed",
+            experience="intermediate",
+            readiness=74,
+        )
+        self.assertEqual(s.region, "pull")
+        self.assertEqual(s.weekday, 4)
+        self.assertEqual(s.planning_mode, "fixed")
+
+    def test_pick_tuesday_replays_legs_on_a_wednesday(self):
+        s = B.suggest_session(
+            last_region="legs",
+            hours_since=20,
+            sun0_weekday=3,
+            pick_weekday=2,
+            experience="intermediate",
+            readiness=74,
+        )
+        self.assertEqual(s.region, "legs")
+        self.assertEqual(s.weekday, 2)
+        self.assertIn("fresh", s.reason.lower())
+
+    def test_replay_prior_opens_yesterdays_slot(self):
+        s = B.suggest_session(
+            sun0_weekday=3,
+            replay_prior=True,
+            experience="intermediate",
+            readiness=70,
+        )
+        self.assertEqual(s.region, "legs")
+        self.assertEqual(s.weekday, 2)
+        self.assertIn("back", s.reason.lower())
+
+    def test_maybe_suggest_reads_do_tuesday(self):
+        s = B.maybe_suggest(
+            "Do Tuesday's session",
+            sun0_weekday=3,
+            experience="intermediate",
+            readiness=70,
+        )
+        self.assertIsNotNone(s)
+        self.assertEqual(s.region, "legs")
+        self.assertEqual(s.weekday, 2)
+
+    def test_custom_split_overrides_default_wednesday(self):
+        custom = [
+            {"weekday": 3, "primary": "pull", "extra": None, "exerciseCount": 4},
+        ]
+        s = B.suggest_session(
+            sun0_weekday=3,
+            planning_mode="fixed",
+            weekly_split=custom,
+            experience="advanced",
+            readiness=80,
+        )
+        self.assertEqual(s.region, "pull")
+        self.assertEqual(len(s.exercises), 4)
+
+
 class EngineWiringTests(unittest.TestCase):
     def test_recommendation_carries_a_body_session(self):
         ctx = aria_engine.ARIAContext.from_payload({
@@ -136,6 +237,26 @@ class EngineWiringTests(unittest.TestCase):
         ctx = aria_engine.ARIAContext.from_payload({"user_id": "u"})
         r = aria_engine.generate_response("How did I sleep last night?", ctx)
         self.assertNotIn("session", r)
+
+    def test_do_tuesday_uses_the_week_slot(self):
+        ctx = aria_engine.ARIAContext.from_payload({
+            "user_id": "u",
+            "timestamp": "2026-09-09T15:00:00Z",
+            "context": {
+                "training": {
+                    "schedulePlanningMode": "fixed",
+                    "sun0Weekday": 3,
+                },
+                "profile": {"experienceLevel": "intermediate"},
+                "readiness": {"recoveryScore": 72},
+            },
+        })
+        r = aria_engine.generate_response("What should I train today? Do Tuesday's session", ctx)
+        session = r.get("session")
+        self.assertIsInstance(session, dict)
+        self.assertEqual(session.get("region"), "legs")
+        self.assertEqual(session.get("weekday"), 2)
+        self.assertEqual(session.get("exerciseCount"), 6)
 
 
 if __name__ == "__main__":

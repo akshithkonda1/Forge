@@ -118,7 +118,7 @@ final class AriaInterviewVoiceTests: XCTestCase {
                 step: .details, profile: empty, health: .unknown, calendar: .unknown
             ).isEmpty
         )
-        XCTAssertEqual(AriaInterviewStep.allCases.count, 12)
+        XCTAssertEqual(AriaInterviewStep.allCases.count, 13)
         XCTAssertTrue(AriaInterviewVoice.shouldShowVoiceDock(for: .name))
         XCTAssertFalse(AriaInterviewVoice.shouldShowVoiceDock(for: .ready))
     }
@@ -209,5 +209,27 @@ final class AriaInterviewVoiceTests: XCTestCase {
         coordinator.step = .coaching
         coordinator.goBack()
         XCTAssertEqual(coordinator.step, .freeTime)
+    }
+
+    func testScheduleVoicePicksRotateOrFixed() {
+        let profile = OnboardingProfile()
+        XCTAssertEqual(
+            AriaInterviewVoice.matchSpoken("rotate for me", step: .schedule, profile: profile),
+            .scheduleRotate
+        )
+        XCTAssertEqual(
+            AriaInterviewVoice.matchSpoken("I'll pick the days", step: .schedule, profile: profile),
+            .scheduleFixed
+        )
+        XCTAssertEqual(
+            AriaInterviewVoice.matchSpoken("that's the week", step: .schedule, profile: profile),
+            .confirmSchedule
+        )
+        let line = AriaInterviewVoice.prompt(
+            .schedule, profile: profile, healthAuthorized: false, healthPrefill: false, vo2Max: nil
+        )
+        XCTAssertTrue(line.localizedCaseInsensitiveContains("tuesday"))
+        XCTAssertTrue(line.localizedCaseInsensitiveContains("chest"))
+        XCTAssertLessThan(line.count, AriaSpeechPrep.characterLimit)
     }
 }
