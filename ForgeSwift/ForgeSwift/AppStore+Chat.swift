@@ -61,7 +61,7 @@ extension AppStore {
         persistChatSession()
     }
 
-    private func persistChatSession() {
+    func persistChatSession() {
         let recent = Array(chatMessages.suffix(Self.maxPersistedMessages))
         let doc = ChatSessionDocument(
             version: 3,
@@ -72,7 +72,7 @@ extension AppStore {
             updatedAt: Date()
         )
         guard let data = try? JSONEncoder().encode(doc) else { return }
-        UserDefaults.standard.set(data, forKey: Self.chatSessionKey)
+        UserDefaults.standard.set(data, forKey: chatSessionStorageKey())
         // Keep legacy XP keys warm for any older readers.
         UserDefaults.standard.set(chatXP, forKey: Self.chatXPKey)
         UserDefaults.standard.set(chatLevel, forKey: Self.chatLevelKey)
@@ -85,6 +85,29 @@ extension AppStore {
     private func persistChatHistory() { persistChatSession() }
 
     func restoreChatHistory() {
+        // Preferred: scoped v3 session for the signed-in user.
+        let scopedKey = chatSessionStorageKey()
+        if let data = UserDefaults.standard.data(forKey: scopedKey),
+           let doc = try? JSONDecoder().decode(ChatSessionDocument.self, from: data) {
+            chatMessages = doc.messages
+            chatXP = max(0, doc.xp)
+            chatLevel = max(1, doc.level, (chatXP / Self.xpPerChatLevel) + 1)
+            durableMemoryAnchors = doc.durableAnchors
+            return
+        }
+
+        // Migrate unscoped v3 (pre-multi-user) into the current user's key.
+        if scopedKey != Self.chatSessionKey,
+           let data = UserDefaults.standard.data(forKey: Self.chatSessionKey),
+           let doc = try? JSONDecoder().decode(ChatSessionDocument.self, from: data) {
+            chatMessages = doc.messages
+            chatXP = max(0, doc.xp)
+            chatLevel = max(1, doc.level, (chatXP / Self.xpPerChatLevel) + 1)
+            durableMemoryAnchors = doc.durableAnchors
+            persistChatSession()
+            return
+        }
+
         // Preferred: single v3 session document.
         if let data = UserDefaults.standard.data(forKey: Self.chatSessionKey),
            let doc = try? JSONDecoder().decode(ChatSessionDocument.self, from: data) {
@@ -132,6 +155,7 @@ extension AppStore {
         durableMemoryAnchors = []
         streamingMessageId = nil
         streamingVisibleCount = 0
+        UserDefaults.standard.removeObject(forKey: chatSessionStorageKey())
         UserDefaults.standard.removeObject(forKey: Self.chatSessionKey)
         UserDefaults.standard.removeObject(forKey: Self.chatHistoryKeyLegacyV2)
         UserDefaults.standard.removeObject(forKey: Self.chatHistoryKeyLegacyV1)
@@ -140,7 +164,52 @@ extension AppStore {
         UserDefaults.standard.removeObject(forKey: Self.durableMemoryKey)
     }
 
-    /// Progressive reveal of the latest ARIA reply — feels like streaming even
+    /// Sign-out path: keep the user's transcript on disk, wipe the live store.
+    func resetInMemoryChat() {
+        chatMessages = []
+        chatXP = 0
+        chatLevel = 1
+        durableMemoryAnchors = []
+        streamingMessageId = nil
+        streamingVisibleCount = 0
+        lastSuggestedActions = []
+    }
+
+    /// Pull `/chat/threads/current` and merge without clobbering a live local transcript.
+    func syncChatHistoryFromCloud() async {
+        guard ForgeCloudSync.shared.isRemoteEligible else { return }
+        do {
+            let thread = try await ForgeCloudSync.shared.fetchChatThread()
+            mergeCloudThread(thread)
+            lastCloudSyncError = nil
+        } catch let failure as ForgeAPI.Failure {
+            if !failure.deservesOfflineFallback {
+                lastCloudSyncError = failure.userMessage
+            }
+        } catch {
+            lastCloudSyncError = nil
+        }
+    }
+
+    func mergeCloudThread(_ thread: CloudChatThread) {
+        if thread.looksLikeDemoSeed { return }
+        let mapped = thread.messages.compactMap { $0.toChatMessage() }
+        guard !mapped.isEmpty else { return }
+        if chatMessages.isEmpty {
+            chatMessages = mapped
+            persistChatSession()
+            return
+        }
+        var byId = Dictionary(chatMessages.map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
+        var added = false
+        for message in mapped where byId[message.id] == nil {
+            byId[message.id] = message
+            added = true
+        }
+        guard added else { return }
+        chatMessages = byId.values.sorted { $0.timestamp < $1.timestamp }
+        persistChatSession()
+    }
     /// when the backend returns a full message. Does not mutate stored content.
     func beginStreamingReveal(for messageId: String, fullLength: Int) {
         streamingMessageId = messageId
@@ -410,6 +479,16 @@ extension AppStore {
                 content: aria.message,
                 timestamp: Date(),
                 richCard: aria.toRichCardData(),
+                toolCallsMade: {
+                    var tools = aria.toolCallsMade ?? []
+                    if tools.isEmpty {
+                        tools = plan.workers.map(\.kind.label)
+                    }
+                    if tools.isEmpty, let extra = aria.richCard?.toolCallsMade, !extra.isEmpty {
+                        tools = extra
+                    }
+                    return tools.isEmpty ? nil : tools
+                }(),
                 confidence: aria.confidence,
                 suggestedActions: aria.suggestedActions,
                 memoryReference: aria.memoryReference,
@@ -422,7 +501,8 @@ extension AppStore {
             let errorMessage = ChatMessage(
                 id: UUID().uuidString,
                 role: .trainer,
-                content: "Sorry, I'm having trouble processing that right now. Can you try again?",
+                content: AriaService.shared.lastRemoteError
+                    ?? "Forge couldn't complete that request. Try again in a moment.",
                 timestamp: Date()
             )
             chatMessages.append(errorMessage)

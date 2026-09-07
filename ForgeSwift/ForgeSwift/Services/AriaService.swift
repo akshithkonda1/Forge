@@ -256,14 +256,17 @@ final class AriaService: ObservableObject {
     static func payload(from card: RichCardData) -> RichCardPayload? {
         switch card.type {
         case .workoutPlan:
-            return RichCardPayload(
+            return CloudRichCard(
                 type: "workout_plan",
                 title: card.workoutName,
                 workoutName: card.workoutName,
-                durationMinutes: card.workoutDuration
+                durationMinutes: card.workoutDuration,
+                exercises: (card.workoutExercises ?? []).map {
+                    CloudRichCardExercise(name: $0.name, sets: $0.sets, reps: $0.reps)
+                }
             )
         case .dataChart:
-            return RichCardPayload(
+            return CloudRichCard(
                 type: "data_chart",
                 title: card.chartTitle,
                 values: card.chartValues,

@@ -295,6 +295,20 @@ final class AriaFirstBondTests: XCTestCase {
         XCTAssertTrue(turn.finishes)
         XCTAssertTrue(turn.message.isEmpty)
     }
+
+    func testHomeBriefingPromptsHandoffToCoach() {
+        XCTAssertTrue(AriaFirstBond.shouldHandoffToCoach("Continue from today's briefing."))
+        XCTAssertTrue(AriaFirstBond.shouldHandoffToCoach(HomeInsightFlow.replyPrompt))
+        XCTAssertTrue(AriaFirstBond.shouldHandoffToCoach(HomeInsightFlow.voiceCheckInPrompt))
+        XCTAssertTrue(AriaFirstBond.shouldHandoffToCoach("Tell me more about: low HRV today"))
+        XCTAssertTrue(AriaFirstBond.shouldHandoffToCoach("Help me with: skip the late coffee"))
+        let turn = AriaFirstBond.advance(
+            beat: .opening,
+            userText: HomeInsightFlow.replyPrompt,
+            context: ctx()
+        )
+        XCTAssertTrue(turn.finishes)
+    }
 }
 
 final class ARIAChatHandoffTests: XCTestCase {
@@ -310,11 +324,19 @@ final class ARIAChatHandoffTests: XCTestCase {
 
     func testVoiceLaunchDoesNotAutoSend() {
         let result = ARIAChatHandoff.consume(
-            .init(pendingPrompt: "Continue from today's briefing.", voiceLaunch: true)
+            .init(pendingPrompt: HomeInsightFlow.voiceCheckInPrompt, voiceLaunch: true)
         )
-        XCTAssertEqual(result.prompt, "Continue from today's briefing.")
+        XCTAssertEqual(result.prompt, HomeInsightFlow.voiceCheckInPrompt)
         XCTAssertTrue(result.startVoice)
         XCTAssertFalse(result.autoSend)
+    }
+
+    func testBriefingContinueAutoSends() {
+        let prompt = HomeInsightFlow.continuePrompt(briefing: "Recovery is holding.")
+        let result = ARIAChatHandoff.consume(.init(pendingPrompt: prompt, voiceLaunch: false))
+        XCTAssertTrue(result.autoSend)
+        XCTAssertEqual(result.prompt, prompt)
+        XCTAssertTrue(prompt.contains("briefing"))
     }
 
     func testVoiceOnlyLaunchHasNoPrompt() {
@@ -368,5 +390,27 @@ final class ARIAChatHandoffTests: XCTestCase {
         XCTAssertTrue(read.lastNightLate)
         XCTAssertTrue(read.hasEvening)
         XCTAssertTrue(read.story?.contains("Drinks with mates") ?? false)
+    }
+}
+
+final class HomeInsightFlowTests: XCTestCase {
+    func testLowHRVRoutesToSleep() {
+        XCTAssertEqual(HomeInsightFlow.destination(for: "Low HRV today"), .sleep)
+    }
+
+    func testSleepCopyRoutesToSleep() {
+        XCTAssertEqual(HomeInsightFlow.destination(for: "Last night's sleep was short"), .sleep)
+    }
+
+    func testWorkoutCopyRoutesToWorkout() {
+        XCTAssertEqual(HomeInsightFlow.destination(for: "Time to start today's session"), .workout)
+    }
+
+    func testHydrationRoutesToLifestyle() {
+        XCTAssertEqual(HomeInsightFlow.destination(for: "You're behind on hydration"), .lifestyle)
+    }
+
+    func testGenericRoutesToChat() {
+        XCTAssertEqual(HomeInsightFlow.destination(for: "Want to talk about your week?"), .chat)
     }
 }

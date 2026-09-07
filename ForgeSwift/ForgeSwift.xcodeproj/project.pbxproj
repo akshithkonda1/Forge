@@ -111,6 +111,7 @@
 		1AUTH0052F9FF867004091AA /* AuthSignUpFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */; };
 		1AUTH0072F9FF867004091AA /* ForgeAuthClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */; };
 		1API00010000000000000001 /* ForgeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1API00020000000000000001 /* ForgeAPI.swift */; };
+		1CLD00010000000000000001 /* ForgeCloudSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CLD00020000000000000001 /* ForgeCloudSync.swift */; };
 		1CYC0012F9FF867004091AA /* CycleDataEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */; };
 		1CYC0032F9FF867004091AA /* CycleAriaAnalyst.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */; };
 		1E44AFC830182A1F00D1C14D /* PeriodEndFeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */; };
@@ -472,6 +473,7 @@
 		1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSignUpFlowView.swift; sourceTree = "<group>"; };
 		1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAuthClient.swift; sourceTree = "<group>"; };
 		1API00020000000000000001 /* ForgeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAPI.swift; sourceTree = "<group>"; };
+		1CLD00020000000000000001 /* ForgeCloudSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeCloudSync.swift; sourceTree = "<group>"; };
 		1CYC0022F9FF867004091AA /* CycleDataEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleDataEvaluator.swift; sourceTree = "<group>"; };
 		1CYC0042F9FF867004091AA /* CycleAriaAnalyst.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleAriaAnalyst.swift; sourceTree = "<group>"; };
 		1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeriodEndFeedbackView.swift; sourceTree = "<group>"; };
@@ -768,6 +770,7 @@
 				1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */,
 				1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */,
 				1API00020000000000000001 /* ForgeAPI.swift */,
+				1CLD00020000000000000001 /* ForgeCloudSync.swift */,
 				AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */,
 				AA00020000000000000000B2 /* PartnerCycleSharing.swift */,
 				AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */,
@@ -1446,6 +1449,7 @@
 				1AUTH0052F9FF867004091AA /* AuthSignUpFlowView.swift in Sources */,
 				1AUTH0072F9FF867004091AA /* ForgeAuthClient.swift in Sources */,
 				1API00010000000000000001 /* ForgeAPI.swift in Sources */,
+				1CLD00010000000000000001 /* ForgeCloudSync.swift in Sources */,
 				AA0001000000000000000006 /* OnboardingView.swift in Sources */,
 				D1919B244B3A650517464755 /* OnboardingModels.swift in Sources */,
 				616F3C419B3EB7ADAE50115B /* AriaInterviewLayout.swift in Sources */,

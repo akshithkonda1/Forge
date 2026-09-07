@@ -71,6 +71,14 @@ struct ChatHeaderView: View {
                         Text("On this phone · reading your month")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(Color.steel.opacity(0.9))
+                    } else if let remoteError = ariaService.lastRemoteError {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(Color.danger)
+                        Text(remoteError)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Color.danger.opacity(0.9))
+                            .lineLimit(1)
                     } else if ariaService.isLocalFallback {
                         Image(systemName: "bolt.fill")
                             .font(.system(size: 8, weight: .bold))
@@ -86,6 +94,7 @@ struct ChatHeaderView: View {
                     }
                 }
                 .animation(FDS.Spring.standard, value: ariaService.isLocalFallback)
+                .animation(FDS.Spring.standard, value: ariaService.lastRemoteError)
             }
 
             Spacer()
@@ -110,6 +119,7 @@ struct ChatHeaderView: View {
                         .frame(width: 38, height: 38)
                     Text("\(store.readiness.overall)")
                         .font(.system(size: 14, weight: .black, design: .rounded))
+                        .monospacedDigit()
                         .foregroundColor(.textPrimary)
                 }
                 .shadow(color: scoreColor.opacity(0.3), radius: 6)
