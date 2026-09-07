@@ -57,7 +57,7 @@ struct ForgeSwiftApp: App {
                             .split(separator: " ").first.map(String.init)
                     )
                     Task {
-                        await store.flushPendingWidgetWater()
+                        await store.flushPendingWidgetWater(openHydrationOnSuccess: true)
                         store.publishHomeWidgets()
                         await MenstrualHealthStore.shared.syncSharedPeriodFinished()
                     }

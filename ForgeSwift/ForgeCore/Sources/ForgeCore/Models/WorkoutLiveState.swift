@@ -79,4 +79,7 @@ public struct WorkoutLiveState: Codable, Sendable, Equatable, Hashable {
 public enum WorkoutLinkKeys {
     public static let state = "forge.workout.liveState"
     public static let ended = "forge.workout.ended"
+    public static let mindfulnessCompleted = "forge.mindfulness.completed"
+    public static let mindfulnessPractice = "forge.mindfulness.practice"
+    public static let mindfulnessMinutes = "forge.mindfulness.minutes"
 }

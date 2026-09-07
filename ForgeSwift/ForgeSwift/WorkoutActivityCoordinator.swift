@@ -35,9 +35,34 @@ final class WorkoutActivityCoordinator: NSObject, WCSessionDelegate {
         }
     }
 
+    @MainActor
+    func startOrUpdate(_ state: WorkoutLiveState) async {
+        await apply(state)
+    }
+
+    @MainActor
+    func finishActivity() async {
+        await endActivity()
+    }
+
     // MARK: Payload handling
 
     private func handle(_ payload: [String: Any]) {
+        if payload[WorkoutLinkKeys.mindfulnessCompleted] != nil {
+            let practice = payload[WorkoutLinkKeys.mindfulnessPractice] as? String ?? "mindfulness"
+            let minutes = payload[WorkoutLinkKeys.mindfulnessMinutes] as? Double ?? 0
+            var comps = URLComponents(string: "forge://aria")
+            comps?.queryItems = [
+                URLQueryItem(
+                    name: "prompt",
+                    value: "I just finished a \(practice) session on my Watch (\(Int(minutes.rounded())) min). Help me carry that calm into the rest of today."
+                )
+            ]
+            if let url = comps?.url {
+                NotificationCenter.default.post(name: ForgeAppDelegate.openURLNotification, object: url)
+            }
+            return
+        }
         if payload[WorkoutLinkKeys.ended] != nil {
             Task { await self.endActivity() }
             return

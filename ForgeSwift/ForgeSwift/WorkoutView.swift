@@ -645,7 +645,7 @@ struct WorkoutEmptyState: View {
             VStack(spacing: 12) {
                 Button {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    store.activeTab = .chat
+                    store.openChat(with: HomeInsightFlow.todayPlanPrompt, voice: false)
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "message.fill").font(.system(size: 16))

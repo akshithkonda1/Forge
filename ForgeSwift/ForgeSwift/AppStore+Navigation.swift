@@ -35,11 +35,19 @@ extension AppStore {
 
     /// Widget taps enqueue milliliters. Write them to HealthKit now that we
     /// are in the app process that actually holds the entitlement.
-    func flushPendingWidgetWater() async {
+    func flushPendingWidgetWater(openHydrationOnSuccess: Bool = false) async {
         let pending = PendingWaterLog.drain()
         guard pending > 0 else { return }
-        try? await HealthKitManager.shared.logWater(milliliters: pending)
-        await HealthKitManager.shared.refreshHydration()
+        do {
+            try await HealthKitManager.shared.logWater(milliliters: pending)
+            await HealthKitManager.shared.refreshHydration()
+            publishHomeWidgets()
+            if openHydrationOnSuccess {
+                pendingHydrationOpen = true
+            }
+        } catch {
+            PendingWaterLog.enqueue(pending)
+        }
     }
 
     func publishHomeWidgets() {
@@ -171,8 +179,15 @@ extension AppStore {
             return true
         case "sleep":
             activeTab = .sleep
-            if let leaf = segments.dropFirst().first, leaf == "wake" || leaf == "alarms" {
-                pendingSleepTab = "alarms"
+            if let leaf = segments.dropFirst().first {
+                switch leaf {
+                case "wake", "alarms":
+                    pendingSleepTab = "alarms"
+                case "night", "tonight", "wind-down", "winddown":
+                    pendingSleepTab = "night"
+                default:
+                    break
+                }
             }
             return true
         case "wake":
@@ -189,12 +204,24 @@ extension AppStore {
             return true
         case "lifestyle":
             activeTab = .lifestyle
+            if let leaf = segments.dropFirst().first {
+                pendingLifestyleSegment = leaf
+            }
             return true
-        case "aria":
+        case "progress":
+            activeTab = .progress
+            return true
+        case "profile", "settings":
+            activeTab = .profile
+            return true
+        case "aria", "chat":
             if segments.dropFirst().first == "weekly" {
                 WeeklyAriaReviewStore.shared.showSheet = true
             } else {
-                activeTab = .chat
+                let prompt = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                    .queryItems?.first(where: { $0.name.lowercased() == "prompt" })?
+                    .value
+                openChat(with: prompt ?? HomeInsightFlow.replyPrompt, voice: false)
             }
             return true
         default:
