@@ -36,6 +36,8 @@ function assert(cond: unknown, msg: string) {
 }
 
 const contract = JSON.parse(readFileSync("shared/aria-mark.json", "utf8")) as typeof ARIA_MARK;
+assert(ARIA_MARK.assetName === "AriaLogo", "ARIA mark asset is AriaLogo");
+assert(ARIA_MARK.assetName === contract.assetName, "web assetName matches shared/aria-mark.json");
 assert(ARIA_MARK.cropScale === 1, "ember mark is not zoom-cropped past a ring");
 assert(ARIA_MARK.cropScale === contract.cropScale, "web cropScale matches shared/aria-mark.json");
 assert(ARIA_MARK.maxHueDegrees === contract.maxHueDegrees, "web hue matches shared/aria-mark.json");
