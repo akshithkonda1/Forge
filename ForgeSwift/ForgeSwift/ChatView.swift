@@ -116,7 +116,7 @@ struct ChatView: View {
                     ProactiveCardView(
                         insight: insight,
                         relationshipLevel: ariaContext.context.relationshipLevel,
-                        onTap: { sendMessage("Tell me more about that") }
+                        onTap: { sendMessage("Tell me more about: \(insight)") }
                     )
                     .padding(.horizontal, 16)
                     .padding(.bottom, 8)
@@ -207,6 +207,7 @@ struct ChatView: View {
             ariaContext.updateProfile(
                 goals: store.userProfile.fitnessGoals.map(\.label)
             )
+            Task { await store.syncChatHistoryFromCloud() }
             proactiveInsightTask?.cancel()
             proactiveInsightTask = Task { @MainActor in
                 let insight = await AriaService.shared.fetchProactiveMessage(store: store)

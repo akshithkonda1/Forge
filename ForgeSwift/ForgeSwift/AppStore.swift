@@ -147,6 +147,13 @@ final class AppStore: ObservableObject {
     /// True when today's numbers came from ForgeCore's Test-Ready Health pack
     /// because Apple Health had nothing. Never set from a real sample.
     @Published var usingTestReadyHealthPack: Bool = false
+    /// Ingest sources last seen on `/dashboard/today` (Apple Health, Oura, …).
+    @Published var metricSources: [String] = []
+    /// Server-side sync failures that should not be dressed up as coaching.
+    @Published var lastCloudSyncError: String? = nil
+    @Published var lastCloudSyncAt: Date? = nil
+    @Published var remoteSleepInsight: String? = nil
+    @Published var remoteProgressReview: String? = nil
 
     /// Visual first-meet page. Completes once; first login or first ARIA tap.
     @Published var hasMetAria: Bool = UserDefaults.standard.bool(forKey: Self.ariaMeetKey) {
@@ -234,6 +241,25 @@ final class AppStore: ObservableObject {
     static let chatLevelKey = "forge.chat.level.v1"
     static let durableMemoryKey = "forge.chat.durable_memory.v1"
 
+    func persistenceUserId() -> String {
+        let id = AriaContextStore.shared.context.userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !id.isEmpty { return id }
+        if !authEmail.isEmpty { return authEmail.lowercased() }
+        return "local"
+    }
+
+    func chatSessionStorageKey() -> String {
+        let userId = persistenceUserId()
+        if userId == "local" { return Self.chatSessionKey }
+        return "\(Self.chatSessionKey).\(userId)"
+    }
+
+    func profileStorageKey() -> String {
+        let userId = persistenceUserId()
+        if userId == "local" { return Self.profileDefaultsKey }
+        return "\(Self.profileDefaultsKey).\(userId)"
+    }
+
     /// Message currently being typewriter-revealed (nil when idle).
     @Published var streamingMessageId: String? = nil
     @Published var streamingVisibleCount: Int = 0
@@ -248,7 +274,7 @@ final class AppStore: ObservableObject {
 
     private func persistUserProfile() {
         guard let data = try? JSONEncoder().encode(userProfile) else { return }
-        UserDefaults.standard.set(data, forKey: Self.profileDefaultsKey)
+        UserDefaults.standard.set(data, forKey: profileStorageKey())
     }
 
     // MARK: - Onboarding → ARIA handoff

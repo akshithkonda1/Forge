@@ -66,7 +66,12 @@ struct AISleepPredictionCard: View {
                     Text("· dim lights by \(EnergySchedule.clockLabel(schedule.melatoninHour))")
                         .font(.system(size: 13)).foregroundColor(.textTertiary)
                 }
-                if let note = hkService.aiBedtimeNote {
+                if let note = store.remoteSleepInsight {
+                    Text(note)
+                        .font(.system(size: 12))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if let note = hkService.aiBedtimeNote {
                     Text(note)
                         .font(.system(size: 12))
                         .foregroundColor(.textSecondary)
@@ -83,7 +88,12 @@ struct AISleepPredictionCard: View {
             .opacity(appear ? 1 : 0)
             .offset(y: appear ? 0 : 10)
             .onAppear { withAnimation(.easeOut(duration: 0.4).delay(0.1)) { appear = true } }
-            .task { await hkService.refreshBedtimeNote(store: store, schedule: schedule) }
+            .task {
+                await hkService.refreshBedtimeNote(store: store, schedule: schedule)
+                if store.remoteSleepInsight == nil {
+                    await store.refreshCoachInsightsIfNeeded()
+                }
+            }
         }
     }
 }

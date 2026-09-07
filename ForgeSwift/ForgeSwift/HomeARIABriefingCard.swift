@@ -1,7 +1,68 @@
 import SwiftUI
 
+/// Home → Chat handoff copy. Lives next to the briefing card so chips, mic,
+/// deep links, and first-bond needles cannot drift from each other.
+enum HomeInsightFlow {
+    static let replyPrompt = "Let's talk about my day from today's briefing."
+    static let voiceCheckInPrompt = "Voice check-in from today's briefing."
+    static let weekPlanPrompt = "Help me plan this week around recovery and training."
+    static let todayPlanPrompt = "What should I train today based on my readiness?"
+
+    enum Destination: Equatable {
+        case sleep, workout, lifestyle, chat
+    }
+
+    static func destination(for insight: String) -> Destination {
+        let lower = insight.lowercased()
+        if lower.contains("hrv") || lower.contains("sleep") || lower.contains("recovery") || lower.contains("resting hr") {
+            return .sleep
+        }
+        if lower.contains("workout") || lower.contains("session") || lower.contains("train") || lower.contains("lift") {
+            return .workout
+        }
+        if lower.contains("hydrat") || lower.contains("nutrition") || lower.contains("calorie") || lower.contains("meal") {
+            return .lifestyle
+        }
+        return .chat
+    }
+
+    static func open(_ insight: String, store: AppStore) {
+        switch destination(for: insight) {
+        case .sleep:
+            store.pendingSleepTab = "day"
+            store.activeTab = .sleep
+        case .workout:
+            store.activeTab = .workout
+        case .lifestyle:
+            store.pendingLifestyleSegment = "nutrition"
+            store.activeTab = .lifestyle
+        case .chat:
+            store.openChat(with: "Tell me more about: \(insight)", voice: false, isProactive: true)
+        }
+    }
+
+    static func continuePrompt(briefing: String) -> String {
+        let trimmed = briefing.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return "Continue from today's briefing." }
+        return "Continue from today's briefing. \(trimmed)"
+    }
+
+    static func persistBriefing(_ briefing: String) {
+        let trimmed = briefing.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        AriaContextStore.shared.addInsight("Home briefing: \(trimmed)")
+    }
+
+    static func continueAndPersist(briefing: String) -> String {
+        persistBriefing(briefing)
+        return continuePrompt(briefing: briefing)
+    }
+}
+
 struct HomeARIABriefingCard: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var compact: Bool = false
     @State private var displayedText = ""
     @State private var isTyping = false
 
@@ -16,6 +77,38 @@ struct HomeARIABriefingCard: View {
     }
 
     var body: some View {
+        if compact {
+            compactBody
+        } else {
+            fullBody
+        }
+    }
+
+    private var compactBody: some View {
+        Button {
+            FDS.haptic(.light)
+            store.openChat(with: HomeInsightFlow.continueAndPersist(briefing: fullBriefing), voice: false)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.ember)
+                Text("Talk to ARIA about today")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(.textPrimary)
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.ember)
+            }
+            .padding(14)
+        }
+        .buttonStyle(.plain)
+        .forgeGlassCard(accent: .ember)
+        .accessibilityLabel("Talk to ARIA about today's briefing")
+    }
+
+    private var fullBody: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
                 ZStack {
@@ -52,7 +145,8 @@ struct HomeARIABriefingCard: View {
 
                 Button {
                     FDS.haptic(.medium)
-                    store.openChat(with: fullBriefing, voice: true)
+                    HomeInsightFlow.persistBriefing(fullBriefing)
+                    store.openChat(with: HomeInsightFlow.voiceCheckInPrompt, voice: true)
                 } label: {
                     ZStack {
                         Circle()
@@ -72,7 +166,7 @@ struct HomeARIABriefingCard: View {
 
             Button {
                 FDS.haptic(.light)
-                store.openChat(with: "Continue from today's briefing.", voice: false)
+                store.openChat(with: HomeInsightFlow.continueAndPersist(briefing: fullBriefing), voice: false)
             } label: {
                 HStack(alignment: .top, spacing: 12) {
                     RoundedRectangle(cornerRadius: 2, style: .continuous)
@@ -100,13 +194,16 @@ struct HomeARIABriefingCard: View {
 
             HStack(spacing: 8) {
                 briefingChip(icon: "message.fill", label: "Reply", emphasized: true) {
-                    store.openChat(with: "Let's talk about my day.", voice: false)
+                    HomeInsightFlow.persistBriefing(fullBriefing)
+                    store.openChat(with: HomeInsightFlow.replyPrompt, voice: false)
                 }
                 briefingChip(icon: themedPlanIcon, label: themedPlanLabel) {
-                    store.openChat(with: themedPlanPrompt, voice: false)
+                    HomeInsightFlow.persistBriefing(fullBriefing)
+                    store.openChat(with: HomeInsightFlow.todayPlanPrompt, voice: false)
                 }
                 briefingChip(icon: "calendar", label: "Plan week") {
-                    store.openChat(with: "Help me plan this week around recovery and training.", voice: false)
+                    HomeInsightFlow.persistBriefing(fullBriefing)
+                    store.openChat(with: HomeInsightFlow.weekPlanPrompt, voice: false)
                 }
             }
         }
@@ -125,10 +222,6 @@ struct HomeARIABriefingCard: View {
     private var themedPlanLabel: String { "Today’s plan" }
 
     private var themedPlanIcon: String { "sparkles" }
-
-    private var themedPlanPrompt: String {
-        "What should I train today based on my readiness?"
-    }
 
     private func briefingChip(icon: String, label: String, emphasized: Bool = false, action: @escaping () -> Void) -> some View {
         Button {
@@ -156,7 +249,7 @@ struct HomeARIABriefingCard: View {
         let already = defaults.string(forKey: "home.aria.lastTypewriterKey") == typewriterKey
         let text = fullBriefing
 
-        if already || UIAccessibility.isReduceMotionEnabled {
+        if already || reduceMotion {
             displayedText = text
             isTyping = false
             return

@@ -1,7 +1,9 @@
 import SwiftUI
+import ForgeCore
 
 struct HomeView: View {
     @EnvironmentObject var store: AppStore
+    @ObservedObject private var ariaContext = AriaContextStore.shared
     @State private var showHeaderBlur = false
     @State private var showTrend = false
     @State private var proactiveInsight: String?
@@ -26,26 +28,28 @@ struct HomeView: View {
 
                         HomeTodayHero(action: primaryAction)
 
-                        // Habit breaker is the proactive companion — most human, most specific.
-                        if let habit = AriaContextStore.shared.context.deepHabits.first,
-                           !store.quietMode {
-                            HabitProactiveCard(habit: habit) {
-                                store.openChat(with: "Help me with: \(habit.breaker)", voice: false)
-                            }
-                        } else if !store.quietMode,
-                           let insight = proactiveInsight,
-                           AriaContextStore.shared.shouldBeProactive() {
-                            ProactiveCardView(
-                                insight: insight,
-                                relationshipLevel: AriaContextStore.shared.context.relationshipLevel,
-                                onTap: {
-                                    store.openChat(with: "Tell me more about: \(insight)", voice: false)
-                                }
-                            )
-                        }
-
                         if !store.quietMode {
+                            if let habit = ariaContext.context.deepHabits.first {
+                                HabitProactiveCard(habit: habit) {
+                                    store.openChat(
+                                        with: "Help me with: \(habit.breaker)",
+                                        voice: false,
+                                        isProactive: true
+                                    )
+                                }
+                            }
+                            if let insight = proactiveInsight, ariaContext.shouldBeProactive() {
+                                ProactiveCardView(
+                                    insight: insight,
+                                    relationshipLevel: ariaContext.context.relationshipLevel,
+                                    onTap: {
+                                        HomeInsightFlow.open(insight, store: store)
+                                    }
+                                )
+                            }
                             HomeARIABriefingCard()
+                        } else {
+                            HomeARIABriefingCard(compact: true)
                         }
 
                         // Rooms stay — they feed ARIA. They are not the first decision.
@@ -156,6 +160,12 @@ struct HomeHeaderView: View {
                     isLive: store.healthKitLive,
                     updatedAt: store.lastMetricsRefresh
                 )
+                if !store.metricSources.isEmpty {
+                    Text(store.metricSources.prefix(3).map { CloudSourceLabel.displayName(for: $0) }.joined(separator: " · "))
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(.textTertiary)
+                        .lineLimit(1)
+                }
                 if store.usingTestReadyHealthPack {
                     let life = AriaLifeRead.from(tags: AriaContextStore.shared.context.lifestyleTags)
                     Text(life.story ?? "ARIA already has this month.")
@@ -258,6 +268,12 @@ private struct HomeDataStatusPill: View {
 
     private var statusText: String {
         if reconnecting { return "Reconnecting…" }
+        if let error = store.lastCloudSyncError, !isLive {
+            return error
+        }
+        if store.usingTestReadyHealthPack {
+            return "Sample data · connect Apple Health"
+        }
         if isLive {
             if let updatedAt {
                 let mins = max(0, Int(Date().timeIntervalSince(updatedAt) / 60))
@@ -291,7 +307,7 @@ private struct HomeScrollMiniHeader: View {
             }
             Spacer()
             Button {
-                store.startLifeShapedSession()
+                store.startExistingWorkout()
             } label: {
                 Text(store.isWorkoutActive ? "Continue" : "Start")
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
