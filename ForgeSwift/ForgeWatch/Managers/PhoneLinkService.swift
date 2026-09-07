@@ -96,6 +96,21 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
         }
     }
 
+    func sendMindfulnessCompleted(practice: String, minutes: Double) {
+        guard WCSession.isSupported(),
+              WCSession.default.activationState == .activated else { return }
+        let payload: [String: Any] = [
+            WorkoutLinkKeys.mindfulnessCompleted: true,
+            WorkoutLinkKeys.mindfulnessPractice: practice,
+            WorkoutLinkKeys.mindfulnessMinutes: minutes,
+        ]
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(payload, replyHandler: nil, errorHandler: nil)
+        } else {
+            pushMergedApplicationContext(payload)
+        }
+    }
+
     /// Preserve companion config keys when streaming workout state so
     /// ARIA base URL / name survive a long session.
     private func pushMergedApplicationContext(_ payload: [String: Any]) {

@@ -73,6 +73,7 @@ let package = Package(
                 "Utils/WatchSnapshotStore.swift",
                 "Utils/HomeWidgetSnapshot.swift",
                 "Utils/PartnerSupportGlance.swift",
+                "Cloud/ForgeCloudContracts.swift",
             ]
         ),
         .testTarget(
@@ -109,6 +110,7 @@ let package = Package(
                 "SmartStackRelevanceTests.swift",
                 "WorkoutCoachingTests.swift",
                 "WorkoutModelsTests.swift",
+                "ForgeCloudContractsTests.swift",
             ]
         ),
     ],

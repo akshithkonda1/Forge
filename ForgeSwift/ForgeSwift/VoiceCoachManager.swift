@@ -1,18 +1,17 @@
 import Foundation
 import AVFoundation
 import Speech
-import Combine
 
 // MARK: - Voice Coach Manager
 
 @MainActor
 @Observable
-final class VoiceCoachManager: NSObject {
-    
+final class VoiceCoachManager {
+
     // MARK: - State
-    
+
     var isListening: Bool = false
-    var isSpeaking: Bool = false
+    var isSpeaking: Bool { AriaPresence.shared.isSpeaking }
     var isThinking: Bool = false
     var lastCoachMessage: String = ""
     var transcribedText: String = ""
@@ -21,7 +20,6 @@ final class VoiceCoachManager: NSObject {
     
     // MARK: - Private
     
-    private let speechSynthesizer = AVSpeechSynthesizer()
     private var speechRecognizer: SFSpeechRecognizer?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
@@ -40,15 +38,12 @@ final class VoiceCoachManager: NSObject {
     // Forge's own backend. This used to be a direct POST to api.anthropic.com
     // with a key read from Info.plist — an extractable secret in any build that
     // set one, and a request that skipped auth, sanitization, the model router
-    // and every cost control. Nothing on screen instantiates this manager today,
-    // which made it easy to miss; the code still shipped in the binary, and dead
-    // code is what gets wired up later without anyone re-auditing it.
+    // and every cost control. ActiveWorkoutView instantiates this manager and
+    // speaks start / set-complete / rest / end / HR cues on the phone session.
     
     // MARK: - Init
     
-    override init() {
-        super.init()
-        speechSynthesizer.delegate = self
+    init() {
         speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
         setupAudioSession()
     }
@@ -154,9 +149,7 @@ final class VoiceCoachManager: NSObject {
     }
 
     func interruptSpeech() {
-        speechSynthesizer.stopSpeaking(at: .immediate)
-        isSpeaking = false
-        AriaPresence.shared.markSpeaking(false)
+        AriaPresence.shared.stopSpeaking()
     }
 
     func silence() {
@@ -256,15 +249,12 @@ final class VoiceCoachManager: NSObject {
     private func speak(_ text: String) {
         guard isVoiceEnabled else { return }
         lastCoachMessage = text
-        let started = AriaSpeechPrep.enqueue(
+        AriaPresence.shared.speak(
             text,
-            on: speechSynthesizer,
             interrupt: true,
-            stopAt: .word
+            stopAt: .word,
+            session: .spokenHandsFree
         )
-        guard started else { return }
-        isSpeaking = true
-        AriaPresence.shared.markSpeaking(true)
     }
     
     // MARK: - Private: ARIA backend
@@ -341,31 +331,6 @@ final class VoiceCoachManager: NSObject {
     enum CoachError: Error {
         case apiError(String)
         case parseError
-    }
-}
-
-// MARK: - AVSpeechSynthesizerDelegate
-
-extension VoiceCoachManager: AVSpeechSynthesizerDelegate {
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in
-            guard !self.speechSynthesizer.isSpeaking else { return }
-            self.isSpeaking = false
-            AriaPresence.shared.markSpeaking(false)
-            try? AVAudioSession.sharedInstance().setCategory(
-                .playAndRecord,
-                mode: .default,
-                options: [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP, .duckOthers]
-            )
-        }
-    }
-
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor in
-            guard !self.speechSynthesizer.isSpeaking else { return }
-            self.isSpeaking = false
-            AriaPresence.shared.markSpeaking(false)
-        }
     }
 }
 

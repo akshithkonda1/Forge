@@ -134,6 +134,10 @@ final class ForgeAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificatio
             || destination == ForgeWidgetLink.support.absoluteString,
            let url = URL(string: destination ?? ForgeWidgetLink.support.absoluteString) {
             NotificationCenter.default.post(name: ForgeAppDelegate.openURLNotification, object: url)
+            return
+        }
+        if let destination, let url = URL(string: destination) {
+            NotificationCenter.default.post(name: ForgeAppDelegate.openURLNotification, object: url)
         }
         if id.hasPrefix("forge.notif.aria.risk")
             || destination == AriaHealthRiskBridge.destination,

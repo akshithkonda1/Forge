@@ -218,6 +218,10 @@ final class MindfulnessSessionManager {
         }
 
         WKInterfaceDevice.current().play(.success)
+        PhoneLinkService.shared.sendMindfulnessCompleted(
+            practice: practice.displayName,
+            minutes: countsAsSession ? practicedSeconds / 60 : 0
+        )
         debrief = Debrief(
             practice: practice,
             minutesLogged: countsAsSession ? practicedSeconds / 60 : 0,

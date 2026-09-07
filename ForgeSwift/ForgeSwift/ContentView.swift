@@ -5,9 +5,11 @@ import ForgeCore
 
 struct ContentView: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showSplash = true
 
     var body: some View {
+        @Bindable var neuralVoiceGate = AriaNeuralVoiceGate.shared
         ZStack {
             Group {
                 if !store.isAuthenticated {
@@ -26,6 +28,14 @@ struct ContentView: View {
                 ForgeSplashScreen()
                     .transition(.opacity)
                     .zIndex(999)
+            }
+        }
+        .sheet(isPresented: $neuralVoiceGate.showPrompt) {
+            AriaNeuralVoiceSheet(gate: neuralVoiceGate)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                AriaNeuralVoiceGate.shared.refreshCatalog()
             }
         }
         .onAppear {
@@ -129,6 +139,10 @@ struct MainTabView: View {
     @State private var cycleInitialPane: MenstrualHealthView.Pane = .me
     @ObservedObject private var wakeStore = SleepWakeStore.shared
 
+    private var waitingToMeetAria: Bool {
+        !store.hasMetAria && (store.activeTab == .chat || store.showAriaMeetOnLaunch)
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             // Premium ambient canvas
@@ -164,7 +178,23 @@ struct MainTabView: View {
             .transition(.opacity)
             .animation(.easeOut(duration: 0.12), value: store.activeTab)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ForgeBottomNav(namespace: namespace)
+                if !waitingToMeetAria {
+                    ForgeBottomNav(namespace: namespace)
+                }
+            }
+
+            if waitingToMeetAria {
+                AriaMeetView(
+                    onTalk: {
+                        store.meetAria()
+                        store.activeTab = .chat
+                    },
+                    onSkip: {
+                        store.showAriaMeetOnLaunch = false
+                        store.activeTab = .home
+                    }
+                )
+                .zIndex(40)
             }
         }
         .onChange(of: store.pendingCycleHealthOpen) { _, open in
@@ -433,6 +463,9 @@ struct ARIATabButton: View {
                 store.ariaVoiceMode.toggle()
                 store.activeTab = .chat
                 store.ariaVoiceLaunch = store.ariaVoiceMode
+            }
+            if store.ariaVoiceMode {
+                AriaNeuralVoiceGate.shared.requestPromptIfNeeded()
             }
         }
     }

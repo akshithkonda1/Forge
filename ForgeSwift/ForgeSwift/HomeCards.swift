@@ -41,9 +41,27 @@ struct HomeWinCard: View {
                     .lineLimit(2)
             }
             Spacer(minLength: 0)
+            Image(systemName: "arrow.up.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.ember)
         }
         .padding(HomeMetrics.cardPadding)
         .forgeGlassCard(accent: .ember)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            FDS.haptic(.light)
+            if store.isWorkoutActive {
+                store.activeTab = .workout
+            } else if store.didTrainToday {
+                store.activeTab = .sleep
+                store.pendingSleepTab = "night"
+            } else {
+                store.openChat(
+                    with: HomeInsightFlow.todayPlanPrompt,
+                    voice: false
+                )
+            }
+        }
     }
 }
 
@@ -59,7 +77,7 @@ struct HomeAgendaCard: View {
                 "Continue session",
                 store.todayWorkout?.name ?? "Active workout",
                 .ember,
-                { store.activeTab = .workout }
+                { store.startExistingWorkout() }
             ))
         } else if let plan = store.todayWorkout {
             rows.append((
@@ -67,7 +85,7 @@ struct HomeAgendaCard: View {
                 plan.name,
                 "\(plan.duration) min · \(plan.intensity.label)",
                 .ember,
-                { store.activeTab = .workout }
+                { store.startExistingWorkout() }
             ))
         } else {
             rows.append((
@@ -75,7 +93,7 @@ struct HomeAgendaCard: View {
                 "Build today's plan",
                 "ARIA will shape a session from readiness",
                 .ember,
-                { store.openChat(with: "Build today's training plan from my readiness.", voice: false) }
+                { store.openChat(with: HomeInsightFlow.todayPlanPrompt, voice: false) }
             ))
         }
 
@@ -88,7 +106,7 @@ struct HomeAgendaCard: View {
                 String(format: "Sleep · %.1fh", h),
                 store.readiness.overall < 60 ? "Protect recovery tonight" : "Review wind-down",
                 .steel,
-                { store.activeTab = .sleep }
+                { store.activeTab = .sleep; store.pendingSleepTab = "night" }
             ))
         } else {
             rows.append((
@@ -96,9 +114,17 @@ struct HomeAgendaCard: View {
                 "Log or sync sleep",
                 "Apple Health sleep improves readiness",
                 .steel,
-                { store.activeTab = .sleep }
+                { store.activeTab = .sleep; store.pendingSleepTab = "night" }
             ))
         }
+
+        rows.append((
+            "drop.fill",
+            "Hydration",
+            "Log water and keep the pace",
+            Color(hex: "4A9EFF"),
+            { store.openHydration() }
+        ))
 
         rows.append((
             "leaf.fill",

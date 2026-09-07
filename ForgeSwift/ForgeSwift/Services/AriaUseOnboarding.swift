@@ -107,6 +107,9 @@ enum AriaFirstBond {
         let needles = [
             "sleep", "slept", "train", "workout", "show up", "period",
             "eat", "hungry", "protein", "tired", "hrv", "sore",
+            "briefing", "my day", "plan this week", "tell me more",
+            "help me with", "readiness", "wind-down", "hydrate",
+            "water", "cycle", "voice check-in",
         ]
         return needles.contains { lower.contains($0) } || text.count > 48
     }

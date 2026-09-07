@@ -101,6 +101,8 @@ struct VoiceOrbOverlay: View {
 
                 // Actions — cancel always reachable, send-now when there's text.
                 HStack(spacing: 12) {
+                    AriaSpokenMuteButton()
+
                     Button(action: onCancel) {
                         HStack(spacing: 7) {
                             Image(systemName: "xmark").font(.system(size: 14, weight: .semibold))

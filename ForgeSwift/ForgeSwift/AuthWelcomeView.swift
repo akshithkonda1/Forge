@@ -32,7 +32,7 @@ struct AuthWelcomeView: View {
 
             VStack(spacing: 0) {
                 // Top brand strip
-                HStack {
+                HStack(spacing: 10) {
                     HStack(spacing: 8) {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 14, weight: .bold))
@@ -43,6 +43,7 @@ struct AuthWelcomeView: View {
                             .foregroundColor(.textPrimary)
                     }
                     Spacer()
+                    AriaSpokenMuteButton()
                     Button {
                         FDS.haptic(.light)
                         showSignIn = true
@@ -247,7 +248,6 @@ private struct AuthHookPageView: View {
     let page: AuthHookPage
     let isActive: Bool
     let floatPhase: CGFloat
-    @State private var didGreet = false
 
     private var accent: Color { Color(hex: page.accentHex) }
 
@@ -314,16 +314,8 @@ private struct AuthHookPageView: View {
             .frame(height: 220)
             .onChange(of: isActive) { _, active in
                 guard page.id == "aria" else { return }
-                if active {
-                    greetIfNeeded()
-                } else {
-                    didGreet = false
+                if !active {
                     AriaPresence.shared.stopSpeaking()
-                }
-            }
-            .onAppear {
-                if isActive, page.id == "aria" {
-                    greetIfNeeded()
                 }
             }
 
@@ -374,12 +366,6 @@ private struct AuthHookPageView: View {
         .opacity(isActive ? 1 : 0.55)
         .scaleEffect(isActive ? 1 : 0.96)
         .animation(FDS.Spring.standard, value: isActive)
-    }
-
-    private func greetIfNeeded() {
-        guard !didGreet else { return }
-        didGreet = true
-        AriaPresence.shared.speak(AriaOnboardingGuide.welcomeSpokenLine)
     }
 }
 

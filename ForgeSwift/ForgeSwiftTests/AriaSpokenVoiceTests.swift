@@ -2,9 +2,9 @@ import AVFoundation
 import XCTest
 @testable import ForgeSwift
 
-/// Locks ARIA's spoken voice: neural, one utterance, never compact Samantha
-/// when a better English voice exists, never Siri, never the language-constructor
-/// fallback that silently becomes Hawking-style formant TTS.
+/// Locks ARIA's spoken voice: neural Zoe-family only, one utterance, never
+/// compact Samantha. Missing neural identity is silence, never Siri, never
+/// the language-constructor fallback that silently becomes Hawking-style formant TTS.
 final class AriaSpokenVoiceTests: XCTestCase {
 
     func testSiriIdentifiersAreRejected() {
@@ -61,6 +61,8 @@ final class AriaSpokenVoiceTests: XCTestCase {
         let picked = AriaSpokenVoice.pick(from: [samantha, zoe])
         XCTAssertEqual(picked?.identifier, zoe.identifier)
         XCTAssertFalse(picked!.identifier.localizedCaseInsensitiveContains("siri"))
+        XCTAssertTrue(AriaSpokenVoice.isLockedFamily(zoe))
+        XCTAssertFalse(AriaSpokenVoice.isLockedFamily(samantha))
         XCTAssertGreaterThan(AriaSpokenVoice.score(zoe), AriaSpokenVoice.score(samantha))
         XCTAssertTrue(AriaSpokenVoice.isNeural(zoe))
         XCTAssertTrue(AriaSpokenVoice.isCompactFormant(samantha))
@@ -126,6 +128,109 @@ final class AriaSpokenVoiceTests: XCTestCase {
         XCTAssertFalse((picked?.identifier ?? "").localizedCaseInsensitiveContains("siri"))
     }
 
+    func testSamanthaOnlyCatalogIsSilence() {
+        let samantha = AriaSpokenVoice.Candidate(
+            identifier: "com.apple.voice.compact.en-US.Samantha",
+            name: "Samantha",
+            language: "en-US",
+            quality: .standard,
+            gender: .female
+        )
+        XCTAssertNil(
+            AriaSpokenVoice.pick(from: [samantha]),
+            "Compact Samantha is silence, not a last-resort mouth"
+        )
+        XCTAssertFalse(AriaSpokenVoice.hasInstalledIdentity(from: []))
+        XCTAssertNil(AriaSpokenVoice.preferredVoice(from: []))
+    }
+
+    func testCompactEnglishCatalogIsSilenceEvenWithNamedCompactNicky() {
+        let compactNicky = AriaSpokenVoice.Candidate(
+            identifier: "com.apple.voice.compact.en-US.Nicky",
+            name: "Nicky",
+            language: "en-US",
+            quality: .standard,
+            gender: .female
+        )
+        let samantha = AriaSpokenVoice.Candidate(
+            identifier: "com.apple.voice.compact.en-US.Samantha",
+            name: "Samantha",
+            language: "en-US",
+            quality: .standard,
+            gender: .female
+        )
+        XCTAssertNil(AriaSpokenVoice.pick(from: [compactNicky, samantha]))
+    }
+
+    func testLockedIdentityPrefersZoePremiumOverOtherFamilyVoices() {
+        XCTAssertEqual(AriaSpokenVoice.lockedIdentifier, "com.apple.voice.premium.en-US.Zoe")
+        XCTAssertEqual(AriaSpokenVoice.preferredNeuralIdentifiers.first, AriaSpokenVoice.lockedIdentifier)
+        XCTAssertFalse(
+            AriaSpokenVoice.preferredNeuralIdentifiers.contains { $0.localizedCaseInsensitiveContains("serena") },
+            "Do not wander to a different neural per device catalog"
+        )
+        let ava = AriaSpokenVoice.Candidate(
+            identifier: "com.apple.voice.premium.en-US.Ava",
+            name: "Ava",
+            language: "en-US",
+            quality: .premium,
+            gender: .female
+        )
+        let zoe = AriaSpokenVoice.Candidate(
+            identifier: AriaSpokenVoice.lockedIdentifier,
+            name: "Zoe",
+            language: "en-US",
+            quality: .premium,
+            gender: .female
+        )
+        XCTAssertEqual(
+            AriaSpokenVoice.pick(from: [ava, zoe])?.identifier,
+            zoe.identifier,
+            "Zoe Premium is the locked identity when installed"
+        )
+    }
+
+    func testFamilyFallbackIsAvaThenEnhancedWhenZoeIsMissing() {
+        let ava = AriaSpokenVoice.Candidate(
+            identifier: "com.apple.voice.premium.en-US.Ava",
+            name: "Ava",
+            language: "en-US",
+            quality: .premium,
+            gender: .female
+        )
+        let enhancedZoe = AriaSpokenVoice.Candidate(
+            identifier: "com.apple.voice.enhanced.en-US.Zoe",
+            name: "Zoe",
+            language: "en-US",
+            quality: .enhanced,
+            gender: .female
+        )
+        XCTAssertEqual(AriaSpokenVoice.pick(from: [enhancedZoe, ava])?.identifier, ava.identifier)
+        XCTAssertEqual(AriaSpokenVoice.pick(from: [enhancedZoe])?.identifier, enhancedZoe.identifier)
+    }
+
+    func testEnqueueRequiresASpokenLineAndANeuralIdentity() {
+        XCTAssertFalse(AriaSpeechPrep.canSpeak(text: "Hello ARIA", hasNeuralIdentity: false))
+        XCTAssertFalse(AriaSpeechPrep.canSpeak(text: "   ", hasNeuralIdentity: true))
+        XCTAssertTrue(AriaSpeechPrep.canSpeak(text: "Hello ARIA", hasNeuralIdentity: true))
+    }
+
+    func testNeuralVoicePromptShowsOnceWhenIdentityIsMissing() {
+        XCTAssertTrue(
+            AriaNeuralVoicePromptPolicy.shouldPresent(hasNeuralIdentity: false, alreadyPrompted: false)
+        )
+        XCTAssertFalse(
+            AriaNeuralVoicePromptPolicy.shouldPresent(hasNeuralIdentity: false, alreadyPrompted: true)
+        )
+        XCTAssertFalse(
+            AriaNeuralVoicePromptPolicy.shouldPresent(hasNeuralIdentity: true, alreadyPrompted: false)
+        )
+        XCTAssertEqual(AriaNeuralVoicePromptPolicy.title, "ARIA's voice")
+        XCTAssertTrue(AriaNeuralVoicePromptPolicy.body.contains("Zoe"))
+        XCTAssertTrue(AriaNeuralVoicePromptPolicy.settingsPath.contains("Spoken Content"))
+        XCTAssertFalse(AriaNeuralVoicePromptPolicy.body.lowercased().contains("samantha"))
+    }
+
     func testSamanthaSubstitutionIsRejected() {
         let zoe = "com.apple.voice.premium.en-US.Zoe"
         let samantha = "com.apple.voice.compact.en-US.Samantha"
@@ -162,15 +267,21 @@ final class AriaSpokenVoiceTests: XCTestCase {
         )
     }
 
-    func testPreferredVoiceStaysInsideTheCatalogAndAvoidsSiri() {
+    func testPreferredVoiceStaysInsideTheLockedFamily() {
         let voices = AVSpeechSynthesisVoice.speechVoices()
+        XCTAssertFalse(AriaSpokenVoice.hasInstalledIdentity(from: []))
         guard let preferred = AriaSpokenVoice.preferredVoice(from: voices) else { return }
         XCTAssertTrue(
             voices.contains { $0.identifier == preferred.identifier },
             "Spoken voice must be an identifier-matched catalog entry, not a language fallback"
         )
+        XCTAssertTrue(
+            AriaSpokenVoice.preferredNeuralIdentifiers.contains(preferred.identifier),
+            "Live catalog may only resolve to the locked Zoe family"
+        )
         XCTAssertFalse(preferred.identifier.localizedCaseInsensitiveContains("siri"))
         XCTAssertFalse(preferred.name.localizedCaseInsensitiveContains("siri"))
+        XCTAssertFalse(AriaSpokenVoice.isCompactFormant(AriaSpokenVoice.candidate(from: preferred)))
     }
 
     func testSpeechRateMatchesNaturalConversation() {
@@ -200,15 +311,37 @@ final class AriaSpokenVoiceTests: XCTestCase {
         XCTAssertEqual(line, "Rest 2.5 minutes then go.")
     }
 
-    func testTrainMuteGateRoundTrips() {
-        let original = AriaTrainVoice.isEnabled
-        defer { AriaTrainVoice.isEnabled = original }
-        AriaTrainVoice.isEnabled = false
+    func testSpokenMuteDefaultsToOnWhenUnset() {
+        let defaults = UserDefaults.standard
+        let original = defaults.object(forKey: AriaSpokenMute.mutedKey)
+        defaults.removeObject(forKey: AriaSpokenMute.mutedKey)
+        defer {
+            if let original {
+                defaults.set(original, forKey: AriaSpokenMute.mutedKey)
+            } else {
+                defaults.removeObject(forKey: AriaSpokenMute.mutedKey)
+            }
+        }
+        XCTAssertTrue(AriaSpokenMute.isMuted, "Unset mute is on — she does not talk until unmuted")
+        XCTAssertFalse(AriaSpokenMute.allowsSpeech)
         XCTAssertFalse(AriaTrainVoice.isEnabled)
-        XCTAssertTrue(UserDefaults.standard.bool(forKey: AriaTrainVoice.mutedKey))
-        AriaTrainVoice.isEnabled = true
+    }
+
+    func testSpokenMuteRoundTripsAndStopsTrainVoice() {
+        let originalMuted = AriaSpokenMute.isMuted
+        defer { AriaSpokenMute.isMuted = originalMuted }
+        AriaSpokenMute.isMuted = true
+        XCTAssertTrue(AriaSpokenMute.isMuted)
+        XCTAssertFalse(AriaSpokenMute.allowsSpeech)
+        XCTAssertFalse(AriaTrainVoice.isEnabled)
+        XCTAssertTrue(UserDefaults.standard.bool(forKey: AriaSpokenMute.mutedKey))
+        AriaSpokenMute.isMuted = false
+        XCTAssertFalse(AriaSpokenMute.isMuted)
+        XCTAssertTrue(AriaSpokenMute.allowsSpeech)
         XCTAssertTrue(AriaTrainVoice.isEnabled)
-        XCTAssertFalse(UserDefaults.standard.bool(forKey: AriaTrainVoice.mutedKey))
+        XCTAssertFalse(UserDefaults.standard.bool(forKey: AriaSpokenMute.mutedKey))
+        AriaTrainVoice.isEnabled = false
+        XCTAssertTrue(AriaSpokenMute.isMuted)
     }
 
     func testHowToScriptStaysConversationalNamedAndOneUtterance() throws {
@@ -222,13 +355,21 @@ final class AriaSpokenVoiceTests: XCTestCase {
         let parts = AriaSpeechPrep.phrases(in: script)
         XCTAssertEqual(parts.count, 1, "How-to must be one neural utterance, not chopped cues")
         let utts = AriaSpeechPrep.utterances(from: script, voiceOver: false)
-        XCTAssertEqual(utts.count, 1)
-        XCTAssertEqual(utts[0].rate, AVSpeechUtteranceDefaultSpeechRate, accuracy: 0.02)
-        XCTAssertEqual(utts[0].pitchMultiplier, 1.0, accuracy: 0.01)
-        XCTAssertEqual(utts[0].volume, 1.0, accuracy: 0.01)
-        XCTAssertEqual(utts[0].preUtteranceDelay, 0, accuracy: 0.001)
-        XCTAssertEqual(utts[0].postUtteranceDelay, 0, accuracy: 0.001)
-        XCTAssertTrue(utts[0].speechString.contains("Barbell Bench Press"))
-        XCTAssertTrue(utts[0].speechString.contains("Pin the shoulder blades"))
+        if AriaSpokenVoice.hasInstalledIdentity() {
+            XCTAssertEqual(utts.count, 1)
+            XCTAssertNotNil(utts[0].voice, "Installed neural identity must be attached to the utterance")
+            XCTAssertEqual(utts[0].rate, AVSpeechUtteranceDefaultSpeechRate, accuracy: 0.02)
+            XCTAssertEqual(utts[0].pitchMultiplier, 1.0, accuracy: 0.01)
+            XCTAssertEqual(utts[0].volume, 1.0, accuracy: 0.01)
+            XCTAssertEqual(utts[0].preUtteranceDelay, 0, accuracy: 0.001)
+            XCTAssertEqual(utts[0].postUtteranceDelay, 0, accuracy: 0.001)
+            XCTAssertTrue(utts[0].speechString.contains("Barbell Bench Press"))
+            XCTAssertTrue(utts[0].speechString.contains("Pin the shoulder blades"))
+        } else {
+            XCTAssertFalse(
+                AriaSpeechPrep.canSpeak(text: script, hasNeuralIdentity: false),
+                "No neural identity means silence, not compact Samantha"
+            )
+        }
     }
 }
