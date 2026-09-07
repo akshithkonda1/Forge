@@ -6,9 +6,7 @@ struct ChatEmptyStateView: View {
     let onQuickActionTap: (String) -> Void
     var onVoiceTap: (() -> Void)? = nil
     @EnvironmentObject var store: AppStore
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared  = false
-    @State private var orbGlow   = false
 
     // Greeting message varies by mood
     private var greeting: String {
@@ -42,8 +40,8 @@ struct ChatEmptyStateView: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                ForgePalette.ember.opacity(orbGlow ? 0.12 : 0.04),
-                                ForgePalette.teal.opacity(orbGlow ? 0.06 : 0.02),
+                                ForgePalette.ember.opacity(0.08),
+                                ForgePalette.teal.opacity(0.03),
                                 .clear
                             ],
                             center: .center, startRadius: 8, endRadius: 120
@@ -191,11 +189,6 @@ struct ChatEmptyStateView: View {
         }
         .onAppear {
             appeared = true
-            if reduceMotion {
-                orbGlow = true
-            } else {
-                withAnimation(.easeInOut(duration: 4.8).repeatForever(autoreverses: true)) { orbGlow = true }
-            }
         }
     }
 }

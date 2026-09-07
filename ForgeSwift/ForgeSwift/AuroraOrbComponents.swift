@@ -1,9 +1,6 @@
 import SwiftUI
-import ForgeCore
 
 /// Compact ARIA mark for avatars, tabs, and cards.
-/// The 4-lobe ember (`AriaLogo`) is the identity. Live speech/listen from
-/// `AriaPresence` overrides idle so every mark breathes when she talks.
 struct ARIAIdentityMark: View {
     var state: AROrbState = .idle
     var mood: ARIAMood = .focused
@@ -22,7 +19,7 @@ struct ARIAIdentityMark: View {
             )
             if showsPresence {
                 Circle()
-                    .fill(ForgePalette.ember.opacity(0.9))
+                    .fill(Color(hex: AriaSigilPalette.emberHex).opacity(0.9))
                     .frame(width: max(7, size * 0.18), height: max(7, size * 0.18))
                     .offset(x: 1, y: 1)
             }
@@ -32,9 +29,8 @@ struct ARIAIdentityMark: View {
     }
 }
 
-/// Living 4-lobe ember. The `AriaLogo` PNG is aspect-fit and never stretched.
-/// Motion is uniform scale + hue shimmer + a procedural core pulse.
-/// Reduce Motion freezes on the still frame.
+/// Procedural 4-lobe gooey ember. No ping rings, no PNG stretch.
+/// Presence (speech / listen) drives energy. Reduce Motion freezes the pose.
 struct AuroraOrbView: View {
     let state: AROrbState
     let amplitude: Float
@@ -50,12 +46,6 @@ struct AuroraOrbView: View {
         followPresence && presence.orbState != .idle ? presence.orbState : state
     }
 
-    private var resolvedAmplitude: Float {
-        if followPresence, presence.isSpeaking { return max(amplitude, 0.72) }
-        if followPresence, presence.isListening { return max(amplitude, max(presence.amplitude, 0.42)) }
-        return amplitude
-    }
-
     private var tick: Double {
         if reduceMotion { return 1 }
         return 1.0 / 24.0
@@ -67,10 +57,16 @@ struct AuroraOrbView: View {
             paused: reduceMotion || scenePhase != .active
         )) { timeline in
             let t = reduceMotion ? AriaSigilGeometry.stillPose : timeline.date.timeIntervalSinceReferenceDate
-            orb(at: t)
+            EmberCanvas(
+                time: t,
+                state: resolvedState,
+                mood: mood,
+                amplitude: amplitude,
+                size: size,
+                reduceMotion: reduceMotion
+            )
         }
         .frame(width: size, height: size)
-        .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             resolvedState == .speaking ? "ARIA speaking"
@@ -82,72 +78,88 @@ struct AuroraOrbView: View {
             presence.playWelcomeChimeIfNeeded(size: size, reduceMotion: reduceMotion)
         }
     }
+}
 
-    private func orb(at t: TimeInterval) -> some View {
-        let live = resolvedState
-        let breath = AriaSigilGeometry.breath(time: t, state: live, reduceMotion: reduceMotion)
-        let core = AriaSigilGeometry.corePulse(time: t, state: live, reduceMotion: reduceMotion)
-        let hue = AriaSigilGeometry.hueShiftDegrees(time: t, state: live, reduceMotion: reduceMotion)
-        let glow = AriaSigilGeometry.glowOpacity(state: live, breath: breath)
-        let talkBoost = (!reduceMotion && live == .speaking)
-            ? Double(resolvedAmplitude) * 0.008
-            : 0
-        let scale = CGFloat(AriaSigilGeometry.uniformScale(breath: breath, reduceMotion: reduceMotion) + talkBoost)
+private struct EmberCanvas: View {
+    let time: TimeInterval
+    let state: AROrbState
+    let mood: ARIAMood
+    let amplitude: Float
+    let size: CGFloat
+    let reduceMotion: Bool
 
-        let ember = ForgePalette.ember
-        let teal = ForgePalette.teal
-        let wash: Color = {
-            switch live {
-            case .listening: return teal
-            case .speaking: return ember
-            case .processing: return ForgePalette.steel
-            case .idle: return ember
+    var body: some View {
+        Canvas { context, canvasSize in
+            let s = min(canvasSize.width, canvasSize.height)
+            let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
+            let gaze = AriaSigilGeometry.gaze(time: time, state: state, reduceMotion: reduceMotion)
+            let ember = Color(hex: AriaSigilPalette.emberHex)
+            let teal = Color(hex: AriaSigilPalette.tealHex)
+            let hot = Color(hex: "FFE28A")
+            let accent = Color(hex: AriaSigilPalette.photonPrimary(for: mood))
+
+            context.blendMode = .plusLighter
+
+            for index in 0..<AriaSigilGeometry.lobeCount {
+                let lobe = AriaSigilGeometry.lobe(index: index, time: time, state: state, reduceMotion: reduceMotion)
+                let lx = center.x + CGFloat(lobe.x + gaze.x) * s * 0.5
+                let ly = center.y + CGFloat(lobe.y + gaze.y) * s * 0.5
+                let rad = CGFloat(lobe.r) * s * 0.5
+                let rect = CGRect(x: lx - rad, y: ly - rad, width: rad * 2, height: rad * 2)
+                context.fill(
+                    Path(ellipseIn: rect),
+                    with: .radialGradient(
+                        Gradient(colors: [
+                            hot.opacity(0.95),
+                            ember.opacity(0.82),
+                            accent.opacity(0.42),
+                            teal.opacity(0.28),
+                            .clear
+                        ]),
+                        center: CGPoint(x: lx, y: ly),
+                        startRadius: 0,
+                        endRadius: rad
+                    )
+                )
             }
-        }()
 
-        return ZStack {
-            RadialGradient(
-                colors: [
-                    wash.opacity(0.28 + glow * 0.2 + core * 0.9),
-                    teal.opacity(0.08),
-                    .clear
-                ],
-                center: .center,
-                startRadius: size * 0.04,
-                endRadius: size * 0.55
+            let extra = CGFloat(max(0, min(1, Double(amplitude)))) * 0.04
+            let coreR = (CGFloat(AriaSigilGeometry.coreRadius(time: time, state: state, reduceMotion: reduceMotion)) + extra) * s
+            let coreCenter = CGPoint(
+                x: center.x + CGFloat(gaze.x) * s * 0.35,
+                y: center.y + CGFloat(gaze.y) * s * 0.35
             )
-            .frame(width: size * 1.12, height: size * 1.12)
-            .blur(radius: max(6, size * 0.16))
-            .opacity(reduceMotion ? 0.28 : 0.95)
-            .scaleEffect(scale)
-
-            Image(AriaWelcomeChime.assetName)
-                .interpolation(.high)
-                .resizable()
-                .scaledToFit()
-                .hueRotation(.degrees(hue))
-                .brightness(reduceMotion ? 0 : core * 0.85)
-                .saturation(1 + breath * 0.12)
-                .frame(width: size, height: size)
-                .scaleEffect(scale)
-
-            // Procedural ember — reads as alive even when the PNG is still.
-            RadialGradient(
-                colors: [
-                    ForgePalette.emberCore.opacity(0.55 + core * 2.2),
-                    ember.opacity(0.28 + core * 1.4),
-                    .clear
-                ],
-                center: .center,
-                startRadius: 0,
-                endRadius: size * 0.22
+            context.fill(
+                Path(ellipseIn: CGRect(x: coreCenter.x - coreR, y: coreCenter.y - coreR, width: coreR * 2, height: coreR * 2)),
+                with: .radialGradient(
+                    Gradient(colors: [
+                        (state == .speaking ? Color.white.opacity(0.9) : hot.opacity(0.85)),
+                        ember.opacity(0.5),
+                        .clear
+                    ]),
+                    center: coreCenter,
+                    startRadius: 0,
+                    endRadius: coreR
+                )
             )
-            .frame(width: size * 0.46, height: size * 0.46)
-            .blendMode(.screen)
-            .opacity(reduceMotion ? 0.15 : 0.85)
-            .scaleEffect(0.82 + CGFloat(core) * 2.4)
+
+            let spec = CGPoint(
+                x: center.x + CGFloat(gaze.x) * s * 0.2 - s * 0.08,
+                y: center.y + CGFloat(gaze.y) * s * 0.2 - s * 0.1
+            )
+            let specR = s * 0.08
+            context.fill(
+                Path(ellipseIn: CGRect(x: spec.x - specR, y: spec.y - specR, width: specR * 2, height: specR * 2)),
+                with: .radialGradient(
+                    Gradient(colors: [Color.white.opacity(0.55), .clear]),
+                    center: spec,
+                    startRadius: 0,
+                    endRadius: specR
+                )
+            )
         }
         .frame(width: size, height: size)
+        .allowsHitTesting(false)
     }
 }
 

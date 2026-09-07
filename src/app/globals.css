@@ -190,82 +190,6 @@
   animation: aria-orb-breathe 1.15s ease-in-out infinite;
 }
 
-/* Living ARIA ember — uniform breath only. Never stretch X/Y independently. */
-@keyframes aria-mark-live {
-  0%,
-  100% {
-    transform: scale(1);
-    filter: hue-rotate(-12deg) brightness(1) saturate(1.08);
-  }
-  50% {
-    transform: scale(1.04);
-    filter: hue-rotate(12deg) brightness(1.16) saturate(1.2);
-  }
-}
-
-@keyframes aria-mark-halo {
-  0%,
-  100% {
-    opacity: 0.28;
-    transform: scale(0.94);
-  }
-  50% {
-    opacity: 0.62;
-    transform: scale(1.06);
-  }
-}
-
-@keyframes aria-mark-core {
-  0%,
-  100% {
-    opacity: 0.22;
-    transform: translate(-50%, -50%) scale(0.86);
-  }
-  50% {
-    opacity: 0.78;
-    transform: translate(-50%, -50%) scale(1.12);
-  }
-}
-
-.aria-mark {
-  object-fit: contain;
-  object-position: center;
-  animation: aria-mark-live 2.22s ease-in-out infinite;
-  transform-origin: center center;
-  user-select: none;
-}
-
-.aria-mark-speak {
-  animation-name: aria-mark-live;
-}
-
-.aria-mark-glow {
-  background: radial-gradient(
-    circle at 50% 48%,
-    rgba(255, 106, 26, 0.42) 0%,
-    rgba(62, 200, 200, 0.12) 45%,
-    transparent 72%
-  );
-  animation: aria-mark-halo 2.22s ease-in-out infinite;
-}
-
-.aria-mark-core {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 42%;
-  height: 42%;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(255, 226, 138, 0.9) 0%,
-    rgba(255, 106, 26, 0.45) 42%,
-    transparent 72%
-  );
-  mix-blend-mode: screen;
-  animation: aria-mark-core 2.22s ease-in-out infinite;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -274,20 +198,6 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
-  }
-
-  .aria-mark,
-  .aria-mark-speak,
-  .aria-mark-glow,
-  .aria-mark-core {
-    animation: none !important;
-    filter: none;
-    transform: none;
-  }
-
-  .aria-mark-core {
-    transform: translate(-50%, -50%) !important;
-    opacity: 0.18;
   }
 }
 

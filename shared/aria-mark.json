@@ -4,15 +4,9 @@
   "sharedPath": "shared/brand/aria-mark.png",
   "cropScale": 1.0,
   "heroMinimumSize": 90,
-  "idleBreathHz": 0.45,
-  "listeningBreathHz": 0.58,
-  "processingBreathHz": 0.7,
-  "speakingBreathHz": 0.62,
-  "idleBreathSeconds": 2.22,
-  "speakBreathSeconds": 1.61,
-  "maxHueDegrees": 12,
-  "maxEdgeUndulation": 0,
-  "breathScale": 0.04,
-  "corePulseAmount": 0.1,
-  "stillPose": 1.72
+  "idleBreathHz": 0.42,
+  "speakingBreathHz": 0.68,
+  "stillPose": 1.72,
+  "maxGaze": 0.14,
+  "lobeCount": 4
 }

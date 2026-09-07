@@ -2,10 +2,8 @@ import SwiftUI
 
 struct HomeARIABriefingCard: View {
     @EnvironmentObject var store: AppStore
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var displayedText = ""
     @State private var isTyping = false
-    @State private var pulseRing = false
 
     private var fullBriefing: String {
         HomeARIABriefingBuilder.build(store: store)
@@ -24,7 +22,7 @@ struct HomeARIABriefingCard: View {
                     Circle()
                         .fill(
                             RadialGradient(
-                                colors: [Color.ember.opacity(0.2), Color(hex: "00D2FF").opacity(0.06), .clear],
+                                colors: [Color.ember.opacity(0.16), .clear],
                                 center: .center,
                                 startRadius: 8,
                                 endRadius: 32
@@ -32,8 +30,6 @@ struct HomeARIABriefingCard: View {
                         )
                         .frame(width: 52, height: 52)
                         .blur(radius: 10)
-                        .scaleEffect(pulseRing ? 1.4 : 1)
-                        .opacity(pulseRing ? 0 : 0.7)
                     ARIAIdentityMark(state: .idle, mood: .energized, size: 42, amplitude: 0.24)
                 }
 
@@ -118,13 +114,6 @@ struct HomeARIABriefingCard: View {
         .forgeGlassCard(accent: .ember)
         .homeEntrance(delay: 0.18)
         .onAppear {
-            // The avatar halo was the one continuous loop on Home that ignored
-            // Reduce Motion, while the typewriter beside it already honoured it.
-            if !reduceMotion {
-                withAnimation(.easeOut(duration: 2.2).repeatForever(autoreverses: false)) {
-                    pulseRing = true
-                }
-            }
             startTypewriterIfNeeded()
         }
     }
