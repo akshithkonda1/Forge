@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import ForgeCore
 
 @MainActor
 struct ActiveWorkoutView: View {
@@ -53,6 +54,8 @@ struct ActiveWorkoutView: View {
 
     // End
     @State private var showEndConfirm: Bool   = false
+    @State private var sessionStartedAt: Date = Date()
+    @State private var didWarnHR: Bool        = false
 
     // Volume
     @State private var totalVolume:    Int    = 0
@@ -107,13 +110,16 @@ struct ActiveWorkoutView: View {
                     voiceCoachBar
                 }
             } else {
-                ForgeEmptyStateCard(
-                    icon: "figure.strengthtraining.traditional",
-                    title: "Today’s session",
-                    message: "ARIA writes this from how you live — sleep, cycle, gear, readiness. Not a catalog.",
-                    cta: "Write session",
-                    action: { store.startLifeShapedSession() }
-                )
+                VStack(spacing: 16) {
+                    ForgeEmptyStateCard(
+                        icon: "figure.strengthtraining.traditional",
+                        title: "Today’s session",
+                        message: "ARIA writes this from how you live — sleep, cycle, gear, readiness. Not a catalog.",
+                        cta: "Write session",
+                        action: { store.startLifeShapedSession() }
+                    )
+                    voiceCoachBar
+                }
                 .padding(24)
             }
 
@@ -163,6 +169,7 @@ struct ActiveWorkoutView: View {
             if store.todayWorkout == nil {
                 store.rebuildTodayPlanFromLife()
             }
+            sessionStartedAt = Date()
             startTasks()
             setupCurrentWeight()
             if store.dailyMetrics.restingHR > 0 {
@@ -171,6 +178,7 @@ struct ActiveWorkoutView: View {
             syncVoiceCoach()
             voiceCoach.setVoiceEnabled(AriaTrainVoice.isEnabled)
             voiceCoach.announceWorkoutStart()
+            publishLiveActivity()
         }
         .onDisappear { cancelTasks() }
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: showPRBanner)
@@ -685,14 +693,44 @@ struct ActiveWorkoutView: View {
         ))
     }
 
+    private func publishLiveActivity() {
+        let type: ForgeWorkoutType = {
+            switch store.todayWorkout?.type {
+            case .cardio: return .cardio
+            case .hiit: return .hiit
+            case .yoga: return .yoga
+            case .mobility: return .mobility
+            default: return .strength
+            }
+        }()
+        let state = WorkoutLiveState(
+            workoutType: type,
+            phase: isResting ? .resting : .active,
+            startedAt: sessionStartedAt,
+            elapsedSeconds: TimeInterval(elapsedSecs),
+            heartRate: Double(simulatedHR),
+            zoneNumber: currentZone.index,
+            activeCalories: estimatedCals,
+            currentExerciseName: currentExercise?.name,
+            currentExerciseIndex: store.currentExerciseIndex,
+            totalExercises: exercises.count,
+            currentSetIndex: store.currentSet,
+            totalSetsInExercise: currentExercise?.sets,
+            restSecondsRemaining: isResting ? restTimeLeft : nil
+        )
+        Task { await WorkoutActivityCoordinator.shared.startOrUpdate(state) }
+    }
+
     private var voiceCoachBar: some View {
         VoiceCoachBar(coach: voiceCoach)
             .padding(.horizontal, 16).padding(.bottom, 20).padding(.top, 6)
             .onChange(of: store.currentExerciseIndex) { _, _ in
                 syncVoiceCoach()
+                publishLiveActivity()
             }
             .onChange(of: store.currentSet) { _, _ in
                 syncVoiceCoach()
+                publishLiveActivity()
             }
     }
 
@@ -737,7 +775,14 @@ struct ActiveWorkoutView: View {
 
         let isLastSet = store.currentSet >= exercise.sets
         let isLastEx  = store.currentExerciseIndex >= exercises.count - 1
-        if isLastSet && isLastEx { endWorkout(); return }
+        if isLastSet && isLastEx {
+            voiceCoach.announceWorkoutComplete(
+                duration: formatTime(elapsedSecs, flashColon: false),
+                calories: Int(estimatedCals)
+            )
+            endWorkout()
+            return
+        }
         let restFor = recommendation.restSeconds
         if isLastSet { store.nextExercise(); setupCurrentWeight() } else { store.nextSet() }
         startRest(seconds: restFor)
@@ -799,6 +844,7 @@ struct ActiveWorkoutView: View {
             muscleVolume: mvStr, autoRegLog: autoRegLog, painFlags: painFlags,
             readiness: store.readiness.overall, workoutName: store.todayWorkout?.name ?? "Workout")
         store.endWorkout()
+        Task { await WorkoutActivityCoordinator.shared.finishActivity() }
         onWorkoutEnd(data)
     }
 
@@ -811,6 +857,8 @@ struct ActiveWorkoutView: View {
         restTask?.cancel(); restTask = nil
         withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) { isResting = false }
         restTimeLeft = 0; UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        voiceCoach.announceRestOver(nextExerciseName: currentExercise?.name ?? "next lift")
+        publishLiveActivity()
     }
     private func handleEnd() {
         if showEndConfirm { endWorkout() }
@@ -831,6 +879,10 @@ struct ActiveWorkoutView: View {
                     restTimeLeft = 0
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.78)) { isResting = false }
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    await MainActor.run {
+                        voiceCoach.announceRestOver(nextExerciseName: currentExercise?.name ?? "next lift")
+                        publishLiveActivity()
+                    }
                     return
                 }
                 restTimeLeft -= 1
@@ -861,6 +913,11 @@ struct ActiveWorkoutView: View {
                 simulatedHR = Int((Double(simulatedHR) + (target - Double(simulatedHR)) * 0.12 + Double.random(in: -4...4)).rounded().clamped(to: 55...200))
                 hrHistory.append(simulatedHR)
                 if simulatedHR > peakHR { peakHR = simulatedHR }
+                if simulatedHR >= 175, !didWarnHR {
+                    didWarnHR = true
+                    voiceCoach.announceHRWarning(hr: simulatedHR)
+                }
+                if elapsedSecs % 5 == 0 { publishLiveActivity() }
             }
         }
         calTask = Task {

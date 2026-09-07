@@ -157,7 +157,7 @@ final class SleepWakePlayer {
         stop(deactivateSession: false)
         SleepWindDownPlayer.shared.stop(deactivateSession: false)
         let ramp = alarm.gradualVolume ? ForgeAlarmStore.shared.volumeRamp : .instant
-        renderer.reset(rampSeconds: ramp.rampSeconds)
+        renderer.reset(rampSeconds: ramp.rampSeconds, sound: alarm.sound)
         guard let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1) else { return }
         let engine = AVAudioEngine()
         let renderer = self.renderer
@@ -220,8 +220,8 @@ final class SoundscapeRenderer: @unchecked Sendable {
 final class WakeToneRenderer: @unchecked Sendable {
     private let lock = OSAllocatedUnfairLock(initialState: WakeToneDSP())
 
-    func reset(rampSeconds: Double) {
-        lock.withLock { $0.reset(rampSeconds: rampSeconds) }
+    func reset(rampSeconds: Double, sound: AlarmSoundOption = .gentleRise) {
+        lock.withLock { $0.reset(rampSeconds: rampSeconds, sound: sound) }
     }
 
     func render(into data: UnsafeMutablePointer<Float>, frames: Int) {
@@ -391,21 +391,60 @@ struct WakeToneDSP: Sendable {
     var t: Double = 0
     var frames: Int = 0
     var rampFrames: Int = 8_820
+    var sound: AlarmSoundOption = .gentleRise
+    var eventAt: Int = 6_000
+    var eventAmp: Float = 0
+    var rng: UInt32 = 0xA5A5_1234
 
-    mutating func reset(rampSeconds: Double) {
+    mutating func reset(rampSeconds: Double, sound: AlarmSoundOption = .gentleRise) {
         t = 0
         frames = 0
         rampFrames = max(1, Int(rampSeconds * 22_050))
+        self.sound = sound
+        eventAt = 4_000
+        eventAmp = 0
+        rng = 0xA5A5_1234 &+ UInt32(sound.rawValue.hashValue)
     }
 
     mutating func nextSample() -> Float {
         frames += 1
         let env = min(1, Float(frames) / Float(rampFrames))
-        let s1 = sin(2 * Double.pi * 392 * t)
-        let s2 = sin(2 * Double.pi * 523.25 * t)
+        let freqs = sound.wakeFrequencies
         t += 1 / 22_050
-        if t > 1 { t -= 1 }
-        return max(-1, min(1, Float(s1 * 0.34 + s2 * 0.22) * env))
+        if t > 8 { t -= 8 }
+        let s1 = sin(2 * Double.pi * freqs.0 * t)
+        let s2 = sin(2 * Double.pi * freqs.1 * t)
+        rng = rng &* 1_664_525 &+ 1_013_904_223
+        let bits = (rng >> 8) & 0x00FF_FFFF
+        let white = Float(bits) / 16_777_216.0 * 2 - 1
+        let tone: Float
+        switch sound {
+        case .gentleRise, .sunriseGlow:
+            tone = Float(s1 * 0.34 + s2 * 0.22)
+        case .forestBirds:
+            if frames >= eventAt {
+                eventAmp = 0.22
+                eventAt = frames + 8_000 + Int((rng >> 16) % 12_000)
+            }
+            eventAmp *= 0.995
+            tone = Float(s1 * 0.12 + s2 * 0.10) * eventAmp + white * 0.02
+        case .oceanWaves:
+            let swell = Float(0.45 + 0.55 * sin(t * 0.22))
+            tone = Float(s1 * 0.28 + s2 * 0.12) * swell
+        case .windChimes, .tibetanBell:
+            if frames >= eventAt {
+                eventAmp = 0.28
+                eventAt = frames + 14_000
+            }
+            eventAmp *= 0.9992
+            tone = Float(s1 * 0.22 + s2 * 0.14) * eventAmp
+        case .rainDrop:
+            let drop = white * white > 0.92 ? white * 0.35 : white * 0.08
+            tone = Float(s1 * 0.10) + drop * 0.18
+        case .softPiano:
+            tone = Float(s1 * 0.28 + s2 * 0.16) * Float(0.7 + 0.3 * sin(t * 0.5))
+        }
+        return max(-1, min(1, tone * env))
     }
 }
 

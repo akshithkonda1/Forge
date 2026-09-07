@@ -40,9 +40,8 @@ final class VoiceCoachManager: NSObject {
     // Forge's own backend. This used to be a direct POST to api.anthropic.com
     // with a key read from Info.plist — an extractable secret in any build that
     // set one, and a request that skipped auth, sanitization, the model router
-    // and every cost control. Nothing on screen instantiates this manager today,
-    // which made it easy to miss; the code still shipped in the binary, and dead
-    // code is what gets wired up later without anyone re-auditing it.
+    // and every cost control. ActiveWorkoutView instantiates this manager and
+    // speaks start / set-complete / rest / end / HR cues on the phone session.
     
     // MARK: - Init
     

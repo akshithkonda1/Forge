@@ -202,8 +202,20 @@ final class SleepWakeEngineTests: XCTestCase {
 
     func testWakeToneRampsFromSilence() {
         var dsp = WakeToneDSP()
-        dsp.reset(rampSeconds: 1)
+        dsp.reset(rampSeconds: 1, sound: .gentleRise)
         XCTAssertLessThan(abs(dsp.nextSample()), 0.01)
+    }
+
+    func testAlarmSoundsHaveDistinctWakeFrequencies() {
+        XCTAssertNotEqual(
+            AlarmSoundOption.gentleRise.wakeFrequencies.0,
+            AlarmSoundOption.tibetanBell.wakeFrequencies.0
+        )
+        var dsp = WakeToneDSP()
+        dsp.reset(rampSeconds: 0.01, sound: .oceanWaves)
+        var last: Float = 0
+        for _ in 0..<400 { last = dsp.nextSample() }
+        XCTAssertLessThanOrEqual(abs(last), 1)
     }
 
     func testPersistedKindRoundTripsThroughStorageKey() {
