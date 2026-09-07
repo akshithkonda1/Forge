@@ -4,14 +4,15 @@ import SwiftUI
 
 struct VoiceCoachBar: View {
     @Bindable var coach: VoiceCoachManager
-    
+    private let presence = AriaPresence.shared
+
     var body: some View {
         VStack(spacing: 0) {
             // Message area
             HStack(spacing: 12) {
                 // Forge avatar with live state indicator
                 ForgeAvatarView(
-                    isSpeaking: coach.isSpeaking,
+                    isSpeaking: presence.isSpeaking,
                     isThinking: coach.isThinking,
                     isListening: coach.isListening
                 )
@@ -139,6 +140,7 @@ struct ForgeAvatarView: View {
 
 struct MicButton: View {
     @Bindable var coach: VoiceCoachManager
+    private let presence = AriaPresence.shared
     @State private var isPressed = false
     
     var body: some View {
@@ -176,7 +178,7 @@ struct MicButton: View {
     
     var micIcon: String {
         if coach.isListening { return "stop.fill" }
-        if coach.isSpeaking { return "speaker.wave.2.fill" }
+        if presence.isSpeaking { return "speaker.wave.2.fill" }
         return "mic.fill"
     }
     
@@ -193,7 +195,7 @@ struct MicButton: View {
         if coach.isListening {
             coach.stopListening()
         } else {
-            if coach.isSpeaking {
+            if presence.isSpeaking {
                 coach.interruptSpeech()
             }
             coach.startListening()

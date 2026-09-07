@@ -1,4 +1,6 @@
 import AVFoundation
+import Observation
+import SwiftUI
 import UIKit
 
 /// Train-only mute. Chat and onboarding keep talking; the gym floor can go quiet.
@@ -17,13 +19,12 @@ enum AriaTrainVoice: Sendable {
     }
 }
 
-/// Picks a neural, non-Siri English voice.
+/// Picks ARIA's locked neural voice — Apple Zoe Premium when installed.
 ///
 /// Compact Samantha spoken as chopped utterances is the “Stephen Hawking”
 /// sound: formant TTS, no coarticulation, a fresh intonation contour on every
-/// sentence. Claude and Grok use cloud neural TTS. On-device the equivalent is
-/// Apple premium/enhanced voices (Zoe, Ava, Nicky, Allison) spoken as **one**
-/// utterance so the engine can contour the whole line.
+/// sentence. On-device she is Zoe (then Ava / Nicky / Allison premium, then
+/// enhanced). No compact fallback: missing neural identity is silence.
 enum AriaSpokenVoice: Sendable {
 
     enum QualityRank: Int, Sendable, Comparable {
@@ -58,10 +59,14 @@ enum AriaSpokenVoice: Sendable {
     /// current iOS and returns compact Samantha. Never use it.
     static let allowsLanguageConstructorFallback = false
 
-    /// Installed identifiers we try first, in order. Unknown ids silently
-    /// resolve to Samantha — callers must require an identifier match.
+    /// Locked spoken identity. Chat, onboarding, and Train resolve to this
+    /// identifier when it is installed — not whichever neural scored highest.
+    static let lockedIdentifier = "com.apple.voice.premium.en-US.Zoe"
+
+    /// Installed identifiers we try, in order. Unknown ids silently resolve
+    /// to Samantha — callers must require an identifier match.
     static let preferredNeuralIdentifiers = [
-        "com.apple.voice.premium.en-US.Zoe",
+        lockedIdentifier,
         "com.apple.voice.premium.en-US.Ava",
         "com.apple.voice.premium.en-US.Nicky",
         "com.apple.voice.premium.en-US.Allison",
@@ -69,8 +74,6 @@ enum AriaSpokenVoice: Sendable {
         "com.apple.voice.enhanced.en-US.Ava",
         "com.apple.voice.enhanced.en-US.Nicky",
         "com.apple.voice.enhanced.en-US.Allison",
-        "com.apple.voice.premium.en-GB.Serena",
-        "com.apple.voice.enhanced.en-GB.Serena",
     ]
 
     private static let noveltyTokens = [
@@ -82,8 +85,7 @@ enum AriaSpokenVoice: Sendable {
     ]
 
     private static let preferredNames = [
-        "zoe", "ava", "nicky", "allison", "stephanie", "susan", "sally",
-        "emily", "joelle", "serena", "kate", "martha",
+        "zoe", "ava", "nicky", "allison",
     ]
 
     static func isSiri(_ candidate: Candidate) -> Bool {
@@ -106,13 +108,20 @@ enum AriaSpokenVoice: Sendable {
         return id.contains(".premium.") || id.contains(".enhanced.")
     }
 
-    /// Compact formant voices (Samantha, Alex). Fine as a last resort when the
-    /// user has not downloaded a neural voice; never preferred over one.
+    /// Compact formant voices (Samantha, Alex). Never spoken. Missing neural
+    /// identity is silence plus the download prompt — not a computer voice.
     static func isCompactFormant(_ candidate: Candidate) -> Bool {
         let blob = "\(candidate.identifier) \(candidate.name)".lowercased()
         if blob.contains("compact") { return true }
         if blob.contains("samantha") && !isNeural(candidate) { return true }
         return candidate.quality == .standard && !isNeural(candidate)
+    }
+
+    static func isLockedFamily(_ candidate: Candidate) -> Bool {
+        preferredNeuralIdentifiers.contains(candidate.identifier)
+            && isNeural(candidate)
+            && !isSiri(candidate)
+            && !isNovelty(candidate)
     }
 
     /// True only when the requested neural id is actually installed and the
@@ -127,16 +136,16 @@ enum AriaSpokenVoice: Sendable {
 
     static func score(_ candidate: Candidate) -> Int {
         if isSiri(candidate) || isNovelty(candidate) { return -1_000_000 }
+        if isCompactFormant(candidate) { return -1_000_000 }
         var points = 0
         let lang = candidate.language.lowercased()
         if lang == "en-us" || lang.hasPrefix("en-us") { points += 40 }
-        else if lang.hasPrefix("en-gb") { points += 18 }
-        else if lang.hasPrefix("en") { points += 12 }
+        else if lang.hasPrefix("en") { points += 8 }
 
         switch candidate.quality {
         case .premium: points += 400
         case .enhanced: points += 200
-        case .standard: points += 8
+        case .standard: points += 0
         }
 
         if candidate.gender == .female { points += 12 }
@@ -149,16 +158,19 @@ enum AriaSpokenVoice: Sendable {
                 break
             }
         }
-        if isCompactFormant(candidate) { points -= 120 }
-        if blob.contains("samantha") { points -= 40 }
+        if candidate.identifier == lockedIdentifier { points += 80 }
         return points
     }
 
+    /// First matching locked-family identifier, in `preferredNeuralIdentifiers`
+    /// order. Compact catalogs return nil — never Samantha.
     static func pick(from candidates: [Candidate]) -> Candidate? {
-        let human = candidates.filter { isEnglish($0) && !isSiri($0) && !isNovelty($0) }
-        let neural = human.filter(isNeural)
-        let pool = neural.isEmpty ? human : neural
-        return pool.max { score($0) < score($1) }
+        let byId = Dictionary(candidates.map { ($0.identifier, $0) }, uniquingKeysWith: { first, _ in first })
+        for identifier in preferredNeuralIdentifiers {
+            guard let candidate = byId[identifier], isLockedFamily(candidate) else { continue }
+            return candidate
+        }
+        return nil
     }
 
     static func candidate(from voice: AVSpeechSynthesisVoice) -> Candidate {
@@ -186,20 +198,13 @@ enum AriaSpokenVoice: Sendable {
     static func preferredVoice(
         from voices: [AVSpeechSynthesisVoice] = AVSpeechSynthesisVoice.speechVoices()
     ) -> AVSpeechSynthesisVoice? {
-        if let named = resolveNamedNeural(from: voices) {
-            return named
-        }
-        if let picked = pick(from: voices.map(candidate(from:))),
-           let voice = acceptedVoice(requestedId: picked.identifier, from: voices) {
-            return voice
-        }
-        return voices.first { voice in
-            let cand = candidate(from: voice)
-            return isEnglish(cand) && !isSiri(cand) && !isNovelty(cand)
-        } ?? voices.first { voice in
-            let cand = candidate(from: voice)
-            return isEnglish(cand) && !isSiri(cand)
-        }
+        resolveNamedNeural(from: voices)
+    }
+
+    static func hasInstalledIdentity(
+        from voices: [AVSpeechSynthesisVoice] = AVSpeechSynthesisVoice.speechVoices()
+    ) -> Bool {
+        preferredVoice(from: voices) != nil
     }
 
     static func resolveNamedNeural(from catalog: [AVSpeechSynthesisVoice]) -> AVSpeechSynthesisVoice? {
@@ -211,7 +216,7 @@ enum AriaSpokenVoice: Sendable {
                 requestedId: requested,
                 catalogIds: catalogIds,
                 resolvedId: voice.identifier
-            ), !isSiri(cand), !isNovelty(cand) else { continue }
+            ), isLockedFamily(cand) else { continue }
             return voice
         }
         return nil
@@ -232,6 +237,101 @@ enum AriaSpokenVoice: Sendable {
             resolvedId: voice.identifier
         ) else { return nil }
         return voice
+    }
+}
+
+/// When to show the Zoe-download sheet. Pure so tests do not spin UI.
+enum AriaNeuralVoicePromptPolicy: Sendable {
+    static let promptedKey = "aria.spoken.neuralVoicePromptShown"
+    static let title = "ARIA's voice"
+    static let body = "She speaks with Apple's Zoe — a neural voice, one line, not the compact computer voice."
+    static let settingsPath = "Settings → Accessibility → Spoken Content → Voices → English → Zoe (Premium)"
+    static let actionTitle = "Got it"
+
+    static func shouldPresent(hasNeuralIdentity: Bool, alreadyPrompted: Bool) -> Bool {
+        !hasNeuralIdentity && !alreadyPrompted
+    }
+}
+
+/// First-run prompt when voice mode is used without a neural identity.
+/// Re-checks the catalog on foreground so a just-downloaded Zoe starts working.
+@MainActor
+@Observable
+final class AriaNeuralVoiceGate {
+    static let shared = AriaNeuralVoiceGate()
+
+    var showPrompt = false
+    private(set) var hasNeuralIdentity = false
+
+    private init() {
+        refreshCatalog()
+    }
+
+    func refreshCatalog() {
+        hasNeuralIdentity = AriaSpokenVoice.hasInstalledIdentity()
+        if hasNeuralIdentity {
+            showPrompt = false
+        }
+    }
+
+    func requestPromptIfNeeded(defaults: UserDefaults = .standard) {
+        refreshCatalog()
+        let already = defaults.bool(forKey: AriaNeuralVoicePromptPolicy.promptedKey)
+        guard AriaNeuralVoicePromptPolicy.shouldPresent(
+            hasNeuralIdentity: hasNeuralIdentity,
+            alreadyPrompted: already
+        ) else { return }
+        defaults.set(true, forKey: AriaNeuralVoicePromptPolicy.promptedKey)
+        showPrompt = true
+    }
+
+    func dismiss() {
+        showPrompt = false
+        refreshCatalog()
+    }
+}
+
+struct AriaNeuralVoiceSheet: View {
+    @Bindable var gate: AriaNeuralVoiceGate
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                Text(AriaNeuralVoicePromptPolicy.body)
+                    .font(FDS.TypeScale.body(16))
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(AriaNeuralVoicePromptPolicy.settingsPath)
+                    .font(FDS.TypeScale.body(14))
+                    .foregroundColor(.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.surfaceElevated, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                Spacer()
+
+                Button {
+                    FDS.haptic(.light)
+                    gate.dismiss()
+                } label: {
+                    Text(AriaNeuralVoicePromptPolicy.actionTitle)
+                        .font(FDS.TypeScale.label(16))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.ember, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(24)
+            .navigationTitle(AriaNeuralVoicePromptPolicy.title)
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -260,6 +360,12 @@ extension AriaSpeechPrep {
         spokenLine(in: text).map { [$0] } ?? []
     }
 
+    /// Speak only when there is a line *and* a neural identity. Compact
+    /// fallback is never a reason to enqueue.
+    static func canSpeak(text: String, hasNeuralIdentity: Bool) -> Bool {
+        spokenLine(in: text) != nil && hasNeuralIdentity
+    }
+
     static func utterances(from text: String, voiceOver: Bool) -> [AVSpeechUtterance] {
         guard let line = spokenLine(in: text) else { return [] }
         let utterance = AVSpeechUtterance(string: line)
@@ -276,21 +382,26 @@ extension AriaSpeechPrep {
         return [utterance]
     }
 
-    /// Queue a single neural utterance. Returns false when there is nothing to say.
+    /// Queue a single neural utterance. Returns false when there is nothing
+    /// to say, or when no locked neural voice is installed.
     @MainActor
     static func enqueue(
         _ text: String,
         on synthesizer: AVSpeechSynthesizer,
         interrupt: Bool,
-        stopAt boundary: AVSpeechBoundary = .immediate
+        stopAt boundary: AVSpeechBoundary = .immediate,
+        session: ForgePlaybackSession = .spoken
     ) -> Bool {
+        guard canSpeak(text: text, hasNeuralIdentity: AriaSpokenVoice.hasInstalledIdentity()) else {
+            return false
+        }
         let voiceOver = UIAccessibility.isVoiceOverRunning
         let utts = utterances(from: text, voiceOver: voiceOver)
-        guard !utts.isEmpty else { return false }
+        guard !utts.isEmpty, utts.contains(where: { $0.voice != nil }) else { return false }
         if interrupt, synthesizer.isSpeaking {
             synthesizer.stopSpeaking(at: boundary)
         }
-        try? ForgePlaybackSession.spoken.activate()
+        try? session.activate()
         for utterance in utts {
             synthesizer.speak(utterance)
         }

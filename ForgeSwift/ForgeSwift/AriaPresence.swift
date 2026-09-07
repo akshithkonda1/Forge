@@ -23,6 +23,8 @@ enum AriaSpeechPrep: Sendable {
 /// One place so those three cannot drift into incompatible session options.
 enum ForgePlaybackSession: Equatable, Sendable {
     case spoken
+    /// Workout mic stays live. Chat uses `.spoken` (playback-only).
+    case spokenHandsFree
     case sleepMix
     case alarm
     case chime
@@ -35,6 +37,12 @@ enum ForgePlaybackSession: Equatable, Sendable {
                 .playback,
                 mode: .spokenAudio,
                 options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
+            )
+        case .spokenHandsFree:
+            try session.setCategory(
+                .playAndRecord,
+                mode: .spokenAudio,
+                options: [.defaultToSpeaker, .allowBluetoothA2DP, .duckOthers]
             )
         case .sleepMix, .chime:
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
@@ -99,8 +107,27 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     /// Speaks `text`. Pass `interrupt: false` to queue behind a line that is
     /// already playing — onboarding uses that so an acknowledgment and the
     /// next question land as one conversation, not a cut-off.
-    func speak(_ text: String, interrupt: Bool = true) {
-        let started = AriaSpeechPrep.enqueue(text, on: synthesizer, interrupt: interrupt)
+    ///
+    /// Missing neural identity is silence plus a one-time download prompt —
+    /// never compact Samantha.
+    func speak(
+        _ text: String,
+        interrupt: Bool = true,
+        stopAt: AVSpeechBoundary = .immediate,
+        session: ForgePlaybackSession = .spoken
+    ) {
+        guard AriaSpeechPrep.spokenLine(in: text) != nil else { return }
+        guard AriaSpokenVoice.hasInstalledIdentity() else {
+            AriaNeuralVoiceGate.shared.requestPromptIfNeeded()
+            return
+        }
+        let started = AriaSpeechPrep.enqueue(
+            text,
+            on: synthesizer,
+            interrupt: interrupt,
+            stopAt: stopAt,
+            session: session
+        )
         guard started else { return }
         isSpeaking = true
     }

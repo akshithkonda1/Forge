@@ -97,6 +97,7 @@ final class AriaLogoPresenceTests: XCTestCase {
     func testChimePlaybackSessionExistsAlongsideSpoken() {
         XCTAssertEqual(ForgePlaybackSession.chime, .chime)
         XCTAssertNotEqual(ForgePlaybackSession.chime, .spoken)
+        XCTAssertNotEqual(ForgePlaybackSession.spokenHandsFree, .spoken)
         XCTAssertEqual(ForgePlaybackSession.sleepMix, .sleepMix)
     }
 }
