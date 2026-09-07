@@ -255,7 +255,7 @@ extension HealthKitManager {
         guard isAuthorized,
               let dayStart = CycleDayKey.startOfDay(from: dayKey) else { return }
         let type = HKCategoryType(.menstrualFlow)
-        let value: HKCategoryValueMenstrualFlow
+        let value: HKCategoryValueVaginalBleeding
         switch flow {
         case .none: value = .none
         case .light, .spotting: value = .light
@@ -317,7 +317,7 @@ extension HealthKitManager {
         case .negative: value = .negative
         case .lhSurge: value = .luteinizingHormoneSurge
         case .estrogenSurge: value = .estrogenSurge
-        case .positive: value = .positive
+        case .positive: value = .luteinizingHormoneSurge
         case .indeterminate: value = .indeterminate
         case .unknown: return
         }

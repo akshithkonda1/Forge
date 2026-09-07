@@ -99,7 +99,7 @@ extension HealthKitManager {
             case .luteinizingHormoneSurge: return "LH Surge"
             case .indeterminate: return "Indeterminate"
             case .estrogenSurge: return "Estrogen Surge"
-            case .positive: return "Positive"
+            case .positive: return "LH Surge"
             @unknown default: return nil
             }
         case .pregnancyTestResult:
@@ -124,7 +124,7 @@ extension HealthKitManager {
     }
 
     func menstrualFlowLabel(rawValue: Int) -> String? {
-        guard let value = HKCategoryValueMenstrualFlow(rawValue: rawValue) else { return nil }
+        guard let value = HKCategoryValueVaginalBleeding(rawValue: rawValue) else { return nil }
         switch value {
         case .unspecified: return "Unspecified"
         case .none: return "None"

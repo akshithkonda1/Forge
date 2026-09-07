@@ -370,7 +370,7 @@ struct MenstrualHealthView: View {
             HStack(spacing: 10) {
                 Button { cycleStore.updateSupportCard(supportCardDraft); FDS.notificationHaptic(.success) } label: { Text("Save card").font(FDS.TypeScale.label(14)).foregroundColor(.white).padding(.horizontal, 16).padding(.vertical, 10).background(Color.ember).clipShape(Capsule()) }.buttonStyle(.plain).disabled(supportCardDraft.trimmingCharacters(in: .whitespacesAndNewlines) == (cycleStore.settings.supportCardLine ?? ""))
                 if cycleStore.settings.supportCardLine != nil {
-                    Button { supportCardDraft = ""; cycleStore.updateSupportCard(nil); FDS.notificationHaptic(.light) } label: { Text("Clear").font(FDS.TypeScale.label(14)).foregroundColor(.ember) }.buttonStyle(.plain)
+                    Button { supportCardDraft = ""; cycleStore.updateSupportCard(nil); FDS.haptic(.light) } label: { Text("Clear").font(FDS.TypeScale.label(14)).foregroundColor(.ember) }.buttonStyle(.plain)
                 }
                 Spacer()
             }

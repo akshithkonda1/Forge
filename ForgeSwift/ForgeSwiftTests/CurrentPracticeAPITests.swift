@@ -45,6 +45,17 @@ final class CurrentPracticeAPITests: XCTestCase {
         }
     }
 
+    func testVaginalBleedingReplacesDeprecatedMenstrualFlowEnum() {
+        let values: [HKCategoryValueVaginalBleeding] = [
+            .unspecified, .none, .light, .medium, .heavy
+        ]
+        XCTAssertEqual(Set(values.map(\.rawValue)).count, values.count)
+        XCTAssertEqual(
+            HKCategoryType(.menstrualFlow).identifier,
+            HKCategoryTypeIdentifier.menstrualFlow.rawValue
+        )
+    }
+
     func testBiometricsTimestampsUseCurrentISO8601Format() {
         let stamp = Date.now.ISO8601Format()
         XCTAssertTrue(stamp.contains("T"))

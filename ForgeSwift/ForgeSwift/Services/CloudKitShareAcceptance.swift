@@ -151,13 +151,9 @@ final class ForgeAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificatio
     /// matters too — iOS throttles apps that report `.noData` for pushes it
     /// delivered, so a wrong answer here degrades future delivery.
     ///
-    /// Ideally this would be `nonisolated(nonsending)`, staying on UIKit's
-    /// caller isolation so the non-Sendable `userInfo` is never transferred.
-    /// That attribute is SE-0461 and needs Swift 6.2; CI builds on macos-15,
-    /// whose Xcode rejects it outright — `unknown option 'nonsending'` — and it
-    /// broke every branch cut from main until it came back out. Restore it
-    /// deliberately when the toolchain moves, not by accident.
-    func application(_ application: UIApplication,
+    /// Stay on UIKit's caller isolation so the non-Sendable `userInfo` is never
+    /// transferred into the MainActor. `nonsending` is SE-0461; Xcode 27 accepts it.
+    nonisolated(nonsending) func application(_ application: UIApplication,
                      didReceiveRemoteNotification userInfo: [AnyHashable: Any]) async
     -> UIBackgroundFetchResult {
         guard let notification = CKNotification(fromRemoteNotificationDictionary: userInfo),

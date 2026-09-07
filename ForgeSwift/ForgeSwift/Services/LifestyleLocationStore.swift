@@ -255,7 +255,8 @@ final class LifestyleLocationStore: NSObject, ObservableObject {
     }
 
     nonisolated private static func place(from item: MKMapItem, relativeTo origin: CLLocation) -> NearbyPlace? {
-        guard let location = item.location else { return nil }
+        // iOS 26+: MKMapItem.location is a non-optional CLLocation (placemark is deprecated).
+        let location = item.location
         let coord = location.coordinate
         let meters = location.distance(from: origin)
         let rawAddress = (item.address?.shortAddress ?? item.address?.fullAddress)?

@@ -9,11 +9,11 @@ struct CelebrationOverlay: View {
 
     private struct ConfettiParticle: Identifiable {
         let id = UUID()
-        var x: CGFloat
-        var y: CGFloat
-        var color: Color
-        var rotation: Double
-        var size: CGFloat
+        let x: CGFloat
+        let y: CGFloat
+        let color: Color
+        let rotation: Double
+        let size: CGFloat
     }
 
     var body: some View {
@@ -39,10 +39,10 @@ struct CelebrationOverlay: View {
                 VStack(spacing: 10) {
                     Text("Peak readiness")
                         .font(.system(size: 28, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                     Text("You're in the window. Use it well.")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundStyle(.white.opacity(0.8))
                 }
                 .scaleEffect(bannerScale)
                 .padding(28)
@@ -116,12 +116,12 @@ struct VoiceQuickLaunchOrb: View {
                         )
                     )
                     .frame(width: 44, height: 44)
-                    .overlay(Circle().stroke(Color.white.opacity(0.16), lineWidth: 1))
+                    .overlay { Circle().stroke(Color.white.opacity(0.16), lineWidth: 1) }
                     .shadow(color: Color.ember.opacity(0.4), radius: 10, y: 5)
 
                 Image(systemName: "mic.fill")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
             }
             .scaleEffect(pressed ? 0.92 : (appeared ? 1.0 : 0.6))
             .opacity(appeared ? 1 : 0)

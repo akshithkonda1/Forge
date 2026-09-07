@@ -330,9 +330,7 @@ final class LocationMealLogger: ObservableObject {
         return response.mapItems
             .sorted { lhs, rhs in
                 let origin = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-                let lhsDistance = lhs.location?.distance(from: origin) ?? .greatestFiniteMagnitude
-                let rhsDistance = rhs.location?.distance(from: origin) ?? .greatestFiniteMagnitude
-                return lhsDistance < rhsDistance
+                return lhs.location.distance(from: origin) < rhs.location.distance(from: origin)
             }
             .compactMap { $0.name }
             .first

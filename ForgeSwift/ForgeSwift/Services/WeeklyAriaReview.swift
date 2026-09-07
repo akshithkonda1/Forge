@@ -113,8 +113,7 @@ final class WeeklyAriaReviewStore: ObservableObject {
         let payload: [String: Any] = ["phase": "submit", "answers": answers]
         request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
         guard let (data, response) = try? await ForgeAPI.send(request),
-              let http = response as? HTTPURLResponse,
-              (200...299).contains(http.statusCode),
+              (200...299).contains(response.statusCode),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return nil
         }
@@ -136,37 +135,37 @@ struct WeeklyAriaReviewSheet: View {
                 VStack(alignment: .leading, spacing: 18) {
                     Text("Once a week ARIA sits down and actually asks — not a score, a conversation. Answers stay in your context on this device and, when the backend is up, on your account.")
                         .font(.system(size: 14))
-                        .foregroundColor(.textSecondary)
+                        .foregroundStyle(.textSecondary)
 
                     // Last habit breaker + outcome — closes the loop you asked for
                     if let habit = lastHabit {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 6) {
-                                Image(systemName: habit.category.icon).font(.system(size: 11, weight: .semibold)).foregroundColor(.ember)
-                                Text("Last habit: \(habit.title)").font(.system(size: 12, weight: .bold)).foregroundColor(.ember)
+                                Image(systemName: habit.category.icon).font(.system(size: 11, weight: .semibold)).foregroundStyle(.ember)
+                                Text("Last habit: \(habit.title)").font(.system(size: 12, weight: .bold)).foregroundStyle(.ember)
                             }
-                            Text(habit.breaker).font(.system(size: 13)).foregroundColor(.textPrimary)
-                            Text(habit.evidence).font(.system(size: 11)).foregroundColor(.textTertiary)
+                            Text(habit.breaker).font(.system(size: 13)).foregroundStyle(.textPrimary)
+                            Text(habit.evidence).font(.system(size: 11)).foregroundStyle(.textTertiary)
                             if let pending = pendingHabit, pending.habitId == habit.id {
                                 Text("You tried this — did it work? Answer in Wellbeing → Today's Loop.")
-                                    .font(.system(size: 11, weight: .semibold)).foregroundColor(.success)
+                                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(.success)
                             } else if let tried = HabitFeedbackStore.tried().first(where: { $0.habitId == habit.id && $0.feedback != nil }) {
                                 Text(tried.feedback == "yeah" ? "You said it worked ✓" : "You said it was too big — next breaker will be smaller")
-                                    .font(.system(size: 11, weight: .semibold)).foregroundColor(tried.feedback == "yeah" ? .success : .warning)
+                                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(tried.feedback == "yeah" ? .success : .warning)
                             }
                         }
-                        .padding(12).background(Color.ember.opacity(0.06)).cornerRadius(12)
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ember.opacity(0.15), lineWidth: 1))
+                        .padding(12).background(Color.ember.opacity(0.06)).clipShape(RoundedRectangle(cornerRadius: 12))
+                        .overlay { RoundedRectangle(cornerRadius: 12).stroke(Color.ember.opacity(0.15), lineWidth: 1) }
                     }
 
                     ForEach(review.questions, id: \.id) { question in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(question.prompt)
                                 .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.textPrimary)
+                                .foregroundStyle(.textPrimary)
                             Text(question.hint)
                                 .font(.system(size: 12))
-                                .foregroundColor(.textTertiary)
+                                .foregroundStyle(.textTertiary)
                             TextField("Your answer", text: Binding(
                                 get: { review.answers[question.id] ?? "" },
                                 set: { review.answers[question.id] = $0 }
@@ -174,7 +173,7 @@ struct WeeklyAriaReviewSheet: View {
                             .lineLimit(2...5)
                             .padding(12)
                             .background(Color.surfaceElevated)
-                            .cornerRadius(12)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                     }
 
@@ -186,11 +185,11 @@ struct WeeklyAriaReviewSheet: View {
                             Text(review.isSubmitting ? "Saving…" : "Save and talk with ARIA")
                                 .font(.system(size: 16, weight: .semibold))
                         }
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(Color.ember)
-                        .cornerRadius(14)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                     .disabled(review.isSubmitting)
                 }

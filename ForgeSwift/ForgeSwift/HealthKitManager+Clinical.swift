@@ -93,7 +93,7 @@ extension HealthKitManager {
         let reproductiveValues = await (ovulationResult, progesteroneResult, pregnancyResult, basalTemperature, sexualActivitySamples, pregnancySamples, lactationSamples)
         
         let periodSamples = flow.filter { sample in
-            guard let value = HKCategoryValueMenstrualFlow(rawValue: sample.value) else { return false }
+            guard let value = HKCategoryValueVaginalBleeding(rawValue: sample.value) else { return false }
             return value != .none
         }
         let cycleStart = periodSamples.first { sample in
@@ -150,7 +150,7 @@ extension HealthKitManager {
         let bbt = await bbtSamples
 
         let flowMapped: [(date: Date, flow: MenstrualFlowLevel)] = flow.compactMap { sample in
-            guard let value = HKCategoryValueMenstrualFlow(rawValue: sample.value) else { return nil }
+            guard let value = HKCategoryValueVaginalBleeding(rawValue: sample.value) else { return nil }
             let level: MenstrualFlowLevel
             switch value {
             case .none: level = .none
@@ -187,7 +187,7 @@ extension HealthKitManager {
             case .luteinizingHormoneSurge: r = .lhSurge
             case .indeterminate: r = .indeterminate
             case .estrogenSurge: r = .estrogenSurge
-            case .positive: r = .positive
+            case .positive: r = .lhSurge
             @unknown default: r = .unknown
             }
             return (sample.startDate, r)
