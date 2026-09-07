@@ -65,17 +65,11 @@ enum AriaPlanEngine {
             guidanceOnly: guidanceOnly
         )
 
-        // Annotate session title when cycle is actively shaping the plan.
-        if let cycle = context.cycleSnapshot, cycle.trackingEnabled, cycle.phase != .unknown {
-            session = SessionBlueprint(
-                title: session.title + " · \(cycle.phase.shortLabel)",
-                duration: session.duration,
-                intensity: session.intensity,
-                workoutType: session.workoutType,
-                moves: session.moves,
-                flavorLine: session.flavorLine + " " + cycle.trainingNote
-            )
-        }
+        // Cycle phase never leaves Cycle Health. Workout title stays generic
+        // (e.g. "Controlled gym", not "Controlled gym · Ovulation"). The
+        // training bias from cycle is applied via `band = stepDown` above, and
+        // the full coaching prescription stays inside MenstrualHealthView.
+        // No phase label is appended here.
 
         if !context.medicationLayer.planNote.isEmpty {
             session = SessionBlueprint(
@@ -92,20 +86,19 @@ enum AriaPlanEngine {
         // for that muscle instead of a generic theme template.
         if let muscle = TargetMuscle.mentioned(in: input) {
             session = overlayLibraryMuscle(muscle, onto: session, equipment: equipment)
-        } else if !context.workoutHistory.isEmpty,
-                  NextSessionFocus.isSessionAsk(input) || AriaThemeResolver.isPlanRequest(input) {
-            // Yesterday's region decides today's library (legs → chest+abs).
-            let focus = NextSessionFocus.suggest(
-                history: context.workoutHistory,
-                now: context.currentTime,
-                experience: experience,
-                readiness: readiness,
-                mode: context.userProfile.schedulePlanningMode,
-                split: context.userProfile.weeklySplit,
-                pickWeekday: WeeklySplit.parseWeekday(in: input),
-                replayPrior: WeeklySplit.wantsReplayPrior(input)
+        } else if let historyMuscle = complementaryMuscle(from: context.workoutHistory) {
+            // Auto-balance: if you hit legs yesterday, today is chest & abs — not another
+            // generic "Controlled gym". Controlled tempo still, but intelligent split.
+            let complement = overlayLibraryMuscle(historyMuscle.primary, onto: session, equipment: equipment)
+            // Keep controlled tempo framing, but title reflects the intelligent swap.
+            session = SessionBlueprint(
+                title: complement.title,
+                duration: complement.duration,
+                intensity: complement.intensity,
+                workoutType: complement.workoutType,
+                moves: complement.moves,
+                flavorLine: "You hit \(historyMuscle.priorLabel) yesterday — today is \(historyMuscle.nextLabel) (controlled tempo \(historyMuscle.tempo)). " + complement.flavorLine
             )
-            session = overlayLibraryFocus(focus, onto: session, equipment: equipment)
         }
 
         let narrative = buildNarrative(
@@ -232,6 +225,46 @@ enum AriaPlanEngine {
         case .classic:
             return classicSession(band: effectiveBand, goals: goals, equipment: equipment)
         }
+    }
+
+    private struct HistoryComplement {
+        let primary: TargetMuscle
+        let priorLabel: String
+        let nextLabel: String
+        let tempo: String
+    }
+
+    /// You hit legs yesterday → today is chest and abs. No more "Controlled gym" shit when we have a clear upper/lower signal.
+    private static func complementaryMuscle(from history: [WorkoutHistory]) -> HistoryComplement? {
+        guard let last = history.first else { return nil }
+        let n = last.name.lowercased()
+        let t = last.type
+        // Normalize prior label for the sentence
+        func legPrior() -> String { n.contains("leg") || n.contains("squat") || n.contains("quad") || n.contains("glute") ? "legs" : "lower body" }
+        func tempo() -> String {
+            switch last.intensity {
+            case .high, .max: return "3-1-1"
+            case .moderate: return "3-0-1"
+            case .low: return "2-1-2"
+            }
+        }
+        if n.contains("leg") || n.contains("squat") || n.contains("quad") || n.contains("glute") || n.contains("ham") || n.contains("lower") || t == .mobility && n.contains("leg") {
+            return HistoryComplement(primary: .chest, priorLabel: legPrior(), nextLabel: "chest and abs", tempo: tempo())
+        }
+        if n.contains("chest") || n.contains("push") || n.contains("bench") || n.contains("press") && !n.contains("leg") {
+            return HistoryComplement(primary: .quads, priorLabel: "chest", nextLabel: "legs and glutes", tempo: tempo())
+        }
+        if n.contains("pull") || n.contains("back") || n.contains("row") || n.contains("lat") {
+            return HistoryComplement(primary: .chest, priorLabel: "back", nextLabel: "chest and arms", tempo: tempo())
+        }
+        if n.contains("hiit") || n.contains("cardio") || n.contains("conditioning") || t == .cardio || t == .hiit {
+            return HistoryComplement(primary: .chest, priorLabel: "conditioning", nextLabel: "controlled strength — chest and abs", tempo: "3-1-1")
+        }
+        // Fallback: if last was push, do legs; if last was generic controlled gym (fullBody), do push
+        if t == .strength {
+            return HistoryComplement(primary: .chest, priorLabel: "upper body", nextLabel: "chest and abs", tempo: tempo())
+        }
+        return nil
     }
 
     /// Prefer library rows that actually train the tapped / named muscle.
@@ -821,15 +854,9 @@ enum AriaPlanEngine {
             themeOverride: theme
         )
 
-        // Accurate cycle coaching line (lifestyle only) when shared with ARIA.
-        if let cycle = context.cycleSnapshot, cycle.trackingEnabled, cycle.phase != .unknown {
-            var cycleLine = "Cycle: \(cycle.phase.label)"
-            if let day = cycle.dayInCycle { cycleLine += " · day \(day)" }
-            cycleLine += " · conf \(Int(cycle.confidence * 100))%."
-            cycleLine += " \(cycle.readinessNote)"
-            speech += "\n\n" + cycleLine
-            _ = facts
-        }
+        // Cycle phase stays in Cycle Health — not in workout chat.
+        // (Training bias already applied via band stepDown; prescription lives
+        // in MenstrualHealthView.)
 
         if !context.medicationLayer.planNote.isEmpty,
            !speech.localizedCaseInsensitiveContains("no prescription") {
