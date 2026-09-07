@@ -135,6 +135,9 @@ extension AppStore {
                 case .highIntensityIntervalTraining: return .hiit
                 case .yoga: return .yoga
                 case .flexibility, .cooldown: return .mobility
+                case .basketball, .soccer, .tennis, .volleyball, .golf, .hiking,
+                     .americanFootball, .lacrosse, .rugby, .boxing, .baseball:
+                    return .sportSpecific
                 default: return .strength
                 }
             }()

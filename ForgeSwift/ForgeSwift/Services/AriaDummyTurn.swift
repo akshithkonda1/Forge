@@ -26,6 +26,9 @@ enum AriaDummyAction: Equatable {
     case cancelWorkout
     case skipLegs
     case scheduleReminder(kind: ReminderKind, hour: Int?)
+    case logWater(milliliters: Double)
+    case writeNote(String)
+    case recordSport(name: String, minutes: Int, completed: Bool)
 }
 
 struct AriaDummyBeat {
@@ -48,6 +51,25 @@ struct AriaDummyInterpretation: Equatable {
     var skipLegs: Bool
     var keepLight: Bool
     var constrainedPlanInput: String
+    var preferCalisthenics: Bool
+    var logWaterMl: Double?
+    var noteToWrite: String?
+    var readBoard: Bool
+    var recordedSport: AriaDummySport?
+}
+
+struct AriaDummySport: Equatable {
+    var name: String
+    var minutes: Int
+    var completed: Bool
+}
+
+struct AriaDummyActs: Equatable {
+    var preferCalisthenics = false
+    var logWaterMl: Double? = nil
+    var noteToWrite: String? = nil
+    var readBoard = false
+    var sport: AriaDummySport? = nil
 }
 
 /// Local conductor for the dummy orchestra. No URLSession, no Bedrock, no
@@ -67,6 +89,10 @@ enum AriaDummyTurn {
         "knee", "shoulder", "hip", "ankle", "elbow", "wrist", "neck",
         "sore", "pain", "hurt", "legs", "recover", "hrv",
         "progress", "streak", "cycle", "period",
+        "calisthenic", "bodyweight", "write that", "on my board",
+        "log water", "drank water", "note that", "remember that",
+        "basketball", "soccer", "tennis", "played", "sport", "hiking",
+        "pickleball", "volleyball", "golf", "boxing",
     ]
 
     private static let jointWords = [
@@ -152,6 +178,122 @@ enum AriaDummyTurn {
         return found
     }
 
+    static func acts(in text: String) -> AriaDummyActs {
+        let lower = text.lowercased()
+        var acts = AriaDummyActs()
+        acts.preferCalisthenics = lower.contains("calisthenic")
+            || lower.contains("bodyweight session")
+            || lower.contains("bodyweight workout")
+            || lower.contains("no-equipment")
+            || lower.contains("no equipment")
+            || lower.contains("no-gear")
+            || lower.contains("no gear")
+        acts.logWaterMl = waterLogMilliliters(in: lower)
+        acts.noteToWrite = noteToWrite(in: text)
+        acts.readBoard = lower.contains("on my board")
+            || lower.contains("what do you know")
+            || lower.contains("read my notes")
+            || lower.contains("what have you written")
+            || lower.contains("what's on my board")
+            || lower.contains("whats on my board")
+        if let sport = sportAct(in: text) {
+            acts.sport = sport
+        }
+        return acts
+    }
+
+    static func waterLogMilliliters(in text: String) -> Double? {
+        let lower = text.lowercased()
+        if lower.contains("remind") { return nil }
+        let asked = (lower.contains("log") && (lower.contains("water") || lower.contains("drank")))
+            || lower.contains("i drank water")
+            || lower.contains("i had a glass")
+            || lower.contains("log that i drank")
+            || (lower.contains("drank") && lower.contains("water"))
+        guard asked else { return nil }
+        if let oz = firstCapture(in: lower, pattern: #"(\d+(?:\.\d+)?)\s*(?:oz|ounces?)"#) {
+            return HydrationEngine.milliliters(fromFluidOunces: oz)
+        }
+        if let ml = firstCapture(in: lower, pattern: #"(\d+(?:\.\d+)?)\s*(?:ml|milliliters?)"#) {
+            return ml
+        }
+        return 250
+    }
+
+    static func noteToWrite(in text: String) -> String? {
+        let lower = text.lowercased()
+        let triggers = [
+            "write that down:", "write that down",
+            "note that:", "note that",
+            "remember that:", "remember that",
+            "remember i ",
+            "put this on my board:", "put this on my board",
+            "put that on my board:", "put that on my board",
+            "add that to my board",
+        ]
+        guard let trigger = triggers.first(where: { lower.contains($0) }) else { return nil }
+        guard let range = lower.range(of: trigger) else { return nil }
+        let after = text[range.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleaned = after.trimmingCharacters(in: CharacterSet(charactersIn: ".,:;"))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleaned.count >= 3 { return String(cleaned.prefix(180)) }
+        return "I'll keep the last thing you told me."
+    }
+
+    static func sportAct(in text: String) -> AriaDummySport? {
+        guard let def = ExerciseLibrary.matchSport(in: text) else { return nil }
+        let lower = text.lowercased()
+        let planning = lower.contains("give me")
+            || lower.contains("build me")
+            || lower.contains("want to")
+            || lower.contains("let's play")
+            || lower.contains("lets play")
+            || (lower.contains("session") && !lower.contains("played") && !lower.contains("log"))
+        let completed = !planning && (
+            lower.contains("played")
+            || lower.contains("i did")
+            || lower.contains("just finished")
+            || lower.contains("finished a")
+            || lower.contains("record")
+            || lower.contains("log ")
+            || lower.contains("logged")
+            || lower.contains("went to")
+            || lower.contains("had a game")
+            || lower.contains("had a match")
+            || lower.contains("practice")
+        )
+        return AriaDummySport(
+            name: def.name,
+            minutes: durationMinutes(in: lower),
+            completed: completed
+        )
+    }
+
+    static func durationMinutes(in text: String) -> Int {
+        let lower = text.lowercased()
+        if lower.contains("hour and a half") || lower.contains("1.5 hour") || lower.contains("ninety") {
+            return 90
+        }
+        if lower.contains("an hour") || lower.contains("one hour") || lower.contains("1 hour") {
+            return 60
+        }
+        if let mins = firstCapture(in: lower, pattern: #"(\d+)\s*(?:min|mins|minute)"#) {
+            return min(180, max(10, Int(mins)))
+        }
+        return 45
+    }
+
+    private static func firstCapture(in text: String, pattern: String) -> Double? {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
+            return nil
+        }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = regex.firstMatch(in: text, options: [], range: range),
+              match.numberOfRanges >= 2,
+              let cap = Range(match.range(at: 1), in: text) else { return nil }
+        return Double(text[cap])
+    }
+
     static func interpret(
         text: String,
         agent: AriaCoachAgent,
@@ -168,6 +310,7 @@ enum AriaDummyTurn {
         }
 
         let roster = agents.isEmpty ? [agent] : agents
+        let acts = acts(in: text)
         for item in roster {
             add(domain(for: item))
         }
@@ -182,7 +325,12 @@ enum AriaDummyTurn {
             }
         }
         if reminder(in: text) != nil { add(.nutrition) }
-        domains.removeAll { $0 == .lifestyle && domains.contains(.nutrition) && agent != .lifestyle }
+        if acts.preferCalisthenics { add(.training) }
+        if acts.sport != nil { add(.training) }
+        if acts.logWaterMl != nil { add(.nutrition) }
+        if acts.noteToWrite != nil { add(.lifestyle) }
+        if acts.readBoard { add(.progress) }
+        domains.removeAll { $0 == .lifestyle && domains.contains(.nutrition) && agent != .lifestyle && acts.noteToWrite == nil }
 
         let jointsFound = joints(in: text, remembered: signals.rememberedFacts)
         let skipLegs = text.lowercased().contains("skip legs")
@@ -199,6 +347,7 @@ enum AriaDummyTurn {
             extra.append("keep pressing light")
         }
         if keepLight { extra.append("keep it light recovery session") }
+        if acts.preferCalisthenics { extra.append("bodyweight calisthenics session") }
         let constrained = extra.joined(separator: ". ")
 
         let primary: AriaCoachAgent
@@ -216,7 +365,12 @@ enum AriaDummyTurn {
             joints: jointsFound,
             skipLegs: skipLegs,
             keepLight: keepLight,
-            constrainedPlanInput: constrained
+            constrainedPlanInput: constrained,
+            preferCalisthenics: acts.preferCalisthenics,
+            logWaterMl: acts.logWaterMl,
+            noteToWrite: acts.noteToWrite,
+            readBoard: acts.readBoard,
+            recordedSport: acts.sport
         )
     }
 
@@ -296,7 +450,9 @@ enum AriaDummyTurn {
             joined = "Last night was thin. " + joined
         }
         if interpretation.domains.contains(.nutrition),
-           !lower.contains("eat"), !lower.contains("food"), !lower.contains("protein") {
+           interpretation.logWaterMl == nil,
+           !lower.contains("eat"), !lower.contains("food"), !lower.contains("protein"),
+           !lower.contains("water") {
             joined += " Keep food simple — protein and something you will actually eat."
         }
         return joined

@@ -206,8 +206,44 @@ enum AriaDummyOrchestrator {
                 suggestedActions: ["How did I sleep?", "Keep it light today"]
             )
         case .training:
+            if let sport = interpretation.recordedSport {
+                let plan = ExerciseLibrary.sportSession(
+                    named: sport.name,
+                    minutes: sport.minutes,
+                    completed: sport.completed
+                )
+                let verb = sport.completed ? "logged" : "put on the board"
+                let prose = "I \(verb) \(sport.name) as \(sport.minutes) minutes of training — it counts as part of the session."
+                return AriaDummyBeat(
+                    domain: .training,
+                    prose: prose,
+                    card: workoutCard(plan),
+                    suggestedActions: ["What's on my board?", "Give me a calisthenics session"],
+                    actions: [.recordSport(name: sport.name, minutes: sport.minutes, completed: sport.completed)]
+                )
+            }
+            let workout: WorkoutPlan
+            var actions: [AriaDummyAction] = [.persistWorkout]
+            if interpretation.preferCalisthenics {
+                workout = constrain(
+                    ExerciseLibrary.calisthenicsPlan(
+                        keepLight: interpretation.keepLight,
+                        skipLegs: interpretation.skipLegs
+                    ),
+                    interpretation: interpretation
+                )
+                store.todayWorkout = workout
+                let line = "I pulled this from the calisthenics library. \(workout.name) is on the board for about \(workout.duration) minutes — \(workout.intensity.label.lowercased()) intensity."
+                return AriaDummyBeat(
+                    domain: .training,
+                    prose: line,
+                    card: workoutCard(workout),
+                    suggestedActions: ["Make it easier", "ARIA, show me how"],
+                    actions: actions
+                )
+            }
             let plan = AriaPlanEngine.evaluate(input: interpretation.constrainedPlanInput, context: context)
-            let workout = constrain(plan.workoutPlan, interpretation: interpretation)
+            workout = constrain(plan.workoutPlan, interpretation: interpretation)
             if plan.shouldPersistTheme {
                 store.setTrainingTheme(plan.theme, source: "chat")
             }
@@ -219,7 +255,6 @@ enum AriaDummyOrchestrator {
             let voice = AriaVoiceEngine.speak(intent: .trainingPlan, context: context, input: text, facts: voiceFacts)
             let line = "\(workout.name) is on the board for about \(workout.duration) minutes — \(workout.intensity.label.lowercased()) intensity."
             let prose = voice.count > 60 ? voice : line
-            var actions: [AriaDummyAction] = [.persistWorkout]
             if plan.shouldPersistTheme { actions.append(.persistTheme) }
             return AriaDummyBeat(
                 domain: .training,
@@ -229,6 +264,23 @@ enum AriaDummyOrchestrator {
                 actions: actions
             )
         case .nutrition, .lifestyle:
+            if let ml = interpretation.logWaterMl {
+                let ounces = Int((ml / 29.5735).rounded())
+                return AriaDummyBeat(
+                    domain: .nutrition,
+                    prose: "Logged. That’s about \(ounces) ounces of water on the board.",
+                    suggestedActions: ["What's on my board?", "Remind me to drink water"],
+                    actions: [.logWater(milliliters: ml)]
+                )
+            }
+            if let note = interpretation.noteToWrite {
+                return AriaDummyBeat(
+                    domain: .lifestyle,
+                    prose: "Wrote it down: \(note)",
+                    suggestedActions: ["What's on my board?", "Remember that"],
+                    actions: [.writeNote(note)]
+                )
+            }
             if let reminder = interpretation.reminder,
                case .scheduleReminder(let kind, let hour) = reminder {
                 let clock = clockLabel(hour ?? (kind == .sleep ? 21 : 13))
@@ -277,6 +329,13 @@ enum AriaDummyOrchestrator {
             guard let note = AriaCycleTools.run(text: text) else { return nil }
             return AriaDummyBeat(domain: .cycle, prose: note)
         case .progress:
+            if interpretation.readBoard {
+                return AriaDummyBeat(
+                    domain: .progress,
+                    prose: boardReading(store: store, facts: facts),
+                    suggestedActions: ["Write that down", "How did I sleep?"]
+                )
+            }
             let raw = AriaVoiceEngine.speak(intent: .progress, context: context, input: text, facts: facts)
             return AriaDummyBeat(
                 domain: .progress,
@@ -388,6 +447,15 @@ enum AriaDummyOrchestrator {
                 break
             case .rememberFact(let fact):
                 store.rememberDurable(fact)
+            case .logWater(let milliliters):
+                store.rememberDurable("Logged \(Int(milliliters)) ml of water")
+                AriaContextStore.shared.addInsight("Logged water — \(Int(milliliters)) ml")
+                Task { try? await HealthKitManager.shared.logWater(milliliters: milliliters) }
+            case .writeNote(let note):
+                store.rememberDurable(note)
+                AriaContextStore.shared.addInsight(note)
+            case .recordSport(let name, let minutes, let completed):
+                store.recordSportSession(name: name, minutes: minutes, completed: completed)
             case .scheduleReminder(let kind, let hour):
                 var comps = DateComponents()
                 comps.hour = hour ?? (kind == .sleep ? 21 : 13)
@@ -436,7 +504,9 @@ enum AriaDummyOrchestrator {
         var tokens: [String] = []
         if interpretation.domains.contains(.sleep) { tokens.append("sleep") }
         if interpretation.domains.contains(.training) { tokens.append("minute") }
-        if interpretation.domains.contains(.nutrition) { tokens.append("eat") }
+        if interpretation.recordedSport != nil { tokens.append("train") }
+        if interpretation.logWaterMl != nil { tokens.append("water") }
+        if interpretation.domains.contains(.nutrition), interpretation.logWaterMl == nil { tokens.append("eat") }
         if interpretation.skipLegs { tokens.append("leg") }
         return tokens
     }
@@ -495,6 +565,30 @@ enum AriaDummyOrchestrator {
         let h12 = hour % 12 == 0 ? 12 : hour % 12
         let suffix = hour >= 12 ? "pm" : "am"
         return "at \(h12)\(suffix)"
+    }
+
+    private static func boardReading(store: AppStore, facts: AriaSpeechFacts) -> String {
+        var parts: [String] = ["I already read your board."]
+        if let hours = facts.sleepHours {
+            parts.append("Last night was about \(String(format: "%.1f", hours)) hours.")
+        }
+        if let today = store.todayWorkout {
+            parts.append("\(today.name) is on today's session.")
+        }
+        if let last = store.workoutHistory.first {
+            parts.append("Last logged session was \(last.name).")
+        }
+        let busy = CalendarManager.shared.busyWindowsToday
+        if busy > 0 {
+            parts.append("Calendar shows \(busy) busy window\(busy == 1 ? "" : "s") today — I don't read the titles.")
+        }
+        let notes = store.durableMemoryAnchors.prefix(4)
+        if notes.isEmpty {
+            parts.append("Nothing durable yet — tell me to write it down and I will.")
+        } else {
+            parts.append("I wrote down: " + notes.joined(separator: "; ") + ".")
+        }
+        return parts.joined(separator: " ")
     }
 
     // MARK: - Helpers

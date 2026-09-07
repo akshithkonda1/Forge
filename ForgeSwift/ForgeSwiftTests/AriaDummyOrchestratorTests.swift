@@ -228,6 +228,106 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertFalse(AriaDummyOrchestrator.writesCalendarEvents)
     }
 
+    func testLogsWaterWithoutOffDeviceLLM() async {
+        let store = makeStore()
+        let reply = await AriaDummyOrchestrator.reply(
+            text: "log that I drank water",
+            store: store,
+            agent: .lifestyle,
+            agents: ["lifestyle"]
+        )
+        XCTAssertTrue(
+            AriaDummyOrchestrator.lastAppliedActions.contains {
+                if case .logWater(let ml) = $0 { return ml >= 200 }
+                return false
+            }
+        )
+        XCTAssertTrue(reply.message.lowercased().contains("water"))
+        XCTAssertTrue(store.durableMemoryAnchors.contains { $0.lowercased().contains("water") })
+        XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
+    }
+
+    func testWritesANoteToTheBoard() async {
+        let store = makeStore()
+        let reply = await AriaDummyOrchestrator.reply(
+            text: "write that down: race on Saturday",
+            store: store,
+            agent: .aria
+        )
+        XCTAssertTrue(
+            AriaDummyOrchestrator.lastAppliedActions.contains {
+                if case .writeNote(let note) = $0 { return note.lowercased().contains("race") }
+                return false
+            }
+        )
+        XCTAssertTrue(store.durableMemoryAnchors.contains { $0.lowercased().contains("race") })
+        XCTAssertTrue(reply.message.lowercased().contains("race") || reply.message.lowercased().contains("wrote"))
+    }
+
+    func testCalisthenicsAskPullsLibraryMoves() async throws {
+        let store = makeStore()
+        let reply = await AriaDummyOrchestrator.reply(
+            text: "give me a calisthenics session",
+            store: store,
+            agent: .workout,
+            agents: ["workout"]
+        )
+        let workout = try XCTUnwrap(store.todayWorkout)
+        XCTAssertTrue(workout.name.localizedCaseInsensitiveContains("calisthenic"))
+        XCTAssertFalse(workout.exercises.isEmpty)
+        XCTAssertTrue(
+            workout.exercises.contains { ExerciseLibrary.match($0.name)?.trainingStyle == .calisthenics }
+        )
+        XCTAssertTrue(reply.message.lowercased().contains("calisthenic") || reply.message.lowercased().contains("minute"))
+    }
+
+    func testRecordsSportAsPartOfTheSession() async throws {
+        let store = makeStore()
+        store.todayWorkout = WorkoutPlan(
+            id: "t1",
+            name: "Upper Calisthenics",
+            type: .strength,
+            duration: 30,
+            intensity: .moderate,
+            exercises: [
+                Exercise(id: "e1", name: "Push-Up", sets: 3, reps: "10", weight: nil, restSeconds: 60, notes: nil)
+            ]
+        )
+        let reply = await AriaDummyOrchestrator.reply(
+            text: "I played basketball for 45 minutes",
+            store: store,
+            agent: .workout,
+            agents: ["workout"]
+        )
+        XCTAssertTrue(
+            AriaDummyOrchestrator.lastAppliedActions.contains {
+                if case .recordSport(let name, let minutes, let completed) = $0 {
+                    return name == "Basketball" && minutes == 45 && completed
+                }
+                return false
+            }
+        )
+        XCTAssertTrue(store.todayWorkout?.exercises.contains { $0.name == "Basketball" } == true)
+        XCTAssertTrue(store.workoutHistory.contains { $0.name == "Basketball" && $0.type == .sportSpecific })
+        XCTAssertTrue(reply.message.lowercased().contains("basketball"))
+        XCTAssertTrue(reply.message.lowercased().contains("45") || reply.message.lowercased().contains("minute"))
+    }
+
+    func testIdentityNamesReadWriteAndSports() async {
+        let store = makeStore()
+        let reply = await AriaDummyOrchestrator.reply(
+            text: "what can you do",
+            store: store,
+            agent: .aria
+        )
+        XCTAssertTrue(reply.message.contains("I'm ARIA"))
+        let lower = reply.message.lowercased()
+        XCTAssertTrue(lower.contains("read"))
+        XCTAssertTrue(lower.contains("write") || lower.contains("board"))
+        XCTAssertTrue(lower.contains("calisthenics") || lower.contains("sports"))
+        XCTAssertTrue(lower.contains("not a doctor") || lower.contains("not a clinic") || lower.contains("lifestyle coach"))
+    }
+
     private func makeStore() -> AppStore {
         let store = AppStore()
         store.chatMessages = []
