@@ -176,7 +176,7 @@ def decide(signals: TypedSignals) -> Decision:
     reasons = []
     if signals.readiness < 50 or signals.sleep_debt_7d > 5.0 or signals.sleep_quality == "thin" or signals.hrv_trend == "falling":
         if signals.readiness < 50: reasons.append("readiness is low")
-        if signals.sleep_debt_7d > 5.0: reasons.append("the week is carrying real sleep debt")
+        if signals.sleep_debt_7d > 5.0: reasons.append("nights have been short all week")
         if signals.sleep_quality == "thin": reasons.append("last night was thin")
         if signals.hrv_trend == "falling": reasons.append("recovery trend is falling")
         return Decision("recover", 0.80, tuple(reasons), signals)
