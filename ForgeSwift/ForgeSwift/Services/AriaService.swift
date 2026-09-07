@@ -76,7 +76,12 @@ final class AriaService: ObservableObject {
             isTestReady = true
             isLocalFallback = true
             lastRemoteError = nil
-            return await AriaDummyOrchestrator.reply(text: text, store: store, agent: agent)
+            return await AriaDummyOrchestrator.reply(
+                text: text,
+                store: store,
+                agent: agent,
+                agents: agents
+            )
         }
 
         // The one place `AriaOperatingMode` is consulted. Nothing below this

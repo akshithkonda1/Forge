@@ -398,6 +398,8 @@ enum AriaInterviewVoice {
             if isContinuePhrase(lower), !profile.preferredWorkouts.isEmpty { return .confirmWorkouts }
             let hits = OnboardingWorkoutType.allCases.filter { w in
                 lower.contains(w.label.lowercased())
+                    || lower.contains(w.spokenAlias)
+                    || lower.contains(w.rawValue.replacingOccurrences(of: "_", with: " "))
             }
             if !hits.isEmpty { return .toggleWorkouts(hits) }
             return .missed

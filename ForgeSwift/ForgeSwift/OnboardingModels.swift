@@ -40,23 +40,34 @@ enum OnboardingFitnessGoal: String, CaseIterable, Identifiable {
 }
 
 enum OnboardingWorkoutType: String, CaseIterable, Identifiable {
-    case weightlifting, hiit, running, cycling, yoga, swimming,
-         boxing, calisthenics, crossfit, pilates, climbing, martial_arts
+    case weightlifting, calisthenics, hiit, crossfit
+    case running, cycling, swimming, hiking
+    case basketball, soccer, tennis, volleyball, pickleball, golf
+    case boxing, martial_arts, climbing
+    case yoga, pilates, dance
     var id: String { rawValue }
     var label: String {
         switch self {
         case .weightlifting:  return "Weightlifting"
+        case .calisthenics:   return "Calisthenics"
         case .hiit:           return "HIIT"
+        case .crossfit:       return "CrossFit"
         case .running:        return "Running"
         case .cycling:        return "Cycling"
-        case .yoga:           return "Yoga"
         case .swimming:       return "Swimming"
+        case .hiking:         return "Hiking"
+        case .basketball:     return "Basketball"
+        case .soccer:         return "Soccer"
+        case .tennis:         return "Tennis"
+        case .volleyball:     return "Volleyball"
+        case .pickleball:     return "Pickleball"
+        case .golf:           return "Golf"
         case .boxing:         return "Boxing"
-        case .calisthenics:   return "Calisthenics"
-        case .crossfit:       return "CrossFit"
-        case .pilates:        return "Pilates"
-        case .climbing:       return "Climbing"
         case .martial_arts:   return "Martial Arts"
+        case .climbing:       return "Climbing"
+        case .yoga:           return "Yoga"
+        case .pilates:        return "Pilates"
+        case .dance:          return "Dance"
         }
     }
     var coreType: WorkoutType {
@@ -65,7 +76,31 @@ enum OnboardingWorkoutType: String, CaseIterable, Identifiable {
         case .hiit:                                    return .hiit
         case .running, .cycling, .swimming:            return .cardio
         case .yoga, .pilates:                          return .yoga
-        default:                                       return .strength
+        default:                                       return .sportSpecific
+        }
+    }
+    var spokenAlias: String {
+        switch self {
+        case .weightlifting: return "lifting"
+        case .calisthenics: return "bodyweight"
+        case .hiit: return "intervals"
+        case .crossfit: return "crossfit"
+        case .running: return "run"
+        case .cycling: return "bike"
+        case .swimming: return "swim"
+        case .hiking: return "hike"
+        case .basketball: return "hoops"
+        case .soccer: return "futbol"
+        case .tennis: return "tennis"
+        case .volleyball: return "vball"
+        case .pickleball: return "pickle"
+        case .golf: return "golf"
+        case .boxing: return "bag work"
+        case .martial_arts: return "mma"
+        case .climbing: return "climb"
+        case .yoga: return "yoga"
+        case .pilates: return "pilates"
+        case .dance: return "dance"
         }
     }
 }

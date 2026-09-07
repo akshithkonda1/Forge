@@ -122,7 +122,7 @@ enum AriaFirstHealthBriefing {
         • Progress — the trend behind the numbers, not just today’s reading
         • Cycle — how to train or show up around a cycle, only if you share that with me
 
-        I read Apple Health. I don’t invent fertility charts. I don’t diagnose.
+        I read Apple Health, last night, last session, busy windows on your calendar (never the titles), and what’s on your board. I write notes, remember facts, log water, schedule a nudge, and build a session from the library — calisthenics and sports included. Tell me you played tennis and I’ll put it on the session. I don’t invent fertility charts. I don’t diagnose.
         """
     }
 

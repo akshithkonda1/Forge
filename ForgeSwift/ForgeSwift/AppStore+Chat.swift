@@ -490,13 +490,17 @@ extension AppStore {
                 agent: plan.primary.kind,
                 agents: plan.backendIds
             )
-            let extras = await AriaCoachAgentRouter.supportingBriefs(
-                plan: plan,
-                store: self,
-                primaryText: aria.message
-            )
-            if !extras.isEmpty {
-                aria.message += "\n\n" + extras.joined(separator: "\n")
+            // Dummy already wove every worker into one causal reply. Tacking
+            // supporting briefs on would double-speak and break the fill-in.
+            if !AriaService.shared.isTestReady {
+                let extras = await AriaCoachAgentRouter.supportingBriefs(
+                    plan: plan,
+                    store: self,
+                    primaryText: aria.message
+                )
+                if !extras.isEmpty {
+                    aria.message += "\n\n" + extras.joined(separator: "\n")
+                }
             }
 
             lastSuggestedActions = aria.suggestedActions ?? []
@@ -662,6 +666,48 @@ extension AppStore {
             setTrainingTheme(plan.theme, source: "library")
         }
         todayWorkout = plan.workoutPlan
+    }
+
+    func adoptCalisthenicsSession() {
+        todayWorkout = ExerciseLibrary.calisthenicsPlan(
+            keepLight: readiness.overall > 0 && readiness.overall < 55,
+            skipLegs: false
+        )
+    }
+
+    /// Log a sport as part of today's session. Completed play also lands in history.
+    func recordSportSession(name: String, minutes: Int, completed: Bool) {
+        let slice = ExerciseLibrary.sportSession(named: name, minutes: minutes, completed: completed)
+        if var today = todayWorkout {
+            let newMoves = slice.exercises.filter { move in
+                !today.exercises.contains { $0.name.compare(move.name, options: .caseInsensitive) == .orderedSame }
+            }
+            if !newMoves.isEmpty {
+                today.exercises.append(contentsOf: newMoves)
+                today.duration += minutes
+                todayWorkout = today
+            }
+        } else {
+            todayWorkout = slice
+        }
+        if completed {
+            let history = WorkoutHistory(
+                id: UUID().uuidString,
+                date: ISO8601DateFormatter().string(from: Date()),
+                name: slice.name,
+                type: .sportSpecific,
+                duration: minutes,
+                volume: 0,
+                intensity: slice.intensity
+            )
+            workoutHistory.insert(history, at: 0)
+        }
+        rememberDurable("Sport: \(slice.name) · \(minutes) min")
+        AriaContextStore.shared.addInsight(
+            completed
+                ? "Logged \(slice.name) for \(minutes) min."
+                : "\(slice.name) is on today's session."
+        )
     }
 
     /// Legacy method for backward compatibility - converts to async
