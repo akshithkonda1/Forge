@@ -455,22 +455,44 @@ final class AriaLiveConvAIClient: NSObject, URLSessionWebSocketDelegate {
             throw AriaVoiceSessionError.invalidSignedURL
         }
         input.removeTap(onBus: 0)
+        #if compiler(>=6.4)
+        try input.installAudioTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            let pcm = AVAudioPCMBuffer(copying: buffer)
+            guard let data = AriaLiveConvAIClient.int16MonoData(from: pcm) else { return }
+            Task { @MainActor in
+                self?.sendBase64Chunk(data)
+            }
+        }
+        #else
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let data = AriaLiveConvAIClient.int16MonoData(from: buffer) else { return }
             Task { @MainActor in
                 self?.sendBase64Chunk(data)
             }
         }
+        #endif
         let player = AVAudioPlayerNode()
         engine.attach(player)
+        #if compiler(>=6.4)
+        if let outFormat {
+            try engine.connectNode(player, to: engine.mainMixerNode, format: outFormat)
+        } else {
+            try engine.connectNode(player, to: engine.mainMixerNode, format: nil)
+        }
+        #else
         if let outFormat {
             engine.connect(player, to: engine.mainMixerNode, format: outFormat)
         } else {
             engine.connect(player, to: engine.mainMixerNode, format: nil)
         }
+        #endif
         engine.prepare()
         try engine.start()
+        #if compiler(>=6.4)
+        try player.playAudio()
+        #else
         player.play()
+        #endif
         self.engine = engine
         self.player = player
     }

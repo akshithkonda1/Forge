@@ -61,30 +61,48 @@ final class CalendarManager: ObservableObject {
     }
 
     func requestAccess() async throws {
-        let status = EKEventStore.authorizationStatus(for: .event)
-        switch status {
-        case .fullAccess:
+        let status = authorizationStatus()
+        if Self.hasReadAccess(status) {
             isAuthorized = true
             return
+        }
+        switch status {
         case .denied, .restricted:
             isAuthorized = false
             throw CalendarError.denied
+        case .fullAccess:
+            isAuthorized = true
+            return
         case .writeOnly, .notDetermined:
             break
         @unknown default:
             break
         }
-        let granted = try await store.requestFullAccessToEvents()
+        let granted = try await requestFullAccessOnMain()
         isAuthorized = granted
         if !granted {
             throw CalendarError.denied
         }
     }
 
+    /// Completion API on the main actor so iOS 26/27 EventKit presents the
+    /// system sheet instead of aborting from a cooperative thread.
+    private func requestFullAccessOnMain() async throws -> Bool {
+        try await withCheckedThrowingContinuation { continuation in
+            store.requestFullAccessToEvents { granted, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: granted)
+                }
+            }
+        }
+    }
+
     /// Seed the Forge test calendar when allowed, then refresh this week's tags.
     func ingestUpcomingIfAuthorized() async {
         let status = authorizationStatus()
-        guard status == .authorized || status == .fullAccess else { return }
+        guard Self.hasReadAccess(status) else { return }
         isAuthorized = true
         await seedTestReadyCalendarIfNeeded()
         await fetchThisWeek()
@@ -96,8 +114,7 @@ final class CalendarManager: ObservableObject {
             debugBuild: ForgeAuthPolicy.isDebugBuild,
             testReady: AriaService.shouldUseTestReadyDummy,
             calendarAuthorized: isAuthorized
-                || authorizationStatus() == .authorized
-                || authorizationStatus() == .fullAccess,
+                || Self.hasReadAccess(authorizationStatus()),
             isRunningTests: FakeCalendarPack.isRunningUnitTests
         ) else { return false }
         let seed = AppStore.testReadySessionSeed
@@ -130,9 +147,7 @@ final class CalendarManager: ObservableObject {
     }
 
     private func fetchRange(start: Date, end: Date) async {
-        guard isAuthorized
-            || authorizationStatus() == .authorized
-            || Self.hasReadAccess(authorizationStatus()) else { return }
+        guard isAuthorized || Self.hasReadAccess(authorizationStatus()) else { return }
         let calendars = store.calendars(for: .event)
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
         let events = store.events(matching: predicate)

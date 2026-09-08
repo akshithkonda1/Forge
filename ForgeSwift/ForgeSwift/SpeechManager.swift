@@ -138,14 +138,11 @@ final class SpeechManager: ObservableObject {
     private func beginRecognition() {
         do {
             let session = AVAudioSession.sharedInstance()
-            // iOS 26 renamed `.allowBluetooth` → `.allowBluetoothHFP`. Forge's
-            // deployment target is iOS 27, and CI builds with Xcode 27, so use
-            // the current name.
-            #if compiler(>=6.4)
-            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetoothHFP])
-            #else
-            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetooth])
-            #endif
+            try session.setCategory(
+                .record,
+                mode: .measurement,
+                options: [.duckOthers, ForgePlaybackSession.bluetoothHFP]
+            )
             try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             voiceState = .error("Microphone error")
@@ -231,30 +228,38 @@ final class SpeechManager: ObservableObject {
 
     #if compiler(>=6.4)
     nonisolated private func updateAmplitude(from buffer: AVReadOnlyAudioPCMBuffer) {
-        guard buffer.frameLength > 0 else { return }
+        let frames = Int(buffer.frameLength)
+        guard frames > 0 else { return }
         let rms: Float
+        // ChannelData holds a ~Escapable Span — not a Sequence. Index it.
         switch buffer.channelData(0) {
         case .float(let samples):
-            guard !samples.isEmpty else { return }
+            let n = min(samples.count, frames)
+            guard n > 0 else { return }
             var sum: Float = 0
-            for s in samples { sum += s * s }
-            rms = sqrt(sum / Float(samples.count))
+            for i in 0..<n {
+                let s = samples[i]
+                sum += s * s
+            }
+            rms = sqrt(sum / Float(n))
         case .int16(let samples):
-            guard !samples.isEmpty else { return }
+            let n = min(samples.count, frames)
+            guard n > 0 else { return }
             var sum: Float = 0
-            for s in samples {
-                let f = Float(s) / Float(Int16.max)
+            for i in 0..<n {
+                let f = Float(samples[i]) / Float(Int16.max)
                 sum += f * f
             }
-            rms = sqrt(sum / Float(samples.count))
+            rms = sqrt(sum / Float(n))
         case .int32(let samples):
-            guard !samples.isEmpty else { return }
+            let n = min(samples.count, frames)
+            guard n > 0 else { return }
             var sum: Float = 0
-            for s in samples {
-                let f = Float(s) / Float(Int32.max)
+            for i in 0..<n {
+                let f = Float(samples[i]) / Float(Int32.max)
                 sum += f * f
             }
-            rms = sqrt(sum / Float(samples.count))
+            rms = sqrt(sum / Float(n))
         @unknown default:
             return
         }

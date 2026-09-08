@@ -10,10 +10,12 @@ struct ContentView: View {
     /// Once per process — recreating this view must not put the splash back
     /// on top of Home and eat taps.
     @State private var showSplash = !Self.didFinishSplash
+    /// Bound after first paint. Touching `AriaNeuralVoiceGate.shared` from
+    /// `body` blocked the first frame on the voice catalog XPC.
+    @State private var neuralVoiceGate: AriaNeuralVoiceGate?
     private static var didFinishSplash = false
 
     var body: some View {
-        @Bindable var neuralVoiceGate = AriaNeuralVoiceGate.shared
         ZStack {
             Group {
                 if !store.isAuthenticated {
@@ -35,15 +37,20 @@ struct ContentView: View {
                     .allowsHitTesting(false)
             }
         }
-        .sheet(isPresented: $neuralVoiceGate.showPrompt) {
-            AriaNeuralVoiceSheet(gate: neuralVoiceGate)
+        .sheet(isPresented: neuralPromptBinding) {
+            if let neuralVoiceGate {
+                AriaNeuralVoiceSheet(gate: neuralVoiceGate)
+            }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
-                AriaNeuralVoiceGate.shared.refreshCatalog()
+                neuralVoiceGate?.refreshCatalog()
             }
         }
         .task {
+            let gate = AriaNeuralVoiceGate.shared
+            neuralVoiceGate = gate
+            gate.refreshCatalog()
             guard showSplash else { return }
             let pause: UInt64 = reduceMotion ? 350_000_000 : 1_100_000_000
             try? await Task.sleep(nanoseconds: pause)
@@ -52,6 +59,13 @@ struct ContentView: View {
                 showSplash = false
             }
         }
+    }
+
+    private var neuralPromptBinding: Binding<Bool> {
+        Binding(
+            get: { neuralVoiceGate?.showPrompt ?? false },
+            set: { neuralVoiceGate?.showPrompt = $0 }
+        )
     }
 }
 

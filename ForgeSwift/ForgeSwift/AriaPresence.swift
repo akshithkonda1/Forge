@@ -29,6 +29,17 @@ enum ForgePlaybackSession: Equatable, Sendable {
     case alarm
     case chime
 
+    /// Hands-free Bluetooth bit. iOS 26's Swift overlay still names this
+    /// `allowBluetooth` (deprecated); iOS 27 names it `allowBluetoothHFP`.
+    /// Same raw value either way — never emit the deprecated symbol.
+    static var bluetoothHFP: AVAudioSession.CategoryOptions {
+        #if compiler(>=6.4)
+        .allowBluetoothHFP
+        #else
+        AVAudioSession.CategoryOptions(rawValue: 0x4)
+        #endif
+    }
+
     func activate() throws {
         let session = AVAudioSession.sharedInstance()
         switch self {
@@ -42,7 +53,7 @@ enum ForgePlaybackSession: Equatable, Sendable {
             try session.setCategory(
                 .playAndRecord,
                 mode: .spokenAudio,
-                options: [.defaultToSpeaker, .allowBluetoothA2DP, .duckOthers]
+                options: [.defaultToSpeaker, Self.bluetoothHFP, .allowBluetoothA2DP, .duckOthers]
             )
         case .sleepMix, .chime:
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
@@ -101,7 +112,10 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
             isSpeaking: isSpeaking
         ) else { return }
         didPlayWelcomeChime = true
-        AriaWelcomeChime.play()
+        Task { @MainActor in
+            await Task.yield()
+            AriaWelcomeChime.play()
+        }
     }
 
     /// Speaks `text` only as the dummy/local DEBUG fill-in while a character

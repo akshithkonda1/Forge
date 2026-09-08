@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// One federal-list presentation. Names only — not a prescription, not PHI.
 struct FDAMedication: Identifiable, Hashable, Sendable, Codable {
@@ -64,15 +65,14 @@ enum MedicationPharmacy {
     private static let reservedWords: Set<String> = ["AND", "OR", "OF", "FOR", "WITH", "THE", "IN", "TO"]
     private static let keepUpper: Set<String> = ["XR", "XL", "ER", "CR", "SR", "IR", "DR", "LA", "ODT", "EC", "HCL", "HBR"]
 
-    private static let lock = NSLock()
+    private static let lock = OSAllocatedUnfairLock()
     private static var cached: [FDAMedication]?
     private static var sortedTokens: [String] = []
     private static var tokenRows: [String: [Int]] = [:]
     private static var ready = false
 
     static var isReady: Bool {
-        lock.lock(); defer { lock.unlock() }
-        return ready
+        lock.withLock { ready }
     }
 
     static var count: Int { snapshot().count }
@@ -179,22 +179,19 @@ enum MedicationPharmacy {
             UserDefaults.standard.set(encoded, forKey: extrasKey)
             UserDefaults.standard.set(Date(), forKey: extrasAtKey)
         }
-        lock.lock()
-        cached = nil
-        ready = false
-        lock.unlock()
+        lock.withLock {
+            cached = nil
+            ready = false
+        }
         _ = snapshot()
     }
 
     // MARK: - Snapshot
 
     private static func snapshot() -> [FDAMedication] {
-        lock.lock()
-        if let cached, ready {
-            lock.unlock()
-            return cached
+        if let hit = lock.withLock({ cached.flatMap { ready ? $0 : nil } }) {
+            return hit
         }
-        lock.unlock()
 
         var rows = loadBundledCatalog()
         rows.append(contentsOf: loadExtras())
@@ -216,12 +213,12 @@ enum MedicationPharmacy {
         }
         let tokens = buildIndex(rows)
 
-        lock.lock()
-        cached = rows
-        sortedTokens = tokens.sorted
-        tokenRows = tokens.map
-        ready = true
-        lock.unlock()
+        lock.withLock {
+            cached = rows
+            sortedTokens = tokens.sorted
+            tokenRows = tokens.map
+            ready = true
+        }
         return rows
     }
 
@@ -259,10 +256,7 @@ enum MedicationPharmacy {
         let queryTokens = tokenize(q)
         guard !queryTokens.isEmpty else { return [] }
 
-        lock.lock()
-        let tokenList = sortedTokens
-        let map = tokenRows
-        lock.unlock()
+        let (tokenList, map) = lock.withLock { (sortedTokens, tokenRows) }
 
         var scores: [Int: Int] = [:]
         for token in queryTokens {
