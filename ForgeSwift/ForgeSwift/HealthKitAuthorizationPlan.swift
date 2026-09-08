@@ -6,6 +6,14 @@ import HealthKit
 /// Records. Passing `HKClinicalType` into `requestAuthorization` on Simulator
 /// (or a phone without Health Records) aborts the process — that is the
 /// Medicine-page Allow crash.
+///
+/// Vision prescriptions (and any other type with
+/// `requiresPerObjectAuthorization()`) cannot go through bulk
+/// `requestAuthorization(toShare:read:)`. Apple's current API on iOS 16–27
+/// is `requestPerObjectReadAuthorization(for:predicate:)`. Passing those
+/// types into the bulk call throws `NSInvalidArgumentException`
+/// (`HKVisionPrescriptionTypeIdentifier`) and aborts Connect Health on
+/// iOS 26/27 Simulator — Swift `catch` cannot swallow that.
 enum HealthKitAuthorizationPlan: Sendable {
 
     /// Structured records we ingest as name / date / source only.
@@ -84,18 +92,37 @@ enum HealthKitAuthorizationPlan: Sendable {
         }
     }
 
-    /// Drop clinical types when Health Records are unavailable. Never returns
-    /// a set that would abort `requestAuthorization`.
+    /// Types that must not reach bulk `requestAuthorization(toShare:read:)`.
+    /// Identifier fallback keeps Simulator/SDK stubs safe even if
+    /// `requiresPerObjectAuthorization()` is wrong or missing.
+    static var perObjectReadIdentifiers: Set<String> {
+        [HKObjectType.visionPrescriptionType().identifier]
+    }
+
+    /// `true` when Apple's bulk authorization sheet may include this type.
+    /// Current on iOS 26 and 27: `requiresPerObjectAuthorization()` plus
+    /// clinical notes/coverage, which abort instead of returning `HKError`.
+    static func isAllowedInBulkRead(_ type: HKObjectType) -> Bool {
+        if type.requiresPerObjectAuthorization() { return false }
+        if perObjectReadIdentifiers.contains(type.identifier) { return false }
+        if let clinical = type as? HKClinicalType,
+           forbiddenClinicalRawValues.contains(clinical.identifier) {
+            return false
+        }
+        return true
+    }
+
+    /// Drop clinical types when Health Records are unavailable, and always
+    /// drop per-object types (vision Rx). Never returns a set that would
+    /// abort `requestAuthorization`.
     static func sanitizedReadTypes(
         _ types: Set<HKObjectType>,
         supportsHealthRecords: Bool
     ) -> Set<HKObjectType> {
-        guard supportsHealthRecords else {
-            return types.filter { !($0 is HKClinicalType) }
-        }
-        return types.filter { type in
-            guard let clinical = type as? HKClinicalType else { return true }
-            return !forbiddenClinicalRawValues.contains(clinical.identifier)
+        types.filter { type in
+            guard isAllowedInBulkRead(type) else { return false }
+            if !supportsHealthRecords && type is HKClinicalType { return false }
+            return true
         }
     }
 
@@ -126,7 +153,9 @@ enum HealthKitAuthorizationPlan: Sendable {
         types.insert(HKObjectType.activitySummaryType())
         types.insert(HKObjectType.electrocardiogramType())
         types.insert(HKObjectType.audiogramSampleType())
-        types.insert(HKObjectType.visionPrescriptionType())
+        // Do not insert `visionPrescriptionType()`. Glasses/contacts Rx
+        // require `requestPerObjectReadAuthorization` and abort Connect
+        // Health on iOS 26/27 Simulator if they ride the bulk sheet.
         return types
     }
 

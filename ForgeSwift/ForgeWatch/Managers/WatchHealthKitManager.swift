@@ -98,7 +98,10 @@ final class WatchHealthKitManager {
             return
         }
         do {
-            try await store.requestAuthorization(toShare: writeTypes, read: readTypes)
+            // Same iOS 26/27 rule as the phone: per-object types (vision Rx)
+            // abort `requestAuthorization` instead of returning HKError.
+            let read = Set(readTypes.filter { !$0.requiresPerObjectAuthorization() })
+            try await store.requestAuthorization(toShare: writeTypes, read: read)
             isAuthorized = true
             startBackgroundObservers()
         } catch {

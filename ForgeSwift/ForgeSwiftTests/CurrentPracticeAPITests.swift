@@ -4,7 +4,7 @@ import HealthKit
 import ForgeCore
 @testable import ForgeSwift
 
-/// Locks the iOS 27 replacements for APIs Xcode flags as deprecated or renamed.
+/// Locks the iOS 26/27 replacements for APIs Xcode flags as deprecated or renamed.
 @MainActor
 final class CurrentPracticeAPITests: XCTestCase {
 
@@ -152,5 +152,42 @@ final class CurrentPracticeAPITests: XCTestCase {
             lastWorkoutDate: nil
         )
         XCTAssertTrue(live.hasData)
+    }
+
+    func testVisionPrescriptionUsesPerObjectAuthorizationNotBulkSheet() {
+        let vision = HKObjectType.visionPrescriptionType()
+        XCTAssertEqual(vision.identifier, "HKVisionPrescriptionTypeIdentifier")
+        XCTAssertTrue(vision.requiresPerObjectAuthorization())
+        XCTAssertFalse(
+            HealthKitAuthorizationPlan.isAllowedInBulkRead(vision),
+            "Connect Health must not pass vision Rx into requestAuthorization"
+        )
+        let connectRead = HealthKitAuthorizationPlan.sanitizedReadTypes(
+            HealthKitAuthorizationPlan.readTypes(includeClinical: true).union([vision]),
+            supportsHealthRecords: false
+        )
+        XCTAssertFalse(connectRead.contains(vision))
+        XCTAssertTrue(connectRead.contains(HKQuantityType(.stepCount)))
+        XCTAssertTrue(connectRead.contains(HKQuantityType(.vo2Max)))
+        XCTAssertTrue(connectRead.contains(HKCategoryType(.sleepAnalysis)))
+    }
+
+    func testQuantityAndClinicalInitsStayCurrentOnIOS26And27() {
+        XCTAssertEqual(
+            HKQuantityType(.appleSleepingWristTemperature).identifier,
+            HKQuantityTypeIdentifier.appleSleepingWristTemperature.rawValue
+        )
+        XCTAssertEqual(
+            HKQuantityType(.physicalEffort).identifier,
+            HKQuantityTypeIdentifier.physicalEffort.rawValue
+        )
+        XCTAssertEqual(
+            HKClinicalType(.medicationRecord).identifier,
+            HKClinicalTypeIdentifier.medicationRecord.rawValue
+        )
+        XCTAssertEqual(
+            HKCharacteristicType(.dateOfBirth).identifier,
+            HKCharacteristicTypeIdentifier.dateOfBirth.rawValue
+        )
     }
 }

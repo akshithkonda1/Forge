@@ -384,8 +384,9 @@ class HealthKitManager: ObservableObject {
     }
     
     /// First connect, Medicine Allow, and lifestyle opt-in all use this.
-    /// Clinical types are omitted on Simulator / devices without Health Records
-    /// so the system sheet cannot abort the process.
+    /// Clinical types are omitted on Simulator / devices without Health Records,
+    /// and per-object types (vision Rx) never ride the bulk sheet, so
+    /// `requestAuthorization` cannot abort the process.
     func requestAuthorization() async throws {
         try await requestFullAppleHealthAuthorization()
     }
@@ -510,13 +511,23 @@ class HealthKitManager: ObservableObject {
 
     /// Completion-handler form, always from the main actor. The async overlay
     /// can hop onto the cooperative pool; HealthKit then aborts instead of
-    /// showing the Allow sheet.
+    /// showing the Allow sheet. Types are sanitized again here so a future
+    /// caller cannot put vision Rx or clinical notes on the bulk sheet.
     private func presentAuthorization(
         toShare shareTypes: Set<HKSampleType>,
         read readTypes: Set<HKObjectType>
     ) async throws {
+        let safeRead = HealthKitAuthorizationPlan.sanitizedReadTypes(
+            readTypes,
+            supportsHealthRecords: healthStore.supportsHealthRecords()
+        )
+        let safeShare = HealthKitAuthorizationPlan.sanitizedShareTypes(shareTypes)
+        guard !safeRead.isEmpty else {
+            authorizationErrorMessage = "Health data is not available on this device."
+            throw HealthKitError.notAvailable
+        }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            healthStore.requestAuthorization(toShare: shareTypes, read: readTypes) { _, error in
+            healthStore.requestAuthorization(toShare: safeShare, read: safeRead) { _, error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else {
