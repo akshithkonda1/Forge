@@ -11,13 +11,6 @@ final class AriaVoiceSessionTests: XCTestCase {
             .dummy,
             "Device Hub / tester / loopback must not fall through to local testing"
         )
-        XCTAssertEqual(
-            AriaVoiceSession.plannedTransport(
-                shouldUseTestReadyDummy: true,
-                isLocalTesting: true
-            ),
-            .dummy
-        )
     }
 
     func testLocalTestingIsSecondGate() {
@@ -142,11 +135,11 @@ final class AriaVoiceSessionTests: XCTestCase {
             message: "Longer card copy the orb must not read."
         )
         XCTAssertEqual(
-            AriaVoiceSession.spokenLine(from: reply),
+            AriaVoiceMouth.spokenLine(from: reply),
             "Sleep was short. Train easy."
         )
         let fallback = AriaResponse(message: "Just the chat line.")
-        XCTAssertEqual(AriaVoiceSession.spokenLine(from: fallback), "Just the chat line.")
+        XCTAssertEqual(AriaVoiceMouth.spokenLine(from: fallback), "Just the chat line.")
     }
 
     func testLiveBootstrapDecoderAcceptsSignedURLAndRejectsEmpty() throws {

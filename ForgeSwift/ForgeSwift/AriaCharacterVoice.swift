@@ -102,6 +102,12 @@ enum AriaVoiceMouth: Sendable {
         guard !isMuted, sessionActive, let transport else { return false }
         return allowsDummyFillIn(transport: transport, isDebugBuild: isDebugBuild)
     }
+
+    static func spokenLine(from reply: AriaResponse) -> String {
+        let prose = reply.proseSummary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !prose.isEmpty { return prose }
+        return reply.message.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
 
 /// Local session config. Dummy and loopback short-circuit here — never call

@@ -37,17 +37,6 @@ final class AriaVoiceSession {
 
     private init() {}
 
-    /// Test seam: same resolution `start` uses.
-    static func plannedTransport(
-        shouldUseTestReadyDummy: Bool,
-        isLocalTesting: Bool
-    ) -> AriaVoiceTransport {
-        AriaVoiceTransport.resolve(
-            shouldUseTestReadyDummy: shouldUseTestReadyDummy,
-            isLocalTesting: isLocalTesting
-        )
-    }
-
     func start(store: AppStore, speech: SpeechManager, captureMic: Bool = true) {
         if isActive, self.store === store, self.speech === speech {
             if captureMic { capturesMic = true }
@@ -118,7 +107,7 @@ final class AriaVoiceSession {
     func speakChatReply(_ reply: AriaResponse) {
         guard isActive else { return }
         guard AriaSpokenMute.allowsSpeech else { return }
-        let line = Self.spokenLine(from: reply)
+        let line = AriaVoiceMouth.spokenLine(from: reply)
         guard !line.isEmpty else { return }
         applyPhase(.speaking)
         speech?.voiceState = .speaking
@@ -137,12 +126,6 @@ final class AriaVoiceSession {
         guard isActive, phase == .speaking else { return }
         guard transport?.usesOnDeviceBrain == true else { return }
         markListening()
-    }
-
-    static func spokenLine(from reply: AriaResponse) -> String {
-        let prose = reply.proseSummary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !prose.isEmpty { return prose }
-        return reply.message.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func markThinking() {
