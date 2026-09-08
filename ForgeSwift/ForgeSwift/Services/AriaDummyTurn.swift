@@ -349,7 +349,9 @@ enum AriaDummyTurn {
         if acts.noteToWrite != nil { add(.lifestyle) }
         if acts.readBoard { add(.progress) }
         if acts.readCalendar { add(.lifestyle) }
-        domains.removeAll { $0 == .lifestyle && domains.contains(.nutrition) && agent != .lifestyle && acts.noteToWrite == nil }
+        if domains.contains(.nutrition), agent != .lifestyle, acts.noteToWrite == nil {
+            domains.removeAll { $0 == .lifestyle }
+        }
 
         let jointsFound = joints(in: text, remembered: signals.rememberedFacts)
         let skipLegs = text.lowercased().contains("skip legs")
