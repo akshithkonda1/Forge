@@ -12,6 +12,7 @@ from security import (
 from services import aria_engine
 from services.aria_context import CoachContextEngine
 from services.feedback import FeedbackEngine
+from services import elevenlabs_voice
 from services import weekly_review
 
 _context = CoachContextEngine()
@@ -301,3 +302,26 @@ def handle_post_feedback_plan_outcome(body: dict[str, Any], *, user_id: str) -> 
         sanitize_user_text(str(feedback), max_chars=500) if feedback is not None else None
     )
     return ok(_feedback.process_plan_outcome(uid, plan_id, completed, feedback_s))
+
+
+def handle_get_ai_voice_bootstrap(body: dict[str, Any] | None, *, user_id: str) -> dict:
+    """GET /ai/voice/bootstrap — mint a short-lived ConvAI signed URL.
+
+    Dummy / Device Hub never calls this; the app short-circuits locally.
+    The response is a WebSocket URL, never ``ELEVENLABS_API_KEY``.
+    """
+    payload = elevenlabs_voice.mint_signed_url(user_id=user_id, body=body or {})
+    return ok(payload)
+
+
+def handle_post_ai_voice_tool(body: dict[str, Any], *, user_id: str) -> dict:
+    """POST /ai/voice/tool — ConvAI client tools into ``aria_engine``."""
+    uid = _bind_user(body, user_id)
+    return ok(elevenlabs_voice.run_tool(body, user_id=uid))
+
+
+def handle_post_ai_voice_design(body: dict[str, Any], *, user_id: str) -> dict:
+    """POST /ai/voice/design — ops Voice Design. Persist the returned ids."""
+    _bind_user(body, user_id)
+    preview_index = int(body.get("preview_index") or 0)
+    return ok(elevenlabs_voice.design_aria(preview_index=preview_index))
