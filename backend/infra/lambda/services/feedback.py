@@ -32,7 +32,7 @@ class FeedbackEngine:
             self.context_engine.add_insight(user_id, f"Skipped plan: {plan_id}")
         if feedback:
             self.context_engine.add_insight(user_id, f"Plan feedback: {feedback}")
-        self._learn_workout(user_id, completed)
+        self._learn_workout(user_id, completed, feedback=feedback)
         return {"ok": True, "plan_id": plan_id, "completed": completed}
 
     def _learn_reaction(self, user_id: str, reaction: str) -> None:
@@ -48,7 +48,7 @@ class FeedbackEngine:
         except Exception:
             return
 
-    def _learn_workout(self, user_id: str, completed: bool) -> None:
+    def _learn_workout(self, user_id: str, completed: bool, feedback: str | None = None) -> None:
         try:
             from services import contextual_learner
 
@@ -61,6 +61,8 @@ class FeedbackEngine:
                 evening_busy=cal.evening_busy,
                 headline=bool(cal.headlines),
             )
+            if feedback:
+                contextual_learner.self_train_from_conversation(persona, feedback)
             contextual_learner.save(user_id, persona)
         except Exception:
             return

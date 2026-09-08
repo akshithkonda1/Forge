@@ -1113,7 +1113,7 @@ def respond(
                 "grounding": brief.grounding,
                 "prioritize": list(brief.prioritize),
                 "event": brief.event_bucket,
-                "learner_stages": ["observe", "rank", "adapt", "commit"],
+                "learner_stages": ["observe", "rank", "adapt", "commit", "judge"],
             }
         )
         row["orchestration"] = orch

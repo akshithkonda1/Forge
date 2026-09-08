@@ -1827,7 +1827,11 @@ LEARNING_LAW = (
     "Never dump labels. If grounding is generalized, still coach from conversation "
     "and what you have already ingested — do not invent a calendar or a body you "
     "were not given. If grounding is contextual, fit the session around the "
-    "event and busy windows."
+    "event and busy windows. "
+    "Aria judges herself. last_verdict is whether the previous coaching call was "
+    "right, wrong, or mixed. If it was wrong, do not repeat the last stance "
+    "blindly — change the call. Optimize from outcomes and from what they tell "
+    "you; that is how the training itself is tuned."
 )
 
 
