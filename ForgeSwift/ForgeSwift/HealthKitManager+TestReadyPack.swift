@@ -400,7 +400,7 @@ extension HealthKitManager {
 
     private func querySamples(type: HKSampleType, predicate: NSPredicate) async throws -> [HKSample] {
         try await withCheckedThrowingContinuation { continuation in
-            let once = SampleQueryResumeOnce()
+            let once = ClinicalQueryResumeOnce<Result<[HKSample], Error>>()
             let query = HKSampleQuery(
                 sampleType: type,
                 predicate: predicate,
@@ -408,33 +408,16 @@ extension HealthKitManager {
                 sortDescriptors: nil
             ) { _, samples, error in
                 if let error {
-                    once.finish(.failure(error), continuation)
+                    once.finish(Result<[HKSample], Error>.failure(error)) {
+                        continuation.resume(with: $0)
+                    }
                 } else {
-                    once.finish(.success(samples ?? []), continuation)
+                    once.finish(.success(samples ?? [])) {
+                        continuation.resume(with: $0)
+                    }
                 }
             }
             healthStore.execute(query)
         }
-    }
-}
-
-/// HealthKit can invoke a query handler more than once. Resume exactly once
-/// so a Test-Ready rewrite cannot crash on that path.
-private final class SampleQueryResumeOnce: @unchecked Sendable {
-    private let lock = NSLock()
-    private var done = false
-
-    func finish(
-        _ result: Result<[HKSample], Error>,
-        _ continuation: CheckedContinuation<[HKSample], Error>
-    ) {
-        lock.lock()
-        if done {
-            lock.unlock()
-            return
-        }
-        done = true
-        lock.unlock()
-        continuation.resume(with: result)
     }
 }
