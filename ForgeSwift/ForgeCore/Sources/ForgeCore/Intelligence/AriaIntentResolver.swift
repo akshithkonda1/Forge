@@ -577,6 +577,8 @@ public struct AriaAdaptation: Sendable, Equatable {
     public var prioritize: [String]
     public var priorityReason: String
     public var eventBucket: String
+    public var lastVerdict: String
+    public var calibration: Double
 
     public init(
         stance: String,
@@ -589,7 +591,9 @@ public struct AriaAdaptation: Sendable, Equatable {
         grounding: String,
         prioritize: [String] = [],
         priorityReason: String = "",
-        eventBucket: String = "clear"
+        eventBucket: String = "clear",
+        lastVerdict: String = "",
+        calibration: Double = 0.5
     ) {
         self.stance = stance
         self.specialists = specialists
@@ -602,5 +606,7 @@ public struct AriaAdaptation: Sendable, Equatable {
         self.prioritize = prioritize
         self.priorityReason = priorityReason
         self.eventBucket = eventBucket
+        self.lastVerdict = lastVerdict
+        self.calibration = calibration
     }
 }
