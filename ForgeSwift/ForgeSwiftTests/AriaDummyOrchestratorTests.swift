@@ -333,6 +333,7 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         defer { AriaContextStore.shared.applyCalendarIngestTags([]) }
         AriaContextStore.shared.applyCalendarIngestTags([
             "calendar:busy:3",
+            "calendar:week:busy:9",
             "calendar:evening:busy",
             "calendar:kind:wedding",
             "calendar:kind:game",
@@ -348,6 +349,13 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         let weekLower = week.message.lowercased()
         XCTAssertTrue(weekLower.contains("wedding"))
         XCTAssertTrue(weekLower.contains("game") || weekLower.contains("trip") || weekLower.contains("flight"))
+        XCTAssertTrue(
+            weekLower.contains("hero")
+                || weekLower.contains("move")
+                || weekLower.contains("train around")
+                || weekLower.contains("spoken for"),
+            "ARIA must think about the week after reading it: \(week.message)"
+        )
         XCTAssertFalse(weekLower.contains("jordan"))
         XCTAssertFalse(weekLower.contains("osteria"))
         XCTAssertFalse(AriaDummyOrchestrator.writesCalendarEvents)
@@ -368,6 +376,14 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         )
         XCTAssertFalse(trainLower.contains("jordan"))
         XCTAssertFalse(AriaDummyOrchestrator.writesCalendarEvents)
+        let session = try XCTUnwrap(store.todayWorkout)
+        XCTAssertLessThanOrEqual(
+            session.duration,
+            30,
+            "a trip + wedding + evening must shorten the session, not leave a hero block: \(session.duration) min"
+        )
+        XCTAssertNotEqual(session.intensity, .max)
+        XCTAssertNotEqual(session.intensity, .high)
     }
 
     private func makeStore() -> AppStore {

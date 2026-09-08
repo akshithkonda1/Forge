@@ -6,6 +6,7 @@ final class FakeCalendarPackTests: XCTestCase {
     private var calendar: Calendar {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        cal.firstWeekday = 1
         return cal
     }
 
@@ -54,21 +55,33 @@ final class FakeCalendarPackTests: XCTestCase {
         XCTAssertFalse(FakeCalendarPack.writesToPersonalCalendars)
         XCTAssertEqual(FakeCalendarPack.calendarTitle, "Forge — Test Pack")
         XCTAssertTrue(FakeCalendarPack.eventURL.hasPrefix("forge://test-ready/calendar"))
+        XCTAssertEqual(FakeCalendarPack.horizonDays, 365)
     }
 
-    func testWeekLooksLikeAPhoneNotASticker() {
+    func testYearLooksLikeAPhoneNotAStickerWeek() {
         let pack = FakeCalendarPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
         let kinds = Set(pack.events.map(\.kind))
         XCTAssertTrue(kinds.contains(.wedding))
         XCTAssertTrue(kinds.contains(.game))
         XCTAssertTrue(kinds.contains(.travel))
         XCTAssertTrue(kinds.contains(.flight))
-        XCTAssertGreaterThanOrEqual(pack.events.count, 12, "a real phone is denser than seven story events")
-        XCTAssertGreaterThanOrEqual(pack.events.filter { $0.kind == .work }.count, 3)
+        XCTAssertTrue(kinds.contains(.work))
+        XCTAssertGreaterThanOrEqual(pack.events.count, 120, "a year on a real phone is denser than two sticker weeks")
+        XCTAssertGreaterThanOrEqual(pack.events.filter { $0.kind == .work }.count, 40)
         XCTAssertTrue(pack.events.contains { $0.isAllDay && $0.kind == .travel })
         XCTAssertTrue(pack.events.allSatisfy { $0.end > $0.start })
         XCTAssertTrue(pack.events.contains { !$0.placeName.isEmpty })
-        XCTAssertTrue(pack.events.allSatisfy { $0.start > pinnedNow || $0.isAllDay })
+        let last = try XCTUnwrap(pack.events.last)
+        XCTAssertGreaterThanOrEqual(
+            FakeCalendarPack.dayOffset(of: last, from: pinnedNow, calendar: calendar),
+            300,
+            "the pack must cover a year, not a fortnight"
+        )
+        let window = FakeCalendarPack.weekWindow(containing: pinnedNow, calendar: calendar)
+        XCTAssertGreaterThanOrEqual(pack.events.filter { $0.start >= window.start }.count, pack.events.count - 8)
+        let ctx = FakeCalendarPack.weekContext(from: pack, now: pinnedNow, calendar: calendar)
+        XCTAssertGreaterThanOrEqual(ctx.weekBusy, 3, "this week still has to look like a phone")
+        XCTAssertFalse(ctx.kinds.isEmpty)
     }
 
     func testGenerateIsDeterministicIncludingPlaces() {
@@ -91,7 +104,7 @@ final class FakeCalendarPackTests: XCTestCase {
         XCTAssertNotEqual(
             a.events.map(\.start),
             b.events.map(\.start),
-            "different seeds must not reprint the same week"
+            "different seeds must not reprint the same year"
         )
         XCTAssertNotEqual(
             a.events.map(\.placeName),
@@ -108,9 +121,10 @@ final class FakeCalendarPackTests: XCTestCase {
         )
     }
 
-    func testIngestTagsNeverContainTitlesPlacesOrAttendees() {
+    func testIngestTagsAreThisWeekOnlyAndNeverContainTitles() {
         let pack = FakeCalendarPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
-        let tags = FakeCalendarPack.ingestTags(from: pack, now: pinnedNow, calendar: calendar)
+        let ctx = FakeCalendarPack.weekContext(from: pack, now: pinnedNow, calendar: calendar)
+        let tags = ctx.ingestTags
         let blob = tags.joined(separator: " ").lowercased()
         for event in pack.events {
             XCTAssertFalse(
@@ -129,23 +143,50 @@ final class FakeCalendarPackTests: XCTestCase {
         XCTAssertFalse(blob.contains("osteria"))
         XCTAssertFalse(blob.contains("denver"))
         XCTAssertTrue(tags.contains { $0.hasPrefix("calendar:busy:") })
-        XCTAssertTrue(tags.contains("calendar:kind:wedding"))
-        XCTAssertTrue(tags.contains("calendar:kind:game"))
-        XCTAssertTrue(tags.contains("calendar:kind:travel"))
+        XCTAssertTrue(tags.contains { $0.hasPrefix("calendar:week:busy:") })
+        XCTAssertEqual(Set(FakeCalendarPack.kinds(fromTags: tags)), Set(ctx.kinds))
         XCTAssertTrue(tags.allSatisfy(FakeCalendarPack.isAllowedIngestTag))
+        if !ctx.kinds.contains(.wedding) {
+            XCTAssertFalse(tags.contains("calendar:kind:wedding"))
+        }
+        XCTAssertTrue(pack.events.contains { $0.kind == .wedding })
+        XCTAssertTrue(pack.events.contains { $0.kind == .travel })
     }
 
-    func testSanitizeDropsTitleTags() {
+    func testWeekContextIgnoresTheRestOfTheYear() {
+        let pack = FakeCalendarPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
+        let wedding = try XCTUnwrap(pack.events.first { $0.kind == .wedding })
+        let weddingTags = FakeCalendarPack.ingestTags(from: pack, now: wedding.start, calendar: calendar)
+        XCTAssertTrue(weddingTags.contains("calendar:kind:wedding"))
+
+        let window = FakeCalendarPack.weekWindow(containing: pinnedNow, calendar: calendar)
+        let thisWeek = FakeCalendarPack.events(in: pack, overlapping: window.start, end: window.end)
+        let thisWeekKinds = Set(thisWeek.map(\.kind))
+        let nowTags = FakeCalendarPack.ingestTags(from: pack, now: pinnedNow, calendar: calendar)
+        XCTAssertEqual(Set(FakeCalendarPack.kinds(fromTags: nowTags)), thisWeekKinds)
+
+        let later = calendar.date(byAdding: .day, value: 21, to: pinnedNow)!
+        let laterTags = FakeCalendarPack.ingestTags(from: pack, now: later, calendar: calendar)
+        XCTAssertNotEqual(
+            nowTags.sorted(),
+            laterTags.sorted(),
+            "ARIA must contextualize a different week three weeks out"
+        )
+    }
+
+    func testSanitizeDropsTitleTagsKeepsWeekBusy() {
         let dirty = [
             "calendar:busy:2",
+            "calendar:week:busy:11",
             "calendar:kind:wedding",
             "calendar:title:Jordan & Alex's wedding",
             "calendar:attendee:maya@example.com",
             "calendar:kind:not-a-kind",
+            "calendar:week:title:Jordan",
             "felt:steady",
         ]
         let clean = FakeCalendarPack.sanitizeTags(dirty)
-        XCTAssertEqual(clean, ["calendar:busy:2", "calendar:kind:wedding"])
+        XCTAssertEqual(clean, ["calendar:busy:2", "calendar:week:busy:11", "calendar:kind:wedding"])
     }
 
     func testKindFromNotesAndURL() {
@@ -169,16 +210,41 @@ final class FakeCalendarPackTests: XCTestCase {
 
     func testSpokenLineUsesKindsNotTitlesOrPlaces() {
         let pack = FakeCalendarPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
-        let tags = FakeCalendarPack.ingestTags(from: pack, now: pinnedNow, calendar: calendar)
+        let wedding = try XCTUnwrap(pack.events.first { $0.kind == .wedding })
+        let tags = FakeCalendarPack.ingestTags(from: pack, now: wedding.start, calendar: calendar)
         let line = try XCTUnwrap(FakeCalendarPack.spokenLine(fromTags: tags))
         let lower = line.lowercased()
         XCTAssertTrue(lower.contains("wedding"))
-        XCTAssertTrue(lower.contains("game") || lower.contains("trip") || lower.contains("flight"))
+        XCTAssertTrue(lower.contains("week"))
         XCTAssertTrue(lower.contains("titles") || lower.contains("phone"))
         XCTAssertFalse(lower.contains("jordan"))
         XCTAssertFalse(lower.contains("osteria"))
         XCTAssertFalse(lower.contains("harbor hall"))
         XCTAssertFalse(lower.contains("standup"))
+    }
+
+    func testContextualizeReadsAndThinksAboutThisWeek() {
+        let line = try XCTUnwrap(
+            FakeCalendarPack.contextualizeLine(fromTags: [
+                "calendar:kind:wedding",
+                "calendar:kind:travel",
+                "calendar:busy:3",
+                "calendar:week:busy:9",
+                "calendar:evening:busy",
+            ])
+        )
+        let lower = line.lowercased()
+        XCTAssertTrue(lower.contains("wedding") || lower.contains("trip") || lower.contains("travel"))
+        XCTAssertTrue(lower.contains("week"))
+        XCTAssertTrue(
+            lower.contains("hero")
+                || lower.contains("move")
+                || lower.contains("train around")
+                || lower.contains("spoken for"),
+            "ARIA must think about the week, not only list kinds: \(line)"
+        )
+        XCTAssertFalse(lower.contains("jordan"))
+        XCTAssertTrue(lower.contains("titles") || lower.contains("phone"))
     }
 
     func testSessionFitChangesWhatARIAShouldDo() {
@@ -187,15 +253,70 @@ final class FakeCalendarPackTests: XCTestCase {
         ])
         XCTAssertTrue(wedding?.localizedCaseInsensitiveContains("wedding") == true)
 
-        let evening = FakeCalendarPack.sessionFitLine(fromTags: [
+        let eveningFit = FakeCalendarPack.sessionFitLine(fromTags: [
             "calendar:evening:busy", "calendar:busy:2",
         ])
-        XCTAssertTrue(evening?.localizedCaseInsensitiveContains("evening") == true)
+        XCTAssertTrue(eveningFit?.localizedCaseInsensitiveContains("evening") == true)
 
         let morning = FakeCalendarPack.sessionFitLine(fromTags: [
             "calendar:morning:busy", "calendar:busy:2",
         ])
         XCTAssertTrue(morning?.localizedCaseInsensitiveContains("morning") == true)
+
+        let stacked = FakeCalendarPack.thinkingLine(fromTags: [
+            "calendar:week:busy:11", "calendar:busy:1",
+        ])
+        XCTAssertTrue(stacked?.localizedCaseInsensitiveContains("week") == true)
+
+        let travelOnly = FakeCalendarPack.outcome(fromTags: [
+            "calendar:kind:travel", "calendar:busy:1", "calendar:week:busy:4",
+        ])
+        let travelAndWedding = FakeCalendarPack.outcome(fromTags: [
+            "calendar:kind:travel",
+            "calendar:kind:wedding",
+            "calendar:busy:3",
+            "calendar:week:busy:9",
+            "calendar:evening:busy",
+        ])
+        XCTAssertEqual(travelOnly.shape, .movable)
+        XCTAssertEqual(travelAndWedding.shape, .movable)
+        XCTAssertNotEqual(travelOnly.thinkingLine, travelAndWedding.thinkingLine)
+        XCTAssertTrue(travelAndWedding.keepLight)
+        XCTAssertTrue(travelAndWedding.shorten)
+        XCTAssertLessThan(travelAndWedding.maxMinutes, travelOnly.maxMinutes)
+        XCTAssertTrue(travelAndWedding.thinkingLine?.localizedCaseInsensitiveContains("wedding") == true)
+        XCTAssertTrue(travelAndWedding.thinkingLine?.localizedCaseInsensitiveContains("move") == true)
+        XCTAssertTrue(travelAndWedding.thinkingLine?.localizedCaseInsensitiveContains("hero") == true)
+
+        let eveningWindow = FakeCalendarPack.outcome(fromTags: [
+            "calendar:evening:busy", "calendar:busy:2", "calendar:week:busy:5",
+        ])
+        XCTAssertEqual(eveningWindow.shape, .aroundWindow)
+        XCTAssertTrue(eveningWindow.shorten)
+        XCTAssertNotEqual(eveningWindow.shape, travelOnly.shape)
+        XCTAssertNotEqual(eveningWindow.thinkingLine, travelAndWedding.thinkingLine)
+    }
+
+    func testDifferentWeeksYieldDifferentOutcomes() {
+        let pack = FakeCalendarPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
+        let nowCtx = FakeCalendarPack.weekContext(from: pack, now: pinnedNow, calendar: calendar)
+        let window = FakeCalendarPack.weekWindow(containing: pinnedNow, calendar: calendar)
+        let otherWedding = try XCTUnwrap(
+            pack.events.first { event in
+                event.kind == .wedding && (event.end <= window.start || event.start >= window.end)
+            }
+        )
+        let weddingCtx = FakeCalendarPack.weekContext(from: pack, now: otherWedding.start, calendar: calendar)
+        XCTAssertTrue(weddingCtx.kinds.contains(.wedding))
+        XCTAssertTrue(weddingCtx.outcome.thinkingLine?.localizedCaseInsensitiveContains("wedding") == true)
+        XCTAssertTrue(weddingCtx.outcome.changesSession)
+        if !nowCtx.kinds.contains(.wedding) {
+            XCTAssertFalse(
+                nowCtx.outcome.thinkingLine?.localizedCaseInsensitiveContains("wedding") == true,
+                "this week must not think about another week's wedding"
+            )
+        }
+        XCTAssertNotEqual(nowCtx.ingestTags.sorted(), weddingCtx.ingestTags.sorted())
     }
 
     func testGuaranteesHoldAcrossManySeeds() {
@@ -206,12 +327,31 @@ final class FakeCalendarPackTests: XCTestCase {
             XCTAssertTrue(kinds.contains(.game), "seed \(seed) lost the game")
             XCTAssertTrue(kinds.contains(.travel), "seed \(seed) lost the trip")
             XCTAssertTrue(kinds.contains(.flight), "seed \(seed) lost the flight")
-            XCTAssertGreaterThanOrEqual(pack.events.count, 10, "seed \(seed) too thin to test ingest")
+            XCTAssertGreaterThanOrEqual(pack.events.count, 80, "seed \(seed) too thin to test a year")
             XCTAssertTrue(pack.events.allSatisfy { $0.end > $0.start }, "seed \(seed) inverted an event")
-            let tags = FakeCalendarPack.ingestTags(from: pack, now: pinnedNow, calendar: calendar)
-            let blob = tags.joined(separator: " ").lowercased()
+            let last = pack.events.last!
+            XCTAssertGreaterThanOrEqual(
+                FakeCalendarPack.dayOffset(of: last, from: pinnedNow, calendar: calendar),
+                280,
+                "seed \(seed) did not fill a year"
+            )
+            let ctx = FakeCalendarPack.weekContext(from: pack, now: pinnedNow, calendar: calendar)
+            XCTAssertEqual(
+                Set(FakeCalendarPack.kinds(fromTags: ctx.ingestTags)),
+                Set(ctx.kinds),
+                "seed \(seed) leaked kinds from outside this week"
+            )
+            let blob = ctx.ingestTags.joined(separator: " ").lowercased()
             for event in pack.events where event.title.count >= 6 {
                 XCTAssertFalse(blob.contains(event.title.lowercased()), "seed \(seed) leaked \(event.title)")
+            }
+            XCTAssertGreaterThanOrEqual(ctx.weekBusy, 1, "seed \(seed) left this week empty")
+            XCTAssertTrue(ctx.outcome.changesSession || ctx.weekBusy >= 3, "seed \(seed) gave ARIA nothing to think about")
+            if let think = ctx.outcome.thinkingLine {
+                let lower = think.lowercased()
+                XCTAssertFalse(lower.contains("jordan"), "seed \(seed) thought a title")
+                XCTAssertFalse(lower.contains("osteria"), "seed \(seed) thought a place")
+                XCTAssertFalse(lower.contains("@"))
             }
         }
     }

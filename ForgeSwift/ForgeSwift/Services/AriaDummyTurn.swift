@@ -209,6 +209,14 @@ enum AriaDummyTurn {
             || (lower.contains("calendar") && (lower.contains("week") || lower.contains("today") || lower.contains("busy")))
             || lower.contains("what's on this week")
             || lower.contains("whats on this week")
+            || lower.contains("what's coming up")
+            || lower.contains("whats coming up")
+            || lower.contains("how does my week")
+            || lower.contains("how's my week")
+            || lower.contains("hows my week")
+            || lower.contains("think about my week")
+            || lower.contains("what's this week")
+            || lower.contains("whats this week")
         return acts
     }
 
@@ -442,7 +450,15 @@ enum AriaDummyTurn {
             sentences.append(clip(train.prose, limit: 180))
         }
         if let food {
-            sentences.append(clip(food.prose, limit: 140))
+            let lowerFood = food.prose.lowercased()
+            let calendarThought = interpretation.readCalendar
+                || lowerFood.contains("calendar")
+                || lowerFood.contains("wedding")
+                || lowerFood.contains("trip")
+                || lowerFood.contains("travel")
+                || lowerFood.contains("busy window")
+            let limit = calendarThought ? 280 : 140
+            sentences.append(clip(food.prose, limit: limit))
         }
         if let body, sleep != nil {
             sentences.append(clip(body.prose, limit: 120))

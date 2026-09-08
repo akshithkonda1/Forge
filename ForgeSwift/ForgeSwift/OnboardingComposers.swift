@@ -494,7 +494,7 @@ struct HealthComposer: View {
                 )
                 ConnectionRow(
                     icon: "calendar", color: .steel,
-                    title: "Apple Calendar", subtitle: "Busy windows and event kinds — never titles. Fits training around your day.",
+                    title: "Apple Calendar", subtitle: "This week's busy windows and event kinds — never titles. Fits training around your day.",
                     state: coordinator.calendarState, action: { Task { await coordinator.connectCalendar() } }
                 )
             }

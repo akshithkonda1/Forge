@@ -384,6 +384,7 @@ final class ARIAChatHandoffTests: XCTestCase {
     func testLifeReadCalendarKindsNeverCarryTitles() {
         let read = AriaLifeRead.from(tags: [
             "calendar:busy:3",
+            "calendar:week:busy:9",
             "calendar:evening:busy",
             "calendar:kind:wedding",
             "calendar:kind:travel",
@@ -391,6 +392,7 @@ final class ARIAChatHandoffTests: XCTestCase {
         ])
         XCTAssertEqual(Set(read.calendarKinds), ["travel", "wedding"])
         XCTAssertEqual(read.calendarBusyToday, 3)
+        XCTAssertEqual(read.calendarWeekBusy, 9)
         XCTAssertTrue(read.calendarEveningBusy)
         XCTAssertTrue(read.hasCalendar)
         let spoken = read.spokenCalendarLine() ?? ""
@@ -398,5 +400,13 @@ final class ARIAChatHandoffTests: XCTestCase {
         XCTAssertFalse(spoken.contains("Jordan"))
         let fit = read.sessionFitLine() ?? ""
         XCTAssertTrue(fit.lowercased().contains("wedding") || fit.lowercased().contains("travel"))
+        let think = read.contextualizeCalendarLine() ?? ""
+        XCTAssertTrue(think.lowercased().contains("week"))
+        XCTAssertTrue(think.lowercased().contains("move") || think.lowercased().contains("hero"))
+        XCTAssertFalse(think.contains("Jordan"))
+        let outcome = read.calendarOutcome()
+        XCTAssertEqual(outcome.shape, .movable)
+        XCTAssertTrue(outcome.keepLight)
+        XCTAssertLessThanOrEqual(outcome.maxMinutes, 30)
     }
 }

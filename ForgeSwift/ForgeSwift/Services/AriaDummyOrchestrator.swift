@@ -79,7 +79,7 @@ enum AriaDummyOrchestrator {
             || (facts.sleepHours ?? 9) < 6.5
             || text.lowercased().contains("slept badly")
             || text.lowercased().contains("slept 5")
-        let interpretation = AriaDummyTurn.interpret(
+        var interpretation = AriaDummyTurn.interpret(
             text: text,
             agent: agent,
             agents: routed,
@@ -87,6 +87,13 @@ enum AriaDummyOrchestrator {
             sleepWeak: sleepWeak,
             readinessLow: readiness > 0 && readiness < 55
         )
+        let calendarOutcome = FakeCalendarPack.outcome(fromTags: life.calendarIngestPayload())
+        if calendarOutcome.keepLight {
+            interpretation.keepLight = true
+        }
+        if calendarOutcome.shorten {
+            interpretation.constrainedPlanInput += ". short session that still fits this week's calendar"
+        }
 
         let emotional = AriaEmotionalSupportCoach.isEmotionalSupportQuery(text, context: context)
         let hasSystems = interpretation.domains.contains(where: {
@@ -241,7 +248,8 @@ enum AriaDummyOrchestrator {
                         keepLight: interpretation.keepLight,
                         skipLegs: interpretation.skipLegs
                     ),
-                    interpretation: interpretation
+                    interpretation: interpretation,
+                    outcome: FakeCalendarPack.outcome(fromTags: life.calendarIngestPayload())
                 )
                 store.todayWorkout = workout
                 let line = "I pulled this from the calisthenics library. \(workout.name) is on the board for about \(workout.duration) minutes — \(workout.intensity.label.lowercased()) intensity."
@@ -254,7 +262,11 @@ enum AriaDummyOrchestrator {
                 )
             }
             let plan = AriaPlanEngine.evaluate(input: interpretation.constrainedPlanInput, context: context)
-            workout = constrain(plan.workoutPlan, interpretation: interpretation)
+            workout = constrain(
+                plan.workoutPlan,
+                interpretation: interpretation,
+                outcome: FakeCalendarPack.outcome(fromTags: life.calendarIngestPayload())
+            )
             if plan.shouldPersistTheme {
                 store.setTrainingTheme(plan.theme, source: "chat")
             }
@@ -270,7 +282,7 @@ enum AriaDummyOrchestrator {
             return AriaDummyBeat(
                 domain: .training,
                 prose: prose,
-                card: AriaService.payload(from: plan.richCard),
+                card: workoutCard(workout),
                 suggestedActions: plan.suggestedActions,
                 actions: actions
             )
@@ -310,8 +322,9 @@ enum AriaDummyOrchestrator {
                 )
             }
             if interpretation.readCalendar {
-                let line = life.spokenCalendarLine()
-                    ?? "I don't have a calendar week in yet. Connect it and I'll read busy windows — never titles."
+                let line = life.contextualizeCalendarLine()
+                    ?? life.spokenCalendarLine()
+                    ?? "I don't have this week's calendar in yet. Connect it and I'll read this week — kinds and busy windows, never titles."
                 return AriaDummyBeat(
                     domain: .lifestyle,
                     prose: line,
@@ -415,10 +428,14 @@ enum AriaDummyOrchestrator {
                 readinessLow: store.readiness.overall > 0 && store.readiness.overall < 55
             )
             let plan = AriaPlanEngine.evaluate(input: interpretation.constrainedPlanInput, context: context)
-            let workout = constrain(plan.workoutPlan, interpretation: interpretation)
+            let workout = constrain(
+                plan.workoutPlan,
+                interpretation: interpretation,
+                outcome: FakeCalendarPack.outcome(fromTags: context.lifeRead.calendarIngestPayload())
+            )
             store.todayWorkout = workout
             lastAppliedActions = [.skipLegs, .persistWorkout]
-            return confirm("Legs off. \(workout.name) is on the board instead.", store: store, card: AriaService.payload(from: plan.richCard))
+            return confirm("Legs off. \(workout.name) is on the board instead.", store: store, card: workoutCard(workout))
         case .askSleep:
             let raw = AriaVoiceEngine.speak(intent: .sleep, context: context, input: text, facts: facts)
             let sleep = humanizeRecover(
@@ -442,13 +459,17 @@ enum AriaDummyOrchestrator {
 
     private static func constrain(
         _ workout: WorkoutPlan,
-        interpretation: AriaDummyInterpretation
+        interpretation: AriaDummyInterpretation,
+        outcome: AriaCalendarOutcome = .ordinary
     ) -> WorkoutPlan {
         var next = workout
-        if interpretation.keepLight {
+        if interpretation.keepLight || outcome.keepLight {
             if next.intensity == .max || next.intensity == .high {
                 next.intensity = .moderate
             }
+        }
+        if outcome.shorten {
+            next.duration = min(next.duration, max(15, outcome.maxMinutes))
         }
         if interpretation.skipLegs {
             let kept = next.exercises.filter { !AriaDummyTurn.isLegMove($0.name) }

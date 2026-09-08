@@ -2,16 +2,16 @@ import Foundation
 
 /// Deterministic Test-Ready calendar stream.
 ///
-/// This exists to test ARIA, not to decorate Calendar.app. A real phone is
-/// dense: standups, 1:1s, a dentist, dinner, then a weekend that actually
-/// occupies the day. Seed-shaped like `FakeHealthPack` — not a sticker week
-/// of Thursday 7pm forever — so Device Hub can catch ARIA fitting training
-/// around busy windows, or failing to.
+/// This exists to test ARIA, not to decorate Calendar.app. A real phone holds
+/// a year of standups, 1:1s, dinners, a few trips, a wedding, games — then
+/// ARIA only *thinks* about the week she's in. Seed-shaped like
+/// `FakeHealthPack` so Device Hub can catch her fitting training around this
+/// week's busy windows, or failing to.
 ///
 /// Titles, places, and coordinates are written to EventKit so the calendar
 /// looks like a life. They never become ARIA tags, prompts, or off-device
 /// payload. ARIA is allowed classified kinds (`wedding`, `game`, `travel`)
-/// and busy windows only.
+/// and busy windows for **this calendar week** only.
 ///
 /// EventKit writes land only on a Forge-owned calendar (`calendarTitle`).
 /// Production builds never seed. Unit tests never seed.
@@ -96,12 +96,131 @@ public struct FakeCalendarEvent: Sendable, Equatable {
     }
 }
 
+/// One calendar week of classified ingest. The year lives in EventKit; ARIA
+/// only receives this window — kinds + busy, never titles.
+public struct FakeCalendarWeekContext: Sendable, Equatable {
+    public var weekStart: Date
+    public var weekEnd: Date
+    public var todayBusy: Int
+    public var weekBusy: Int
+    public var morningBusy: Bool
+    public var eveningBusy: Bool
+    public var allDayBusy: Bool
+    public var kinds: [FakeCalendarEvent.Kind]
+    public var todayKinds: [FakeCalendarEvent.Kind]
+
+    public init(
+        weekStart: Date,
+        weekEnd: Date,
+        todayBusy: Int,
+        weekBusy: Int,
+        morningBusy: Bool,
+        eveningBusy: Bool,
+        allDayBusy: Bool,
+        kinds: [FakeCalendarEvent.Kind],
+        todayKinds: [FakeCalendarEvent.Kind]
+    ) {
+        self.weekStart = weekStart
+        self.weekEnd = weekEnd
+        self.todayBusy = todayBusy
+        self.weekBusy = weekBusy
+        self.morningBusy = morningBusy
+        self.eveningBusy = eveningBusy
+        self.allDayBusy = allDayBusy
+        self.kinds = kinds
+        self.todayKinds = todayKinds
+    }
+
+    public var ingestTags: [String] {
+        FakeCalendarPack.ingestTags(
+            busyToday: todayBusy,
+            morningBusy: morningBusy,
+            eveningBusy: eveningBusy,
+            allDayBusy: allDayBusy,
+            weekBusy: weekBusy,
+            kinds: kinds
+        )
+    }
+
+    public var spokenLine: String? {
+        FakeCalendarPack.spokenLine(fromTags: ingestTags)
+    }
+
+    public var thinkingLine: String? {
+        FakeCalendarPack.thinkingLine(fromTags: ingestTags)
+    }
+
+    public var contextualizeLine: String? {
+        FakeCalendarPack.contextualizeLine(fromTags: ingestTags)
+    }
+
+    public var outcome: AriaCalendarOutcome {
+        FakeCalendarPack.outcome(fromTags: ingestTags)
+    }
+}
+
+/// What ARIA should *do* with this week's classified calendar.
+/// Combinatory on purpose: a trip plus a wedding is not the same session as
+/// a trip alone. Never carries titles, places, or attendees.
+public struct AriaCalendarOutcome: Sendable, Equatable {
+    public enum SessionShape: String, Sendable, Equatable {
+        /// Travel / flight — the session has to be able to move.
+        case movable
+        /// Wedding / family — do not drop a hero session on top of it.
+        case protectHero
+        /// Game, appointment, or a single spoken-for window.
+        case aroundWindow
+        /// Morning is packed; the session lives later.
+        case laterDay
+        /// Dense week or both windows taken — short, and it has to fit.
+        case shortFit
+        /// Ordinary density. Read it; don't rewrite the session.
+        case ordinary
+    }
+
+    public var shape: SessionShape
+    public var keepLight: Bool
+    public var shorten: Bool
+    public var maxMinutes: Int
+    public var thinkingLine: String?
+
+    public init(
+        shape: SessionShape,
+        keepLight: Bool,
+        shorten: Bool,
+        maxMinutes: Int,
+        thinkingLine: String?
+    ) {
+        self.shape = shape
+        self.keepLight = keepLight
+        self.shorten = shorten
+        self.maxMinutes = maxMinutes
+        self.thinkingLine = thinkingLine
+    }
+
+    public static let ordinary = AriaCalendarOutcome(
+        shape: .ordinary,
+        keepLight: false,
+        shorten: false,
+        maxMinutes: 55,
+        thinkingLine: nil
+    )
+
+    public var changesSession: Bool {
+        shape != .ordinary || keepLight || shorten
+    }
+
+    public var sessionFitLine: String? { thinkingLine }
+}
+
 public struct FakeCalendarPack: Sendable, Equatable {
     /// Isolated calendar EventKit writes may touch. Never the user's default.
     public static let calendarTitle = "Forge — Test Pack"
     public static let eventURL = "forge://test-ready/calendar"
     public static let notesPrefix = "forge-test-pack:"
     public static let writesToPersonalCalendars = false
+    /// How far ahead EventKit is filled. ARIA still only ingest-tags one week.
+    public static let horizonDays = 365
 
     public var events: [FakeCalendarEvent]
     public var generatedAt: Date
@@ -135,13 +254,70 @@ public struct FakeCalendarPack: Sendable, Equatable {
         calendar: Calendar = .current,
         seed: Int = 0xCA1E17
     ) -> FakeCalendarPack {
-        var rng = CalendarSplitMix64(seed: UInt64(truncatingIfNeeded: seed))
-        var week = CalendarWeekBuilder(now: now, calendar: calendar, rng: rng)
-        week.build()
+        let rng = CalendarSplitMix64(seed: UInt64(truncatingIfNeeded: seed))
+        var year = CalendarYearBuilder(now: now, calendar: calendar, rng: rng)
+        year.build()
         return FakeCalendarPack(
-            events: week.events.sorted { $0.start < $1.start },
+            events: year.events.sorted { $0.start < $1.start },
             generatedAt: now,
             seed: seed
+        )
+    }
+
+    // MARK: - Week window (ARIA's working memory)
+
+    /// Start of the calendar week containing `now`, through the next 7 days.
+    public static func weekWindow(
+        containing now: Date,
+        calendar: Calendar = .current
+    ) -> (start: Date, end: Date) {
+        let today = calendar.startOfDay(for: now)
+        let weekday = calendar.component(.weekday, from: today)
+        let delta = (weekday - calendar.firstWeekday + 7) % 7
+        let start = calendar.date(byAdding: .day, value: -delta, to: today) ?? today
+        let end = calendar.date(byAdding: .day, value: 7, to: start)
+            ?? start.addingTimeInterval(7 * 86_400)
+        return (start, end)
+    }
+
+    public static func overlapsWindow(_ event: FakeCalendarEvent, start: Date, end: Date) -> Bool {
+        event.start < end && event.end > start
+    }
+
+    public static func events(
+        in pack: FakeCalendarPack,
+        overlapping start: Date,
+        end: Date
+    ) -> [FakeCalendarEvent] {
+        pack.events.filter { overlapsWindow($0, start: start, end: end) }
+    }
+
+    public static func weekContext(
+        from pack: FakeCalendarPack,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> FakeCalendarWeekContext {
+        let window = weekWindow(containing: now, calendar: calendar)
+        let today = calendar.startOfDay(for: now)
+        let weekEvents = events(in: pack, overlapping: window.start, end: window.end)
+        let todayEvents = pack.events.filter { overlapsDay($0, dayStart: today, calendar: calendar) }
+        let morning = todayEvents.contains {
+            !$0.isAllDay && calendar.component(.hour, from: $0.start) < 12
+        }
+        let evening = todayEvents.contains {
+            !$0.isAllDay && calendar.component(.hour, from: $0.start) >= 18
+        }
+        let allDay = todayEvents.contains { $0.isAllDay }
+        return FakeCalendarWeekContext(
+            weekStart: window.start,
+            weekEnd: window.end,
+            todayBusy: todayEvents.count,
+            weekBusy: weekEvents.count,
+            morningBusy: morning,
+            eveningBusy: evening,
+            allDayBusy: allDay,
+            kinds: Array(Set(weekEvents.map(\.kind))).sorted(),
+            todayKinds: Array(Set(todayEvents.map(\.kind))).sorted()
         )
     }
 
@@ -174,6 +350,9 @@ public struct FakeCalendarPack: Sendable, Equatable {
         if tag.hasPrefix("calendar:busy:") {
             return Int(tag.dropFirst("calendar:busy:".count)) != nil
         }
+        if tag.hasPrefix("calendar:week:busy:") {
+            return Int(tag.dropFirst("calendar:week:busy:".count)) != nil
+        }
         if tag == "calendar:morning:busy"
             || tag == "calendar:evening:busy"
             || tag == "calendar:allday:busy" {
@@ -195,9 +374,13 @@ public struct FakeCalendarPack: Sendable, Equatable {
         morningBusy: Bool,
         eveningBusy: Bool,
         allDayBusy: Bool,
+        weekBusy: Int = 0,
         kinds: [FakeCalendarEvent.Kind]
     ) -> [String] {
-        var tags: [String] = ["calendar:busy:\(max(0, busyToday))"]
+        var tags: [String] = [
+            "calendar:busy:\(max(0, busyToday))",
+            "calendar:week:busy:\(max(0, weekBusy))",
+        ]
         if morningBusy { tags.append("calendar:morning:busy") }
         if eveningBusy { tags.append("calendar:evening:busy") }
         if allDayBusy { tags.append("calendar:allday:busy") }
@@ -212,21 +395,7 @@ public struct FakeCalendarPack: Sendable, Equatable {
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> [String] {
-        let today = calendar.startOfDay(for: now)
-        let overlapping = pack.events.filter { overlapsDay($0, dayStart: today, calendar: calendar) }
-        let morning = overlapping.contains {
-            !$0.isAllDay && calendar.component(.hour, from: $0.start) < 12
-        }
-        let evening = overlapping.contains {
-            !$0.isAllDay && calendar.component(.hour, from: $0.start) >= 18
-        }
-        return ingestTags(
-            busyToday: overlapping.count,
-            morningBusy: morning,
-            eveningBusy: evening,
-            allDayBusy: overlapping.contains(\.isAllDay),
-            kinds: pack.events.map(\.kind)
-        )
+        weekContext(from: pack, now: now, calendar: calendar).ingestTags
     }
 
     public static func kinds(fromTags tags: [String]) -> [FakeCalendarEvent.Kind] {
@@ -238,24 +407,33 @@ public struct FakeCalendarPack: Sendable, Equatable {
     }
 
     public static func busyToday(fromTags tags: [String]) -> Int {
-        for tag in tags where tag.hasPrefix("calendar:busy:") {
+        for tag in tags where tag.hasPrefix("calendar:busy:") && !tag.hasPrefix("calendar:week:busy:") {
             if let n = Int(tag.dropFirst("calendar:busy:".count)) { return n }
         }
         return 0
     }
 
-    /// Companion speech from classified kinds. Headlines only — ARIA should
-    /// change a session for a wedding or a trip, not for standup. Never
-    /// interpolates a title or a place.
-    public static func spokenLine(kinds: [FakeCalendarEvent.Kind], busyToday: Int) -> String? {
+    public static func weekBusy(fromTags tags: [String]) -> Int {
+        for tag in tags where tag.hasPrefix("calendar:week:busy:") {
+            if let n = Int(tag.dropFirst("calendar:week:busy:".count)) { return n }
+        }
+        return 0
+    }
+
+    /// Companion speech from this week's classified kinds. Headlines first —
+    /// ARIA should change a session for a wedding or a trip, not for standup.
+    /// Never interpolates a title or a place.
+    public static func spokenLine(kinds: [FakeCalendarEvent.Kind], busyToday: Int, weekBusy: Int = 0) -> String? {
         let headlines = Array(Set(kinds.filter(\.isHeadline))).sorted()
         var parts: [String] = []
         if !headlines.isEmpty {
             parts.append("This week you've got \(list(headlines.map(\.spokenLabel))) on the calendar")
+        } else if weekBusy > 0 {
+            parts.append("This week has \(weekBusy) holds — ordinary density, not a blank week")
         }
         if busyToday > 0 {
             let noun = busyToday == 1 ? "busy window" : "busy windows"
-            if headlines.isEmpty {
+            if parts.isEmpty {
                 parts.append("You've got \(busyToday) \(noun) today — I'll train around them, not through them")
             } else {
                 parts.append("today has \(busyToday) \(noun)")
@@ -266,37 +444,123 @@ public struct FakeCalendarPack: Sendable, Equatable {
     }
 
     public static func spokenLine(fromTags tags: [String]) -> String? {
-        spokenLine(kinds: kinds(fromTags: tags), busyToday: busyToday(fromTags: tags))
+        spokenLine(
+            kinds: kinds(fromTags: tags),
+            busyToday: busyToday(fromTags: tags),
+            weekBusy: weekBusy(fromTags: tags)
+        )
     }
 
-    /// How a coach should place today's session given classified ingest.
-    public static func sessionFitLine(fromTags tags: [String]) -> String? {
+    /// Combinatory coaching outcome for this week's classified ingest.
+    /// Travel + a wedding is a different session than travel alone.
+    public static func outcome(fromTags tags: [String]) -> AriaCalendarOutcome {
         let kinds = Set(kinds(fromTags: tags))
         let morning = tags.contains("calendar:morning:busy")
         let evening = tags.contains("calendar:evening:busy")
         let busy = busyToday(fromTags: tags)
-        if kinds.contains(.travel) || kinds.contains(.flight) {
-            return "There's travel on the week — I'll keep the session able to move."
+        let week = weekBusy(fromTags: tags)
+        let travel = kinds.contains(.travel) || kinds.contains(.flight)
+        let wedding = kinds.contains(.wedding)
+        let game = kinds.contains(.game)
+        let family = kinds.contains(.family)
+        let appointment = kinds.contains(.appointment)
+
+        var shape: AriaCalendarOutcome.SessionShape = .ordinary
+        var keepLight = false
+        var shorten = false
+        var maxMinutes = 55
+
+        if travel {
+            shape = .movable
+            shorten = true
+            maxMinutes = 35
+            if wedding || evening || busy >= 2 {
+                keepLight = true
+                maxMinutes = 30
+            }
+        } else if wedding {
+            shape = .protectHero
+            keepLight = evening || busy >= 2
+            shorten = keepLight
+            maxMinutes = evening ? 30 : 40
+        } else if family {
+            shape = .protectHero
+            shorten = evening || busy >= 2
+            maxMinutes = shorten ? 35 : 40
+        } else if morning && evening {
+            shape = .shortFit
+            keepLight = true
+            shorten = true
+            maxMinutes = 25
+        } else if game {
+            shape = .aroundWindow
+            if evening || busy >= 2 {
+                shorten = true
+                maxMinutes = 30
+            }
+        } else if appointment {
+            shape = morning ? .laterDay : .aroundWindow
+            shorten = busy >= 2 || morning
+            maxMinutes = 35
+        } else if week >= 8 || busy >= 3 {
+            shape = .shortFit
+            shorten = true
+            maxMinutes = busy >= 3 ? 30 : 35
+            keepLight = busy >= 3 && evening
+        } else if evening {
+            shape = .aroundWindow
+            shorten = true
+            maxMinutes = 30
+        } else if morning {
+            shape = .laterDay
         }
-        if kinds.contains(.wedding) {
-            return "There's a wedding on the week; I won't drop a hero session on top of it."
+
+        let thinking = thinkingSpeech(
+            shape: shape,
+            travel: travel,
+            wedding: wedding,
+            game: game,
+            family: family,
+            appointment: appointment,
+            morning: morning,
+            evening: evening,
+            busy: busy,
+            week: week
+        )
+        return AriaCalendarOutcome(
+            shape: shape,
+            keepLight: keepLight,
+            shorten: shorten,
+            maxMinutes: maxMinutes,
+            thinkingLine: thinking
+        )
+    }
+
+    /// How a coach should place today's session given this week's classified ingest.
+    public static func sessionFitLine(fromTags tags: [String]) -> String? {
+        outcome(fromTags: tags).sessionFitLine
+    }
+
+    /// The coaching thought: how this week's events change what ARIA does.
+    public static func thinkingLine(fromTags tags: [String]) -> String? {
+        outcome(fromTags: tags).thinkingLine
+    }
+
+    /// Read this week, then think about it. Still kinds + busy — never titles.
+    public static func contextualizeLine(fromTags tags: [String]) -> String? {
+        let read = spokenLine(fromTags: tags)
+        let think = thinkingLine(fromTags: tags)
+        switch (read, think) {
+        case (nil, nil):
+            return nil
+        case (let read?, nil):
+            return read
+        case (nil, let think?):
+            return think + " I keep the titles on the phone."
+        case (let read?, let think?):
+            let stem = read.replacingOccurrences(of: " I keep the titles on the phone.", with: "")
+            return stem + " " + think + " I keep the titles on the phone."
         }
-        if kinds.contains(.game), evening || busy >= 2 {
-            return "There's a game on the calendar — we'll train around that window, not through it."
-        }
-        if morning, evening {
-            return "Morning and evening are both spoken for. This session has to be the thing that still fits."
-        }
-        if morning {
-            return "Morning's packed. This can live later in the day."
-        }
-        if evening {
-            return "Evening's spoken for — we'll keep this short so it actually happens."
-        }
-        if busy >= 3 {
-            return "Today already has a few busy windows. This is the session that still fits."
-        }
-        return nil
     }
 
     public static func overlapsDay(_ event: FakeCalendarEvent, dayStart: Date, calendar: Calendar) -> Bool {
@@ -319,13 +583,72 @@ public struct FakeCalendarPack: Sendable, Equatable {
         if labels.count == 2 { return "\(labels[0]) and \(labels[1])" }
         return labels.dropLast().joined(separator: ", ") + ", and " + labels.last!
     }
+
+    private static func thinkingSpeech(
+        shape: AriaCalendarOutcome.SessionShape,
+        travel: Bool,
+        wedding: Bool,
+        game: Bool,
+        family: Bool,
+        appointment: Bool,
+        morning: Bool,
+        evening: Bool,
+        busy: Int,
+        week: Int
+    ) -> String? {
+        switch shape {
+        case .movable:
+            if wedding {
+                return "There's a trip and a wedding on the week — I'll keep the session able to move and skip the hero work."
+            }
+            if evening {
+                return "There's travel on the week and evening's spoken for — short and able to move."
+            }
+            return "There's travel on the week — I'll keep the session able to move."
+        case .protectHero:
+            if wedding {
+                return "There's a wedding on the week; I won't drop a hero session on top of it."
+            }
+            return "Family time's on the week. I won't drop a hero session on top of it."
+        case .aroundWindow:
+            if game {
+                return "There's a game on the calendar — we'll train around that window, not through it."
+            }
+            if appointment {
+                return "There's an appointment on the week — we'll keep the session from colliding with it."
+            }
+            if evening {
+                return "Evening's spoken for — we'll keep this short so it actually happens."
+            }
+            return "We'll train around this week's windows, not through them."
+        case .laterDay:
+            if appointment {
+                return "There's an appointment on the week — we'll keep the session from colliding with it."
+            }
+            return "Morning's packed. This can live later in the day."
+        case .shortFit:
+            if morning && evening {
+                return "Morning and evening are both spoken for. This session has to be the thing that still fits."
+            }
+            if week >= 8 {
+                return "This week is already carrying a lot. I'll place the session in the gaps."
+            }
+            if busy >= 3 {
+                return "Today already has a few busy windows. This is the session that still fits."
+            }
+            return "I'll place the session in the gaps this week."
+        case .ordinary:
+            return nil
+        }
+    }
 }
 
-// MARK: - Week builder
+// MARK: - Year builder
 
-/// Two weeks of a phone. Story events (wedding, game, trip) are guaranteed;
-/// the rest is the ordinary density ARIA has to coach around.
-private struct CalendarWeekBuilder {
+/// A year of a phone. Story events (wedding, game, trip) are scattered across
+/// the horizon; work texture fills the weeks. ARIA only ingest-tags the week
+/// containing `now`.
+private struct CalendarYearBuilder {
     let now: Date
     let calendar: Calendar
     var rng: CalendarSplitMix64
@@ -333,134 +656,151 @@ private struct CalendarWeekBuilder {
     var busy: [(Date, Date)] = []
     var travelOffsets: Set<Int> = []
 
+    var weekStartOffset: Int {
+        let today = calendar.startOfDay(for: now)
+        let weekday = calendar.component(.weekday, from: today)
+        let delta = (weekday - calendar.firstWeekday + 7) % 7
+        return -delta
+    }
+
+    var weekEndOffset: Int { weekStartOffset + 6 }
+
     mutating func build() {
-        placeTravel()
-        placeWedding()
-        placeGame()
+        placeTrips()
+        placeWeddings()
+        placeGames()
         placeFamily()
         fillWorkdays()
         placeDinners()
         placeAppointments()
         placeSocial()
         placeTodayRemainder()
+        ensureCurrentWeekReadable()
     }
 
-    // MARK: Story
+    // MARK: Story — year scatter
 
-    mutating func placeTravel() {
-        let dest = PlaceBank.destination(&rng)
-            var candidates = (3...10).filter {
-                let w = weekday($0)
-                return w == 5 || w == 6 || w == 7
-            }
-        if candidates.isEmpty { candidates = Array(4...9) }
+    mutating func placeTrips() {
+        let count = rng.int(4...6)
+        var candidates = Array(3...350).filter {
+            let w = weekday($0)
+            return w == 5 || w == 6 || w == 7
+        }
         shuffle(&candidates)
-        let startOffset = candidates.first ?? 5
-        let days = rng.int(2...3)
-        travelOffsets = Set(startOffset..<(startOffset + days))
-        let start = dayStart(startOffset)
-        let end = calendar.date(byAdding: .day, value: days, to: start) ?? start.addingTimeInterval(Double(days) * 86400)
-        add(
-            FakeCalendarEvent(
-                kind: .travel,
-                title: dest.tripTitle,
-                placeName: dest.stay,
-                latitude: jitter(spread: 2_400),
-                longitude: jitter(PlaceBank.anchorLongitude, spread: 2_400),
-                start: start,
-                end: end,
-                isAllDay: true
-            ),
-            force: true
-        )
-        let eveningFlight = rng.int(1...100) <= 35
-        let hour = eveningFlight ? rng.int(16...19) : rng.int(5...10)
-        addTimed(
-            .flight,
-            title: "Flight to \(dest.city)",
-            place: dest.airport,
-            offset: startOffset,
-            hour: hour,
-            minute: rng.int(5...50),
-            minutes: rng.int(75...260),
-            far: true,
-            force: true
-        )
+        var placedStarts: [Int] = []
+        for startOffset in candidates {
+            if placedStarts.count >= count { break }
+            if placedStarts.contains(where: { abs($0 - startOffset) < 18 }) { continue }
+            let dest = PlaceBank.destination(&rng)
+            let days = rng.int(2...4)
+            travelOffsets.formUnion(startOffset..<(startOffset + days))
+            placedStarts.append(startOffset)
+            let start = dayStart(startOffset)
+            let end = calendar.date(byAdding: .day, value: days, to: start)
+                ?? start.addingTimeInterval(Double(days) * 86_400)
+            add(
+                FakeCalendarEvent(
+                    kind: .travel,
+                    title: dest.tripTitle,
+                    placeName: dest.stay,
+                    latitude: jitter(spread: 2_400),
+                    longitude: jitter(PlaceBank.anchorLongitude, spread: 2_400),
+                    start: start,
+                    end: end,
+                    isAllDay: true
+                ),
+                force: true
+            )
+            let eveningFlight = rng.int(1...100) <= 35
+            let hour = eveningFlight ? rng.int(16...19) : rng.int(5...10)
+            addTimed(
+                .flight,
+                title: "Flight to \(dest.city)",
+                place: dest.airport,
+                offset: startOffset,
+                hour: hour,
+                minute: rng.int(5...50),
+                minutes: rng.int(75...260),
+                far: true,
+                force: true
+            )
+        }
     }
 
-    mutating func placeWedding() {
-        var weekends = (1...13).filter { isWeekend($0) && !travelOffsets.contains($0) }
-        if weekends.isEmpty { weekends = (1...13).filter(isWeekend) }
+    mutating func placeWeddings() {
+        let count = rng.int(3...5)
+        var weekends = (1...360).filter { isWeekend($0) && !travelOffsets.contains($0) }
+        if weekends.isEmpty { weekends = (1...360).filter(isWeekend) }
         shuffle(&weekends)
-        let offset = weekends.first ?? 6
-        addTimed(
-            .wedding,
-            title: "\(PlaceBank.pick(PlaceBank.couples, &rng))'s wedding",
-            place: PlaceBank.pick(PlaceBank.weddingVenues, &rng),
-            offset: offset,
-            hour: rng.int(12...16),
-            minute: rng.int(0...40),
-            minutes: rng.int(150...300),
-            force: true
-        )
+        var placed: [Int] = []
+        for offset in weekends {
+            if placed.count >= count { break }
+            if placed.contains(where: { abs($0 - offset) < 21 }) { continue }
+            placed.append(offset)
+            addTimed(
+                .wedding,
+                title: "\(PlaceBank.pick(PlaceBank.couples, &rng))'s wedding",
+                place: PlaceBank.pick(PlaceBank.weddingVenues, &rng),
+                offset: offset,
+                hour: rng.int(12...16),
+                minute: rng.int(0...40),
+                minutes: rng.int(150...300),
+                force: true
+            )
+        }
     }
 
-    mutating func placeGame() {
-        let evening = rng.int(1...100) <= 60
-        var days = (1...13).filter { !travelOffsets.contains($0) && !hasKind(.wedding, on: $0) }
-        if evening { days = days.filter { !isWeekend($0) } + days.filter(isWeekend) }
-        shuffle(&days)
-        let offset = days.first ?? 3
-        addTimed(
-            .game,
-            title: PlaceBank.pick(PlaceBank.games, &rng),
-            place: PlaceBank.pick(PlaceBank.gameVenues, &rng),
-            offset: offset,
-            hour: evening ? rng.int(17...20) : rng.int(10...14),
-            minute: rng.int(0...40),
-            minutes: rng.int(90...150),
-            force: true
-        )
-        if rng.int(1...100) <= 35 {
-            let extraDays = days.filter { $0 != offset }
-            if let extra = extraDays.first {
-                addTimed(
-                    .game,
-                    title: PlaceBank.pick(PlaceBank.games, &rng),
-                    place: PlaceBank.pick(PlaceBank.gameVenues, &rng),
-                    offset: extra,
-                    hour: rng.int(17...20),
-                    minute: rng.int(0...25),
-                    minutes: rng.int(80...130)
-                )
-            }
+    mutating func placeGames() {
+        var candidates = (1...360).filter { !travelOffsets.contains($0) && !hasKind(.wedding, on: $0) }
+        shuffle(&candidates)
+        let count = rng.int(18...26)
+        for offset in candidates.prefix(count) {
+            let month = calendar.component(.month, from: dayStart(offset))
+            let shoulder = month == 3 || month == 4 || month == 5 || month == 9 || month == 10 || month == 11
+            if !shoulder, rng.int(1...100) <= 40 { continue }
+            let evening = !isWeekend(offset) || rng.int(1...100) <= 45
+            addTimed(
+                .game,
+                title: PlaceBank.pick(PlaceBank.games, &rng),
+                place: PlaceBank.pick(PlaceBank.gameVenues, &rng),
+                offset: offset,
+                hour: evening ? rng.int(17...20) : rng.int(10...14),
+                minute: rng.int(0...40),
+                minutes: rng.int(90...150),
+                force: true
+            )
         }
     }
 
     mutating func placeFamily() {
-        var days = (1...13).filter { isWeekend($0) && !travelOffsets.contains($0) && !hasKind(.wedding, on: $0) }
-        if days.isEmpty { days = (2...12).filter { !travelOffsets.contains($0) } }
+        var days = (1...360).filter { isWeekend($0) && !travelOffsets.contains($0) && !hasKind(.wedding, on: $0) }
         shuffle(&days)
-        guard let offset = days.first else { return }
-        let brunch = rng.int(1...100) <= 60
-        addTimed(
-            .family,
-            title: PlaceBank.pick(PlaceBank.familyTitles, &rng),
-            place: PlaceBank.pick(PlaceBank.familyPlaces, &rng),
-            offset: offset,
-            hour: brunch ? rng.int(9...12) : rng.int(16...18),
-            minute: rng.int(0...30),
-            minutes: rng.int(90...180)
-        )
+        let count = rng.int(8...12)
+        var placed: [Int] = []
+        for offset in days {
+            if placed.count >= count { break }
+            if placed.contains(where: { abs($0 - offset) < 21 }) { continue }
+            placed.append(offset)
+            let brunch = rng.int(1...100) <= 60
+            addTimed(
+                .family,
+                title: PlaceBank.pick(PlaceBank.familyTitles, &rng),
+                place: PlaceBank.pick(PlaceBank.familyPlaces, &rng),
+                offset: offset,
+                hour: brunch ? rng.int(9...12) : rng.int(16...18),
+                minute: rng.int(0...30),
+                minutes: rng.int(90...180)
+            )
+        }
     }
 
     // MARK: Ordinary density
 
     mutating func fillWorkdays() {
-        for offset in 0...13 {
+        for offset in weekStartOffset...FakeCalendarPack.horizonDays {
             if isWeekend(offset) || travelOffsets.contains(offset) { continue }
             let hourNow = calendar.component(.hour, from: now)
-            if offset != 0 || hourNow < 10, rng.int(1...100) <= 72 {
+            if offset != 0 || hourNow < 10, rng.int(1...100) <= 42 {
                 addTimed(
                     .work,
                     title: PlaceBank.pick(PlaceBank.standups, &rng),
@@ -471,7 +811,7 @@ private struct CalendarWeekBuilder {
                     minutes: rng.int(15...30)
                 )
             }
-            if rng.int(1...100) <= 62 {
+            if rng.int(1...100) <= 28 {
                 addTimed(
                     .work,
                     title: PlaceBank.pick(PlaceBank.meetings, &rng),
@@ -482,7 +822,7 @@ private struct CalendarWeekBuilder {
                     minutes: rng.int(25...90)
                 )
             }
-            if rng.int(1...100) <= 42 {
+            if rng.int(1...100) <= 16 {
                 addTimed(
                     .work,
                     title: "Lunch",
@@ -493,8 +833,7 @@ private struct CalendarWeekBuilder {
                     minutes: rng.int(30...60)
                 )
             }
-            if rng.int(1...100) <= 55 {
-                let hourNow = calendar.component(.hour, from: now)
+            if rng.int(1...100) <= 24 {
                 if offset == 0 {
                     let lower = max(hourNow + 1, 13)
                     if lower <= 16 {
@@ -524,29 +863,42 @@ private struct CalendarWeekBuilder {
     }
 
     mutating func placeDinners() {
-        var evenings = (0...13).filter { !travelOffsets.contains($0) && !hasKind(.wedding, on: $0) }
-        shuffle(&evenings)
-        let count = rng.int(2...4)
-        for offset in evenings.prefix(count) {
-            if hasKind(.game, on: offset), rng.int(1...100) <= 70 { continue }
-            let restaurant = PlaceBank.pick(PlaceBank.restaurants, &rng)
-            addTimed(
-                .dinner,
-                title: "Dinner at \(restaurant)",
-                place: restaurant,
-                offset: offset,
-                hour: rng.int(18...21),
-                minute: rng.int(0...40),
-                minutes: rng.int(70...140)
-            )
+        var week = weekStartOffset
+        while week <= FakeCalendarPack.horizonDays {
+            var evenings = Array(week..<(week + 7)).filter {
+                $0 >= weekStartOffset
+                    && $0 <= FakeCalendarPack.horizonDays
+                    && !travelOffsets.contains($0)
+                    && !hasKind(.wedding, on: $0)
+            }
+            shuffle(&evenings)
+            let count = rng.int(1...3)
+            for offset in evenings.prefix(count) {
+                if hasKind(.game, on: offset), rng.int(1...100) <= 70 { continue }
+                let restaurant = PlaceBank.pick(PlaceBank.restaurants, &rng)
+                addTimed(
+                    .dinner,
+                    title: "Dinner at \(restaurant)",
+                    place: restaurant,
+                    offset: offset,
+                    hour: rng.int(18...21),
+                    minute: rng.int(0...40),
+                    minutes: rng.int(70...140)
+                )
+            }
+            week += 7
         }
     }
 
     mutating func placeAppointments() {
-        var days = (1...12).filter { !isWeekend($0) && !travelOffsets.contains($0) }
+        var days = (1...350).filter { !isWeekend($0) && !travelOffsets.contains($0) }
         shuffle(&days)
-        let count = rng.int(1...2)
-        for offset in days.prefix(count) {
+        let count = rng.int(10...14)
+        var placed: [Int] = []
+        for offset in days {
+            if placed.count >= count { break }
+            if placed.contains(where: { abs($0 - offset) < 14 }) { continue }
+            placed.append(offset)
             let pick = PlaceBank.appointments[rng.int(0...(PlaceBank.appointments.count - 1))]
             addTimed(
                 .appointment,
@@ -561,42 +913,40 @@ private struct CalendarWeekBuilder {
     }
 
     mutating func placeSocial() {
-        if rng.int(1...100) <= 45 {
-            var days = (1...13).filter { !travelOffsets.contains($0) && !hasKind(.wedding, on: $0) }
-            shuffle(&days)
-            if let offset = days.first {
-                let start = dayStart(offset)
-                let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86400)
-                add(
-                    FakeCalendarEvent(
-                        kind: .social,
-                        title: PlaceBank.pick(PlaceBank.birthdays, &rng),
-                        placeName: "",
-                        latitude: jitter(spread: 80),
-                        longitude: jitter(PlaceBank.anchorLongitude, spread: 80),
-                        start: start,
-                        end: end,
-                        isAllDay: true
-                    )
+        var birthdayDays = (1...360).filter { !travelOffsets.contains($0) && !hasKind(.wedding, on: $0) }
+        shuffle(&birthdayDays)
+        for offset in birthdayDays.prefix(rng.int(6...10)) {
+            if rng.int(1...100) > 55 { continue }
+            let start = dayStart(offset)
+            let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86_400)
+            add(
+                FakeCalendarEvent(
+                    kind: .social,
+                    title: PlaceBank.pick(PlaceBank.birthdays, &rng),
+                    placeName: "",
+                    latitude: jitter(spread: 80),
+                    longitude: jitter(PlaceBank.anchorLongitude, spread: 80),
+                    start: start,
+                    end: end,
+                    isAllDay: true
                 )
-            }
+            )
         }
-        if rng.int(1...100) <= 40 {
-            var days = (1...13).filter {
-                !travelOffsets.contains($0) && !hasKind(.wedding, on: $0) && !hasKind(.game, on: $0)
-            }
-            shuffle(&days)
-            if let offset = days.first {
-                addTimed(
-                    .social,
-                    title: PlaceBank.pick(PlaceBank.drinks, &rng),
-                    place: PlaceBank.pick(PlaceBank.bars, &rng),
-                    offset: offset,
-                    hour: rng.int(18...21),
-                    minute: rng.int(0...40),
-                    minutes: rng.int(60...150)
-                )
-            }
+        var drinkDays = (1...360).filter {
+            !travelOffsets.contains($0) && !hasKind(.wedding, on: $0) && !hasKind(.game, on: $0)
+        }
+        shuffle(&drinkDays)
+        for offset in drinkDays.prefix(rng.int(8...14)) {
+            if rng.int(1...100) > 50 { continue }
+            addTimed(
+                .social,
+                title: PlaceBank.pick(PlaceBank.drinks, &rng),
+                place: PlaceBank.pick(PlaceBank.bars, &rng),
+                offset: offset,
+                hour: rng.int(18...21),
+                minute: rng.int(0...40),
+                minutes: rng.int(60...150)
+            )
         }
     }
 
@@ -630,6 +980,91 @@ private struct CalendarWeekBuilder {
         }
     }
 
+    /// Device Hub launches into *this* week. Guarantee ARIA has something to
+    /// read and think about without dumping next month's wedding into tags.
+    /// Seed picks *which* headline so different launches produce different
+    /// coaching outcomes, not the same game every time.
+    mutating func ensureCurrentWeekReadable() {
+        let hasHeadline = (weekStartOffset...weekEndOffset).contains { offset in
+            FakeCalendarEvent.Kind.allCases.contains { kind in
+                kind.isHeadline && hasKind(kind, on: offset)
+            }
+        }
+        if !hasHeadline {
+            var days = Array(weekStartOffset...weekEndOffset).filter {
+                $0 >= 0 && !travelOffsets.contains($0) && !hasKind(.wedding, on: $0)
+            }
+            if days.isEmpty {
+                days = Array(weekStartOffset...weekEndOffset).filter { $0 >= 0 }
+            }
+            shuffle(&days)
+            switch rng.int(0...3) {
+            case 0:
+                if let offset = days.first(where: { isWeekend($0) }) ?? days.last ?? days.first {
+                    addTimed(
+                        .family,
+                        title: PlaceBank.pick(PlaceBank.familyTitles, &rng),
+                        place: PlaceBank.pick(PlaceBank.familyPlaces, &rng),
+                        offset: offset,
+                        hour: rng.int(10...16),
+                        minute: rng.int(0...25),
+                        minutes: rng.int(90...160),
+                        force: true
+                    )
+                }
+            case 1:
+                if let offset = days.first(where: { !isWeekend($0) }) ?? days.first {
+                    let pick = PlaceBank.appointments[rng.int(0...(PlaceBank.appointments.count - 1))]
+                    addTimed(
+                        .appointment,
+                        title: pick.title,
+                        place: pick.place,
+                        offset: offset,
+                        hour: rng.int(10...16),
+                        minute: rng.int(0...20),
+                        minutes: pick.minutes,
+                        force: true
+                    )
+                }
+            default:
+                if let offset = days.last ?? days.first {
+                    let evening = !isWeekend(offset)
+                    addTimed(
+                        .game,
+                        title: PlaceBank.pick(PlaceBank.games, &rng),
+                        place: PlaceBank.pick(PlaceBank.gameVenues, &rng),
+                        offset: offset,
+                        hour: evening ? rng.int(17...20) : rng.int(10...14),
+                        minute: rng.int(0...25),
+                        minutes: rng.int(90...130),
+                        force: true
+                    )
+                }
+            }
+        }
+        let workThisWeek = events.filter {
+            $0.kind == .work && (weekStartOffset...weekEndOffset).contains(dayOffset($0.start))
+        }
+        if workThisWeek.count < 2 {
+            for offset in weekStartOffset...weekEndOffset {
+                if isWeekend(offset) || travelOffsets.contains(offset) { continue }
+                if offset < 0 { continue }
+                if hasKind(.work, on: offset) { continue }
+                addTimed(
+                    .work,
+                    title: PlaceBank.pick(PlaceBank.standups, &rng),
+                    place: PlaceBank.pick(PlaceBank.virtualPlaces, &rng),
+                    offset: offset,
+                    hour: 9,
+                    minute: rng.int(0...15),
+                    minutes: rng.int(15...30),
+                    force: true
+                )
+                break
+            }
+        }
+    }
+
     // MARK: Placement
 
     mutating func addTimed(
@@ -646,7 +1081,25 @@ private struct CalendarWeekBuilder {
         let start = stamp(offset, hour: hour, minute: minute)
         let end = calendar.date(byAdding: .minute, value: minutes, to: start)
             ?? start.addingTimeInterval(TimeInterval(minutes * 60))
-        if start <= now, !force { return }
+        let inCurrentWeek = offset >= weekStartOffset && offset <= weekEndOffset
+        if start <= now, !force {
+            if inCurrentWeek {
+                add(
+                    FakeCalendarEvent(
+                        kind: kind,
+                        title: title,
+                        placeName: place,
+                        latitude: jitter(spread: far ? 2_400 : 260),
+                        longitude: jitter(PlaceBank.anchorLongitude, spread: far ? 2_400 : 260),
+                        start: start,
+                        end: end,
+                        isAllDay: false
+                    ),
+                    force: true
+                )
+            }
+            return
+        }
         let spread = far ? 2_400 : 260
         add(
             FakeCalendarEvent(

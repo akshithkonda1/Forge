@@ -5,10 +5,11 @@ import Combine
 import ForgeCore
 
 /// Apple Calendar — so ARIA knows your time, not just your HRV.
-/// Like HealthKit, it's optional and on-device. ARIA only sees a summary:
-/// busy windows and classified kinds (wedding, game, trip) — never titles,
-/// attendees, or notes. Test-ready builds may write labeled demo events
-/// onto a Forge-owned calendar. Never onto the user's personal calendars.
+/// Like HealthKit, it's optional and on-device. ARIA only sees a summary
+/// of **this calendar week**: busy windows and classified kinds (wedding,
+/// game, trip) — never titles, attendees, or notes. Test-ready builds may
+/// write a full year of labeled demo events onto a Forge-owned calendar.
+/// Never onto the user's personal calendars. Ingest still tags one week.
 @MainActor
 final class CalendarManager: ObservableObject {
     static let shared = CalendarManager()
@@ -16,26 +17,35 @@ final class CalendarManager: ObservableObject {
     static let writesToPersonalCalendars = FakeCalendarPack.writesToPersonalCalendars
 
     private let store = EKEventStore()
+    /// Avoid rewriting hundreds of EventKit rows on every readiness refresh
+    /// within the same process. Seed is per-launch like the health pack.
+    private var seededSessionSeed: Int?
 
     @Published var isAuthorized = false
     @Published var authorizationErrorMessage: String?
 
     @Published var upcomingEvents: [EKEvent] = []
     @Published var busyWindowsToday: Int = 0
+    @Published var weekBusyWindows: Int = 0
     @Published var classifiedKinds: [FakeCalendarEvent.Kind] = []
 
     var calendarTags: [String] {
-        let morningBusy = upcomingEvents.contains {
-            !$0.isAllDay && Calendar.current.component(.hour, from: $0.startDate) < 12
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let tomorrow = cal.date(byAdding: .day, value: 1, to: today) ?? Date()
+        let todayEvents = upcomingEvents.filter { $0.startDate < tomorrow && $0.endDate > today }
+        let morningBusy = todayEvents.contains {
+            !$0.isAllDay && cal.component(.hour, from: $0.startDate) < 12
         }
-        let eveningBusy = upcomingEvents.contains {
-            !$0.isAllDay && Calendar.current.component(.hour, from: $0.startDate) >= 18
+        let eveningBusy = todayEvents.contains {
+            !$0.isAllDay && cal.component(.hour, from: $0.startDate) >= 18
         }
         return FakeCalendarPack.ingestTags(
             busyToday: busyWindowsToday,
             morningBusy: morningBusy,
             eveningBusy: eveningBusy,
-            allDayBusy: upcomingEvents.contains(where: \.isAllDay),
+            allDayBusy: todayEvents.contains { $0.isAllDay },
+            weekBusy: weekBusyWindows,
             kinds: classifiedKinds
         )
     }
@@ -57,13 +67,13 @@ final class CalendarManager: ObservableObject {
         }
     }
 
-    /// Seed the Forge test calendar when allowed, then refresh busy windows.
-    func ingestUpcomingIfAuthorized(days: Int = 14) async {
+    /// Seed the Forge test calendar when allowed, then refresh this week's tags.
+    func ingestUpcomingIfAuthorized() async {
         let status = authorizationStatus()
         guard status == .authorized || status == .fullAccess else { return }
         isAuthorized = true
         await seedTestReadyCalendarIfNeeded()
-        await fetchUpcoming(days: days)
+        await fetchThisWeek()
     }
 
     @discardableResult
@@ -76,10 +86,13 @@ final class CalendarManager: ObservableObject {
                 || authorizationStatus() == .fullAccess,
             isRunningTests: FakeCalendarPack.isRunningUnitTests
         ) else { return false }
+        let seed = AppStore.testReadySessionSeed
+        if seededSessionSeed == seed { return false }
         do {
             try replaceTestReadyEvents(
-                FakeCalendarPack.generate(seed: AppStore.testReadySessionSeed)
+                FakeCalendarPack.generate(seed: seed)
             )
+            seededSessionSeed = seed
             return true
         } catch {
             print("Test-Ready calendar seed failed: \(error)")
@@ -87,13 +100,26 @@ final class CalendarManager: ObservableObject {
         }
     }
 
-    func fetchUpcoming(days: Int = 14) async {
+    func fetchUpcoming(days: Int = 7) async {
+        await fetchRange(from: Date(), days: days)
+    }
+
+    func fetchThisWeek() async {
+        let cal = Calendar.current
+        let window = FakeCalendarPack.weekWindow(containing: Date(), calendar: cal)
+        await fetchRange(start: window.start, end: window.end)
+    }
+
+    private func fetchRange(from start: Date, days: Int) async {
+        let end = Calendar.current.date(byAdding: .day, value: days, to: start) ?? start
+        await fetchRange(start: start, end: end)
+    }
+
+    private func fetchRange(start: Date, end: Date) async {
         guard isAuthorized
             || authorizationStatus() == .authorized
             || authorizationStatus() == .fullAccess else { return }
         let calendars = store.calendars(for: .event)
-        let start = Date()
-        let end = Calendar.current.date(byAdding: .day, value: days, to: start) ?? start
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
         let events = store.events(matching: predicate)
         // Keep busy (and default/unsupported availability). Drop free + canceled.
@@ -105,11 +131,12 @@ final class CalendarManager: ObservableObject {
                 ?? FakeCalendarPack.kind(fromURL: event.url)
         }
         await MainActor.run {
-            self.upcomingEvents = filtered.sorted { $0.startDate < $1.startDate }.prefix(40).map { $0 }
+            self.upcomingEvents = filtered.sorted { $0.startDate < $1.startDate }
             let cal = Calendar.current
             let today = cal.startOfDay(for: Date())
             let tomorrow = cal.date(byAdding: .day, value: 1, to: today) ?? Date()
             self.busyWindowsToday = filtered.filter { $0.startDate < tomorrow && $0.endDate > today }.count
+            self.weekBusyWindows = filtered.count
             self.classifiedKinds = Array(Set(kinds)).sorted()
         }
     }
@@ -119,8 +146,12 @@ final class CalendarManager: ObservableObject {
     func replaceTestReadyEvents(_ pack: FakeCalendarPack) throws {
         let calendar = try forgeTestCalendar()
         let now = Date()
-        let from = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? now
-        let to = Calendar.current.date(byAdding: .day, value: 21, to: now) ?? now
+        let from = Calendar.current.date(byAdding: .day, value: -14, to: now) ?? now
+        let to = Calendar.current.date(
+            byAdding: .day,
+            value: FakeCalendarPack.horizonDays + 14,
+            to: now
+        ) ?? now
         let predicate = store.predicateForEvents(withStart: from, end: to, calendars: [calendar])
         for event in store.events(matching: predicate)
             where FakeCalendarPack.isForgeTestEvent(notes: event.notes, url: event.url) {
