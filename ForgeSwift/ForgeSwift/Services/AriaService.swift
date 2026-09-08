@@ -52,6 +52,8 @@ final class AriaService: ObservableObject {
         agents: [String]? = nil
     ) async throws -> AriaResponse {
         let isInsight = mode == "insight"
+        // Catalog must exist before ARIA resolves brand/generic/archetype.
+        await MedicationPharmacy.prepare()
         // Full chat may read structured records. Lifestyle cards must not.
         if !isInsight, HealthKitManager.shared.hasStructuredRecordsAccess {
             _ = await HealthKitManager.shared.fetchClinicalRecordsSummary()
@@ -146,7 +148,7 @@ final class AriaService: ObservableObject {
             }
             // Backend prose without a card still gets a concrete themed plan card.
             if AriaThemeResolver.isPlanRequest(text), response.richCard == nil {
-                let plan = AriaPlanEngine.evaluate(input: text, context: store.makeTrainerContext())
+                let plan = AriaPlanEngine.evaluate(input: text, context: store.makeTrainerContext(query: text))
                 if plan.shouldPersistTheme {
                     store.setTrainingTheme(plan.theme, source: "chat")
                 }
@@ -205,7 +207,7 @@ final class AriaService: ObservableObject {
         rich: AriaRichContext,
         agent: AriaCoachAgent = .aria
     ) async throws -> AriaResponse {
-        let trainerContext = store.makeTrainerContext()
+        let trainerContext = store.makeTrainerContext(query: text)
 
         // Prefer the dynamic plan engine for any training / theme request so
         // Solo Leveling (and siblings) always get a real themed session.
@@ -260,14 +262,17 @@ final class AriaService: ObservableObject {
     static func payload(from card: RichCardData) -> RichCardPayload? {
         switch card.type {
         case .workoutPlan:
-            return RichCardPayload(
+            return CloudRichCard(
                 type: "workout_plan",
                 title: card.workoutName,
                 workoutName: card.workoutName,
-                durationMinutes: card.workoutDuration
+                durationMinutes: card.workoutDuration,
+                exercises: (card.workoutExercises ?? []).map {
+                    CloudRichCardExercise(name: $0.name, sets: $0.sets, reps: $0.reps)
+                }
             )
         case .dataChart:
-            return RichCardPayload(
+            return CloudRichCard(
                 type: "data_chart",
                 title: card.chartTitle,
                 values: card.chartValues,

@@ -62,6 +62,33 @@ final class SleepWakeStore: ObservableObject {
     }
 }
 
+enum WakeScreenPreferences {
+    private static let greetingKey = "forge.wake.greeting"
+    private static let weatherKey = "forge.wake.showWeather"
+    private static let workoutKey = "forge.wake.showWorkout"
+    private static let sleepKey = "forge.wake.showSleepScore"
+
+    static var greeting: String {
+        get { UserDefaults.standard.string(forKey: greetingKey) ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: greetingKey) }
+    }
+
+    static var showWeather: Bool {
+        get { UserDefaults.standard.object(forKey: weatherKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: weatherKey) }
+    }
+
+    static var showWorkout: Bool {
+        get { UserDefaults.standard.object(forKey: workoutKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: workoutKey) }
+    }
+
+    static var showSleepScore: Bool {
+        get { UserDefaults.standard.object(forKey: sleepKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: sleepKey) }
+    }
+}
+
 struct SleepWakeScreen: View {
     @EnvironmentObject private var store: AppStore
     @ObservedObject private var wake = SleepWakeStore.shared
@@ -92,15 +119,27 @@ struct SleepWakeScreen: View {
                     Text(alarm.label)
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .foregroundColor(.white.opacity(0.72))
-                    Text(SleepWakeCoach.morningPrompt(
-                        sleepScore: store.sleepData.first?.score,
-                        lastNightHours: store.sleepData.first?.totalHours
-                    ))
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.white.opacity(0.78))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 28)
-                    .padding(.top, 6)
+                    if !WakeScreenPreferences.greeting.isEmpty {
+                        Text(WakeScreenPreferences.greeting)
+                            .font(.system(size: 15, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.82))
+                    }
+                    if WakeScreenPreferences.showSleepScore {
+                        Text(SleepWakeCoach.morningPrompt(
+                            sleepScore: store.sleepData.first?.score,
+                            lastNightHours: store.sleepData.first?.totalHours
+                        ))
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white.opacity(0.78))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 28)
+                        .padding(.top, 6)
+                    }
+                    if WakeScreenPreferences.showWorkout, let name = store.todayWorkout?.name {
+                        Text(name)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -291,6 +330,14 @@ struct WakeUpTab: View {
                 duration: $sunriseDuration,
                 colorTemp: $colorTemp
             )
+            .onChange(of: sunriseDuration) { _, value in
+                hkService.applySunriseOverrides(durationMinutes: value, colorTemp: colorTemp)
+            }
+            .onChange(of: colorTemp) { _, value in
+                hkService.applySunriseOverrides(durationMinutes: sunriseDuration, colorTemp: value)
+            }
+
+            WakeGreetingCard()
 
             VolumeRampCard(curve: Binding(
                 get: { store.volumeRamp },
@@ -664,10 +711,10 @@ struct MorningRoutineCard: View {
 struct WakeGreetingCard: View {
     @EnvironmentObject private var store: AppStore
 
-    @State private var greeting = ""
-    @State private var showWeather = true
-    @State private var showWorkout = true
-    @State private var showSleepScore = true
+    @State private var greeting = WakeScreenPreferences.greeting
+    @State private var showWeather = WakeScreenPreferences.showWeather
+    @State private var showWorkout = WakeScreenPreferences.showWorkout
+    @State private var showSleepScore = WakeScreenPreferences.showSleepScore
 
     private var firstName: String {
         store.userProfile.name.components(separatedBy: " ").first ?? ""
@@ -727,6 +774,10 @@ struct WakeGreetingCard: View {
         .onAppear {
             if greeting.isEmpty { greeting = defaultGreeting }
         }
+        .onChange(of: greeting) { _, value in WakeScreenPreferences.greeting = value }
+        .onChange(of: showWeather) { _, value in WakeScreenPreferences.showWeather = value }
+        .onChange(of: showWorkout) { _, value in WakeScreenPreferences.showWorkout = value }
+        .onChange(of: showSleepScore) { _, value in WakeScreenPreferences.showSleepScore = value }
     }
 }
 

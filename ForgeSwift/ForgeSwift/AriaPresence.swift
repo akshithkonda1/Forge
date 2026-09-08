@@ -1,6 +1,7 @@
 import AVFoundation
-import Observation
+import CoreGraphics
 import Foundation
+import Observation
 
 enum AROrbState: Equatable, Sendable {
     case idle, listening, processing, speaking
@@ -20,10 +21,13 @@ enum AriaSpeechPrep: Sendable {
 
 /// Playback categories used by ARIA speech, sleep soundscapes, and the wake alarm.
 /// One place so those three cannot drift into incompatible session options.
-enum ForgePlaybackSession: Sendable {
+enum ForgePlaybackSession: Equatable, Sendable {
     case spoken
+    /// Workout mic stays live. Chat uses `.spoken` (playback-only).
+    case spokenHandsFree
     case sleepMix
     case alarm
+    case chime
 
     func activate() throws {
         let session = AVAudioSession.sharedInstance()
@@ -34,7 +38,13 @@ enum ForgePlaybackSession: Sendable {
                 mode: .spokenAudio,
                 options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
             )
-        case .sleepMix:
+        case .spokenHandsFree:
+            try session.setCategory(
+                .playAndRecord,
+                mode: .spokenAudio,
+                options: [.defaultToSpeaker, .allowBluetoothA2DP, .duckOthers]
+            )
+        case .sleepMix, .chime:
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
         case .alarm:
             try session.setCategory(.playback, mode: .default, options: [])
@@ -57,6 +67,7 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     private(set) var isSpeaking = false
     private(set) var isListening = false
     private(set) var isThinking = false
+    private(set) var didPlayWelcomeChime = false
     var amplitude: Float = 0.18
 
     var orbState: AROrbState {
@@ -78,11 +89,46 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     func setThinking(_ on: Bool) { isThinking = on }
     func markSpeaking(_ on: Bool) { isSpeaking = on }
 
+    /// Hero marks call this on appear. Tab-sized marks never chime.
+    func playWelcomeChimeIfNeeded(size: CGFloat, reduceMotion: Bool) {
+        let quiet = AriaContextStore.shared.context.lifestyleTags.contains("quiet_mode:true")
+            || AriaContextStore.shared.context.constraints.contains("quiet_mode:true")
+        guard AriaWelcomeChime.shouldPlay(
+            size: size,
+            reduceMotion: reduceMotion,
+            quietMode: quiet,
+            alreadyPlayed: didPlayWelcomeChime,
+            isSpeaking: isSpeaking
+        ) else { return }
+        didPlayWelcomeChime = true
+        AriaWelcomeChime.play()
+    }
+
     /// Speaks `text`. Pass `interrupt: false` to queue behind a line that is
     /// already playing — onboarding uses that so an acknowledgment and the
     /// next question land as one conversation, not a cut-off.
-    func speak(_ text: String, interrupt: Bool = true) {
-        let started = AriaSpeechPrep.enqueue(text, on: synthesizer, interrupt: interrupt)
+    ///
+    /// Missing neural identity is silence plus a one-time download prompt —
+    /// never compact Samantha.
+    func speak(
+        _ text: String,
+        interrupt: Bool = true,
+        stopAt: AVSpeechBoundary = .immediate,
+        session: ForgePlaybackSession = .spoken
+    ) {
+        guard AriaSpokenMute.allowsSpeech else { return }
+        guard AriaSpeechPrep.spokenLine(in: text) != nil else { return }
+        guard AriaSpokenVoice.hasInstalledIdentity() else {
+            AriaNeuralVoiceGate.shared.requestPromptIfNeeded()
+            return
+        }
+        let started = AriaSpeechPrep.enqueue(
+            text,
+            on: synthesizer,
+            interrupt: interrupt,
+            stopAt: stopAt,
+            session: session
+        )
         guard started else { return }
         isSpeaking = true
     }

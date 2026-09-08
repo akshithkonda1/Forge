@@ -1,12 +1,15 @@
 import SwiftUI
+import ForgeCore
 
 // MARK: - Root
 
 struct ContentView: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showSplash = true
 
     var body: some View {
+        @Bindable var neuralVoiceGate = AriaNeuralVoiceGate.shared
         ZStack {
             Group {
                 if !store.isAuthenticated {
@@ -25,6 +28,14 @@ struct ContentView: View {
                 ForgeSplashScreen()
                     .transition(.opacity)
                     .zIndex(999)
+            }
+        }
+        .sheet(isPresented: $neuralVoiceGate.showPrompt) {
+            AriaNeuralVoiceSheet(gate: neuralVoiceGate)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                AriaNeuralVoiceGate.shared.refreshCatalog()
             }
         }
         .onAppear {
@@ -52,9 +63,9 @@ struct ForgeSplashScreen: View {
 
             RadialGradient(
                 colors: [
-                    Color(hex: AriaSigilPalette.goldHex).opacity(0.08 * glowIntensity),
-                    Color(hex: AriaSigilPalette.bloodHex).opacity(0.06 * glowIntensity),
-                    Color(hex: AriaSigilPalette.voidMidHex).opacity(0.4 * glowIntensity),
+                    ForgePalette.amber.opacity(0.08 * glowIntensity),
+                    ForgePalette.ember.opacity(0.06 * glowIntensity),
+                    ForgePalette.background.opacity(0.4 * glowIntensity),
                     .clear
                 ],
                 center: .center,
@@ -73,7 +84,7 @@ struct ForgeSplashScreen: View {
                 )
                     .scaleEffect(logoScale)
                     .opacity(logoOpacity)
-                    .shadow(color: Color(hex: AriaSigilPalette.goldHex).opacity(0.22 * glowIntensity), radius: 36, y: 6)
+                    .shadow(color: ForgePalette.amber.opacity(0.22 * glowIntensity), radius: 36, y: 6)
 
                 VStack(spacing: 10) {
                     Text("FORGE")
@@ -128,6 +139,10 @@ struct MainTabView: View {
     @State private var cycleInitialPane: MenstrualHealthView.Pane = .me
     @ObservedObject private var wakeStore = SleepWakeStore.shared
 
+    private var waitingToMeetAria: Bool {
+        !store.hasMetAria && (store.activeTab == .chat || store.showAriaMeetOnLaunch)
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             // Premium ambient canvas
@@ -163,7 +178,23 @@ struct MainTabView: View {
             .transition(.opacity)
             .animation(.easeOut(duration: 0.12), value: store.activeTab)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ForgeBottomNav(namespace: namespace)
+                if !waitingToMeetAria {
+                    ForgeBottomNav(namespace: namespace)
+                }
+            }
+
+            if waitingToMeetAria {
+                AriaMeetView(
+                    onTalk: {
+                        store.meetAria()
+                        store.activeTab = .chat
+                    },
+                    onSkip: {
+                        store.showAriaMeetOnLaunch = false
+                        store.activeTab = .home
+                    }
+                )
+                .zIndex(40)
             }
         }
         .onChange(of: store.pendingCycleHealthOpen) { _, open in
@@ -396,8 +427,8 @@ struct ARIATabButton: View {
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    Color(hex: AriaSigilPalette.goldHex).opacity(isActive ? 0.16 : 0.07),
-                                    Color(hex: AriaSigilPalette.bloodHex).opacity(0.10),
+                                    ForgePalette.amber.opacity(isActive ? 0.16 : 0.07),
+                                    ForgePalette.ember.opacity(0.10),
                                     .clear
                                 ],
                                 center: .center,
@@ -432,6 +463,9 @@ struct ARIATabButton: View {
                 store.ariaVoiceMode.toggle()
                 store.activeTab = .chat
                 store.ariaVoiceLaunch = store.ariaVoiceMode
+            }
+            if store.ariaVoiceMode {
+                AriaNeuralVoiceGate.shared.requestPromptIfNeeded()
             }
         }
     }

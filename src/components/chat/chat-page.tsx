@@ -314,9 +314,6 @@ export function ChatPage() {
           <div className="flex items-center gap-3">
             <div className="relative">
               <AriaOrb mood="focused" size={36} speaking={isTyping} />
-              <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full border-2 border-background bg-success">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
-              </span>
             </div>
 
             <div>

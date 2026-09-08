@@ -290,9 +290,21 @@ export interface AriaContext {
   };
   training: {
     lastWorkoutType: string | null;
+    lastWorkoutName: string | null;
     lastWorkoutDurationMinutes: number | null;
     hoursSinceLastWorkout: number | null;
     weeklyLoadScore: number | null; // null if < 3 sessions
+    /** How the week is owned: user-fixed days, or ARIA rotates. */
+    schedulePlanningMode: "fixed" | "rotate" | null;
+    /** Sunday=0 … Saturday=6. Empty / omitted → default walking week. */
+    weeklySplit: Array<{
+      weekday: number;
+      primary: string;
+      extra: string | null;
+      exerciseCount: number;
+    }> | null;
+    /** 0=Sunday … 6=Saturday in the user's local calendar. */
+    sun0Weekday: number | null;
   };
   activity: {
     steps3DayAvg: number | null;
@@ -340,6 +352,30 @@ export interface AriaContext {
     immunizations: string[];
     labResults: string[];
     procedures: string[];
+  };
+  /** Federal pharmacy context ARIA can pull: Health/saved plus names
+   *  mentioned this turn, each resolved to brand, generic, archetype, disease. */
+  medicationLayer?: {
+    onFile: Array<{
+      id: string;
+      name: string;
+      generic: string;
+      brand?: string | null;
+      archetype: string;
+      disease: string;
+      source: string;
+    }>;
+    mentioned: Array<{
+      id: string;
+      name: string;
+      generic: string;
+      brand?: string | null;
+      archetype: string;
+      disease: string;
+      source: string;
+    }>;
+    archetypes: string[];
+    diseases: string[];
   };
   /** Token-efficient conversational memory. Recent turns arrive verbatim;
    *  everything older is compressed into `summary` anchors so long histories

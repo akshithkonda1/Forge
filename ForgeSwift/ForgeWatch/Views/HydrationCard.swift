@@ -1,4 +1,5 @@
 import SwiftUI
+import WatchKit
 import ForgeCore
 
 // MARK: - HydrationCard
@@ -14,37 +15,86 @@ import ForgeCore
 struct HydrationCard: View {
     @Environment(HydrationManager.self) private var hydration
     @State private var showingSizes = false
+    @State private var crownIndex: Double = 0
+    @FocusState private var crownFocused: Bool
+    @State private var quickAddedFlash = false
 
-    private var glass: HydrationEngine.Preset {
-        HydrationEngine.presets.first { $0.id == "glass" } ?? HydrationEngine.presets[0]
+    private var presets: [HydrationEngine.Preset] { HydrationEngine.presets }
+    private var crownPreset: HydrationEngine.Preset {
+        let clamped = min(max(0, Int(crownIndex.rounded())), max(0, presets.count - 1))
+        return presets[clamped]
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: ForgeDS.Spacing.sm) {
             header
 
-            HapticButton(haptic: .click) {
-                Task { await hydration.log(preset: glass) }
-            } label: {
-                Label("Log a glass", systemImage: "drop.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 3)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(ForgePalette.steel.opacity(0.85))
-            .accessibilityLabel("Log a glass of water")
-            .accessibilityHint("Adds \(Int(glass.milliliters)) millilitres and writes it to Health.")
+            // Crown-scrubbable primary action — rotate to pick size, tap to log.
+            VStack(spacing: 6) {
+                HapticButton(haptic: .click) {
+                    Task { await hydration.log(preset: crownPreset) }
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        quickAddedFlash = true
+                    }
+                    WKInterfaceDevice.current().play(.success)
+                    Task {
+                        try? await Task.sleep(nanoseconds: 700_000_000)
+                        quickAddedFlash = false
+                    }
+                } label: {
+                    Label("Log \(crownPreset.title.lowercased())", systemImage: crownPreset.symbolName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 3)
+                        .contentTransition(.identity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(ForgePalette.steel.opacity(quickAddedFlash ? 1 : 0.85))
+                .scaleEffect(quickAddedFlash ? 1.02 : 1)
+                .accessibilityLabel("Log \(crownPreset.title), \(Int(crownPreset.milliliters)) millilitres")
+                .accessibilityHint("Turn the Digital Crown to pick size, tap to log. Current: \(crownPreset.title).")
+                .accessibilityAdjustableAction { direction in
+                    switch direction {
+                    case .increment: crownIndex = min(Double(presets.count - 1), crownIndex + 1)
+                    case .decrement: crownIndex = max(0, crownIndex - 1)
+                    @unknown default: break
+                    }
+                }
 
-            Button {
-                showingSizes = true
-            } label: {
-                Text("Something bigger…")
-                    .font(.system(size: 11))
-                    .foregroundStyle(ForgePalette.textTertiary)
+                HStack(spacing: 4) {
+                    Image(systemName: "digitalcrown.horizontal.arrow.counterclockwise.fill")
+                        .font(.system(size: 8))
+                        .foregroundStyle(ForgePalette.textTertiary.opacity(crownFocused ? 1 : 0.45))
+                    Text(crownPreset.title)
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(ForgePalette.textTertiary)
+                        .contentTransition(.numericText())
+                    Text("· \(Int(crownPreset.milliliters)) ml")
+                        .font(.system(size: 10))
+                        .foregroundStyle(ForgePalette.textTertiary.opacity(0.8))
+                    Spacer(minLength: 0)
+                    Button { showingSizes = true } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 12))
+                            .foregroundStyle(ForgePalette.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("More sizes")
+                }
+                .animation(.easeInOut(duration: 0.2), value: crownPreset.id)
             }
-            .buttonStyle(.plain)
-            .accessibilityHint("Choose a bottle size instead of a glass.")
+            .focusable(true)
+            .focused($crownFocused)
+            .digitalCrownRotation(
+                $crownIndex,
+                from: 0,
+                through: Double(max(0, presets.count - 1)),
+                by: 1,
+                sensitivity: .medium,
+                isContinuous: false,
+                isHapticFeedbackEnabled: true
+            )
+            .onAppear { crownFocused = true }
 
             Text(hydration.guidance)
                 .font(.system(size: 10.5))
@@ -55,11 +105,11 @@ struct HydrationCard: View {
                 Label("Logged \(last.formatted(.relative(presentation: .named)))", systemImage: "checkmark.circle")
                     .font(.system(size: 10))
                     .foregroundStyle(ForgePalette.textTertiary)
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.3), value: hydration.lastLoggedAt)
             }
 
             if hydration.lastWriteFailed {
-                // The drink still counted; only the write to Health did not.
-                // Saying so beats a number that quietly disagrees with Health.
                 Label("Saved locally — will sync to Health", systemImage: "exclamationmark.arrow.trianglehead.2.clockwise.rotate.90")
                     .font(.system(size: 10))
                     .foregroundStyle(ForgePalette.textTertiary)
@@ -68,6 +118,7 @@ struct HydrationCard: View {
         .padding(ForgeDS.Spacing.md)
         .background(RoundedRectangle(cornerRadius: ForgeDS.Radius.lg).fill(ForgePalette.surface))
         .sheet(isPresented: $showingSizes) { sizePicker }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: crownIndex)
     }
 
     private var header: some View {

@@ -1,18 +1,19 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Home, Sparkles, Dumbbell, Moon, User } from "lucide-react";
+import { Home, Dumbbell, Moon, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TabId } from "@/stores/useAppStore";
+import { AriaMark } from "@/components/brand/aria-mark";
 
 interface BottomNavProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
 }
 
-const tabs: { id: TabId; label: string; icon: typeof Home }[] = [
+const tabs: { id: TabId; label: string; icon: typeof Home | null }[] = [
   { id: "home", label: "Home", icon: Home },
-  { id: "chat", label: "ARIA", icon: Sparkles },
+  { id: "chat", label: "ARIA", icon: null },
   { id: "workout", label: "Workout", icon: Dumbbell },
   { id: "sleep", label: "Sleep", icon: Moon },
   { id: "profile", label: "You", icon: User },
@@ -30,7 +31,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
           const isCenter = tab.id === "workout";
           const Icon = tab.icon;
 
-          if (isCenter) {
+          if (isCenter && Icon) {
             return (
               <button
                 key={tab.id}
@@ -77,13 +78,17 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                 whileTap={{ scale: 0.9 }}
                 transition={{ type: "spring", stiffness: 400, damping: 17 }}
               >
-                <Icon
-                  size={22}
-                  className={cn(
-                    "transition-colors",
-                    isActive ? "text-ember" : "text-text-tertiary"
-                  )}
-                />
+                {tab.id === "chat" || !Icon ? (
+                  <AriaMark size={24} speaking={isActive} />
+                ) : (
+                  <Icon
+                    size={22}
+                    className={cn(
+                      "transition-colors",
+                      isActive ? "text-ember" : "text-text-tertiary"
+                    )}
+                  />
+                )}
               </motion.div>
               <span
                 className={cn(

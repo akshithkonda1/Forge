@@ -11,7 +11,7 @@ Model archetypes (named styles + full Bedrock text library):
 
     python -m backend.simrunner --list-model-archetypes
     python -m backend.simrunner --model-archetype grok-direct --tier 1
-    python -m backend.simrunner --model-archetype moonshotai.kimi-k2.5 --tier 1
+    python -m backend.simrunner --model-archetype global.xai.grok-4.6 --tier 1
     python -m backend.simrunner --matrix --tier 1            # user × named styles
     python -m backend.simrunner --matrix-bedrock --tier 1    # user × every Bedrock text model
 

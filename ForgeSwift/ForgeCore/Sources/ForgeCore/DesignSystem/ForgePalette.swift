@@ -6,9 +6,10 @@ import SwiftUI
 // `forgeHex` (not `hex`) so linking ForgeCore into the iOS app never
 // collides with the app's existing `Color(hex:)` extension.
 //
-// Watch-specific guidance: the calm/restorative colors (steel, violet,
-// jade, indigo) carry the mindfulness and recovery surfaces; ember is
-// reserved for energy and genuinely high-alert states, never for guilt.
+// Ember is energy and high-alert — never guilt.
+// Steel, violet, jade, indigo carry focus, wind-down, and recovery.
+// Teal is intake / listening. ARIA does not get a second rainbow;
+// her states are roles on these same tokens.
 
 public extension Color {
     init(forgeHex hex: String) {
@@ -39,6 +40,7 @@ public enum ForgePalette {
     // Ember (primary / energy). High-alert accent only — used sparingly on watch.
     public static let ember      = Color(forgeHex: "FF4D00")
     public static let emberLight = Color(forgeHex: "FF6B2B")
+    public static let emberCore  = Color(forgeHex: "FFE28A")
 
     // Steel (secondary / focus)
     public static let steel      = Color(forgeHex: "3B82F6")
@@ -60,4 +62,13 @@ public enum ForgePalette {
     public static let success = Color(forgeHex: "22C55E")
     public static let warning = Color(forgeHex: "EAB308")
     public static let danger  = Color(forgeHex: "EF4444")
+
+    // MARK: Presence roles (generic — not ARIA-specific)
+    // Weight shifts. Identity does not. Pair with AriaSigilGeometry breath.
+    public static let ariaIdle       = ember
+    public static let ariaListening  = teal
+    public static let ariaProcessing = steel
+    public static let ariaSpeaking   = emberLight
+    public static let ariaRecover    = jade
+    public static let ariaWindDown   = indigo
 }

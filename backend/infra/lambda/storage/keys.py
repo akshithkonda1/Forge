@@ -50,6 +50,29 @@ def weekly_review_key(user_id: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": "ARIA#WEEKLY_REVIEW"}
 
 
+SHORT_TERM_MEMORY_PREFIX = "ARIA#STM#"
+
+
+def aria_short_term_key(user_id: str, mem_id: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"{SHORT_TERM_MEMORY_PREFIX}{mem_id}"}
+
+
+def aria_short_term_prefix() -> str:
+    return SHORT_TERM_MEMORY_PREFIX
+
+
+EMERGENCY_EVENT_PREFIX = "EMERGENCY#"
+
+
+def emergency_event_key(user_id: str, at_iso: str) -> dict:
+    """Audit record for an emergency escalation decision (vitals monitor)."""
+    return {"pk": f"USER#{user_id}", "sk": f"{EMERGENCY_EVENT_PREFIX}{at_iso}"}
+
+
+def emergency_event_prefix() -> str:
+    return EMERGENCY_EVENT_PREFIX
+
+
 CATALOG_PK = "CATALOG#DEVICES"
 
 

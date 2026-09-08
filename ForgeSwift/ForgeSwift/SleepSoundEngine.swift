@@ -25,20 +25,28 @@ final class SleepWindDownPlayer {
 
     @ObservationIgnored private var engine: AVAudioEngine?
     @ObservationIgnored private var countdown: Task<Void, Never>?
-    @ObservationIgnored private var interruptionTask: Task<Void, Never>?
+    @ObservationIgnored private var sessionObservers: [NotificationCenter.ObservationToken] = []
     @ObservationIgnored private var wasInterrupted = false
     @ObservationIgnored private let renderer = SoundscapeRenderer()
 
     private init() {
-        interruptionTask = Task { @MainActor [weak self] in
-            let stream = NotificationCenter.default.notifications(
-                named: AVAudioSession.interruptionNotification,
-                object: AVAudioSession.sharedInstance()
-            )
-            for await note in stream {
-                self?.handleInterruption(note)
+        let session = AVAudioSession.sharedInstance()
+        sessionObservers.append(
+            NotificationCenter.default.addObserver(
+                of: session,
+                for: AVAudioSession.DidBecomeInactiveMessage.self
+            ) { [weak self] _ in
+                self?.pauseForInterruption()
             }
-        }
+        )
+        sessionObservers.append(
+            NotificationCenter.default.addObserver(
+                of: session,
+                for: AVAudioSession.ResumptionRecommendationMessage.self
+            ) { [weak self] message in
+                self?.resumeIfRecommended(message.recommendation)
+            }
+        )
     }
 
     func start(kind: SleepSoundKind? = nil, minutes: Int = 30) {
@@ -60,9 +68,9 @@ final class SleepWindDownPlayer {
             return noErr
         }
         engine.attach(source)
-        engine.connect(source, to: engine.mainMixerNode, format: format)
         engine.mainMixerNode.outputVolume = Float(volume)
         do {
+            try engine.connectNode(source, to: engine.mainMixerNode, format: format)
             try ForgePlaybackSession.sleepMix.activate()
             try engine.start()
         } catch {
@@ -108,34 +116,24 @@ final class SleepWindDownPlayer {
         }
     }
 
-    private func handleInterruption(_ note: Notification) {
-        guard
-            let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-            let type = AVAudioSession.InterruptionType(rawValue: raw)
-        else { return }
-        switch type {
-        case .began:
-            guard isPlaying else { return }
-            wasInterrupted = true
-            countdown?.cancel()
-            countdown = nil
-            engine?.pause()
-        case .ended:
-            guard wasInterrupted, isPlaying else { return }
-            wasInterrupted = false
-            let options = AVAudioSession.InterruptionOptions(
-                rawValue: note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
-            )
-            guard options.contains(.shouldResume) else { return }
-            do {
-                try ForgePlaybackSession.sleepMix.activate()
-                try engine?.start()
-                startCountdown()
-            } catch {
-                stop()
-            }
-        @unknown default:
-            break
+    private func pauseForInterruption() {
+        guard isPlaying else { return }
+        wasInterrupted = true
+        countdown?.cancel()
+        countdown = nil
+        engine?.pause()
+    }
+
+    private func resumeIfRecommended(_ recommendation: AVAudioSession.ResumptionRecommendation) {
+        guard wasInterrupted, isPlaying else { return }
+        wasInterrupted = false
+        guard recommendation == .shouldResume else { return }
+        do {
+            try ForgePlaybackSession.sleepMix.activate()
+            try engine?.start()
+            startCountdown()
+        } catch {
+            stop()
         }
     }
 }
@@ -157,7 +155,7 @@ final class SleepWakePlayer {
         stop(deactivateSession: false)
         SleepWindDownPlayer.shared.stop(deactivateSession: false)
         let ramp = alarm.gradualVolume ? ForgeAlarmStore.shared.volumeRamp : .instant
-        renderer.reset(rampSeconds: ramp.rampSeconds)
+        renderer.reset(rampSeconds: ramp.rampSeconds, sound: alarm.sound)
         guard let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1) else { return }
         let engine = AVAudioEngine()
         let renderer = self.renderer
@@ -170,8 +168,8 @@ final class SleepWakePlayer {
             return noErr
         }
         engine.attach(source)
-        engine.connect(source, to: engine.mainMixerNode, format: format)
         do {
+            try engine.connectNode(source, to: engine.mainMixerNode, format: format)
             try ForgePlaybackSession.alarm.activate()
             try engine.start()
         } catch {
@@ -209,7 +207,9 @@ final class SoundscapeRenderer: @unchecked Sendable {
     }
 
     func render(into data: UnsafeMutablePointer<Float>, frames: Int) {
-        lock.withLock { dsp in
+        // Audio-thread pointer is not Sendable; `withLockUnchecked` is the
+        // realtime-safe escape hatch (no extra buffer allocation).
+        lock.withLockUnchecked { dsp in
             for i in 0..<frames {
                 data[i] = dsp.nextSample()
             }
@@ -220,12 +220,12 @@ final class SoundscapeRenderer: @unchecked Sendable {
 final class WakeToneRenderer: @unchecked Sendable {
     private let lock = OSAllocatedUnfairLock(initialState: WakeToneDSP())
 
-    func reset(rampSeconds: Double) {
-        lock.withLock { $0.reset(rampSeconds: rampSeconds) }
+    func reset(rampSeconds: Double, sound: AlarmSoundOption = .gentleRise) {
+        lock.withLock { $0.reset(rampSeconds: rampSeconds, sound: sound) }
     }
 
     func render(into data: UnsafeMutablePointer<Float>, frames: Int) {
-        lock.withLock { dsp in
+        lock.withLockUnchecked { dsp in
             for i in 0..<frames {
                 data[i] = dsp.nextSample()
             }
@@ -289,7 +289,7 @@ struct SoundscapeDSP: Sendable {
             let swell = Float(0.45 + 0.55 * sin(t * 0.22))
             return brownClamped * swell * 0.85 + pinkVal * 0.08 * swell
         case .forest:
-            var s = pinkVal * 0.16 + brownClamped * 0.12
+            let s = pinkVal * 0.16 + brownClamped * 0.12
             if frames == eventAt {
                 eventAmp = 0.18
                 eventAt = frames + boundedInt(12_000...40_000)
@@ -391,21 +391,60 @@ struct WakeToneDSP: Sendable {
     var t: Double = 0
     var frames: Int = 0
     var rampFrames: Int = 8_820
+    var sound: AlarmSoundOption = .gentleRise
+    var eventAt: Int = 6_000
+    var eventAmp: Float = 0
+    var rng: UInt32 = 0xA5A5_1234
 
-    mutating func reset(rampSeconds: Double) {
+    mutating func reset(rampSeconds: Double, sound: AlarmSoundOption = .gentleRise) {
         t = 0
         frames = 0
         rampFrames = max(1, Int(rampSeconds * 22_050))
+        self.sound = sound
+        eventAt = 4_000
+        eventAmp = 0
+        rng = 0xA5A5_1234 &+ UInt32(sound.rawValue.hashValue)
     }
 
     mutating func nextSample() -> Float {
         frames += 1
         let env = min(1, Float(frames) / Float(rampFrames))
-        let s1 = sin(2 * Double.pi * 392 * t)
-        let s2 = sin(2 * Double.pi * 523.25 * t)
+        let freqs = sound.wakeFrequencies
         t += 1 / 22_050
-        if t > 1 { t -= 1 }
-        return max(-1, min(1, Float(s1 * 0.34 + s2 * 0.22) * env))
+        if t > 8 { t -= 8 }
+        let s1 = sin(2 * Double.pi * freqs.0 * t)
+        let s2 = sin(2 * Double.pi * freqs.1 * t)
+        rng = rng &* 1_664_525 &+ 1_013_904_223
+        let bits = (rng >> 8) & 0x00FF_FFFF
+        let white = Float(bits) / 16_777_216.0 * 2 - 1
+        let tone: Float
+        switch sound {
+        case .gentleRise, .sunriseGlow:
+            tone = Float(s1 * 0.34 + s2 * 0.22)
+        case .forestBirds:
+            if frames >= eventAt {
+                eventAmp = 0.22
+                eventAt = frames + 8_000 + Int((rng >> 16) % 12_000)
+            }
+            eventAmp *= 0.995
+            tone = Float(s1 * 0.12 + s2 * 0.10) * eventAmp + white * 0.02
+        case .oceanWaves:
+            let swell = Float(0.45 + 0.55 * sin(t * 0.22))
+            tone = Float(s1 * 0.28 + s2 * 0.12) * swell
+        case .windChimes, .tibetanBell:
+            if frames >= eventAt {
+                eventAmp = 0.28
+                eventAt = frames + 14_000
+            }
+            eventAmp *= 0.9992
+            tone = Float(s1 * 0.22 + s2 * 0.14) * eventAmp
+        case .rainDrop:
+            let drop = white * white > 0.92 ? white * 0.35 : white * 0.08
+            tone = Float(s1 * 0.10) + drop * 0.18
+        case .softPiano:
+            tone = Float(s1 * 0.28 + s2 * 0.16) * Float(0.7 + 0.3 * sin(t * 0.5))
+        }
+        return max(-1, min(1, tone * env))
     }
 }
 

@@ -22,27 +22,27 @@ final class OnboardingGraphLockTests: XCTestCase {
         let coordinator = OnboardingCoordinator()
         coordinator.step = .ready
         XCTAssertEqual(coordinator.progress, 1.0)
-        XCTAssertEqual(coordinator.progressStepIndex, 12)
-        XCTAssertEqual(coordinator.progressStepCount, 12)
+        XCTAssertEqual(coordinator.progressStepIndex, 13)
+        XCTAssertEqual(coordinator.progressStepCount, 13)
 
         // The app-side trainingTheme/lifeContext legacy cases are gone (deleted
         // with their now-unreachable interview screens), so allCases and the
         // graph's activeSteps agree on count. OnboardingGraph.Step (ForgeCore)
         // still carries the two legacy cases for migration -- see
         // OnboardingGraphTests.swift for that half of the lock.
-        XCTAssertEqual(AriaInterviewStep.allCases.count, 12)
+        XCTAssertEqual(AriaInterviewStep.allCases.count, 13)
 
         coordinator.step = .intro
         XCTAssertEqual(coordinator.progress, 0)
         XCTAssertEqual(coordinator.progressStepIndex, 1)
 
         coordinator.step = .freeTime
-        XCTAssertEqual(coordinator.progressStepIndex, 9)
-        XCTAssertEqual(coordinator.progressStepCount, 12)
+        XCTAssertEqual(coordinator.progressStepIndex, 10)
+        XCTAssertEqual(coordinator.progressStepCount, 13)
 
         let active: [AriaInterviewStep] = [
             .intro, .name, .health, .details, .goals, .experience,
-            .workouts, .sleep, .freeTime, .coaching, .conditions, .ready,
+            .workouts, .schedule, .sleep, .freeTime, .coaching, .conditions, .ready,
         ]
         var last = -1.0
         for step in active {
@@ -77,6 +77,10 @@ final class OnboardingGraphLockTests: XCTestCase {
         coordinator.goBack()
         XCTAssertEqual(coordinator.step, .name)
 
+        coordinator.step = .sleep
+        coordinator.goBack()
+        XCTAssertEqual(coordinator.step, .schedule)
+
         coordinator.step = .ready
         coordinator.goBack()
         XCTAssertEqual(coordinator.step, .conditions)
@@ -90,6 +94,12 @@ final class OnboardingGraphLockTests: XCTestCase {
         XCTAssertFalse(coordinator.canGoBack)
         coordinator.goBack()
         XCTAssertEqual(coordinator.step, .ready)
+
+        coordinator.isCompleting = false
+        coordinator.isPrepping = true
+        coordinator.isCompleting = true
+        XCTAssertFalse(coordinator.canFinish)
+        XCTAssertFalse(coordinator.canGoBack)
     }
 
     func testWelcomeHookSaysLearningNotListening() {

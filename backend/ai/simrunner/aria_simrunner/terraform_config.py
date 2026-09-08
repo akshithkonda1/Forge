@@ -26,8 +26,8 @@ import os
 import re
 from dataclasses import dataclass
 
-_ROUTER3_ID_FALLBACK = "moonshotai.kimi-k2.5"
-_ROUTER3_NAME_FALLBACK = "Kimi K2.5"
+_ROUTER3_ID_FALLBACK = "global.xai.grok-4.6"
+_ROUTER3_NAME_FALLBACK = "Grok"
 
 _ROUTER3_FALLBACK_RE = re.compile(
     r'AI_ROUTER_MODEL_3_ID\s*=\s*var\.ai_router_model_3_id\s*!=\s*""\s*\?\s*'

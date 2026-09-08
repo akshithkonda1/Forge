@@ -303,10 +303,17 @@ final class LocationMealLogger: ObservableObject {
             return matchVenueName(mapMatch) ?? mapMatch
         }
 
-        let geocoder = CLGeocoder()
-        let placemarks = try await geocoder.reverseGeocodeLocation(location)
-        for placemark in placemarks {
-            for candidate in [placemark.name, placemark.areasOfInterest?.first, placemark.thoroughfare].compactMap({ $0 }) {
+        guard let request = MKReverseGeocodingRequest(location: location) else {
+            return "Local Restaurant"
+        }
+        let mapItems = try await request.mapItems
+        for item in mapItems {
+            let candidates = [
+                item.name,
+                item.address?.shortAddress,
+                item.address?.fullAddress,
+            ].compactMap { $0 }
+            for candidate in candidates {
                 if let matched = matchVenueName(candidate) { return matched }
             }
         }
@@ -322,9 +329,8 @@ final class LocationMealLogger: ObservableObject {
         let response = try await MKLocalSearch(request: request).start()
         return response.mapItems
             .sorted { lhs, rhs in
-                let lhsDistance = lhs.placemark.location?.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)) ?? .greatestFiniteMagnitude
-                let rhsDistance = rhs.placemark.location?.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)) ?? .greatestFiniteMagnitude
-                return lhsDistance < rhsDistance
+                let origin = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                return lhs.location.distance(from: origin) < rhs.location.distance(from: origin)
             }
             .compactMap { $0.name }
             .first

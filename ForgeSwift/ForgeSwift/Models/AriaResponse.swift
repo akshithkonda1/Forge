@@ -1,4 +1,6 @@
 import Foundation
+import SwiftUI
+import ForgeCore
 
 /// Structured response from ARIA backend or local engine.
 ///
@@ -22,12 +24,13 @@ struct AriaResponse: Codable, Equatable {
 
     // --- compatibility layer ---
     var message: String
-    var richCard: RichCardPayload? = nil
+    var richCard: CloudRichCard? = nil
     var suggestedActions: [String]? = nil
     var contextUpdates: [String: Int]? = nil
     var confidence: Double? = nil
     var memoryReference: String? = nil
     var missingFields: [String]? = nil
+    var toolCallsMade: [String]? = nil
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
@@ -39,11 +42,88 @@ struct AriaResponse: Codable, Equatable {
         case card
         case message
         case richCard = "rich_card"
+        case richCardCamel = "richCard"
         case suggestedActions = "suggested_actions"
         case contextUpdates = "context_updates"
         case confidence
         case memoryReference = "memory_reference"
         case missingFields = "missing_fields"
+        case toolCallsMade = "tool_calls_made"
+        case toolCallsMadeCamel = "toolCallsMade"
+    }
+
+    init(
+        schemaVersion: String? = nil,
+        responseType: String? = nil,
+        confidenceReason: String? = nil,
+        proseSummary: String? = nil,
+        restrictedDomains: [String]? = nil,
+        model: String? = nil,
+        card: AriaCardPayload? = nil,
+        message: String,
+        richCard: CloudRichCard? = nil,
+        suggestedActions: [String]? = nil,
+        contextUpdates: [String: Int]? = nil,
+        confidence: Double? = nil,
+        memoryReference: String? = nil,
+        missingFields: [String]? = nil,
+        toolCallsMade: [String]? = nil
+    ) {
+        self.schemaVersion = schemaVersion
+        self.responseType = responseType
+        self.confidenceReason = confidenceReason
+        self.proseSummary = proseSummary
+        self.restrictedDomains = restrictedDomains
+        self.model = model
+        self.card = card
+        self.message = message
+        self.richCard = richCard
+        self.suggestedActions = suggestedActions
+        self.contextUpdates = contextUpdates
+        self.confidence = confidence
+        self.memoryReference = memoryReference
+        self.missingFields = missingFields
+        self.toolCallsMade = toolCallsMade
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decodeIfPresent(String.self, forKey: .schemaVersion)
+        responseType = try c.decodeIfPresent(String.self, forKey: .responseType)
+        confidenceReason = try c.decodeIfPresent(String.self, forKey: .confidenceReason)
+        proseSummary = try c.decodeIfPresent(String.self, forKey: .proseSummary)
+        restrictedDomains = try c.decodeIfPresent([String].self, forKey: .restrictedDomains)
+        model = try c.decodeIfPresent(String.self, forKey: .model)
+        card = try c.decodeIfPresent(AriaCardPayload.self, forKey: .card)
+        message = try c.decodeIfPresent(String.self, forKey: .message) ?? ""
+        richCard = try c.decodeIfPresent(CloudRichCard.self, forKey: .richCard)
+            ?? c.decodeIfPresent(CloudRichCard.self, forKey: .richCardCamel)
+        suggestedActions = try c.decodeIfPresent([String].self, forKey: .suggestedActions)
+        contextUpdates = try c.decodeIfPresent([String: Int].self, forKey: .contextUpdates)
+        confidence = try c.decodeIfPresent(Double.self, forKey: .confidence)
+        memoryReference = try c.decodeIfPresent(String.self, forKey: .memoryReference)
+        missingFields = try c.decodeIfPresent([String].self, forKey: .missingFields)
+        toolCallsMade = try c.decodeIfPresent([String].self, forKey: .toolCallsMade)
+            ?? c.decodeIfPresent([String].self, forKey: .toolCallsMadeCamel)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(schemaVersion, forKey: .schemaVersion)
+        try c.encodeIfPresent(responseType, forKey: .responseType)
+        try c.encodeIfPresent(confidenceReason, forKey: .confidenceReason)
+        try c.encodeIfPresent(proseSummary, forKey: .proseSummary)
+        try c.encodeIfPresent(restrictedDomains, forKey: .restrictedDomains)
+        try c.encodeIfPresent(model, forKey: .model)
+        try c.encodeIfPresent(card, forKey: .card)
+        try c.encode(message, forKey: .message)
+        try c.encodeIfPresent(richCard, forKey: .richCard)
+        try c.encodeIfPresent(suggestedActions, forKey: .suggestedActions)
+        try c.encodeIfPresent(contextUpdates, forKey: .contextUpdates)
+        try c.encodeIfPresent(confidence, forKey: .confidence)
+        try c.encodeIfPresent(memoryReference, forKey: .memoryReference)
+        try c.encodeIfPresent(missingFields, forKey: .missingFields)
+        try c.encodeIfPresent(toolCallsMade, forKey: .toolCallsMade)
     }
 
     /// Best single line for the voice orb: the dedicated prose summary when the
@@ -125,40 +205,51 @@ struct AriaCardPayload: Codable, Equatable {
     }
 }
 
-struct RichCardPayload: Codable, Equatable {
-    var type: String
-    var title: String?
-    var values: [Double]?
-    var insight: String?
-    var workoutName: String?
-    var durationMinutes: Int?
+typealias RichCardPayload = CloudRichCard
 
-    enum CodingKeys: String, CodingKey {
-        case type, title, values, insight
-        case workoutName = "workout_name"
-        case durationMinutes = "duration_minutes"
-    }
-
+extension CloudRichCard {
     func toRichCardData() -> RichCardData? {
-        switch type {
-        case "workout-plan", "workout_plan":
+        if isWorkoutPlan {
+            let moves = exercises.map {
+                RichCardExercise(name: $0.name, sets: $0.sets, reps: $0.reps)
+            }
             return RichCardData(
                 type: .workoutPlan,
                 workoutName: workoutName ?? title,
                 workoutDuration: durationMinutes,
-                workoutExercises: nil
+                workoutExercises: moves.isEmpty ? nil : moves
             )
-        case "data-chart", "data_chart":
+        }
+        if isDataChart {
+            let mappedColor: Color? = {
+                guard let color, !color.isEmpty else { return .steel }
+                return Color(hex: color)
+            }()
             return RichCardData(
                 type: .dataChart,
                 chartTitle: title,
                 chartValues: values,
                 chartInsight: insight,
-                chartColor: .steel
+                chartColor: mappedColor
             )
-        default:
-            return nil
         }
+        return nil
+    }
+}
+
+extension CloudChatMessage {
+    func toChatMessage() -> ChatMessage? {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty || richCard != nil else { return nil }
+        let mappedRole: MessageRole = role == "user" ? .user : .trainer
+        return ChatMessage(
+            id: id,
+            role: mappedRole,
+            content: trimmed,
+            timestamp: timestamp,
+            richCard: richCard?.toRichCardData(),
+            toolCallsMade: toolCallsMade.isEmpty ? nil : toolCallsMade
+        )
     }
 }
 

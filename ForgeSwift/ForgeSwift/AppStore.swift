@@ -147,6 +147,24 @@ final class AppStore: ObservableObject {
     /// True when today's numbers came from ForgeCore's Test-Ready Health pack
     /// because Apple Health had nothing. Never set from a real sample.
     @Published var usingTestReadyHealthPack: Bool = false
+    /// Ingest sources last seen on `/dashboard/today` (Apple Health, Oura, …).
+    @Published var metricSources: [String] = []
+    /// Server-side sync failures that should not be dressed up as coaching.
+    @Published var lastCloudSyncError: String? = nil
+    @Published var lastCloudSyncAt: Date? = nil
+    @Published var remoteSleepInsight: String? = nil
+    @Published var remoteProgressReview: String? = nil
+
+    /// Visual first-meet page. Completes once; first login or first ARIA tap.
+    @Published var hasMetAria: Bool = UserDefaults.standard.bool(forKey: AppStore.ariaMeetKey) {
+        didSet { UserDefaults.standard.set(hasMetAria, forKey: AppStore.ariaMeetKey) }
+    }
+    @Published var showAriaMeetOnLaunch: Bool = true
+
+    func meetAria() {
+        hasMetAria = true
+        showAriaMeetOnLaunch = false
+    }
 
     /// First conversation with ARIA. Completes once; replay from Settings.
     @Published var hasCompletedAriaUseOnboarding: Bool = UserDefaults.standard.bool(forKey: AriaUseOnboarding.storageKey) {
@@ -223,37 +241,59 @@ final class AppStore: ObservableObject {
     static let chatLevelKey = "forge.chat.level.v1"
     static let durableMemoryKey = "forge.chat.durable_memory.v1"
 
+    func persistenceUserId() -> String {
+        let id = AriaContextStore.shared.context.userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !id.isEmpty { return id }
+        if !authEmail.isEmpty { return authEmail.lowercased() }
+        return "local"
+    }
+
+    func chatSessionStorageKey() -> String {
+        let userId = persistenceUserId()
+        if userId == "local" { return Self.chatSessionKey }
+        return "\(Self.chatSessionKey).\(userId)"
+    }
+
+    func profileStorageKey() -> String {
+        let userId = persistenceUserId()
+        if userId == "local" { return Self.profileDefaultsKey }
+        return "\(Self.profileDefaultsKey).\(userId)"
+    }
+
     /// Message currently being typewriter-revealed (nil when idle).
     @Published var streamingMessageId: String? = nil
     @Published var streamingVisibleCount: Int = 0
     var streamingRevealTask: Task<Void, Never>?
+    /// Serializes overlapping refreshDailyData() so the empty-profile launch
+    /// fetch and the post-interview prep fetch cannot clobber each other.
+    var refreshDailyDataTail: Task<Void, Never>?
 
     static let onboardedDefaultsKey = "forge.onboarding.completed"
     static let profileDefaultsKey = "forge.user.profile.v1"
     static let authDefaultsKey = "forge.auth.session.v1"
     static let authProviderKey = "forge.auth.provider.v1"
     static let authEmailKey = "forge.auth.email.v1"
+    static let ariaMeetKey = "forge.aria.meet.v1"
 
     private func persistUserProfile() {
         guard let data = try? JSONEncoder().encode(userProfile) else { return }
-        UserDefaults.standard.set(data, forKey: Self.profileDefaultsKey)
+        UserDefaults.standard.set(data, forKey: profileStorageKey())
     }
 
     // MARK: - Onboarding → ARIA handoff
 
-    
+    var needsForgePrep: Bool {
+        AriaForgePrepHandoff.needsPrep(isOnboarded: isOnboarded)
+    }
 
-    
+    func markOnboardingInterviewComplete() {
+        AriaForgePrepHandoff.markInterviewComplete()
+    }
 
-    
-    
-    
-    
-    
-    
-
-    
-
+    func finishForgePrep() {
+        isOnboarded = true
+        AriaForgePrepHandoff.clearInterviewComplete()
+    }
     
 }
 

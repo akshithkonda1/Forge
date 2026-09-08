@@ -272,9 +272,13 @@ class ReadinessContext:
 @dataclass
 class TrainingContext:
     last_workout_type: str | None = None
+    last_workout_name: str | None = None
     last_workout_duration_minutes: float | None = None
     hours_since_last_workout: float | None = None
     weekly_load_score: float | None = None  # normalized, null if < 3 sessions
+    schedule_planning_mode: str | None = None  # fixed | rotate
+    weekly_split: list | None = None
+    sun0_weekday: int | None = None  # 0=Sun … 6=Sat
 
 
 @dataclass
@@ -343,6 +347,35 @@ class ClinicalDataContext:
     immunizations: list[str] = field(default_factory=list)
     lab_results: list[str] = field(default_factory=list)
     procedures: list[str] = field(default_factory=list)
+
+
+@dataclass
+class MedicationLayerEntry:
+    name: str = ""
+    generic: str = ""
+    brand: str | None = None
+    archetype: str = ""
+    disease: str = ""
+    source: str = ""
+
+    def line(self) -> str:
+        names = [part for part in (self.brand, self.generic) if part]
+        shown = " / ".join(names) if names else (self.name or "unknown")
+        return f"{shown} · {self.archetype} · {self.disease}"
+
+
+@dataclass
+class MedicationLayerContext:
+    """Federal pharmacy context. Names and taxonomy only."""
+
+    on_file: list[MedicationLayerEntry] = field(default_factory=list)
+    mentioned: list[MedicationLayerEntry] = field(default_factory=list)
+    archetypes: list[str] = field(default_factory=list)
+    diseases: list[str] = field(default_factory=list)
+
+    @property
+    def is_empty(self) -> bool:
+        return not self.on_file and not self.mentioned
 
 
 # --- Quality of Life → "life rhythm" ----------------------------------------
@@ -464,6 +497,7 @@ class ARIAContext:
     progress: ProgressContext = field(default_factory=ProgressContext)
     lifestyle: LifestyleContext = field(default_factory=LifestyleContext)
     clinical_data: ClinicalDataContext = field(default_factory=ClinicalDataContext)
+    medication_layer: MedicationLayerContext = field(default_factory=MedicationLayerContext)
 
     @property
     def missing_fields(self) -> list[str]:
@@ -536,6 +570,7 @@ class ARIAContext:
         progress = data.get("progress") or {}
         lifestyle = data.get("lifestyle") or {}
         clinical = data.get("clinicalData") or data.get("clinical_data") or {}
+        layer = data.get("medicationLayer") or data.get("medication_layer") or {}
         return cls(
             timestamp=str(data.get("timestamp") or _utcnow_iso()),
             sleep=SleepContext(
@@ -555,9 +590,19 @@ class ARIAContext:
             ),
             training=TrainingContext(
                 last_workout_type=_str(training.get("lastWorkoutType")),
+                last_workout_name=_str(training.get("lastWorkoutName") or training.get("name")),
                 last_workout_duration_minutes=_num(training.get("lastWorkoutDurationMinutes")),
                 hours_since_last_workout=_num(training.get("hoursSinceLastWorkout")),
                 weekly_load_score=_num(training.get("weeklyLoadScore")),
+                schedule_planning_mode=_str(
+                    training.get("schedulePlanningMode") or training.get("schedule_planning_mode")
+                ),
+                weekly_split=training.get("weeklySplit")
+                if isinstance(training.get("weeklySplit"), list)
+                else training.get("weekly_split")
+                if isinstance(training.get("weekly_split"), list)
+                else None,
+                sun0_weekday=_int(training.get("sun0Weekday") or training.get("sun0_weekday")),
             ),
             activity=ActivityContext(
                 steps_3day_avg=_num(activity.get("steps3DayAvg")),
@@ -606,6 +651,12 @@ class ARIAContext:
                 immunizations=_str_list(clinical.get("immunizations")),
                 lab_results=_str_list(clinical.get("labResults") or clinical.get("lab_results")),
                 procedures=_str_list(clinical.get("procedures")),
+            ),
+            medication_layer=MedicationLayerContext(
+                on_file=_parse_med_entries(layer.get("onFile") or layer.get("on_file")),
+                mentioned=_parse_med_entries(layer.get("mentioned")),
+                archetypes=_str_list(layer.get("archetypes")),
+                diseases=_str_list(layer.get("diseases")),
             ),
         )
 
@@ -664,6 +715,7 @@ class ARIAContext:
             f"- readiness.recovery_score: {_fmt(self.readiness.recovery_score)}",
             f"- activity.steps_3day_avg: {_fmt(self.activity.steps_3day_avg)}",
             f"- training.hours_since_last_workout: {_fmt(self.training.hours_since_last_workout)}",
+            f"- training.last_workout: {self.training.last_workout_name or self.training.last_workout_type or 'null'}",
             f"- training.weekly_load_score: {_fmt(self.training.weekly_load_score)}",
             f"- body.weight_trend_kg: {_fmt(self.body.weight_trend_kg)}",
             f"- body.vo2_max: {_fmt(self.body.vo2_max)}",
@@ -683,6 +735,28 @@ class ARIAContext:
             f"- missing_fields: {', '.join(self.missing_fields) or 'none'}",
             f"- restricted_domains: {', '.join(restricted) or 'none'}",
         ]
+        layer = self.medication_layer
+        if "clinical_data" in restricted:
+            layer_on_file: list[MedicationLayerEntry] = []
+            layer_mentioned = list(layer.mentioned)
+        else:
+            layer_on_file = list(layer.on_file)
+            layer_mentioned = list(layer.mentioned)
+        if layer_on_file or layer_mentioned:
+            on_file = "; ".join(entry.line() for entry in layer_on_file[:12]) or "none"
+            mentioned = "; ".join(entry.line() for entry in layer_mentioned[:8]) or "none"
+            lines.append(f"- medication_layer.on_file: {on_file}")
+            lines.append(f"- medication_layer.mentioned: {mentioned}")
+            if layer.archetypes:
+                lines.append(f"- medication_layer.archetypes: {', '.join(layer.archetypes)}")
+            if layer.diseases:
+                lines.append(f"- medication_layer.diseases: {', '.join(layer.diseases)}")
+            lines.append(
+                "- medication_layer.rule: never prescribe; never name a dose, frequency, or timing; never start, stop, or change a medication; never treat a catalog disease as a diagnosis"
+            )
+            lines.append(
+                "- medication_layer.for_you: from what they already take, file likely needs and mutate lifestyle and training to this person — their data, not a population standard"
+            )
         # Life rhythm (holistic Quality of Life), only when the client sent it and
         # lifestyle is not redacted. Framed as a lifestyle signal, never medical.
         # Gate on `restricted` too: callers may pass an un-sanitized context with
@@ -766,6 +840,16 @@ def apply_permissions(ctx: ARIAContext, permissions: DataPermissions) -> tuple[A
     sanitized = ARIAContext(timestamp=ctx.timestamp, **{name: getattr(ctx, name) for name in ALL_DOMAINS})
     for domain in restricted:
         setattr(sanitized, domain, _DOMAIN_TYPES[domain]())
+    layer = ctx.medication_layer
+    if "clinical_data" in restricted:
+        sanitized.medication_layer = MedicationLayerContext(
+            on_file=[],
+            mentioned=list(layer.mentioned),
+            archetypes=sorted({entry.archetype for entry in layer.mentioned if entry.archetype}),
+            diseases=sorted({entry.disease for entry in layer.mentioned if entry.disease}),
+        )
+    else:
+        sanitized.medication_layer = layer
     return sanitized, restricted
 
 
@@ -1521,6 +1605,29 @@ def generate_response(
     perms = permissions if isinstance(permissions, DataPermissions) else DataPermissions.allow_all()
     ctx, restricted = apply_permissions(ctx, perms)
 
+    # Safety boundary first: ARIA is a lifestyle coach, not a doctor. Emergencies,
+    # first-aid how-to, and diagnosis/prescription requests short-circuit the
+    # normal coaching path deterministically so the hard line can never drift or
+    # be talked around by the live model.
+    from services import guidance
+
+    guardrail = guidance.assess(message)
+    if guardrail is not None:
+        envelope = _envelope(
+            response_type="clarification",
+            confidence=1.0,
+            confidence_reason=guardrail.confidence_reason,
+            prose_summary=guardrail.prose,
+            card=None,
+            message=guardrail.message,
+            suggested_actions=guardrail.suggested_actions,
+            voice_mode=voice_mode,
+        )
+        envelope["restricted_domains"] = restricted
+        envelope["guidance_band"] = guardrail.band
+        envelope["emergency_escalation"] = guardrail.wants_escalation
+        return envelope
+
     response_type = classify_request(message, ctx)
 
     # A clarification never reads the interpreted signals, so gather them only on
@@ -1537,6 +1644,26 @@ def generate_response(
             envelope = _insight_response(message, ctx, signals, restricted, voice_mode)
 
     envelope["restricted_domains"] = restricted
+    if response_type == "recommendation" and "training" not in restricted:
+        from services import body_library
+
+        session = body_library.maybe_suggest(
+            message,
+            last_workout_type=ctx.training.last_workout_type,
+            last_workout_name=ctx.training.last_workout_name,
+            hours_since=ctx.training.hours_since_last_workout,
+            experience=ctx.profile.experience_level or "intermediate",
+            readiness=int(ctx.readiness.recovery_score)
+            if isinstance(ctx.readiness.recovery_score, (int, float))
+            else None,
+            planning_mode=ctx.training.schedule_planning_mode,
+            weekly_split=ctx.training.weekly_split,
+            sun0_weekday=ctx.training.sun0_weekday
+            if ctx.training.sun0_weekday is not None
+            else body_library.sun0_from_iso(ctx.timestamp),
+        )
+        if session is not None:
+            envelope["session"] = session.to_dict()
     _attach_contextualization(envelope, message, ctx, persona)
     return envelope
 
@@ -1809,6 +1936,13 @@ def generate_response_live(
     base["agent"] = coach
     base["agents"] = roster
 
+    # A safety-band decision (emergency / first-aid / diagnosis-refusal) is
+    # enforced deterministically and must never be handed to the model to
+    # rephrase or override. Return it as-is.
+    if base.get("guidance_band"):
+        base["reasoning_source"] = "deterministic"
+        return base
+
     # Real Bedrock is opt-in. With no injected converse and the flag off, never
     # call out — return the deterministic envelope. This closes the aria_cli
     # --live bypass (it passes converse=None) while keeping the live path fully
@@ -1858,12 +1992,26 @@ def _merge_live_envelope(
         merged["response_type"] = response_type
 
     confidence = _coerce_confidence(data.get("confidence"))
+    capped = False
     if confidence is not None:
+        # The deterministic calibration encodes data-sufficiency ceilings (e.g.
+        # no HRV history caps confidence at 0.65). The live model must never claim
+        # more certainty than the ground truth supports, so the deterministic
+        # value is an upper bound — the model may lower it, never raise it.
+        base_conf = base.get("confidence")
+        if isinstance(base_conf, (int, float)) and not isinstance(base_conf, bool):
+            if confidence > float(base_conf):
+                confidence = float(base_conf)
+                capped = True
         merged["confidence"] = confidence
 
     reason = data.get("confidence_reason")
     if isinstance(reason, str) and reason.strip():
         merged["confidence_reason"] = reason.strip()
+    if capped:
+        existing = str(merged.get("confidence_reason", "")).strip()
+        note = "Capped to the confidence the available data supports."
+        merged["confidence_reason"] = f"{existing.rstrip('.')}. {note}" if existing else note
 
     recommendation = data.get("recommendation")
     if isinstance(recommendation, str) and recommendation.strip():
@@ -1881,20 +2029,42 @@ def _merge_live_envelope(
     merged["message"] = prose
     merged["model"] = model_id
     merged["reasoning_source"] = "bedrock"
+
+    # Defense in depth: on the COACH path the model should never diagnose or
+    # prescribe. If its output slips into medical claim/dosing language, append a
+    # clinician disclaimer rather than trust it silently.
+    from services import guidance
+
+    if guidance.contains_prescriptive_medical_language(merged.get("message") or ""):
+        merged["message"] = guidance.append_clinician_disclaimer(merged["message"])
+        merged["prose_summary"] = guidance.append_clinician_disclaimer(merged["prose_summary"])
+        merged["safety_softened"] = True
     return merged
 
 
 def _parse_model_envelope(text: str) -> dict[str, Any]:
-    """Best-effort extraction of the JSON envelope from a model response."""
+    """Best-effort extraction of the JSON envelope from a model response.
+
+    Tries a direct parse, then scans for the first valid JSON object with
+    ``raw_decode``. Using ``raw_decode`` (rather than first-``{``/last-``}``)
+    means a ``}`` inside a prose string no longer truncates or breaks parsing.
+    """
     cleaned = re.sub(r"```(?:json)?", "", text or "").replace("```", "").strip()
-    start, end = cleaned.find("{"), cleaned.rfind("}")
-    if start != -1 and end > start:
-        cleaned = cleaned[start:end + 1]
     try:
         data = json.loads(cleaned)
+        return data if isinstance(data, dict) else {}
     except (ValueError, TypeError):
-        return {}
-    return data if isinstance(data, dict) else {}
+        pass
+    decoder = json.JSONDecoder()
+    idx = cleaned.find("{")
+    while idx != -1:
+        try:
+            obj, _ = decoder.raw_decode(cleaned[idx:])
+        except ValueError:
+            idx = cleaned.find("{", idx + 1)
+            continue
+        return obj if isinstance(obj, dict) else {}
+    return {}
 
 
 def _coerce_confidence(value: Any) -> float | None:
@@ -1935,6 +2105,30 @@ def _str_list(value: Any) -> list[str]:
     if not isinstance(value, (list, tuple)):
         return []
     return [s for s in (_str(item) for item in value) if s]
+
+
+def _parse_med_entries(value: Any) -> list[MedicationLayerEntry]:
+    if not isinstance(value, (list, tuple)):
+        return []
+    entries: list[MedicationLayerEntry] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        name = _str(item.get("name")) or ""
+        generic = _str(item.get("generic")) or name
+        if not name and not generic:
+            continue
+        entries.append(
+            MedicationLayerEntry(
+                name=name or generic,
+                generic=generic or name,
+                brand=_str(item.get("brand")),
+                archetype=_str(item.get("archetype")) or "",
+                disease=_str(item.get("disease")) or "",
+                source=_str(item.get("source")) or "",
+            )
+        )
+    return entries
 
 
 def _coerce_metrics(raw: Any) -> dict[str, float]:

@@ -1,4 +1,5 @@
 import SwiftUI
+import WatchKit
 import ForgeCore
 
 // MARK: - MindfulnessView
@@ -22,6 +23,8 @@ struct MindfulnessView: View {
     @State private var selectedDuration: TimeInterval = 180
     @State private var showSkipSheet = false
     @State private var didPrefill = false
+    @State private var durationCrownIndex: Double = 1
+    @FocusState private var durationCrownFocused: Bool
 
     var body: some View {
         Group {
@@ -138,28 +141,86 @@ struct MindfulnessView: View {
     }
 
     private var durationPicker: some View {
-        HStack(spacing: ForgeDS.Spacing.sm) {
-            ForEach(selectedPractice.offeredDurations, id: \.self) { duration in
-                let selected = duration == selectedDuration
-                HapticButton(haptic: .click) {
-                    selectedDuration = duration
-                } label: {
-                    Text(durationLabel(duration))
-                        .font(.system(size: 12, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: ForgeDS.Radius.sm)
-                                .fill(selected ? ForgePalette.steel.opacity(0.4) : ForgePalette.surface)
-                        )
+        let durations = selectedPractice.offeredDurations
+        return VStack(spacing: 4) {
+            HStack(spacing: ForgeDS.Spacing.sm) {
+                ForEach(Array(durations.enumerated()), id: \.offset) { idx, duration in
+                    let selected = duration == selectedDuration
+                    HapticButton(haptic: .click) {
+                        selectedDuration = duration
+                        durationCrownIndex = Double(idx)
+                        WKInterfaceDevice.current().play(.click)
+                    } label: {
+                        Text(durationLabel(duration))
+                            .font(.system(size: 12, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: ForgeDS.Radius.sm)
+                                    .fill(selected ? ForgePalette.steel.opacity(0.4) : ForgePalette.surface)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: ForgeDS.Radius.sm)
+                                    .stroke(selected ? ForgePalette.steel : Color.clear, lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(durationLabel(duration))
+                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(durationLabel(duration))
-                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+            .focusable(true)
+            .focused($durationCrownFocused)
+            .digitalCrownRotation(
+                $durationCrownIndex,
+                from: 0,
+                through: Double(max(0, durations.count - 1)),
+                by: 1,
+                sensitivity: .medium,
+                isContinuous: false,
+                isHapticFeedbackEnabled: true
+            )
+            .onChange(of: durationCrownIndex) { _, newValue in
+                let idx = min(max(0, Int(newValue.rounded())), durations.count - 1)
+                selectedDuration = durations[idx]
+            }
+            .onChange(of: selectedPractice) { _, _ in
+                // Keep crown in sync when practice changes default duration.
+                if let idx = durations.firstIndex(of: selectedDuration) {
+                    durationCrownIndex = Double(idx)
+                } else {
+                    durationCrownIndex = 1
+                    selectedDuration = durations[min(1, durations.count - 1)]
+                }
+            }
+            .onAppear { durationCrownFocused = true }
+
+            HStack(spacing: 4) {
+                Image(systemName: "digitalcrown.horizontal.press.fill")
+                    .font(.system(size: 8))
+                    .foregroundStyle(ForgePalette.textTertiary.opacity(0.6))
+                Text("Crown to adjust · tap to pick")
+                    .font(.system(size: 9))
+                    .foregroundStyle(ForgePalette.textTertiary.opacity(0.7))
+                Spacer(minLength: 0)
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Session length")
+        .accessibilityAdjustableAction { direction in
+            let idx = min(max(0, Int(durationCrownIndex.rounded())), durations.count - 1)
+            switch direction {
+            case .increment:
+                let next = min(durations.count - 1, idx + 1)
+                durationCrownIndex = Double(next)
+                selectedDuration = durations[next]
+            case .decrement:
+                let prev = max(0, idx - 1)
+                durationCrownIndex = Double(prev)
+                selectedDuration = durations[prev]
+            @unknown default: break
+            }
+        }
     }
 
     private var skipSheet: some View {
@@ -199,6 +260,10 @@ struct MindfulnessView: View {
         if let rec = aria.recommendation {
             selectedPractice = rec.practice
             selectedDuration = rec.duration
+            let durations = rec.practice.offeredDurations
+            if let idx = durations.firstIndex(of: rec.duration) {
+                durationCrownIndex = Double(idx)
+            }
         }
     }
 
@@ -212,6 +277,7 @@ struct MindfulnessView: View {
 private struct ActiveSessionView: View {
     @Environment(WatchHealthKitManager.self) private var health
     @Environment(MindfulnessSessionManager.self) private var session
+    @State private var tapPauseFlash = false
 
     var body: some View {
         VStack(spacing: ForgeDS.Spacing.sm) {
@@ -223,6 +289,24 @@ private struct ActiveSessionView: View {
                     isPaused: session.state == .paused
                 )
                 .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if session.state == .paused {
+                        session.resume(health: health)
+                    } else {
+                        session.pause()
+                    }
+                    WKInterfaceDevice.current().play(session.state == .paused ? .click : .start)
+                    withAnimation(.easeInOut(duration: 0.15)) { tapPauseFlash = true }
+                    Task {
+                        try? await Task.sleep(nanoseconds: 200_000_000)
+                        tapPauseFlash = false
+                    }
+                }
+                .scaleEffect(tapPauseFlash ? 0.98 : 1)
+                .animation(.easeInOut(duration: 0.15), value: tapPauseFlash)
+                .accessibilityLabel(session.state == .paused ? "Tap to resume" : "Tap orb to pause")
+                .accessibilityHint("Double Tap also starts from Home. Pause and end are the buttons below.")
             }
 
             // Remaining time + live HR, quiet and small — the orb leads.

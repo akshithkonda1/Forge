@@ -181,12 +181,27 @@ struct LifestyleView: View {
 
     @ViewBuilder
     private var segmentContent: some View {
-        switch selectedSegment {
-        case .aiOptimization: AIOptimizationContent(vm: vm, locationLogger: locationLogger)
-        case .homeCooking:    HomeCookingView(vm: vm)
-        case .restaurants:    LifestylePlacesView(vm: vm, locationLogger: locationLogger)
-        case .nutrition:      DailyNutritionView(vm: vm)
-        case .wellbeing:      WellbeingView(vm: vm)
+        if store.dataLoadState == .loading && !store.hasMeaningfulLifeSignal {
+            ForgeSkeletonBlock(height: 88, cornerRadius: 16)
+            ForgeSkeletonBlock(height: 180, cornerRadius: 16)
+            ForgeSkeletonBlock(height: 140, cornerRadius: 16)
+        } else if !store.healthKitLive && !store.hasMeaningfulLifeSignal {
+            ForgeEmptyStateCard(
+                icon: "heart.text.square.fill",
+                title: "Connect Apple Health to unlock lifestyle",
+                message: "Nutrition, recovery, and today’s focus come from your live metrics — not a blank chart.",
+                accent: .ember,
+                cta: "Reconnect Apple Health",
+                action: { Task { await store.reconnectHealthKit() } }
+            )
+        } else {
+            switch selectedSegment {
+            case .aiOptimization: AIOptimizationContent(vm: vm, locationLogger: locationLogger)
+            case .homeCooking:    HomeCookingView(vm: vm)
+            case .restaurants:    LifestylePlacesView(vm: vm, locationLogger: locationLogger)
+            case .nutrition:      DailyNutritionView(vm: vm)
+            case .wellbeing:      WellbeingView(vm: vm)
+            }
         }
     }
 }
@@ -218,6 +233,7 @@ struct LifestyleBackground: View {
 }
 
 struct LifestyleHeaderView: View {
+    @EnvironmentObject var store: AppStore
     @Binding var showInsights: Bool
     let metrics: LifestyleMetrics
     @State private var appeared = false
@@ -254,6 +270,21 @@ struct LifestyleHeaderView: View {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(Color.white.opacity(0.10), lineWidth: 1)
                 )
+
+                Button {
+                    FDS.haptic(.light)
+                    store.openHydration()
+                } label: {
+                    Image(systemName: "drop.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color(hex: "4A9EFF"))
+                        .frame(width: 40, height: 40)
+                        .background(Color(hex: "4A9EFF").opacity(0.14))
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color(hex: "4A9EFF").opacity(0.28), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open hydration")
 
                 Button {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) { showInsights = true }

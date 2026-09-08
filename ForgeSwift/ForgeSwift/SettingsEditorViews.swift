@@ -51,52 +51,97 @@ struct FitnessGoalsEditorView: View {
 struct TrainingScheduleEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: AppStore
-    @State private var selectedDays: Set<Int> = []
-
-    private let labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    @State private var mode: SchedulePlanningMode = .rotate
+    @State private var split: [WeeklySplitSlot] = WeeklySplitSlot.defaultWeek
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Select the days you typically train. Workout reminders align to this schedule.")
-                    .font(.system(size: 14))
-                    .foregroundColor(.textSecondary)
-                    .padding(.horizontal, 16)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("The week walks day by day. Rotate lets ARIA assign the library; pick days to lock Tuesday legs, Wednesday chest and abs, or whatever you want. You can still replay yesterday from Train.")
+                        .font(.system(size: 14))
+                        .foregroundColor(.textSecondary)
 
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 10) {
-                    ForEach(0..<7, id: \.self) { day in
-                        Button {
-                            if selectedDays.contains(day) { selectedDays.remove(day) } else { selectedDays.insert(day) }
-                        } label: {
-                            Text(labels[day])
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(selectedDays.contains(day) ? .white : .textSecondary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(selectedDays.contains(day) ? Color.ember : Color.surfaceElevated)
-                                .cornerRadius(10)
+                    HStack(spacing: 8) {
+                        ForEach(SchedulePlanningMode.allCases) { option in
+                            Button {
+                                mode = option
+                            } label: {
+                                Text(option.label)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(mode == option ? .white : .textSecondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(mode == option ? Color.ember : Color.surfaceElevated)
+                                    .cornerRadius(10)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
+                    }
+
+                    ForEach($split) { $slot in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(WeeklySplit.dayNames[slot.weekday])
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.textPrimary)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 6) {
+                                    ForEach(WeeklySplit.focusChoices, id: \.label) { choice in
+                                        let on = slot.primary == choice.id && slot.extra == choice.extra
+                                        Button {
+                                            slot.primary = choice.id
+                                            slot.extra = choice.extra
+                                            if choice.id == "rest" { slot.exerciseCount = 0 }
+                                            else if slot.exerciseCount == 0 { slot.exerciseCount = 5 }
+                                            mode = .fixed
+                                        } label: {
+                                            Text(choice.label)
+                                                .font(.system(size: 12, weight: .semibold))
+                                                .foregroundColor(on ? .white : .textSecondary)
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 7)
+                                                .background(on ? Color.ember : Color.surface)
+                                                .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                            if !slot.isRest {
+                                Stepper("\(slot.exerciseCount) exercises", value: $slot.exerciseCount, in: 3...8)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.textSecondary)
+                            }
+                        }
+                        .padding(12)
+                        .background(Color.surfaceElevated)
+                        .cornerRadius(12)
                     }
                 }
-                .padding(.horizontal, 16)
-
-                Spacer()
+                .padding(16)
             }
-            .padding(.top, 12)
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("Training Schedule")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        store.updateProfile(weeklySchedule: Array(selectedDays).sorted())
+                        let week = WeeklySplit.normalized(split)
+                        store.updateProfile(
+                            weeklySchedule: WeeklySplit.trainingDays(in: week),
+                            schedulePlanningMode: mode,
+                            weeklySplit: week
+                        )
+                        store.rebuildTodayPlanFromLife()
                         dismiss()
                     }
                     .foregroundColor(.ember)
                 }
             }
-            .onAppear { selectedDays = Set(store.userProfile.weeklySchedule) }
+            .onAppear {
+                mode = store.userProfile.schedulePlanningMode
+                split = WeeklySplit.normalized(store.userProfile.weeklySplit)
+            }
         }
     }
 }

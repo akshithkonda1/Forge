@@ -1,115 +1,68 @@
 import Foundation
 
-/// Geometry and motion for ARIA's mark. Pure so tests can lock the still
-/// pose, the gaze clamp, and the slow idle — the thing that makes her feel
-/// like a mind instead of a spinner.
+/// Living 4-lobe ember. Lockstep with `src/lib/aria-mark.ts`.
 enum AriaSigilGeometry: Sendable {
 
-    /// Frozen pose for Reduce Motion and snapshots. Photon-ring gap sits
-    /// near 1 o'clock; specular reads as a lens, not a sticker.
     static let stillPose: Double = 1.72
+    static let idleBreathHz: Double = 0.42
+    static let listeningBreathHz: Double = 0.55
+    static let processingBreathHz: Double = 0.7
+    static let speakingBreathHz: Double = 0.68
+    static let maxGaze: Double = 0.14
+    static let lobeCount: Int = 4
 
-    /// Sphere fills most of the mark. Halo lives outside this.
-    static let voidRatio: Double = 0.92
-    /// The mind — a pupil of light. Small enough to feel like a thought.
-    static let mindRatio: Double = 0.118
-    /// Photon ring just inside the limb.
-    static let photonRatio: Double = 0.84
-    static let photonWidthRatio: Double = 0.038
-    /// Incomplete ring. The gap is the mystery.
-    static let photonTrimStart: Double = 0.045
-    static let photonTrimEnd: Double = 0.88
-    /// How far the mind may wander. Any more and she looks unwell.
-    static let maxGazeRatio: Double = 0.046
-    static let specularRatio: Double = 0.068
-    static let filamentRatio: Double = 0.58
-    /// Inner event-horizon line.
-    static let horizonRatio: Double = 0.36
+    private static let angles: [Double] = [0.62, 2.18, 3.92, 5.48]
+    private static let dists: [Double] = [0.26, 0.24, 0.28, 0.23]
+    private static let radii: [Double] = [0.44, 0.41, 0.43, 0.40]
+    private static let phases: [Double] = [0.0, 1.1, 2.4, 3.6]
 
-    static func breath(time: Double, state: AROrbState, reduceMotion: Bool) -> Double {
-        if reduceMotion { return 0.42 }
-        let hz: Double
+    static func breathHz(for state: AROrbState) -> Double {
         switch state {
-        case .idle: hz = 0.26
-        case .listening: hz = 0.52
-        case .processing: hz = 0.88
-        case .speaking: hz = 0.46
+        case .idle: return idleBreathHz
+        case .listening: return listeningBreathHz
+        case .processing: return processingBreathHz
+        case .speaking: return speakingBreathHz
         }
-        return 0.5 + 0.5 * sin(time * hz * .pi * 2)
-    }
-
-    static func photonSpinDegrees(time: Double, state: AROrbState, reduceMotion: Bool) -> Double {
-        if reduceMotion { return 28 }
-        let dps: Double
-        switch state {
-        case .idle: dps = 4.2
-        case .listening: dps = 10.5
-        case .processing: dps = 20
-        case .speaking: dps = 13
-        }
-        return time * dps
-    }
-
-    static func innerSpinDegrees(time: Double, state: AROrbState, reduceMotion: Bool) -> Double {
-        if reduceMotion { return -18 }
-        let dps: Double
-        switch state {
-        case .idle: dps = -7
-        case .listening: dps = -14
-        case .processing: dps = -28
-        case .speaking: dps = -16
-        }
-        return time * dps
-    }
-
-    /// A living gaze, clamped. Idle barely moves. Listening looks toward you.
-    static func gaze(time: Double, state: AROrbState, reduceMotion: Bool) -> (x: Double, y: Double) {
-        if reduceMotion { return (0.012, -0.018) }
-        let wander: Double
-        switch state {
-        case .idle: wander = 0.32
-        case .listening: wander = 0.55
-        case .processing: wander = 0.22
-        case .speaking: wander = 0.40
-        }
-        let x = sin(time * 0.17) * maxGazeRatio * wander
-        let y = cos(time * 0.13) * maxGazeRatio * wander * 0.68
-        let attend: Double
-        switch state {
-        case .listening: attend = 0.014
-        case .speaking: attend = -0.006
-        default: attend = 0
-        }
-        return (clampGaze(x), clampGaze(y + attend))
     }
 
     static func clampGaze(_ value: Double) -> Double {
-        min(maxGazeRatio, max(-maxGazeRatio, value))
+        min(maxGaze, max(-maxGaze, value))
     }
 
-    static func mindGlow(amplitude: Double, state: AROrbState, breath: Double) -> Double {
-        let base: Double
-        switch state {
-        case .idle: base = 0.42
-        case .listening: base = 0.62
-        case .processing: base = 0.55
-        case .speaking: base = 0.78
-        }
-        return min(1.0, base + amplitude * 0.22 + breath * 0.12)
+    static func gaze(time: Double, state: AROrbState, reduceMotion: Bool) -> (x: Double, y: Double) {
+        if reduceMotion { return (0.02, -0.02) }
+        let wander = state == .listening ? 0.55 : 0.32
+        let x = sin(time * 0.19) * maxGaze * wander
+        let y = cos(time * 0.15) * maxGaze * wander * 0.7
+        let attend: Double = state == .listening ? 0.03 : state == .speaking ? -0.02 : 0
+        return (clampGaze(x), clampGaze(y + attend))
     }
 
-    static func haloOpacity(state: AROrbState, breath: Double) -> Double {
-        switch state {
-        case .idle: return 0.34 + breath * 0.10
-        case .listening: return 0.48 + breath * 0.12
-        case .processing: return 0.40 + breath * 0.08
-        case .speaking: return 0.58 + breath * 0.16
+    static func lobe(index: Int, time: Double, state: AROrbState, reduceMotion: Bool) -> (x: Double, y: Double, r: Double) {
+        let i = max(0, min(lobeCount - 1, index))
+        let angle = angles[i]
+        let dist = dists[i]
+        let radius = radii[i]
+        let phase = phases[i]
+        if reduceMotion {
+            return (cos(angle) * dist, sin(angle) * dist, radius)
         }
+        let hz = breathHz(for: state)
+        let wave = sin(time * hz * .pi * 2 + phase)
+        let liveDist = dist + 0.045 * wave
+        let liveAngle = angle + 0.09 * sin(time * 0.28 * .pi * 2 + phase)
+        let liveR = radius * (0.93 + 0.09 * (0.5 + 0.5 * sin(time * hz * .pi * 2)))
+        return (cos(liveAngle) * liveDist, sin(liveAngle) * liveDist, liveR)
+    }
+
+    static func coreRadius(time: Double, state: AROrbState, reduceMotion: Bool) -> Double {
+        if reduceMotion { return 0.22 }
+        let wave = 0.5 + 0.5 * sin(time * breathHz(for: state) * .pi * 2)
+        let talk = state == .speaking ? 0.04 : 0
+        return 0.18 + wave * 0.07 + talk
     }
 }
 
-/// Metals and void. Mood tints the photon ring; the blood-shadow and ivory
-/// specular never change — that's the gray area: valuable, a little dangerous.
 enum AriaSigilPalette: Sendable {
     static let voidDeepHex = "030207"
     static let voidMidHex = "0B0812"
@@ -120,6 +73,8 @@ enum AriaSigilPalette: Sendable {
     static let frostHex = "9FD6FF"
     static let bloodHex = "4A1018"
     static let limbHex = "000000"
+    static let emberHex = "FF6A1A"
+    static let tealHex = "3EC8C8"
 
     static func photonPrimary(for mood: ARIAMood) -> String {
         switch mood {

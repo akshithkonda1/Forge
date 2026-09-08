@@ -38,8 +38,13 @@ struct SleepView: View {
 
     private func consumePendingSleepTab() {
         guard let leaf = store.pendingSleepTab else { return }
-        if leaf == "alarms" || leaf == "wake" {
+        switch leaf {
+        case "alarms", "wake":
             selectedTab = .alarms
+        case "night", "tonight", "wind-down", "winddown":
+            selectedTab = .night
+        default:
+            break
         }
         store.pendingSleepTab = nil
     }

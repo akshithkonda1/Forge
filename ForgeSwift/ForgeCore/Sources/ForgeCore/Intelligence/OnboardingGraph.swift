@@ -11,6 +11,7 @@ public enum OnboardingGraph {
 
     public enum Step: String, CaseIterable, Sendable, Equatable {
         case intro, name, health, details, goals, experience, workouts
+        case schedule
         case sleep, freeTime, coaching, conditions, ready
         /// Kept for migration. Not in `activeSteps`.
         case trainingTheme, lifeContext
@@ -32,7 +33,7 @@ public enum OnboardingGraph {
     /// screens are collapsed into `freeTime` and must not inflate the fraction.
     public static let activeSteps: [Step] = [
         .intro, .name, .health, .details, .goals, .experience,
-        .workouts, .sleep, .freeTime, .coaching, .conditions, .ready,
+        .workouts, .schedule, .sleep, .freeTime, .coaching, .conditions, .ready,
     ]
 
     public static let sleepVarianceHabitId = "sleep_variance"

@@ -106,7 +106,7 @@ struct HydrationWidget: Widget {
                 .widgetURL(ForgeWidgetLink.hydration)
         }
         .configurationDisplayName("Hydration")
-        .description("Today's water against your need. Log a glass without opening Forge.")
+        .description("Today's water against your need. Log a glass — Forge opens so Apple Health stays in sync.")
         .supportedFamilies([
             .systemSmall,
             .systemMedium,

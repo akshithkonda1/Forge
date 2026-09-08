@@ -68,25 +68,29 @@ enum ForgeNotificationScheduler {
                 id: ID.lifestyleHydration,
                 hours: 2,
                 title: "Hydration Check",
-                body: "Time for water — stay on track with your lifestyle goals."
+                body: "Time for water — stay on track with your lifestyle goals.",
+                destination: "forge://hydration"
             )
             await scheduleDaily(
                 id: ID.lifestyleLunch,
                 hour: 12, minute: 0,
                 title: "Lunch Reminder",
-                body: "Log your meal to keep protein and calories accurate."
+                body: "Log your meal to keep protein and calories accurate.",
+                destination: "forge://lifestyle/nutrition"
             )
             await scheduleDaily(
                 id: ID.lifestyleDinner,
                 hour: 18, minute: 30,
                 title: "Dinner Reminder",
-                body: "Plan a protein-forward dinner to close your macro gap."
+                body: "Plan a protein-forward dinner to close your macro gap.",
+                destination: "forge://lifestyle/nutrition"
             )
             await scheduleDaily(
                 id: ID.lifestyleSleep,
                 hour: 21, minute: 0,
                 title: "Wind Down",
-                body: "Start your bedtime routine for better recovery tomorrow."
+                body: "Start your bedtime routine for better recovery tomorrow.",
+                destination: "forge://sleep/night"
             )
         }
 
@@ -95,13 +99,15 @@ enum ForgeNotificationScheduler {
                 id: ID.briefMorning,
                 hour: brief.morningHour, minute: brief.morningMinute,
                 title: "ARIA Morning Brief",
-                body: "Your personalized morning coaching brief is ready."
+                body: "Your personalized morning coaching brief is ready.",
+                destination: "forge://aria"
             )
             await scheduleDaily(
                 id: ID.briefEvening,
                 hour: brief.eveningHour, minute: brief.eveningMinute,
                 title: "ARIA Evening Brief",
-                body: "Review today's signals and tomorrow's focus."
+                body: "Review today's signals and tomorrow's focus.",
+                destination: "forge://sleep/night"
             )
         }
 
@@ -285,11 +291,20 @@ enum ForgeNotificationScheduler {
         try? await center.add(request)
     }
 
-    private static func scheduleInterval(id: String, hours: Int, title: String, body: String) async {
+    private static func scheduleInterval(
+        id: String,
+        hours: Int,
+        title: String,
+        body: String,
+        destination: String? = nil
+    ) async {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
+        if let destination {
+            content.userInfo = ["destination": destination]
+        }
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(hours * 3600), repeats: true)
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
         try? await center.add(request)

@@ -91,7 +91,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.25, "answer": "late sonnet answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "opus fallback answer"},
-                "moonshotai.kimi-k2.5": {"delay": 0.01, "answer": "kimi answer"},
+                "global.xai.grok-4.6": {"delay": 0.01, "answer": "grok answer"},
             },
             consensus_answer="consensus from sonnet and opus",
         )
@@ -124,7 +124,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.1, "answer": "sonnet answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.05, "answer": "opus answer"},
-                "moonshotai.kimi-k2.5": {"delay": 0.08, "answer": "kimi answer"},
+                "global.xai.grok-4.6": {"delay": 0.08, "answer": "grok answer"},
             },
             consensus_answer="consensus from all three models",
         )
@@ -187,7 +187,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.01, "answer": "answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "backup"},
-                "moonshotai.kimi-k2.5": {"delay": 0.01, "answer": "backup 2"},
+                "global.xai.grok-4.6": {"delay": 0.01, "answer": "backup 2"},
             },
             previews={
                 "private/user/metrics.txt": "resting HR 52, HRV 71, sleep efficiency 92%",
@@ -224,7 +224,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.04, "answer": "sonnet answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "opus answer"},
-                "moonshotai.kimi-k2.5": {"delay": 0.01, "answer": "kimi answer"},
+                "global.xai.grok-4.6": {"delay": 0.01, "answer": "grok answer"},
             },
             consensus_answer="",
         )
@@ -252,7 +252,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.35, "answer": "sonnet answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "opus answer"},
-                "moonshotai.kimi-k2.5": {"delay": 0.01, "answer": "kimi answer"},
+                "global.xai.grok-4.6": {"delay": 0.01, "answer": "grok answer"},
             },
             consensus_answer="should not be used",
         )
@@ -282,7 +282,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.01, "answer": "answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "backup"},
-                "moonshotai.kimi-k2.5": {"delay": 0.01, "answer": "backup 2"},
+                "global.xai.grok-4.6": {"delay": 0.01, "answer": "backup 2"},
             },
             preview_errors={
                 "private/user/metrics.txt": "missing key",
@@ -312,7 +312,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.04, "answer": "sonnet answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.02, "answer": "opus answer"},
-                "moonshotai.kimi-k2.5": {"delay": 0.03, "answer": "kimi answer"},
+                "global.xai.grok-4.6": {"delay": 0.03, "answer": "grok answer"},
             },
             consensus_answer="consensus from inferred size",
             head_sizes={
@@ -350,7 +350,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.01, "answer": "answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "backup"},
-                "moonshotai.kimi-k2.5": {"delay": 0.01, "answer": "backup 2"},
+                "global.xai.grok-4.6": {"delay": 0.01, "answer": "backup 2"},
             },
             head_errors={
                 "private/user/export.csv": "access denied",

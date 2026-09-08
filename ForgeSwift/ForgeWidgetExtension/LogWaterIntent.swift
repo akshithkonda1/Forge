@@ -1,13 +1,12 @@
 import AppIntents
 import ForgeCore
 
-/// Interactive widget action: enqueue a glass so the next app refresh writes
-/// it to Apple Health. The snapshot is bumped immediately so the widget
-/// does not wait for HealthKit.
+/// Interactive widget action: enqueue a glass, open Forge, and write it
+/// to Apple Health from the app process that holds the entitlement.
 struct LogWaterGlassIntent: AppIntent {
     static var title: LocalizedStringResource = "Log a glass of water"
-    static var description = IntentDescription("Adds one glass to today's hydration. Forge writes it to Apple Health the next time it opens.")
-    static var openAppWhenRun: Bool = false
+    static var description = IntentDescription("Adds one glass to today's hydration and opens Forge so Apple Health stays in sync.")
+    static var openAppWhenRun: Bool = true
 
     func perform() async throws -> some IntentResult {
         let ml = HydrationEngine.glassMilliliters

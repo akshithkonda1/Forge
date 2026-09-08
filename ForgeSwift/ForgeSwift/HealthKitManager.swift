@@ -145,7 +145,7 @@ struct CycleHealthSummary: Identifiable, Codable {
 // MARK: - Structured Health records (allergies, meds, conditions, shots, labs, procedures)
 
 enum StructuredHealthKind: String, CaseIterable, Codable, Identifiable {
-    case allergy, medication, condition, immunization, lab, procedure
+    case allergy, medication, condition, immunization, lab, procedure, vital
 
     var id: String { rawValue }
 
@@ -157,6 +157,7 @@ enum StructuredHealthKind: String, CaseIterable, Codable, Identifiable {
         case .immunization: return "Immunizations"
         case .lab: return "Lab results"
         case .procedure: return "Procedures"
+        case .vital: return "Clinical vitals"
         }
     }
 
@@ -168,6 +169,7 @@ enum StructuredHealthKind: String, CaseIterable, Codable, Identifiable {
         case .immunization: return "cross.case.fill"
         case .lab: return "testtube.2"
         case .procedure: return "stethoscope"
+        case .vital: return "waveform.path.ecg"
         }
     }
 
@@ -179,7 +181,12 @@ enum StructuredHealthKind: String, CaseIterable, Codable, Identifiable {
         case .immunizationRecord: self = .immunization
         case .labResultRecord: self = .lab
         case .procedureRecord: self = .procedure
-        default: return nil
+        default:
+            if identifier.rawValue == "HKClinicalTypeIdentifierVitalSignRecord" {
+                self = .vital
+            } else {
+                return nil
+            }
         }
     }
 }
@@ -225,7 +232,8 @@ struct ClinicalRecordsSummary: Identifiable, Codable {
             conditions: names(.condition),
             immunizations: names(.immunization),
             labResults: names(.lab),
-            procedures: names(.procedure)
+            procedures: names(.procedure),
+            vitalSigns: names(.vital)
         )
     }
 
@@ -325,127 +333,16 @@ class HealthKitManager: ObservableObject {
     static let testReadyIntensityKey = "com.forge.intensity"
     static let testReadyVolumeKey = "com.forge.volume"
     
-    // Types requested by the primary onboarding flow. Keep this prompt focused and reliable.
-    private let coreReadTypes: Set<HKObjectType> = [
-        HKCharacteristicType(.dateOfBirth),
-        HKCharacteristicType(.biologicalSex),
-        HKCharacteristicType(.bloodType),
-        HKCharacteristicType(.activityMoveMode),
-        HKQuantityType(.heartRate),
-        HKQuantityType(.restingHeartRate),
-        HKQuantityType(.walkingHeartRateAverage),
-        HKQuantityType(.heartRateRecoveryOneMinute),
-        HKQuantityType(.heartRateVariabilitySDNN),
-        HKQuantityType(.oxygenSaturation),
-        HKQuantityType(.respiratoryRate),
-        HKQuantityType(.activeEnergyBurned),
-        HKQuantityType(.basalEnergyBurned),
-        HKQuantityType(.appleExerciseTime),
-        HKQuantityType(.appleStandTime),
-        HKQuantityType(.stepCount),
-        HKQuantityType(.flightsClimbed),
-        HKQuantityType(.distanceWalkingRunning),
-        HKQuantityType(.distanceCycling),
-        HKQuantityType(.distanceSwimming),
-        HKQuantityType(.swimmingStrokeCount),
-        HKQuantityType(.walkingSpeed),
-        HKQuantityType(.walkingStepLength),
-        HKQuantityType(.runningSpeed),
-        HKQuantityType(.runningPower),
-        HKQuantityType(.runningStrideLength),
-        HKQuantityType(.cyclingSpeed),
-        HKQuantityType(.cyclingPower),
-        HKQuantityType(.vo2Max),
-        HKCategoryType(.sleepAnalysis),
-        HKCategoryType(.mindfulSession),
-        HKCategoryType(.highHeartRateEvent),
-        HKCategoryType(.lowHeartRateEvent),
-        HKCategoryType(.irregularHeartRhythmEvent),
-        HKQuantityType(.bodyMass),
-        HKQuantityType(.leanBodyMass),
-        HKQuantityType(.bodyFatPercentage),
-        HKQuantityType(.height),
-        HKQuantityType(.bodyMassIndex),
-        HKQuantityType(.dietaryProtein),
-        HKQuantityType(.dietaryCarbohydrates),
-        HKQuantityType(.dietaryFatTotal),
-        HKQuantityType(.dietaryFiber),
-        HKQuantityType(.dietarySugar),
-        HKQuantityType(.dietarySodium),
-        HKQuantityType(.dietaryCaffeine),
-        HKQuantityType(.dietaryEnergyConsumed),
-        HKQuantityType(.dietaryWater),
-        HKWorkoutType.workoutType(),
-        HKObjectType.activitySummaryType()
-    ]
+    private var writeTypes: Set<HKSampleType> { HealthKitAuthorizationPlan.writeTypes }
 
-    // Sensitive lifestyle types stay opt-in so the first HealthKit connection stays stable.
-    private let sensitiveLifestyleReadTypes: Set<HKObjectType> = [
-        HKQuantityType(.bodyTemperature),
-        HKQuantityType(.appleSleepingWristTemperature),
-        HKQuantityType(.bloodPressureSystolic),
-        HKQuantityType(.bloodPressureDiastolic),
-        HKCategoryType(.menstrualFlow),
-        HKCategoryType(.intermenstrualBleeding),
-        HKCategoryType(.infrequentMenstrualCycles),
-        HKCategoryType(.irregularMenstrualCycles),
-        HKCategoryType(.persistentIntermenstrualBleeding),
-        HKCategoryType(.prolongedMenstrualPeriods),
-        HKQuantityType(.basalBodyTemperature),
-        HKCategoryType(.cervicalMucusQuality),
-        HKCategoryType(.ovulationTestResult),
-        HKCategoryType(.progesteroneTestResult),
-        HKCategoryType(.sexualActivity),
-        HKCategoryType(.contraceptive),
-        HKCategoryType(.pregnancy),
-        HKCategoryType(.pregnancyTestResult),
-        HKCategoryType(.lactation)
-    ]
-
-    // Types to read for coaching, recovery, profile prefill, nutrition, and activity trends.
-    // Structured Health records only — never clinical notes or insurance coverage.
-    private var readTypes: Set<HKObjectType> {
-        coreReadTypes
-            .union(sensitiveLifestyleReadTypes)
-            .union(HealthKitManager.structuredHealthRecordTypes)
+    /// Allergies, meds, conditions, immunizations, labs, procedures, vitals.
+    /// Not notes. Not coverage. Those are PHI we will not ingest.
+    static var structuredHealthRecordIdentifiers: [HKClinicalTypeIdentifier] {
+        HealthKitAuthorizationPlan.structuredClinicalIdentifiers
     }
 
-    /// Allergies, meds, conditions, immunizations, labs, procedures.
-    /// Not notes. Not coverage. Those are PHI we will not ingest.
-    static let structuredHealthRecordIdentifiers: [HKClinicalTypeIdentifier] = [
-        .allergyRecord,
-        .medicationRecord,
-        .conditionRecord,
-        .immunizationRecord,
-        .labResultRecord,
-        .procedureRecord,
-    ]
-
-    private static let structuredHealthRecordTypes: Set<HKObjectType> = Set(
-        structuredHealthRecordIdentifiers.compactMap { HKObjectType.clinicalType(forIdentifier: $0) }
-    )
-
-    // Types to write during the primary onboarding prompt.
-    private let coreWriteTypes: Set<HKSampleType> = [
-        HKQuantityType(.activeEnergyBurned),
-        HKQuantityType(.dietaryProtein),
-        HKQuantityType(.dietaryCarbohydrates),
-        HKQuantityType(.dietaryFatTotal),
-        HKQuantityType(.dietaryEnergyConsumed),
-        HKQuantityType(.dietaryWater),
-        HKWorkoutType.workoutType()
-    ]
-
-    // Expanded write types for sensitive lifestyle logging.
-    private var writeTypes: Set<HKSampleType> {
-        coreWriteTypes.union([
-            HKCategoryType(.sexualActivity),
-            HKCategoryType(.mindfulSession),
-            HKCategoryType(.menstrualFlow),
-            HKQuantityType(.basalBodyTemperature),
-            HKCategoryType(.cervicalMucusQuality),
-            HKCategoryType(.ovulationTestResult),
-        ])
+    private static var structuredHealthRecordTypes: Set<HKObjectType> {
+        HealthKitAuthorizationPlan.clinicalReadTypes
     }
     
     private init() {
@@ -475,12 +372,32 @@ class HealthKitManager: ObservableObject {
         return isAuthorized
     }
     
+    /// First connect, Medicine Allow, and lifestyle opt-in all use this.
+    /// Clinical types are omitted on Simulator / devices without Health Records
+    /// so the system sheet cannot abort the process.
     func requestAuthorization() async throws {
+        try await requestFullAppleHealthAuthorization()
+    }
+
+    var canRequestStructuredRecords: Bool {
+        isHealthDataAvailable() && healthStore.supportsHealthRecords()
+    }
+
+    var hasStructuredRecordsAccess: Bool {
+        UserDefaults.standard.bool(forKey: clinicalAuthorizationRequestedKey)
+    }
+
+    func requestFullAppleHealthAuthorization() async throws {
+        let includeClinical = canRequestStructuredRecords
         try await requestHealthKitAuthorization(
-            toShare: coreWriteTypes,
-            read: coreReadTypes,
+            toShare: writeTypes,
+            read: HealthKitAuthorizationPlan.readTypes(includeClinical: includeClinical),
             requestedKey: authorizationRequestedKey
         )
+        UserDefaults.standard.set(true, forKey: expandedAuthorizationRequestedKey)
+        if includeClinical {
+            UserDefaults.standard.set(true, forKey: clinicalAuthorizationRequestedKey)
+        }
     }
 
     /// Extra share types the simulator Health pack needs (sleep, HRV, RHR,
@@ -494,29 +411,37 @@ class HealthKitManager: ObservableObject {
             HKQuantityType(.bodyTemperature),
         ]
         try await requestHealthKitAuthorization(
-            toShare: coreWriteTypes.union(extra),
-            read: coreReadTypes,
+            toShare: writeTypes.union(extra),
+            read: HealthKitAuthorizationPlan.readTypes(includeClinical: false),
             requestedKey: authorizationRequestedKey
         )
+        UserDefaults.standard.set(true, forKey: expandedAuthorizationRequestedKey)
     }
 
     func requestExpandedLifestyleAuthorization() async throws {
-        try await requestHealthKitAuthorization(
-            toShare: writeTypes,
-            read: readTypes.subtracting(HealthKitManager.structuredHealthRecordTypes),
-            requestedKey: expandedAuthorizationRequestedKey
-        )
-    }
-
-    var hasStructuredRecordsAccess: Bool {
-        UserDefaults.standard.bool(forKey: clinicalAuthorizationRequestedKey)
+        try await requestFullAppleHealthAuthorization()
     }
 
     func requestClinicalRecordsAuthorization() async throws {
-        try await requestHealthKitAuthorization(
-            toShare: [],
-            read: HealthKitManager.structuredHealthRecordTypes,
-            requestedKey: clinicalAuthorizationRequestedKey
+        guard canRequestStructuredRecords else {
+            authorizationErrorMessage = "Health Records aren't available on this device."
+            throw HealthKitError.notAvailable
+        }
+        try await requestFullAppleHealthAuthorization()
+    }
+
+    /// Pull Health into Forge the moment Allow succeeds — profile, records, tags.
+    func applyConnectedHealthToForge() async {
+        if canRequestStructuredRecords {
+            lastClinicalAt = nil
+            _ = await fetchClinicalRecordsSummary()
+        }
+        let profile = await fetchUserProfile()
+        AriaContextStore.shared.applyMedicationLayer()
+        AriaContextStore.shared.applyHealthConnectTags(
+            bloodType: profile?.bloodType,
+            hasClinical: hasStructuredRecordsAccess,
+            clinicalCount: clinicalSummary?.totalRecordCount ?? 0
         )
     }
 
@@ -529,9 +454,18 @@ class HealthKitManager: ObservableObject {
             authorizationErrorMessage = "Health data is not available on this device."
             throw HealthKitError.notAvailable
         }
+
+        let safeRead = HealthKitAuthorizationPlan.sanitizedReadTypes(
+            readTypes,
+            supportsHealthRecords: healthStore.supportsHealthRecords()
+        )
+        guard !safeRead.isEmpty else {
+            authorizationErrorMessage = "Health data is not available on this device."
+            throw HealthKitError.notAvailable
+        }
         
         do {
-            try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)
+            try await healthStore.requestAuthorization(toShare: shareTypes, read: safeRead)
             UserDefaults.standard.set(true, forKey: requestedKey)
             if requestedKey != authorizationRequestedKey {
                 UserDefaults.standard.set(true, forKey: authorizationRequestedKey)
@@ -629,7 +563,7 @@ class HealthKitManager: ObservableObject {
     private func scheduleLiveRefresh() {
         liveRefreshTask?.cancel()
         liveRefreshTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 350_000_000)
+            try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
             await refreshHydration()
             await AriaHealthRiskBridge.evaluateFromHealthKit(
@@ -732,10 +666,16 @@ struct UserHealthProfile {
 /// HealthKit can invoke a query handler more than once. Resume the
 /// continuation exactly once so the medicine page cannot crash on that path.
 private final class ClinicalQueryResumeOnce<T>: @unchecked Sendable {
+    private let lock = NSLock()
     private var done = false
     func finish(_ value: T, _ resume: (T) -> Void) {
-        guard !done else { return }
+        lock.lock()
+        if done {
+            lock.unlock()
+            return
+        }
         done = true
+        lock.unlock()
         resume(value)
     }
 }

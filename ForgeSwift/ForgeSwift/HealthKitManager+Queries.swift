@@ -5,7 +5,7 @@ import ForgeCore
 extension HealthKitManager {
 
     func fetchCumulativeQuantity(_ identifier: HKQuantityTypeIdentifier, unit: HKUnit, from start: Date, to end: Date) async -> Double? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: identifier) else { return nil }
+        let type = HKQuantityType(identifier)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
         
         return await withCheckedContinuation { continuation in
@@ -25,7 +25,7 @@ extension HealthKitManager {
     }
 
     func fetchAverageQuantity(_ identifier: HKQuantityTypeIdentifier, unit: HKUnit, from start: Date, to end: Date) async -> Double? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: identifier) else { return nil }
+        let type = HKQuantityType(identifier)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
         
         return await withCheckedContinuation { continuation in
@@ -45,7 +45,7 @@ extension HealthKitManager {
     }
 
     func fetchMostRecentQuantity(_ identifier: HKQuantityTypeIdentifier, unit: HKUnit) async -> Double? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: identifier) else { return nil }
+        let type = HKQuantityType(identifier)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
         
         return await withCheckedContinuation { continuation in
@@ -99,7 +99,7 @@ extension HealthKitManager {
             case .luteinizingHormoneSurge: return "LH Surge"
             case .indeterminate: return "Indeterminate"
             case .estrogenSurge: return "Estrogen Surge"
-            case .positive: return "Positive"
+            case .positive: return "LH Surge"
             @unknown default: return nil
             }
         case .pregnancyTestResult:
@@ -124,7 +124,7 @@ extension HealthKitManager {
     }
 
     func menstrualFlowLabel(rawValue: Int) -> String? {
-        guard let value = HKCategoryValueMenstrualFlow(rawValue: rawValue) else { return nil }
+        guard let value = HKCategoryValueVaginalBleeding(rawValue: rawValue) else { return nil }
         switch value {
         case .unspecified: return "Unspecified"
         case .none: return "None"
@@ -141,7 +141,7 @@ extension HealthKitManager {
         predicate: NSPredicate?,
         limit: Int
     ) async -> [(date: Date, value: Double)] {
-        guard let type = HKQuantityType.quantityType(forIdentifier: identifier) else { return [] }
+        let type = HKQuantityType(identifier)
         let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(

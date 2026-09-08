@@ -4,14 +4,15 @@ import SwiftUI
 
 struct VoiceCoachBar: View {
     @Bindable var coach: VoiceCoachManager
-    
+    private let presence = AriaPresence.shared
+
     var body: some View {
         VStack(spacing: 0) {
             // Message area
             HStack(spacing: 12) {
                 // Forge avatar with live state indicator
                 ForgeAvatarView(
-                    isSpeaking: coach.isSpeaking,
+                    isSpeaking: presence.isSpeaking,
                     isThinking: coach.isThinking,
                     isListening: coach.isListening
                 )
@@ -139,6 +140,7 @@ struct ForgeAvatarView: View {
 
 struct MicButton: View {
     @Bindable var coach: VoiceCoachManager
+    private let presence = AriaPresence.shared
     @State private var isPressed = false
     
     var body: some View {
@@ -176,7 +178,7 @@ struct MicButton: View {
     
     var micIcon: String {
         if coach.isListening { return "stop.fill" }
-        if coach.isSpeaking { return "speaker.wave.2.fill" }
+        if presence.isSpeaking { return "speaker.wave.2.fill" }
         return "mic.fill"
     }
     
@@ -193,7 +195,7 @@ struct MicButton: View {
         if coach.isListening {
             coach.stopListening()
         } else {
-            if coach.isSpeaking {
+            if presence.isSpeaking {
                 coach.interruptSpeech()
             }
             coach.startListening()
@@ -239,10 +241,10 @@ struct VoiceToggleButton: View {
     }
 }
 
-/// Mute ARIA's Train voice. Idle, library, and the live set all share one
-/// UserDefaults flag so mute actually sticks.
-struct AriaTrainMuteButton: View {
-    @AppStorage("aria.train.voiceMuted") private var muted = false
+/// Mute ARIA's spoken voice on every surface that talks: welcome, onboarding,
+/// chat, Train. One UserDefaults flag so mute actually sticks.
+struct AriaSpokenMuteButton: View {
+    @AppStorage(AriaSpokenMute.mutedKey) private var muted = true
     var coach: VoiceCoachManager? = nil
 
     var body: some View {
@@ -261,17 +263,19 @@ struct AriaTrainMuteButton: View {
         .buttonStyle(.plain)
         .accessibilityLabel(muted ? "Unmute ARIA voice" : "Mute ARIA voice")
         .accessibilityValue(muted ? "Muted" : "On")
-        .accessibilityHint("Turns coaching speech on or off in Train")
+        .accessibilityHint("Turns ARIA's spoken voice on or off")
     }
 
     private func toggle() {
         FDS.haptic(.light)
         muted.toggle()
+        AriaSpokenMute.isMuted = muted
         if let coach {
             coach.setVoiceEnabled(!muted)
-        } else {
-            AriaTrainVoice.isEnabled = !muted
-            if muted { AriaPresence.shared.stopSpeaking() }
         }
+        if muted { AriaPresence.shared.stopSpeaking() }
     }
 }
+
+/// Train screens keep this name so existing call sites stay readable.
+typealias AriaTrainMuteButton = AriaSpokenMuteButton

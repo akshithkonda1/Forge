@@ -28,6 +28,18 @@ extension AppStore {
         isWorkoutActive = true
     }
 
+    /// Open today's existing plan without rewriting it from life signals.
+    /// Rebuilds only when there is nothing to start.
+    func startExistingWorkout() {
+        if !isWorkoutActive {
+            if todayWorkout == nil {
+                rebuildTodayPlanFromLife()
+            }
+            startWorkout()
+        }
+        activeTab = .workout
+    }
+
     func nextSet() {
         currentSet += 1
     }
@@ -71,8 +83,8 @@ extension AppStore {
     func adoptWorkoutFromRichCard(_ card: RichCardData) {
         guard card.type == .workoutPlan,
               let name = card.workoutName,
-              let duration = card.workoutDuration,
-              let moves = card.workoutExercises else { return }
+              let moves = card.workoutExercises, !moves.isEmpty else { return }
+        let duration = card.workoutDuration ?? max(20, moves.count * 8)
         let exercises = moves.enumerated().map { idx, move in
             Exercise(
                 id: "aria-live-\(idx)",

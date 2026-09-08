@@ -15,6 +15,9 @@ struct ARIAContextPayload: Codable, Equatable {
     var lifestyle: LifestyleDomain
     /// Structured Health records (Non PHI). Names only. Notes never included.
     var clinicalData: ClinicalDataDomain? = nil
+    /// Federal pharmacy context: Health/saved meds plus names mentioned this
+    /// turn, each resolved to brand, generic, archetype, and disease.
+    var medicationLayer: MedicationContextLayer? = nil
     /// Token-efficient conversational memory: a handful of verbatim recent
     /// turns plus compressed anchors for everything older. Optional so older
     /// backends that don't know the field simply ignore it.
@@ -39,9 +42,13 @@ struct ARIAContextPayload: Codable, Equatable {
 
     struct TrainingDomain: Codable, Equatable {
         var lastWorkoutType: String? = nil
+        var lastWorkoutName: String? = nil
         var lastWorkoutDurationMinutes: Double? = nil
         var hoursSinceLastWorkout: Double? = nil
         var weeklyLoadScore: Double? = nil
+        var schedulePlanningMode: String? = nil
+        var weeklySplit: [WeeklySplitSlot]? = nil
+        var sun0Weekday: Int? = nil
     }
 
     struct ActivityDomain: Codable, Equatable {
@@ -102,10 +109,12 @@ struct ARIAContextPayload: Codable, Equatable {
         var immunizations: [String]
         var labResults: [String]
         var procedures: [String]
+        var vitalSigns: [String] = []
 
         var isEmpty: Bool {
             allergies.isEmpty && medications.isEmpty && conditions.isEmpty
                 && immunizations.isEmpty && labResults.isEmpty && procedures.isEmpty
+                && vitalSigns.isEmpty
         }
     }
 

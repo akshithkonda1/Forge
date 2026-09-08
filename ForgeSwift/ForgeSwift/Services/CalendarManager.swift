@@ -50,15 +50,29 @@ final class CalendarManager: ObservableObject {
         )
     }
 
+    /// True when EventKit reports full calendar read access.
+    /// `.authorized` was renamed to `.fullAccess` and is deprecated on iOS 17+.
+    static func hasReadAccess(_ status: EKAuthorizationStatus) -> Bool {
+        status == .fullAccess
+    }
+
     func authorizationStatus() -> EKAuthorizationStatus {
         EKEventStore.authorizationStatus(for: .event)
     }
 
     func requestAccess() async throws {
         let status = EKEventStore.authorizationStatus(for: .event)
-        if status == .authorized || status == .fullAccess {
+        switch status {
+        case .fullAccess:
             isAuthorized = true
             return
+        case .denied, .restricted:
+            isAuthorized = false
+            throw CalendarError.denied
+        case .writeOnly, .notDetermined:
+            break
+        @unknown default:
+            break
         }
         let granted = try await store.requestFullAccessToEvents()
         isAuthorized = granted
@@ -118,7 +132,7 @@ final class CalendarManager: ObservableObject {
     private func fetchRange(start: Date, end: Date) async {
         guard isAuthorized
             || authorizationStatus() == .authorized
-            || authorizationStatus() == .fullAccess else { return }
+            || Self.hasReadAccess(authorizationStatus()) else { return }
         let calendars = store.calendars(for: .event)
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
         let events = store.events(matching: predicate)
@@ -130,15 +144,13 @@ final class CalendarManager: ObservableObject {
             FakeCalendarPack.kind(fromNotes: event.notes)
                 ?? FakeCalendarPack.kind(fromURL: event.url)
         }
-        await MainActor.run {
-            self.upcomingEvents = filtered.sorted { $0.startDate < $1.startDate }
-            let cal = Calendar.current
-            let today = cal.startOfDay(for: Date())
-            let tomorrow = cal.date(byAdding: .day, value: 1, to: today) ?? Date()
-            self.busyWindowsToday = filtered.filter { $0.startDate < tomorrow && $0.endDate > today }.count
-            self.weekBusyWindows = filtered.count
-            self.classifiedKinds = Array(Set(kinds)).sorted()
-        }
+        upcomingEvents = filtered.sorted { $0.startDate < $1.startDate }
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let tomorrow = cal.date(byAdding: .day, value: 1, to: today) ?? Date()
+        busyWindowsToday = filtered.filter { $0.startDate < tomorrow && $0.endDate > today }.count
+        weekBusyWindows = filtered.count
+        classifiedKinds = Array(Set(kinds)).sorted()
     }
 
     /// Writes only onto `FakeCalendarPack.calendarTitle`. Aborts rather than

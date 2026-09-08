@@ -80,6 +80,9 @@ final class LifestyleViewModel: ObservableObject {
         // Don't re-prompt on every tab tap.
         if !healthManager.isAuthorized {
             _ = try? await healthManager.requestAuthorization()
+            if healthManager.isAuthorized {
+                await healthManager.applyConnectedHealthToForge()
+            }
         }
 
         await healthManager.fetchTodayStats(force: force)
