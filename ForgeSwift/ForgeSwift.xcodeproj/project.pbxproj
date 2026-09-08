@@ -45,6 +45,8 @@
 		1ARIA0612F9FF867004091AA /* AriaWelcomeChime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */; };
 		1VOICE0022F9FF867004091AA /* AriaInterviewVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */; };
 		1VOICE0042F9FF867004091AA /* AriaSpokenVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0032F9FF867004091AA /* AriaSpokenVoice.swift */; };
+		1VOICE0112F9FF867004091AA /* AriaCharacterVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0102F9FF867004091AA /* AriaCharacterVoice.swift */; };
+		1VOICE0132F9FF867004091AA /* AriaVoiceSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0122F9FF867004091AA /* AriaVoiceSession.swift */; };
 		1XCAT0022F9FF867004091AA /* ExerciseCatalogExpansion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1XCAT0012F9FF867004091AA /* ExerciseCatalogExpansion.swift */; };
 		1SLEEP013F9FF867004091AA /* SleepSoundEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */; };
 		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
@@ -316,6 +318,7 @@
 		1TEST02400000000000000A /* AriaInterviewVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */; };
 		1TEST02600000000000000A /* AriaSigilTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02500000000000000A /* AriaSigilTests.swift */; };
 		1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */; };
+		1TEST03400000000000000A /* AriaVoiceSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03300000000000000A /* AriaVoiceSessionTests.swift */; };
 		1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02900000000000000A /* AriaLogoPresenceTests.swift */; };
 		1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */; };
 		1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */; };
@@ -437,6 +440,8 @@
 		1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaWelcomeChime.swift; sourceTree = "<group>"; };
 		1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewVoice.swift; sourceTree = "<group>"; };
 		1VOICE0032F9FF867004091AA /* AriaSpokenVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoice.swift; sourceTree = "<group>"; };
+		1VOICE0102F9FF867004091AA /* AriaCharacterVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCharacterVoice.swift; sourceTree = "<group>"; };
+		1VOICE0122F9FF867004091AA /* AriaVoiceSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceSession.swift; sourceTree = "<group>"; };
 		1XCAT0012F9FF867004091AA /* ExerciseCatalogExpansion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCatalogExpansion.swift; sourceTree = "<group>"; };
 		1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSoundEngine.swift; sourceTree = "<group>"; };
 		1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MusicControllerFactory.swift; sourceTree = SOURCE_ROOT; };
@@ -474,6 +479,7 @@
 		1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewVoiceTests.swift; sourceTree = "<group>"; };
 		1TEST02500000000000000A /* AriaSigilTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSigilTests.swift; sourceTree = "<group>"; };
 		1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoiceTests.swift; sourceTree = "<group>"; };
+		1TEST03300000000000000A /* AriaVoiceSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceSessionTests.swift; sourceTree = "<group>"; };
 		1TEST02900000000000000A /* AriaLogoPresenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaLogoPresenceTests.swift; sourceTree = "<group>"; };
 		1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentPracticeAPITests.swift; sourceTree = "<group>"; };
 		1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitAuthorizationPlanTests.swift; sourceTree = "<group>"; };
@@ -926,6 +932,8 @@
 				3EFADEBB5E6749FF6794C3D4 /* AriaInterviewLayout.swift */,
 				1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */,
 				1VOICE0032F9FF867004091AA /* AriaSpokenVoice.swift */,
+				1VOICE0102F9FF867004091AA /* AriaCharacterVoice.swift */,
+				1VOICE0122F9FF867004091AA /* AriaVoiceSession.swift */,
 				5D1B4CAD5FA5D25B74EC6E1C /* OnboardingComposers.swift */,
 				946C46A9CAC2E8FAA15F2A6E /* OnboardingComponents.swift */,
 				AA0002000000000000000007 /* HomeView.swift */,
@@ -1209,6 +1217,7 @@
 				1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */,
 				1TEST02500000000000000A /* AriaSigilTests.swift */,
 				1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */,
+				1TEST03300000000000000A /* AriaVoiceSessionTests.swift */,
 				1TEST02900000000000000A /* AriaLogoPresenceTests.swift */,
 				1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */,
 				1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */,
@@ -1582,6 +1591,8 @@
 				616F3C419B3EB7ADAE50115B /* AriaInterviewLayout.swift in Sources */,
 				1VOICE0022F9FF867004091AA /* AriaInterviewVoice.swift in Sources */,
 				1VOICE0042F9FF867004091AA /* AriaSpokenVoice.swift in Sources */,
+				1VOICE0112F9FF867004091AA /* AriaCharacterVoice.swift in Sources */,
+				1VOICE0132F9FF867004091AA /* AriaVoiceSession.swift in Sources */,
 				4A125A771F1A069647744C7B /* OnboardingComposers.swift in Sources */,
 				6CBB68B52859EB1DA316AE05 /* OnboardingComponents.swift in Sources */,
 				1E7A68E62FA2FD6600B0DD08 /* ForgeDesignSystem.swift in Sources */,
@@ -1770,6 +1781,7 @@
 				1TEST02400000000000000A /* AriaInterviewVoiceTests.swift in Sources */,
 				1TEST02600000000000000A /* AriaSigilTests.swift in Sources */,
 				1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */,
+				1TEST03400000000000000A /* AriaVoiceSessionTests.swift in Sources */,
 				1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */,
 				1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */,
 				1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */,

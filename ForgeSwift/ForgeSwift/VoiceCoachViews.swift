@@ -273,7 +273,12 @@ struct AriaSpokenMuteButton: View {
         if let coach {
             coach.setVoiceEnabled(!muted)
         }
-        if muted { AriaPresence.shared.stopSpeaking() }
+        if muted {
+            AriaPresence.shared.stopSpeaking()
+            AriaVoiceSession.shared.mute()
+        } else if AriaVoiceSession.shared.isActive {
+            AriaVoiceSession.shared.unmute()
+        }
     }
 }
 

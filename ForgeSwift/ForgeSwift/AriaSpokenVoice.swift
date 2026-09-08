@@ -35,8 +35,8 @@ enum AriaTrainVoice: Sendable {
 
     @MainActor
     static func speakHowTo(_ def: ExerciseDefinition) {
-        guard isEnabled else { return }
-        AriaPresence.shared.speak(ExerciseLibrary.howToScript(for: def))
+        // Train cues stay silent in v1 — ARIA's mouth is the character session.
+        _ = def
     }
 }
 
@@ -264,9 +264,9 @@ enum AriaSpokenVoice: Sendable {
 /// When to show the Zoe-download sheet. Pure so tests do not spin UI.
 enum AriaNeuralVoicePromptPolicy: Sendable {
     static let promptedKey = "aria.spoken.neuralVoicePromptShown"
-    static let title = "ARIA's voice"
-    static let body = "She speaks with Apple's Zoe — a neural voice, one line, not the compact computer voice."
-    static let settingsPath = "Settings → Accessibility → Spoken Content → Voices → English → Zoe (Premium)"
+    static let title = "Device Hub fill-in"
+    static let body = "Tester builds can play a local fill-in so you hear that a mouth ran. ARIA's designed character voice is live-only — never compact Samantha, and never Apple catalog TTS as production."
+    static let settingsPath = "Settings → Accessibility → Spoken Content → Voices → English → Zoe (Premium) for the dummy fill-in only"
     static let actionTitle = "Got it"
 
     static func shouldPresent(hasNeuralIdentity: Bool, alreadyPrompted: Bool) -> Bool {

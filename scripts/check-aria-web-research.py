@@ -74,6 +74,22 @@ def main() -> int:
     else:
         print(f"✓ {ORCHESTRATOR.relative_to(ROOT)}: no network transport")
 
+    character_voice = ROOT / "ForgeSwift" / "ForgeSwift" / "AriaCharacterVoice.swift"
+    if not character_voice.is_file():
+        status = 1
+        print(f"✗ {character_voice.relative_to(ROOT)} not found — dummy voice routing "
+              f"must stay in a network-free file.")
+    else:
+        voice_body = strip_comments(character_voice.read_text(encoding="utf-8"))
+        voice_hits = NETWORK_TERMS.findall(voice_body)
+        if voice_hits:
+            status = 1
+            print(f"✗ {character_voice.relative_to(ROOT)} references {sorted(set(voice_hits))} — "
+                  f"dummy voice routing must stay network-free. Live I/O belongs in "
+                  f"AriaVoiceSession, never here.")
+        else:
+            print(f"✓ {character_voice.relative_to(ROOT)}: no network transport")
+
     swift_files = sorted(ROOT.joinpath("ForgeSwift").rglob("*.swift"))
     offenders: dict[Path, int] = {}
     for path in swift_files:

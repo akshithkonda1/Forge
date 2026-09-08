@@ -2,11 +2,13 @@ import Foundation
 
 /// Which ARIA the app is actually talking to.
 ///
-/// This is the single seam between the local testing experience and the real
-/// backend. It is checked in exactly one place — `AriaService.sendMessage`,
-/// alongside the existing Test-Ready check — and deliberately nowhere else. A
-/// mode flag that gets consulted in fifteen files stops being a mode and starts
-/// being a tangle.
+/// This is the seam between the local testing experience and the real backend.
+/// Chat consults it in `AriaService.sendMessage`, after the Test-Ready dummy
+/// gate. The voice session uses those same two gates, in that same order, in
+/// `AriaVoiceTransport.resolve` — dummy first, so Device Hub cannot fall
+/// through to local testing or live ConvAI. Do not consult this flag from
+/// random call sites; a mode that is checked in fifteen files stops being a
+/// mode and starts being a tangle.
 enum AriaOperatingMode {
 
     /// Everything runs on this device. HealthKit / wearables are read here.

@@ -225,8 +225,8 @@ final class AriaSpokenVoiceTests: XCTestCase {
         XCTAssertFalse(
             AriaNeuralVoicePromptPolicy.shouldPresent(hasNeuralIdentity: true, alreadyPrompted: false)
         )
-        XCTAssertEqual(AriaNeuralVoicePromptPolicy.title, "ARIA's voice")
-        XCTAssertTrue(AriaNeuralVoicePromptPolicy.body.contains("Zoe"))
+        XCTAssertEqual(AriaNeuralVoicePromptPolicy.title, "Device Hub fill-in")
+        XCTAssertTrue(AriaNeuralVoicePromptPolicy.body.contains("designed character voice"))
         XCTAssertTrue(AriaNeuralVoicePromptPolicy.settingsPath.contains("Spoken Content"))
         XCTAssertFalse(AriaNeuralVoicePromptPolicy.body.lowercased().contains("samantha"))
     }

@@ -464,9 +464,6 @@ struct ARIATabButton: View {
                 store.activeTab = .chat
                 store.ariaVoiceLaunch = store.ariaVoiceMode
             }
-            if store.ariaVoiceMode {
-                AriaNeuralVoiceGate.shared.requestPromptIfNeeded()
-            }
         }
     }
 }
