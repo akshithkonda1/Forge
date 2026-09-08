@@ -16,7 +16,11 @@ from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy  # n
 
 
 def _ctx(**kwargs):
-    lifestyle = SimpleNamespace(tags=list(kwargs.pop("tags", [])))
+    lifestyle = SimpleNamespace(
+        tags=list(kwargs.pop("tags", [])),
+        recent_patterns=list(kwargs.pop("patterns", [])),
+        goals=list(kwargs.pop("goals", [])),
+    )
     sleep = SimpleNamespace(duration_minutes=kwargs.pop("sleep_minutes", None))
     readiness = SimpleNamespace(recovery_score=kwargs.pop("recovery", None))
     return SimpleNamespace(
@@ -25,6 +29,9 @@ def _ctx(**kwargs):
         readiness=readiness,
         missing_fields=kwargs.pop("missing_fields", []),
         has_sleep=kwargs.pop("has_sleep", sleep.duration_minutes is not None),
+        last_insights=list(kwargs.pop("insights", [])),
+        constraints=list(kwargs.pop("constraints", [])),
+        current_goals=list(kwargs.pop("goals_top", [])),
     )
 
 
@@ -63,6 +70,13 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(brief.grounding, "contextual")
         self.assertTrue(brief.teach_user)
         self.assertIn("lifestyle", brief.specialists)
+        self.assertEqual(brief.prioritize[0], "lifestyle")
+        self.assertEqual(brief.event_bucket, "wedding")
+        self.assertIn("event=wedding", brief.priority_reason)
+        blob = brief.aria_instructions()
+        self.assertIn("prioritize:", blob)
+        self.assertNotIn("Ritz", blob)
+        self.assertNotIn("Maya", blob)
 
     def test_empty_context_still_coaches_generalized(self):
         brief = contextual_learner.adapt("hey", _ctx())
@@ -125,7 +139,14 @@ class ReinforcementTests(unittest.TestCase):
     def test_persona_roundtrip_keeps_q(self):
         dynamodb.clear_local_store()
         state = contextual_learner.PersonaState()
-        contextual_learner.commit_action(state, "evening_busy|mixed", "protect", ("lifestyle",))
+        contextual_learner.commit_action(
+            state,
+            "evening_busy|mixed",
+            "protect",
+            ("lifestyle",),
+            event_bucket_key="evening_busy",
+            priority=["lifestyle", "sleep", "training"],
+        )
         contextual_learner.reinforce(state, 0.85)
         uid = "learner-roundtrip"
         contextual_learner.save(uid, state)
@@ -135,6 +156,12 @@ class ReinforcementTests(unittest.TestCase):
         self.assertEqual(keys.aria_persona_key(uid)["sk"], "ARIA#PERSONA")
         self.assertGreater(
             contextual_learner._q(loaded, "evening_busy|mixed", "protect"),
+            0.0,
+        )
+        self.assertEqual(loaded.last_event_bucket, "evening_busy")
+        self.assertEqual(loaded.last_priority[0], "lifestyle")
+        self.assertGreater(
+            contextual_learner._pq(loaded, "evening_busy", "lifestyle"),
             0.0,
         )
 
@@ -196,7 +223,11 @@ class DummyConsumesProductionLearnerTests(unittest.TestCase):
         self.assertEqual(row["orchestration"]["consumer"], "dummy-test")
         self.assertTrue(row["orchestration"]["durable"])
         self.assertIn(row["contextualization"]["stance"], contextual_learner.STANCES)
+        self.assertIn("prioritize", row["contextualization"])
+        self.assertTrue(row["contextualization"]["prioritize"])
+        self.assertEqual(row["orchestration"]["prioritize"], row["contextualization"]["prioritize"])
         self.assertNotIn("Ritz", str(row["contextualization"]))
+        self.assertNotIn("Ritz", str(row["orchestration"]))
 
     def test_same_seed_still_deterministic_with_learner(self):
         a = dummy.respond("How did I sleep last night?", seed=7)
@@ -207,6 +238,113 @@ class DummyConsumesProductionLearnerTests(unittest.TestCase):
             a.get("contextualization", {}).get("stance"),
             b.get("contextualization", {}).get("stance"),
         )
+
+
+class PriorityRankerTests(unittest.TestCase):
+    def test_wedding_beats_train_today_language(self):
+        ctx = _ctx(
+            tags=["calendar:kind:wedding", "calendar:evening:busy"],
+            recovery=62,
+            sleep_minutes=430,
+        )
+        brief = contextual_learner.adapt("what should I train today?", ctx)
+        self.assertEqual(brief.prioritize[0], "lifestyle")
+        self.assertNotEqual(brief.prioritize[0], "training")
+        self.assertEqual(brief.lead_domain, "lifestyle")
+        self.assertEqual(brief.specialists[0], "lifestyle")
+        self.assertEqual(brief.event_bucket, "wedding")
+
+    def test_ingest_and_relationship_raise_sleep_on_a_clear_day(self):
+        ctx = _ctx(
+            insights=["sleep debt last night", "strong_sleep_recovery"],
+            patterns=["strong_sleep_recovery"],
+            recovery=70,
+            sleep_minutes=430,
+        )
+        state = contextual_learner.PersonaState()
+        contextual_learner.observe_relationship(state, 6)
+        contextual_learner.observe_ingest(state, ctx)
+        brief = contextual_learner.adapt("hey", ctx, state)
+        self.assertEqual(brief.event_bucket, "clear")
+        self.assertEqual(brief.prioritize[0], "sleep")
+        cold = contextual_learner.adapt("hey", _ctx(recovery=70, sleep_minutes=430))
+        self.assertLess(brief.prioritize.index("sleep"), cold.prioritize.index("sleep"))
+
+    def test_skips_after_training_first_teach_lifestyle_priority(self):
+        state = contextual_learner.PersonaState()
+        ctx = _ctx(tags=["calendar:evening:busy"], recovery=70, sleep_minutes=430)
+        key = contextual_learner.bucket(
+            {
+                "evening_busy": 1.0,
+                "headline": 0.0,
+                "low_recovery": 0.0,
+                "high_recovery": 1.0,
+                "short_sleep": 0.0,
+            }
+        )
+        for _ in range(6):
+            contextual_learner.commit_action(
+                state,
+                key,
+                "proceed",
+                ("workout",),
+                event_bucket_key="evening_busy",
+                priority=["training", "lifestyle", "sleep"],
+            )
+            contextual_learner.apply_workout_outcome(
+                state,
+                completed=False,
+                evening_busy=True,
+            )
+        self.assertLess(
+            contextual_learner._pq(state, "evening_busy", "training"),
+            contextual_learner._pq(state, "evening_busy", "lifestyle"),
+        )
+        later = contextual_learner.adapt("what should I train tonight?", ctx, state)
+        self.assertEqual(later.event_bucket, "evening_busy")
+        self.assertLess(
+            later.prioritize.index("lifestyle"),
+            later.prioritize.index("training"),
+        )
+
+    def test_titles_never_enter_priority_reason(self):
+        ctx = _ctx(
+            tags=[
+                "calendar:kind:wedding",
+                "Maya's wedding at the Ritz",
+                "calendar:title:secret",
+            ]
+        )
+        brief = contextual_learner.adapt("train today?", ctx)
+        blob = " ".join(
+            [
+                brief.priority_reason,
+                " ".join(brief.prioritize),
+                brief.event_bucket,
+                brief.aria_instructions(),
+            ]
+        )
+        self.assertNotIn("Ritz", blob)
+        self.assertNotIn("Maya", blob)
+        self.assertNotIn("secret", blob)
+        self.assertEqual(brief.event_bucket, "wedding")
+
+    def test_stamp_living_context_feeds_ingest(self):
+        ctx = _ctx()
+        living = SimpleNamespace(
+            last_insights=["sleep is the constraint this week"],
+            recent_patterns=["strong_sleep_recovery"],
+            current_goals=["protect sleep before volume"],
+            constraints=["busy evenings"],
+        )
+        contextual_learner.stamp_living_context(ctx, living)
+        self.assertIn("sleep is the constraint this week", ctx.last_insights)
+        self.assertIn("strong_sleep_recovery", ctx.lifestyle.recent_patterns)
+        state = contextual_learner.PersonaState()
+        contextual_learner.observe_relationship(state, 7)
+        contextual_learner.observe_ingest(state, ctx)
+        brief = contextual_learner.adapt("hey", ctx, state)
+        self.assertEqual(brief.prioritize[0], "sleep")
 
 
 if __name__ == "__main__":

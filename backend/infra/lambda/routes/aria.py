@@ -84,11 +84,13 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             for tag in living.lifestyle_tags:
                 if tag not in tags:
                     tags.append(tag)
+            contextual_learner.stamp_living_context(context, living)
         contextual_learner.observe_turn(
             persona,
             message=message,
             tags=tags,
             relationship_level=living.relationship_level,
+            ctx=context,
         )
     except Exception:
         persona = None
@@ -150,6 +152,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
                 str(brief.get("bucket") or ""),
                 str(brief.get("stance") or ""),
                 brief.get("specialists") or [],
+                event_bucket_key=brief.get("event_bucket"),
+                priority=brief.get("prioritize"),
             )
             contextual_learner.observe_relationship(persona, updated_level)
             contextual_learner.save(uid, persona)

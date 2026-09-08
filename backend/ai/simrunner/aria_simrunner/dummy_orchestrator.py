@@ -646,8 +646,10 @@ def respond(
             "owner": "live-backend",
             "consumer": "dummy-test",
             "durable": True,
-            "stages": ["observe", "adapt", "commit"],
+            "stages": ["observe", "rank", "adapt", "commit"],
             "grounding": brief.grounding,
+            "prioritize": list(brief.prioritize),
+            "event": brief.event_bucket,
         }
     return row
 

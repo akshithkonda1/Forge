@@ -23,6 +23,10 @@ The online model:
   * TD(0) Q-table over (life-bucket × stance). Completes, skips, and
     reactions are rewards. Softmax of feature logits plus Q; temperature
     cools with n. No randomness — deterministic.
+  * A **priority ranker** over domains: events (wedding/game/travel, busy
+    windows), what ARIA has already ingested (insights, patterns, goals,
+    constraints), conversation, and relationship depth. Rank-sensitive
+    TD updates teach *what to lead with*, not only which stance to take.
   * Hedge over specialists present when the outcome landed.
   * Teach both directions: the brief tells ARIA how to coach, and one
     learned sentence ARIA can tell the person.
@@ -183,6 +187,11 @@ class PersonaState:
     last_stance: str | None = None
     last_specialists: tuple[str, ...] = ()
     n_updates: int = 0
+    ingest: dict[str, float] = field(default_factory=lambda: _copy_priors(_DOMAIN_PRIOR))
+    n_ingest: int = 0
+    priority_q: dict[str, dict[str, float]] = field(default_factory=dict)
+    last_event_bucket: str | None = None
+    last_priority: tuple[str, ...] = ()
 
     @property
     def n(self) -> int:
@@ -224,10 +233,19 @@ class PersonaState:
             "last_stance": self.last_stance,
             "last_specialists": list(self.last_specialists),
             "n_updates": self.n_updates,
+            "ingest": dict(self.ingest),
+            "n_ingest": self.n_ingest,
+            "priority_q": {k: dict(v) for k, v in self.priority_q.items()},
+            "last_event_bucket": self.last_event_bucket,
+            "last_priority": list(self.last_priority),
             "n": self.n,
             "confidence": self.confidence(),
             "preferred_slot": self.preferred_slot(),
         }
+
+    def ingest_posterior(self) -> dict[str, float]:
+        total = sum(self.ingest.values()) or 1.0
+        return {k: round(v / total, 4) for k, v in self.ingest.items()}
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any] | None) -> "PersonaState":
@@ -254,7 +272,7 @@ class PersonaState:
                 setattr(state, name, float(data.get(name, getattr(state, name))))
             except (TypeError, ValueError):
                 pass
-        for name in ("n_calendar", "n_chat", "n_workout", "relationship_level"):
+        for name in ("n_calendar", "n_chat", "n_workout", "relationship_level", "n_ingest"):
             try:
                 setattr(state, name, int(data.get(name, getattr(state, name))))
             except (TypeError, ValueError):
@@ -287,6 +305,31 @@ class PersonaState:
             state.n_updates = int(data.get("n_updates") or 0)
         except (TypeError, ValueError):
             state.n_updates = 0
+        incoming_ingest = data.get("ingest")
+        if isinstance(incoming_ingest, dict):
+            merged_ingest = _copy_priors(_DOMAIN_PRIOR)
+            for key, value in incoming_ingest.items():
+                if key in merged_ingest:
+                    try:
+                        merged_ingest[key] = float(value)
+                    except (TypeError, ValueError):
+                        continue
+            state.ingest = merged_ingest
+        raw_pq = data.get("priority_q")
+        if isinstance(raw_pq, dict):
+            cleaned_p: dict[str, dict[str, float]] = {}
+            for event_key, row in raw_pq.items():
+                if not isinstance(row, dict):
+                    continue
+                cleaned_p[str(event_key)] = {
+                    d: float(row[d]) for d in DOMAINS if d in row
+                }
+            state.priority_q = cleaned_p
+        last_eb = data.get("last_event_bucket")
+        state.last_event_bucket = str(last_eb) if last_eb else None
+        last_p = data.get("last_priority")
+        if isinstance(last_p, list):
+            state.last_priority = tuple(str(d) for d in last_p if d in DOMAINS)
         return state
 
 
@@ -304,8 +347,10 @@ def observe_calendar(state: PersonaState, tags: Iterable[str] | None) -> Persona
     # Headlines are rare and high-signal: bump lifestyle so ARIA brings it.
     if cal.headlines:
         _bump(state.domain, "lifestyle", 1.2)
+        _bump(state.ingest, "lifestyle", 1.0)
     if cal.evening_busy:
         _bump(state.domain, "lifestyle", 0.4)
+        _bump(state.ingest, "lifestyle", 0.3)
     return state
 
 
@@ -319,6 +364,82 @@ def observe_conversation(state: PersonaState, message: str) -> PersonaState:
             hit = True
     if not hit:
         _bump(state.domain, "lifestyle", 0.3)
+    return state
+
+
+_PATTERN_TO_DOMAIN: tuple[tuple[str, str], ...] = (
+    ("low_readiness", "readiness"),
+    ("strong_sleep", "sleep"),
+    ("sleep", "sleep"),
+    ("recover", "readiness"),
+    ("training", "training"),
+    ("workout", "training"),
+    ("calendar", "lifestyle"),
+    ("busy", "lifestyle"),
+    ("protein", "nutrition"),
+    ("knee", "body"),
+    ("shoulder", "body"),
+    ("cycle", "cycle"),
+)
+
+
+def _ingest_texts(source: Any) -> list[str]:
+    """What ARIA already holds: insights, patterns, goals, constraints — never titles."""
+    if source is None:
+        return []
+    texts: list[str] = []
+    if isinstance(source, dict):
+        blobs = (
+            source.get("insights"),
+            source.get("last_insights"),
+            source.get("patterns"),
+            source.get("recent_patterns"),
+            source.get("goals"),
+            source.get("constraints"),
+        )
+        for blob in blobs:
+            if isinstance(blob, list):
+                texts.extend(str(item) for item in blob if item)
+            elif blob:
+                texts.append(str(blob))
+        return texts
+    lifestyle = getattr(source, "lifestyle", None)
+    for blob in (
+        getattr(source, "last_insights", None),
+        getattr(source, "recent_patterns", None),
+        getattr(source, "constraints", None),
+        getattr(lifestyle, "recent_patterns", None) if lifestyle is not None else None,
+        getattr(lifestyle, "goals", None) if lifestyle is not None else None,
+        getattr(source, "current_goals", None),
+    ):
+        if isinstance(blob, list):
+            texts.extend(str(item) for item in blob if item)
+    return texts
+
+
+def observe_ingest(state: PersonaState, source: Any) -> PersonaState:
+    """Fold already-ingested ARIA context into the priority Dirichlet.
+
+    Relationship does not gate *whether* we ingest — we always learn — but
+    ranking later uses bond depth to decide how hard memory pulls the order.
+    """
+    texts = _ingest_texts(source)
+    if not texts:
+        return state
+    state.n_ingest += 1
+    for raw in texts:
+        text = raw.lower()
+        hit = False
+        for needle, domain in _PATTERN_TO_DOMAIN:
+            if needle in text:
+                _bump(state.ingest, domain, 0.8)
+                hit = True
+        for domain, cues in _DOMAIN_CUES.items():
+            if any(c in text for c in cues):
+                _bump(state.ingest, domain, 0.5)
+                hit = True
+        if not hit:
+            _bump(state.ingest, "lifestyle", 0.2)
     return state
 
 
@@ -371,6 +492,27 @@ def observe_relationship(state: PersonaState, level: int) -> PersonaState:
 
 _BODY_BUCKETS = ("depleted", "mixed", "recovered")
 _CAL_BUCKETS = ("clear", "evening_busy", "headline")
+
+
+def event_bucket(cal: CalendarRead) -> str:
+    """Priority is event-conditioned: a wedding is not a packed Tuesday."""
+    if cal.headlines:
+        return cal.headlines[0]
+    if cal.evening_busy:
+        return "evening_busy"
+    if cal.morning_busy:
+        return "morning_busy"
+    return "clear"
+
+
+def _pq(state: PersonaState, event_key: str, domain: str) -> float:
+    row = state.priority_q.get(event_key) or {}
+    return float(row.get(domain, 0.0))
+
+
+def _set_pq(state: PersonaState, event_key: str, domain: str, value: float) -> None:
+    row = state.priority_q.setdefault(event_key, {})
+    row[domain] = round(value, 6)
 
 
 def bucket(feat: dict[str, float]) -> str:
@@ -456,14 +598,42 @@ def reinforce(
     for spec in state.last_specialists:
         current = state.specialist_w.get(spec, 1.0)
         state.specialist_w[spec] = round(_clip(current * scale, 0.25, 4.0), 4)
+    # Rank-sensitive TD: the domain we led with takes the outcome hardest.
+    if state.last_event_bucket and state.last_priority:
+        credits = (1.0, 0.55, 0.3)
+        boot_p = 0.0
+        nxt_event = next_bucket.split("|", 1)[0] if next_bucket else None
+        if nxt_event:
+            boot_p = max(_pq(state, nxt_event, d) for d in DOMAINS)
+        for index, domain in enumerate(state.last_priority[:3]):
+            credit = credits[index] if index < len(credits) else 0.2
+            q_pd = _pq(state, state.last_event_bucket, domain)
+            p_delta = float(reward) * credit + TD_GAMMA * boot_p * credit - q_pd
+            _set_pq(
+                state,
+                state.last_event_bucket,
+                domain,
+                q_pd + TD_ALPHA * p_delta,
+            )
     return round(delta, 6)
 
 
-def commit_action(state: PersonaState, bucket_key: str, stance: str, specialists: Iterable[str]) -> None:
+def commit_action(
+    state: PersonaState,
+    bucket_key: str,
+    stance: str,
+    specialists: Iterable[str],
+    event_bucket_key: str | None = None,
+    priority: Iterable[str] | None = None,
+) -> None:
     """Remember what ARIA just did so the next outcome can credit it."""
     state.last_bucket = bucket_key
     state.last_stance = stance if stance in STANCES else None
     state.last_specialists = tuple(str(s) for s in specialists if s)
+    if event_bucket_key:
+        state.last_event_bucket = str(event_bucket_key)
+    if priority is not None:
+        state.last_priority = tuple(str(d) for d in priority if d in DOMAINS)
 
 
 def pretrain_from_history(
@@ -611,6 +781,7 @@ _STANCE_WEIGHTS: dict[str, dict[str, float]] = {
         "p_skip_evening": 1.5,
         "p_skip": 0.6,
         "p_sleep_talk": 0.5,
+        "relationship": -0.15,
         "bias": 0.2,
     },
     "proceed": {
@@ -618,6 +789,7 @@ _STANCE_WEIGHTS: dict[str, dict[str, float]] = {
         "lang_train": 1.4,
         "lang_advice": 0.6,
         "p_evening": 0.3,
+        "relationship": 0.2,
         "bias": 0.5,
         "evening_busy": -1.1,
         "headline": -1.2,
@@ -634,6 +806,7 @@ _STANCE_WEIGHTS: dict[str, dict[str, float]] = {
         "missing": 2.2,
         "bias": 0.1,
         "lang_advice": -0.4,
+        "relationship": -0.7,
     },
 }
 
@@ -669,20 +842,87 @@ def _pick_stance(
     return lead, post
 
 
-def _lead_domain(message: str, ctx: Any, persona: PersonaState, feat: dict[str, float]) -> str:
-    scores = dict(persona.posterior("domain"))
+def rank_priorities(
+    message: str,
+    ctx: Any,
+    persona: PersonaState,
+    feat: dict[str, float],
+    cal: CalendarRead,
+) -> tuple[list[str], dict[str, float], str]:
+    """Learn what to lead with given the event, ingest, conversation, and bond.
+
+    Score for each domain is the sum of:
+      conversation mass (what they talk about)
+      ingest mass (insights, patterns, goals, constraints ARIA already holds),
+        scaled by relationship (a new user is known, not familiar)
+      event-conditioned Q (what paid off on nights like this)
+      last-ranking stickiness (so the coach does not flip every turn)
+      this-turn event / body / language biases
+    """
+    event_key = event_bucket(cal)
+    rel = max(0.0, min(1.0, feat.get("relationship", 0.15)))
+    ingest_gain = 0.35 + 0.65 * rel
+    scores: dict[str, float] = {}
+    for domain in DOMAINS:
+        conversation = float(persona.domain.get(domain, 1.0))
+        ingested = float(persona.ingest.get(domain, 1.0)) * ingest_gain
+        event_q = 1.8 * _pq(persona, event_key, domain)
+        stick = 0.55 if (persona.last_priority and persona.last_priority[0] == domain) else 0.0
+        scores[domain] = conversation + ingested + event_q + stick
+
+    # Current-turn ingest still counts even if Dirichlet has not been bumped yet.
+    for raw in _ingest_texts(ctx):
+        text = raw.lower()
+        for needle, domain in _PATTERN_TO_DOMAIN:
+            if needle in text:
+                scores[domain] = scores.get(domain, 0.0) + 0.45 * ingest_gain
+        for domain, cues in _DOMAIN_CUES.items():
+            if any(c in text for c in cues):
+                scores[domain] = scores.get(domain, 0.0) + 0.25 * ingest_gain
+
     text = (message or "").lower()
     for domain, cues in _DOMAIN_CUES.items():
         if any(c in text for c in cues):
-            scores[domain] = scores.get(domain, 0.0) + 0.35
-    if feat["short_sleep"] or feat["low_recovery"]:
-        scores["sleep"] = scores.get("sleep", 0.0) + 0.2
-        scores["readiness"] = scores.get("readiness", 0.0) + 0.2
-    if feat["headline"] or feat["evening_busy"]:
-        scores["lifestyle"] = scores.get("lifestyle", 0.0) + 0.25
-    if feat["lang_train"]:
-        scores["training"] = scores.get("training", 0.0) + 0.4
-    return max(scores, key=scores.get)
+            scores[domain] = scores.get(domain, 0.0) + 1.4
+
+    if feat.get("headline", 0.0) >= 0.5 or bool(cal.headlines):
+        scores["lifestyle"] = scores.get("lifestyle", 0.0) + 2.6
+        scores["training"] = scores.get("training", 0.0) - 0.9
+    elif feat.get("evening_busy", 0.0) >= 0.5:
+        scores["lifestyle"] = scores.get("lifestyle", 0.0) + 1.5
+        scores["training"] = scores.get("training", 0.0) - 0.55
+    if feat.get("morning_busy", 0.0) >= 0.5:
+        scores["lifestyle"] = scores.get("lifestyle", 0.0) + 0.8
+    if feat.get("short_sleep", 0.0) >= 0.5:
+        scores["sleep"] = scores.get("sleep", 0.0) + 1.6
+        scores["training"] = scores.get("training", 0.0) - 0.5
+    if feat.get("low_recovery", 0.0) >= 0.5:
+        scores["readiness"] = scores.get("readiness", 0.0) + 1.4
+        scores["training"] = scores.get("training", 0.0) - 0.7
+
+    ranking = sorted(DOMAINS, key=lambda d: (-scores.get(d, 0.0), d))
+    if event_key in HEADLINE_KINDS:
+        reason = (
+            f"event={event_key} leads; conversation, ingest, and "
+            f"relationship={rel:.2f} rank the rest"
+        )
+    elif event_key in ("evening_busy", "morning_busy"):
+        reason = (
+            f"busy window={event_key}; ingest and conversation "
+            f"(bond={rel:.2f}) set order after lifestyle"
+        )
+    else:
+        reason = (
+            f"no headline event; conversation + ingest "
+            f"(bond={rel:.2f}) plus learned event-Q"
+        )
+    return ranking, scores, reason
+
+
+def _lead_domain(message: str, ctx: Any, persona: PersonaState, feat: dict[str, float]) -> str:
+    cal = parse_calendar(_lifestyle_tags(ctx))
+    ranking, _, _ = rank_priorities(message, ctx, persona, feat, cal)
+    return ranking[0]
 
 
 _DOMAIN_TO_SPECIALIST = {
@@ -697,11 +937,22 @@ _DOMAIN_TO_SPECIALIST = {
 }
 
 
+_SPECIALIST_TO_DOMAIN = {
+    "sleep": "sleep",
+    "recovery": "readiness",
+    "workout": "training",
+    "lifestyle": "lifestyle",
+    "progress": "progress",
+    "cycle": "cycle",
+}
+
+
 def _specialists(
     lead: str,
     feat: dict[str, float],
     stance: str,
     state: PersonaState | None = None,
+    ranking: list[str] | None = None,
 ) -> list[str]:
     roster: list[str] = []
 
@@ -721,7 +972,8 @@ def _specialists(
         add("training")
     if feat["lang_food"]:
         add("nutrition")
-    # Hedge: a specialist that has been paying off for this person jumps the queue.
+    # Hedge: a specialist that has been paying off for this person joins,
+    # then ranking decides order so events still lead.
     if state is not None and state.specialist_w:
         ranked = sorted(state.specialist_w.items(), key=lambda kv: kv[1], reverse=True)
         for spec, weight in ranked:
@@ -729,6 +981,15 @@ def _specialists(
                 add(spec)
             if len(roster) >= 3:
                 break
+    if ranking:
+        rank_index = {domain: i for i, domain in enumerate(ranking)}
+        hedge = (state.specialist_w if state is not None else {}) or {}
+
+        def _spec_key(name: str) -> tuple[int, float, str]:
+            domain = _SPECIALIST_TO_DOMAIN.get(name, lead)
+            return (rank_index.get(domain, 99), -float(hedge.get(name, 1.0)), name)
+
+        roster = sorted(roster, key=_spec_key)
     return roster[:3]
 
 
@@ -791,6 +1052,13 @@ def _how_you_work(persona: PersonaState, cal: CalendarRead) -> str:
         bits.append(f"You've been talking ({rel}/10) — recall is allowed, familiarity isn't assumed.")
     else:
         bits.append("There's a real bond. Callbacks are earned; don't perform them.")
+    if persona.n_ingest > 0:
+        ingested = persona.ingest_posterior()
+        held = max(ingested, key=ingested.get)
+        if ingested.get(held, 0) >= 0.18:
+            bits.append(f"I've already been holding {held} from what we've seen together.")
+    if persona.last_priority:
+        bits.append(f"On days like this I lead with {persona.last_priority[0]}.")
     return " ".join(bits)
 
 
@@ -839,6 +1107,10 @@ class Adaptation:
     bucket_key: str
     n_updates: int
     grounding: str
+    prioritize: list[str]
+    priority_scores: dict[str, float]
+    priority_reason: str
+    event_bucket: str
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -862,6 +1134,12 @@ class Adaptation:
             "bucket": self.bucket_key,
             "n_updates": self.n_updates,
             "grounding": self.grounding,
+            "prioritize": list(self.prioritize),
+            "priority_scores": {
+                k: round(v, 4) for k, v in self.priority_scores.items()
+            },
+            "priority_reason": self.priority_reason,
+            "event_bucket": self.event_bucket,
             "aria_instructions": self.aria_instructions(),
         }
 
@@ -869,10 +1147,14 @@ class Adaptation:
         specs = ", ".join(self.specialists) or "aria"
         cites = ", ".join(self.cite) or "none"
         banned = ", ".join(self.do_not_invent)
+        order = " > ".join(self.prioritize) or self.lead_domain
         return (
             "[CONTEXTUALIZATION — how this person works]\n"
             f"- how_you_work: {self.how_you_work}\n"
             f"- lead_domain: {self.lead_domain}\n"
+            f"- prioritize: {order}\n"
+            f"- event: {self.event_bucket}\n"
+            f"- priority_reason: {self.priority_reason}\n"
             f"- stance: {self.stance}\n"
             f"- pattern: {self.pattern}\n"
             f"- quality: {self.quality}\n"
@@ -887,9 +1169,11 @@ class Adaptation:
             f"- learned_confidence: {self.confidence:.2f} from {self.n_observations} observations "
             f"({self.n_updates} RL updates)\n"
             "Follow this block. Teach from it — one learned fact, never a HUD. "
-            "If grounding is generalized, coach from conversation and what you have "
-            "already learned; do not invent a calendar or a body you were not given. "
-            "Never read calendar titles."
+            "Follow prioritize in order; lead with the first domain. "
+            "If grounding is generalized, coach from conversation, relationship, and "
+            "what you have already ingested; do not invent a calendar or a body you "
+            "were not given. If grounding is contextual, fit the session around the "
+            "event and busy windows. Never read calendar titles."
         )
 
 
@@ -955,10 +1239,11 @@ def adapt(
     state = persona if isinstance(persona, PersonaState) else PersonaState.from_dict(persona)
     feat = features(message, ctx, state)
     stance, probs = _pick_stance(feat, state)
-    lead = _lead_domain(message, ctx, state, feat)
     cal = parse_calendar(_lifestyle_tags(ctx))
+    ranking, scores, reason = rank_priorities(message, ctx, state, feat, cal)
+    lead = ranking[0]
     conf = state.confidence()
-    specs = _specialists(lead, feat, stance, state)
+    specs = _specialists(lead, feat, stance, state, ranking)
     key = bucket(feat)
     quality = "sparse" if feat["missing"] >= 0.55 else ("trusted" if conf >= 0.35 or cal.headlines else "forming")
     return Adaptation(
@@ -982,7 +1267,48 @@ def adapt(
         bucket_key=key,
         n_updates=state.n_updates,
         grounding=_grounding(feat, cal),
+        prioritize=list(ranking),
+        priority_scores=scores,
+        priority_reason=reason,
+        event_bucket=event_bucket(cal),
     )
+
+
+def stamp_living_context(ctx: Any, living: Any) -> Any:
+    """Copy CoachContextEngine ingest onto an ARIAContext in place.
+
+    Insights, patterns, goals, and constraints are what ARIA has already
+    ingested. The dummy never owns this; live chat stamps it so ``adapt()``
+    and ``observe_ingest()`` see the same memory.
+    """
+    if ctx is None or living is None:
+        return ctx
+    insights = list(getattr(living, "last_insights", None) or [])
+    patterns = list(getattr(living, "recent_patterns", None) or [])
+    goals = list(getattr(living, "current_goals", None) or [])
+    constraints = list(getattr(living, "constraints", None) or [])
+    try:
+        setattr(ctx, "last_insights", insights)
+        setattr(ctx, "constraints", constraints)
+        setattr(ctx, "current_goals", goals)
+    except Exception:
+        pass
+    lifestyle = getattr(ctx, "lifestyle", None)
+    if lifestyle is not None:
+        existing_p = list(getattr(lifestyle, "recent_patterns", None) or [])
+        existing_g = list(getattr(lifestyle, "goals", None) or [])
+        for item in patterns:
+            if item not in existing_p:
+                existing_p.append(item)
+        for item in goals:
+            if item not in existing_g:
+                existing_g.append(item)
+        try:
+            lifestyle.recent_patterns = existing_p
+            lifestyle.goals = existing_g
+        except Exception:
+            pass
+    return ctx
 
 
 # --- Persistence (optional; never imported by adapt) -------------------------
@@ -1030,13 +1356,16 @@ def observe_turn(
     message: str,
     tags: Iterable[str] | None,
     relationship_level: int | None = None,
+    ctx: Any = None,
 ) -> PersonaState:
-    """One chat turn: calendar (if present) + what they said + bond depth."""
+    """One chat turn: events, conversation, ingest, relationship."""
     if tags:
         observe_calendar(state, tags)
     observe_conversation(state, message)
     if relationship_level is not None:
         observe_relationship(state, relationship_level)
+    if ctx is not None:
+        observe_ingest(state, ctx)
     return state
 
 
@@ -1061,9 +1390,17 @@ def apply_chat_turn(
         message=message,
         tags=tags,
         relationship_level=relationship_level,
+        ctx=ctx,
     )
     brief = adapt(message, ctx, state)
-    commit_action(state, brief.bucket_key, brief.stance, brief.specialists)
+    commit_action(
+        state,
+        brief.bucket_key,
+        brief.stance,
+        brief.specialists,
+        event_bucket_key=brief.event_bucket,
+        priority=brief.prioritize,
+    )
     return brief
 
 
