@@ -560,8 +560,10 @@ final class OnboardingCoordinator {
             )
         } catch {
             healthKitState = .denied
+            let reason = HealthKitManager.shared.authorizationErrorMessage
+                ?? LifeIngestError.explain(error, doing: "Couldn't connect Apple Health")
             await ariaSay(
-                "Couldn't connect Apple Health just now. You can enable it later — continuing.",
+                "\(reason) You can enable it later — continuing.",
                 mood: .calm
             )
         }
@@ -575,12 +577,13 @@ final class OnboardingCoordinator {
             calendarState = .authorized
             let seeded = await CalendarManager.shared.seedTestReadyCalendarIfNeeded()
             await CalendarManager.shared.fetchThisWeek()
-            calendarBusyToday = CalendarManager.shared.busyWindowsToday
+            calendarBusyToday = CalendarManager.shared.displayedWeekContext?.todayBusy
+                ?? CalendarManager.shared.busyWindowsToday
             let tags = CalendarManager.shared.calendarTags
             AriaContextStore.shared.applyCalendarIngestTags(tags)
             if seeded, AriaService.shouldUseTestReadyDummy {
                 await ariaSay(
-                    "Calendar connected — I see \(calendarBusyToday) busy windows today. I filled a Forge test calendar for a year so you can feel a full phone. I only read this week — kinds and busy windows, never titles.",
+                    "Calendar connected — I see \(calendarBusyToday) busy windows today. I'm filling a Forge test calendar in the background so you can feel a full phone. I only read this week — kinds and busy windows, never titles.",
                     mood: .energized
                 )
             } else {
@@ -591,8 +594,10 @@ final class OnboardingCoordinator {
             }
         } catch {
             calendarState = .denied
+            let reason = CalendarManager.shared.authorizationErrorMessage
+                ?? error.localizedDescription
             await ariaSay(
-                "Calendar not connected — no problem. You can add it later in Settings → Privacy → Calendars and I'll use it then.",
+                "Calendar not connected — \(reason)",
                 mood: .calm
             )
         }
@@ -605,7 +610,31 @@ final class OnboardingCoordinator {
         #if targetEnvironment(simulator)
         if AriaService.shouldUseTestReadyDummy {
             try await HealthKitManager.shared.requestTestReadyPackAuthorization()
-            try await HealthKitManager.shared.replaceTestReadyPack(FakeHealthPack.generate(seed: AppStore.testReadySessionSeed))
+            let pack = FakeHealthPack.generate(seed: AppStore.testReadySessionSeed)
+            if let today = pack.today {
+                healthSnapshot = HealthDataSnapshot(
+                    restingHeartRate: today.restingHR,
+                    activeCalories: today.activeCalories,
+                    steps: today.steps,
+                    sleepHours: today.night.totalMinutes / 60,
+                    hrv: Double(today.hrvMs),
+                    vo2Max: nil,
+                    workoutCount: pack.days.filter { $0.workout != nil }.count,
+                    lastWorkoutDate: pack.days.first(where: { $0.workout != nil })?.dayStart
+                )
+            }
+            if HealthKitManager.shared.installedTestReadySeed != pack.seed {
+                Task { @MainActor in
+                    do {
+                        try await HealthKitManager.shared.replaceTestReadyPack(pack)
+                    } catch {
+                        HealthKitManager.shared.lastPackWriteError = LifeIngestError.explain(
+                            error,
+                            doing: "Couldn't write the Test-Ready Health pack into Apple Health"
+                        )
+                    }
+                }
+            }
             return
         }
         #endif

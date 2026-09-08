@@ -398,4 +398,51 @@ final class FakeCalendarPackTests: XCTestCase {
         let flight = try XCTUnwrap(pack.events.first { $0.kind == .flight })
         XCTAssertFalse(flight.placeName.isEmpty)
     }
+
+    func testMergeKeepsMemoryWeekWhenEventKitIsEmpty() {
+        let memory = FakeCalendarPack.weekContext(
+            from: FakeCalendarPack.generate(now: pinnedNow, calendar: calendar, seed: 3),
+            now: pinnedNow,
+            calendar: calendar
+        )
+        let merged = FakeCalendarPack.mergeWeekContexts(eventKit: nil, memory: memory)
+        XCTAssertEqual(merged, memory)
+        XCTAssertNil(FakeCalendarPack.mergeWeekContexts(eventKit: nil, memory: nil))
+    }
+
+    func testMergePrefersTheBusierDayWithoutLosingKinds() throws {
+        let window = FakeCalendarPack.weekWindow(containing: pinnedNow, calendar: calendar)
+        let eventKit = FakeCalendarWeekContext(
+            weekStart: window.start,
+            weekEnd: window.end,
+            todayBusy: 1,
+            weekBusy: 4,
+            morningBusy: false,
+            eveningBusy: true,
+            allDayBusy: false,
+            kinds: [.game],
+            todayKinds: [.game]
+        )
+        let memory = FakeCalendarWeekContext(
+            weekStart: window.start,
+            weekEnd: window.end,
+            todayBusy: 3,
+            weekBusy: 2,
+            morningBusy: true,
+            eveningBusy: false,
+            allDayBusy: true,
+            kinds: [.travel],
+            todayKinds: [.travel]
+        )
+        let merged = try XCTUnwrap(FakeCalendarPack.mergeWeekContexts(eventKit: eventKit, memory: memory))
+        XCTAssertEqual(merged.todayBusy, 3)
+        XCTAssertEqual(merged.weekBusy, 4)
+        XCTAssertTrue(merged.morningBusy)
+        XCTAssertTrue(merged.eveningBusy)
+        XCTAssertTrue(merged.allDayBusy)
+        XCTAssertEqual(Set(merged.kinds), Set([.game, .travel]))
+        XCTAssertEqual(Set(merged.todayKinds), Set([.game, .travel]))
+        XCTAssertTrue(merged.ingestTags.contains("calendar:kind:game"))
+        XCTAssertTrue(merged.ingestTags.contains("calendar:kind:travel"))
+    }
 }

@@ -15,16 +15,41 @@ extension HealthKitManager {
     /// Health store, so the normal HealthKit fetch path is what ARIA sees.
     func replaceTestReadyPack(_ pack: FakeHealthPack) async throws {
         guard HKHealthStore.isHealthDataAvailable() else {
+            let message = HealthKitError.notAvailable.errorDescription
+                ?? "Health data is not available on this device."
+            lastPackWriteError = message
             throw HealthKitError.notAvailable
         }
-        try await deleteTestReadyPackSamples()
-        try await saveQuantityAndSleep(from: pack)
-        try await saveWorkouts(from: pack)
+        if installedTestReadySeed == pack.seed {
+            return
+        }
+        if isReplacingTestReadyPack {
+            return
+        }
+        isReplacingTestReadyPack = true
+        defer { isReplacingTestReadyPack = false }
+        do {
+            try await deleteTestReadyPackSamples()
+            try await saveQuantityAndSleep(from: pack)
+            try await saveWorkouts(from: pack)
+        } catch {
+            let message = LifeIngestError.explain(
+                error,
+                doing: "Couldn't write the Test-Ready Health pack into Apple Health"
+            )
+            lastPackWriteError = message
+            throw HealthKitError.saveFailedReason(message)
+        }
         do {
             try await saveCycle(from: pack)
+            lastPackWriteError = nil
         } catch {
-            print("Test-ready cycle overlay skipped: \(error.localizedDescription)")
+            lastPackWriteError = LifeIngestError.explain(
+                error,
+                doing: "Test-Ready cycle overlay wasn't written"
+            )
         }
+        installedTestReadySeed = pack.seed
     }
 
     func deleteTestReadyPackSamples() async throws {
@@ -47,9 +72,28 @@ extension HealthKitManager {
             allowedValues: ["1"]
         )
         for type in types {
-            let samples = await querySamples(type: type, predicate: predicate)
+            let samples: [HKSample]
+            do {
+                samples = try await querySamples(type: type, predicate: predicate)
+            } catch {
+                throw HealthKitError.saveFailedReason(
+                    LifeIngestError.explain(
+                        error,
+                        doing: "Couldn't read previous Test-Ready \(type.identifier) samples"
+                    )
+                )
+            }
             guard !samples.isEmpty else { continue }
-            try await healthStore.delete(samples)
+            do {
+                try await healthStore.delete(samples)
+            } catch {
+                throw HealthKitError.saveFailedReason(
+                    LifeIngestError.explain(
+                        error,
+                        doing: "Couldn't delete previous Test-Ready \(type.identifier) samples"
+                    )
+                )
+            }
         }
     }
 
@@ -189,7 +233,16 @@ extension HealthKitManager {
         var index = samples.startIndex
         while index < samples.endIndex {
             let next = samples.index(index, offsetBy: 100, limitedBy: samples.endIndex) ?? samples.endIndex
-            try await healthStore.save(Array(samples[index..<next]))
+            do {
+                try await healthStore.save(Array(samples[index..<next]))
+            } catch {
+                throw HealthKitError.saveFailedReason(
+                    LifeIngestError.explain(
+                        error,
+                        doing: "Couldn't save Test-Ready quantity and sleep samples"
+                    )
+                )
+            }
             index = next
         }
     }
@@ -205,15 +258,24 @@ extension HealthKitManager {
             config.activityType = session.type.hkActivityType
             config.locationType = .indoor
             let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: config, device: .local())
-            try await builder.beginCollection(at: start)
             var meta = packMetadata
             meta[Self.testReadySessionNameKey] = session.name
             meta[Self.testReadyIntensityKey] = session.intensity
             meta[Self.testReadyVolumeKey] = "\(session.volume)"
             meta[HKMetadataKeyWorkoutBrandName] = session.name
-            try await builder.addMetadata(meta)
-            try await builder.endCollection(at: end)
-            _ = try await builder.finishWorkout()
+            do {
+                try await builder.beginCollection(at: start)
+                try await builder.addMetadata(meta)
+                try await builder.endCollection(at: end)
+                _ = try await builder.finishWorkout()
+            } catch {
+                throw HealthKitError.saveFailedReason(
+                    LifeIngestError.explain(
+                        error,
+                        doing: "Couldn't save Test-Ready workout \(session.name)"
+                    )
+                )
+            }
         }
     }
 
@@ -282,7 +344,16 @@ extension HealthKitManager {
         var index = samples.startIndex
         while index < samples.endIndex {
             let next = samples.index(index, offsetBy: 100, limitedBy: samples.endIndex) ?? samples.endIndex
-            try await healthStore.save(Array(samples[index..<next]))
+            do {
+                try await healthStore.save(Array(samples[index..<next]))
+            } catch {
+                throw HealthKitError.saveFailedReason(
+                    LifeIngestError.explain(
+                        error,
+                        doing: "Couldn't save Test-Ready cycle overlay samples"
+                    )
+                )
+            }
             index = next
         }
     }
@@ -327,17 +398,43 @@ extension HealthKitManager {
         }
     }
 
-    private func querySamples(type: HKSampleType, predicate: NSPredicate) async -> [HKSample] {
-        await withCheckedContinuation { continuation in
+    private func querySamples(type: HKSampleType, predicate: NSPredicate) async throws -> [HKSample] {
+        try await withCheckedThrowingContinuation { continuation in
+            let once = SampleQueryResumeOnce()
             let query = HKSampleQuery(
                 sampleType: type,
                 predicate: predicate,
                 limit: HKObjectQueryNoLimit,
                 sortDescriptors: nil
-            ) { _, samples, _ in
-                continuation.resume(returning: samples ?? [])
+            ) { _, samples, error in
+                if let error {
+                    once.finish(.failure(error), continuation)
+                } else {
+                    once.finish(.success(samples ?? []), continuation)
+                }
             }
             healthStore.execute(query)
         }
+    }
+}
+
+/// HealthKit can invoke a query handler more than once. Resume exactly once
+/// so a Test-Ready rewrite cannot crash on that path.
+private final class SampleQueryResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+
+    func finish(
+        _ result: Result<[HKSample], Error>,
+        _ continuation: CheckedContinuation<[HKSample], Error>
+    ) {
+        lock.lock()
+        if done {
+            lock.unlock()
+            return
+        }
+        done = true
+        lock.unlock()
+        continuation.resume(with: result)
     }
 }

@@ -21,6 +21,7 @@ extension AppStore {
 
     private func executeRefreshDailyData() async {
         dataLoadState = .loading
+        lastLifeIngestError = nil
         let hk = HealthKitManager.shared
         let seeded = await seedTestReadyHealthKitIfNeeded()
         let authorized = await hk.checkAuthorizationStatus()
@@ -29,7 +30,7 @@ extension AppStore {
         if authorized {
             await hk.refreshHydration()
         }
-        if authorized, let snapshot = await hk.fetchRecentSnapshot() {
+        if authorized, let snapshot = await hk.fetchRecentSnapshot(), snapshot.hasData {
             updateMetrics(
                 steps: snapshot.steps,
                 activeCalories: snapshot.activeCalories,
@@ -91,8 +92,8 @@ extension AppStore {
         objectWillChange.send()
     }
 
-    /// Simulator Test-Ready patch: write the ForgeCore pack into HealthKit
-    /// every launch, then the fetch above is what ARIA reads.
+    /// Simulator Test-Ready patch: apply the ForgeCore pack in memory immediately
+    /// so Home is not waiting on HealthKit, then write Apple Health in the background.
     @discardableResult
     func seedTestReadyHealthKitIfNeeded() async -> Bool {
         #if targetEnvironment(simulator)
@@ -107,21 +108,45 @@ extension AppStore {
             isSimulator: isSimulator,
             healthAuthorized: alreadyAuthorized
         ) else { return false }
+        let seed = Self.testReadySessionSeed
+        let pack = await Task.detached(priority: .utility) {
+            FakeHealthPack.generate(seed: seed)
+        }.value
+        apply(pack)
+        usingTestReadyHealthPack = true
+        if HealthKitManager.shared.installedTestReadySeed == pack.seed {
+            recordLifeIngestError(HealthKitManager.shared.lastPackWriteError)
+            return true
+        }
         do {
             try await HealthKitManager.shared.requestTestReadyPackAuthorization()
-            try await HealthKitManager.shared.replaceTestReadyPack(FakeHealthPack.generate(seed: Self.testReadySessionSeed))
-            usingTestReadyHealthPack = true
-            return true
         } catch {
-            print("Test-Ready HealthKit seed failed: \(error)")
-            return false
+            recordLifeIngestError(LifeIngestError.explain(
+                error,
+                doing: "Couldn't authorize the Test-Ready Health pack"
+            ))
+            return true
         }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await HealthKitManager.shared.replaceTestReadyPack(pack)
+                self.recordLifeIngestError(HealthKitManager.shared.lastPackWriteError)
+            } catch {
+                self.recordLifeIngestError(LifeIngestError.explain(
+                    error,
+                    doing: "Couldn't write the Test-Ready Health pack into Apple Health"
+                ))
+            }
+        }
+        return true
     }
 
     /// Test-ready EventKit writes land on a Forge-owned calendar only.
     /// Tags that follow are classified kinds + busy windows — never titles.
     func ingestTestReadyCalendarIfNeeded() async {
         await CalendarManager.shared.ingestUpcomingIfAuthorized()
+        recordLifeIngestError(CalendarManager.shared.lastSeedError)
         let tags = CalendarManager.shared.calendarTags
         guard !tags.isEmpty else { return }
         AriaContextStore.shared.applyCalendarIngestTags(tags)
@@ -389,7 +414,10 @@ extension AppStore {
                 lastCloudSyncError = failure.userMessage
             }
         } catch {
-            lastCloudSyncError = nil
+            lastCloudSyncError = LifeIngestError.explain(
+                error,
+                doing: "Couldn't sync today's dashboard"
+            )
         }
     }
 
@@ -404,7 +432,10 @@ extension AppStore {
                 lastCloudSyncError = failure.userMessage
             }
         } catch {
-            lastCloudSyncError = nil
+            lastCloudSyncError = LifeIngestError.explain(
+                error,
+                doing: "Couldn't load today's training plan"
+            )
         }
     }
 

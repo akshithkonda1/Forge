@@ -316,6 +316,13 @@ class HealthKitManager: ObservableObject {
     private var observerQueries: [HKObserverQuery] = []
     private var liveRefreshTask: Task<Void, Never>?
     private var isObserving = false
+    /// Last Test-Ready pack successfully written this process. Skip a rewrite
+    /// that would stall launch with the same seed.
+    var installedTestReadySeed: Int?
+    /// True while a Test-Ready pack is being deleted/rewritten.
+    var isReplacingTestReadyPack = false
+    /// Why a Test-Ready HealthKit write failed. Nil when the pack is healthy.
+    @Published var lastPackWriteError: String?
     var lastTodayStatsAt: Date?
     var lastWeeklyTrendsAt: Date?
     var lastMindfulTrendAt: Date?
@@ -478,7 +485,10 @@ class HealthKitManager: ObservableObject {
             isAuthorized = true
             startBidirectionalSync()
         } catch {
-            authorizationErrorMessage = error.localizedDescription
+            authorizationErrorMessage = LifeIngestError.explain(
+                error,
+                doing: "Couldn't request Apple Health access"
+            )
             isAuthorized = false
             throw error
         }
@@ -699,9 +709,25 @@ private final class ClinicalQueryResumeOnce<T>: @unchecked Sendable {
     }
 }
 
-enum HealthKitError: Error {
+enum HealthKitError: Error, LocalizedError {
     case notAvailable
     case authorizationDenied
     case dataUnavailable
     case saveFailed
+    case saveFailedReason(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .notAvailable:
+            return "Health data is not available on this device."
+        case .authorizationDenied:
+            return "Apple Health access was not granted."
+        case .dataUnavailable:
+            return "Apple Health had no samples to read."
+        case .saveFailed:
+            return "Couldn't save this sample to Apple Health."
+        case .saveFailedReason(let reason):
+            return reason
+        }
+    }
 }

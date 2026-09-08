@@ -1,6 +1,7 @@
 import XCTest
 import EventKit
 import HealthKit
+import ForgeCore
 @testable import ForgeSwift
 
 /// Locks the iOS 27 replacements for APIs Xcode flags as deprecated or renamed.
@@ -86,5 +87,70 @@ final class CurrentPracticeAPITests: XCTestCase {
         XCTAssertFalse(CalendarManager.hasReadAccess(.writeOnly))
         XCTAssertFalse(CalendarManager.hasReadAccess(.denied))
         XCTAssertTrue(CalendarManager.hasReadAccess(.fullAccess))
+    }
+
+    func testCalendarAccessReasonsAreHumanReadable() {
+        XCTAssertTrue(CalendarManager.describeAccess(.denied).localizedCaseInsensitiveContains("denied"))
+        XCTAssertTrue(CalendarManager.describeAccess(.denied).localizedCaseInsensitiveContains("settings"))
+        XCTAssertTrue(CalendarManager.describeAccess(.writeOnly).localizedCaseInsensitiveContains("write-only"))
+        XCTAssertTrue(CalendarManager.describeAccess(.restricted).localizedCaseInsensitiveContains("restricted"))
+        XCTAssertEqual(CalendarManager.describeAccess(.fullAccess), "full access")
+        XCTAssertTrue(CalendarManager.describeAccess(.notDetermined).localizedCaseInsensitiveContains("not asked"))
+    }
+
+    func testCalendarWriteFailedKeepsTheUnderlyingReason() {
+        let error = CalendarManager.CalendarError.writeFailed(
+            "Couldn't save Forge test event 12: calendar is read-only"
+        )
+        XCTAssertEqual(
+            error.errorDescription,
+            "Couldn't save Forge test event 12: calendar is read-only"
+        )
+        XCTAssertEqual(
+            LifeIngestError.explain(error, doing: "Couldn't write the Forge test calendar"),
+            "Couldn't write the Forge test calendar: Couldn't save Forge test event 12: calendar is read-only"
+        )
+    }
+
+    func testHealthKitSaveFailedReasonIsTheFullSentence() {
+        let error = HealthKitError.saveFailedReason(
+            "Couldn't write the Test-Ready Health pack into Apple Health: authorization denied"
+        )
+        XCTAssertEqual(
+            error.errorDescription,
+            "Couldn't write the Test-Ready Health pack into Apple Health: authorization denied"
+        )
+        XCTAssertEqual(
+            LifeIngestError.explain(
+                error,
+                doing: "Couldn't write the Test-Ready Health pack into Apple Health"
+            ),
+            "Couldn't write the Test-Ready Health pack into Apple Health: authorization denied"
+        )
+    }
+
+    func testEmptyHealthSnapshotDoesNotCountAsData() {
+        let empty = HealthDataSnapshot(
+            restingHeartRate: nil,
+            activeCalories: nil,
+            steps: nil,
+            sleepHours: nil,
+            hrv: nil,
+            vo2Max: nil,
+            workoutCount: nil,
+            lastWorkoutDate: nil
+        )
+        XCTAssertFalse(empty.hasData)
+        let live = HealthDataSnapshot(
+            restingHeartRate: nil,
+            activeCalories: nil,
+            steps: 40,
+            sleepHours: nil,
+            hrv: nil,
+            vo2Max: nil,
+            workoutCount: nil,
+            lastWorkoutDate: nil
+        )
+        XCTAssertTrue(live.hasData)
     }
 }
