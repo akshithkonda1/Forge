@@ -480,8 +480,7 @@ final class AriaLiveConvAIClient: NSObject, URLSessionWebSocketDelegate {
         let sender = micSender
         #if compiler(>=6.4)
         try input.installAudioTap(onBus: 0, bufferSize: tapFrames, format: format) { buffer, _ in
-            guard let pcm = AVAudioPCMBuffer(copying: buffer),
-                  let data = AriaLiveConvAIClient.int16MonoData(from: pcm) else { return }
+            guard let data = AriaLiveConvAIClient.int16MonoData(from: AVAudioPCMBuffer(copying: buffer)) else { return }
             Task { await sender.sendPCM(data) }
         }
         #else
