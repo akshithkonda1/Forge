@@ -164,12 +164,12 @@ enum AriaDummyTurn {
             return .scheduleReminder(kind: .meal, hour: mealHour)
         }
         if lower.contains("sleep") || lower.contains("bed") || lower.contains("wind down") {
-            return .scheduleReminder(kind: .sleep, hour: hour ?? 21)
+            return .scheduleReminder(kind: .sleep, hour: parsed ?? 21)
         }
         if lower.contains("train") || lower.contains("workout") {
-            return .scheduleReminder(kind: .workout, hour: hour)
+            return .scheduleReminder(kind: .workout, hour: parsed)
         }
-        return .scheduleReminder(kind: .meal, hour: hour)
+        return .scheduleReminder(kind: .meal, hour: parsed)
     }
 
     static func joints(in text: String, remembered: [String]) -> [String] {
