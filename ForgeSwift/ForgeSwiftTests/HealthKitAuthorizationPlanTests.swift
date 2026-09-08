@@ -85,6 +85,25 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
         XCTAssertFalse(tags.contains("healthkit:records:3"))
     }
 
+    func testShareCatalogNeverIncludesTypesThatAbortAllow() {
+        let requested = HealthKitAuthorizationPlan.writeTypes.union([
+            HKQuantityType(.heartRateVariabilitySDNN),
+            HKQuantityType(.restingHeartRate),
+            HKCategoryType(.menstrualFlow),
+            HKCategoryType(.sexualActivity),
+        ])
+        let share = HealthKitAuthorizationPlan.sanitizedShareTypes(requested)
+        XCTAssertTrue(share.contains(HKWorkoutType.workoutType()))
+        XCTAssertTrue(share.contains(HKQuantityType(.dietaryWater)))
+        XCTAssertTrue(share.contains(HKCategoryType(.sleepAnalysis)))
+        XCTAssertFalse(share.contains(HKQuantityType(.heartRateVariabilitySDNN)))
+        XCTAssertFalse(share.contains(HKQuantityType(.restingHeartRate)))
+        XCTAssertFalse(share.contains(HKCategoryType(.menstrualFlow)))
+        XCTAssertFalse(share.contains(HKCategoryType(.sexualActivity)))
+        XCTAssertFalse(share.contains { $0 is HKClinicalType })
+        XCTAssertFalse(share.contains { $0.identifier.contains("Apple") })
+    }
+
     func testVitalKindMapsFromVitalSignRecordIdentifier() {
         let vital = HKClinicalTypeIdentifier(rawValue: "HKClinicalTypeIdentifierVitalSignRecord")
         XCTAssertEqual(StructuredHealthKind(identifier: vital), .vital)

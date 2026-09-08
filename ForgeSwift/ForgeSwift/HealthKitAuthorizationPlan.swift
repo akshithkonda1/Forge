@@ -56,6 +56,37 @@ enum HealthKitAuthorizationPlan: Sendable {
         return Array(Set(tags)).sorted()
     }
 
+    /// Types a third-party app may ask to SHARE. Requesting Apple-only,
+    /// clinical, characteristic, or reproductive write types on iOS 26/27
+    /// (especially Simulator) throws `_throwIfAuthorizationDisallowedForSharing`
+    /// as an NSException — Swift `catch` cannot swallow that, and Connect aborts.
+    static func sanitizedShareTypes(_ requested: Set<HKSampleType>) -> Set<HKSampleType> {
+        requested.filter { isThirdPartyWritable($0) }
+    }
+
+    static func isThirdPartyWritable(_ type: HKSampleType) -> Bool {
+        if type is HKClinicalType { return false }
+        let id = type.identifier
+        if id.contains("Apple") { return false }
+        if id.hasPrefix("HKCharacteristicType") { return false }
+        switch id {
+        case HKWorkoutType.workoutType().identifier,
+             HKQuantityTypeIdentifier.activeEnergyBurned.rawValue,
+             HKQuantityTypeIdentifier.dietaryProtein.rawValue,
+             HKQuantityTypeIdentifier.dietaryCarbohydrates.rawValue,
+             HKQuantityTypeIdentifier.dietaryFatTotal.rawValue,
+             HKQuantityTypeIdentifier.dietaryEnergyConsumed.rawValue,
+             HKQuantityTypeIdentifier.dietaryWater.rawValue,
+             HKQuantityTypeIdentifier.stepCount.rawValue,
+             HKQuantityTypeIdentifier.bodyTemperature.rawValue,
+             HKCategoryTypeIdentifier.sleepAnalysis.rawValue,
+             HKCategoryTypeIdentifier.mindfulSession.rawValue:
+            return true
+        default:
+            return false
+        }
+    }
+
     /// Drop clinical types when Health Records are unavailable. Never returns
     /// a set that would abort `requestAuthorization`.
     static func sanitizedReadTypes(

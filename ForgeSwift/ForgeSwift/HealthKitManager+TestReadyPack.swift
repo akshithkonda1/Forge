@@ -18,8 +18,16 @@ extension HealthKitManager {
             throw HealthKitError.notAvailable
         }
         try await deleteTestReadyPackSamples()
-        try await saveQuantityAndSleep(from: pack)
-        try await saveWorkouts(from: pack)
+        do {
+            try await saveQuantityAndSleep(from: pack)
+        } catch {
+            print("Test-ready vitals overlay skipped: \(error.localizedDescription)")
+        }
+        do {
+            try await saveWorkouts(from: pack)
+        } catch {
+            print("Test-ready workouts overlay skipped: \(error.localizedDescription)")
+        }
         do {
             try await saveCycle(from: pack)
         } catch {

@@ -20,6 +20,8 @@
 	<string>Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.</string>
 	<key>NSHealthClinicalHealthRecordsUsageDescription</key>
 	<string>Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, procedures, and clinical vitals — so ARIA can coach around what is already on this iPhone. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Forge reads Calendar to see when you're busy so ARIA can fit training around your day, and may add labeled demo events to a Forge-owned calendar — never to your personal calendars. Titles and attendees stay on this iPhone and are never uploaded.</string>
 
 	<key>CKSharingSupported</key>
 	<true/>
