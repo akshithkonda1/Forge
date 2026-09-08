@@ -329,7 +329,7 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertTrue(lower.contains("never the titles") || lower.contains("kind"))
     }
 
-    func testCalendarKindsSteerTrainingWithoutLeakingTitles() async {
+    func testCalendarKindsSteerTrainingWithoutLeakingTitles() async throws {
         defer { AriaContextStore.shared.applyCalendarIngestTags([]) }
         AriaContextStore.shared.applyCalendarIngestTags([
             "calendar:busy:3",

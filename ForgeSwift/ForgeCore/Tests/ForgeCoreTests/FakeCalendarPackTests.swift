@@ -58,7 +58,7 @@ final class FakeCalendarPackTests: XCTestCase {
         XCTAssertEqual(FakeCalendarPack.horizonDays, 365)
     }
 
-    func testYearLooksLikeAPhoneNotAStickerWeek() {
+    func testYearLooksLikeAPhoneNotAStickerWeek() throws {
         let pack = FakeCalendarPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
         let kinds = Set(pack.events.map(\.kind))
         XCTAssertTrue(kinds.contains(.wedding))
@@ -153,7 +153,7 @@ final class FakeCalendarPackTests: XCTestCase {
         XCTAssertTrue(pack.events.contains { $0.kind == .travel })
     }
 
-    func testWeekContextIgnoresTheRestOfTheYear() {
+    func testWeekContextIgnoresTheRestOfTheYear() throws {
         let pack = FakeCalendarPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
         let wedding = try XCTUnwrap(pack.events.first { $0.kind == .wedding })
         let weddingTags = FakeCalendarPack.ingestTags(from: pack, now: wedding.start, calendar: calendar)
@@ -208,7 +208,7 @@ final class FakeCalendarPackTests: XCTestCase {
         )
     }
 
-    func testSpokenLineUsesKindsNotTitlesOrPlaces() {
+    func testSpokenLineUsesKindsNotTitlesOrPlaces() throws {
         let pack = FakeCalendarPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
         let wedding = try XCTUnwrap(pack.events.first { $0.kind == .wedding })
         let tags = FakeCalendarPack.ingestTags(from: pack, now: wedding.start, calendar: calendar)
@@ -223,7 +223,7 @@ final class FakeCalendarPackTests: XCTestCase {
         XCTAssertFalse(lower.contains("standup"))
     }
 
-    func testContextualizeReadsAndThinksAboutThisWeek() {
+    func testContextualizeReadsAndThinksAboutThisWeek() throws {
         let line = try XCTUnwrap(
             FakeCalendarPack.contextualizeLine(fromTags: [
                 "calendar:kind:wedding",
@@ -297,7 +297,7 @@ final class FakeCalendarPackTests: XCTestCase {
         XCTAssertNotEqual(eveningWindow.thinkingLine, travelAndWedding.thinkingLine)
     }
 
-    func testDifferentWeeksYieldDifferentOutcomes() {
+    func testDifferentWeeksYieldDifferentOutcomes() throws {
         let pack = FakeCalendarPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
         let nowCtx = FakeCalendarPack.weekContext(from: pack, now: pinnedNow, calendar: calendar)
         let window = FakeCalendarPack.weekWindow(containing: pinnedNow, calendar: calendar)
@@ -356,7 +356,7 @@ final class FakeCalendarPackTests: XCTestCase {
         }
     }
 
-    func testWorkLandsOnWeekdaysAndStoryEventsHavePlaces() {
+    func testWorkLandsOnWeekdaysAndStoryEventsHavePlaces() throws {
         let pack = FakeCalendarPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
         for event in pack.events where event.kind == .work && !event.isAllDay {
             let weekday = calendar.component(.weekday, from: event.start)
