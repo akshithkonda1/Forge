@@ -157,14 +157,14 @@ struct MicButton: View {
                 
                 Image(systemName: micIcon)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(micIconColor)
+                    .foregroundStyle(micIconColor)
             }
         }
         .buttonStyle(.plain)
         .disabled(!coach.isVoiceEnabled || coach.isThinking)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: coach.isListening)
+        .animation(FDS.Spring.standard, value: coach.isListening)
         .onLongPressGesture(minimumDuration: 0, pressing: { pressing in
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+            withAnimation(FDS.Spring.snap) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -184,8 +184,8 @@ struct MicButton: View {
     
     var micIconColor: Color {
         if coach.isListening { return .white }
-        if coach.isThinking { return .textMuted }
-        return .textSecondary
+        if coach.isThinking { return Color.textMuted }
+        return Color.textSecondary
     }
     
     func handleTap() {
@@ -206,27 +206,19 @@ struct MicButton: View {
 // MARK: - Thinking Dots
 
 struct ThinkingDotsView: View {
-    @State private var phase = 0
-    
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(0..<3) { i in
-                Circle()
-                    .fill(Color.ember)
-                    .frame(width: 6, height: 6)
-                    .scaleEffect(phase == i ? 1.3 : 0.8)
-                    .opacity(phase == i ? 1.0 : 0.4)
-            }
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.4).repeatForever(autoreverses: false)) {
-                // Driven by timer below
-            }
-            Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { _ in
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    phase = (phase + 1) % 3
+        TimelineView(.periodic(from: .now, by: 0.4)) { context in
+            let phase = Int(context.date.timeIntervalSinceReferenceDate / 0.4) % 3
+            HStack(spacing: 4) {
+                ForEach(0..<3, id: \.self) { i in
+                    Circle()
+                        .fill(Color.ember)
+                        .frame(width: 6, height: 6)
+                        .scaleEffect(phase == i ? 1.3 : 0.8)
+                        .opacity(phase == i ? 1.0 : 0.4)
                 }
             }
+            .animation(.easeInOut(duration: 0.3), value: phase)
         }
     }
 }
@@ -251,10 +243,10 @@ struct AriaSpokenMuteButton: View {
         Button(action: toggle) {
             Image(systemName: muted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(muted ? .danger : .textSecondary)
+                .foregroundStyle(muted ? Color.danger : Color.textSecondary)
                 .frame(width: 36, height: 36)
                 .background(Color.surfaceElevated)
-                .cornerRadius(10)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
                         .stroke(muted ? Color.danger.opacity(0.4) : Color.borderColor.opacity(0.45), lineWidth: 1)

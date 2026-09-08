@@ -52,6 +52,8 @@ final class MenstrualHealthStore: ObservableObject {
     var cycleVault: CycleVault
     @Published var vaultSaveError: String?
     @Published var cycleUnlockedThisSession: Bool = false
+    var vaultPersistTask: Task<Void, Never>?
+    var lastWrittenVaultState: CycleVaultLiveState?
 
     /// ~24 months of daily logs.
     static let maxRetainedLogs = 800

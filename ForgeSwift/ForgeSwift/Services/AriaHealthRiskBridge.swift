@@ -35,7 +35,13 @@ enum AriaHealthRiskBridge {
 
         Task {
             let center = UNUserNotificationCenter.current()
-            do { try await center.requestAuthorization(options: [.alert, .sound, .badge]) } catch {}
+            do {
+                let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+                guard granted else { return }
+            } catch {
+                print("AriaHealthRiskBridge: notification authorization failed: \(error.localizedDescription)")
+                return
+            }
             let content = UNMutableNotificationContent()
             content.title = finding.title
             content.body = finding.body

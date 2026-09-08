@@ -59,15 +59,15 @@ enum FDS {
     }
     
     // MARK: - Spring Animations
-    
+
     enum Spring {
-        static let snap     = Animation.spring(response: 0.25, dampingFraction: 0.75)
-        static let standard = Animation.spring(response: 0.35, dampingFraction: 0.75)
-        static let hero     = Animation.spring(response: 0.45, dampingFraction: 0.70)
-        static let floaty   = Animation.spring(response: 0.55, dampingFraction: 0.65)
-        static let page     = Animation.spring(response: 0.40, dampingFraction: 0.80)
+        static let snap     = Animation.spring(SwiftUI.Spring(response: 0.25, dampingRatio: 0.75))
+        static let standard = Animation.spring(SwiftUI.Spring(response: 0.35, dampingRatio: 0.75))
+        static let hero     = Animation.spring(SwiftUI.Spring(response: 0.45, dampingRatio: 0.70))
+        static let floaty   = Animation.spring(SwiftUI.Spring(response: 0.55, dampingRatio: 0.65))
+        static let page     = Animation.spring(SwiftUI.Spring(response: 0.40, dampingRatio: 0.80))
         /// Slow inhale — used for ARIA reveals and orb breath.
-        static let fluid    = Animation.spring(response: 0.82, dampingFraction: 0.78)
+        static let fluid    = Animation.spring(SwiftUI.Spring(response: 0.82, dampingRatio: 0.78))
     }
     
     // MARK: - Gradients

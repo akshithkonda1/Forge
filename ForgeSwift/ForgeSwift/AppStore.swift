@@ -151,6 +151,8 @@ final class AppStore: ObservableObject {
     @Published var metricSources: [String] = []
     /// Server-side sync failures that should not be dressed up as coaching.
     @Published var lastCloudSyncError: String? = nil
+    /// Health / calendar ingest failures with a reason, never a silent crash.
+    @Published var lastLifeIngestError: String? = nil
     @Published var lastCloudSyncAt: Date? = nil
     @Published var remoteSleepInsight: String? = nil
     @Published var remoteProgressReview: String? = nil
@@ -228,7 +230,7 @@ final class AppStore: ObservableObject {
             // Let the first frame (and splash dismiss) land before EventKit /
             // HealthKit seed work. Seeding a year of demo calendar on the
             // main actor at init froze Home under the splash.
-            try? await Task.sleep(nanoseconds: 450_000_000)
+            try? await Task.sleep(for: .milliseconds(450))
             await self.refreshDailyData()
             await self.resyncNotifications()
         }
@@ -268,6 +270,7 @@ final class AppStore: ObservableObject {
     @Published var streamingMessageId: String? = nil
     @Published var streamingVisibleCount: Int = 0
     var streamingRevealTask: Task<Void, Never>?
+    private var persistProfileTask: Task<Void, Never>?
     /// Serializes overlapping refreshDailyData() so the empty-profile launch
     /// fetch and the post-interview prep fetch cannot clobber each other.
     var refreshDailyDataTail: Task<Void, Never>?
@@ -280,8 +283,15 @@ final class AppStore: ObservableObject {
     static let ariaMeetKey = "forge.aria.meet.v1"
 
     private func persistUserProfile() {
-        guard let data = try? JSONEncoder().encode(userProfile) else { return }
-        UserDefaults.standard.set(data, forKey: profileStorageKey())
+        persistProfileTask?.cancel()
+        let snapshot = userProfile
+        let key = profileStorageKey()
+        persistProfileTask = Task {
+            try? await Task.sleep(for: .milliseconds(80))
+            guard !Task.isCancelled else { return }
+            guard let data = try? JSONEncoder().encode(snapshot) else { return }
+            UserDefaults.standard.set(data, forKey: key)
+        }
     }
 
     // MARK: - Onboarding → ARIA handoff
@@ -302,6 +312,11 @@ final class AppStore: ObservableObject {
 }
 
 extension AppStore {
+    /// Keep both health and calendar reasons when they fail in the same launch.
+    func recordLifeIngestError(_ message: String?) {
+        lastLifeIngestError = LifeIngestError.combine(existing: lastLifeIngestError, incoming: message)
+    }
+
     /// Calculate weekly workout frequency
     var weeklyWorkoutFrequency: Int {
         let calendar = Calendar.current

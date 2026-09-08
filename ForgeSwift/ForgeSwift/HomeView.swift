@@ -125,6 +125,18 @@ struct HomeView: View {
 
 struct HomeHeaderView: View {
     @EnvironmentObject var store: AppStore
+    @ObservedObject private var calendar = CalendarManager.shared
+    @ObservedObject private var health = HealthKitManager.shared
+
+    private var ingestErrorText: String? {
+        LifeIngestError.combine(
+            existing: LifeIngestError.combine(
+                existing: store.lastLifeIngestError,
+                incoming: health.lastPackWriteError
+            ),
+            incoming: calendar.lastSeedError
+        )
+    }
 
     private var greeting: String {
         let h = Calendar.current.component(.hour, from: Date())
@@ -160,6 +172,14 @@ struct HomeHeaderView: View {
                     isLive: store.healthKitLive,
                     updatedAt: store.lastMetricsRefresh
                 )
+                if let ingestError = ingestErrorText, !ingestError.isEmpty {
+                    Text(ingestError)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 2)
+                        .accessibilityLabel(ingestError)
+                }
                 if !store.metricSources.isEmpty {
                     Text(store.metricSources.prefix(3).map { CloudSourceLabel.displayName(for: $0) }.joined(separator: " · "))
                         .font(.system(size: 11, weight: .medium, design: .rounded))

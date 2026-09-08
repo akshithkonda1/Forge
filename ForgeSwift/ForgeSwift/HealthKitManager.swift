@@ -316,6 +316,13 @@ class HealthKitManager: ObservableObject {
     private var observerQueries: [HKObserverQuery] = []
     private var liveRefreshTask: Task<Void, Never>?
     private var isObserving = false
+    /// Last Test-Ready pack successfully written this process. Skip a rewrite
+    /// that would stall launch with the same seed.
+    var installedTestReadySeed: Int?
+    /// True while a Test-Ready pack is being deleted/rewritten.
+    var isReplacingTestReadyPack = false
+    /// Why a Test-Ready HealthKit write failed. Nil when the pack is healthy.
+    @Published var lastPackWriteError: String?
     var lastTodayStatsAt: Date?
     var lastWeeklyTrendsAt: Date?
     var lastMindfulTrendAt: Date?
@@ -368,7 +375,11 @@ class HealthKitManager: ObservableObject {
         // HealthKit intentionally hides read authorization status. Once the request has been
         // presented, read queries safely return empty results for denied types.
         isAuthorized = hasRequestedAuthorization || canWriteAnyRequestedType
-        if isAuthorized { startBidirectionalSync() }
+        if isAuthorized {
+            startBidirectionalSync()
+        } else {
+            stopBidirectionalSync()
+        }
         return isAuthorized
     }
     
@@ -567,22 +578,7 @@ class HealthKitManager: ObservableObject {
         guard isAuthorized, !isObserving else { return }
         isObserving = true
 
-        let observed: [HKSampleType] = [
-            HKQuantityType(.dietaryWater),
-            HKQuantityType(.dietaryEnergyConsumed),
-            HKQuantityType(.dietaryProtein),
-            HKQuantityType(.dietaryCarbohydrates),
-            HKQuantityType(.stepCount),
-            HKQuantityType(.activeEnergyBurned),
-            HKCategoryType(.sleepAnalysis),
-            HKWorkoutType.workoutType(),
-            HKQuantityType(.bodyTemperature),
-            HKQuantityType(.appleSleepingWristTemperature),
-            HKQuantityType(.heartRateVariabilitySDNN),
-            HKQuantityType(.restingHeartRate),
-        ]
-
-        for type in observed {
+        for type in Self.bidirectionalSampleTypes {
             let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completion, _ in
                 Task { @MainActor in
                     self?.scheduleLiveRefresh()
@@ -594,6 +590,36 @@ class HealthKitManager: ObservableObject {
             healthStore.enableBackgroundDelivery(for: type, frequency: .immediate) { _, _ in }
         }
     }
+
+    func stopBidirectionalSync() {
+        liveRefreshTask?.cancel()
+        liveRefreshTask = nil
+        for query in observerQueries {
+            healthStore.stop(query)
+        }
+        observerQueries.removeAll()
+        if isObserving {
+            for type in Self.bidirectionalSampleTypes {
+                healthStore.disableBackgroundDelivery(for: type) { _, _ in }
+            }
+        }
+        isObserving = false
+    }
+
+    static let bidirectionalSampleTypes: [HKSampleType] = [
+        HKQuantityType(.dietaryWater),
+        HKQuantityType(.dietaryEnergyConsumed),
+        HKQuantityType(.dietaryProtein),
+        HKQuantityType(.dietaryCarbohydrates),
+        HKQuantityType(.stepCount),
+        HKQuantityType(.activeEnergyBurned),
+        HKCategoryType(.sleepAnalysis),
+        HKWorkoutType.workoutType(),
+        HKQuantityType(.bodyTemperature),
+        HKQuantityType(.appleSleepingWristTemperature),
+        HKQuantityType(.heartRateVariabilitySDNN),
+        HKQuantityType(.restingHeartRate),
+    ]
 
     private func scheduleLiveRefresh() {
         liveRefreshTask?.cancel()
@@ -699,8 +725,9 @@ struct UserHealthProfile {
 }
 
 /// HealthKit can invoke a query handler more than once. Resume the
-/// continuation exactly once so the medicine page cannot crash on that path.
-private final class ClinicalQueryResumeOnce<T>: @unchecked Sendable {
+/// continuation exactly once so a fetch or Test-Ready rewrite cannot crash
+/// on that path. Shared by HealthKitManager and HealthKitManager+*.
+final class ClinicalQueryResumeOnce<T>: @unchecked Sendable {
     private let lock = NSLock()
     private var done = false
     func finish(_ value: T, _ resume: (T) -> Void) {
@@ -715,9 +742,25 @@ private final class ClinicalQueryResumeOnce<T>: @unchecked Sendable {
     }
 }
 
-enum HealthKitError: Error {
+enum HealthKitError: Error, LocalizedError {
     case notAvailable
     case authorizationDenied
     case dataUnavailable
     case saveFailed
+    case saveFailedReason(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .notAvailable:
+            return "Health data is not available on this device."
+        case .authorizationDenied:
+            return "Apple Health access was not granted."
+        case .dataUnavailable:
+            return "Apple Health had no samples to read."
+        case .saveFailed:
+            return "Couldn't save this sample to Apple Health."
+        case .saveFailedReason(let reason):
+            return reason
+        }
+    }
 }

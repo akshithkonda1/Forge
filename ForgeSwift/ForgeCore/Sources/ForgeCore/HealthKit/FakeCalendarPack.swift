@@ -280,6 +280,35 @@ public struct FakeCalendarPack: Sendable, Equatable {
         return (start, end)
     }
 
+    /// EventKit this week plus an in-memory Test-Ready week, without waiting
+    /// for a year of EventKit writes. Empty EventKit keeps the memory week;
+    /// otherwise busy windows stay real and kinds are the union.
+    public static func mergeWeekContexts(
+        eventKit: FakeCalendarWeekContext?,
+        memory: FakeCalendarWeekContext?
+    ) -> FakeCalendarWeekContext? {
+        switch (eventKit, memory) {
+        case (nil, nil):
+            return nil
+        case (let eventKit?, nil):
+            return eventKit
+        case (nil, let memory?):
+            return memory
+        case (let eventKit?, let memory?):
+            return FakeCalendarWeekContext(
+                weekStart: eventKit.weekStart,
+                weekEnd: eventKit.weekEnd,
+                todayBusy: max(eventKit.todayBusy, memory.todayBusy),
+                weekBusy: max(eventKit.weekBusy, memory.weekBusy),
+                morningBusy: eventKit.morningBusy || memory.morningBusy,
+                eveningBusy: eventKit.eveningBusy || memory.eveningBusy,
+                allDayBusy: eventKit.allDayBusy || memory.allDayBusy,
+                kinds: Array(Set(eventKit.kinds + memory.kinds)).sorted(),
+                todayKinds: Array(Set(eventKit.todayKinds + memory.todayKinds)).sorted()
+            )
+        }
+    }
+
     public static func overlapsWindow(_ event: FakeCalendarEvent, start: Date, end: Date) -> Bool {
         event.start < end && event.end > start
     }

@@ -32,7 +32,7 @@ enum ForgeNotificationScheduler {
         briefEnabled: Bool,
         brief: BriefNotificationSettings
     ) async {
-        do { try await center.requestAuthorization(options: [.alert, .sound, .badge]) } catch {}
+        guard await requestAuthorizationIfNeeded() else { return }
 
         await removeAllForgeNotifications()
 
@@ -221,7 +221,7 @@ enum ForgeNotificationScheduler {
         center.removePendingNotificationRequests(withIdentifiers: [ID.partnerSupport])
         center.removeDeliveredNotifications(withIdentifiers: [ID.partnerSupport])
         guard let glance, !glance.isPaused, !glance.isStale else { return }
-        do { try await center.requestAuthorization(options: [.alert, .sound, .badge]) } catch {}
+        guard await requestAuthorizationIfNeeded() else { return }
         await scheduleDaily(
             id: ID.partnerSupport,
             hour: 8, minute: 0,
@@ -229,6 +229,15 @@ enum ForgeNotificationScheduler {
             body: glance.notificationBody,
             destination: ForgeWidgetLink.support.absoluteString
         )
+    }
+
+    static func requestAuthorizationIfNeeded() async -> Bool {
+        do {
+            return try await center.requestAuthorization(options: [.alert, .sound, .badge])
+        } catch {
+            print("ForgeNotificationScheduler: authorization failed: \(error.localizedDescription)")
+            return false
+        }
     }
 
     private static func scheduleDaily(

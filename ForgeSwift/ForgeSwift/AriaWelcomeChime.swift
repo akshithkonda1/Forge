@@ -1,5 +1,6 @@
 import AVFoundation
 import CoreGraphics
+import os
 
 /// Welcome arrive-sound and the shared still-frame mark contract
 /// (`shared/aria-mark.json`, `shared/brand/aria-mark.png`).
@@ -84,7 +85,7 @@ private final class ChimePlayer {
         }
         self.engine = engine
         stopTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 520_000_000)
+            try? await Task.sleep(for: .milliseconds(520))
             self?.stop()
         }
         #endif
@@ -98,15 +99,15 @@ private final class ChimePlayer {
     }
 }
 
-private final class BellRenderer: @unchecked Sendable {
-    private let sampleRate: Double = 22_050
-    private var frame: Int = 0
-    private let notes: [(start: Double, freq: Double, dur: Double)] = [
+private struct BellDSP {
+    var frame: Int = 0
+    let sampleRate: Double = 22_050
+    let notes: [(start: Double, freq: Double, dur: Double)] = [
         (0.00, 523.25, 0.22),
         (0.14, 784.00, 0.32),
     ]
 
-    func render(into data: UnsafeMutablePointer<Float>, frames: Int) {
+    mutating func render(into data: UnsafeMutablePointer<Float>, frames: Int) {
         for i in 0..<frames {
             let t = Double(frame) / sampleRate
             var sample: Double = 0
@@ -118,6 +119,16 @@ private final class BellRenderer: @unchecked Sendable {
             }
             data[i] = Float(max(-1, min(1, sample)))
             frame += 1
+        }
+    }
+}
+
+private final class BellRenderer: @unchecked Sendable {
+    private let lock = OSAllocatedUnfairLock(initialState: BellDSP())
+
+    func render(into data: UnsafeMutablePointer<Float>, frames: Int) {
+        lock.withLockUnchecked { dsp in
+            dsp.render(into: data, frames: frames)
         }
     }
 }

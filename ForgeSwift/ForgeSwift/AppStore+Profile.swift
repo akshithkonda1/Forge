@@ -120,6 +120,7 @@ extension AppStore {
 
     func signOut() {
         persistChatSession()
+        HealthKitManager.shared.stopBidirectionalSync()
         ForgeAuthClient.shared.signOut()
         AriaContextStore.shared.configure(userId: "local-\(UUID().uuidString)")
         isAuthenticated = false
@@ -132,6 +133,7 @@ extension AppStore {
         UserDefaults.standard.removeObject(forKey: "forge.auth.email.v1")
         resetInMemoryChat()
         lastCloudSyncError = nil
+        lastLifeIngestError = nil
         remoteSleepInsight = nil
         remoteProgressReview = nil
         metricSources = []
@@ -176,9 +178,20 @@ extension AppStore {
             healthKitLive = await HealthKitManager.shared.checkAuthorizationStatus()
             if healthKitLive {
                 await refreshDailyData()
+            } else {
+                lastLifeIngestError = LifeIngestError.skipped(
+                    doing: "Couldn't reconnect Apple Health",
+                    because: HealthKitManager.shared.authorizationErrorMessage
+                        ?? "the Health permission sheet finished without granting read access"
+                )
             }
         } catch {
             healthKitLive = false
+            lastLifeIngestError = HealthKitManager.shared.authorizationErrorMessage
+                ?? LifeIngestError.explain(
+                    error,
+                    doing: "Couldn't reconnect Apple Health"
+                )
         }
         objectWillChange.send()
     }

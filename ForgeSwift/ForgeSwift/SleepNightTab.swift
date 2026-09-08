@@ -247,7 +247,7 @@ struct SleepWindDownRitual: View {
             Text("GET TO BED")
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(1.2)
-                .foregroundColor(.textTertiary)
+                .foregroundStyle(Color.textTertiary)
             Button {
                 FDS.haptic(.light)
                 if !dimmed {
@@ -296,23 +296,32 @@ struct SleepWindDownRitual: View {
             }
             .buttonStyle(.plain)
         }
+        .onDisappear {
+            restoreBrightnessIfNeeded()
+        }
+    }
+
+    private func restoreBrightnessIfNeeded() {
+        guard dimmed, let previousBrightness else { return }
+        ForegroundScreenBrightness.set(previousBrightness)
+        dimmed = false
     }
 
     private func ritualRow(step: String, title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Text(step)
                 .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundColor(.aurora)
+                .foregroundStyle(Color.aurora)
                 .frame(width: 28, height: 28)
                 .background(Color.aurora.opacity(0.14))
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundColor(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                 Text(detail)
                     .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
+                    .foregroundStyle(Color.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -618,6 +627,23 @@ struct SleepWeekRhythm: View {
         let out = DateFormatter()
         out.setLocalizedDateFormatFromTemplate("EEEEE")
         return out.string(from: date)
+    }
+}
+
+/// iOS 27 deprecates `UIScreen.main`. Brightness belongs to the foreground window scene.
+enum ForegroundScreenBrightness {
+    static var current: CGFloat {
+        screen?.brightness ?? 0.5
+    }
+
+    static func set(_ value: CGFloat) {
+        screen?.brightness = value
+    }
+
+    private static var screen: UIScreen? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let foreground = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+        return foreground?.screen
     }
 }
 

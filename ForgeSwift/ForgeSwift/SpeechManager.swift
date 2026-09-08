@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import Speech
+import os
 
 /// Shared dictation engine for Chat + Onboarding.
 /// Partial results stream into `recognizedText`; silence or stop finalizes.
@@ -17,6 +18,9 @@ final class SpeechManager: ObservableObject {
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private var silenceTimer: Timer?
     private var levelTimer: Timer?
+    /// Audio-thread gate so amplitude does not hop to MainActor every quantum.
+    nonisolated private let amplitudePublishLock = OSAllocatedUnfairLock(initialState: TimeInterval(0))
+    nonisolated static let amplitudePublishInterval: TimeInterval = 0.12
 
     /// ARIA's current mood, mirrored in so dictation paces itself to the
     /// conversation. Calm/supportive moments mean the user is more likely to be
@@ -281,6 +285,13 @@ final class SpeechManager: ObservableObject {
 
     nonisolated private func pushAmplitude(_ rms: Float) {
         let level = min(1, max(0.08, rms * 12))
+        let now = CFAbsoluteTimeGetCurrent()
+        let shouldPublish = amplitudePublishLock.withLock { last -> Bool in
+            guard now - last >= Self.amplitudePublishInterval else { return false }
+            last = now
+            return true
+        }
+        guard shouldPublish else { return }
         Task { @MainActor in
             self.amplitude = level
         }
