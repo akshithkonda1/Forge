@@ -61,4 +61,30 @@ final class CurrentPracticeAPITests: XCTestCase {
         XCTAssertTrue(stamp.contains("T"))
         XCTAssertGreaterThanOrEqual(stamp.count, 20)
     }
+
+    func testSpeechAmplitudePublishIsThrottledCoarserThanAudioQuantum() {
+        XCTAssertGreaterThanOrEqual(SpeechManager.amplitudePublishInterval, 0.1)
+        XCTAssertLessThan(SpeechManager.amplitudePublishInterval, 0.25)
+    }
+
+    func testHealthKitObserverStopIsIdempotent() {
+        HealthKitManager.shared.stopBidirectionalSync()
+        HealthKitManager.shared.stopBidirectionalSync()
+        XCTAssertEqual(HealthKitManager.bidirectionalSampleTypes.count, 12)
+        XCTAssertTrue(HealthKitManager.bidirectionalSampleTypes.contains(HKQuantityType(.dietaryWater)))
+        XCTAssertTrue(HealthKitManager.bidirectionalSampleTypes.contains(HKCategoryType(.sleepAnalysis)))
+    }
+
+    func testForegroundScreenBrightnessIsFinite() {
+        let value = ForegroundScreenBrightness.current
+        XCTAssertTrue(value.isFinite)
+        XCTAssertGreaterThanOrEqual(value, 0)
+        XCTAssertLessThanOrEqual(value, 1)
+    }
+
+    func testCalendarIngestGuardsOnlyOnFullAccess() {
+        XCTAssertFalse(CalendarManager.hasReadAccess(.writeOnly))
+        XCTAssertFalse(CalendarManager.hasReadAccess(.denied))
+        XCTAssertTrue(CalendarManager.hasReadAccess(.fullAccess))
+    }
 }

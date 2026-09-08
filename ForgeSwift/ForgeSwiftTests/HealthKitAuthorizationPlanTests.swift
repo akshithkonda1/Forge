@@ -85,6 +85,26 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
         XCTAssertFalse(tags.contains("healthkit:records:3"))
     }
 
+    func testAuthorizationPlanUsesCurrentHealthKitTypeInits() {
+        XCTAssertEqual(
+            HealthKitAuthorizationPlan.clinicalReadTypes.count,
+            HealthKitAuthorizationPlan.structuredClinicalIdentifiers.count
+        )
+        for identifier in HealthKitAuthorizationPlan.structuredClinicalIdentifiers {
+            XCTAssertTrue(HealthKitAuthorizationPlan.clinicalReadTypes.contains(HKClinicalType(identifier)))
+        }
+        XCTAssertTrue(HealthKitAuthorizationPlan.writeTypes.contains(HKCategoryType(.sexualActivity)))
+        XCTAssertTrue(HealthKitAuthorizationPlan.writeTypes.contains(HKCategoryType(.mindfulSession)))
+        XCTAssertTrue(HealthKitAuthorizationPlan.writeTypes.contains(HKCategoryType(.menstrualFlow)))
+        XCTAssertTrue(HealthKitAuthorizationPlan.writeTypes.contains(HKQuantityType(.basalBodyTemperature)))
+        XCTAssertTrue(HealthKitAuthorizationPlan.writeTypes.contains(HKCategoryType(.cervicalMucusQuality)))
+        XCTAssertTrue(HealthKitAuthorizationPlan.writeTypes.contains(HKCategoryType(.ovulationTestResult)))
+        let vital = HKClinicalTypeIdentifier(rawValue: "HKClinicalTypeIdentifierVitalSignRecord")
+        XCTAssertTrue(
+            HealthKitAuthorizationPlan.structuredClinicalIdentifiers.contains { $0.rawValue == vital.rawValue }
+        )
+    }
+
     func testVitalKindMapsFromVitalSignRecordIdentifier() {
         let vital = HKClinicalTypeIdentifier(rawValue: "HKClinicalTypeIdentifierVitalSignRecord")
         XCTAssertEqual(StructuredHealthKind(identifier: vital), .vital)

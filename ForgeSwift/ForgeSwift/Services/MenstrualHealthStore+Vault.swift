@@ -67,12 +67,24 @@ extension MenstrualHealthStore {
             return
         }
         loadLegacyUserDefaults()
-        persistVault()
+        commitVaultIfNeeded()
     }
 
     func persistVault() {
+        vaultPersistTask?.cancel()
+        vaultPersistTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(60))
+            guard !Task.isCancelled else { return }
+            self?.commitVaultIfNeeded()
+        }
+    }
+
+    func commitVaultIfNeeded() {
+        let state = liveVaultState
+        guard state != lastWrittenVaultState else { return }
+        lastWrittenVaultState = state
         do {
-            let data = try JSONEncoder().encode(liveVaultState)
+            let data = try JSONEncoder().encode(state)
             try cycleVault.writeLive(data)
             let monthKey = CycleVault.monthKey()
             let digest = CycleMonthlyDigestFactory.make(
@@ -85,6 +97,7 @@ extension MenstrualHealthStore {
             clearLegacyUserDefaults()
             vaultSaveError = nil
         } catch {
+            lastWrittenVaultState = nil
             vaultSaveError = error.localizedDescription
             if !cycleVault.hasLiveBox {
                 writeLegacyUserDefaults()
@@ -120,6 +133,9 @@ extension MenstrualHealthStore {
     }
 
     func wipeVaultArchives() {
+        vaultPersistTask?.cancel()
+        vaultPersistTask = nil
+        lastWrittenVaultState = nil
         try? cycleVault.wipe()
         cycleVault = Self.makeVault()
     }

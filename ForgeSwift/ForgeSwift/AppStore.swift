@@ -268,6 +268,7 @@ final class AppStore: ObservableObject {
     @Published var streamingMessageId: String? = nil
     @Published var streamingVisibleCount: Int = 0
     var streamingRevealTask: Task<Void, Never>?
+    private var persistProfileTask: Task<Void, Never>?
     /// Serializes overlapping refreshDailyData() so the empty-profile launch
     /// fetch and the post-interview prep fetch cannot clobber each other.
     var refreshDailyDataTail: Task<Void, Never>?
@@ -280,8 +281,15 @@ final class AppStore: ObservableObject {
     static let ariaMeetKey = "forge.aria.meet.v1"
 
     private func persistUserProfile() {
-        guard let data = try? JSONEncoder().encode(userProfile) else { return }
-        UserDefaults.standard.set(data, forKey: profileStorageKey())
+        persistProfileTask?.cancel()
+        let snapshot = userProfile
+        let key = profileStorageKey()
+        persistProfileTask = Task {
+            try? await Task.sleep(for: .milliseconds(80))
+            guard !Task.isCancelled else { return }
+            guard let data = try? JSONEncoder().encode(snapshot) else { return }
+            UserDefaults.standard.set(data, forKey: key)
+        }
     }
 
     // MARK: - Onboarding → ARIA handoff

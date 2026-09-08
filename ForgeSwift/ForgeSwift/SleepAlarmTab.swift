@@ -121,7 +121,13 @@ enum SleepAlarmScheduler {
     }
 
     static func sync(_ alarms: [ForgeAlarm]) async {
-        do { try await center.requestAuthorization(options: [.alert, .sound, .badge]) } catch {}
+        do {
+            let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+            guard granted else { return }
+        } catch {
+            print("SleepWakeEngine: notification authorization failed: \(error.localizedDescription)")
+            return
+        }
         let pending = await center.pendingNotificationRequests()
         let stale = pending.map(\.identifier).filter(SleepWakeEngine.isWakeNotification)
         center.removePendingNotificationRequests(withIdentifiers: stale)
