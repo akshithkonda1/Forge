@@ -470,13 +470,14 @@ class HealthKitManager: ObservableObject {
             readTypes,
             supportsHealthRecords: healthStore.supportsHealthRecords()
         )
+        let safeShare = HealthKitAuthorizationPlan.sanitizedShareTypes(shareTypes)
         guard !safeRead.isEmpty else {
             authorizationErrorMessage = "Health data is not available on this device."
             throw HealthKitError.notAvailable
         }
-        
+
         do {
-            try await healthStore.requestAuthorization(toShare: shareTypes, read: safeRead)
+            try await presentAuthorization(toShare: safeShare, read: safeRead)
             UserDefaults.standard.set(true, forKey: requestedKey)
             if requestedKey != authorizationRequestedKey {
                 UserDefaults.standard.set(true, forKey: authorizationRequestedKey)
@@ -485,12 +486,43 @@ class HealthKitManager: ObservableObject {
             isAuthorized = true
             startBidirectionalSync()
         } catch {
-            authorizationErrorMessage = LifeIngestError.explain(
-                error,
-                doing: "Couldn't request Apple Health access"
-            )
+            // Share-type validation can still fail on some simulators. Read-only
+            // never hits `_throwIfAuthorizationDisallowedForSharing`.
+            if !safeShare.isEmpty {
+                do {
+                    try await presentAuthorization(toShare: [], read: safeRead)
+                    UserDefaults.standard.set(true, forKey: requestedKey)
+                    authorizationErrorMessage = nil
+                    isAuthorized = true
+                    startBidirectionalSync()
+                    return
+                } catch {
+                    authorizationErrorMessage = error.localizedDescription
+                    isAuthorized = false
+                    throw error
+                }
+            }
+            authorizationErrorMessage = error.localizedDescription
             isAuthorized = false
             throw error
+        }
+    }
+
+    /// Completion-handler form, always from the main actor. The async overlay
+    /// can hop onto the cooperative pool; HealthKit then aborts instead of
+    /// showing the Allow sheet.
+    private func presentAuthorization(
+        toShare shareTypes: Set<HKSampleType>,
+        read readTypes: Set<HKObjectType>
+    ) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            healthStore.requestAuthorization(toShare: shareTypes, read: readTypes) { _, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
         }
     }
 

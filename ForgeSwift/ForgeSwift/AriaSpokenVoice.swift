@@ -285,25 +285,36 @@ final class AriaNeuralVoiceGate {
     private(set) var hasNeuralIdentity = false
 
     private init() {
-        refreshCatalog()
+        // `AVSpeechSynthesisVoice.speechVoices()` waits on an XPC catalog.
+        // Doing that here used to run from ContentView.body and freeze a
+        // black first frame until the watchdog killed the process.
     }
 
     func refreshCatalog() {
-        hasNeuralIdentity = AriaSpokenVoice.hasInstalledIdentity()
-        if hasNeuralIdentity {
+        Task { await scanCatalog() }
+    }
+
+    private func scanCatalog() async {
+        let installed = await Task.detached(priority: .utility) {
+            AriaSpokenVoice.hasInstalledIdentity()
+        }.value
+        hasNeuralIdentity = installed
+        if installed {
             showPrompt = false
         }
     }
 
     func requestPromptIfNeeded(defaults: UserDefaults = .standard) {
-        refreshCatalog()
-        let already = defaults.bool(forKey: AriaNeuralVoicePromptPolicy.promptedKey)
-        guard AriaNeuralVoicePromptPolicy.shouldPresent(
-            hasNeuralIdentity: hasNeuralIdentity,
-            alreadyPrompted: already
-        ) else { return }
-        defaults.set(true, forKey: AriaNeuralVoicePromptPolicy.promptedKey)
-        showPrompt = true
+        Task {
+            await scanCatalog()
+            let already = defaults.bool(forKey: AriaNeuralVoicePromptPolicy.promptedKey)
+            guard AriaNeuralVoicePromptPolicy.shouldPresent(
+                hasNeuralIdentity: hasNeuralIdentity,
+                alreadyPrompted: already
+            ) else { return }
+            defaults.set(true, forKey: AriaNeuralVoicePromptPolicy.promptedKey)
+            showPrompt = true
+        }
     }
 
     func dismiss() {

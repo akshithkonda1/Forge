@@ -20,25 +20,16 @@ extension HealthKitManager {
             lastPackWriteError = message
             throw HealthKitError.notAvailable
         }
-        if installedTestReadySeed == pack.seed {
-            return
-        }
-        if isReplacingTestReadyPack {
-            return
-        }
-        isReplacingTestReadyPack = true
-        defer { isReplacingTestReadyPack = false }
+        try await deleteTestReadyPackSamples()
         do {
-            try await deleteTestReadyPackSamples()
             try await saveQuantityAndSleep(from: pack)
+        } catch {
+            print("Test-ready vitals overlay skipped: \(error.localizedDescription)")
+        }
+        do {
             try await saveWorkouts(from: pack)
         } catch {
-            let message = LifeIngestError.explain(
-                error,
-                doing: "Couldn't write the Test-Ready Health pack into Apple Health"
-            )
-            lastPackWriteError = message
-            throw HealthKitError.saveFailedReason(message)
+            print("Test-ready workouts overlay skipped: \(error.localizedDescription)")
         }
         do {
             try await saveCycle(from: pack)

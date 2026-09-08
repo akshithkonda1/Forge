@@ -43,6 +43,22 @@ private final class ChimePlayer {
 
     func start() {
         stop()
+        // First SwiftUI layout is mid-CATransaction. Touching `mainMixerNode`
+        // then trips an AudioUnit RemoteIO RPC timeout on iOS 27 Simulator
+        // and aborts the process — black screen, no catch.
+        stopTask = Task { @MainActor [weak self] in
+            await Task.yield()
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            self?.startEngine()
+        }
+    }
+
+    private func startEngine() {
+        #if targetEnvironment(simulator)
+        // iOS 27 Simulator RemoteIO times out inside `mainMixerNode` and
+        // aborts the process. Device playback is unchanged.
+        return
+        #else
         guard let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1) else { return }
         let renderer = BellRenderer()
         let engine = AVAudioEngine()
@@ -54,16 +70,16 @@ private final class ChimePlayer {
             }
             return noErr
         }
-        engine.attach(source)
-        engine.mainMixerNode.outputVolume = 0.28
         do {
+            try ForgePlaybackSession.chime.activate()
+            engine.attach(source)
             #if compiler(>=6.4)
             try engine.connectNode(source, to: engine.mainMixerNode, format: format)
             #else
             engine.connect(source, to: engine.mainMixerNode, format: format)
             #endif
-            try ForgePlaybackSession.chime.activate()
             try engine.start()
+            engine.mainMixerNode.outputVolume = 0.28
         } catch {
             return
         }
@@ -72,6 +88,7 @@ private final class ChimePlayer {
             try? await Task.sleep(for: .milliseconds(520))
             self?.stop()
         }
+        #endif
     }
 
     func stop() {

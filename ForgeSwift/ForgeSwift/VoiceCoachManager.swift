@@ -320,19 +320,11 @@ final class VoiceCoachManager {
     // MARK: - Audio Session
     
     private func setupAudioSession() {
-        #if compiler(>=6.4)
         try? AVAudioSession.sharedInstance().setCategory(
             .playAndRecord,
             mode: .default,
-            options: [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP, .duckOthers]
+            options: [.defaultToSpeaker, ForgePlaybackSession.bluetoothHFP, .allowBluetoothA2DP, .duckOthers]
         )
-        #else
-        try? AVAudioSession.sharedInstance().setCategory(
-            .playAndRecord,
-            mode: .default,
-            options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP, .duckOthers]
-        )
-        #endif
         try? AVAudioSession.sharedInstance().setActive(true)
     }
     

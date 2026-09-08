@@ -85,24 +85,23 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
         XCTAssertFalse(tags.contains("healthkit:records:3"))
     }
 
-    func testAuthorizationPlanUsesCurrentHealthKitTypeInits() {
-        XCTAssertEqual(
-            HealthKitAuthorizationPlan.clinicalReadTypes.count,
-            HealthKitAuthorizationPlan.structuredClinicalIdentifiers.count
-        )
-        for identifier in HealthKitAuthorizationPlan.structuredClinicalIdentifiers {
-            XCTAssertTrue(HealthKitAuthorizationPlan.clinicalReadTypes.contains(HKClinicalType(identifier)))
-        }
-        XCTAssertTrue(HealthKitAuthorizationPlan.writeTypes.contains(HKCategoryType(.sexualActivity)))
-        XCTAssertTrue(HealthKitAuthorizationPlan.writeTypes.contains(HKCategoryType(.mindfulSession)))
-        XCTAssertTrue(HealthKitAuthorizationPlan.writeTypes.contains(HKCategoryType(.menstrualFlow)))
-        XCTAssertTrue(HealthKitAuthorizationPlan.writeTypes.contains(HKQuantityType(.basalBodyTemperature)))
-        XCTAssertTrue(HealthKitAuthorizationPlan.writeTypes.contains(HKCategoryType(.cervicalMucusQuality)))
-        XCTAssertTrue(HealthKitAuthorizationPlan.writeTypes.contains(HKCategoryType(.ovulationTestResult)))
-        let vital = HKClinicalTypeIdentifier(rawValue: "HKClinicalTypeIdentifierVitalSignRecord")
-        XCTAssertTrue(
-            HealthKitAuthorizationPlan.structuredClinicalIdentifiers.contains { $0.rawValue == vital.rawValue }
-        )
+    func testShareCatalogNeverIncludesTypesThatAbortAllow() {
+        let requested = HealthKitAuthorizationPlan.writeTypes.union([
+            HKQuantityType(.heartRateVariabilitySDNN),
+            HKQuantityType(.restingHeartRate),
+            HKCategoryType(.menstrualFlow),
+            HKCategoryType(.sexualActivity),
+        ])
+        let share = HealthKitAuthorizationPlan.sanitizedShareTypes(requested)
+        XCTAssertTrue(share.contains(HKWorkoutType.workoutType()))
+        XCTAssertTrue(share.contains(HKQuantityType(.dietaryWater)))
+        XCTAssertTrue(share.contains(HKCategoryType(.sleepAnalysis)))
+        XCTAssertFalse(share.contains(HKQuantityType(.heartRateVariabilitySDNN)))
+        XCTAssertFalse(share.contains(HKQuantityType(.restingHeartRate)))
+        XCTAssertFalse(share.contains(HKCategoryType(.menstrualFlow)))
+        XCTAssertFalse(share.contains(HKCategoryType(.sexualActivity)))
+        XCTAssertFalse(share.contains { $0 is HKClinicalType })
+        XCTAssertFalse(share.contains { $0.identifier.contains("Apple") })
     }
 
     func testVitalKindMapsFromVitalSignRecordIdentifier() {

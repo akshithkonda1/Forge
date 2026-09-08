@@ -476,15 +476,16 @@ final class AriaLiveConvAIClient: NSObject, URLSessionWebSocketDelegate {
             throw AriaVoiceSessionError.invalidSignedURL
         }
         input.removeTap(onBus: 0)
-        let tapFrames = AVAudioFrameCount(max(4096, (format.sampleRate * 0.15).rounded()))
-        let sender = micSender
         #if compiler(>=6.4)
-        try input.installAudioTap(onBus: 0, bufferSize: tapFrames, format: format) { buffer, _ in
-            guard let data = AriaLiveConvAIClient.int16MonoData(from: AVAudioPCMBuffer(copying: buffer)) else { return }
-            Task { await sender.sendPCM(data) }
+        try input.installAudioTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            let pcm = AVAudioPCMBuffer(copying: buffer)
+            guard let data = AriaLiveConvAIClient.int16MonoData(from: pcm) else { return }
+            Task { @MainActor in
+                self?.sendBase64Chunk(data)
+            }
         }
         #else
-        input.installTap(onBus: 0, bufferSize: tapFrames, format: format) { buffer, _ in
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let data = AriaLiveConvAIClient.int16MonoData(from: buffer) else { return }
             Task { await sender.sendPCM(data) }
         }
@@ -492,13 +493,25 @@ final class AriaLiveConvAIClient: NSObject, URLSessionWebSocketDelegate {
         let player = AVAudioPlayerNode()
         engine.attach(player)
         #if compiler(>=6.4)
-        try engine.connectNode(player, to: engine.mainMixerNode, format: outFormat)
+        if let outFormat {
+            try engine.connectNode(player, to: engine.mainMixerNode, format: outFormat)
+        } else {
+            try engine.connectNode(player, to: engine.mainMixerNode, format: nil)
+        }
         #else
-        engine.connect(player, to: engine.mainMixerNode, format: outFormat)
+        if let outFormat {
+            engine.connect(player, to: engine.mainMixerNode, format: outFormat)
+        } else {
+            engine.connect(player, to: engine.mainMixerNode, format: nil)
+        }
         #endif
         engine.prepare()
         try engine.start()
+        #if compiler(>=6.4)
+        try player.playAudio()
+        #else
         player.play()
+        #endif
         self.engine = engine
         self.player = player
     }

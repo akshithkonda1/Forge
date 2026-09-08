@@ -232,6 +232,16 @@ struct SleepWindDownRitual: View {
     @State private var parked = false
     @State private var previousBrightness: CGFloat?
 
+    /// iOS 26 deprecated `UIScreen.main`. Brightness belongs to the scene
+    /// that is actually showing this view.
+    private static func activeScreen() -> UIScreen? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        if let active = scenes.first(where: { $0.activationState == .foregroundActive }) {
+            return active.screen
+        }
+        return scenes.first?.screen
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("GET TO BED")
@@ -241,11 +251,12 @@ struct SleepWindDownRitual: View {
             Button {
                 FDS.haptic(.light)
                 if !dimmed {
-                    previousBrightness = ForegroundScreenBrightness.current
-                    ForegroundScreenBrightness.set(min(ForegroundScreenBrightness.current, 0.18))
+                    guard let screen = Self.activeScreen() else { return }
+                    previousBrightness = screen.brightness
+                    screen.brightness = min(screen.brightness, 0.18)
                     dimmed = true
-                } else if let previousBrightness {
-                    ForegroundScreenBrightness.set(previousBrightness)
+                } else if let previousBrightness, let screen = Self.activeScreen() {
+                    screen.brightness = previousBrightness
                     dimmed = false
                 }
             } label: {
