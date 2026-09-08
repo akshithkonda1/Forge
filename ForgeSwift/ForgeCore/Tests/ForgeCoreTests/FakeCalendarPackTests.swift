@@ -307,16 +307,45 @@ final class FakeCalendarPackTests: XCTestCase {
             }
         )
         let weddingCtx = FakeCalendarPack.weekContext(from: pack, now: otherWedding.start, calendar: calendar)
+        XCTAssertNotEqual(
+            nowCtx.weekStart,
+            weddingCtx.weekStart,
+            "ARIA's working memory is a week, not the year"
+        )
         XCTAssertTrue(weddingCtx.kinds.contains(.wedding))
+        XCTAssertTrue(weddingCtx.ingestTags.contains("calendar:kind:wedding"))
         XCTAssertTrue(weddingCtx.outcome.thinkingLine?.localizedCaseInsensitiveContains("wedding") == true)
         XCTAssertTrue(weddingCtx.outcome.changesSession)
         if !nowCtx.kinds.contains(.wedding) {
+            XCTAssertFalse(nowCtx.ingestTags.contains("calendar:kind:wedding"))
             XCTAssertFalse(
                 nowCtx.outcome.thinkingLine?.localizedCaseInsensitiveContains("wedding") == true,
                 "this week must not think about another week's wedding"
             )
         }
-        XCTAssertNotEqual(nowCtx.ingestTags.sorted(), weddingCtx.ingestTags.sorted())
+
+        let otherTravel = try XCTUnwrap(
+            pack.events.first { event in
+                event.kind == .travel
+                    && (event.end <= window.start || event.start >= window.end)
+                    && (event.end <= weddingCtx.weekStart || event.start >= weddingCtx.weekEnd)
+            }
+        )
+        let travelCtx = FakeCalendarPack.weekContext(from: pack, now: otherTravel.start, calendar: calendar)
+        XCTAssertTrue(travelCtx.kinds.contains(.travel) || travelCtx.kinds.contains(.flight))
+        XCTAssertEqual(travelCtx.outcome.shape, .movable)
+        XCTAssertTrue(
+            travelCtx.outcome.thinkingLine?.localizedCaseInsensitiveContains("travel") == true
+                || travelCtx.outcome.thinkingLine?.localizedCaseInsensitiveContains("trip") == true
+                || travelCtx.outcome.thinkingLine?.localizedCaseInsensitiveContains("move") == true
+        )
+        if !travelCtx.kinds.contains(.wedding) {
+            XCTAssertNotEqual(
+                travelCtx.outcome.thinkingLine,
+                weddingCtx.outcome.thinkingLine,
+                "a trip week and a wedding week must not produce the same coaching thought"
+            )
+        }
     }
 
     func testGuaranteesHoldAcrossManySeeds() {
