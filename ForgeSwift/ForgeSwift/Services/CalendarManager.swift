@@ -84,7 +84,7 @@ final class CalendarManager: ObservableObject {
     /// Seed the Forge test calendar when allowed, then refresh this week's tags.
     func ingestUpcomingIfAuthorized() async {
         let status = authorizationStatus()
-        guard status == .authorized || status == .fullAccess else { return }
+        guard Self.hasReadAccess(status) else { return }
         isAuthorized = true
         await seedTestReadyCalendarIfNeeded()
         await fetchThisWeek()
@@ -96,8 +96,7 @@ final class CalendarManager: ObservableObject {
             debugBuild: ForgeAuthPolicy.isDebugBuild,
             testReady: AriaService.shouldUseTestReadyDummy,
             calendarAuthorized: isAuthorized
-                || authorizationStatus() == .authorized
-                || authorizationStatus() == .fullAccess,
+                || Self.hasReadAccess(authorizationStatus()),
             isRunningTests: FakeCalendarPack.isRunningUnitTests
         ) else { return false }
         let seed = AppStore.testReadySessionSeed
@@ -131,7 +130,6 @@ final class CalendarManager: ObservableObject {
 
     private func fetchRange(start: Date, end: Date) async {
         guard isAuthorized
-            || authorizationStatus() == .authorized
             || Self.hasReadAccess(authorizationStatus()) else { return }
         let calendars = store.calendars(for: .event)
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)

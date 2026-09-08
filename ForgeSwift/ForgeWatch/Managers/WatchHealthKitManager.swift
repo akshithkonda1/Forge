@@ -242,10 +242,31 @@ final class WatchHealthKitManager {
         }
     }
 
+    func stopBackgroundObservers() {
+        liveRefreshTask?.cancel()
+        liveRefreshTask = nil
+        for query in observerQueries {
+            store.stop(query)
+        }
+        observerQueries.removeAll()
+        if isObserving {
+            let types: [HKSampleType] = [
+                HKQuantityType(.bodyTemperature),
+                HKQuantityType(.heartRateVariabilitySDNN),
+                HKQuantityType(.restingHeartRate),
+                HKQuantityType(.appleSleepingWristTemperature),
+            ]
+            for type in types {
+                store.disableBackgroundDelivery(for: type) { _, _ in }
+            }
+        }
+        isObserving = false
+    }
+
     private func scheduleLiveRefresh() {
         liveRefreshTask?.cancel()
         liveRefreshTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 400_000_000)
+            try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
             await refreshAll()
         }

@@ -120,6 +120,7 @@ extension AppStore {
 
     func signOut() {
         persistChatSession()
+        HealthKitManager.shared.stopBidirectionalSync()
         ForgeAuthClient.shared.signOut()
         AriaContextStore.shared.configure(userId: "local-\(UUID().uuidString)")
         isAuthenticated = false

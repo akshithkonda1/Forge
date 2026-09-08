@@ -368,7 +368,11 @@ class HealthKitManager: ObservableObject {
         // HealthKit intentionally hides read authorization status. Once the request has been
         // presented, read queries safely return empty results for denied types.
         isAuthorized = hasRequestedAuthorization || canWriteAnyRequestedType
-        if isAuthorized { startBidirectionalSync() }
+        if isAuthorized {
+            startBidirectionalSync()
+        } else {
+            stopBidirectionalSync()
+        }
         return isAuthorized
     }
     
@@ -532,22 +536,7 @@ class HealthKitManager: ObservableObject {
         guard isAuthorized, !isObserving else { return }
         isObserving = true
 
-        let observed: [HKSampleType] = [
-            HKQuantityType(.dietaryWater),
-            HKQuantityType(.dietaryEnergyConsumed),
-            HKQuantityType(.dietaryProtein),
-            HKQuantityType(.dietaryCarbohydrates),
-            HKQuantityType(.stepCount),
-            HKQuantityType(.activeEnergyBurned),
-            HKCategoryType(.sleepAnalysis),
-            HKWorkoutType.workoutType(),
-            HKQuantityType(.bodyTemperature),
-            HKQuantityType(.appleSleepingWristTemperature),
-            HKQuantityType(.heartRateVariabilitySDNN),
-            HKQuantityType(.restingHeartRate),
-        ]
-
-        for type in observed {
+        for type in Self.bidirectionalSampleTypes {
             let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completion, _ in
                 Task { @MainActor in
                     self?.scheduleLiveRefresh()
@@ -559,6 +548,36 @@ class HealthKitManager: ObservableObject {
             healthStore.enableBackgroundDelivery(for: type, frequency: .immediate) { _, _ in }
         }
     }
+
+    func stopBidirectionalSync() {
+        liveRefreshTask?.cancel()
+        liveRefreshTask = nil
+        for query in observerQueries {
+            healthStore.stop(query)
+        }
+        observerQueries.removeAll()
+        if isObserving {
+            for type in Self.bidirectionalSampleTypes {
+                healthStore.disableBackgroundDelivery(for: type) { _, _ in }
+            }
+        }
+        isObserving = false
+    }
+
+    static let bidirectionalSampleTypes: [HKSampleType] = [
+        HKQuantityType(.dietaryWater),
+        HKQuantityType(.dietaryEnergyConsumed),
+        HKQuantityType(.dietaryProtein),
+        HKQuantityType(.dietaryCarbohydrates),
+        HKQuantityType(.stepCount),
+        HKQuantityType(.activeEnergyBurned),
+        HKCategoryType(.sleepAnalysis),
+        HKWorkoutType.workoutType(),
+        HKQuantityType(.bodyTemperature),
+        HKQuantityType(.appleSleepingWristTemperature),
+        HKQuantityType(.heartRateVariabilitySDNN),
+        HKQuantityType(.restingHeartRate),
+    ]
 
     private func scheduleLiveRefresh() {
         liveRefreshTask?.cancel()

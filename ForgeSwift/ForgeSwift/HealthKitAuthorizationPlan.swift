@@ -18,11 +18,8 @@ enum HealthKitAuthorizationPlan: Sendable {
             .immunizationRecord,
             .labResultRecord,
             .procedureRecord,
+            HKClinicalTypeIdentifier(rawValue: "HKClinicalTypeIdentifierVitalSignRecord"),
         ]
-        let vital = HKClinicalTypeIdentifier(rawValue: "HKClinicalTypeIdentifierVitalSignRecord")
-        if HKObjectType.clinicalType(forIdentifier: vital) != nil {
-            ids.append(vital)
-        }
         return ids
     }()
 
@@ -80,25 +77,19 @@ enum HealthKitAuthorizationPlan: Sendable {
     }
 
     static var clinicalReadTypes: Set<HKObjectType> {
-        Set(structuredClinicalIdentifiers.compactMap { HKObjectType.clinicalType(forIdentifier: $0) })
+        Set(structuredClinicalIdentifiers.map { HKClinicalType($0) as HKObjectType })
     }
 
     static var sampleAndCharacteristicReadTypes: Set<HKObjectType> {
         var types = Set<HKObjectType>()
         for id in quantityIdentifiers {
-            if let type = HKQuantityType.quantityType(forIdentifier: id) {
-                types.insert(type)
-            }
+            types.insert(HKQuantityType(id))
         }
         for id in categoryIdentifiers {
-            if let type = HKCategoryType.categoryType(forIdentifier: id) {
-                types.insert(type)
-            }
+            types.insert(HKCategoryType(id))
         }
         for id in characteristicIdentifiers {
-            if let type = HKCharacteristicType.characteristicType(forIdentifier: id) {
-                types.insert(type)
-            }
+            types.insert(HKCharacteristicType(id))
         }
         types.insert(HKObjectType.workoutType())
         types.insert(HKObjectType.activitySummaryType())
@@ -109,7 +100,7 @@ enum HealthKitAuthorizationPlan: Sendable {
     }
 
     static var writeTypes: Set<HKSampleType> {
-        var types: Set<HKSampleType> = [
+        [
             HKQuantityType(.activeEnergyBurned),
             HKQuantityType(.dietaryProtein),
             HKQuantityType(.dietaryCarbohydrates),
@@ -117,14 +108,13 @@ enum HealthKitAuthorizationPlan: Sendable {
             HKQuantityType(.dietaryEnergyConsumed),
             HKQuantityType(.dietaryWater),
             HKWorkoutType.workoutType(),
+            HKCategoryType(.sexualActivity),
+            HKCategoryType(.mindfulSession),
+            HKCategoryType(.menstrualFlow),
+            HKQuantityType(.basalBodyTemperature),
+            HKCategoryType(.cervicalMucusQuality),
+            HKCategoryType(.ovulationTestResult),
         ]
-        if let sex = HKCategoryType.categoryType(forIdentifier: .sexualActivity) { types.insert(sex) }
-        if let mind = HKCategoryType.categoryType(forIdentifier: .mindfulSession) { types.insert(mind) }
-        if let flow = HKCategoryType.categoryType(forIdentifier: .menstrualFlow) { types.insert(flow) }
-        if let bbt = HKQuantityType.quantityType(forIdentifier: .basalBodyTemperature) { types.insert(bbt) }
-        if let mucus = HKCategoryType.categoryType(forIdentifier: .cervicalMucusQuality) { types.insert(mucus) }
-        if let ovu = HKCategoryType.categoryType(forIdentifier: .ovulationTestResult) { types.insert(ovu) }
-        return types
     }
 
     static let quantityIdentifiers: [HKQuantityTypeIdentifier] = [
