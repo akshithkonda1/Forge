@@ -6,7 +6,11 @@ import ForgeCore
 struct ContentView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.scenePhase) private var scenePhase
-    @State private var showSplash = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Once per process — recreating this view must not put the splash back
+    /// on top of Home and eat taps.
+    @State private var showSplash = !Self.didFinishSplash
+    private static var didFinishSplash = false
 
     var body: some View {
         @Bindable var neuralVoiceGate = AriaNeuralVoiceGate.shared
@@ -23,11 +27,12 @@ struct ContentView: View {
             .animation(.easeInOut(duration: 0.35), value: store.isAuthenticated)
             .animation(.easeInOut(duration: 0.35), value: store.isOnboarded)
 
-            // Epic splash screen
             if showSplash {
                 ForgeSplashScreen()
                     .transition(.opacity)
                     .zIndex(999)
+                    // Never block Home if the hide animation stalls.
+                    .allowsHitTesting(false)
             }
         }
         .sheet(isPresented: $neuralVoiceGate.showPrompt) {
@@ -38,11 +43,13 @@ struct ContentView: View {
                 AriaNeuralVoiceGate.shared.refreshCatalog()
             }
         }
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-                withAnimation(.easeOut(duration: 0.6)) {
-                    showSplash = false
-                }
+        .task {
+            guard showSplash else { return }
+            let pause: UInt64 = reduceMotion ? 350_000_000 : 1_100_000_000
+            try? await Task.sleep(nanoseconds: pause)
+            Self.didFinishSplash = true
+            withAnimation(.easeOut(duration: 0.28)) {
+                showSplash = false
             }
         }
     }
@@ -80,7 +87,7 @@ struct ForgeSplashScreen: View {
                     amplitude: 0.34,
                     mood: .energized,
                     size: 132,
-                    followPresence: true
+                    followPresence: false
                 )
                     .scaleEffect(logoScale)
                     .opacity(logoOpacity)
@@ -140,7 +147,9 @@ struct MainTabView: View {
     @ObservedObject private var wakeStore = SleepWakeStore.shared
 
     private var waitingToMeetAria: Bool {
-        !store.hasMetAria && (store.activeTab == .chat || store.showAriaMeetOnLaunch)
+        // Only on the ARIA tab. Covering Home from launch left the splash
+        // and meet sheet stacked and made the page look frozen.
+        !store.hasMetAria && store.activeTab == .chat
     }
 
     var body: some View {

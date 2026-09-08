@@ -225,6 +225,10 @@ final class AppStore: ObservableObject {
         // Real nights, history, and today's session come from Apple Health + this
         // person's profile — never demo sleep or "Upper Body Power".
         Task { @MainActor in
+            // Let the first frame (and splash dismiss) land before EventKit /
+            // HealthKit seed work. Seeding a year of demo calendar on the
+            // main actor at init froze Home under the splash.
+            try? await Task.sleep(nanoseconds: 450_000_000)
             await self.refreshDailyData()
             await self.resyncNotifications()
         }

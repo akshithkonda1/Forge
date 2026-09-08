@@ -103,7 +103,7 @@ final class CalendarManager: ObservableObject {
         let seed = AppStore.testReadySessionSeed
         if seededSessionSeed == seed { return false }
         do {
-            try replaceTestReadyEvents(
+            try await replaceTestReadyEvents(
                 FakeCalendarPack.generate(seed: seed)
             )
             seededSessionSeed = seed
@@ -155,7 +155,7 @@ final class CalendarManager: ObservableObject {
 
     /// Writes only onto `FakeCalendarPack.calendarTitle`. Aborts rather than
     /// falling through to the user's default calendar.
-    func replaceTestReadyEvents(_ pack: FakeCalendarPack) throws {
+    func replaceTestReadyEvents(_ pack: FakeCalendarPack) async throws {
         let calendar = try forgeTestCalendar()
         let now = Date()
         let from = Calendar.current.date(byAdding: .day, value: -14, to: now) ?? now
@@ -169,7 +169,7 @@ final class CalendarManager: ObservableObject {
             where FakeCalendarPack.isForgeTestEvent(notes: event.notes, url: event.url) {
             try store.remove(event, span: .thisEvent, commit: false)
         }
-        for item in pack.events {
+        for (index, item) in pack.events.enumerated() {
             let event = EKEvent(eventStore: store)
             event.calendar = calendar
             event.title = item.title
@@ -186,6 +186,9 @@ final class CalendarManager: ObservableObject {
                 event.structuredLocation = pin
             }
             try store.save(event, span: .thisEvent, commit: false)
+            if index % 24 == 23 {
+                await Task.yield()
+            }
         }
         try store.commit()
     }

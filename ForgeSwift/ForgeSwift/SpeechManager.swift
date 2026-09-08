@@ -141,7 +141,11 @@ final class SpeechManager: ObservableObject {
             // iOS 26 renamed `.allowBluetooth` → `.allowBluetoothHFP`. Forge's
             // deployment target is iOS 27, and CI builds with Xcode 27, so use
             // the current name.
+            #if compiler(>=6.4)
             try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetoothHFP])
+            #else
+            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetooth])
+            #endif
             try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             voiceState = .error("Microphone error")
@@ -185,10 +189,17 @@ final class SpeechManager: ObservableObject {
 
         do {
             let tapFrames = AVAudioFrameCount(max(4096, (format.sampleRate * 0.15).rounded()))
+            #if compiler(>=6.4)
             try inputNode.installAudioTap(onBus: 0, bufferSize: tapFrames, format: format) { [weak self] buffer, _ in
                 recognitionRequest.append(AVAudioPCMBuffer(copying: buffer))
                 self?.updateAmplitude(from: buffer)
             }
+            #else
+            inputNode.installTap(onBus: 0, bufferSize: tapFrames, format: format) { [weak self] buffer, _ in
+                recognitionRequest.append(buffer)
+                self?.updateAmplitude(from: buffer)
+            }
+            #endif
             audioEngine.prepare()
             try audioEngine.start()
             voiceState = .listening
@@ -218,6 +229,7 @@ final class SpeechManager: ObservableObject {
         }
     }
 
+    #if compiler(>=6.4)
     nonisolated private func updateAmplitude(from buffer: AVReadOnlyAudioPCMBuffer) {
         guard buffer.frameLength > 0 else { return }
         let rms: Float
@@ -246,6 +258,23 @@ final class SpeechManager: ObservableObject {
         @unknown default:
             return
         }
+        pushAmplitude(rms)
+    }
+    #else
+    nonisolated private func updateAmplitude(from buffer: AVAudioPCMBuffer) {
+        guard let channel = buffer.floatChannelData?[0] else { return }
+        let frameCount = Int(buffer.frameLength)
+        guard frameCount > 0 else { return }
+        var sum: Float = 0
+        for i in 0..<frameCount {
+            let s = channel[i]
+            sum += s * s
+        }
+        pushAmplitude(sqrt(sum / Float(frameCount)))
+    }
+    #endif
+
+    nonisolated private func pushAmplitude(_ rms: Float) {
         let level = min(1, max(0.08, rms * 12))
         Task { @MainActor in
             self.amplitude = level

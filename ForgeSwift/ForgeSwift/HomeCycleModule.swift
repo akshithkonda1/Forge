@@ -132,6 +132,7 @@ struct HomeCycleModule: View {
                         if let next = cycleStore.snapshot.nextPeriod {
                             miniChip("Next \(shortDate(next.medianDayKey))", Color.alert)
                         }
+                        miniChip("Private", Color.vitality)
                     } else if !cycleStore.consentedPeople.isEmpty {
                         ForEach(cycleStore.consentedPeople.prefix(3)) { person in
                             miniChip(person.role.shortLabel, Color.indigo)
@@ -139,11 +140,12 @@ struct HomeCycleModule: View {
                         if let snap = cycleStore.mostTimelyPerson.flatMap({ cycleStore.personSnapshots[$0.id] }) {
                             miniChip(snap.phase.shortLabel, accent)
                         }
+                        miniChip("Private", Color.vitality)
                     } else {
                         miniChip("My cycle", Color.alert)
                         miniChip("Support", Color.indigo)
+                        miniChip("Private", Color.vitality)
                     }
-                    miniChip("Private", Color.vitality)
                     Spacer()
                 }
 

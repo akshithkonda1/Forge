@@ -25,12 +25,17 @@ final class SleepWindDownPlayer {
 
     @ObservationIgnored private var engine: AVAudioEngine?
     @ObservationIgnored private var countdown: Task<Void, Never>?
+    #if compiler(>=6.4)
     @ObservationIgnored private var sessionObservers: [NotificationCenter.ObservationToken] = []
+    #else
+    @ObservationIgnored private var sessionObservers: [NSObjectProtocol] = []
+    #endif
     @ObservationIgnored private var wasInterrupted = false
     @ObservationIgnored private let renderer = SoundscapeRenderer()
 
     private init() {
         let session = AVAudioSession.sharedInstance()
+        #if compiler(>=6.4)
         sessionObservers.append(
             NotificationCenter.default.addObserver(
                 of: session,
@@ -44,9 +49,29 @@ final class SleepWindDownPlayer {
                 of: session,
                 for: AVAudioSession.ResumptionRecommendationMessage.self
             ) { [weak self] message in
-                self?.resumeIfRecommended(message.recommendation)
+                self?.resumeIfRecommended(shouldResume: message.recommendation == .shouldResume)
             }
         )
+        #else
+        sessionObservers.append(
+            NotificationCenter.default.addObserver(
+                forName: AVAudioSession.interruptionNotification,
+                object: session,
+                queue: .main
+            ) { [weak self] note in
+                guard let self else { return }
+                let type = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+                if type == AVAudioSession.InterruptionType.began.rawValue {
+                    self.pauseForInterruption()
+                    return
+                }
+                let options = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+                self.resumeIfRecommended(
+                    shouldResume: AVAudioSession.InterruptionOptions(rawValue: options).contains(.shouldResume)
+                )
+            }
+        )
+        #endif
     }
 
     func start(kind: SleepSoundKind? = nil, minutes: Int = 30) {
@@ -70,7 +95,11 @@ final class SleepWindDownPlayer {
         engine.attach(source)
         engine.mainMixerNode.outputVolume = Float(volume)
         do {
+            #if compiler(>=6.4)
             try engine.connectNode(source, to: engine.mainMixerNode, format: format)
+            #else
+            engine.connect(source, to: engine.mainMixerNode, format: format)
+            #endif
             try ForgePlaybackSession.sleepMix.activate()
             try engine.start()
         } catch {
@@ -124,10 +153,10 @@ final class SleepWindDownPlayer {
         engine?.pause()
     }
 
-    private func resumeIfRecommended(_ recommendation: AVAudioSession.ResumptionRecommendation) {
+    private func resumeIfRecommended(shouldResume: Bool) {
         guard wasInterrupted, isPlaying else { return }
         wasInterrupted = false
-        guard recommendation == .shouldResume else { return }
+        guard shouldResume else { return }
         do {
             try ForgePlaybackSession.sleepMix.activate()
             try engine?.start()
@@ -169,7 +198,11 @@ final class SleepWakePlayer {
         }
         engine.attach(source)
         do {
+            #if compiler(>=6.4)
             try engine.connectNode(source, to: engine.mainMixerNode, format: format)
+            #else
+            engine.connect(source, to: engine.mainMixerNode, format: format)
+            #endif
             try ForgePlaybackSession.alarm.activate()
             try engine.start()
         } catch {

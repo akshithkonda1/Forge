@@ -216,9 +216,15 @@ final class VoiceCoachManager {
         inputNode.removeTap(onBus: 0)
         do {
             let tapFrames = AVAudioFrameCount(max(4096, (format.sampleRate * 0.15).rounded()))
+            #if compiler(>=6.4)
             try inputNode.installAudioTap(onBus: 0, bufferSize: tapFrames, format: format) { buffer, _ in
                 recognitionRequest.append(AVAudioPCMBuffer(copying: buffer))
             }
+            #else
+            inputNode.installTap(onBus: 0, bufferSize: tapFrames, format: format) { buffer, _ in
+                recognitionRequest.append(buffer)
+            }
+            #endif
             try audioEngine.start()
             isListening = true
         } catch {
@@ -318,11 +324,19 @@ final class VoiceCoachManager {
     // MARK: - Audio Session
     
     private func setupAudioSession() {
+        #if compiler(>=6.4)
         try? AVAudioSession.sharedInstance().setCategory(
             .playAndRecord,
             mode: .default,
             options: [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP, .duckOthers]
         )
+        #else
+        try? AVAudioSession.sharedInstance().setCategory(
+            .playAndRecord,
+            mode: .default,
+            options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP, .duckOthers]
+        )
+        #endif
         try? AVAudioSession.sharedInstance().setActive(true)
     }
     
