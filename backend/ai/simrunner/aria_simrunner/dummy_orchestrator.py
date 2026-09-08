@@ -1,32 +1,23 @@
 """Test-ready dummy ARIA orchestrator.
 
-Same system as SimRunner: synthetic 30-day streams, the deterministic stub
-engine, no Bedrock, no tokens, no Forge backend, no AWS. It stands up as
-many coach agents as a turn needs so AI features can be exercised without a
-production instance.
+This is a *testing* engine, not the live backend. It stands up synthetic
+streams and a stub so ARIA features can be exercised on a laptop. The
+long-term learner is ``services.contextual_learner`` on the Lambda hot path.
+``respond()`` may *consume* that module in-process so dummy tests exercise
+the same policy a real backend will; it must never own Q-tables, persona
+storage, or teaching copy. Deleting this file must leave the learner and
+``POST /ai/chat`` intact.
 
-This module is local-only. It refuses production-like ``ENVIRONMENT`` values
-and any cloud runtime (Lambda, Cloud Run, Azure, GCP). It never imports a
-cloud SDK and never calls ``ARIAEngine.respond`` (that method can leave the
-machine). ``use_real_api`` is hard-off.
+Local-only: refuses production-like ``ENVIRONMENT`` and cloud runtimes.
+Never imports a cloud SDK, never calls ``ARIAEngine.respond``.
 
 The one intentional exception: ``respond()`` can call out to
 ``web_research``, a separate, clearly-named collaborator whose entire job is
 a curated, keyless fetch from a handful of general (non-Forge) reference
 URLs — gated to non-cloud execution, isolated in its own module so this
-module's "no network to Forge/AWS" claim stays literally true. This is the
-same shape as ``AriaWebResearch.swift`` on the iOS side, built for the same
-reason: the machine actually running the sim has its own real internet
-access, and a question with research-flavored phrasing should be able to
-use it — while cloud resources stay categorically off-limits either way.
+module's "no network to Forge/AWS" claim stays literally true.
 
-Every ``respond()`` call also carries a ``voice_diagnosis`` — a deterministic
-read (``voice_diagnostics.diagnose``) on whether the primary reply, built
-from the real synthetic context data this module already generates, reads
-as human or as data-driven. ``run_voice_diagnostics()`` runs a curated set of
-turns and reports the verdicts with evidence: the actual, runnable answer to
-"test ARIA and see whether it's human or data driven," using the data
-that's there rather than a canned example.
+Every ``respond()`` call also carries a ``voice_diagnosis``.
 """
 
 from __future__ import annotations
@@ -171,6 +162,44 @@ def _offline_stub(message: str, context, seed: int):
     if engine.use_real_api:
         raise RuntimeError("dummy ARIA orchestrator cannot enable a live API")
     return engine._stub_response(message, context, seed)
+
+
+def _production_learner():
+    """Import the live learner for tests. Dummy must not own this module.
+
+    Function-level on purpose: this file stays free of cloud SDKs, and the
+    learner keeps working after this orchestrator is deleted.
+    """
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from services import contextual_learner
+
+        return contextual_learner
+    except Exception:
+        return None
+
+
+def _consume_learner(message: str, ctx, plan: Plan):
+    """Run the production policy in memory. Never Dynamo, never Bedrock."""
+    learn = _production_learner()
+    if learn is None:
+        return None, plan
+    try:
+        persona = learn.PersonaState()
+        hist = getattr(ctx, "history", None) or []
+        learn.pretrain_from_history(persona, hist[-14:] if hist else [])
+        brief = learn.apply_chat_turn(persona, message=message, ctx=ctx)
+        # Extra specialists on the roster only — do not add supporting briefs
+        # (those would change ``message`` and fail the voice/prose contract).
+        for spec in brief.specialists:
+            key = str(spec).strip().lower()
+            if key in _KINDS and key not in plan.kinds:
+                plan.workers.append(Worker(key, key, None, False))
+        return brief, plan
+    except Exception:
+        return None, plan
 
 
 def plan_workers(
@@ -585,7 +614,9 @@ def respond(
     # reply as data-driven for the company it keeps.
     diagnosis = voice_diagnostics.diagnose(prose)
 
-    return {
+    brief, plan = _consume_learner(message, ctx, plan)
+
+    row = {
         "schema_version": "1.1",
         "response_type": "recommendation",
         "confidence": stub.confidence,
@@ -608,6 +639,17 @@ def respond(
         "scenario": scenario,
         "stub_prose": stub.prose_summary,
     }
+    if brief is not None:
+        row["contextualization"] = brief.as_dict()
+        row["orchestration"] = {
+            "learner": "services.contextual_learner",
+            "owner": "live-backend",
+            "consumer": "dummy-test",
+            "durable": True,
+            "stages": ["observe", "adapt", "commit"],
+            "grounding": brief.grounding,
+        }
+    return row
 
 
 def run_smoke(messages: list[str] | None = None, *, seed: int = 42) -> list[dict]:
