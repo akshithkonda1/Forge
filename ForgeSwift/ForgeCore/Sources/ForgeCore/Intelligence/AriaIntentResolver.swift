@@ -333,16 +333,161 @@ public enum AriaIntentResolver {
             move = "Protein and water with the next meal, then train inside the day they have."
         }
 
+        var keepLight = lead == "protect"
+        if headline >= 0.5 || eveningBusy >= 0.5 {
+            keepLight = true
+        }
+
+        let rankedPriority = Self.prioritizeDomains(input, eveningBusy: eveningBusy, morningBusy: cal.morningBusy, headlines: cal.headlines)
+        var orderedSpecs: [String] = []
+        for domain in rankedPriority.order {
+            let spec: String
+            switch domain {
+            case "sleep": spec = "sleep"
+            case "readiness": spec = "recovery"
+            case "training": spec = "workout"
+            case "lifestyle": spec = "lifestyle"
+            case "progress": spec = "progress"
+            case "cycle": spec = "cycle"
+            default: spec = ""
+            }
+            if spec.isEmpty { continue }
+            if specialists.contains(spec), !orderedSpecs.contains(spec) {
+                orderedSpecs.append(spec)
+            }
+        }
+        for spec in specialists where !orderedSpecs.contains(spec) {
+            orderedSpecs.append(spec)
+        }
+        if orderedSpecs.count > 3 {
+            specialists = Array(orderedSpecs.prefix(3))
+        } else {
+            specialists = orderedSpecs
+        }
+
         return AriaAdaptation(
             stance: lead,
             specialists: specialists,
             teachUser: teach,
-            keepLight: lead == "protect",
+            keepLight: keepLight,
             howYouWork: how,
             oneNextMove: move,
             bucket: bucket,
-            grounding: grounding
+            grounding: grounding,
+            prioritize: rankedPriority.order,
+            priorityReason: rankedPriority.reason,
+            eventBucket: rankedPriority.event
         )
+    }
+
+    private static func prioritizeDomains(
+        _ input: AriaIntentInput,
+        eveningBusy: Double,
+        morningBusy: Bool,
+        headlines: [String]
+    ) -> (order: [String], reason: String, event: String) {
+        let domains: [String] = [
+            "sleep", "readiness", "training", "nutrition",
+            "lifestyle", "progress", "body", "cycle",
+        ]
+        var scores: [String: Double] = [:]
+        for domain in domains {
+            scores[domain] = 1.0
+        }
+        let relRaw = Double(max(1, input.relationshipLevel) - 1) / 9.0
+        var rel = relRaw
+        if rel < 0 { rel = 0 }
+        if rel > 1 { rel = 1 }
+        let ingestGain = 0.35 + 0.65 * rel
+
+        var event = "clear"
+        if !headlines.isEmpty {
+            event = headlines[0]
+            scores["lifestyle", default: 0] += 2.6
+            scores["training", default: 0] -= 0.9
+        } else if eveningBusy >= 0.5 {
+            event = "evening_busy"
+            scores["lifestyle", default: 0] += 1.5
+            scores["training", default: 0] -= 0.55
+        } else if morningBusy {
+            event = "morning_busy"
+            scores["lifestyle", default: 0] += 0.8
+        }
+
+        let lower = input.text.lowercased()
+        let cueTable: [(String, [String])] = [
+            ("sleep", ["sleep", "slept", "insomnia", "bedtime", "nap"]),
+            ("readiness", ["readiness", "recover", "hrv", "tired", "exhausted", "drained"]),
+            ("training", ["train", "workout", "session", "lift", "gym"]),
+            ("nutrition", ["eat", "food", "protein", "meal", "calorie", "hydrat"]),
+            ("lifestyle", ["work", "travel", "busy", "schedule", "calendar", "tonight"]),
+            ("progress", ["progress", "gains", "stronger", "streak", "plateau"]),
+            ("body", ["pain", "hurt", "knee", "shoulder", "injury", "ache"]),
+            ("cycle", ["period", "cycle", "luteal", "follicular", "pms", "cramp"]),
+        ]
+        for pair in cueTable {
+            let domain = pair.0
+            let words = pair.1
+            var hit = false
+            for word in words where lower.contains(word) {
+                hit = true
+                break
+            }
+            if hit {
+                scores[domain, default: 0] += 1.4
+            }
+        }
+
+        for fact in input.rememberedFacts {
+            let f = fact.lowercased()
+            if f.contains("sleep") { scores["sleep", default: 0] += 0.8 * ingestGain }
+            if f.contains("recover") || f.contains("hrv") || f.contains("readiness") {
+                scores["readiness", default: 0] += 0.8 * ingestGain
+            }
+            if f.contains("train") || f.contains("workout") {
+                scores["training", default: 0] += 0.8 * ingestGain
+            }
+            if f.contains("calendar") || f.contains("busy") {
+                scores["lifestyle", default: 0] += 0.8 * ingestGain
+            }
+            if f.contains("protein") || f.contains("meal") {
+                scores["nutrition", default: 0] += 0.8 * ingestGain
+            }
+            if f.contains("knee") || f.contains("shoulder") {
+                scores["body", default: 0] += 0.8 * ingestGain
+            }
+            if f.contains("cycle") { scores["cycle", default: 0] += 0.8 * ingestGain }
+        }
+
+        if let minutes = input.sleepMinutesLastNight, minutes < 390 {
+            scores["sleep", default: 0] += 1.6
+            scores["training", default: 0] -= 0.5
+        }
+        if let readiness = input.readiness, readiness < 50 {
+            scores["readiness", default: 0] += 1.4
+            scores["training", default: 0] -= 0.7
+        }
+
+        var ranked: [(String, Double)] = []
+        for domain in domains {
+            ranked.append((domain, scores[domain] ?? 0))
+        }
+        ranked.sort { lhs, rhs in
+            if lhs.1 != rhs.1 { return lhs.1 > rhs.1 }
+            return lhs.0 < rhs.0
+        }
+        var order: [String] = []
+        for item in ranked {
+            order.append(item.0)
+        }
+
+        var reason = "no headline event; conversation + ingest (bond=\(rel))"
+        if event == "wedding" || event == "game" || event == "flight" || event == "travel" {
+            reason = "event=\(event) leads; conversation, ingest, and relationship rank the rest"
+        } else if event == "evening_busy" || event == "morning_busy" {
+            reason = "busy window=\(event); ingest and conversation set order after lifestyle"
+        }
+        return (order, reason, event)
     }
 
     private static func softmax(_ logits: [Double]) -> [Double] {
@@ -363,8 +508,9 @@ public enum AriaIntentResolver {
         return out
     }
 
-    private static func parseCalendar(_ tags: [String]) -> (eveningBusy: Bool, headlines: [String]) {
+    private static func parseCalendar(_ tags: [String]) -> (eveningBusy: Bool, morningBusy: Bool, headlines: [String]) {
         var eveningBusy = false
+        var morningBusy = false
         var headlines: [String] = []
         let allowed: Set<String> = [
             "wedding", "game", "flight", "travel", "work", "dinner",
@@ -377,6 +523,10 @@ public enum AriaIntentResolver {
                 eveningBusy = true
                 continue
             }
+            if tag == "calendar:morning:busy" {
+                morningBusy = true
+                continue
+            }
             if tag.hasPrefix("calendar:kind:") {
                 let kind = String(tag.dropFirst("calendar:kind:".count))
                 if allowed.contains(kind), headlineKinds.contains(kind), !headlines.contains(kind) {
@@ -384,7 +534,7 @@ public enum AriaIntentResolver {
                 }
             }
         }
-        return (eveningBusy, headlines)
+        return (eveningBusy, morningBusy, headlines)
     }
 
     // MARK: - Vocabulary
@@ -424,6 +574,9 @@ public struct AriaAdaptation: Sendable, Equatable {
     public var oneNextMove: String
     public var bucket: String
     public var grounding: String
+    public var prioritize: [String]
+    public var priorityReason: String
+    public var eventBucket: String
 
     public init(
         stance: String,
@@ -433,7 +586,10 @@ public struct AriaAdaptation: Sendable, Equatable {
         howYouWork: String,
         oneNextMove: String,
         bucket: String,
-        grounding: String
+        grounding: String,
+        prioritize: [String] = [],
+        priorityReason: String = "",
+        eventBucket: String = "clear"
     ) {
         self.stance = stance
         self.specialists = specialists
@@ -443,5 +599,8 @@ public struct AriaAdaptation: Sendable, Equatable {
         self.oneNextMove = oneNextMove
         self.bucket = bucket
         self.grounding = grounding
+        self.prioritize = prioritize
+        self.priorityReason = priorityReason
+        self.eventBucket = eventBucket
     }
 }

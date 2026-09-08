@@ -185,6 +185,20 @@ extension AppStore {
         let today = ISO8601DateFormatter()
         today.formatOptions = [.withFullDate]
         let todayKey = String(today.string(from: Date()).prefix(10))
+        let living = AriaContextStore.shared.context
+        var facts = durableMemoryAnchors
+        let ingestBlobs = living.lastInsights + living.recentPatterns + living.currentGoals + living.constraints
+        for blob in ingestBlobs {
+            if facts.contains(blob) { continue }
+            facts.append(blob)
+            if facts.count >= 24 { break }
+        }
+        let fromChat = 1 + chatMessages.count / 3
+        let fromBond = living.relationshipLevel
+        var bond = fromChat
+        if fromBond > bond { bond = fromBond }
+        if bond < 1 { bond = 1 }
+        if bond > 10 { bond = 10 }
 
         return AriaIntentInput(
             text: text,
@@ -194,11 +208,11 @@ extension AppStore {
             hasSessionLoggedToday: workoutHistory.contains { $0.date.hasPrefix(todayKey) },
             cycleTrackingAvailable: AriaCoachAgentRouter.cycleAvailable(),
             topicAffinity: affinity,
-            rememberedFacts: durableMemoryAnchors,
-            calendarTags: AriaContextStore.shared.context.lifestyleTags.filter { tag in
+            rememberedFacts: facts,
+            calendarTags: living.lifestyleTags.filter { tag in
                 tag.hasPrefix("calendar:")
             },
-            relationshipLevel: min(10, max(1, 1 + chatMessages.count / 3))
+            relationshipLevel: bond
         )
     }
 
