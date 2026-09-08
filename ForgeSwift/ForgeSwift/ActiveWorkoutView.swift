@@ -767,7 +767,7 @@ struct ActiveWorkoutView: View {
             prExerciseName = exercise.name
             withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) { showPRBanner = true }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
-            Task { try? await Task.sleep(nanoseconds: 2_500_000_000); withAnimation(.easeOut(duration: 0.4)) { showPRBanner = false } }
+            Task { try? await Task.sleep(for: .seconds(2.5)); withAnimation(.easeOut(duration: 0.4)) { showPRBanner = false } }
         } else {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
@@ -864,16 +864,16 @@ struct ActiveWorkoutView: View {
         if showEndConfirm { endWorkout() }
         else {
             showEndConfirm = true; UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-            Task { try? await Task.sleep(nanoseconds: 3_000_000_000); showEndConfirm = false }
+            Task { try? await Task.sleep(for: .seconds(3)); showEndConfirm = false }
         }
     }
     private func startRest(seconds: Int) {
         restTotal = max(1, seconds); restTimeLeft = seconds
         withAnimation(.spring(response: 0.4, dampingFraction: 0.78)) { isResting = true }
         restTask?.cancel()
-        restTask = Task {
+            restTask = Task {
             while restTimeLeft > 0 && !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                try? await Task.sleep(for: .seconds(1))
                 guard !Task.isCancelled else { return }
                 if restTimeLeft <= 1 {
                     restTimeLeft = 0
@@ -904,11 +904,11 @@ struct ActiveWorkoutView: View {
 
     private func startTasks() {
         elapsedTask = Task {
-            while !Task.isCancelled { try? await Task.sleep(nanoseconds: 1_000_000_000); guard !Task.isCancelled else { return }; elapsedSecs += 1 }
+            while !Task.isCancelled { try? await Task.sleep(for: .seconds(1)); guard !Task.isCancelled else { return }; elapsedSecs += 1 }
         }
         hrTask = Task {
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 1_500_000_000); guard !Task.isCancelled else { return }
+                try? await Task.sleep(for: .milliseconds(1500)); guard !Task.isCancelled else { return }
                 let target = isResting ? (108 + Double.random(in: 0...18)) : (140 + Double.random(in: 0...26))
                 simulatedHR = Int((Double(simulatedHR) + (target - Double(simulatedHR)) * 0.12 + Double.random(in: -4...4)).rounded().clamped(to: 55...200))
                 hrHistory.append(simulatedHR)
@@ -923,7 +923,7 @@ struct ActiveWorkoutView: View {
         calTask = Task {
             let weightKg = store.userProfile.weight ?? 80
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 1_000_000_000); guard !Task.isCancelled else { return }
+                try? await Task.sleep(for: .seconds(1)); guard !Task.isCancelled else { return }
                 // MET-based expenditure: kcal/sec = MET · 3.5 · kg / 200 / 60, scaled by HR drive.
                 let met = isResting ? 1.5 : (currentDef?.met ?? 5.0)
                 let hrScale = simulatedHR > 150 ? 1.15 : simulatedHR > 130 ? 1.05 : 1.0
@@ -932,7 +932,7 @@ struct ActiveWorkoutView: View {
         }
         o2Task = Task {
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 3_000_000_000); guard !Task.isCancelled else { return }
+                try? await Task.sleep(for: .seconds(3)); guard !Task.isCancelled else { return }
                 let drop     = simulatedHR > 160 ? Double.random(in: 1...3) : simulatedHR > 140 ? Double.random(in: 0...1.5) : 0.0
                 let recovery = isResting ? Double.random(in: 0...1) : 0
                 simulatedSpO2 = Int((Double(simulatedSpO2) - drop + recovery).rounded().clamped(to: 90.0...100.0))
@@ -941,12 +941,12 @@ struct ActiveWorkoutView: View {
                 if simulatedSpO2 < 94 && !showO2Warning {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { showO2Warning = true }
                     UINotificationFeedbackGenerator().notificationOccurred(.warning)
-                    Task { try? await Task.sleep(nanoseconds: 5_000_000_000); withAnimation { showO2Warning = false } }
+                    Task { try? await Task.sleep(for: .seconds(5)); withAnimation { showO2Warning = false } }
                 }
             }
         }
         coachTask = Task {
-            while !Task.isCancelled { try? await Task.sleep(nanoseconds: 9_000_000_000); guard !Task.isCancelled else { return }; withAnimation(.easeInOut(duration: 0.4)) { coachIndex += 1 } }
+            while !Task.isCancelled { try? await Task.sleep(for: .seconds(9)); guard !Task.isCancelled else { return }; withAnimation(.easeInOut(duration: 0.4)) { coachIndex += 1 } }
         }
     }
     private func cancelTasks() {

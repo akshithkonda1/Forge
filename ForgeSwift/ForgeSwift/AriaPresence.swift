@@ -39,11 +39,19 @@ enum ForgePlaybackSession: Equatable, Sendable {
                 options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
             )
         case .spokenHandsFree:
+            #if compiler(>=6.4)
+            try session.setCategory(
+                .playAndRecord,
+                mode: .spokenAudio,
+                options: [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP, .duckOthers]
+            )
+            #else
             try session.setCategory(
                 .playAndRecord,
                 mode: .spokenAudio,
                 options: [.defaultToSpeaker, .allowBluetoothA2DP, .duckOthers]
             )
+            #endif
         case .sleepMix, .chime:
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
         case .alarm:

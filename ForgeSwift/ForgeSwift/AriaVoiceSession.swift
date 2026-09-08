@@ -295,6 +295,24 @@ private struct VoiceToolResponse: Decodable {
     }
 }
 
+/// Sends ConvAI mic frames off the main actor so each audio quantum does not
+/// hop to MainActor for base64 + JSON.
+private actor ConvAIMicSender {
+    private weak var task: URLSessionWebSocketTask?
+
+    func attach(_ task: URLSessionWebSocketTask?) {
+        self.task = task
+    }
+
+    func sendPCM(_ data: Data) async {
+        let b64 = data.base64EncodedString()
+        guard let payload = try? JSONSerialization.data(withJSONObject: ["user_audio_chunk": b64]),
+              let text = String(data: payload, encoding: .utf8),
+              let task else { return }
+        try? await task.send(.string(text))
+    }
+}
+
 /// ElevenLabs ConvAI WebSocket. Lives here so `AriaCharacterVoice` stays
 /// network-free. Dummy transport never constructs this.
 @MainActor
@@ -320,6 +338,7 @@ final class AriaLiveConvAIClient: NSObject, URLSessionWebSocketDelegate {
     private var engine: AVAudioEngine?
     private var player: AVAudioPlayerNode?
     private let outFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16_000, channels: 1, interleaved: true)
+    private let micSender = ConvAIMicSender()
 
     func connect(
         signedURL: URL,
@@ -333,6 +352,7 @@ final class AriaLiveConvAIClient: NSObject, URLSessionWebSocketDelegate {
         self.session = session
         let task = session.webSocketTask(with: signedURL)
         self.task = task
+        await micSender.attach(task)
         task.resume()
         try await sendJSON([
             "type": "conversation_initiation_client_data",
@@ -361,6 +381,7 @@ final class AriaLiveConvAIClient: NSObject, URLSessionWebSocketDelegate {
 
     func close() {
         stopMic()
+        Task { await micSender.attach(nil) }
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
         session?.invalidateAndCancel()
@@ -455,19 +476,27 @@ final class AriaLiveConvAIClient: NSObject, URLSessionWebSocketDelegate {
             throw AriaVoiceSessionError.invalidSignedURL
         }
         input.removeTap(onBus: 0)
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            guard let data = AriaLiveConvAIClient.int16MonoData(from: buffer) else { return }
-            Task { @MainActor in
-                self?.sendBase64Chunk(data)
-            }
+        let tapFrames = AVAudioFrameCount(max(4096, (format.sampleRate * 0.15).rounded()))
+        let sender = micSender
+        #if compiler(>=6.4)
+        try input.installAudioTap(onBus: 0, bufferSize: tapFrames, format: format) { buffer, _ in
+            guard let pcm = AVAudioPCMBuffer(copying: buffer),
+                  let data = AriaLiveConvAIClient.int16MonoData(from: pcm) else { return }
+            Task { await sender.sendPCM(data) }
         }
+        #else
+        input.installTap(onBus: 0, bufferSize: tapFrames, format: format) { buffer, _ in
+            guard let data = AriaLiveConvAIClient.int16MonoData(from: buffer) else { return }
+            Task { await sender.sendPCM(data) }
+        }
+        #endif
         let player = AVAudioPlayerNode()
         engine.attach(player)
-        if let outFormat {
-            engine.connect(player, to: engine.mainMixerNode, format: outFormat)
-        } else {
-            engine.connect(player, to: engine.mainMixerNode, format: nil)
-        }
+        #if compiler(>=6.4)
+        try engine.connectNode(player, to: engine.mainMixerNode, format: outFormat)
+        #else
+        engine.connect(player, to: engine.mainMixerNode, format: outFormat)
+        #endif
         engine.prepare()
         try engine.start()
         player.play()
@@ -481,13 +510,6 @@ final class AriaLiveConvAIClient: NSObject, URLSessionWebSocketDelegate {
         engine?.stop()
         engine = nil
         player = nil
-    }
-
-    private func sendBase64Chunk(_ data: Data) {
-        let b64 = data.base64EncodedString()
-        Task {
-            try? await sendJSON(["user_audio_chunk": b64])
-        }
     }
 
     private func playBase64Audio(_ b64: String) {
