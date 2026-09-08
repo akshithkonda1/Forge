@@ -395,7 +395,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "uploads" {
 
 resource "aws_secretsmanager_secret" "ai_provider" {
   name                    = "${local.name_prefix}/ai/provider"
-  description             = "Credentials used by the Forge AI backend."
+  description             = "Forge AI credentials. Seed JSON keys ELEVENLABS_API_KEY, ELEVENLABS_ARIA_VOICE_ID, and ELEVENLABS_ARIA_AGENT_ID for ARIA's designed live mouth. Dummy / Device Hub does not need this secret."
   recovery_window_in_days = 7
 
   tags = local.common_tags

@@ -104,12 +104,12 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
         AriaWelcomeChime.play()
     }
 
-    /// Speaks `text`. Pass `interrupt: false` to queue behind a line that is
-    /// already playing — onboarding uses that so an acknowledgment and the
-    /// next question land as one conversation, not a cut-off.
+    /// Speaks `text` only as the dummy/local DEBUG fill-in while a character
+    /// session is active. Production ARIA is the designed ConvAI speaker —
+    /// this method never enqueues Apple TTS as her live mouth. Onboarding,
+    /// welcome, and Train stay text (or silent) unless that session is up.
     ///
-    /// Missing neural identity is silence plus a one-time download prompt —
-    /// never compact Samantha.
+    /// Pass `interrupt: false` to queue behind a line that is already playing.
     func speak(
         _ text: String,
         interrupt: Bool = true,
@@ -118,6 +118,12 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     ) {
         guard AriaSpokenMute.allowsSpeech else { return }
         guard AriaSpeechPrep.spokenLine(in: text) != nil else { return }
+        let transport = AriaVoiceSession.shared.activeTransport
+        guard AriaVoiceMouth.shouldEnqueueAppleUtterance(
+            isMuted: false,
+            sessionActive: AriaVoiceSession.shared.isActive,
+            transport: transport
+        ) else { return }
         guard AriaSpokenVoice.hasInstalledIdentity() else {
             AriaNeuralVoiceGate.shared.requestPromptIfNeeded()
             return
@@ -142,7 +148,10 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
         Task { @MainActor [weak self] in
             guard let self else { return }
             // A queued interview line may still be in the synthesizer.
-            if !self.synthesizer.isSpeaking { self.isSpeaking = false }
+            if !self.synthesizer.isSpeaking {
+                self.isSpeaking = false
+                AriaVoiceSession.shared.mouthDidFinish()
+            }
         }
     }
 

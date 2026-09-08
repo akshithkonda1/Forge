@@ -255,12 +255,8 @@ final class VoiceCoachManager {
     private func speak(_ text: String) {
         guard isVoiceEnabled else { return }
         lastCoachMessage = text
-        AriaPresence.shared.speak(
-            text,
-            interrupt: true,
-            stopAt: .word,
-            session: .spokenHandsFree
-        )
+        // Train cues stay silent in v1. ARIA's mouth is the character session
+        // (dummy fill-in or live ConvAI), not gym TTS.
     }
     
     // MARK: - Private: ARIA backend

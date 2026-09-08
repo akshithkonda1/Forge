@@ -185,6 +185,15 @@ def _route(event, _context):
         if method == "POST" and path == "/ai/chat":
             return aria.handle_post_ai_chat(body, user_id=user_id)
 
+        if method == "GET" and path == "/ai/voice/bootstrap":
+            return aria.handle_get_ai_voice_bootstrap(body, user_id=user_id)
+
+        if method == "POST" and path == "/ai/voice/tool":
+            return aria.handle_post_ai_voice_tool(body, user_id=user_id)
+
+        if method == "POST" and path == "/ai/voice/design":
+            return aria.handle_post_ai_voice_design(body, user_id=user_id)
+
         if method == "POST" and path == "/ai/weekly-review":
             return aria.handle_post_ai_weekly_review(body, user_id=user_id)
 

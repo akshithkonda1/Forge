@@ -176,12 +176,12 @@ struct ChatView: View {
                     mood:        ariaMood,
                     isShowing:   $showVoiceOrb,
                     onRecognized: { text in
-                        withAnimation(FDS.Spring.hero) { showVoiceOrb = false }
-                        inputText = text
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { sendMessage(text) }
+                        AriaVoiceSession.shared.markThinking()
+                        sendMessage(text)
                     },
                     onCancel: {
                         speech.cancel()
+                        AriaVoiceSession.shared.stop()
                         withAnimation(FDS.Spring.hero) { showVoiceOrb = false }
                     }
                 )
@@ -244,6 +244,7 @@ struct ChatView: View {
         .onDisappear {
             // Nothing should keep running once chat is off-screen.
             speech.cancel()
+            AriaVoiceSession.shared.stop()
             proactiveInsightTask?.cancel()
             sendTask?.cancel()
             isTyping = false
@@ -304,9 +305,8 @@ struct ChatView: View {
     private func startVoiceCapture() {
         choreographedHaptic(.voiceStart, mood: ariaMood)
         speech.conversationalMood = ariaMood
-        AriaNeuralVoiceGate.shared.requestPromptIfNeeded()
         withAnimation(FDS.Spring.hero) { showVoiceOrb = true }
-        speech.startListening()
+        AriaVoiceSession.shared.start(store: store, speech: speech)
     }
 
     // ── Send ──────────────────────────────────────────────────────
@@ -328,15 +328,21 @@ struct ChatView: View {
         proactiveInsight = nil
 
         sendTask?.cancel()
+        if store.ariaVoiceMode || showVoiceOrb {
+            AriaVoiceSession.shared.start(store: store, speech: speech, captureMic: false)
+            AriaVoiceSession.shared.markThinking()
+        }
         sendTask = Task {
             await store.sendMessage(trimmed)
             guard !Task.isCancelled else { return }
             isTyping = false
             if store.isInAriaFirstBond { showQuickActions = true }
             choreographedHaptic(.messageReceived, mood: ariaMood)
-            if store.ariaVoiceMode || showVoiceOrb,
+            if store.ariaVoiceMode || showVoiceOrb || AriaVoiceSession.shared.isActive,
                let reply = store.chatMessages.last(where: { $0.role == .trainer }) {
-                speech.speak(reply.content)
+                AriaVoiceSession.shared.speakChatReply(
+                    AriaResponse(proseSummary: reply.content, message: reply.content)
+                )
             }
         }
     }
