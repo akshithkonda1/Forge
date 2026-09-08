@@ -119,6 +119,17 @@ enum AriaDummyOrchestrator {
                 beats.append(beat)
             }
         }
+        if beats.contains(where: { $0.domain == .training }),
+           !beats.contains(where: { $0.domain == .lifestyle }),
+           let fit = life.sessionFitLine() {
+            beats.append(
+                AriaDummyBeat(
+                    domain: .lifestyle,
+                    prose: fit,
+                    suggestedActions: ["What's on my calendar?"]
+                )
+            )
+        }
 
         if beats.isEmpty {
             let intent = intentFor(agent: interpretation.primaryAgent, text: text)
@@ -296,6 +307,15 @@ enum AriaDummyOrchestrator {
                     prose: "I'll nudge you \(clock) about \(target) so you actually eat.",
                     suggestedActions: ["What should I eat?", "Remind me later"],
                     actions: [reminder]
+                )
+            }
+            if interpretation.readCalendar {
+                let line = life.spokenCalendarLine()
+                    ?? "I don't have a calendar week in yet. Connect it and I'll read busy windows — never titles."
+                return AriaDummyBeat(
+                    domain: .lifestyle,
+                    prose: line,
+                    suggestedActions: ["What should I train today?", "What's on my board?"]
                 )
             }
             if text.lowercased().contains("eat") || text.lowercased().contains("food")
@@ -578,9 +598,14 @@ enum AriaDummyOrchestrator {
         if let last = store.workoutHistory.first {
             parts.append("Last logged session was \(last.name).")
         }
-        let busy = CalendarManager.shared.busyWindowsToday
-        if busy > 0 {
-            parts.append("Calendar shows \(busy) busy window\(busy == 1 ? "" : "s") today — I don't read the titles.")
+        let life = store.makeTrainerContext().lifeRead
+        if let spoken = life.spokenCalendarLine() {
+            parts.append(spoken)
+        } else {
+            let busy = CalendarManager.shared.busyWindowsToday
+            if busy > 0 {
+                parts.append("Calendar shows \(busy) busy window\(busy == 1 ? "" : "s") today — I don't read the titles.")
+            }
         }
         let notes = store.durableMemoryAnchors.prefix(4)
         if notes.isEmpty {

@@ -56,6 +56,7 @@ struct AriaDummyInterpretation: Equatable {
     var noteToWrite: String?
     var readBoard: Bool
     var recordedSport: AriaDummySport?
+    var readCalendar: Bool
 }
 
 struct AriaDummySport: Equatable {
@@ -70,6 +71,7 @@ struct AriaDummyActs: Equatable {
     var noteToWrite: String? = nil
     var readBoard = false
     var sport: AriaDummySport? = nil
+    var readCalendar = false
 }
 
 /// Local conductor for the dummy orchestra. No URLSession, no Bedrock, no
@@ -93,6 +95,7 @@ enum AriaDummyTurn {
         "log water", "drank water", "note that", "remember that",
         "basketball", "soccer", "tennis", "played", "sport", "hiking",
         "pickleball", "volleyball", "golf", "boxing",
+        "calendar", "busy window", "what's on my week",
     ]
 
     private static let jointWords = [
@@ -199,6 +202,13 @@ enum AriaDummyTurn {
         if let sport = sportAct(in: text) {
             acts.sport = sport
         }
+        acts.readCalendar = lower.contains("on my calendar")
+            || lower.contains("what's on my calendar")
+            || lower.contains("whats on my calendar")
+            || lower.contains("my calendar")
+            || (lower.contains("calendar") && (lower.contains("week") || lower.contains("today") || lower.contains("busy")))
+            || lower.contains("what's on this week")
+            || lower.contains("whats on this week")
         return acts
     }
 
@@ -330,6 +340,7 @@ enum AriaDummyTurn {
         if acts.logWaterMl != nil { add(.nutrition) }
         if acts.noteToWrite != nil { add(.lifestyle) }
         if acts.readBoard { add(.progress) }
+        if acts.readCalendar { add(.lifestyle) }
         domains.removeAll { $0 == .lifestyle && domains.contains(.nutrition) && agent != .lifestyle && acts.noteToWrite == nil }
 
         let jointsFound = joints(in: text, remembered: signals.rememberedFacts)
@@ -370,7 +381,8 @@ enum AriaDummyTurn {
             logWaterMl: acts.logWaterMl,
             noteToWrite: acts.noteToWrite,
             readBoard: acts.readBoard,
-            recordedSport: acts.sport
+            recordedSport: acts.sport,
+            readCalendar: acts.readCalendar
         )
     }
 

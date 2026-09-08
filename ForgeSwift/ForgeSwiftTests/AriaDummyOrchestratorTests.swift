@@ -326,6 +326,48 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertTrue(lower.contains("write") || lower.contains("board"))
         XCTAssertTrue(lower.contains("calisthenics") || lower.contains("sports"))
         XCTAssertTrue(lower.contains("not a doctor") || lower.contains("not a clinic") || lower.contains("lifestyle coach"))
+        XCTAssertTrue(lower.contains("never the titles") || lower.contains("kind"))
+    }
+
+    func testCalendarKindsSteerTrainingWithoutLeakingTitles() async {
+        defer { AriaContextStore.shared.applyCalendarIngestTags([]) }
+        AriaContextStore.shared.applyCalendarIngestTags([
+            "calendar:busy:3",
+            "calendar:evening:busy",
+            "calendar:kind:wedding",
+            "calendar:kind:game",
+            "calendar:kind:travel",
+        ])
+        let store = makeStore()
+        let week = await AriaDummyOrchestrator.reply(
+            text: "what's on my calendar",
+            store: store,
+            agent: .lifestyle,
+            agents: ["lifestyle"]
+        )
+        let weekLower = week.message.lowercased()
+        XCTAssertTrue(weekLower.contains("wedding"))
+        XCTAssertTrue(weekLower.contains("game") || weekLower.contains("trip") || weekLower.contains("flight"))
+        XCTAssertFalse(weekLower.contains("jordan"))
+        XCTAssertFalse(weekLower.contains("osteria"))
+        XCTAssertFalse(AriaDummyOrchestrator.writesCalendarEvents)
+
+        let train = await AriaDummyOrchestrator.reply(
+            text: "what should I train today",
+            store: store,
+            agent: .workout,
+            agents: ["workout"]
+        )
+        let trainLower = train.message.lowercased()
+        XCTAssertTrue(
+            trainLower.contains("wedding")
+                || trainLower.contains("travel")
+                || trainLower.contains("evening")
+                || trainLower.contains("busy"),
+            "ARIA must change the session around classified calendar ingest: \(train.message)"
+        )
+        XCTAssertFalse(trainLower.contains("jordan"))
+        XCTAssertFalse(AriaDummyOrchestrator.writesCalendarEvents)
     }
 
     private func makeStore() -> AppStore {

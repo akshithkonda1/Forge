@@ -510,15 +510,22 @@ final class OnboardingCoordinator {
         do {
             try await CalendarManager.shared.requestAccess()
             calendarState = .authorized
+            let seeded = await CalendarManager.shared.seedTestReadyCalendarIfNeeded()
             await CalendarManager.shared.fetchUpcoming()
             calendarBusyToday = CalendarManager.shared.busyWindowsToday
-            // ARIA sees busy windows, not titles
             let tags = CalendarManager.shared.calendarTags
-            AriaContextStore.shared.updateProfile(lifestyleTags: tags)
-            await ariaSay(
-                "Calendar connected — I see \(calendarBusyToday) busy windows today. I'll fit training around them, not on top of them. Titles stay on your phone.",
-                mood: .energized
-            )
+            AriaContextStore.shared.applyCalendarIngestTags(tags)
+            if seeded, AriaService.shouldUseTestReadyDummy {
+                await ariaSay(
+                    "Calendar connected — I see \(calendarBusyToday) busy windows today. I also filled a Forge test calendar with a wedding, a game, and a trip so you can feel a full phone. Titles stay on your phone.",
+                    mood: .energized
+                )
+            } else {
+                await ariaSay(
+                    "Calendar connected — I see \(calendarBusyToday) busy windows today. I'll fit training around them, not on top of them. Titles stay on your phone.",
+                    mood: .energized
+                )
+            }
         } catch {
             calendarState = .denied
             await ariaSay(

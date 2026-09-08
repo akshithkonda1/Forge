@@ -720,6 +720,17 @@ final class AriaContextStore: ObservableObject {
     /// uses: drop the prefixes we own, append the new set, dedupe, sort. Without
     /// a single owner per prefix these accumulate — a month of `place:` tags
     /// from every refresh, and ARIA reading a history that never forgets.
+    /// Busy windows + classified kinds only. Drops anything that looks like a
+    /// title, attendee, or notes leak before it can reach ARIA or a remote prompt.
+    func applyCalendarIngestTags(_ incoming: [String]) {
+        let nextIncoming = FakeCalendarPack.sanitizeTags(incoming)
+        var tags = context.lifestyleTags.filter { !$0.hasPrefix("calendar:") }
+        tags.append(contentsOf: nextIncoming)
+        context.lifestyleTags = Array(Set(tags)).sorted()
+        context.lastUpdated = Date()
+        persist()
+    }
+
     func applyLifestyleHistoryTags(_ incoming: [String]) {
         let owned = ["place:", "social:", "lastnight:", "routine:", "persona:", "felt:", "story:"]
         var tags = context.lifestyleTags.filter { tag in

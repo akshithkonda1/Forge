@@ -380,4 +380,23 @@ final class ARIAChatHandoffTests: XCTestCase {
         XCTAssertTrue(read.hasEvening)
         XCTAssertTrue(read.story?.contains("Drinks with mates") ?? false)
     }
+
+    func testLifeReadCalendarKindsNeverCarryTitles() {
+        let read = AriaLifeRead.from(tags: [
+            "calendar:busy:3",
+            "calendar:evening:busy",
+            "calendar:kind:wedding",
+            "calendar:kind:travel",
+            "calendar:title:Jordan & Alex's wedding",
+        ])
+        XCTAssertEqual(Set(read.calendarKinds), ["travel", "wedding"])
+        XCTAssertEqual(read.calendarBusyToday, 3)
+        XCTAssertTrue(read.calendarEveningBusy)
+        XCTAssertTrue(read.hasCalendar)
+        let spoken = read.spokenCalendarLine() ?? ""
+        XCTAssertTrue(spoken.lowercased().contains("wedding"))
+        XCTAssertFalse(spoken.contains("Jordan"))
+        let fit = read.sessionFitLine() ?? ""
+        XCTAssertTrue(fit.lowercased().contains("wedding") || fit.lowercased().contains("travel"))
+    }
 }

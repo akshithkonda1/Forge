@@ -103,8 +103,13 @@ struct AriaLifeRead: Equatable {
     var lastNightKind: String?
     var lastNightDrinks: Int = 0
     var lastNightLate: Bool = false
+    var calendarKinds: [String] = []
+    var calendarBusyToday: Int = 0
+    var calendarMorningBusy: Bool = false
+    var calendarEveningBusy: Bool = false
 
     var hasEvening: Bool { lastNightKind != nil || lastNightLate || lastNightDrinks > 0 }
+    var hasCalendar: Bool { calendarBusyToday > 0 || !calendarKinds.isEmpty }
 
     static func from(tags: [String]) -> AriaLifeRead {
         var read = AriaLifeRead()
@@ -123,7 +128,27 @@ struct AriaLifeRead: Equatable {
                 read.lastNightKind = String(tag.dropFirst("lastnight:".count))
             }
         }
+        read.calendarKinds = FakeCalendarPack.kinds(fromTags: tags).map(\.rawValue)
+        read.calendarBusyToday = FakeCalendarPack.busyToday(fromTags: tags)
+        read.calendarMorningBusy = tags.contains("calendar:morning:busy")
+        read.calendarEveningBusy = tags.contains("calendar:evening:busy")
         return read
+    }
+
+    func spokenCalendarLine() -> String? {
+        FakeCalendarPack.spokenLine(fromTags: calendarKinds.map { "calendar:kind:\($0)" } + [
+            "calendar:busy:\(calendarBusyToday)",
+            calendarMorningBusy ? "calendar:morning:busy" : "",
+            calendarEveningBusy ? "calendar:evening:busy" : "",
+        ].filter { !$0.isEmpty })
+    }
+
+    func sessionFitLine() -> String? {
+        FakeCalendarPack.sessionFitLine(fromTags: calendarKinds.map { "calendar:kind:\($0)" } + [
+            "calendar:busy:\(calendarBusyToday)",
+            calendarMorningBusy ? "calendar:morning:busy" : "",
+            calendarEveningBusy ? "calendar:evening:busy" : "",
+        ].filter { !$0.isEmpty })
     }
 
     /// A companion sentence. Prefers the pack's own story so ARIA never

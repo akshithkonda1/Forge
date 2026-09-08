@@ -1955,7 +1955,8 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
 				INFOPLIST_KEY_NSHealthClinicalHealthRecordsUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, and procedures — so ARIA can coach around what you already take. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows (not titles) so ARIA can fit training around your day. Event details stay on this iPhone — Forge never uploads your calendar.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows so ARIA can fit training around your day. Event titles and attendees stay on this iPhone — Forge never uploads your calendar.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Forge reads Calendar to see when you're busy so ARIA can fit training around your day, and may add labeled demo events to a Forge-owned calendar — never to your personal calendars. Titles and attendees stay on this iPhone and are never uploaded.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses the microphone so you can talk to your coach and log workouts hands-free. Audio is transcribed on this iPhone and is never stored or uploaded.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Forge turns what you say into text so you can ask your coach questions and log meals and sets by voice.";
@@ -1999,7 +2000,8 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, and nutrition to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
 				INFOPLIST_KEY_NSHealthClinicalHealthRecordsUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, and procedures — so ARIA can coach around what you already take. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows (not titles) so ARIA can fit training around your day. Event details stay on this iPhone — Forge never uploads your calendar.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows so ARIA can fit training around your day. Event titles and attendees stay on this iPhone — Forge never uploads your calendar.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Forge reads Calendar to see when you're busy so ARIA can fit training around your day, and may add labeled demo events to a Forge-owned calendar — never to your personal calendars. Titles and attendees stay on this iPhone and are never uploaded.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses the microphone so you can talk to your coach and log workouts hands-free. Audio is transcribed on this iPhone and is never stored or uploaded.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Forge turns what you say into text so you can ask your coach questions and log meals and sets by voice.";
@@ -2038,7 +2040,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Forge;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads sleep, heart rate, HRV, activity, and workouts on your watch to compute readiness and tailor mindfulness and training to your day.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves Mindful Minutes and workouts from your watch so your Health history stays complete.";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows (not titles) so ARIA can fit training around your day. Event details stay on this iPhone — Forge never uploads your calendar.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows so ARIA can fit training around your day. Event titles and attendees stay on this iPhone — Forge never uploads your calendar.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets Forge notice arriving at familiar places, like your gym, to adapt suggestions. Location never leaves your device.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to recognize places like your gym or office and suggest context-aware micro-habits. Location never leaves your device.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Forge notices when you have been sitting for a long stretch so it can offer a short reset. Motion stays on this watch.";
@@ -2076,7 +2078,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Forge;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads sleep, heart rate, HRV, activity, and workouts on your watch to compute readiness and tailor mindfulness and training to your day.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves Mindful Minutes and workouts from your watch so your Health history stays complete.";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows (not titles) so ARIA can fit training around your day. Event details stay on this iPhone — Forge never uploads your calendar.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows so ARIA can fit training around your day. Event titles and attendees stay on this iPhone — Forge never uploads your calendar.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets Forge notice arriving at familiar places, like your gym, to adapt suggestions. Location never leaves your device.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to recognize places like your gym or office and suggest context-aware micro-habits. Location never leaves your device.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Forge notices when you have been sitting for a long stretch so it can offer a short reset. Motion stays on this watch.";
