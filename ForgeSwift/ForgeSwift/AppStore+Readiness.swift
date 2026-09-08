@@ -75,6 +75,9 @@ extension AppStore {
         }
         learnFromFirstHealthConnectIfNeeded()
 
+        await ingestTestReadyCalendarIfNeeded()
+
+        lastMetricsRefresh = Date()
         await syncHealthBatchAndDashboard()
         if todayWorkout == nil || todayWorkout?.exercises.isEmpty == true {
             rebuildTodayPlanFromLife()
@@ -113,6 +116,15 @@ extension AppStore {
             print("Test-Ready HealthKit seed failed: \(error)")
             return false
         }
+    }
+
+    /// Test-ready EventKit writes land on a Forge-owned calendar only.
+    /// Tags that follow are classified kinds + busy windows — never titles.
+    func ingestTestReadyCalendarIfNeeded() async {
+        await CalendarManager.shared.ingestUpcomingIfAuthorized()
+        let tags = CalendarManager.shared.calendarTags
+        guard !tags.isEmpty else { return }
+        AriaContextStore.shared.applyCalendarIngestTags(tags)
     }
 
     /// Remember what Apple Health just taught ARIA. Once per fingerprint so

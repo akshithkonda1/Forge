@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 /// How ARIA is allowed to touch health data.
 ///
@@ -54,9 +55,12 @@ enum AriaOnDeviceHealthPolicy {
             out.medicationLayer = layer.isEmpty ? nil : layer
         }
         out.lifestyle.cyclePhaseDirective = nil
-        out.lifestyle.tags = out.lifestyle.tags.filter { tag in
-            !isHealthLedgerTag(tag) && !tag.hasPrefix("med_onfile:")
-        }
+        out.lifestyle.tags = out.lifestyle.tags
+            .filter { !isHealthLedgerTag($0) && !$0.hasPrefix("med_onfile:") }
+            .map { tag in
+                tag.hasPrefix("calendar:") ? (FakeCalendarPack.isAllowedIngestTag(tag) ? tag : nil) : tag
+            }
+            .compactMap { $0 }
         out.lifestyle.recentPatterns = out.lifestyle.recentPatterns.filter { pattern in
             let p = pattern.lowercased()
             return !p.hasPrefix("cycle:") && !p.contains("cycle_phase")

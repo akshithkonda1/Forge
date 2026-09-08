@@ -1593,8 +1593,15 @@ def generate_response(
     *,
     permissions: DataPermissions | None = None,
     voice_mode: bool = False,
+    persona: Any = None,
 ) -> dict[str, Any]:
-    """Top-level entry: message + context (+ permissions) -> response envelope."""
+    """Top-level entry: message + context (+ permissions) -> response envelope.
+
+    ``persona`` is the durable learner state (``contextual_learner.PersonaState``).
+    The engine never persists it; the live chat route does. Dummy tests pass an
+    in-memory persona. Omitting it still runs cold-start priors so turn one is
+    already adapted.
+    """
     perms = permissions if isinstance(permissions, DataPermissions) else DataPermissions.allow_all()
     ctx, restricted = apply_permissions(ctx, perms)
 
@@ -1657,6 +1664,7 @@ def generate_response(
         )
         if session is not None:
             envelope["session"] = session.to_dict()
+    _attach_contextualization(envelope, message, ctx, persona)
     return envelope
 
 
@@ -1692,6 +1700,22 @@ def _envelope(
         "suggested_actions": suggested_actions,
         "model": select_model(response_type, voice_mode=voice_mode),
     }
+
+
+def _attach_contextualization(
+    envelope: dict[str, Any],
+    message: str,
+    ctx: ARIAContext,
+    persona: Any,
+) -> None:
+    """Sidecar from the production learner. Never mutates prose_summary."""
+    try:
+        from services import contextual_learner
+
+        brief = contextual_learner.adapt(message, ctx, persona)
+        envelope["contextualization"] = brief.as_dict()
+    except Exception:
+        return
 
 
 def build_user_prompt(message: str, ctx: ARIAContext, restricted: list[str] | None = None) -> str:
@@ -1791,6 +1815,22 @@ def _default_converse_vision(
     return str(result.get("answer") or "")
 
 
+LEARNING_LAW = (
+    "LEARNING LAW — how you adapt to this person:\n"
+    "When a [CONTEXTUALIZATION] block is present in the user turn, follow it. "
+    "That block is ARIA's durable learner: the same policy on the live backend "
+    "and in dummy tests. Follow prioritize in order and lead with the first "
+    "domain. Condition on event (classified calendar kinds and busy windows "
+    "only — never titles, places, or attendees). Weight already-ingested "
+    "insights, patterns, goals, and conversation by the relationship — a new "
+    "user is known, not familiar. Teach one learned fact from teach_the_person. "
+    "Never dump labels. If grounding is generalized, still coach from conversation "
+    "and what you have already ingested — do not invent a calendar or a body you "
+    "were not given. If grounding is contextual, fit the session around the "
+    "event and busy windows."
+)
+
+
 def live_system_prompt(agent: str | None = None, agents: list[str] | None = None) -> str:
     """ARIA's persona plus the security law, for any live model call.
 
@@ -1813,7 +1853,7 @@ def live_system_prompt(agent: str | None = None, agents: list[str] | None = None
             "\nYou have several specialists in the room. Answer once, synthesizing "
             "them. Do not call further models."
         )
-    return f"{ARIA_SYSTEM_PROMPT}\n\n{assignment}\n\n{AI_SECURITY_DIRECTIVE}"
+    return f"{ARIA_SYSTEM_PROMPT}\n\n{assignment}\n\n{LEARNING_LAW}\n\n{AI_SECURITY_DIRECTIVE}"
 
 
 def generate_coach_text(
@@ -1882,11 +1922,14 @@ def generate_response_live(
     converse: Callable[[str, str, str], str] | None = None,
     agent: str | None = None,
     agents: list[str] | None = None,
+    persona: Any = None,
 ) -> dict[str, Any]:
     """Top-level entry for the live path: deterministic reasoning, then a real
     Claude pass overlaid on top. Falls back to the deterministic envelope on any
     error. ``converse`` is injectable so tests never need boto3 or AWS."""
-    base = generate_response(message, ctx, permissions=permissions, voice_mode=voice_mode)
+    base = generate_response(
+        message, ctx, permissions=permissions, voice_mode=voice_mode, persona=persona
+    )
     caller = converse or _default_converse
     roster = normalize_coach_agents(agents, agent)
     coach = roster[0]
@@ -1915,6 +1958,10 @@ def generate_response_live(
     user_prompt = build_user_prompt(message, sanitized, restricted)
     if voice_mode:
         user_prompt += f"\n\n[VOICE MODE] Reply with prose only (no card), {VOICE_TOKEN_CAP} tokens max."
+    ctxz = base.get("contextualization") or {}
+    instr = ctxz.get("aria_instructions") if isinstance(ctxz, dict) else None
+    if isinstance(instr, str) and instr.strip():
+        user_prompt += f"\n\n{instr}"
 
     try:
         text = caller(model_id, live_system_prompt(agents=roster), user_prompt)

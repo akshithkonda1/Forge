@@ -80,6 +80,71 @@ final class AriaIntentResolverTests: XCTestCase {
         XCTAssertFalse(ranked.isEmpty)
         XCTAssertFalse(AriaIntentResolver.actionable(ranked).isEmpty)
     }
+
+    func testWeddingEveningBusyProtects() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(
+                text: "what should I train today?",
+                readiness: 62,
+                sleepMinutesLastNight: 430,
+                calendarTags: ["calendar:kind:wedding", "calendar:evening:busy"]
+            )
+        )
+        XCTAssertEqual(adapted.stance, "protect")
+        XCTAssertTrue(adapted.keepLight)
+        XCTAssertEqual(adapted.grounding, "contextual")
+        XCTAssertFalse(adapted.teachUser.isEmpty)
+        XCTAssertFalse(adapted.teachUser.contains("Ritz"))
+        XCTAssertEqual(adapted.prioritize.first, "lifestyle")
+        XCTAssertEqual(adapted.eventBucket, "wedding")
+        XCTAssertTrue(adapted.priorityReason.contains("wedding"))
+    }
+
+    func testEmptyHeyIsGeneralized() {
+        let adapted = AriaIntentResolver.adapt(AriaIntentInput(text: "hey"))
+        XCTAssertEqual(adapted.grounding, "generalized")
+        XCTAssertFalse(adapted.teachUser.isEmpty)
+        XCTAssertTrue(["protect", "proceed", "fuel", "clarify"].contains(adapted.stance))
+    }
+
+    func testTrainAskWithShortSleepKeepsLight() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(
+                text: "should I train today?",
+                readiness: 40,
+                sleepMinutesLastNight: 4 * 60
+            )
+        )
+        XCTAssertEqual(adapted.stance, "protect")
+        XCTAssertTrue(adapted.keepLight)
+    }
+
+    func testSleepIngestAndRelationshipLeadOnAClearDay() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(
+                text: "hey",
+                readiness: 70,
+                sleepMinutesLastNight: 430,
+                rememberedFacts: ["sleep debt last night", "strong_sleep_recovery"],
+                relationshipLevel: 6
+            )
+        )
+        XCTAssertEqual(adapted.eventBucket, "clear")
+        XCTAssertEqual(adapted.prioritize.first, "sleep")
+    }
+
+    func testPriorityReasonNeverContainsTitles() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(
+                text: "what should I train today?",
+                calendarTags: ["calendar:kind:wedding", "Maya's wedding at the Ritz"]
+            )
+        )
+        XCTAssertEqual(adapted.eventBucket, "wedding")
+        XCTAssertFalse(adapted.priorityReason.contains("Ritz"))
+        XCTAssertFalse(adapted.priorityReason.contains("Maya"))
+        XCTAssertFalse(adapted.prioritize.joined(separator: " ").contains("Ritz"))
+    }
 }
 
 final class AriaGuidancePolicyTests: XCTestCase {

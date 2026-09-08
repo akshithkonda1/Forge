@@ -72,6 +72,29 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         )
         return ok(response)
 
+    from services import contextual_learner
+
+    persona = None
+    try:
+        persona = contextual_learner.load(uid)
+        living = _context.get_or_create_context(uid)
+        tags: list[str] = []
+        if permissions.allows("lifestyle"):
+            tags = list(context.lifestyle.tags or [])
+            for tag in living.lifestyle_tags:
+                if tag not in tags:
+                    tags.append(tag)
+            contextual_learner.stamp_living_context(context, living)
+        contextual_learner.observe_turn(
+            persona,
+            message=message,
+            tags=tags,
+            relationship_level=living.relationship_level,
+            ctx=context,
+        )
+    except Exception:
+        persona = None
+
     weekly_note = weekly_review.briefing_for_chat(uid)
     if weekly_note:
         message = f"{weekly_note}\n\n{message}"
@@ -83,10 +106,15 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             permissions=permissions,
             voice_mode=voice_mode,
             agents=roster,
+            persona=persona,
         )
     else:
         response = aria_engine.generate_response(
-            message, context, permissions=permissions, voice_mode=voice_mode
+            message,
+            context,
+            permissions=permissions,
+            voice_mode=voice_mode,
+            persona=persona,
         )
         response["agent"] = roster[0]
         response["agents"] = roster
@@ -131,6 +159,22 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         _context.update_context(uid, {"relationship_level": updated_level, "last_promoted_at": now})
     else:
         updated_level = int(rich.get("relationship_level", 1))
+
+    brief = response.get("contextualization") if isinstance(response.get("contextualization"), dict) else {}
+    if persona is not None:
+        try:
+            contextual_learner.commit_action(
+                persona,
+                str(brief.get("bucket") or ""),
+                str(brief.get("stance") or ""),
+                brief.get("specialists") or [],
+                event_bucket_key=brief.get("event_bucket"),
+                priority=brief.get("prioritize"),
+            )
+            contextual_learner.observe_relationship(persona, updated_level)
+            contextual_learner.save(uid, persona)
+        except Exception:
+            pass
 
     if memory and not voice_mode:
         response["message"] = f"{memory}\n\n{response['message']}"

@@ -273,6 +273,7 @@ enum AriaCoachAgentRouter {
         let keywordPlan = plan(message: message, context: context)
         let ranked = AriaIntentResolver.rank(signals)
         let surfaced = AriaIntentResolver.actionable(ranked)
+        let adaptation = AriaIntentResolver.adapt(signals)
 
         var extras: [AriaCoachAgent] = []
         for domain in surfaced {
@@ -280,6 +281,17 @@ enum AriaCoachAgentRouter {
             guard isAvailable(kind, context: context) else { continue }
             guard !keywordPlan.kinds.contains(kind) else { continue }
             extras.append(kind)
+        }
+        let useLearned = adaptation.keepLight || !signals.calendarTags.isEmpty || adaptation.stance == "protect"
+        if useLearned {
+            for spec in adaptation.specialists {
+                guard let kind = AriaCoachAgent(rawValue: spec) else { continue }
+                guard isAvailable(kind, context: context) else { continue }
+                guard !keywordPlan.kinds.contains(kind) else { continue }
+                if !extras.contains(kind) {
+                    extras.append(kind)
+                }
+            }
         }
         guard !extras.isEmpty else { return keywordPlan }
 

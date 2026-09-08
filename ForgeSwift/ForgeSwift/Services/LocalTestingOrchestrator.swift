@@ -128,6 +128,12 @@ final class LocalTestingOrchestrator {
     /// lands.
     var familiarity: Int { min(10, 1 + exchanges / 3) }
 
+    /// Session TD(0) — same stances as the live learner. Dummy/local only;
+    /// the durable table is Dynamo `ARIA#PERSONA`.
+    private var lastBucket: String?
+    private var lastStance: String?
+    private var qTable: [String: [String: Double]] = [:]
+
     /// What the user has told us about themselves this session. Recall, not
     /// comprehension — which is most of what "it remembers me" reads as from
     /// the outside.
@@ -262,6 +268,14 @@ final class LocalTestingOrchestrator {
         }
         if let crossover = affinityBeat(excluding: domain, rng: &rng) {
             parts.append(crossover)
+        }
+        let signals = store.intentSignals(for: text)
+        let adaptation = AriaIntentResolver.adapt(signals)
+        reinforceSession(from: signals, nextBucket: adaptation.bucket)
+        lastBucket = adaptation.bucket
+        lastStance = adaptation.stance
+        if !adaptation.teachUser.isEmpty {
+            parts.append(adaptation.teachUser)
         }
         // Device / Simulator default route (Wi-Fi, or the Mac's network in
         // Simulator). Question + salt pick a different .gov page and excerpt
@@ -458,5 +472,39 @@ final class LocalTestingOrchestrator {
             "Noticing \(dominant.spokenName) comes up a lot with you — worth a real look when you've got the patience.",
             "That's the third time \(dominant.spokenName) has come up. I don't think it's incidental.",
         ])
+    }
+
+    private func reinforceSession(from signals: AriaIntentInput, nextBucket: String) {
+        guard let lastB = lastBucket, let lastS = lastStance else { return }
+        let eveningBusy = signals.calendarTags.contains("calendar:evening:busy")
+        let completed = signals.hasSessionLoggedToday
+        var reward: Double = 0.4
+        if lastS == "protect" {
+            if eveningBusy && !completed {
+                reward = 0.85
+            } else if completed {
+                reward = -0.25
+            } else {
+                reward = 0.35
+            }
+        } else if lastS == "proceed" {
+            if completed {
+                reward = 1.0
+            } else {
+                reward = eveningBusy ? -0.85 : -0.45
+            }
+        }
+        var row: [String: Double] = qTable[lastB] ?? [
+            "protect": 0.0, "proceed": 0.0, "fuel": 0.0, "clarify": 0.0,
+        ]
+        let qsa: Double = row[lastS] ?? 0.0
+        var boot: Double = 0.0
+        if let next = qTable[nextBucket] {
+            for value in next.values where value > boot {
+                boot = value
+            }
+        }
+        row[lastS] = qsa + 0.28 * (reward + 0.55 * boot - qsa)
+        qTable[lastB] = row
     }
 }

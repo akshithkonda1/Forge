@@ -56,6 +56,7 @@ struct AriaDummyInterpretation: Equatable {
     var noteToWrite: String?
     var readBoard: Bool
     var recordedSport: AriaDummySport?
+    var readCalendar: Bool
 }
 
 struct AriaDummySport: Equatable {
@@ -70,6 +71,7 @@ struct AriaDummyActs: Equatable {
     var noteToWrite: String? = nil
     var readBoard = false
     var sport: AriaDummySport? = nil
+    var readCalendar = false
 }
 
 /// Local conductor for the dummy orchestra. No URLSession, no Bedrock, no
@@ -93,6 +95,7 @@ enum AriaDummyTurn {
         "log water", "drank water", "note that", "remember that",
         "basketball", "soccer", "tennis", "played", "sport", "hiking",
         "pickleball", "volleyball", "golf", "boxing",
+        "calendar", "busy window", "what's on my week",
     ]
 
     private static let jointWords = [
@@ -161,12 +164,12 @@ enum AriaDummyTurn {
             return .scheduleReminder(kind: .meal, hour: mealHour)
         }
         if lower.contains("sleep") || lower.contains("bed") || lower.contains("wind down") {
-            return .scheduleReminder(kind: .sleep, hour: hour ?? 21)
+            return .scheduleReminder(kind: .sleep, hour: parsed ?? 21)
         }
         if lower.contains("train") || lower.contains("workout") {
-            return .scheduleReminder(kind: .workout, hour: hour)
+            return .scheduleReminder(kind: .workout, hour: parsed)
         }
-        return .scheduleReminder(kind: .meal, hour: hour)
+        return .scheduleReminder(kind: .meal, hour: parsed)
     }
 
     static func joints(in text: String, remembered: [String]) -> [String] {
@@ -199,6 +202,21 @@ enum AriaDummyTurn {
         if let sport = sportAct(in: text) {
             acts.sport = sport
         }
+        acts.readCalendar = lower.contains("on my calendar")
+            || lower.contains("what's on my calendar")
+            || lower.contains("whats on my calendar")
+            || lower.contains("my calendar")
+            || (lower.contains("calendar") && (lower.contains("week") || lower.contains("today") || lower.contains("busy")))
+            || lower.contains("what's on this week")
+            || lower.contains("whats on this week")
+            || lower.contains("what's coming up")
+            || lower.contains("whats coming up")
+            || lower.contains("how does my week")
+            || lower.contains("how's my week")
+            || lower.contains("hows my week")
+            || lower.contains("think about my week")
+            || lower.contains("what's this week")
+            || lower.contains("whats this week")
         return acts
     }
 
@@ -330,7 +348,10 @@ enum AriaDummyTurn {
         if acts.logWaterMl != nil { add(.nutrition) }
         if acts.noteToWrite != nil { add(.lifestyle) }
         if acts.readBoard { add(.progress) }
-        domains.removeAll { $0 == .lifestyle && domains.contains(.nutrition) && agent != .lifestyle && acts.noteToWrite == nil }
+        if acts.readCalendar { add(.lifestyle) }
+        if domains.contains(.nutrition), agent != .lifestyle, acts.noteToWrite == nil {
+            domains.removeAll { $0 == .lifestyle }
+        }
 
         let jointsFound = joints(in: text, remembered: signals.rememberedFacts)
         let skipLegs = text.lowercased().contains("skip legs")
@@ -370,7 +391,8 @@ enum AriaDummyTurn {
             logWaterMl: acts.logWaterMl,
             noteToWrite: acts.noteToWrite,
             readBoard: acts.readBoard,
-            recordedSport: acts.sport
+            recordedSport: acts.sport,
+            readCalendar: acts.readCalendar
         )
     }
 
@@ -430,7 +452,15 @@ enum AriaDummyTurn {
             sentences.append(clip(train.prose, limit: 180))
         }
         if let food {
-            sentences.append(clip(food.prose, limit: 140))
+            let lowerFood = food.prose.lowercased()
+            let calendarThought = interpretation.readCalendar
+                || lowerFood.contains("calendar")
+                || lowerFood.contains("wedding")
+                || lowerFood.contains("trip")
+                || lowerFood.contains("travel")
+                || lowerFood.contains("busy window")
+            let limit = calendarThought ? 280 : 140
+            sentences.append(clip(food.prose, limit: limit))
         }
         if let body, sleep != nil {
             sentences.append(clip(body.prose, limit: 120))
