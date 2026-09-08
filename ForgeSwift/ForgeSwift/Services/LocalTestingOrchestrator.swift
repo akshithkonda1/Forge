@@ -129,10 +129,18 @@ final class LocalTestingOrchestrator {
     var familiarity: Int { min(10, 1 + exchanges / 3) }
 
     /// Session TD(0) — same stances as the live learner. Dummy/local only;
-    /// the durable table is Dynamo `ARIA#PERSONA`.
+    /// the durable table is Dynamo `ARIA#PERSONA`. The durable critic
+    /// (`self_trainer.py`) stays on the backend; this is a session mirror.
     private var lastBucket: String?
     private var lastStance: String?
     private var qTable: [String: [String: Double]] = [:]
+    private var lastTdSign: Int = 0
+    private var tdAlpha: Double = 0.28
+    private var nRight: Int = 0
+    private var nWrong: Int = 0
+    private var lastVerdict: String = ""
+    private var calibration: Double = 0.5
+    private var lastPredicted: Double = 0.0
 
     /// What the user has told us about themselves this session. Recall, not
     /// comprehension — which is most of what "it remembers me" reads as from
@@ -270,10 +278,20 @@ final class LocalTestingOrchestrator {
             parts.append(crossover)
         }
         let signals = store.intentSignals(for: text)
-        let adaptation = AriaIntentResolver.adapt(signals)
+        selfTrainFromConversation(text)
+        var adaptation = AriaIntentResolver.adapt(signals)
         reinforceSession(from: signals, nextBucket: adaptation.bucket)
         lastBucket = adaptation.bucket
         lastStance = adaptation.stance
+        var predictedNow = 0.0
+        if let row = qTable[adaptation.bucket] {
+            if let value = row[adaptation.stance] {
+                predictedNow = value
+            }
+        }
+        lastPredicted = predictedNow
+        adaptation.lastVerdict = lastVerdict
+        adaptation.calibration = calibration
         if !adaptation.teachUser.isEmpty {
             parts.append(adaptation.teachUser)
         }
@@ -474,10 +492,42 @@ final class LocalTestingOrchestrator {
         ])
     }
 
+    private func conversationReward(_ text: String) -> Double? {
+        let lower = text.lowercased()
+        let rightCues = [
+            "that helped", "that worked", "you're right", "good call",
+            "nailed it", "exactly", "perfect", "that's it", "much better",
+        ]
+        let wrongCues = [
+            "didn't help", "didn't work", "too much", "too hard", "too easy",
+            "you're wrong", "not what i", "still exhausted", "still tired",
+            "i skipped", "too long", "wrong call",
+        ]
+        var nRightCues = 0
+        var nWrongCues = 0
+        for cue in rightCues {
+            if lower.contains(cue) { nRightCues += 1 }
+        }
+        for cue in wrongCues {
+            if lower.contains(cue) { nWrongCues += 1 }
+        }
+        if nRightCues == 0 && nWrongCues == 0 { return nil }
+        if nRightCues == nWrongCues { return nil }
+        if nRightCues > nWrongCues { return 0.65 }
+        return -0.65
+    }
+
+    private func selfTrainFromConversation(_ text: String) {
+        guard lastBucket != nil, lastStance != nil else { return }
+        guard let reward = conversationReward(text) else { return }
+        applyTd(reward: reward, nextBucket: lastBucket ?? "clear|mixed")
+    }
+
     private func reinforceSession(from signals: AriaIntentInput, nextBucket: String) {
-        guard let lastB = lastBucket, let lastS = lastStance else { return }
+        guard lastBucket != nil, lastStance != nil else { return }
         let eveningBusy = signals.calendarTags.contains("calendar:evening:busy")
         let completed = signals.hasSessionLoggedToday
+        let lastS = lastStance ?? ""
         var reward: Double = 0.4
         if lastS == "protect" {
             if eveningBusy && !completed {
@@ -494,6 +544,11 @@ final class LocalTestingOrchestrator {
                 reward = eveningBusy ? -0.85 : -0.45
             }
         }
+        applyTd(reward: reward, nextBucket: nextBucket)
+    }
+
+    private func applyTd(reward: Double, nextBucket: String) {
+        guard let lastB = lastBucket, let lastS = lastStance else { return }
         var row: [String: Double] = qTable[lastB] ?? [
             "protect": 0.0, "proceed": 0.0, "fuel": 0.0, "clarify": 0.0,
         ]
@@ -504,7 +559,53 @@ final class LocalTestingOrchestrator {
                 boot = value
             }
         }
-        row[lastS] = qsa + 0.28 * (reward + 0.55 * boot - qsa)
+        let delta = reward + 0.55 * boot - qsa
+        var sign = 0
+        if delta > 0.02 {
+            sign = 1
+        } else if delta < -0.02 {
+            sign = -1
+        }
+        if lastTdSign != 0 && sign != 0 {
+            if sign == lastTdSign {
+                tdAlpha = min(0.55, tdAlpha * 1.18)
+            } else {
+                tdAlpha = max(0.08, tdAlpha * 0.82)
+            }
+        }
+        if sign != 0 {
+            lastTdSign = sign
+        }
+
+        var verdict = "mixed"
+        if abs(reward) >= 0.08 {
+            if abs(lastPredicted) < 0.05 {
+                if reward > 0 {
+                    verdict = "right"
+                } else {
+                    verdict = "wrong"
+                }
+            } else if (lastPredicted > 0) == (reward > 0) {
+                verdict = "right"
+            } else {
+                verdict = "wrong"
+            }
+        }
+        lastVerdict = verdict
+        if verdict == "right" {
+            nRight += 1
+        } else if verdict == "wrong" {
+            nWrong += 1
+        }
+        var hit = 0.5
+        if verdict == "right" {
+            hit = 1.0
+        } else if verdict == "wrong" {
+            hit = 0.0
+        }
+        calibration = 0.85 * calibration + 0.15 * hit
+
+        row[lastS] = qsa + tdAlpha * delta
         qTable[lastB] = row
     }
 }

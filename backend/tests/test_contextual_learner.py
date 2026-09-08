@@ -212,6 +212,7 @@ class DummyConsumesProductionLearnerTests(unittest.TestCase):
         src = dummy.__file__
         text = Path(src).read_text()
         self.assertNotIn("TD_ALPHA", text)
+        self.assertNotIn("self_trainer", text)
         self.assertIn("services.contextual_learner", text)
         self.assertIn("live-backend", text)
 

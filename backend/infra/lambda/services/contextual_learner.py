@@ -27,6 +27,9 @@ The online model:
     windows), what ARIA has already ingested (insights, patterns, goals,
     constraints), conversation, and relationship depth. Rank-sensitive
     TD updates teach *what to lead with*, not only which stance to take.
+  * A **self-training critic** (``self_trainer.py``): ARIA predicts at
+    commit, self-labels conversation, judges right/wrong, and tunes her
+    own step size. Dummy never owns this.
   * Hedge over specialists present when the outcome landed.
   * Teach both directions: the brief tells ARIA how to coach, and one
     learned sentence ARIA can tell the person.
@@ -85,6 +88,13 @@ TD_GAMMA = 0.55
 Q_BLEND = 0.85          # how hard Q pulls the softmax vs the feature prior
 HEDGE_ETA = 0.18        # multiplicative-weights step on specialists
 TEMP_FLOOR = 0.35       # softmax temperature never goes colder than this
+SOURCE_KEYS = ("event", "ingest", "conversation", "body")
+ALPHA_MIN = 0.08
+ALPHA_MAX = 0.55
+
+
+def _default_source_w() -> dict[str, float]:
+    return {key: 1.0 for key in SOURCE_KEYS}
 
 # Priors: not uniform. Slight evening-training bias (most desk lives), complete
 # more often than skip, protect slightly on the table because Forge is recovery-
@@ -192,6 +202,18 @@ class PersonaState:
     priority_q: dict[str, dict[str, float]] = field(default_factory=dict)
     last_event_bucket: str | None = None
     last_priority: tuple[str, ...] = ()
+    # Self-training critic: ARIA judges her last call and tunes alpha.
+    td_alpha: float = TD_ALPHA
+    last_td_sign: int = 0
+    last_predicted_reward: float = 0.0
+    last_stance_p: float = 0.0
+    last_sources: tuple[str, ...] = ()
+    n_right: int = 0
+    n_wrong: int = 0
+    n_self_train: int = 0
+    calibration: float = 0.5
+    source_w: dict[str, float] = field(default_factory=_default_source_w)
+    last_verdict: str | None = None
 
     @property
     def n(self) -> int:
@@ -238,6 +260,17 @@ class PersonaState:
             "priority_q": {k: dict(v) for k, v in self.priority_q.items()},
             "last_event_bucket": self.last_event_bucket,
             "last_priority": list(self.last_priority),
+            "td_alpha": self.td_alpha,
+            "last_td_sign": self.last_td_sign,
+            "last_predicted_reward": self.last_predicted_reward,
+            "last_stance_p": self.last_stance_p,
+            "last_sources": list(self.last_sources),
+            "n_right": self.n_right,
+            "n_wrong": self.n_wrong,
+            "n_self_train": self.n_self_train,
+            "calibration": self.calibration,
+            "source_w": dict(self.source_w),
+            "last_verdict": self.last_verdict,
             "n": self.n,
             "confidence": self.confidence(),
             "preferred_slot": self.preferred_slot(),
@@ -330,6 +363,44 @@ class PersonaState:
         last_p = data.get("last_priority")
         if isinstance(last_p, list):
             state.last_priority = tuple(str(d) for d in last_p if d in DOMAINS)
+        try:
+            state.td_alpha = _clip(float(data.get("td_alpha", TD_ALPHA)), ALPHA_MIN, ALPHA_MAX)
+        except (TypeError, ValueError):
+            state.td_alpha = TD_ALPHA
+        try:
+            sign = int(data.get("last_td_sign", 0) or 0)
+        except (TypeError, ValueError):
+            sign = 0
+        state.last_td_sign = sign if sign in (-1, 0, 1) else 0
+        for name in ("last_predicted_reward", "last_stance_p", "calibration"):
+            try:
+                setattr(state, name, float(data.get(name, getattr(state, name))))
+            except (TypeError, ValueError):
+                pass
+        state.calibration = _clip(state.calibration, 0.0, 1.0)
+        for name in ("n_right", "n_wrong", "n_self_train"):
+            try:
+                setattr(state, name, max(0, int(data.get(name, getattr(state, name)))))
+            except (TypeError, ValueError):
+                pass
+        raw_sw = data.get("source_w")
+        merged_w = _default_source_w()
+        if isinstance(raw_sw, dict):
+            for key in SOURCE_KEYS:
+                if key not in raw_sw:
+                    continue
+                try:
+                    merged_w[key] = _clip(float(raw_sw[key]), 0.4, 2.0)
+                except (TypeError, ValueError):
+                    continue
+        state.source_w = merged_w
+        srcs = data.get("last_sources")
+        if isinstance(srcs, list):
+            state.last_sources = tuple(str(s) for s in srcs if s in SOURCE_KEYS)
+        verdict = data.get("last_verdict")
+        state.last_verdict = (
+            str(verdict) if verdict in ("right", "wrong", "mixed") else None
+        )
         return state
 
 
@@ -591,7 +662,8 @@ def reinforce(
     if next_bucket:
         boot = max(_q(state, next_bucket, a) for a in STANCES)
     delta = float(reward) + TD_GAMMA * boot - q_sa
-    _set_q(state, state.last_bucket, state.last_stance, q_sa + TD_ALPHA * delta)
+    alpha = _clip(float(state.td_alpha or TD_ALPHA), ALPHA_MIN, ALPHA_MAX)
+    _set_q(state, state.last_bucket, state.last_stance, q_sa + alpha * delta)
     state.n_updates += 1
     # Hedge: specialists present on a good outcome grow; present on a miss shrink.
     scale = math.exp(HEDGE_ETA * _clip(float(reward), -1.5, 1.5))
@@ -613,8 +685,14 @@ def reinforce(
                 state,
                 state.last_event_bucket,
                 domain,
-                q_pd + TD_ALPHA * p_delta,
+                q_pd + alpha * p_delta,
             )
+    try:
+        from . import self_trainer
+
+        self_trainer.apply_judgment(state, float(reward), delta, TD_ALPHA)
+    except Exception:
+        pass
     return round(delta, 6)
 
 
@@ -625,6 +703,8 @@ def commit_action(
     specialists: Iterable[str],
     event_bucket_key: str | None = None,
     priority: Iterable[str] | None = None,
+    stance_p: float | None = None,
+    sources: Iterable[str] | None = None,
 ) -> None:
     """Remember what ARIA just did so the next outcome can credit it."""
     state.last_bucket = bucket_key
@@ -634,6 +714,28 @@ def commit_action(
         state.last_event_bucket = str(event_bucket_key)
     if priority is not None:
         state.last_priority = tuple(str(d) for d in priority if d in DOMAINS)
+    predicted = 0.0
+    if state.last_bucket and state.last_stance:
+        predicted = _q(state, state.last_bucket, state.last_stance)
+    try:
+        from . import self_trainer
+
+        self_trainer.record_prediction(
+            state,
+            predicted,
+            float(stance_p or 0.0),
+            sources,
+        )
+    except Exception:
+        state.last_predicted_reward = predicted
+        try:
+            state.last_stance_p = float(stance_p or 0.0)
+        except (TypeError, ValueError):
+            state.last_stance_p = 0.0
+        if sources is not None:
+            state.last_sources = tuple(
+                str(s) for s in sources if s in SOURCE_KEYS
+            )
 
 
 def pretrain_from_history(
@@ -811,12 +913,51 @@ _STANCE_WEIGHTS: dict[str, dict[str, float]] = {
 }
 
 
+def _source_w(state: PersonaState, key: str) -> float:
+    try:
+        return _clip(float(state.source_w.get(key, 1.0)), 0.4, 2.0)
+    except (TypeError, ValueError):
+        return 1.0
+
+
+def _hot_sources(feat: dict[str, float]) -> tuple[str, ...]:
+    found: list[str] = []
+    if (
+        feat.get("evening_busy", 0.0) >= 0.5
+        or feat.get("headline", 0.0) >= 0.5
+        or feat.get("morning_busy", 0.0) >= 0.5
+    ):
+        found.append("event")
+    if (
+        feat.get("low_recovery", 0.0) >= 0.5
+        or feat.get("high_recovery", 0.0) >= 0.5
+        or feat.get("short_sleep", 0.0) >= 0.5
+    ):
+        found.append("body")
+        found.append("ingest")
+    if (
+        feat.get("lang_train", 0.0) >= 0.5
+        or feat.get("lang_sleep", 0.0) >= 0.5
+        or feat.get("lang_food", 0.0) >= 0.5
+        or feat.get("lang_advice", 0.0) >= 0.5
+    ):
+        found.append("conversation")
+    return tuple(found)
+
+
 def _stance_logits(feat: dict[str, float], state: PersonaState | None = None) -> dict[str, float]:
     out: dict[str, float] = {}
     key = bucket(feat)
     n = state.n_updates if state is not None else 0
     blend = Q_BLEND * (n / (n + 4.0))  # Q is quiet until it has been taught
     temp = max(TEMP_FLOOR, 0.95 / (1.0 + n / 12.0))
+    if state is not None and state.n_self_train > 0:
+        try:
+            from . import self_trainer
+
+            temp *= self_trainer.heat_from_calibration(state.calibration)
+        except Exception:
+            pass
     for stance in STANCES:
         weights = _STANCE_WEIGHTS[stance]
         score = weights.get("bias", 0.0)
@@ -861,12 +1002,16 @@ def rank_priorities(
     """
     event_key = event_bucket(cal)
     rel = max(0.0, min(1.0, feat.get("relationship", 0.15)))
-    ingest_gain = 0.35 + 0.65 * rel
+    conv_w = _source_w(persona, "conversation")
+    ingest_w = _source_w(persona, "ingest")
+    event_w = _source_w(persona, "event")
+    body_w = _source_w(persona, "body")
+    ingest_gain = (0.35 + 0.65 * rel) * ingest_w
     scores: dict[str, float] = {}
     for domain in DOMAINS:
-        conversation = float(persona.domain.get(domain, 1.0))
+        conversation = float(persona.domain.get(domain, 1.0)) * conv_w
         ingested = float(persona.ingest.get(domain, 1.0)) * ingest_gain
-        event_q = 1.8 * _pq(persona, event_key, domain)
+        event_q = 1.8 * event_w * _pq(persona, event_key, domain)
         stick = 0.55 if (persona.last_priority and persona.last_priority[0] == domain) else 0.0
         scores[domain] = conversation + ingested + event_q + stick
 
@@ -883,8 +1028,10 @@ def rank_priorities(
     text = (message or "").lower()
     for domain, cues in _DOMAIN_CUES.items():
         if any(c in text for c in cues):
-            scores[domain] = scores.get(domain, 0.0) + 1.4
+            scores[domain] = scores.get(domain, 0.0) + 1.4 * conv_w
 
+    # This-turn calendar is the day they have, not learned credit — keep it
+    # unweighted so a wedding still leads "train today" at cold start.
     if feat.get("headline", 0.0) >= 0.5 or bool(cal.headlines):
         scores["lifestyle"] = scores.get("lifestyle", 0.0) + 2.6
         scores["training"] = scores.get("training", 0.0) - 0.9
@@ -894,11 +1041,11 @@ def rank_priorities(
     if feat.get("morning_busy", 0.0) >= 0.5:
         scores["lifestyle"] = scores.get("lifestyle", 0.0) + 0.8
     if feat.get("short_sleep", 0.0) >= 0.5:
-        scores["sleep"] = scores.get("sleep", 0.0) + 1.6
-        scores["training"] = scores.get("training", 0.0) - 0.5
+        scores["sleep"] = scores.get("sleep", 0.0) + 1.6 * body_w
+        scores["training"] = scores.get("training", 0.0) - 0.5 * body_w
     if feat.get("low_recovery", 0.0) >= 0.5:
-        scores["readiness"] = scores.get("readiness", 0.0) + 1.4
-        scores["training"] = scores.get("training", 0.0) - 0.7
+        scores["readiness"] = scores.get("readiness", 0.0) + 1.4 * body_w
+        scores["training"] = scores.get("training", 0.0) - 0.7 * body_w
 
     ranking = sorted(DOMAINS, key=lambda d: (-scores.get(d, 0.0), d))
     if event_key in HEADLINE_KINDS:
@@ -1059,6 +1206,10 @@ def _how_you_work(persona: PersonaState, cal: CalendarRead) -> str:
             bits.append(f"I've already been holding {held} from what we've seen together.")
     if persona.last_priority:
         bits.append(f"On days like this I lead with {persona.last_priority[0]}.")
+    if persona.last_verdict == "wrong":
+        bits.append("Last call missed — I am correcting, not repeating it.")
+    elif persona.last_verdict == "right":
+        bits.append("Last call landed — keep the principle.")
     return " ".join(bits)
 
 
@@ -1111,6 +1262,12 @@ class Adaptation:
     priority_scores: dict[str, float]
     priority_reason: str
     event_bucket: str
+    last_verdict: str | None = None
+    td_alpha: float = TD_ALPHA
+    calibration: float = 0.5
+    n_right: int = 0
+    n_wrong: int = 0
+    sources: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -1140,6 +1297,12 @@ class Adaptation:
             },
             "priority_reason": self.priority_reason,
             "event_bucket": self.event_bucket,
+            "last_verdict": self.last_verdict,
+            "td_alpha": round(self.td_alpha, 4),
+            "calibration": round(self.calibration, 4),
+            "n_right": self.n_right,
+            "n_wrong": self.n_wrong,
+            "sources": list(self.sources),
             "aria_instructions": self.aria_instructions(),
         }
 
@@ -1148,6 +1311,18 @@ class Adaptation:
         cites = ", ".join(self.cite) or "none"
         banned = ", ".join(self.do_not_invent)
         order = " > ".join(self.prioritize) or self.lead_domain
+        verdict = self.last_verdict or "none"
+        extra = ""
+        if self.last_verdict == "wrong":
+            extra = (
+                "You judged your last coaching call as wrong. Do not double down "
+                "on that stance; change the call."
+            )
+        elif self.last_verdict == "right":
+            extra = (
+                "Your last coaching call was right. Keep the same principle, "
+                "not the same script."
+            )
         return (
             "[CONTEXTUALIZATION — how this person works]\n"
             f"- how_you_work: {self.how_you_work}\n"
@@ -1166,14 +1341,18 @@ class Adaptation:
             f"- one_next_move: {self.one_next_move}\n"
             f"- teach_the_person: {self.teach_user}\n"
             f"- grounding: {self.grounding}\n"
+            f"- last_verdict: {verdict}\n"
+            f"- calibration: {self.calibration:.2f} "
+            f"({self.n_right} right / {self.n_wrong} wrong)\n"
             f"- learned_confidence: {self.confidence:.2f} from {self.n_observations} observations "
-            f"({self.n_updates} RL updates)\n"
+            f"({self.n_updates} RL updates, alpha={self.td_alpha:.2f})\n"
             "Follow this block. Teach from it — one learned fact, never a HUD. "
             "Follow prioritize in order; lead with the first domain. "
             "If grounding is generalized, coach from conversation, relationship, and "
             "what you have already ingested; do not invent a calendar or a body you "
             "were not given. If grounding is contextual, fit the session around the "
-            "event and busy windows. Never read calendar titles."
+            "event and busy windows. Never read calendar titles. "
+            + extra
         )
 
 
@@ -1271,6 +1450,12 @@ def adapt(
         priority_scores=scores,
         priority_reason=reason,
         event_bucket=event_bucket(cal),
+        last_verdict=state.last_verdict,
+        td_alpha=state.td_alpha,
+        calibration=state.calibration,
+        n_right=state.n_right,
+        n_wrong=state.n_wrong,
+        sources=_hot_sources(feat),
     )
 
 
@@ -1358,7 +1543,8 @@ def observe_turn(
     relationship_level: int | None = None,
     ctx: Any = None,
 ) -> PersonaState:
-    """One chat turn: events, conversation, ingest, relationship."""
+    """One chat turn: self-train from the utterance, then events, conversation, ingest."""
+    self_train_from_conversation(state, message)
     if tags:
         observe_calendar(state, tags)
     observe_conversation(state, message)
@@ -1367,6 +1553,22 @@ def observe_turn(
     if ctx is not None:
         observe_ingest(state, ctx)
     return state
+
+
+def self_train_from_conversation(state: PersonaState, message: str) -> float | None:
+    """ARIA trains herself from what they just said, without waiting for a workout."""
+    if not state.last_stance:
+        return None
+    try:
+        from . import self_trainer
+
+        reward = self_trainer.conversation_reward(message)
+    except Exception:
+        return None
+    if reward is None:
+        return None
+    reinforce(state, reward)
+    return reward
 
 
 def apply_chat_turn(
@@ -1400,6 +1602,8 @@ def apply_chat_turn(
         brief.specialists,
         event_bucket_key=brief.event_bucket,
         priority=brief.prioritize,
+        stance_p=brief.stance_probs.get(brief.stance, 0.0),
+        sources=brief.sources,
     )
     return brief
 

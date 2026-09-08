@@ -164,13 +164,24 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     brief = response.get("contextualization") if isinstance(response.get("contextualization"), dict) else {}
     if persona is not None:
         try:
+            probs = brief.get("stance_probs") or {}
+            stance = str(brief.get("stance") or "")
+            stance_p = 0.0
+            if isinstance(probs, dict) and stance:
+                try:
+                    stance_p = float(probs.get(stance, 0.0) or 0.0)
+                except (TypeError, ValueError):
+                    stance_p = 0.0
+            sources = brief.get("sources") or ()
             contextual_learner.commit_action(
                 persona,
                 str(brief.get("bucket") or ""),
-                str(brief.get("stance") or ""),
+                stance,
                 brief.get("specialists") or [],
                 event_bucket_key=brief.get("event_bucket"),
                 priority=brief.get("prioritize"),
+                stance_p=stance_p,
+                sources=sources,
             )
             contextual_learner.observe_relationship(persona, updated_level)
             contextual_learner.save(uid, persona)
