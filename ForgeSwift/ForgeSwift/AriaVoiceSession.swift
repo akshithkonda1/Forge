@@ -387,7 +387,7 @@ final class AriaLiveConvAIClient: NSObject, URLSessionWebSocketDelegate {
         AriaPresence.shared.markSpeaking(false)
     }
 
-    func urlSession(
+    nonisolated func urlSession(
         _ session: URLSession,
         webSocketTask: URLSessionWebSocketTask,
         didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
