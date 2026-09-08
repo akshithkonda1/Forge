@@ -80,6 +80,41 @@ final class AriaIntentResolverTests: XCTestCase {
         XCTAssertFalse(ranked.isEmpty)
         XCTAssertFalse(AriaIntentResolver.actionable(ranked).isEmpty)
     }
+
+    func testWeddingEveningBusyProtects() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(
+                text: "what should I train today?",
+                readiness: 62,
+                sleepMinutesLastNight: 430,
+                calendarTags: ["calendar:kind:wedding", "calendar:evening:busy"]
+            )
+        )
+        XCTAssertEqual(adapted.stance, "protect")
+        XCTAssertTrue(adapted.keepLight)
+        XCTAssertEqual(adapted.grounding, "contextual")
+        XCTAssertFalse(adapted.teachUser.isEmpty)
+        XCTAssertFalse(adapted.teachUser.contains("Ritz"))
+    }
+
+    func testEmptyHeyIsGeneralized() {
+        let adapted = AriaIntentResolver.adapt(AriaIntentInput(text: "hey"))
+        XCTAssertEqual(adapted.grounding, "generalized")
+        XCTAssertFalse(adapted.teachUser.isEmpty)
+        XCTAssertTrue(["protect", "proceed", "fuel", "clarify"].contains(adapted.stance))
+    }
+
+    func testTrainAskWithShortSleepKeepsLight() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(
+                text: "should I train today?",
+                readiness: 40,
+                sleepMinutesLastNight: 4 * 60
+            )
+        )
+        XCTAssertEqual(adapted.stance, "protect")
+        XCTAssertTrue(adapted.keepLight)
+    }
 }
 
 final class AriaGuidancePolicyTests: XCTestCase {

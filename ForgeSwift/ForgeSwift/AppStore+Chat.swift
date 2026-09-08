@@ -194,7 +194,11 @@ extension AppStore {
             hasSessionLoggedToday: workoutHistory.contains { $0.date.hasPrefix(todayKey) },
             cycleTrackingAvailable: AriaCoachAgentRouter.cycleAvailable(),
             topicAffinity: affinity,
-            rememberedFacts: durableMemoryAnchors
+            rememberedFacts: durableMemoryAnchors,
+            calendarTags: AriaContextStore.shared.context.lifestyleTags.filter { tag in
+                tag.hasPrefix("calendar:")
+            },
+            relationshipLevel: min(10, max(1, 1 + chatMessages.count / 3))
         )
     }
 

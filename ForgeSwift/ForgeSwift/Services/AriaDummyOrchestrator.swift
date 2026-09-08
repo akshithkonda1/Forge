@@ -91,6 +91,25 @@ enum AriaDummyOrchestrator {
         if calendarOutcome.keepLight {
             interpretation.keepLight = true
         }
+        let adaptation = AriaIntentResolver.adapt(store.intentSignals(for: text))
+        if adaptation.keepLight {
+            interpretation.keepLight = true
+        }
+        for spec in adaptation.specialists {
+            let domain: AriaIntentDomain?
+            switch spec {
+            case "sleep": domain = .sleep
+            case "recovery": domain = .readiness
+            case "workout": domain = .training
+            case "lifestyle": domain = .lifestyle
+            case "progress": domain = .progress
+            case "cycle": domain = .cycle
+            default: domain = nil
+            }
+            if let domain, !interpretation.domains.contains(domain) {
+                interpretation.domains.append(domain)
+            }
+        }
         if calendarOutcome.shorten {
             interpretation.constrainedPlanInput += ". short session that still fits this week's calendar"
         }

@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#endif
 
 /// What a turn is about, ranked rather than matched.
 ///
@@ -44,6 +47,10 @@ public struct AriaIntentInput: Sendable {
     public var topicAffinity: [String: Int]
     /// Durable facts already learned ("knee", "half marathon").
     public var rememberedFacts: [String]
+    /// Classified calendar tags only (`calendar:kind:…`, busy windows). Never titles.
+    public var calendarTags: [String]
+    /// 1–10, same range as the live backend's relationship_level.
+    public var relationshipLevel: Int
 
     public init(
         text: String,
@@ -53,7 +60,9 @@ public struct AriaIntentInput: Sendable {
         hasSessionLoggedToday: Bool = false,
         cycleTrackingAvailable: Bool = false,
         topicAffinity: [String: Int] = [:],
-        rememberedFacts: [String] = []
+        rememberedFacts: [String] = [],
+        calendarTags: [String] = [],
+        relationshipLevel: Int = 1
     ) {
         self.text = text
         self.readiness = readiness
@@ -63,6 +72,8 @@ public struct AriaIntentInput: Sendable {
         self.cycleTrackingAvailable = cycleTrackingAvailable
         self.topicAffinity = topicAffinity
         self.rememberedFacts = rememberedFacts
+        self.calendarTags = calendarTags
+        self.relationshipLevel = relationshipLevel
     }
 }
 
@@ -201,6 +212,181 @@ public enum AriaIntentResolver {
         return kept
     }
 
+    // MARK: - On-device policy (mirrors services.contextual_learner)
+
+    /// Cold-start / session inference. The durable Q-table and Dynamo persona
+    /// live on the live backend; this is the same softmax so dummy and local
+    /// testing do not invent a second brain. Removing the dummy orchestra
+    /// must not take this policy with it — the Python learner stays in charge.
+    public static func adapt(_ input: AriaIntentInput) -> AriaAdaptation {
+        let cal = Self.parseCalendar(input.calendarTags)
+        var eveningBusy: Double = cal.eveningBusy ? 1.0 : 0.0
+        var headline: Double = cal.headlines.isEmpty ? 0.0 : 1.0
+        var lowRecovery: Double = 0.0
+        var highRecovery: Double = 0.0
+        if let readiness = input.readiness {
+            if readiness < 50 { lowRecovery = 1.0 }
+            if readiness >= 75 { highRecovery = 1.0 }
+        }
+        var shortSleep: Double = 0.0
+        var missing: Double = 0.05
+        if let minutes = input.sleepMinutesLastNight {
+            if minutes < 390 { shortSleep = 1.0 }
+        } else {
+            missing = 0.7
+        }
+        let lower = input.text.lowercased()
+        var langTrain: Double = 0.0
+        var langFood: Double = 0.0
+        var langAdvice: Double = 0.0
+        if lower.contains("train") || lower.contains("workout") || lower.contains("session") {
+            langTrain = 1.0
+        }
+        if lower.contains("eat") || lower.contains("protein") || lower.contains("food") {
+            langFood = 1.0
+        }
+        if lower.contains("should i") || lower.contains("what should") || lower.contains("train today") {
+            langAdvice = 1.0
+        }
+
+        var logits: [String: Double] = [
+            "protect": 0.2 + 1.6 * eveningBusy + 1.8 * headline + 1.7 * lowRecovery + 1.4 * shortSleep,
+            "proceed": 0.5 + 1.5 * highRecovery + 1.4 * langTrain + 0.6 * langAdvice
+                - 1.1 * eveningBusy - 1.2 * headline - 1.3 * lowRecovery - 0.9 * shortSleep,
+            "fuel": 0.15 + 1.8 * langFood + 0.4 * langTrain,
+            "clarify": 0.1 + 2.2 * missing - 0.4 * langAdvice,
+        ]
+        var ordered: [Double] = []
+        let stances: [String] = ["protect", "proceed", "fuel", "clarify"]
+        for stance in stances {
+            ordered.append(logits[stance] ?? 0.0)
+        }
+        let probs = Self.softmax(ordered)
+        var lead = stances[0]
+        var best: Double = -1.0
+        for (index, stance) in stances.enumerated() {
+            if probs[index] > best {
+                best = probs[index]
+                lead = stance
+            }
+        }
+
+        var specialists: [String] = []
+        func addSpec(_ name: String) {
+            if !specialists.contains(name) {
+                specialists.append(name)
+            }
+        }
+        if headline >= 0.5 || eveningBusy >= 0.5 { addSpec("lifestyle") }
+        if lead == "protect" {
+            addSpec("recovery")
+            if shortSleep >= 0.5 { addSpec("sleep") }
+        }
+        if langTrain >= 0.5 { addSpec("workout") }
+        if langFood >= 0.5 { addSpec("lifestyle") }
+        if specialists.isEmpty { addSpec("lifestyle") }
+        if specialists.count > 3 {
+            specialists = Array(specialists.prefix(3))
+        }
+
+        var grounding = "generalized"
+        if headline >= 0.5 || eveningBusy >= 0.5 || lowRecovery >= 0.5 || shortSleep >= 0.5 {
+            grounding = "contextual"
+        }
+
+        var bucket = "clear|mixed"
+        if headline >= 0.5 {
+            bucket = "headline"
+        } else if eveningBusy >= 0.5 {
+            bucket = "evening_busy"
+        } else {
+            bucket = "clear"
+        }
+        var body = "mixed"
+        if lowRecovery >= 0.5 || shortSleep >= 0.5 {
+            body = "depleted"
+        } else if highRecovery >= 0.5 {
+            body = "recovered"
+        }
+        bucket = "\(bucket)|\(body)"
+
+        var how: String = "Still learning how you work — using today's calendar and a cautious prior."
+        if !cal.headlines.isEmpty {
+            how = "This week has \(cal.headlines[0]) on it — that changes the session, not the relationship."
+        } else if cal.eveningBusy {
+            how = "Evening is spoken for today."
+        }
+
+        var teach: String = "I'll learn what actually works for you from what you do next, not just what you say."
+        if !cal.headlines.isEmpty {
+            teach = "I'll build around the \(cal.headlines[0]) this week, then learn from whether that actually helped."
+        } else if lead == "protect" {
+            teach = "Protecting load on thin days is the move until I see how you actually train."
+        }
+
+        var move: String = "Give a best-effort read, then ask for the one missing signal."
+        if lead == "protect" {
+            move = "Protect load and fit a shorter session around the day they already have."
+        } else if lead == "proceed" {
+            move = "Spend the readiness on one quality session, in the slot they actually use."
+        } else if lead == "fuel" {
+            move = "Protein and water with the next meal, then train inside the day they have."
+        }
+
+        return AriaAdaptation(
+            stance: lead,
+            specialists: specialists,
+            teachUser: teach,
+            keepLight: lead == "protect",
+            howYouWork: how,
+            oneNextMove: move,
+            bucket: bucket,
+            grounding: grounding
+        )
+    }
+
+    private static func softmax(_ logits: [Double]) -> [Double] {
+        var peak: Double = logits[0]
+        for x in logits where x > peak { peak = x }
+        var exps: [Double] = []
+        var total: Double = 0.0
+        for x in logits {
+            let e: Double = exp(x - peak)
+            exps.append(e)
+            total += e
+        }
+        if total == 0 { return exps }
+        var out: [Double] = []
+        for e in exps {
+            out.append(e / total)
+        }
+        return out
+    }
+
+    private static func parseCalendar(_ tags: [String]) -> (eveningBusy: Bool, headlines: [String]) {
+        var eveningBusy = false
+        var headlines: [String] = []
+        let allowed: Set<String> = [
+            "wedding", "game", "flight", "travel", "work", "dinner",
+            "family", "appointment", "social",
+        ]
+        let headlineKinds: Set<String> = ["wedding", "game", "flight", "travel"]
+        for raw in tags {
+            let tag: String = raw
+            if tag == "calendar:evening:busy" {
+                eveningBusy = true
+                continue
+            }
+            if tag.hasPrefix("calendar:kind:") {
+                let kind = String(tag.dropFirst("calendar:kind:".count))
+                if allowed.contains(kind), headlineKinds.contains(kind), !headlines.contains(kind) {
+                    headlines.append(kind)
+                }
+            }
+        }
+        return (eveningBusy, headlines)
+    }
+
     // MARK: - Vocabulary
 
     private static let jointWords = ["knee", "shoulder", "back", "hip", "ankle", "wrist", "elbow", "neck"]
@@ -227,4 +413,35 @@ public enum AriaIntentResolver {
         .progress: ["progress", "gains", "stronger", "streak", "improving", "plateau"],
         .lifestyle: ["work", "travel", "busy", "stress", "schedule", "time"],
     ]
+}
+
+public struct AriaAdaptation: Sendable, Equatable {
+    public var stance: String
+    public var specialists: [String]
+    public var teachUser: String
+    public var keepLight: Bool
+    public var howYouWork: String
+    public var oneNextMove: String
+    public var bucket: String
+    public var grounding: String
+
+    public init(
+        stance: String,
+        specialists: [String],
+        teachUser: String,
+        keepLight: Bool,
+        howYouWork: String,
+        oneNextMove: String,
+        bucket: String,
+        grounding: String
+    ) {
+        self.stance = stance
+        self.specialists = specialists
+        self.teachUser = teachUser
+        self.keepLight = keepLight
+        self.howYouWork = howYouWork
+        self.oneNextMove = oneNextMove
+        self.bucket = bucket
+        self.grounding = grounding
+    }
 }
