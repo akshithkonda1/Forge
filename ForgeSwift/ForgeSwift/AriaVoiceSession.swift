@@ -372,7 +372,7 @@ final class AriaLiveConvAIClient: NSObject, URLSessionWebSocketDelegate {
             ]
         ])
         listen()
-        try startMic()
+        try await startMic()
     }
 
     func sendToolResult(callID: String, result: String, isError: Bool) {
@@ -474,9 +474,9 @@ final class AriaLiveConvAIClient: NSObject, URLSessionWebSocketDelegate {
         try await task.send(.string(text))
     }
 
-    private func startMic() throws {
+    private func startMic() async throws {
         let engine = AVAudioEngine()
-        try ForgePlaybackSession.spokenHandsFree.activate()
+        try await ForgePlaybackSession.spokenHandsFree.activate()
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0 else {

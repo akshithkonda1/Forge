@@ -13,7 +13,7 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
                 healthDataAvailable: true,
                 supportsHealthRecords: false
             ),
-            "Simulator / no Health Records: clinical types abort requestAuthorization"
+            "No Health Records: clinical types must not ride requestAuthorization"
         )
         let types = HealthKitAuthorizationPlan.readTypes(includeClinical: false)
         XCTAssertFalse(types.contains { $0 is HKClinicalType })

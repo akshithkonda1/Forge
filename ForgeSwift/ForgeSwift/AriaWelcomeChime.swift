@@ -49,11 +49,11 @@ private final class ChimePlayer {
         stopTask = Task { @MainActor [weak self] in
             await Task.yield()
             try? await Task.sleep(nanoseconds: 80_000_000)
-            self?.startEngine()
+            await self?.startEngine()
         }
     }
 
-    private func startEngine() {
+    private func startEngine() async {
         #if targetEnvironment(simulator)
         // iOS 27 Simulator RemoteIO times out inside `mainMixerNode` and
         // aborts the process. Device playback is unchanged.
@@ -71,7 +71,7 @@ private final class ChimePlayer {
             return noErr
         }
         do {
-            try ForgePlaybackSession.chime.activate()
+            try await ForgePlaybackSession.chime.activate()
             engine.attach(source)
             #if compiler(>=6.4)
             try engine.connectNode(source, to: engine.mainMixerNode, format: format)

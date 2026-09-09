@@ -45,7 +45,7 @@ final class VoiceCoachManager {
     
     init() {
         speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
-        setupAudioSession()
+        Task { await self.setupAudioSession() }
     }
     
     // MARK: - Public API
@@ -99,7 +99,7 @@ final class VoiceCoachManager {
         Task {
             let status = await Self.requestSpeechAuthorization()
             guard status == .authorized else { return }
-            beginRecognition()
+            await beginRecognition()
         }
     }
     
@@ -171,12 +171,12 @@ final class VoiceCoachManager {
     
     // MARK: - Private: Speech Recognition
     
-    private func beginRecognition() {
+    private func beginRecognition() async {
         // Cancel any existing task
         recognitionTask?.cancel()
         recognitionTask = nil
         
-        setupAudioSession()
+        await setupAudioSession()
         
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let recognitionRequest else { return }
@@ -319,13 +319,13 @@ final class VoiceCoachManager {
     
     // MARK: - Audio Session
     
-    private func setupAudioSession() {
+    private func setupAudioSession() async {
         try? AVAudioSession.sharedInstance().setCategory(
             .playAndRecord,
             mode: .default,
             options: [.defaultToSpeaker, ForgePlaybackSession.bluetoothHFP, .allowBluetoothA2DP, .duckOthers]
         )
-        try? AVAudioSession.sharedInstance().setActive(true)
+        try? await ForgePlaybackSession.setSessionActive(true)
     }
     
     // MARK: - Errors

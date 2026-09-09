@@ -1,6 +1,7 @@
 import XCTest
 import EventKit
 import HealthKit
+import AVFoundation
 import ForgeCore
 @testable import ForgeSwift
 
@@ -243,5 +244,32 @@ final class CurrentPracticeAPITests: XCTestCase {
                 sessionSeed: 7
             )
         )
+    }
+
+    func testClinicalHealthRecordsShareUsageDescriptionIsDeclared() {
+        let bundle = Bundle(for: HealthKitManager.self)
+        let share = bundle.object(
+            forInfoDictionaryKey: "NSHealthClinicalHealthRecordsShareUsageDescription"
+        ) as? String
+        let legacy = bundle.object(
+            forInfoDictionaryKey: "NSHealthClinicalHealthRecordsUsageDescription"
+        ) as? String
+        XCTAssertFalse(
+            share?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true,
+            "SleepView → requestAuthorization aborts without the Share usage string"
+        )
+        XCTAssertFalse(legacy?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        XCTAssertTrue(share?.localizedCaseInsensitiveContains("Health") == true)
+    }
+
+    func testAudioSessionExposesAsyncActivateOnCurrentSDK() {
+        #if compiler(>=6.4)
+        XCTAssertTrue(
+            AVAudioSession.sharedInstance().responds(
+                to: NSSelectorFromString("activateWithOptions:completionHandler:")
+            ),
+            "iOS 26/27: activate(options:completionHandler:) replaces setActive on the main thread"
+        )
+        #endif
     }
 }

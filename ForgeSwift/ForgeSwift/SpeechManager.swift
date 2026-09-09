@@ -93,7 +93,7 @@ final class SpeechManager: ObservableObject {
             guard let self else { return }
             switch status {
             case .authorized:
-                self.beginRecognition()
+                await self.beginRecognition()
             case .denied, .restricted:
                 self.authorizationDenied = true
                 self.voiceState = .error("Mic / speech access needed")
@@ -139,7 +139,7 @@ final class SpeechManager: ObservableObject {
 
     // MARK: - Private
 
-    private func beginRecognition() {
+    private func beginRecognition() async {
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(
@@ -147,7 +147,7 @@ final class SpeechManager: ObservableObject {
                 mode: .measurement,
                 options: [.duckOthers, ForgePlaybackSession.bluetoothHFP]
             )
-            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            try await ForgePlaybackSession.setSessionActive(true, notifyOthers: true)
         } catch {
             voiceState = .error("Microphone error")
             return
@@ -327,6 +327,6 @@ final class SpeechManager: ObservableObject {
         amplitude = 0
         if clearText { recognizedText = "" }
         AriaPresence.shared.setListening(false)
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        ForgePlaybackSession.deactivate()
     }
 }
