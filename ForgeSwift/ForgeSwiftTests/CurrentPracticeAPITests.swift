@@ -190,4 +190,58 @@ final class CurrentPracticeAPITests: XCTestCase {
             HKCharacteristicTypeIdentifier.dateOfBirth.rawValue
         )
     }
+
+    func testHomeLaunchMustNotWaitOnTestReadyIngest() {
+        XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForHealthKitPackWrite)
+        XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForCalendarYearWrite)
+        XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForMedicationCatalog)
+        XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForRemoteDashboard)
+        XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForThirtyDayHealthQueries)
+        XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForHealthKitAuthorizationSheet)
+        XCTAssertFalse(TestReadyLaunchPolicy.calendarYearWriteRunsOnMainActor)
+        XCTAssertEqual(FakeCalendarPack.horizonDays, 365)
+        XCTAssertFalse(CalendarManager.writesToPersonalCalendars)
+        XCTAssertFalse(FakeCalendarPack.writesToPersonalCalendars)
+    }
+
+    func testInstalledTestReadySeedsPersistAcrossProcessRestarts() {
+        let healthKey = TestReadyLaunchPolicy.healthKitInstalledSeedKey
+        let calendarKey = TestReadyLaunchPolicy.calendarInstalledSeedKey
+        let previousHealth = UserDefaults.standard.object(forKey: healthKey)
+        let previousCalendar = UserDefaults.standard.object(forKey: calendarKey)
+        defer {
+            if let previousHealth {
+                UserDefaults.standard.set(previousHealth, forKey: healthKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: healthKey)
+            }
+            if let previousCalendar {
+                UserDefaults.standard.set(previousCalendar, forKey: calendarKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: calendarKey)
+            }
+        }
+        TestReadyLaunchPolicy.storeSeed(4_242, defaults: .standard, key: healthKey)
+        TestReadyLaunchPolicy.storeSeed(4_242, defaults: .standard, key: calendarKey)
+        XCTAssertEqual(HealthKitManager.shared.installedTestReadySeed, 4_242)
+        XCTAssertEqual(CalendarManager.shared.installedTestReadySeed, 4_242)
+        XCTAssertFalse(
+            TestReadyLaunchPolicy.shouldRewrite(
+                installedSeed: HealthKitManager.shared.installedTestReadySeed,
+                sessionSeed: 4_242
+            )
+        )
+        XCTAssertFalse(
+            TestReadyLaunchPolicy.shouldRewrite(
+                installedSeed: CalendarManager.shared.installedTestReadySeed,
+                sessionSeed: 4_242
+            )
+        )
+        XCTAssertTrue(
+            TestReadyLaunchPolicy.shouldRewrite(
+                installedSeed: HealthKitManager.shared.installedTestReadySeed,
+                sessionSeed: 7
+            )
+        )
+    }
 }

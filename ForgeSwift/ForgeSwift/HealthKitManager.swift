@@ -316,9 +316,23 @@ class HealthKitManager: ObservableObject {
     private var observerQueries: [HKObserverQuery] = []
     private var liveRefreshTask: Task<Void, Never>?
     private var isObserving = false
-    /// Last Test-Ready pack successfully written this process. Skip a rewrite
-    /// that would stall launch with the same seed.
-    var installedTestReadySeed: Int?
+    /// Last Test-Ready pack successfully written. Persisted so Simulator
+    /// relaunch does not delete and rewrite HealthKit.
+    var installedTestReadySeed: Int? {
+        get {
+            TestReadyLaunchPolicy.storedSeed(
+                .standard,
+                key: TestReadyLaunchPolicy.healthKitInstalledSeedKey
+            )
+        }
+        set {
+            TestReadyLaunchPolicy.storeSeed(
+                newValue,
+                defaults: .standard,
+                key: TestReadyLaunchPolicy.healthKitInstalledSeedKey
+            )
+        }
+    }
     /// True while a Test-Ready pack is being deleted/rewritten.
     var isReplacingTestReadyPack = false
     /// Why a Test-Ready HealthKit write failed. Nil when the pack is healthy.
@@ -334,11 +348,11 @@ class HealthKitManager: ObservableObject {
     let mealsStorageDateKey = "HealthKitManager.loggedMealsDate"
     static let forgeWaterMetadataKey = "com.forge.hydration"
     /// Marks samples the Test-Ready pack wrote so we can delete and rewrite
-    /// them every simulator launch without touching anyone else's data.
-    static let testReadyPackMetadataKey = "com.forge.testReadyPack"
-    static let testReadySessionNameKey = "com.forge.sessionName"
-    static let testReadyIntensityKey = "com.forge.intensity"
-    static let testReadyVolumeKey = "com.forge.volume"
+    /// them when the day's session seed changes without touching anyone else's data.
+    nonisolated static let testReadyPackMetadataKey = "com.forge.testReadyPack"
+    nonisolated static let testReadySessionNameKey = "com.forge.sessionName"
+    nonisolated static let testReadyIntensityKey = "com.forge.intensity"
+    nonisolated static let testReadyVolumeKey = "com.forge.volume"
     
     private var writeTypes: Set<HKSampleType> { HealthKitAuthorizationPlan.writeTypes }
 

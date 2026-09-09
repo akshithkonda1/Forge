@@ -29,25 +29,24 @@ extension AppStore {
 
         if authorized {
             await hk.refreshHydration()
-        }
-        if authorized, let snapshot = await hk.fetchRecentSnapshot(), snapshot.hasData {
-            updateMetrics(
-                steps: snapshot.steps,
-                activeCalories: snapshot.activeCalories,
-                hrv: snapshot.hrv.map { Int($0) },
-                restingHR: snapshot.restingHeartRate,
-                deepSleep: nil,
-                totalSleep: snapshot.sleepHours.map { Int($0 * 60) }
-            )
-            if let weight = userProfile.weight {
-                userProfile.weight = weight
+            if let snapshot = await hk.fetchRecentSnapshot(), snapshot.hasData {
+                updateMetrics(
+                    steps: snapshot.steps,
+                    activeCalories: snapshot.activeCalories,
+                    hrv: snapshot.hrv.map { Int($0) },
+                    restingHR: snapshot.restingHeartRate,
+                    deepSleep: nil,
+                    totalSleep: snapshot.sleepHours.map { Int($0 * 60) }
+                )
+                if let weight = userProfile.weight {
+                    userProfile.weight = weight
+                }
             }
         }
 
         let samples = BiometricsObserveService.shared.samplesFromStore(self)
         _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
 
-        // Menstrual cycle: auto-enable + quiet weekly HealthKit sync (or immediate if broken).
         MenstrualHealthStore.shared.enableForFemaleProfileIfNeeded(gender: userProfile.gender)
         if let sex = userProfile.biologicalSex {
             MenstrualHealthStore.shared.enableForBiologicalSexIfNeeded(sex)
@@ -56,19 +55,9 @@ extension AppStore {
             MenstrualHealthStore.shared.seedTestReadyCycleIfNeeded(
                 testReady: AriaService.shouldUseTestReadyDummy
             )
-            await MenstrualHealthStore.shared.quietWeeklyHealthKitSync(force: !authorized)
             MenstrualHealthStore.shared.refresh(from: self)
         }
 
-        if authorized {
-            let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 30)
-            mergeSleepDataLocally(nights)
-            let workouts = await hk.fetchWorkoutsForHistory(days: 30)
-            mergeWorkoutsFromHealthKit(workouts)
-        }
-
-        // In-memory pack only if HealthKit did not give us numbers
-        // (write failed, or Device Hub on a phone we will not seed).
         if !seeded || !hasMeaningfulLifeSignal {
             installFakeHealthPackIfNeeded()
         } else {
@@ -79,16 +68,52 @@ extension AppStore {
         await ingestTestReadyCalendarIfNeeded()
 
         lastMetricsRefresh = Date()
-        await syncHealthBatchAndDashboard()
         if todayWorkout == nil || todayWorkout?.exercises.isEmpty == true {
             rebuildTodayPlanFromLife()
         }
-        await applyRemoteDailyPlan()
         recomputeStreak()
-        await refreshCoachInsightsIfNeeded()
         await flushPendingWidgetWater()
         publishHomeWidgets()
+        if TestReadyLaunchPolicy.homeWaitsForMedicationCatalog {
+            await MedicationPharmacy.prepare()
+        }
         dataLoadState = .loaded
+        objectWillChange.send()
+
+        if TestReadyLaunchPolicy.homeWaitsForThirtyDayHealthQueries
+            || TestReadyLaunchPolicy.homeWaitsForRemoteDashboard {
+            await runBackgroundLifeHydrate(authorized: authorized)
+        } else {
+            scheduleBackgroundLifeHydrate(authorized: authorized)
+        }
+    }
+
+    /// 30-day history and remote dashboard after Home is already on screen.
+    private func scheduleBackgroundLifeHydrate(authorized: Bool) {
+        guard backgroundLifeHydrateTask == nil else { return }
+        backgroundLifeHydrateTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.backgroundLifeHydrateTask = nil }
+            await self.runBackgroundLifeHydrate(authorized: authorized)
+        }
+    }
+
+    private func runBackgroundLifeHydrate(authorized: Bool) async {
+        let hk = HealthKitManager.shared
+        if authorized {
+            let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 30)
+            mergeSleepDataLocally(nights)
+            let workouts = await hk.fetchWorkoutsForHistory(days: 30)
+            mergeWorkoutsFromHealthKit(workouts)
+            recomputeStreak()
+        }
+        if MenstrualHealthStore.shared.settings.enabled {
+            await MenstrualHealthStore.shared.quietWeeklyHealthKitSync(force: !authorized)
+        }
+        await syncHealthBatchAndDashboard()
+        await applyRemoteDailyPlan()
+        await refreshCoachInsightsIfNeeded()
+        publishHomeWidgets()
         objectWillChange.send()
     }
 
@@ -109,22 +134,42 @@ extension AppStore {
             healthAuthorized: alreadyAuthorized
         ) else { return false }
         let seed = Self.testReadySessionSeed
+        if !TestReadyLaunchPolicy.shouldRewrite(
+            installedSeed: HealthKitManager.shared.installedTestReadySeed,
+            sessionSeed: seed
+        ) {
+            usingTestReadyHealthPack = true
+            recordLifeIngestError(HealthKitManager.shared.lastPackWriteError)
+            return true
+        }
         let pack = await Task.detached(priority: .utility) {
             FakeHealthPack.generate(seed: seed)
         }.value
         apply(pack)
         usingTestReadyHealthPack = true
-        if HealthKitManager.shared.installedTestReadySeed == pack.seed {
-            recordLifeIngestError(HealthKitManager.shared.lastPackWriteError)
-            return true
+        // Home must not wait on the Health sheet or the pack rewrite.
+        // Connect Health during onboarding is the user-initiated Allow path.
+        if TestReadyLaunchPolicy.homeWaitsForHealthKitAuthorizationSheet {
+            do {
+                try await HealthKitManager.shared.requestTestReadyPackAuthorization()
+            } catch {
+                recordLifeIngestError(LifeIngestError.explain(
+                    error,
+                    doing: "Couldn't authorize the Test-Ready Health pack"
+                ))
+                return true
+            }
         }
-        do {
-            try await HealthKitManager.shared.requestTestReadyPackAuthorization()
-        } catch {
-            recordLifeIngestError(LifeIngestError.explain(
-                error,
-                doing: "Couldn't authorize the Test-Ready Health pack"
-            ))
+        if TestReadyLaunchPolicy.homeWaitsForHealthKitPackWrite {
+            do {
+                try await HealthKitManager.shared.replaceTestReadyPack(pack)
+                recordLifeIngestError(HealthKitManager.shared.lastPackWriteError)
+            } catch {
+                recordLifeIngestError(LifeIngestError.explain(
+                    error,
+                    doing: "Couldn't write the Test-Ready Health pack into Apple Health"
+                ))
+            }
             return true
         }
         Task { @MainActor [weak self] in
@@ -210,21 +255,16 @@ extension AppStore {
     /// HealthKit cannot be written. Real HealthKit samples always win.
     /// Seed for this run's Test-Ready dataset.
     ///
-    /// The generator defaults to a fixed seed, so before this every launch
-    /// produced a byte-identical history: the same thirty nights, the same HRV
-    /// curve, the same sessions in the same order. That is exactly right for
-    /// `FakeHealthPackTests`, which pin their own seed and still do. It is
-    /// wrong for a person living in the app for an afternoon — you stop reading
-    /// the numbers and start recognising them, and a bug that only shows on one
-    /// shape of data never gets shown a second shape.
-    ///
-    /// Derived once per process, so all three call sites within a session still
-    /// agree with each other. Determinism was never the goal at the call sites;
-    /// reproducibility in the tests was, and that is untouched.
-    static let testReadySessionSeed: Int = {
-        let time = UInt64(max(0, Date().timeIntervalSince1970 * 1_000))
-        return Int(truncatingIfNeeded: time ^ UInt64(truncatingIfNeeded: UUID().hashValue))
-    }()
+    /// Stable for the calendar day so Simulator relaunch does not delete and
+    /// rewrite HealthKit + a year of EventKit. A new day may mint a new
+    /// persona. Tests that need a fixed shape pass their own seed into
+    /// `FakeHealthPack.generate`.
+    static var testReadySessionSeed: Int {
+        TestReadyLaunchPolicy.sessionSeed(now: Date(), defaults: .standard) {
+            let time = UInt64(max(0, Date().timeIntervalSince1970 * 1_000))
+            return Int(truncatingIfNeeded: time ^ UInt64(truncatingIfNeeded: UUID().hashValue))
+        }
+    }
 
     /// Turn the pack's lifestyle history into tags ARIA already reads.
     ///

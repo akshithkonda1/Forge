@@ -5,14 +5,12 @@ import ForgeCore
 extension HealthKitManager {
 
     var packMetadata: [String: Any] {
-        [
-            Self.testReadyPackMetadataKey: "1",
-            HKMetadataKeyWasUserEntered: true,
-        ]
+        ForgeTestHealthPackWriter.packMetadata
     }
 
     /// Delete last run's tagged samples, write this pack into the simulator
     /// Health store, so the normal HealthKit fetch path is what ARIA sees.
+    /// The rewrite runs off the main actor so Home stays interactive.
     func replaceTestReadyPack(_ pack: FakeHealthPack) async throws {
         guard HKHealthStore.isHealthDataAvailable() else {
             let message = HealthKitError.notAvailable.errorDescription
@@ -20,30 +18,67 @@ extension HealthKitManager {
             lastPackWriteError = message
             throw HealthKitError.notAvailable
         }
-        try await deleteTestReadyPackSamples()
+        isReplacingTestReadyPack = true
+        defer { isReplacingTestReadyPack = false }
+        nonisolated(unsafe) let store = healthStore
         do {
-            try await saveQuantityAndSleep(from: pack)
+            let cycleError = try await Task.detached(priority: .utility) {
+                try await ForgeTestHealthPackWriter.replace(pack: pack, store: store)
+            }.value
+            lastPackWriteError = cycleError
+            installedTestReadySeed = pack.seed
+        } catch {
+            lastPackWriteError = LifeIngestError.explain(
+                error,
+                doing: "Couldn't write the Test-Ready Health pack into Apple Health"
+            )
+            throw error
+        }
+    }
+
+    func deleteTestReadyPackSamples() async throws {
+        nonisolated(unsafe) let store = healthStore
+        try await Task.detached(priority: .utility) {
+            try await ForgeTestHealthPackWriter.deleteSamples(store: store)
+        }.value
+    }
+}
+
+/// HealthKit Test-Ready rewrite. Not MainActor — serial workout builders must
+/// not freeze Home for minutes on Simulator launch.
+enum ForgeTestHealthPackWriter {
+    static var packMetadata: [String: Any] {
+        [
+            HealthKitManager.testReadyPackMetadataKey: "1",
+            HKMetadataKeyWasUserEntered: true,
+        ]
+    }
+
+    /// Returns a cycle-overlay warning, or nil when the pack is healthy.
+    static func replace(pack: FakeHealthPack, store: HKHealthStore) async throws -> String? {
+        try await deleteSamples(store: store)
+        do {
+            try await saveQuantityAndSleep(from: pack, store: store)
         } catch {
             print("Test-ready vitals overlay skipped: \(error.localizedDescription)")
         }
         do {
-            try await saveWorkouts(from: pack)
+            try await saveWorkouts(from: pack, store: store)
         } catch {
             print("Test-ready workouts overlay skipped: \(error.localizedDescription)")
         }
         do {
-            try await saveCycle(from: pack)
-            lastPackWriteError = nil
+            try await saveCycle(from: pack, store: store)
+            return nil
         } catch {
-            lastPackWriteError = LifeIngestError.explain(
+            return LifeIngestError.explain(
                 error,
                 doing: "Test-Ready cycle overlay wasn't written"
             )
         }
-        installedTestReadySeed = pack.seed
     }
 
-    func deleteTestReadyPackSamples() async throws {
+    static func deleteSamples(store: HKHealthStore) async throws {
         let types: [HKSampleType] = [
             HKCategoryType(.sleepAnalysis),
             HKQuantityType(.heartRateVariabilitySDNN),
@@ -59,13 +94,13 @@ extension HealthKitManager {
             HKCategoryType(.cervicalMucusQuality),
         ]
         let predicate = HKQuery.predicateForObjects(
-            withMetadataKey: Self.testReadyPackMetadataKey,
+            withMetadataKey: HealthKitManager.testReadyPackMetadataKey,
             allowedValues: ["1"]
         )
         for type in types {
             let samples: [HKSample]
             do {
-                samples = try await querySamples(type: type, predicate: predicate)
+                samples = try await querySamples(type: type, predicate: predicate, store: store)
             } catch {
                 throw HealthKitError.saveFailedReason(
                     LifeIngestError.explain(
@@ -76,7 +111,7 @@ extension HealthKitManager {
             }
             guard !samples.isEmpty else { continue }
             do {
-                try await healthStore.delete(samples)
+                try await store.delete(samples)
             } catch {
                 throw HealthKitError.saveFailedReason(
                     LifeIngestError.explain(
@@ -88,9 +123,7 @@ extension HealthKitManager {
         }
     }
 
-    // MARK: - Write
-
-    private func saveQuantityAndSleep(from pack: FakeHealthPack) async throws {
+    private static func saveQuantityAndSleep(from pack: FakeHealthPack, store: HKHealthStore) async throws {
         var samples: [HKSample] = []
         let calendar = Calendar.current
         let sleepType = HKCategoryType(.sleepAnalysis)
@@ -225,7 +258,7 @@ extension HealthKitManager {
         while index < samples.endIndex {
             let next = samples.index(index, offsetBy: 100, limitedBy: samples.endIndex) ?? samples.endIndex
             do {
-                try await healthStore.save(Array(samples[index..<next]))
+                try await store.save(Array(samples[index..<next]))
             } catch {
                 throw HealthKitError.saveFailedReason(
                     LifeIngestError.explain(
@@ -238,7 +271,7 @@ extension HealthKitManager {
         }
     }
 
-    private func saveWorkouts(from pack: FakeHealthPack) async throws {
+    private static func saveWorkouts(from pack: FakeHealthPack, store: HKHealthStore) async throws {
         let calendar = Calendar.current
         for day in pack.days {
             guard let session = day.workout else { continue }
@@ -248,11 +281,11 @@ extension HealthKitManager {
             let config = HKWorkoutConfiguration()
             config.activityType = session.type.hkActivityType
             config.locationType = .indoor
-            let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: config, device: .local())
+            let builder = HKWorkoutBuilder(healthStore: store, configuration: config, device: .local())
             var meta = packMetadata
-            meta[Self.testReadySessionNameKey] = session.name
-            meta[Self.testReadyIntensityKey] = session.intensity
-            meta[Self.testReadyVolumeKey] = "\(session.volume)"
+            meta[HealthKitManager.testReadySessionNameKey] = session.name
+            meta[HealthKitManager.testReadyIntensityKey] = session.intensity
+            meta[HealthKitManager.testReadyVolumeKey] = "\(session.volume)"
             meta[HKMetadataKeyWorkoutBrandName] = session.name
             do {
                 try await builder.beginCollection(at: start)
@@ -270,7 +303,7 @@ extension HealthKitManager {
         }
     }
 
-    private func saveCycle(from pack: FakeHealthPack) async throws {
+    private static func saveCycle(from pack: FakeHealthPack, store: HKHealthStore) async throws {
         var samples: [HKSample] = []
         let flowType = HKCategoryType(.menstrualFlow)
         let bbtType = HKQuantityType(.basalBodyTemperature)
@@ -336,7 +369,7 @@ extension HealthKitManager {
         while index < samples.endIndex {
             let next = samples.index(index, offsetBy: 100, limitedBy: samples.endIndex) ?? samples.endIndex
             do {
-                try await healthStore.save(Array(samples[index..<next]))
+                try await store.save(Array(samples[index..<next]))
             } catch {
                 throw HealthKitError.saveFailedReason(
                     LifeIngestError.explain(
@@ -349,7 +382,7 @@ extension HealthKitManager {
         }
     }
 
-    private func menstrualFlowValue(_ raw: String) -> HKCategoryValueVaginalBleeding? {
+    private static func menstrualFlowValue(_ raw: String) -> HKCategoryValueVaginalBleeding? {
         switch raw {
         case "spotting", "light": return .light
         case "medium": return .medium
@@ -358,7 +391,7 @@ extension HealthKitManager {
         }
     }
 
-    private func ovulationValue(_ raw: String) -> HKCategoryValueOvulationTestResult? {
+    private static func ovulationValue(_ raw: String) -> HKCategoryValueOvulationTestResult? {
         switch raw {
         case "negative": return .negative
         case "lhSurge": return .luteinizingHormoneSurge
@@ -369,7 +402,7 @@ extension HealthKitManager {
         }
     }
 
-    private func mucusValue(_ raw: String) -> HKCategoryValueCervicalMucusQuality? {
+    private static func mucusValue(_ raw: String) -> HKCategoryValueCervicalMucusQuality? {
         switch raw {
         case "dry": return .dry
         case "sticky": return .sticky
@@ -380,7 +413,7 @@ extension HealthKitManager {
         }
     }
 
-    private func sleepValue(_ stage: SleepStage) -> HKCategoryValueSleepAnalysis {
+    private static func sleepValue(_ stage: SleepStage) -> HKCategoryValueSleepAnalysis {
         switch stage {
         case .deep: return .asleepDeep
         case .rem: return .asleepREM
@@ -389,7 +422,11 @@ extension HealthKitManager {
         }
     }
 
-    private func querySamples(type: HKSampleType, predicate: NSPredicate) async throws -> [HKSample] {
+    private static func querySamples(
+        type: HKSampleType,
+        predicate: NSPredicate,
+        store: HKHealthStore
+    ) async throws -> [HKSample] {
         try await withCheckedThrowingContinuation { continuation in
             let once = ClinicalQueryResumeOnce<Result<[HKSample], Error>>()
             let query = HKSampleQuery(
@@ -408,7 +445,7 @@ extension HealthKitManager {
                     }
                 }
             }
-            healthStore.execute(query)
+            store.execute(query)
         }
     }
 }
