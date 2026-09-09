@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import ForgeCore
 
 /// One catalog for every Apple Health Allow path: onboarding, Medicine, lifestyle.
 /// Clinical record *types* are only attached when the device supports Health
@@ -90,6 +91,34 @@ enum HealthKitAuthorizationPlan: Sendable {
         default:
             return false
         }
+    }
+
+    /// Simulator Test-Ready pack writes these. Production Connect Health does
+    /// not. Must stay inside `isThirdPartyWritable` so the bulk sheet cannot
+    /// abort. HRV and resting HR are Apple-only — never ask to share them.
+    static var testReadyPackShareTypes: Set<HKSampleType> {
+        sanitizedShareTypes([
+            HKCategoryType(.sleepAnalysis),
+            HKQuantityType(.stepCount),
+            HKQuantityType(.bodyTemperature),
+            HKQuantityType(.activeEnergyBurned),
+            HKQuantityType(.dietaryWater),
+            HKWorkoutType.workoutType(),
+        ])
+    }
+
+    /// Delete/save of a type we cannot share must not fail the whole pack or
+    /// paint Home with "Not authorized".
+    static func isSkippableAuthorizationFailure(_ error: Error) -> Bool {
+        let ns = error as NSError
+        if ns.domain == HKError.errorDomain {
+            if ns.code == HKError.Code.errorAuthorizationDenied.rawValue { return true }
+            if ns.code == HKError.Code.errorAuthorizationNotDetermined.rawValue { return true }
+        }
+        let text = LifeIngestError.reason(from: error).lowercased()
+        return text.contains("not authorized")
+            || text.contains("authorization denied")
+            || text.contains("authorization not determined")
     }
 
     /// Types that must not reach bulk `requestAuthorization(toShare:read:)`.

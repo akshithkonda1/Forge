@@ -87,12 +87,14 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
     }
 
     func testShareCatalogNeverIncludesTypesThatAbortAllow() {
-        let requested = HealthKitAuthorizationPlan.writeTypes.union([
-            HKQuantityType(.heartRateVariabilitySDNN),
-            HKQuantityType(.restingHeartRate),
-            HKCategoryType(.menstrualFlow),
-            HKCategoryType(.sexualActivity),
-        ])
+        let requested = HealthKitAuthorizationPlan.writeTypes
+            .union(HealthKitAuthorizationPlan.testReadyPackShareTypes)
+            .union([
+                HKQuantityType(.heartRateVariabilitySDNN),
+                HKQuantityType(.restingHeartRate),
+                HKCategoryType(.menstrualFlow),
+                HKCategoryType(.sexualActivity),
+            ])
         let share = HealthKitAuthorizationPlan.sanitizedShareTypes(requested)
         XCTAssertTrue(share.contains(HKWorkoutType.workoutType()))
         XCTAssertTrue(share.contains(HKQuantityType(.dietaryWater)))
@@ -103,6 +105,67 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
         XCTAssertFalse(share.contains(HKCategoryType(.sexualActivity)))
         XCTAssertFalse(share.contains { $0 is HKClinicalType })
         XCTAssertFalse(share.contains { $0.identifier.contains("Apple") })
+        XCTAssertFalse(
+            HealthKitAuthorizationPlan.writeTypes.contains(HKCategoryType(.sleepAnalysis)),
+            "Sleep stays off the production share set. Connect Health for everyone does not ask to write sleep."
+        )
+        XCTAssertFalse(
+            HealthKitAuthorizationPlan.sanitizedShareTypes(HealthKitAuthorizationPlan.writeTypes)
+                .contains(HKCategoryType(.sleepAnalysis))
+        )
+    }
+
+    func testTestReadyPackShareTypesIncludeSleepAndExcludeAppleOnlyVitals() {
+        let extras = HealthKitAuthorizationPlan.testReadyPackShareTypes
+        XCTAssertTrue(extras.contains(HKCategoryType(.sleepAnalysis)))
+        XCTAssertTrue(extras.contains(HKQuantityType(.stepCount)))
+        XCTAssertTrue(extras.contains(HKQuantityType(.bodyTemperature)))
+        XCTAssertTrue(extras.contains(HKQuantityType(.activeEnergyBurned)))
+        XCTAssertTrue(extras.contains(HKQuantityType(.dietaryWater)))
+        XCTAssertTrue(extras.contains(HKObjectType.workoutType()))
+        XCTAssertFalse(extras.contains(HKQuantityType(.heartRateVariabilitySDNN)))
+        XCTAssertFalse(extras.contains(HKQuantityType(.restingHeartRate)))
+        XCTAssertEqual(HealthKitAuthorizationPlan.sanitizedShareTypes(extras), extras)
+
+        let combined = HealthKitAuthorizationPlan.sanitizedShareTypes(
+            HealthKitAuthorizationPlan.writeTypes.union(extras)
+        )
+        XCTAssertTrue(combined.contains(HKCategoryType(.sleepAnalysis)))
+        XCTAssertFalse(combined.contains(HKQuantityType(.heartRateVariabilitySDNN)))
+        XCTAssertFalse(combined.contains(HKQuantityType(.restingHeartRate)))
+    }
+
+    func testSkippableAuthorizationFailureRecognizesNotAuthorized() {
+        XCTAssertTrue(
+            HealthKitAuthorizationPlan.isSkippableAuthorizationFailure(
+                NSError(
+                    domain: HKError.errorDomain,
+                    code: HKError.Code.errorAuthorizationDenied.rawValue
+                )
+            )
+        )
+        XCTAssertTrue(
+            HealthKitAuthorizationPlan.isSkippableAuthorizationFailure(
+                NSError(
+                    domain: HKError.errorDomain,
+                    code: HKError.Code.errorAuthorizationNotDetermined.rawValue
+                )
+            )
+        )
+        XCTAssertTrue(
+            HealthKitAuthorizationPlan.isSkippableAuthorizationFailure(
+                NSError(
+                    domain: NSCocoaErrorDomain,
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Not authorized"]
+                )
+            )
+        )
+        XCTAssertFalse(
+            HealthKitAuthorizationPlan.isSkippableAuthorizationFailure(
+                NSError(domain: NSCocoaErrorDomain, code: 1)
+            )
+        )
     }
 
     func testVitalKindMapsFromVitalSignRecordIdentifier() {

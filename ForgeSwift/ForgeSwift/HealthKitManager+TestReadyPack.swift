@@ -20,8 +20,12 @@ extension HealthKitManager {
         }
         isReplacingTestReadyPack = true
         defer { isReplacingTestReadyPack = false }
-        let store = healthStore
         do {
+            // Connect Health does not ask to write sleep. The pack deletes and
+            // rewrites sleep samples, so we must request those share types first
+            // or HealthKit returns "Not authorized" and Home shows the banner.
+            try await requestTestReadyPackAuthorization()
+            let store = healthStore
             let cycleError = try await Task.detached(priority: .utility) {
                 try await ForgeTestHealthPackWriter.replace(pack: pack, store: store)
             }.value
@@ -98,10 +102,14 @@ enum ForgeTestHealthPackWriter {
             allowedValues: ["1"]
         )
         for type in types {
+            guard canShare(type, store: store) else { continue }
             let samples: [HKSample]
             do {
                 samples = try await querySamples(type: type, predicate: predicate, store: store)
             } catch {
+                if HealthKitAuthorizationPlan.isSkippableAuthorizationFailure(error) {
+                    continue
+                }
                 throw HealthKitError.saveFailedReason(
                     LifeIngestError.explain(
                         error,
@@ -113,6 +121,9 @@ enum ForgeTestHealthPackWriter {
             do {
                 try await store.delete(samples)
             } catch {
+                if HealthKitAuthorizationPlan.isSkippableAuthorizationFailure(error) {
+                    continue
+                }
                 throw HealthKitError.saveFailedReason(
                     LifeIngestError.explain(
                         error,
@@ -121,6 +132,10 @@ enum ForgeTestHealthPackWriter {
                 )
             }
         }
+    }
+
+    private static func canShare(_ type: HKSampleType, store: HKHealthStore) -> Bool {
+        store.authorizationStatus(for: type) == .sharingAuthorized
     }
 
     private static func saveQuantityAndSleep(from pack: FakeHealthPack, store: HKHealthStore) async throws {
@@ -254,24 +269,16 @@ enum ForgeTestHealthPackWriter {
             )
         }
 
-        var index = samples.startIndex
-        while index < samples.endIndex {
-            let next = samples.index(index, offsetBy: 100, limitedBy: samples.endIndex) ?? samples.endIndex
-            do {
-                try await store.save(Array(samples[index..<next]))
-            } catch {
-                throw HealthKitError.saveFailedReason(
-                    LifeIngestError.explain(
-                        error,
-                        doing: "Couldn't save Test-Ready quantity and sleep samples"
-                    )
-                )
-            }
-            index = next
-        }
+        try await saveShareable(
+            samples,
+            store: store,
+            doing: "Couldn't save Test-Ready quantity and sleep samples"
+        )
     }
 
     private static func saveWorkouts(from pack: FakeHealthPack, store: HKHealthStore) async throws {
+        let workoutType = HKObjectType.workoutType()
+        guard canShare(workoutType, store: store) else { return }
         let calendar = Calendar.current
         for day in pack.days {
             guard let session = day.workout else { continue }
@@ -293,6 +300,9 @@ enum ForgeTestHealthPackWriter {
                 try await builder.endCollection(at: end)
                 _ = try await builder.finishWorkout()
             } catch {
+                if HealthKitAuthorizationPlan.isSkippableAuthorizationFailure(error) {
+                    continue
+                }
                 throw HealthKitError.saveFailedReason(
                     LifeIngestError.explain(
                         error,
@@ -365,20 +375,37 @@ enum ForgeTestHealthPackWriter {
             }
         }
 
-        var index = samples.startIndex
-        while index < samples.endIndex {
-            let next = samples.index(index, offsetBy: 100, limitedBy: samples.endIndex) ?? samples.endIndex
+        try await saveShareable(
+            samples,
+            store: store,
+            doing: "Couldn't save Test-Ready cycle overlay samples"
+        )
+    }
+
+    /// Apple-only types (HRV, RHR) stay in the in-memory pack; they never get
+    /// a share grant. Mixed `store.save` batches must not include them or an
+    /// authorized sleep write fails with the whole overlay.
+    private static func saveShareable(
+        _ samples: [HKSample],
+        store: HKHealthStore,
+        doing: String
+    ) async throws {
+        let shareable = samples.filter { canShare($0.sampleType, store: store) }
+        var index = shareable.startIndex
+        while index < shareable.endIndex {
+            let next = shareable.index(index, offsetBy: 100, limitedBy: shareable.endIndex) ?? shareable.endIndex
+            let batch = Array(shareable[index..<next])
+            index = next
             do {
-                try await store.save(Array(samples[index..<next]))
+                try await store.save(batch)
             } catch {
+                if HealthKitAuthorizationPlan.isSkippableAuthorizationFailure(error) {
+                    continue
+                }
                 throw HealthKitError.saveFailedReason(
-                    LifeIngestError.explain(
-                        error,
-                        doing: "Couldn't save Test-Ready cycle overlay samples"
-                    )
+                    LifeIngestError.explain(error, doing: doing)
                 )
             }
-            index = next
         }
     }
 
