@@ -20,7 +20,7 @@ extension HealthKitManager {
         }
         isReplacingTestReadyPack = true
         defer { isReplacingTestReadyPack = false }
-        nonisolated(unsafe) let store = healthStore
+        let store = healthStore
         do {
             let cycleError = try await Task.detached(priority: .utility) {
                 try await ForgeTestHealthPackWriter.replace(pack: pack, store: store)
@@ -37,7 +37,7 @@ extension HealthKitManager {
     }
 
     func deleteTestReadyPackSamples() async throws {
-        nonisolated(unsafe) let store = healthStore
+        let store = healthStore
         try await Task.detached(priority: .utility) {
             try await ForgeTestHealthPackWriter.deleteSamples(store: store)
         }.value

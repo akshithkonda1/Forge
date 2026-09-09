@@ -220,8 +220,8 @@ public enum AriaIntentResolver {
     /// must not take this policy with it — the Python learner stays in charge.
     public static func adapt(_ input: AriaIntentInput) -> AriaAdaptation {
         let cal = Self.parseCalendar(input.calendarTags)
-        var eveningBusy: Double = cal.eveningBusy ? 1.0 : 0.0
-        var headline: Double = cal.headlines.isEmpty ? 0.0 : 1.0
+        let eveningBusy: Double = cal.eveningBusy ? 1.0 : 0.0
+        let headline: Double = cal.headlines.isEmpty ? 0.0 : 1.0
         var lowRecovery: Double = 0.0
         var highRecovery: Double = 0.0
         if let readiness = input.readiness {
@@ -249,7 +249,7 @@ public enum AriaIntentResolver {
             langAdvice = 1.0
         }
 
-        var logits: [String: Double] = [
+        let logits: [String: Double] = [
             "protect": 0.2 + 1.6 * eveningBusy + 1.8 * headline + 1.7 * lowRecovery + 1.4 * shortSleep,
             "proceed": 0.5 + 1.5 * highRecovery + 1.4 * langTrain + 0.6 * langAdvice
                 - 1.1 * eveningBusy - 1.2 * headline - 1.3 * lowRecovery - 0.9 * shortSleep,

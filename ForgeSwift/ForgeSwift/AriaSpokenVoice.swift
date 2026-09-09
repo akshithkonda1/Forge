@@ -434,9 +434,11 @@ extension AriaSpeechPrep {
         if interrupt, synthesizer.isSpeaking {
             synthesizer.stopSpeaking(at: boundary)
         }
-        try? session.activate()
-        for utterance in utts {
-            synthesizer.speak(utterance)
+        Task { @MainActor in
+            try? await session.activate()
+            for utterance in utts {
+                synthesizer.speak(utterance)
+            }
         }
         return true
     }

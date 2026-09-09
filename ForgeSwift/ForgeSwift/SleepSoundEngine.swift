@@ -100,16 +100,24 @@ final class SleepWindDownPlayer {
             #else
             engine.connect(source, to: engine.mainMixerNode, format: format)
             #endif
-            try ForgePlaybackSession.sleepMix.activate()
-            try engine.start()
         } catch {
             return
         }
-        self.engine = engine
-        remainingSeconds = max(1, minutes) * 60
-        isPlaying = true
-        wasInterrupted = false
-        startCountdown()
+        let holdMinutes = minutes
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await ForgePlaybackSession.sleepMix.activate()
+                try engine.start()
+            } catch {
+                return
+            }
+            self.engine = engine
+            self.remainingSeconds = max(1, holdMinutes) * 60
+            self.isPlaying = true
+            self.wasInterrupted = false
+            self.startCountdown()
+        }
     }
 
     func stop(deactivateSession: Bool = true) {
@@ -157,12 +165,15 @@ final class SleepWindDownPlayer {
         guard wasInterrupted, isPlaying else { return }
         wasInterrupted = false
         guard shouldResume else { return }
-        do {
-            try ForgePlaybackSession.sleepMix.activate()
-            try engine?.start()
-            startCountdown()
-        } catch {
-            stop()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await ForgePlaybackSession.sleepMix.activate()
+                try self.engine?.start()
+                self.startCountdown()
+            } catch {
+                self.stop()
+            }
         }
     }
 }
@@ -203,13 +214,20 @@ final class SleepWakePlayer {
             #else
             engine.connect(source, to: engine.mainMixerNode, format: format)
             #endif
-            try ForgePlaybackSession.alarm.activate()
-            try engine.start()
         } catch {
             return
         }
-        self.engine = engine
-        isPlaying = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await ForgePlaybackSession.alarm.activate()
+                try engine.start()
+            } catch {
+                return
+            }
+            self.engine = engine
+            self.isPlaying = true
+        }
     }
 
     func ensurePlaying(for alarm: ForgeAlarm) {

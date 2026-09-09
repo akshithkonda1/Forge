@@ -211,15 +211,16 @@ enum MedicationPharmacy {
             }
             return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
-        let tokens = buildIndex(rows)
+        let catalog = rows
+        let tokens = buildIndex(catalog)
 
         lock.withLock {
-            cached = rows
+            cached = catalog
             sortedTokens = tokens.sorted
             tokenRows = tokens.map
             ready = true
         }
-        return rows
+        return catalog
     }
 
     private static func buildIndex(_ rows: [FDAMedication]) -> (sorted: [String], map: [String: [Int]]) {

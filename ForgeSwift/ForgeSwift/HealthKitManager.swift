@@ -398,9 +398,10 @@ class HealthKitManager: ObservableObject {
     }
     
     /// First connect, Medicine Allow, and lifestyle opt-in all use this.
-    /// Clinical types are omitted on Simulator / devices without Health Records,
-    /// and per-object types (vision Rx) never ride the bulk sheet, so
-    /// `requestAuthorization` cannot abort the process.
+    /// Clinical types are omitted when Health Records are unavailable.
+    /// iOS 27 Simulator can report Health Records support; the Info.plist
+    /// must include `NSHealthClinicalHealthRecordsShareUsageDescription` or
+    /// the bulk sheet aborts. Per-object types (vision Rx) never ride it.
     func requestAuthorization() async throws {
         try await requestFullAppleHealthAuthorization()
     }

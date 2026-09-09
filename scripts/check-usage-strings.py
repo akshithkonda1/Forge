@@ -60,6 +60,12 @@ REQUIREMENTS: list[tuple[str, str, str]] = [
     (r"\bHKClinicalType\b|\.medicationRecord\b|\.allergyRecord\b|requestClinicalRecordsAuthorization\b|requestFullAppleHealthAuthorization\b|supportsHealthRecords\b",
      "NSHealthClinicalHealthRecordsUsageDescription",
      "clinical health records"),
+    # iOS 26/27 aborts on the Share key when clinical types ride requestAuthorization.
+    # The older UsageDescription key is not enough — SleepView crashed on Simulator
+    # with NSHealthClinicalHealthRecordsShareUsageDescription missing.
+    (r"\bHKClinicalType\b|\.medicationRecord\b|\.allergyRecord\b|requestClinicalRecordsAuthorization\b|requestFullAppleHealthAuthorization\b|supportsHealthRecords\b",
+     "NSHealthClinicalHealthRecordsShareUsageDescription",
+     "clinical health records (Share)"),
     (r"\bAVCaptureSession\b|\bAVCaptureDevice\b",
      "NSCameraUsageDescription",
      "the camera"),

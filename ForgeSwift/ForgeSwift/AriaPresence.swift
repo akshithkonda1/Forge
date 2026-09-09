@@ -40,7 +40,7 @@ enum ForgePlaybackSession: Equatable, Sendable {
         #endif
     }
 
-    func activate() throws {
+    func activate() async throws {
         let session = AVAudioSession.sharedInstance()
         switch self {
         case .spoken:
@@ -68,11 +68,37 @@ enum ForgePlaybackSession: Equatable, Sendable {
         case .alarm:
             try session.setCategory(.playback, mode: .default, options: [])
         }
-        try session.setActive(true)
+        try await Self.setSessionActive(true)
     }
 
     static func deactivate() {
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        Task {
+            try? await setSessionActive(false, notifyOthers: true)
+        }
+    }
+
+    /// iOS 26/27: `setActive` on the main thread hangs the UI. Use the async
+    /// activate/deactivate overlay instead.
+    static func setSessionActive(_ active: Bool, notifyOthers: Bool = false) async throws {
+        let session = AVAudioSession.sharedInstance()
+        #if compiler(>=6.4)
+        if active {
+            _ = try await session.activate(options: [])
+        } else {
+            let options: AVAudioSessionDeactivationOptions = notifyOthers
+                ? [.notifyOthersOnDeactivation]
+                : []
+            _ = try await session.deactivate(options: options)
+        }
+        #else
+        if active {
+            try session.setActive(true)
+        } else if notifyOthers {
+            try session.setActive(false, options: .notifyOthersOnDeactivation)
+        } else {
+            try session.setActive(false)
+        }
+        #endif
     }
 }
 
