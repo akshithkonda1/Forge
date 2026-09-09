@@ -427,18 +427,12 @@ class HealthKitManager: ObservableObject {
         }
     }
 
-    /// Extra share types the simulator Health pack needs (sleep, HRV, RHR,
-    /// steps). Production onboarding does not ask to write these.
+    /// Extra share types the simulator Health pack needs (sleep, steps, body
+    /// temperature). Production onboarding does not ask to write these.
+    /// HRV / resting HR are Apple-only and never ride the share set.
     func requestTestReadyPackAuthorization() async throws {
-        let extra: Set<HKSampleType> = [
-            HKCategoryType(.sleepAnalysis),
-            HKQuantityType(.heartRateVariabilitySDNN),
-            HKQuantityType(.restingHeartRate),
-            HKQuantityType(.stepCount),
-            HKQuantityType(.bodyTemperature),
-        ]
         try await requestHealthKitAuthorization(
-            toShare: writeTypes.union(extra),
+            toShare: writeTypes.union(HealthKitAuthorizationPlan.testReadyPackShareTypes),
             read: HealthKitAuthorizationPlan.readTypes(includeClinical: false),
             requestedKey: authorizationRequestedKey
         )
