@@ -4,7 +4,7 @@ import HealthKit
 import ForgeCore
 @testable import ForgeSwift
 
-/// Locks the iOS 27 replacements for APIs Xcode flags as deprecated or renamed.
+/// Locks the iOS 26/27 replacements for APIs Xcode flags as deprecated or renamed.
 @MainActor
 final class CurrentPracticeAPITests: XCTestCase {
 
@@ -152,5 +152,96 @@ final class CurrentPracticeAPITests: XCTestCase {
             lastWorkoutDate: nil
         )
         XCTAssertTrue(live.hasData)
+    }
+
+    func testVisionPrescriptionUsesPerObjectAuthorizationNotBulkSheet() {
+        let vision = HKObjectType.visionPrescriptionType()
+        XCTAssertEqual(vision.identifier, "HKVisionPrescriptionTypeIdentifier")
+        XCTAssertTrue(vision.requiresPerObjectAuthorization())
+        XCTAssertFalse(
+            HealthKitAuthorizationPlan.isAllowedInBulkRead(vision),
+            "Connect Health must not pass vision Rx into requestAuthorization"
+        )
+        let connectRead = HealthKitAuthorizationPlan.sanitizedReadTypes(
+            HealthKitAuthorizationPlan.readTypes(includeClinical: true).union([vision]),
+            supportsHealthRecords: false
+        )
+        XCTAssertFalse(connectRead.contains(vision))
+        XCTAssertTrue(connectRead.contains(HKQuantityType(.stepCount)))
+        XCTAssertTrue(connectRead.contains(HKQuantityType(.vo2Max)))
+        XCTAssertTrue(connectRead.contains(HKCategoryType(.sleepAnalysis)))
+    }
+
+    func testQuantityAndClinicalInitsStayCurrentOnIOS26And27() {
+        XCTAssertEqual(
+            HKQuantityType(.appleSleepingWristTemperature).identifier,
+            HKQuantityTypeIdentifier.appleSleepingWristTemperature.rawValue
+        )
+        XCTAssertEqual(
+            HKQuantityType(.physicalEffort).identifier,
+            HKQuantityTypeIdentifier.physicalEffort.rawValue
+        )
+        XCTAssertEqual(
+            HKClinicalType(.medicationRecord).identifier,
+            HKClinicalTypeIdentifier.medicationRecord.rawValue
+        )
+        XCTAssertEqual(
+            HKCharacteristicType(.dateOfBirth).identifier,
+            HKCharacteristicTypeIdentifier.dateOfBirth.rawValue
+        )
+    }
+
+    func testHomeLaunchMustNotWaitOnTestReadyIngest() {
+        XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForHealthKitPackWrite)
+        XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForCalendarYearWrite)
+        XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForMedicationCatalog)
+        XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForRemoteDashboard)
+        XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForThirtyDayHealthQueries)
+        XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForHealthKitAuthorizationSheet)
+        XCTAssertFalse(TestReadyLaunchPolicy.calendarYearWriteRunsOnMainActor)
+        XCTAssertEqual(FakeCalendarPack.horizonDays, 365)
+        XCTAssertFalse(CalendarManager.writesToPersonalCalendars)
+        XCTAssertFalse(FakeCalendarPack.writesToPersonalCalendars)
+    }
+
+    func testInstalledTestReadySeedsPersistAcrossProcessRestarts() {
+        let healthKey = TestReadyLaunchPolicy.healthKitInstalledSeedKey
+        let calendarKey = TestReadyLaunchPolicy.calendarInstalledSeedKey
+        let previousHealth = UserDefaults.standard.object(forKey: healthKey)
+        let previousCalendar = UserDefaults.standard.object(forKey: calendarKey)
+        defer {
+            if let previousHealth {
+                UserDefaults.standard.set(previousHealth, forKey: healthKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: healthKey)
+            }
+            if let previousCalendar {
+                UserDefaults.standard.set(previousCalendar, forKey: calendarKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: calendarKey)
+            }
+        }
+        TestReadyLaunchPolicy.storeSeed(4_242, defaults: .standard, key: healthKey)
+        TestReadyLaunchPolicy.storeSeed(4_242, defaults: .standard, key: calendarKey)
+        XCTAssertEqual(HealthKitManager.shared.installedTestReadySeed, 4_242)
+        XCTAssertEqual(CalendarManager.shared.installedTestReadySeed, 4_242)
+        XCTAssertFalse(
+            TestReadyLaunchPolicy.shouldRewrite(
+                installedSeed: HealthKitManager.shared.installedTestReadySeed,
+                sessionSeed: 4_242
+            )
+        )
+        XCTAssertFalse(
+            TestReadyLaunchPolicy.shouldRewrite(
+                installedSeed: CalendarManager.shared.installedTestReadySeed,
+                sessionSeed: 4_242
+            )
+        )
+        XCTAssertTrue(
+            TestReadyLaunchPolicy.shouldRewrite(
+                installedSeed: HealthKitManager.shared.installedTestReadySeed,
+                sessionSeed: 7
+            )
+        )
     }
 }

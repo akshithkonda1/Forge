@@ -316,9 +316,23 @@ class HealthKitManager: ObservableObject {
     private var observerQueries: [HKObserverQuery] = []
     private var liveRefreshTask: Task<Void, Never>?
     private var isObserving = false
-    /// Last Test-Ready pack successfully written this process. Skip a rewrite
-    /// that would stall launch with the same seed.
-    var installedTestReadySeed: Int?
+    /// Last Test-Ready pack successfully written. Persisted so Simulator
+    /// relaunch does not delete and rewrite HealthKit.
+    var installedTestReadySeed: Int? {
+        get {
+            TestReadyLaunchPolicy.storedSeed(
+                .standard,
+                key: TestReadyLaunchPolicy.healthKitInstalledSeedKey
+            )
+        }
+        set {
+            TestReadyLaunchPolicy.storeSeed(
+                newValue,
+                defaults: .standard,
+                key: TestReadyLaunchPolicy.healthKitInstalledSeedKey
+            )
+        }
+    }
     /// True while a Test-Ready pack is being deleted/rewritten.
     var isReplacingTestReadyPack = false
     /// Why a Test-Ready HealthKit write failed. Nil when the pack is healthy.
@@ -334,11 +348,11 @@ class HealthKitManager: ObservableObject {
     let mealsStorageDateKey = "HealthKitManager.loggedMealsDate"
     static let forgeWaterMetadataKey = "com.forge.hydration"
     /// Marks samples the Test-Ready pack wrote so we can delete and rewrite
-    /// them every simulator launch without touching anyone else's data.
-    static let testReadyPackMetadataKey = "com.forge.testReadyPack"
-    static let testReadySessionNameKey = "com.forge.sessionName"
-    static let testReadyIntensityKey = "com.forge.intensity"
-    static let testReadyVolumeKey = "com.forge.volume"
+    /// them when the day's session seed changes without touching anyone else's data.
+    nonisolated static let testReadyPackMetadataKey = "com.forge.testReadyPack"
+    nonisolated static let testReadySessionNameKey = "com.forge.sessionName"
+    nonisolated static let testReadyIntensityKey = "com.forge.intensity"
+    nonisolated static let testReadyVolumeKey = "com.forge.volume"
     
     private var writeTypes: Set<HKSampleType> { HealthKitAuthorizationPlan.writeTypes }
 
@@ -384,8 +398,9 @@ class HealthKitManager: ObservableObject {
     }
     
     /// First connect, Medicine Allow, and lifestyle opt-in all use this.
-    /// Clinical types are omitted on Simulator / devices without Health Records
-    /// so the system sheet cannot abort the process.
+    /// Clinical types are omitted on Simulator / devices without Health Records,
+    /// and per-object types (vision Rx) never ride the bulk sheet, so
+    /// `requestAuthorization` cannot abort the process.
     func requestAuthorization() async throws {
         try await requestFullAppleHealthAuthorization()
     }
@@ -510,13 +525,23 @@ class HealthKitManager: ObservableObject {
 
     /// Completion-handler form, always from the main actor. The async overlay
     /// can hop onto the cooperative pool; HealthKit then aborts instead of
-    /// showing the Allow sheet.
+    /// showing the Allow sheet. Types are sanitized again here so a future
+    /// caller cannot put vision Rx or clinical notes on the bulk sheet.
     private func presentAuthorization(
         toShare shareTypes: Set<HKSampleType>,
         read readTypes: Set<HKObjectType>
     ) async throws {
+        let safeRead = HealthKitAuthorizationPlan.sanitizedReadTypes(
+            readTypes,
+            supportsHealthRecords: healthStore.supportsHealthRecords()
+        )
+        let safeShare = HealthKitAuthorizationPlan.sanitizedShareTypes(shareTypes)
+        guard !safeRead.isEmpty else {
+            authorizationErrorMessage = "Health data is not available on this device."
+            throw HealthKitError.notAvailable
+        }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            healthStore.requestAuthorization(toShare: shareTypes, read: readTypes) { _, error in
+            healthStore.requestAuthorization(toShare: safeShare, read: safeRead) { _, error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else {

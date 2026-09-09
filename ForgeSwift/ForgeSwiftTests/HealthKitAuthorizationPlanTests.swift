@@ -3,7 +3,8 @@ import HealthKit
 @testable import ForgeSwift
 
 /// Locks the Allow-tap contract: clinical types never go to HealthKit when
-/// Health Records are unavailable, and first connect uses the full catalog.
+/// Health Records are unavailable, per-object types (vision Rx) never ride
+/// the bulk sheet, and first connect uses the full lifestyle catalog.
 final class HealthKitAuthorizationPlanTests: XCTestCase {
 
     func testSimulatorMustNotRequestClinicalTypes() {
@@ -108,5 +109,61 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
         let vital = HKClinicalTypeIdentifier(rawValue: "HKClinicalTypeIdentifierVitalSignRecord")
         XCTAssertEqual(StructuredHealthKind(identifier: vital), .vital)
         XCTAssertNil(StructuredHealthKind(identifier: HKClinicalTypeIdentifier(rawValue: "HKClinicalTypeIdentifierCoverageRecord")))
+    }
+
+    func testCatalogNeverAsksBulkReadForVisionPrescription() {
+        let vision = HKObjectType.visionPrescriptionType()
+        XCTAssertEqual(vision.identifier, "HKVisionPrescriptionTypeIdentifier")
+        XCTAssertTrue(
+            vision.requiresPerObjectAuthorization(),
+            "iOS 26/27: vision Rx is per-object, not bulk requestAuthorization"
+        )
+        let withClinical = HealthKitAuthorizationPlan.readTypes(includeClinical: true)
+        let withoutClinical = HealthKitAuthorizationPlan.readTypes(includeClinical: false)
+        XCTAssertFalse(withClinical.contains(vision))
+        XCTAssertFalse(withoutClinical.contains(vision))
+        XCTAssertFalse(withClinical.contains { $0.requiresPerObjectAuthorization() })
+        XCTAssertFalse(withoutClinical.contains { $0.requiresPerObjectAuthorization() })
+        XCTAssertFalse(
+            HealthKitAuthorizationPlan.sampleAndCharacteristicReadTypes.contains(vision)
+        )
+    }
+
+    func testSanitizerStripsVisionPrescriptionEvenWhenInjected() {
+        let vision = HKObjectType.visionPrescriptionType()
+        var injected = HealthKitAuthorizationPlan.readTypes(includeClinical: true)
+        injected.insert(vision)
+        XCTAssertTrue(injected.contains(vision), "precondition: injection reached the set")
+        for supportsHealthRecords in [false, true] {
+            let sanitized = HealthKitAuthorizationPlan.sanitizedReadTypes(
+                injected,
+                supportsHealthRecords: supportsHealthRecords
+            )
+            XCTAssertFalse(sanitized.contains(vision))
+            XCTAssertFalse(sanitized.contains { $0.identifier == vision.identifier })
+            XCTAssertFalse(sanitized.contains { $0.requiresPerObjectAuthorization() })
+            XCTAssertTrue(sanitized.contains(HKQuantityType(.heartRate)))
+            XCTAssertTrue(sanitized.contains(HKObjectType.workoutType()))
+        }
+    }
+
+    func testBulkReadRejectsPerObjectAndClinicalNotes() {
+        XCTAssertFalse(
+            HealthKitAuthorizationPlan.isAllowedInBulkRead(
+                HKObjectType.visionPrescriptionType()
+            )
+        )
+        XCTAssertTrue(
+            HealthKitAuthorizationPlan.isAllowedInBulkRead(HKQuantityType(.heartRate))
+        )
+        XCTAssertTrue(
+            HealthKitAuthorizationPlan.perObjectReadIdentifiers.contains(
+                "HKVisionPrescriptionTypeIdentifier"
+            )
+        )
+        let notes = HKClinicalType(
+            HKClinicalTypeIdentifier(rawValue: "HKClinicalTypeIdentifierClinicalNoteRecord")
+        )
+        XCTAssertFalse(HealthKitAuthorizationPlan.isAllowedInBulkRead(notes))
     }
 }

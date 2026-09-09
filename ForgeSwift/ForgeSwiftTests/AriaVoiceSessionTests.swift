@@ -156,4 +156,16 @@ final class AriaVoiceSessionTests: XCTestCase {
             )
         )
     }
+
+    func testLiveMicFramesEncodeAsUserAudioChunkNotAMissingMember() {
+        let pcm = Data([0x01, 0x00, 0x02, 0x00])
+        let text = ConvAIMicChunkCodec.websocketText(fromPCM: pcm)
+        XCTAssertNotNil(text)
+        XCTAssertTrue(text?.contains("user_audio_chunk") == true)
+        XCTAssertTrue(text?.contains(pcm.base64EncodedString()) == true)
+        XCTAssertFalse(
+            text?.contains("sendBase64Chunk") == true,
+            "Live mic frames must be user_audio_chunk JSON, not a missing sendBase64Chunk member"
+        )
+    }
 }

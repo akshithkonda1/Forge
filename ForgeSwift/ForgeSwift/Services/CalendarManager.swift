@@ -17,9 +17,23 @@ final class CalendarManager: ObservableObject {
     static let writesToPersonalCalendars = FakeCalendarPack.writesToPersonalCalendars
 
     private let store = EKEventStore()
-    /// Avoid rewriting hundreds of EventKit rows on every readiness refresh
-    /// within the same process. Seed is per-launch like the health pack.
-    private var seededSessionSeed: Int?
+    /// Last Test-Ready year successfully written. Persisted so Simulator
+    /// relaunch does not delete and rewrite EventKit.
+    var installedTestReadySeed: Int? {
+        get {
+            TestReadyLaunchPolicy.storedSeed(
+                .standard,
+                key: TestReadyLaunchPolicy.calendarInstalledSeedKey
+            )
+        }
+        set {
+            TestReadyLaunchPolicy.storeSeed(
+                newValue,
+                defaults: .standard,
+                key: TestReadyLaunchPolicy.calendarInstalledSeedKey
+            )
+        }
+    }
 
     @Published var isAuthorized = false
     @Published var authorizationErrorMessage: String?
@@ -153,14 +167,20 @@ final class CalendarManager: ObservableObject {
     }
 
     /// Seed the Forge test calendar when allowed, then refresh this week's tags.
-    /// The year write runs in the background so Home is not waiting on EventKit.
+    /// Home only waits on this week's EventKit fetch — never on generating or
+    /// committing a year of demo events.
     func ingestUpcomingIfAuthorized() async {
         let status = authorizationStatus()
         guard Self.hasReadAccess(status) else { return }
         isAuthorized = true
         lastSeedError = nil
-        await seedTestReadyCalendarIfNeeded()
         await fetchThisWeek()
+        if TestReadyLaunchPolicy.homeWaitsForCalendarYearWrite {
+            _ = await seedTestReadyCalendarIfNeeded()
+            await fetchThisWeek()
+            return
+        }
+        Task { await self.seedTestReadyCalendarIfNeeded() }
     }
 
     @discardableResult
@@ -173,28 +193,41 @@ final class CalendarManager: ObservableObject {
             isRunningTests: FakeCalendarPack.isRunningUnitTests
         ) else { return false }
         let seed = AppStore.testReadySessionSeed
+        if !TestReadyLaunchPolicy.shouldRewrite(
+            installedSeed: installedTestReadySeed,
+            sessionSeed: seed
+        ) {
+            return false
+        }
+        if yearWriteTask != nil { return true }
         let pack = await Task.detached(priority: .utility) {
             FakeCalendarPack.generate(seed: seed)
         }.value
         memoryWeekContext = FakeCalendarPack.weekContext(from: pack)
-        if seededSessionSeed == seed { return false }
-        if yearWriteTask != nil { return true }
-        yearWriteTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            do {
-                try await self.replaceTestReadyEvents(pack)
-                self.seededSessionSeed = seed
-                self.lastSeedError = nil
-                await self.fetchThisWeek()
-            } catch {
-                self.lastSeedError = LifeIngestError.explain(
-                    error,
-                    doing: "Couldn't write the Forge test calendar"
-                )
-            }
-            self.yearWriteTask = nil
+        if TestReadyLaunchPolicy.homeWaitsForCalendarYearWrite {
+            await writeTestReadyYear(pack: pack, seed: seed)
+            return true
+        }
+        yearWriteTask = Task { [weak self] in
+            await self?.writeTestReadyYear(pack: pack, seed: seed)
+            self?.yearWriteTask = nil
         }
         return true
+    }
+
+    private func writeTestReadyYear(pack: FakeCalendarPack, seed: Int) async {
+        do {
+            try await replaceTestReadyEvents(pack)
+            store.reset()
+            installedTestReadySeed = seed
+            lastSeedError = nil
+            await fetchThisWeek()
+        } catch {
+            lastSeedError = LifeIngestError.explain(
+                error,
+                doing: "Couldn't write the Forge test calendar"
+            )
+        }
     }
 
     func fetchUpcoming(days: Int = 7) async {
@@ -235,9 +268,68 @@ final class CalendarManager: ObservableObject {
     }
 
     /// Writes only onto `FakeCalendarPack.calendarTitle`. Aborts rather than
-    /// falling through to the user's default calendar.
+    /// falling through to the user's default calendar. The year write runs on
+    /// a dedicated EventKit store off the main actor unless tests flip the
+    /// lock — Home must stay interactive while hundreds of events commit.
     func replaceTestReadyEvents(_ pack: FakeCalendarPack) async throws {
-        let calendar = try forgeTestCalendar()
+        do {
+            if TestReadyLaunchPolicy.calendarYearWriteRunsOnMainActor {
+                try ForgeTestCalendarSeeder.replace(pack: pack, store: store)
+                return
+            }
+            try await Task.detached(priority: .utility) {
+                try ForgeTestCalendarSeeder.replace(pack: pack, store: EKEventStore())
+            }.value
+        } catch let error as ForgeTestCalendarSeeder.Failure {
+            throw Self.mapSeederFailure(error)
+        }
+    }
+
+    enum CalendarError: Error, LocalizedError {
+        case denied
+        case noWritableSource
+        case writeFailed(String)
+        var errorDescription: String? {
+            switch self {
+            case .denied:
+                return "Calendar access was not granted. You can enable it in Settings → Privacy → Calendars."
+            case .noWritableSource:
+                return "Couldn't create a Forge test calendar because this iPhone has no writable EventKit source (no local or CalDAV account)."
+            case .writeFailed(let reason):
+                return reason
+            }
+        }
+    }
+
+    private static func mapSeederFailure(_ error: ForgeTestCalendarSeeder.Failure) -> CalendarError {
+        switch error {
+        case .noWritableSource:
+            return .noWritableSource
+        case .writeFailed(let reason):
+            return .writeFailed(reason)
+        }
+    }
+}
+
+/// Dedicated EventKit store, not MainActor. Home stays interactive while a
+/// year of Forge test events commit. Never writes the user's default calendar.
+enum ForgeTestCalendarSeeder: Sendable {
+    enum Failure: Error, Sendable, LocalizedError {
+        case noWritableSource
+        case writeFailed(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .noWritableSource:
+                return "Couldn't create a Forge test calendar because this iPhone has no writable EventKit source (no local or CalDAV account)."
+            case .writeFailed(let reason):
+                return reason
+            }
+        }
+    }
+
+    static func replace(pack: FakeCalendarPack, store: EKEventStore) throws {
+        let calendar = try forgeTestCalendar(in: store)
         let now = Date()
         let from = Calendar.current.date(byAdding: .day, value: -14, to: now) ?? now
         let to = Calendar.current.date(
@@ -251,7 +343,7 @@ final class CalendarManager: ObservableObject {
             do {
                 try store.remove(event, span: .thisEvent, commit: false)
             } catch {
-                throw CalendarError.writeFailed(
+                throw Failure.writeFailed(
                     LifeIngestError.explain(error, doing: "Couldn't remove a previous Forge test event")
                 )
             }
@@ -259,11 +351,10 @@ final class CalendarManager: ObservableObject {
                 do {
                     try store.commit()
                 } catch {
-                    throw CalendarError.writeFailed(
+                    throw Failure.writeFailed(
                         LifeIngestError.explain(error, doing: "Couldn't commit Forge test-event cleanup")
                     )
                 }
-                await Task.yield()
             }
         }
         for (index, item) in pack.events.enumerated() {
@@ -285,7 +376,7 @@ final class CalendarManager: ObservableObject {
             do {
                 try store.save(event, span: .thisEvent, commit: false)
             } catch {
-                throw CalendarError.writeFailed(
+                throw Failure.writeFailed(
                     LifeIngestError.explain(error, doing: "Couldn't save Forge test event \(index + 1)")
                 )
             }
@@ -293,28 +384,27 @@ final class CalendarManager: ObservableObject {
                 do {
                     try store.commit()
                 } catch {
-                    throw CalendarError.writeFailed(
+                    throw Failure.writeFailed(
                         LifeIngestError.explain(error, doing: "Couldn't commit Forge test calendar batch")
                     )
                 }
-                await Task.yield()
             }
         }
         do {
             try store.commit()
         } catch {
-            throw CalendarError.writeFailed(
+            throw Failure.writeFailed(
                 LifeIngestError.explain(error, doing: "Couldn't finish the Forge test calendar")
             )
         }
     }
 
-    private func forgeTestCalendar() throws -> EKCalendar {
+    private static func forgeTestCalendar(in store: EKEventStore) throws -> EKCalendar {
         if let existing = store.calendars(for: .event).first(where: { $0.title == FakeCalendarPack.calendarTitle }) {
             return existing
         }
-        guard let source = preferredSource() else {
-            throw CalendarError.noWritableSource
+        guard let source = preferredSource(in: store) else {
+            throw Failure.noWritableSource
         }
         let calendar = EKCalendar(for: .event, eventStore: store)
         calendar.title = FakeCalendarPack.calendarTitle
@@ -323,7 +413,7 @@ final class CalendarManager: ObservableObject {
         do {
             try store.saveCalendar(calendar, commit: true)
         } catch {
-            throw CalendarError.writeFailed(
+            throw Failure.writeFailed(
                 LifeIngestError.explain(error, doing: "Couldn't create the Forge test calendar")
             )
         }
@@ -332,7 +422,7 @@ final class CalendarManager: ObservableObject {
 
     /// A source we can attach a *new* Forge calendar to. Never returns the
     /// user's default calendar itself — only its source, as a last resort.
-    private func preferredSource() -> EKSource? {
+    private static func preferredSource(in store: EKEventStore) -> EKSource? {
         if let local = store.sources.first(where: { $0.sourceType == .local }) {
             return local
         }
@@ -340,21 +430,5 @@ final class CalendarManager: ObservableObject {
             return calDAV
         }
         return store.defaultCalendarForNewEvents?.source
-    }
-
-    enum CalendarError: Error, LocalizedError {
-        case denied
-        case noWritableSource
-        case writeFailed(String)
-        var errorDescription: String? {
-            switch self {
-            case .denied:
-                return "Calendar access was not granted. You can enable it in Settings → Privacy → Calendars."
-            case .noWritableSource:
-                return "Couldn't create a Forge test calendar because this iPhone has no writable EventKit source (no local or CalDAV account)."
-            case .writeFailed(let reason):
-                return reason
-            }
-        }
     }
 }

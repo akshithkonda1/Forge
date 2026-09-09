@@ -297,6 +297,15 @@ private struct VoiceToolResponse: Decodable {
 
 /// Sends ConvAI mic frames off the main actor so each audio quantum does not
 /// hop to MainActor for base64 + JSON.
+enum ConvAIMicChunkCodec: Sendable {
+    static func websocketText(fromPCM data: Data) -> String? {
+        let b64 = data.base64EncodedString()
+        guard let payload = try? JSONSerialization.data(withJSONObject: ["user_audio_chunk": b64]),
+              let text = String(data: payload, encoding: .utf8) else { return nil }
+        return text
+    }
+}
+
 private actor ConvAIMicSender {
     private weak var task: URLSessionWebSocketTask?
 
@@ -305,9 +314,7 @@ private actor ConvAIMicSender {
     }
 
     func sendPCM(_ data: Data) async {
-        let b64 = data.base64EncodedString()
-        guard let payload = try? JSONSerialization.data(withJSONObject: ["user_audio_chunk": b64]),
-              let text = String(data: payload, encoding: .utf8),
+        guard let text = ConvAIMicChunkCodec.websocketText(fromPCM: data),
               let task else { return }
         try? await task.send(.string(text))
     }
@@ -476,16 +483,19 @@ final class AriaLiveConvAIClient: NSObject, URLSessionWebSocketDelegate {
             throw AriaVoiceSessionError.invalidSignedURL
         }
         input.removeTap(onBus: 0)
+        // Capture the actor here. The tap is off the main actor, and
+        // `sendBase64Chunk` does not exist — Xcode 27 CI failed with
+        // "has no member 'sendBase64Chunk'". PCM + base64 lives on
+        // ConvAIMicSender so each quantum skips MainActor.
+        let sender = micSender
         #if compiler(>=6.4)
-        try input.installAudioTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+        try input.installAudioTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
             let pcm = AVAudioPCMBuffer(copying: buffer)
             guard let data = AriaLiveConvAIClient.int16MonoData(from: pcm) else { return }
-            Task { @MainActor in
-                self?.sendBase64Chunk(data)
-            }
+            Task { await sender.sendPCM(data) }
         }
         #else
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
             guard let data = AriaLiveConvAIClient.int16MonoData(from: buffer) else { return }
             Task { await sender.sendPCM(data) }
         }

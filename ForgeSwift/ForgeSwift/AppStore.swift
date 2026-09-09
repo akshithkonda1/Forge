@@ -227,9 +227,10 @@ final class AppStore: ObservableObject {
         // Real nights, history, and today's session come from Apple Health + this
         // person's profile — never demo sleep or "Upper Body Power".
         Task { @MainActor in
-            // Let the first frame (and splash dismiss) land before EventKit /
-            // HealthKit seed work. Seeding a year of demo calendar on the
-            // main actor at init froze Home under the splash.
+            // Let the first frame (and splash dismiss) land before HealthKit /
+            // EventKit work. Test-Ready year writes and pack rewrites run off
+            // the main actor and only when the day's seed changes, so Home is
+            // not frozen under the splash.
             try? await Task.sleep(for: .milliseconds(450))
             await self.refreshDailyData()
             await self.resyncNotifications()
@@ -270,10 +271,13 @@ final class AppStore: ObservableObject {
     @Published var streamingMessageId: String? = nil
     @Published var streamingVisibleCount: Int = 0
     var streamingRevealTask: Task<Void, Never>?
-    private var persistProfileTask: Task<Void, Never>?
+    private     var persistProfileTask: Task<Void, Never>?
     /// Serializes overlapping refreshDailyData() so the empty-profile launch
     /// fetch and the post-interview prep fetch cannot clobber each other.
     var refreshDailyDataTail: Task<Void, Never>?
+    /// 30-day HealthKit history, cloud dashboard, and EventKit year writes.
+    /// Home does not wait on this.
+    var backgroundLifeHydrateTask: Task<Void, Never>?
 
     static let onboardedDefaultsKey = "forge.onboarding.completed"
     static let profileDefaultsKey = "forge.user.profile.v1"
