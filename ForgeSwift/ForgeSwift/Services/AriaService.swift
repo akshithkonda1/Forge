@@ -207,7 +207,9 @@ final class AriaService: ObservableObject {
         rich: AriaRichContext,
         agent: AriaCoachAgent = .aria
     ) async throws -> AriaResponse {
-        let trainerContext = store.makeTrainerContext(query: text)
+        var trainerContext = store.makeTrainerContext(query: text)
+        let occurrence = AriaReplyVariety.beginTurn(prompt: text)
+        trainerContext.totalMessageCount = max(trainerContext.totalMessageCount, occurrence)
 
         // Prefer the dynamic plan engine for any training / theme request so
         // Solo Leveling (and siblings) always get a real themed session.
@@ -241,12 +243,12 @@ final class AriaService: ObservableObject {
 
         let memory = contextStore.memoryReference(for: text)
 
-        var message = local.content
+        var message = AriaReplyVariety.distinct(prompt: text, draft: local.content)
         if isCycle, let toolNote = AriaCycleTools.run(text: text) {
             message += "\n\n" + toolNote
         }
         if let memory, local.confidence >= 0.85 {
-            message = "\(memory)\n\n\(local.content)"
+            message = "\(memory)\n\n\(message)"
         }
 
         return AriaResponse(

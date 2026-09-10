@@ -256,14 +256,17 @@ final class LocalTestingOrchestrator {
         // field is set on the profile and read by nothing in beat generation
         // today, so gating on it would have been silently inert. The gating
         // that actually changes output lives below.
-        context.totalMessageCount = max(context.totalMessageCount, exchanges * 4)
+        let occurrence = AriaReplyVariety.beginTurn(prompt: text)
+        context.totalMessageCount = max(context.totalMessageCount, exchanges * 4 + occurrence)
 
         let base = try await generator.generateResponse(for: text, context: context)
 
-        var rng = AriaSeededRNG(seed: seed &+ UInt64(exchanges))
+        var rng = AriaSeededRNG(seed: seed &+ UInt64(exchanges) &+ UInt64(occurrence) &* 17)
         var parts: [String] = [base.content]
         if QualityOfLifeLivingStore.isQuestion(text) {
-            parts[0] = QualityOfLifeLivingStore.coachingLine()
+            parts[0] = QualityOfLifeLivingStore.coachingLine(
+                variety: AriaReplyVariety.occurrence(for: text)
+            )
         }
 
         if let toolNote = AriaCycleTools.run(text: text) {
@@ -306,7 +309,7 @@ final class LocalTestingOrchestrator {
            let webNote = await AriaWebResearch.lookUp(
             domain: domain,
             question: text,
-            salt: seed &+ UInt64(exchanges)
+            salt: seed &+ UInt64(exchanges) &+ UInt64(occurrence)
            ) {
             let bridge = rng.pick([
                 "Pulled this live so it's not just me:",
@@ -339,9 +342,12 @@ final class LocalTestingOrchestrator {
             }
             store.todayWorkout = plan.workoutPlan
             if base.richCard == nil || base.richCard?.type != .workoutPlan {
-                let body = AriaPromptCorrelation.grounded(
+                let body = AriaReplyVariety.distinct(
                     prompt: text,
-                    draft: ([plan.narrative] + parts.dropFirst()).joined(separator: "\n\n")
+                    draft: AriaPromptCorrelation.grounded(
+                        prompt: text,
+                        draft: ([plan.narrative] + parts.dropFirst()).joined(separator: "\n\n")
+                    )
                 )
                 return AriaResponse(
                     confidenceReason: "Local testing — \(specialists) · \(engine) · slot "
@@ -356,9 +362,12 @@ final class LocalTestingOrchestrator {
             }
         }
 
-        let body = AriaPromptCorrelation.grounded(
+        let body = AriaReplyVariety.distinct(
             prompt: text,
-            draft: parts.joined(separator: "\n\n")
+            draft: AriaPromptCorrelation.grounded(
+                prompt: text,
+                draft: parts.joined(separator: "\n\n")
+            )
         )
         return AriaResponse(
             confidenceReason: "Local testing — \(specialists) · \(engine) · slot "

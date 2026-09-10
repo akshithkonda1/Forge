@@ -419,6 +419,71 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
     }
 
+    func testCopyPastedPromptGetsAUniqueReply() async {
+        let varietyKey = AriaReplyVariety.defaultsKey
+        let varietyPrevious = UserDefaults.standard.data(forKey: varietyKey)
+        let qolKey = QualityOfLifeLivingStore.defaultsKey
+        let qolPrevious = UserDefaults.standard.data(forKey: qolKey)
+        defer {
+            if let varietyPrevious {
+                UserDefaults.standard.set(varietyPrevious, forKey: varietyKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: varietyKey)
+            }
+            if let qolPrevious {
+                UserDefaults.standard.set(qolPrevious, forKey: qolKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: qolKey)
+            }
+        }
+        AriaReplyVariety.reset()
+        let score = QualityOfLifeCalculator.score(
+            from: QualityOfLifeInputs(sleepHours: 8, steps: 8_000)
+        )
+        QualityOfLifeLivingStore.publish(score, persona: .balanced)
+        let store = makeStore()
+        let prompt = "what's my quality of life"
+        let first = await AriaDummyOrchestrator.reply(
+            text: prompt,
+            store: store,
+            agent: .lifestyle,
+            agents: ["lifestyle"]
+        )
+        let pasted = "what’s my  quality of life\n"
+        let second = await AriaDummyOrchestrator.reply(
+            text: pasted,
+            store: store,
+            agent: .lifestyle,
+            agents: ["lifestyle"]
+        )
+        XCTAssertNotEqual(
+            first.message,
+            second.message,
+            "copy-paste must not reprint the last ARIA line"
+        )
+        XCTAssertTrue(first.message.contains("\(score.overall)/100"), first.message)
+        XCTAssertTrue(second.message.contains("\(score.overall)/100"), second.message)
+        XCTAssertTrue(AriaPromptCorrelation.correlates(reply: first.message, toPrompt: prompt))
+        XCTAssertTrue(AriaPromptCorrelation.correlates(reply: second.message, toPrompt: prompt))
+
+        let wear = "what tuxedo should I wear to a wedding"
+        let tuxA = await AriaDummyOrchestrator.reply(
+            text: wear,
+            store: store,
+            agent: .lifestyle,
+            agents: ["lifestyle"]
+        )
+        let tuxB = await AriaDummyOrchestrator.reply(
+            text: wear,
+            store: store,
+            agent: .lifestyle,
+            agents: ["lifestyle"]
+        )
+        XCTAssertNotEqual(tuxA.message, tuxB.message, tuxA.message + " vs " + tuxB.message)
+        XCTAssertTrue(AriaPromptCorrelation.correlates(reply: tuxA.message, toPrompt: wear))
+        XCTAssertTrue(AriaPromptCorrelation.correlates(reply: tuxB.message, toPrompt: wear))
+    }
+
     func testReplyStaysOnThePromptNotThePinnedWorkout() async {
         let key = QualityOfLifeLivingStore.defaultsKey
         let previous = UserDefaults.standard.data(forKey: key)

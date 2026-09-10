@@ -497,7 +497,12 @@ enum AriaDummyTurn {
            promptLower.contains("eat") || promptLower.contains("food") || promptLower.contains("protein"),
            !lower.contains("eat"), !lower.contains("food"), !lower.contains("protein"),
            !lower.contains("water") {
-            joined += " Keep food simple — protein and something you will actually eat."
+            joined += " " + AriaReplyVariety.pick([
+                "Keep food simple — protein and something you will actually eat.",
+                "Eat something you'll actually finish — protein first, nothing fancy.",
+                "Food stays simple: protein plus a plate you will eat.",
+                "Don't overthink the plate — protein and a meal you'll finish.",
+            ], prompt: prompt)
         }
         return joined
     }

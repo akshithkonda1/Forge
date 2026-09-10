@@ -28,7 +28,7 @@ enum AriaDummyOrchestrator {
         agents: [String]? = nil
     ) async -> AriaResponse {
         AriaContextStore.shared.fileSpoken(text)
-        let context = store.makeTrainerContext(query: text)
+        var context = store.makeTrainerContext(query: text)
         let life = context.lifeRead
         let trimmedName = store.userProfile.name.split(separator: " ").first.map(String.init) ?? ""
         let you = trimmedName.isEmpty ? "" : "\(trimmedName) — "
@@ -64,6 +64,9 @@ enum AriaDummyOrchestrator {
             )
         }
 
+        let occurrence = AriaReplyVariety.beginTurn(prompt: text)
+        context.totalMessageCount = max(context.totalMessageCount, occurrence)
+
         let follow = AriaDummyTurn.followUp(in: text)
         if follow != .none, let followed = handleFollowUp(
             follow,
@@ -73,7 +76,7 @@ enum AriaDummyOrchestrator {
             facts: facts,
             name: trimmedName
         ) {
-            return followed
+            return publish(followed, prompt: text)
         }
 
         let sleepWeak = facts.sleepBand == .weak
@@ -132,12 +135,15 @@ enum AriaDummyOrchestrator {
         if emotional, !hasSystems,
            let reading = AriaEmotionalSupportCoach.detect(in: text, context: context) {
             let resp = AriaEmotionalSupportCoach.respond(reading: reading, context: context, input: text)
-            return AriaResponse(
-                confidenceReason: "Local fill-in — companion",
-                proseSummary: resp.content,
-                message: resp.content,
-                suggestedActions: resp.suggestedActions,
-                confidence: resp.confidence
+            return publish(
+                AriaResponse(
+                    confidenceReason: "Local fill-in — companion",
+                    proseSummary: resp.content,
+                    message: resp.content,
+                    suggestedActions: resp.suggestedActions,
+                    confidence: resp.confidence
+                ),
+                prompt: text
             )
         }
 
@@ -178,13 +184,16 @@ enum AriaDummyOrchestrator {
                     ? fallback
                     : humanFallback(you: you, readiness: readiness, facts: facts, coaching: context.userProfile.coachingStyle, life: life)
             )
-            return AriaResponse(
-                confidenceReason: reason(for: interpretation, readiness: readiness, hasSleep: facts.sleepHours != nil),
-                proseSummary: prose,
-                message: prose,
-                suggestedActions: AriaFirstHealthBriefing.suggestedActions,
-                contextUpdates: ["relationship_level": min(10, 1 + store.chatMessages.count / 3)],
-                confidence: 0.82
+            return publish(
+                AriaResponse(
+                    confidenceReason: reason(for: interpretation, readiness: readiness, hasSleep: facts.sleepHours != nil),
+                    proseSummary: prose,
+                    message: prose,
+                    suggestedActions: AriaFirstHealthBriefing.suggestedActions,
+                    contextUpdates: ["relationship_level": min(10, 1 + store.chatMessages.count / 3)],
+                    confidence: 0.82
+                ),
+                prompt: text
             )
         }
 
@@ -196,8 +205,11 @@ enum AriaDummyOrchestrator {
         apply(actions, store: store)
         lastAppliedActions = actions
 
-        let seed = UInt64(truncatingIfNeeded: text.utf8.reduce(0) { ($0 &* 33) &+ UInt64($1) })
-            &+ UInt64(store.chatMessages.count)
+        let seed = AriaReplyVariety.salt(
+            prompt: text,
+            occurrence: occurrence,
+            extra: UInt64(store.chatMessages.count)
+        )
         let skeleton = AriaDummyTurn.compose(
             beats: beats,
             interpretation: interpretation,
@@ -226,14 +238,17 @@ enum AriaDummyOrchestrator {
         if suggestions.isEmpty { suggestions = AriaFirstHealthBriefing.suggestedActions }
         if suggestions.count > 4 { suggestions = Array(suggestions.prefix(4)) }
 
-        return AriaResponse(
-            confidenceReason: reason(for: interpretation, readiness: readiness, hasSleep: facts.sleepHours != nil),
-            proseSummary: message,
-            message: message,
-            richCard: card,
-            suggestedActions: suggestions,
-            contextUpdates: ["relationship_level": min(10, 1 + store.chatMessages.count / 3)],
-            confidence: 0.88
+        return publish(
+            AriaResponse(
+                confidenceReason: reason(for: interpretation, readiness: readiness, hasSleep: facts.sleepHours != nil),
+                proseSummary: message,
+                message: message,
+                richCard: card,
+                suggestedActions: suggestions,
+                contextUpdates: ["relationship_level": min(10, 1 + store.chatMessages.count / 3)],
+                confidence: 0.88
+            ),
+            prompt: text
         )
     }
 
@@ -394,7 +409,12 @@ enum AriaDummyOrchestrator {
                 )
             }
             if AriaReferenceCatalog.questionSuggestsEventPrep(text) {
-                var line = "I don't shop the web — a wedding tux or dark suit should fit you, not chase a trend. Classic black tie, shoes you can stand in."
+                var line = AriaReplyVariety.pick([
+                    "I don't shop the web — a wedding tux or dark suit should fit you, not chase a trend. Classic black tie, shoes you can stand in.",
+                    "Skip the shopping tab. A classic tuxedo or dark suit that actually fits beats a trendy rental — shoes you can stand in.",
+                    "For the wedding: tux or dark suit, fitted, nothing flashy. I don't shop the web; I care that you can stand in those shoes.",
+                    "Wear a tux or a dark suit that fits your body, not a catalog. Black tie stays classic; comfort is the rest of the night.",
+                ], prompt: text)
                 if let reason = eventReason(interpretation: interpretation, life: life) {
                     line = "\(reason) \(line)"
                 }
@@ -407,7 +427,9 @@ enum AriaDummyOrchestrator {
             if QualityOfLifeLivingStore.isQuestion(text) {
                 return AriaDummyBeat(
                     domain: .lifestyle,
-                    prose: QualityOfLifeLivingStore.coachingLine(),
+                    prose: QualityOfLifeLivingStore.coachingLine(
+                        variety: AriaReplyVariety.occurrence(for: text)
+                    ),
                     suggestedActions: ["Open Lifestyle", "What should I change?"]
                 )
             }
@@ -416,7 +438,12 @@ enum AriaDummyOrchestrator {
                 || domain == .nutrition {
                 return AriaDummyBeat(
                     domain: .nutrition,
-                    prose: "Keep food simple — protein and something you will actually eat.",
+                    prose: AriaReplyVariety.pick([
+                        "Keep food simple — protein and something you will actually eat.",
+                        "Eat something you'll actually finish — protein first, nothing fancy.",
+                        "Food stays simple: protein plus a plate you will eat.",
+                        "Don't overthink the plate — protein and a meal you'll finish.",
+                    ], prompt: text),
                     suggestedActions: ["What should I eat?", "Protein ideas"]
                 )
             }
@@ -703,6 +730,7 @@ enum AriaDummyOrchestrator {
         \(prompt)
 
         Keep every fact. Do not add medical claims. Do not say you are a dummy, local, or fill-in.
+        If they already asked this, rephrase — never reprint the last reply.
 
         \(skeleton)
         """
@@ -720,6 +748,14 @@ enum AriaDummyOrchestrator {
         #else
         return skeleton
         #endif
+    }
+
+    private static func publish(_ response: AriaResponse, prompt: String) -> AriaResponse {
+        var out = response
+        let message = AriaReplyVariety.distinct(prompt: prompt, draft: out.message)
+        out.message = message
+        out.proseSummary = message
+        return out
     }
 
     private static func confirm(_ message: String, store: AppStore, card: RichCardPayload?) -> AriaResponse {

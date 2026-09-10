@@ -22,6 +22,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         Reference biometrics when useful. Never invent medical advice.
         Theme the language when the user wants Solo Leveling / other narrative styles, but keep plans real and safe.
         Vary phrasing every turn — never sound like a script repeating itself.
+        If they copy-paste the same question, give a new phrasing. Keep the facts.
         One next move. Never a new personality.
         Lead every reply with the best answer the data supports — never open with
         only a question. If something is genuinely missing, give your best answer
@@ -108,6 +109,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         User message: "\(input)"
         
         Respond in-character with the voice profile above. Answer the user's actual message — do not change the topic. If they want a workout or themed plan, describe the session clearly.
+        If they paste the same question again, rephrase — keep the facts, never reprint the previous reply.
         Use cycle context for training bias only — never medical or contraceptive advice.
         Use medication context only to personalize lifestyle and training for this person. Never prescribe. Never name a dose. Never diagnose. For you, not for everyone.
         If emotional keywords appear (fight, anxious, overwhelmed, sad, parenting stress, PMS mood), lead with human emotional support: validate, practical moves, optional scripts. Not therapy. Crisis → urge real emergency resources.

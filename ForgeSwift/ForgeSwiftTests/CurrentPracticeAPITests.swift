@@ -220,6 +220,10 @@ final class CurrentPracticeAPITests: XCTestCase {
                 toPrompt: "what's my quality of life"
             )
         )
+        XCTAssertEqual(
+            AriaReplyVariety.normalizePrompt("what’s my  quality of life\n"),
+            AriaReplyVariety.normalizePrompt("what's my quality of life")
+        )
     }
 
     func testInstalledTestReadySeedsPersistAcrossProcessRestarts() {

@@ -89,7 +89,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         
         // Quality of life — the Lifestyle snapshot, never a second number.
         if QualityOfLifeLivingStore.isQuestion(input) {
-            return generateQualityOfLifeResponse()
+            return generateQualityOfLifeResponse(input: input)
         }
 
         // Fallback
@@ -642,9 +642,11 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         return TrainerResponse(content: content, confidence: 0.9)
     }
     
-    private func generateQualityOfLifeResponse() -> TrainerResponse {
+    private func generateQualityOfLifeResponse(input: String) -> TrainerResponse {
         TrainerResponse(
-            content: QualityOfLifeLivingStore.coachingLine(),
+            content: QualityOfLifeLivingStore.coachingLine(
+                variety: AriaReplyVariety.occurrence(for: input)
+            ),
             suggestedActions: ["Open Lifestyle", "What should I change?"],
             confidence: 0.93
         )
