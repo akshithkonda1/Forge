@@ -46,6 +46,21 @@ final class AriaPromptCorrelationTests: XCTestCase {
         )
     }
 
+    func testSpokenQoLAbbreviationAnswersQualityOfLifePrompt() {
+        XCTAssertTrue(
+            AriaPromptCorrelation.correlates(
+                reply: "Lifestyle QoL is 71/100 (steady). That's the same grade Life shows.",
+                toPrompt: "what's my quality of life"
+            )
+        )
+        XCTAssertTrue(
+            AriaPromptCorrelation.correlates(
+                reply: "Upper body train day, keep it honest, skip the hero session.",
+                toPrompt: "what should I train today"
+            )
+        )
+    }
+
     func testGroundedQoLUsesTheLivingSnapshotLine() {
         let suite = "forge.qol.corr.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!

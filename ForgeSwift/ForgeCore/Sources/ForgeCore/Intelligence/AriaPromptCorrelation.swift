@@ -77,7 +77,9 @@ public enum AriaPromptCorrelation: Sendable {
         let mentions = requiredMentions(in: text)
         if mentions.isEmpty { return true }
         let lower = reply.lowercased()
-        return mentions.contains { lower.contains($0) }
+        return mentions.contains { mention in
+            expansions(for: mention).contains { lower.contains($0) }
+        }
     }
 
     /// Pack-story color is for greetings and "how am I", not a specific ask.
@@ -93,6 +95,13 @@ public enum AriaPromptCorrelation: Sendable {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         if correlates(reply: trimmed, toPrompt: prompt) { return trimmed }
         if QualityOfLifeLivingStore.isQuestion(prompt) {
+            let lower = trimmed.lowercased()
+            // Keep a draft that already speaks Life's snapshot. Do not replace
+            // it with process-default coachingLine() — tests (and Device Hub)
+            // publish the number into a suite, not UserDefaults.standard.
+            if lower.contains("/100") || lower.contains("qol") || lower.contains("same grade") {
+                return trimmed
+            }
             return QualityOfLifeLivingStore.coachingLine(
                 variety: AriaReplyVariety.occurrence(for: prompt)
             )
@@ -127,5 +136,20 @@ public enum AriaPromptCorrelation: Sendable {
 
     public static func boardAsk(_ lower: String) -> Bool {
         lower.contains("on my board") || lower.contains("what's on my board") || lower.contains("whats on my board")
+    }
+
+    /// Spoken aliases so "Lifestyle QoL is 71/100" still answers
+    /// "what's my quality of life", and "session" still answers "train".
+    private static func expansions(for mention: String) -> [String] {
+        switch mention {
+        case "quality of life", "qol":
+            return ["quality of life", "qol"]
+        case "train", "workout":
+            return ["train", "workout", "session"]
+        case "tuxedo", "tux":
+            return ["tuxedo", "tux", "suit"]
+        default:
+            return [mention]
+        }
     }
 }
