@@ -27,7 +27,7 @@ final class AriaPromptCorrelationTests: XCTestCase {
         let asked = AriaPromptCorrelation.askedDomains(in: prompt)
         XCTAssertTrue(asked.contains(.sleep))
         XCTAssertTrue(asked.contains(.training))
-        XCTAssertTrue(asked.contains(.nutrition) || asked.contains(.lifestyle))
+        XCTAssertTrue(asked.contains(.nutrition), "eat in the prompt must keep nutrition even when sleep+train score higher: \(asked)")
     }
 
     func testTuxedoAskIsLifestyleNotASession() {

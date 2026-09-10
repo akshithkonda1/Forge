@@ -224,13 +224,32 @@ public enum QualityOfLifeLivingStore: Sendable {
         }
     }
 
-    public static func coachingLine(defaults: UserDefaults = .standard) -> String {
+    public static func coachingLine(
+        defaults: UserDefaults = .standard,
+        variety: Int = 0
+    ) -> String {
+        let index = variety < 0 ? 0 : variety
         guard let snap = load(defaults: defaults) else {
-            return "Open Lifestyle and I'll grade QoL there — ARIA uses that same number, not a second score."
+            let missing = [
+                "Open Lifestyle and I'll grade QoL there — ARIA uses that same number, not a second score.",
+                "I don't have a Lifestyle QoL snapshot yet. Open Lifestyle and I'll use that same grade.",
+                "No Lifestyle QoL on file — open Lifestyle so ARIA can speak that number, not a second score.",
+                "Lifestyle hasn't published QoL yet. Open it and I'll read the same grade Life shows.",
+            ]
+            return missing[index % missing.count]
         }
-        let band = QualityOfLifeBand(score: snap.overall)
+        let band = QualityOfLifeBand(score: snap.overall).label.lowercased()
+        let n = snap.overall
         let estimate = snap.confidence < 0.5 ? " That's an estimate until more of life is measured." : ""
-        return "Lifestyle QoL is \(snap.overall)/100 (\(band.label.lowercased())). That's the same grade Life shows.\(estimate)"
+        let lines = [
+            "Lifestyle QoL is \(n)/100 (\(band)). That's the same grade Life shows.",
+            "Life still grades Lifestyle QoL at \(n)/100 — \(band). Same grade Life shows.",
+            "The Lifestyle QoL snapshot is \(n)/100 (\(band)). ARIA reads that same grade.",
+            "Same Lifestyle QoL: \(n)/100 (\(band)). That's the grade Life is showing.",
+            "I'm not minting a second score. Lifestyle QoL is \(n)/100 (\(band)) — the same grade Life shows.",
+            "Reading Life's board: Lifestyle QoL \(n)/100 (\(band)). That's the number ARIA uses.",
+        ]
+        return lines[index % lines.count] + estimate
     }
 
     /// Chat that is asking for the Life grade — ARIA must answer from this

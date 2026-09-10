@@ -25,6 +25,11 @@ public enum AriaPromptCorrelation: Sendable {
         if AriaReferenceCatalog.questionSuggestsEventPrep(trimmed) { add(.lifestyle) }
         if calendarAsk(lower) { add(.lifestyle) }
         if boardAsk(lower) { add(.progress) }
+        // Language the prompt named, even when a louder phrase (train + slept)
+        // would otherwise push eat/food below AriaIntentResolver's relative floor.
+        if sleepAsk(lower) { add(.sleep) }
+        if trainingAsk(lower) { add(.training) }
+        if nutritionAsk(lower) { add(.nutrition) }
 
         let ranked = AriaIntentResolver.rank(AriaIntentInput(text: trimmed))
         for domain in AriaIntentResolver.actionable(ranked, limit: 4) {
@@ -88,7 +93,9 @@ public enum AriaPromptCorrelation: Sendable {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         if correlates(reply: trimmed, toPrompt: prompt) { return trimmed }
         if QualityOfLifeLivingStore.isQuestion(prompt) {
-            return QualityOfLifeLivingStore.coachingLine()
+            return QualityOfLifeLivingStore.coachingLine(
+                variety: AriaReplyVariety.occurrence(for: prompt)
+            )
         }
         if trimmed.isEmpty {
             return "I heard you — \(prompt.trimmingCharacters(in: .whitespacesAndNewlines))"
@@ -100,6 +107,14 @@ public enum AriaPromptCorrelation: Sendable {
 
     public static func trainingAsk(_ lower: String) -> Bool {
         ["train", "workout", "session", "lift", "gym", "exercise"].contains { lower.contains($0) }
+    }
+
+    public static func sleepAsk(_ lower: String) -> Bool {
+        ["sleep", "slept", "insomnia", "bedtime", "nap"].contains { lower.contains($0) }
+    }
+
+    public static func nutritionAsk(_ lower: String) -> Bool {
+        ["eat", "food", "protein", "meal", "calorie", "hydrat"].contains { lower.contains($0) }
     }
 
     public static func calendarAsk(_ lower: String) -> Bool {
