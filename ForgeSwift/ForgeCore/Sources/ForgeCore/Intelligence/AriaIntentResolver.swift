@@ -420,7 +420,7 @@ public enum AriaIntentResolver {
             ("readiness", ["readiness", "recover", "hrv", "tired", "exhausted", "drained"]),
             ("training", ["train", "workout", "session", "lift", "gym"]),
             ("nutrition", ["eat", "food", "protein", "meal", "calorie", "hydrat"]),
-            ("lifestyle", ["work", "travel", "busy", "schedule", "calendar", "tonight"]),
+            ("lifestyle", ["work", "travel", "busy", "schedule", "calendar", "tonight", "quality of life", "qol", "wellbeing"]),
             ("progress", ["progress", "gains", "stronger", "streak", "plateau"]),
             ("body", ["pain", "hurt", "knee", "shoulder", "injury", "ache"]),
             ("cycle", ["period", "cycle", "luteal", "follicular", "pms", "cramp"]),
@@ -551,6 +551,10 @@ public enum AriaIntentResolver {
         .body: ["something hurts", "is this an injury", "still sore", "pain in my"],
         .progress: ["am i getting stronger", "how am i progressing", "is this working"],
         .cycle: ["my cycle", "on my period", "time of the month", "cycle day"],
+        .lifestyle: [
+            "quality of life", "how's my life", "how is my life",
+            "lifestyle score", "grade my life", "how am i living",
+        ],
     ]
 
     private static let keywords: [AriaIntentDomain: [String]] = [
@@ -561,7 +565,7 @@ public enum AriaIntentResolver {
         .body: ["pain", "hurt", "sore", "injury", "ache", "strain", "tweak"],
         .cycle: ["period", "menstrual", "luteal", "follicular", "ovulat", "pms", "cramp"],
         .progress: ["progress", "gains", "stronger", "streak", "improving", "plateau"],
-        .lifestyle: ["work", "travel", "busy", "stress", "schedule", "time"],
+        .lifestyle: ["work", "travel", "busy", "stress", "schedule", "time", "qol", "wellbeing"],
     ]
 }
 

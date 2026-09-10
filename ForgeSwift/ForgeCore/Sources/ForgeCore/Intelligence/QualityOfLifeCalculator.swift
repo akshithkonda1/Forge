@@ -77,6 +77,192 @@ public enum QualityOfLifePillar: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// Who the person is — this remaps pillar weights so QoL grades *their* life.
+/// Homebody: sleep and nutrition over activity. Outdoors: activity, vitals,
+/// nutrition, then sleep. Mind and social stay first-class either way.
+public enum QualityOfLifeArchetype: String, Codable, CaseIterable, Sendable {
+    case unset
+    case homebody
+    case outdoors
+    case balanced
+
+    public var title: String {
+        switch self {
+        case .unset: return "Not set yet"
+        case .homebody: return "Homebody"
+        case .outdoors: return "Outdoors"
+        case .balanced: return "Balanced"
+        }
+    }
+}
+
+public struct QualityOfLifePersona: Codable, Sendable, Equatable {
+    public var archetype: QualityOfLifeArchetype
+    public var sleepNeedPreferenceHours: Double?
+    public var socialEnergy0to10: Double?
+    public var workStrain0to10: Double?
+    public var nutritionRelationship: String?
+
+    public static let balanced = QualityOfLifePersona(archetype: .balanced)
+
+    public init(
+        archetype: QualityOfLifeArchetype = .balanced,
+        sleepNeedPreferenceHours: Double? = nil,
+        socialEnergy0to10: Double? = nil,
+        workStrain0to10: Double? = nil,
+        nutritionRelationship: String? = nil
+    ) {
+        self.archetype = archetype
+        self.sleepNeedPreferenceHours = sleepNeedPreferenceHours
+        self.socialEnergy0to10 = socialEnergy0to10
+        self.workStrain0to10 = workStrain0to10
+        self.nutritionRelationship = nutritionRelationship
+    }
+
+    /// Weights always sum to 1.0.
+    public func weight(for pillar: QualityOfLifePillar) -> Double {
+        switch archetype {
+        case .unset, .balanced:
+            return pillar.weight
+        case .homebody:
+            switch pillar {
+            case .sleep: return 0.28
+            case .nutrition: return 0.22
+            case .mind: return 0.16
+            case .social: return 0.12
+            case .vitals: return 0.08
+            case .hydration: return 0.08
+            case .activity: return 0.06
+            }
+        case .outdoors:
+            switch pillar {
+            case .activity: return 0.24
+            case .vitals: return 0.18
+            case .nutrition: return 0.16
+            case .sleep: return 0.14
+            case .mind: return 0.12
+            case .social: return 0.10
+            case .hydration: return 0.06
+            }
+        }
+    }
+}
+
+/// The score Life shows is the score ARIA uses. One snapshot, one algorithm.
+public enum QualityOfLifeLivingStore: Sendable {
+    public static let defaultsKey = "forge.qol.livingSnapshot.v1"
+    public static let personaKey = "forge.qol.persona.v1"
+    public static let interviewCompletedKey = "forge.lifestyle.interview.completed.v1"
+
+    public struct Snapshot: Codable, Sendable, Equatable {
+        public var overall: Int
+        public var rawOverall: Int
+        public var confidence: Double
+        public var pillarScores: [String: Int]
+        public var personaArchetype: String
+        public var updatedAt: Date
+
+        public init(
+            overall: Int,
+            rawOverall: Int,
+            confidence: Double,
+            pillarScores: [String: Int],
+            personaArchetype: String,
+            updatedAt: Date
+        ) {
+            self.overall = overall
+            self.rawOverall = rawOverall
+            self.confidence = confidence
+            self.pillarScores = pillarScores
+            self.personaArchetype = personaArchetype
+            self.updatedAt = updatedAt
+        }
+    }
+
+    public static func publish(
+        _ score: QualityOfLifeScore,
+        persona: QualityOfLifePersona,
+        defaults: UserDefaults = .standard,
+        now: Date = Date()
+    ) {
+        var pillars: [String: Int] = [:]
+        for (pillar, value) in score.pillarScores {
+            pillars[pillar.rawValue] = value
+        }
+        let snap = Snapshot(
+            overall: score.overall,
+            rawOverall: score.rawOverall,
+            confidence: score.confidence,
+            pillarScores: pillars,
+            personaArchetype: persona.archetype.rawValue,
+            updatedAt: now
+        )
+        if let data = try? JSONEncoder().encode(snap) {
+            defaults.set(data, forKey: defaultsKey)
+        }
+    }
+
+    public static func load(defaults: UserDefaults = .standard) -> Snapshot? {
+        guard let data = defaults.data(forKey: defaultsKey),
+              let snap = try? JSONDecoder().decode(Snapshot.self, from: data) else {
+            return nil
+        }
+        return snap
+    }
+
+    public static func loadPersona(defaults: UserDefaults = .standard) -> QualityOfLifePersona {
+        guard let data = defaults.data(forKey: personaKey),
+              let persona = try? JSONDecoder().decode(QualityOfLifePersona.self, from: data) else {
+            return .balanced
+        }
+        return persona
+    }
+
+    public static func savePersona(_ persona: QualityOfLifePersona, defaults: UserDefaults = .standard) {
+        if let data = try? JSONEncoder().encode(persona) {
+            defaults.set(data, forKey: personaKey)
+        }
+    }
+
+    public static func coachingLine(defaults: UserDefaults = .standard) -> String {
+        guard let snap = load(defaults: defaults) else {
+            return "Open Lifestyle and I'll grade QoL there — ARIA uses that same number, not a second score."
+        }
+        let band = QualityOfLifeBand(score: snap.overall)
+        let estimate = snap.confidence < 0.5 ? " That's an estimate until more of life is measured." : ""
+        return "Lifestyle QoL is \(snap.overall)/100 (\(band.label.lowercased())). That's the same grade Life shows.\(estimate)"
+    }
+
+    /// Chat that is asking for the Life grade — ARIA must answer from this
+    /// snapshot, never mint a parallel number.
+    public static func isQuestion(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        let phrases = [
+            "quality of life",
+            "qol",
+            "lifestyle score",
+            "lifestyle grade",
+            "how's my life",
+            "hows my life",
+            "how is my life",
+            "grade my life",
+            "wellbeing score",
+            "how am i living",
+            "how's life",
+            "hows life",
+        ]
+        return phrases.contains { lower.contains($0) }
+    }
+
+    public static func hasCompletedInterview(defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: interviewCompletedKey)
+    }
+
+    public static func markInterviewCompleted(defaults: UserDefaults = .standard) {
+        defaults.set(true, forKey: interviewCompletedKey)
+    }
+}
+
 public enum QualityOfLifeBand: String, Codable, CaseIterable, Sendable {
     case thriving
     case steady
@@ -155,6 +341,12 @@ public struct QualityOfLifeInputs: Sendable, Equatable {
     public var socialConnection0to10: Double?
     public var meaningfulSocialInteractions: Int?
 
+    // Life context — weekly mood, calendar load, work strain, sleep preference
+    public var calendarBusyness0to1: Double?
+    public var weeklyMood0to10: Double?
+    public var sleepNeedPreferenceHours: Double?
+    public var workStrain0to10: Double?
+
     // Personalization (optional; population defaults when absent)
     public var bodyMassKg: Double?
     public var age: Int?
@@ -184,6 +376,10 @@ public struct QualityOfLifeInputs: Sendable, Equatable {
         selfReportedMood0to10: Double? = nil,
         socialConnection0to10: Double? = nil,
         meaningfulSocialInteractions: Int? = nil,
+        calendarBusyness0to1: Double? = nil,
+        weeklyMood0to10: Double? = nil,
+        sleepNeedPreferenceHours: Double? = nil,
+        workStrain0to10: Double? = nil,
         bodyMassKg: Double? = nil,
         age: Int? = nil,
         biologicalSexFemale: Bool? = nil
@@ -211,6 +407,10 @@ public struct QualityOfLifeInputs: Sendable, Equatable {
         self.selfReportedMood0to10 = selfReportedMood0to10
         self.socialConnection0to10 = socialConnection0to10
         self.meaningfulSocialInteractions = meaningfulSocialInteractions
+        self.calendarBusyness0to1 = calendarBusyness0to1
+        self.weeklyMood0to10 = weeklyMood0to10
+        self.sleepNeedPreferenceHours = sleepNeedPreferenceHours
+        self.workStrain0to10 = workStrain0to10
         self.bodyMassKg = bodyMassKg
         self.age = age
         self.biologicalSexFemale = biologicalSexFemale
@@ -261,7 +461,10 @@ public enum QualityOfLifeCalculator {
     /// Blend every pillar that has data, weighting each by its share and
     /// renormalizing over what is present. Absence of a signal lowers confidence,
     /// never the score.
-    public static func score(from inputs: QualityOfLifeInputs) -> QualityOfLifeScore {
+    public static func score(
+        from inputs: QualityOfLifeInputs,
+        persona: QualityOfLifePersona = .balanced
+    ) -> QualityOfLifeScore {
         var scores: [QualityOfLifePillar: Double] = [:]
         var depths: [QualityOfLifePillar: Double] = [:]
 
@@ -279,19 +482,19 @@ public enum QualityOfLifeCalculator {
         add(.mind, mindPillar(inputs))
         add(.social, socialPillar(inputs))
 
-        let coverage = scores.keys.reduce(0.0) { $0 + $1.weight }
+        let coverage = scores.keys.reduce(0.0) { $0 + persona.weight(for: $1) }
         guard coverage > 0 else {
             // Nothing measured yet — reported honestly, never fabricated.
             return QualityOfLifeScore(overall: 0, rawOverall: 0, confidence: 0, pillarScores: [:])
         }
 
-        let blended = scores.reduce(0.0) { $0 + $1.value * $1.key.weight } / coverage
+        let blended = scores.reduce(0.0) { $0 + $1.value * persona.weight(for: $1.key) } / coverage
         // Confidence rewards both breadth (which pillars) and depth (how fully
         // each was measured). A pillar with any signal is already informative,
         // so presence earns 60% of its weight and full depth earns the rest —
         // shallow coverage still reads as an estimate without being punitive.
         let confidence = scores.keys.reduce(0.0) { total, pillar in
-            total + pillar.weight * (0.6 + 0.4 * (depths[pillar] ?? 0))
+            total + persona.weight(for: pillar) * (0.6 + 0.4 * (depths[pillar] ?? 0))
         }
 
         var rounded: [QualityOfLifePillar: Int] = [:]
@@ -310,7 +513,7 @@ public enum QualityOfLifeCalculator {
 
     private static func sleepPillar(_ i: QualityOfLifeInputs) -> PillarResult? {
         guard let hours = i.sleepHours, hours > 0, hours <= 16 else { return nil }
-        let need = sleepNeedHours(age: i.age)
+        let need = sleepNeedHours(age: i.age, preference: i.sleepNeedPreferenceHours)
         var signals = [Signal(optimum(hours / need, sigma: 0.16), 0.70)]  // duration has a real optimum
         if let deep = i.deepSleepMinutes, deep >= 0, deep <= 360 {
             signals.append(Signal(rising(deep / 60.0), 0.15))
@@ -403,6 +606,12 @@ public enum QualityOfLifeCalculator {
         if let mood = i.selfReportedMood0to10 {
             signals.append(Signal(rising(mood / 10.0), 1))
         }
+        if let weekly = i.weeklyMood0to10, weekly >= 0, weekly <= 10 {
+            signals.append(Signal(rising(weekly / 10.0), 1.2))
+        }
+        if let strain = i.workStrain0to10, strain >= 0, strain <= 10 {
+            signals.append(Signal(clamp(1 - strain / 10.0, 0, 1) * 100, 0.9))
+        }
         return combine(signals, maxSignals: QualityOfLifePillar.mind.maxSignals)
     }
 
@@ -413,6 +622,12 @@ public enum QualityOfLifeCalculator {
         }
         if let interactions = i.meaningfulSocialInteractions, interactions >= 0 {
             signals.append(Signal(clamp(25 + Double(interactions) * 20, 0, 100), 1))
+        }
+        if let busy = i.calendarBusyness0to1, busy >= 0, busy <= 1 {
+            // A packed week without felt connection is strain, not thriving.
+            let connection = (i.socialConnection0to10 ?? 5) / 10.0
+            let load = clamp(100 * (1 - busy) * (0.45 + 0.55 * connection), 0, 100)
+            signals.append(Signal(load, 0.8))
         }
         return combine(signals, maxSignals: QualityOfLifePillar.social.maxSignals)
     }
@@ -468,7 +683,8 @@ public enum QualityOfLifeCalculator {
 
     // MARK: - Personalized targets
 
-    private static func sleepNeedHours(age: Int?) -> Double {
+    private static func sleepNeedHours(age: Int?, preference: Double? = nil) -> Double {
+        if let preference, preference >= 4, preference <= 11 { return preference }
         guard let age = age else { return 8.0 }
         if age < 18 { return 9.0 }
         if age >= 65 { return 7.5 }
