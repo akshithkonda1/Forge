@@ -402,7 +402,8 @@ enum AriaDummyTurn {
         beats: [AriaDummyBeat],
         interpretation: AriaDummyInterpretation,
         name: String,
-        seed: UInt64
+        seed: UInt64,
+        prompt: String = ""
     ) -> String {
         var rng = AriaSeededRNG(seed: seed == 0 ? 0xA11A : seed)
         let sleep = beats.first { $0.domain == .sleep || $0.domain == .readiness }
@@ -412,6 +413,13 @@ enum AriaDummyTurn {
         let extra = beats.filter {
             $0.domain == .cycle || $0.domain == .progress
         }
+        let askedFood = AriaPromptCorrelation.requiredMentions(in: prompt)
+            .contains { ["eat", "food", "protein", "water"].contains($0) }
+            || interpretation.logWaterMl != nil
+            || interpretation.noteToWrite != nil
+            || interpretation.readCalendar
+            || QualityOfLifeLivingStore.isQuestion(prompt)
+            || AriaReferenceCatalog.questionSuggestsEventPrep(prompt)
 
         var sentences: [String] = []
         let hey = name.isEmpty ? "" : rng.pick(["Hey \(name) — ", "\(name), ", ""])
@@ -449,9 +457,9 @@ enum AriaDummyTurn {
         }
 
         if let train {
-            sentences.append(clip(train.prose, limit: 180))
+            sentences.append(clip(train.prose, limit: 280))
         }
-        if let food {
+        if let food, askedFood || train == nil {
             let lowerFood = food.prose.lowercased()
             let calendarThought = interpretation.readCalendar
                 || lowerFood.contains("calendar")
@@ -459,6 +467,10 @@ enum AriaDummyTurn {
                 || lowerFood.contains("trip")
                 || lowerFood.contains("travel")
                 || lowerFood.contains("busy window")
+                || lowerFood.contains("lifestyle qol")
+                || lowerFood.contains("quality of life")
+                || lowerFood.contains("tux")
+                || lowerFood.contains("suit")
             let limit = calendarThought ? 280 : 140
             sentences.append(clip(food.prose, limit: limit))
         }
@@ -479,8 +491,10 @@ enum AriaDummyTurn {
            !lower.contains("sleep"), !lower.contains("night"), !lower.contains("slept") {
             joined = "Last night was thin. " + joined
         }
+        let promptLower = prompt.lowercased()
         if interpretation.domains.contains(.nutrition),
            interpretation.logWaterMl == nil,
+           promptLower.contains("eat") || promptLower.contains("food") || promptLower.contains("protein"),
            !lower.contains("eat"), !lower.contains("food"), !lower.contains("protein"),
            !lower.contains("water") {
             joined += " Keep food simple — protein and something you will actually eat."

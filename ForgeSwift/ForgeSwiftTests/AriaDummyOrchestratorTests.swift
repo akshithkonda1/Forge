@@ -386,6 +386,102 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertNotEqual(session.intensity, .high)
     }
 
+    func testLifestyleQoLIsTheSameScoreLifePublished() async {
+        let key = QualityOfLifeLivingStore.defaultsKey
+        let previous = UserDefaults.standard.data(forKey: key)
+        defer {
+            if let previous {
+                UserDefaults.standard.set(previous, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+        let score = QualityOfLifeCalculator.score(
+            from: QualityOfLifeInputs(sleepHours: 8, steps: 8_000)
+        )
+        QualityOfLifeLivingStore.publish(score, persona: .balanced)
+        let store = makeStore()
+        let reply = await AriaDummyOrchestrator.reply(
+            text: "what's my quality of life",
+            store: store,
+            agent: .lifestyle,
+            agents: ["lifestyle"]
+        )
+        XCTAssertTrue(
+            reply.message.contains("\(score.overall)/100"),
+            "ARIA must speak Life's snapshot, not a second grade: \(reply.message)"
+        )
+        XCTAssertTrue(
+            reply.message.lowercased().contains("lifestyle qol")
+                || reply.message.lowercased().contains("same grade"),
+            reply.message
+        )
+        XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
+    }
+
+    func testReplyStaysOnThePromptNotThePinnedWorkout() async {
+        let key = QualityOfLifeLivingStore.defaultsKey
+        let previous = UserDefaults.standard.data(forKey: key)
+        defer {
+            if let previous {
+                UserDefaults.standard.set(previous, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+        let score = QualityOfLifeCalculator.score(
+            from: QualityOfLifeInputs(sleepHours: 7.5, steps: 9_000)
+        )
+        QualityOfLifeLivingStore.publish(score, persona: .balanced)
+        let store = makeStore()
+        let qol = await AriaDummyOrchestrator.reply(
+            text: "what's my quality of life",
+            store: store,
+            agent: .workout,
+            agents: ["workout"]
+        )
+        XCTAssertTrue(qol.message.contains("\(score.overall)/100"), qol.message)
+        XCTAssertFalse(qol.message.lowercased().contains("squat"))
+        XCTAssertNil(qol.richCard)
+
+        let tuxedo = await AriaDummyOrchestrator.reply(
+            text: "what tuxedo should I wear to a wedding",
+            store: store,
+            agent: .workout,
+            agents: ["workout"]
+        )
+        let tuxLower = tuxedo.message.lowercased()
+        XCTAssertTrue(
+            tuxLower.contains("tux") || tuxLower.contains("suit") || tuxLower.contains("wedding"),
+            tuxedo.message
+        )
+        XCTAssertFalse(tuxLower.contains("squat"))
+        XCTAssertTrue(
+            AriaPromptCorrelation.correlates(
+                reply: tuxedo.message,
+                toPrompt: "what tuxedo should I wear to a wedding"
+            )
+        )
+    }
+
+    func testSpokenWeddingReshapesTrainingWithoutASecondQoL() async {
+        defer { AriaContextStore.shared.applyCalendarIngestTags([]) }
+        AriaContextStore.shared.applyCalendarIngestTags([])
+        let store = makeStore()
+        let reply = await AriaDummyOrchestrator.reply(
+            text: "I have a wedding in 2 weeks — what should I train",
+            store: store,
+            agent: .workout,
+            agents: ["workout"]
+        )
+        let lower = reply.message.lowercased()
+        XCTAssertTrue(
+            lower.contains("wedding") || lower.contains("suit") || lower.contains("progressive"),
+            "spoken wedding must reshape the session: \(reply.message)"
+        )
+        XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
+    }
+
     private func makeStore() -> AppStore {
         let store = AppStore()
         store.chatMessages = []

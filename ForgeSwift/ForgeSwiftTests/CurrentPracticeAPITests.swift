@@ -203,6 +203,23 @@ final class CurrentPracticeAPITests: XCTestCase {
         XCTAssertEqual(FakeCalendarPack.horizonDays, 365)
         XCTAssertFalse(CalendarManager.writesToPersonalCalendars)
         XCTAssertFalse(FakeCalendarPack.writesToPersonalCalendars)
+        XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
+        XCTAssertFalse(AriaDummyTurn.usesOffDeviceLLM)
+        XCTAssertEqual(AriaOnboardingGuide.welcomeTitle, "ARIA is already learning.")
+        XCTAssertTrue(QualityOfLifeLivingStore.isQuestion("what's my quality of life"))
+        XCTAssertFalse(QualityOfLifeLivingStore.isQuestion("what should I train today"))
+        XCTAssertTrue(
+            AriaPromptCorrelation.correlates(
+                reply: "Lifestyle QoL is 71/100 (steady). That's the same grade Life shows.",
+                toPrompt: "what's my quality of life"
+            )
+        )
+        XCTAssertFalse(
+            AriaPromptCorrelation.correlates(
+                reply: "Squats, 4x8, then a long run.",
+                toPrompt: "what's my quality of life"
+            )
+        )
     }
 
     func testInstalledTestReadySeedsPersistAcrossProcessRestarts() {

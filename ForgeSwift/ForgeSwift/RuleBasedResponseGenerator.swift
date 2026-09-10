@@ -87,6 +87,11 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             return generateMotivationResponse(context: context)
         }
         
+        // Quality of life — the Lifestyle snapshot, never a second number.
+        if QualityOfLifeLivingStore.isQuestion(input) {
+            return generateQualityOfLifeResponse()
+        }
+
         // Fallback
         return generateFallbackResponse(context: context)
     }
@@ -116,6 +121,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         if isSleepQuery(lower) { return .sleep }
         if isPainMention(lower) { return .body }
         if isProgressQuery(lower) { return .progress }
+        if QualityOfLifeLivingStore.isQuestion(input) { return .lifestyle }
         if isMotivationRequest(lower) || isGratitude(lower) { return .lifestyle }
         if lower.contains("eat") || lower.contains("food") || lower.contains("protein")
             || lower.contains("meal") || lower.contains("calorie") || lower.contains("hydrat")
@@ -636,6 +642,14 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         return TrainerResponse(content: content, confidence: 0.9)
     }
     
+    private func generateQualityOfLifeResponse() -> TrainerResponse {
+        TrainerResponse(
+            content: QualityOfLifeLivingStore.coachingLine(),
+            suggestedActions: ["Open Lifestyle", "What should I change?"],
+            confidence: 0.93
+        )
+    }
+
     private func generateFallbackResponse(context: TrainerContext) -> TrainerResponse {
         let content = AriaVoiceEngine.speak(intent: .fallback, context: context)
         return TrainerResponse(content: content, confidence: 0.7)

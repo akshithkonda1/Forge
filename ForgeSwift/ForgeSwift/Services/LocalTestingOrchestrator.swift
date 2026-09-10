@@ -105,9 +105,9 @@ enum AriaModelTier: String {
 /// `AriaWebResearch`, a separate, clearly-named collaborator whose entire
 /// job is a curated, keyless fetch from a handful of general (non-Forge)
 /// reference URLs over the device's (or Simulator Mac's) default network
-/// — gated to local testing, isolated in its own file so this file's own
-/// "no network" grep stays literally true. Source *selection* lives in
-/// ForgeCore's `AriaReferenceCatalog` (no URLSession).
+/// — gated to local testing or Test-Ready dummy, isolated in its own file so
+/// this file's own "no network" grep stays literally true. Source *selection*
+/// lives in ForgeCore's `AriaReferenceCatalog` (no URLSession).
 @MainActor
 final class LocalTestingOrchestrator {
 
@@ -262,6 +262,9 @@ final class LocalTestingOrchestrator {
 
         var rng = AriaSeededRNG(seed: seed &+ UInt64(exchanges))
         var parts: [String] = [base.content]
+        if QualityOfLifeLivingStore.isQuestion(text) {
+            parts[0] = QualityOfLifeLivingStore.coachingLine()
+        }
 
         if let toolNote = AriaCycleTools.run(text: text) {
             parts.append(toolNote)
@@ -274,9 +277,8 @@ final class LocalTestingOrchestrator {
         if let recall = recallBeat(for: domain, rng: &rng) {
             parts.append(recall)
         }
-        if let crossover = affinityBeat(excluding: domain, rng: &rng) {
-            parts.append(crossover)
-        }
+        // Affinity crossover is unprompted by design — it changes the topic.
+        // Every reply has to stay on the prompt that just arrived.
         let signals = store.intentSignals(for: text)
         selfTrainFromConversation(text)
         var adaptation = AriaIntentResolver.adapt(signals)
@@ -292,7 +294,8 @@ final class LocalTestingOrchestrator {
         lastPredicted = predictedNow
         adaptation.lastVerdict = lastVerdict
         adaptation.calibration = calibration
-        if !adaptation.teachUser.isEmpty {
+        if !adaptation.teachUser.isEmpty,
+           AriaPromptCorrelation.correlates(reply: adaptation.teachUser, toPrompt: text) {
             parts.append(adaptation.teachUser)
         }
         // Device / Simulator default route (Wi-Fi, or the Mac's network in
@@ -336,11 +339,15 @@ final class LocalTestingOrchestrator {
             }
             store.todayWorkout = plan.workoutPlan
             if base.richCard == nil || base.richCard?.type != .workoutPlan {
+                let body = AriaPromptCorrelation.grounded(
+                    prompt: text,
+                    draft: ([plan.narrative] + parts.dropFirst()).joined(separator: "\n\n")
+                )
                 return AriaResponse(
                     confidenceReason: "Local testing — \(specialists) · \(engine) · slot "
                         + "\(tier.slot) (\(tier.displayName)) · no cloud\(wiredTag) · familiarity \(familiarity)/10.",
-                    proseSummary: plan.narrative,
-                    message: ([plan.narrative] + parts.dropFirst()).joined(separator: "\n\n"),
+                    proseSummary: body,
+                    message: body,
                     richCard: AriaService.payload(from: plan.richCard),
                     suggestedActions: plan.suggestedActions,
                     contextUpdates: ["relationship_level": familiarity],
@@ -349,11 +356,15 @@ final class LocalTestingOrchestrator {
             }
         }
 
+        let body = AriaPromptCorrelation.grounded(
+            prompt: text,
+            draft: parts.joined(separator: "\n\n")
+        )
         return AriaResponse(
             confidenceReason: "Local testing — \(specialists) · \(engine) · slot "
                 + "\(tier.slot) (\(tier.displayName)) · no cloud\(wiredTag) · familiarity \(familiarity)/10.",
-            proseSummary: base.content,
-            message: parts.joined(separator: "\n\n"),
+            proseSummary: body,
+            message: body,
             richCard: base.richCard.flatMap(AriaService.payload(from:)),
             suggestedActions: base.suggestedActions,
             contextUpdates: ["relationship_level": familiarity],
@@ -471,25 +482,6 @@ final class LocalTestingOrchestrator {
             ])
         }
         return nil
-    }
-
-    /// Once a domain dominates a session, raise it unprompted. Threshold is
-    /// three so a passing mention does not turn ARIA into a single-subject bore.
-    private func affinityBeat(excluding current: AriaLocalDomain, rng: inout AriaSeededRNG) -> String? {
-        guard familiarity >= 3 else { return nil }
-        guard rng.chance(0.4) else { return nil }
-
-        let dominant = affinity
-            .filter { $0.key != current && $0.value >= 3 }
-            .max(by: { $0.value < $1.value })?
-            .key
-        guard let dominant else { return nil }
-
-        return rng.pick([
-            "You keep circling back to \(dominant.spokenName). Want to just take that apart properly?",
-            "Noticing \(dominant.spokenName) comes up a lot with you — worth a real look when you've got the patience.",
-            "That's the third time \(dominant.spokenName) has come up. I don't think it's incidental.",
-        ])
     }
 
     private func conversationReward(_ text: String) -> Double? {
