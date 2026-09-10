@@ -4,10 +4,10 @@ import Foundation
 ///
 /// Same idea as SimRunner's 30-day persona: sleep stages, HRV, resting HR,
 /// steps, calories, water, and a few sessions. On the iOS 27 simulator the
-/// app writes this into HealthKit when the day's session seed changes, then
-/// reads it back through the normal HealthKit path. Relaunching the same day
-/// must not delete and rewrite the pack. Never sent to AWS. Never written on
-/// a physical phone.
+/// app writes this into HealthKit when the process session seed changes, then
+/// reads it back through the normal HealthKit path. A new Simulator launch
+/// mints a new pack; Home does not wait on the rewrite. Never sent to AWS.
+/// Never written on a physical phone.
 public struct FakeHealthWorkout: Sendable, Equatable {
     public var name: String
     public var type: ForgeWorkoutType

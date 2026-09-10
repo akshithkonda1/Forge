@@ -4,12 +4,14 @@ import Foundation
 ///
 /// A new process used to mint a new seed, then delete and rewrite 30 days of
 /// HealthKit plus a year of EventKit on the main actor. That is what made
-/// Simulator launches take minutes. Seed is stable for the calendar day;
-/// HealthKit and calendar rewrites happen only when that seed changes, and
-/// Home never waits on them.
+/// Simulator launches take minutes. Seed is stable for the process (Home +
+/// Lifestyle share one pack); a new launch mints a new persona. HealthKit and
+/// calendar rewrites happen only when that seed changes, and Home never waits
+/// on them.
 public enum TestReadyLaunchPolicy: Sendable {
     public static let seedDefaultsKey = "forge.testReady.sessionSeed.v2"
     public static let seedDayDefaultsKey = "forge.testReady.sessionDay.v2"
+    public static let seedProcessTokenKey = "forge.testReady.sessionProcessToken.v1"
     public static let healthKitInstalledSeedKey = "forge.testReady.healthKit.installedSeed.v1"
     public static let calendarInstalledSeedKey = "forge.testReady.calendar.installedSeed.v1"
 
@@ -35,22 +37,25 @@ public enum TestReadyLaunchPolicy: Sendable {
         )
     }
 
-    /// Same seed for every launch on this calendar day. A new day may mint a
-    /// new persona so testers still see more than one body.
+    /// New Health + calendar persona every Simulator process. Same process
+    /// (Home + Lifestyle both asking) keeps one seed so the two packs match.
+    /// Home still does not wait on the rewrite.
     public static func sessionSeed(
         now: Date,
         defaults: UserDefaults,
         calendar: Calendar = .current,
+        processToken: String = ProcessInfo.processInfo.globallyUniqueString,
         generate: () -> Int
     ) -> Int {
         let day = dayStamp(now, calendar: calendar)
-        if defaults.string(forKey: seedDayDefaultsKey) == day,
+        if defaults.string(forKey: seedProcessTokenKey) == processToken,
            defaults.object(forKey: seedDefaultsKey) != nil {
             return defaults.integer(forKey: seedDefaultsKey)
         }
         let seed = generate()
         defaults.set(seed, forKey: seedDefaultsKey)
         defaults.set(day, forKey: seedDayDefaultsKey)
+        defaults.set(processToken, forKey: seedProcessTokenKey)
         return seed
     }
 

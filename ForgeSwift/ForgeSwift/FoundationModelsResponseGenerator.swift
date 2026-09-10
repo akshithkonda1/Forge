@@ -22,6 +22,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         Reference biometrics when useful. Never invent medical advice.
         Theme the language when the user wants Solo Leveling / other narrative styles, but keep plans real and safe.
         Vary phrasing every turn — never sound like a script repeating itself.
+        If they copy-paste the same question, give a new phrasing. Keep the facts.
         One next move. Never a new personality.
         Lead every reply with the best answer the data supports — never open with
         only a question. If something is genuinely missing, give your best answer
@@ -92,6 +93,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         
         Current Metrics:
         - Readiness: \(context.readiness.overall)/100 (\(theme.rankLabel(for: context.readiness.overall)))
+        - \(lifestyleQoLPromptLine())
         - HRV: \(context.dailyMetrics.hrv)ms
         - Resting HR: \(context.dailyMetrics.restingHR) bpm
         - Sleep Quality: \(context.readiness.sleepQuality)/100
@@ -106,7 +108,8 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         
         User message: "\(input)"
         
-        Respond in-character with the voice profile above. If they want a workout or themed plan, describe the session clearly.
+        Respond in-character with the voice profile above. Answer the user's actual message — do not change the topic. If they want a workout or themed plan, describe the session clearly.
+        If they paste the same question again, rephrase — keep the facts, never reprint the previous reply.
         Use cycle context for training bias only — never medical or contraceptive advice.
         Use medication context only to personalize lifestyle and training for this person. Never prescribe. Never name a dose. Never diagnose. For you, not for everyone.
         If emotional keywords appear (fight, anxious, overwhelmed, sad, parenting stress, PMS mood), lead with human emotional support: validate, practical moves, optional scripts. Not therapy. Crisis → urge real emergency resources.
@@ -114,6 +117,13 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         """
         
         return prompt
+    }
+
+    private func lifestyleQoLPromptLine() -> String {
+        if let snap = QualityOfLifeLivingStore.load() {
+            return "Lifestyle QoL (authoritative — same number Life shows, do not invent another): \(snap.overall)/100"
+        }
+        return "Lifestyle QoL: not graded yet. Send them to Lifestyle. Do not invent a number."
     }
 
     private func emotionalPromptBlock(_ input: String, _ context: TrainerContext) -> String {

@@ -776,6 +776,73 @@ final class AriaContextStore: ObservableObject {
         context.lifestyleTags = Array(Set(tags)).sorted()
         context.lastUpdated = Date()
         persist()
+        fileCalendarFacts(nextIncoming)
+    }
+
+    func fileSpoken(_ text: String, source: String = "chat") {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
+            category: .weSpokeAbout,
+            kind: "chat",
+            summary: "You said: \(trimmed)",
+            source: source
+        ))
+        if let days = SpokenEventParser.daysUntilWedding(in: trimmed) {
+            AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
+                category: .weSpokeAbout,
+                kind: "wedding",
+                summary: "Wedding in \(days) day\(days == 1 ? "" : "s") — you told me.",
+                source: source
+            ))
+            let plan = EventTrainingPolicy.weddingPlan(daysUntil: days)
+            AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
+                category: .inferences,
+                kind: "wedding_training",
+                summary: plan.reason,
+                source: source
+            ))
+            var tags = context.lifestyleTags.filter { !$0.hasPrefix("calendar:horizon:wedding:") }
+            tags.append("calendar:horizon:wedding:\(days)")
+            context.lifestyleTags = FakeCalendarPack.sanitizeTags(tags)
+            persist()
+        }
+    }
+
+    private func fileCalendarFacts(_ tags: [String]) {
+        let kinds = FakeCalendarPack.kinds(fromTags: tags)
+        let horizon = EventTrainingPolicy.parseHorizon(tags)
+        var facts: [AriaKnowledgeFact] = []
+        if !kinds.isEmpty {
+            facts.append(AriaKnowledgeFact(
+                category: .otherData,
+                kind: "calendar_week",
+                summary: "This week: \(kinds.map(\.spokenLabel).joined(separator: ", ")).",
+                source: "calendar"
+            ))
+        }
+        for item in horizon {
+            facts.append(AriaKnowledgeFact(
+                category: .otherData,
+                kind: "calendar_horizon",
+                summary: "Upcoming \(item.kind) in \(item.days) day\(item.days == 1 ? "" : "s").",
+                source: "calendar"
+            ))
+        }
+        if let wedding = horizon.first(where: { $0.kind == "wedding" }) {
+            facts.append(AriaKnowledgeFact(
+                category: .inferences,
+                kind: "wedding_training",
+                summary: EventTrainingPolicy.weddingPlan(daysUntil: wedding.days).reason,
+                source: "calendar"
+            ))
+        }
+        if !facts.isEmpty {
+            AriaKnowledgeLedgerStore.replace(category: .otherData, source: "calendar", with: facts.filter { $0.category == .otherData })
+            for fact in facts where fact.category == .inferences {
+                AriaKnowledgeLedgerStore.file(fact)
+            }
+        }
     }
 
     func applyLifestyleHistoryTags(_ incoming: [String]) {

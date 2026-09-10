@@ -7,9 +7,23 @@ final class AriaCoachAgentRouterTests: XCTestCase {
     func testPinnedAgentWins() {
         let ctx = AriaCoachAgentRouter.Context(pinned: .lifestyle, cycleAvailable: false)
         XCTAssertEqual(
-            AriaCoachAgentRouter.resolve(message: "what should I train today?", context: ctx),
+            AriaCoachAgentRouter.resolve(message: "hey", context: ctx),
             .lifestyle
         )
+    }
+
+    func testClearPromptBeatsAnUnrelatedPin() {
+        let ctx = AriaCoachAgentRouter.Context(pinned: .lifestyle, cycleAvailable: false)
+        XCTAssertEqual(
+            AriaCoachAgentRouter.resolve(message: "what should I train today?", context: ctx),
+            .workout
+        )
+        let qol = AriaCoachAgentRouter.plan(
+            message: "what's my quality of life",
+            context: AriaCoachAgentRouter.Context(pinned: .workout, cycleAvailable: false)
+        )
+        XCTAssertTrue(qol.kinds.contains(.lifestyle))
+        XCTAssertFalse(qol.kinds.contains(.workout))
     }
 
     func testRecoveryQuestionRoutesToRecovery() {
@@ -158,10 +172,10 @@ final class AriaCoachAgentRouterTests: XCTestCase {
             message: "what should I train after I eat",
             context: ctx
         )
-        XCTAssertEqual(plan.primary.kind, .progress)
+        XCTAssertEqual(plan.primary.kind, .workout)
         XCTAssertTrue(plan.kinds.contains(.workout))
         XCTAssertTrue(plan.kinds.contains(.lifestyle))
-        XCTAssertTrue(plan.kinds.contains(.progress))
+        XCTAssertFalse(plan.kinds.contains(.progress), "an unrelated pin must not ride a clear train+eat prompt")
     }
 }
 

@@ -14,6 +14,7 @@ struct SettingsPageView: View {
 
     @State private var showDevicesSheet = false
     @State private var catalogRevision = 0
+    @State private var showWhatIKnow = false
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
     @State private var showTrainingThemePicker = false
@@ -76,6 +77,18 @@ struct SettingsPageView: View {
 
                 sectionHeader("ARIA")
                 SectionCard {
+                    Button(action: { showWhatIKnow = true }) {
+                        SettingsRow(
+                            icon: "folder.fill",
+                            iconColor: .ember,
+                            label: "What I Know?",
+                            trailingText: "Apple Health, we spoke, other, inferences",
+                            showChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider().background(Color.borderColor)
                     Button(action: { showCoachingStylePicker = true }) {
                         SettingsRow(icon: "person.fill", iconColor: .ember, label: "Coaching Style",
                                     trailingText: store.userProfile.coachingStyle.label, showChevron: true)
@@ -668,6 +681,11 @@ struct SettingsPageView: View {
         }
         .sheet(isPresented: $showCoachingStylePicker) {
             CoachingStylePickerView()
+        }
+        .sheet(isPresented: $showWhatIKnow) {
+            NavigationStack {
+                WhatIKnowView()
+            }
         }
         .sheet(isPresented: $showTrainingThemePicker) {
             TrainingThemePickerView()

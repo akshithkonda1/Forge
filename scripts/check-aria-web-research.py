@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
-"""LocalTestingOrchestrator must stay network-free, and AriaWebResearch must
-stay confined to it.
+"""LocalTestingOrchestrator and AriaDummyOrchestrator must stay network-free,
+and AriaWebResearch must stay confined to those two call sites.
 
 LocalTestingOrchestrator's own doc comment promises it never calls Forge's
 backend — "no URLSession, no baseURL... checkable by grep" — because a
 tester needs to trust that a local-testing session cannot quietly touch
-production. AriaWebResearch is the one intentional exception: a curated,
+production. AriaDummyOrchestrator is the Test-Ready fill-in and makes the
+same promise. AriaWebResearch is the one intentional exception: a curated,
 keyless fetch to a handful of general reference URLs over the device's
-(or Simulator host's) default network, gated to local testing and isolated
-in its own file specifically so that promise stays literally true rather
-than becoming a comment the code no longer matches. Source selection lives
-in ForgeCore (`AriaReferenceCatalog`) and is allowed to be imported anywhere
-because it holds no URLSession.
+(or Simulator host's) default network, gated to local testing / Test-Ready
+dummy and isolated in its own file specifically so that promise stays
+literally true rather than becoming a comment the code no longer matches.
+Source selection lives in ForgeCore (`AriaReferenceCatalog`) and is allowed
+to be imported anywhere because it holds no URLSession.
 
 Both halves of that design are silently violable by a future edit that
-looks harmless in review: URLSession creeping into LocalTestingOrchestrator
-directly, or AriaWebResearch getting called from somewhere outside the one
-place that's actually gated behind AriaOperatingMode.isLocalTesting (e.g. a
-live-backend code path, or a UI file reaching for it directly). Neither
-would fail to compile and neither would fail an existing test. This is the
-same failure shape #155/#156's widget bundle collision was — a real
-regression with every other gate green — so it gets the same kind of gate.
+looks harmless in review: URLSession creeping into either orchestrator
+directly, or AriaWebResearch getting called from somewhere outside the
+gated files (e.g. a live-backend code path, or a UI file reaching for it
+directly). Neither would fail to compile and neither would fail an existing
+test. This is the same failure shape #155/#156's widget bundle collision
+was — a real regression with every other gate green — so it gets the same
+kind of gate.
 """
 
 import re
@@ -37,6 +38,7 @@ ROOT = Path(
 
 SERVICES_DIR = ROOT / "ForgeSwift" / "ForgeSwift" / "Services"
 ORCHESTRATOR = SERVICES_DIR / "LocalTestingOrchestrator.swift"
+DUMMY = SERVICES_DIR / "AriaDummyOrchestrator.swift"
 WEB_RESEARCH = SERVICES_DIR / "AriaWebResearch.swift"
 
 BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)
@@ -90,10 +92,25 @@ def main() -> int:
         else:
             print(f"✓ {character_voice.relative_to(ROOT)}: no network transport")
 
+    if not DUMMY.is_file():
+        status = 1
+        print(f"✗ {DUMMY.relative_to(ROOT)} not found — dummy fill-in must stay network-free.")
+    else:
+        dummy_hits = NETWORK_TERMS.findall(strip_comments(DUMMY.read_text(encoding="utf-8")))
+        if dummy_hits:
+            status = 1
+            print(f"✗ {DUMMY.relative_to(ROOT)} references {sorted(set(dummy_hits))} — "
+                  f"AriaDummyOrchestrator is supposed to hold no network transport at all. "
+                  f"If this turn genuinely needs the network, route it through AriaWebResearch "
+                  f"(local-testing / Test-Ready gated, its own file) rather than adding it here directly.")
+        else:
+            print(f"✓ {DUMMY.relative_to(ROOT)}: no network transport")
+
+    allowed_web = {ORCHESTRATOR, WEB_RESEARCH, DUMMY}
     swift_files = sorted(ROOT.joinpath("ForgeSwift").rglob("*.swift"))
     offenders: dict[Path, int] = {}
     for path in swift_files:
-        if path in (ORCHESTRATOR, WEB_RESEARCH):
+        if path in allowed_web:
             continue
         body = strip_comments(path.read_text(encoding="utf-8"))
         count = len(WEB_RESEARCH_REF.findall(body))
@@ -104,13 +121,13 @@ def main() -> int:
         status = 1
         for path, count in sorted(offenders.items()):
             print(f"✗ {path.relative_to(ROOT)}: references AriaWebResearch ({count}x) — "
-                  f"it should only ever be called from LocalTestingOrchestrator.swift, "
-                  f"the one call site that's actually behind "
-                  f"AriaOperatingMode.current.isLocalTesting. A call from anywhere else "
-                  f"risks turning a local-testing-only web fetch into a live-backend one.")
+                  f"it should only ever be called from LocalTestingOrchestrator.swift or "
+                  f"AriaDummyOrchestrator.swift, the call sites gated behind local testing "
+                  f"or Test-Ready dummy. A call from anywhere else risks turning a "
+                  f"curated web fetch into a live-backend one.")
     else:
-        print(f"✓ AriaWebResearch is referenced only from {ORCHESTRATOR.relative_to(ROOT)} "
-              f"and its own file")
+        print(f"✓ AriaWebResearch is referenced only from LocalTestingOrchestrator, "
+              f"AriaDummyOrchestrator, and its own file")
 
     return status
 

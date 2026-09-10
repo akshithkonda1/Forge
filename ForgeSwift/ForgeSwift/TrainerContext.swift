@@ -111,6 +111,7 @@ struct AriaLifeRead: Equatable {
     var calendarMorningBusy: Bool = false
     var calendarEveningBusy: Bool = false
     var calendarAllDayBusy: Bool = false
+    var calendarHorizonTags: [String] = []
 
     var hasEvening: Bool { lastNightKind != nil || lastNightLate || lastNightDrinks > 0 }
     var hasCalendar: Bool {
@@ -140,6 +141,7 @@ struct AriaLifeRead: Equatable {
         read.calendarMorningBusy = tags.contains("calendar:morning:busy")
         read.calendarEveningBusy = tags.contains("calendar:evening:busy")
         read.calendarAllDayBusy = tags.contains("calendar:allday:busy")
+        read.calendarHorizonTags = tags.filter { $0.hasPrefix("calendar:horizon:") }
         return read
     }
 
@@ -150,6 +152,7 @@ struct AriaLifeRead: Equatable {
         if calendarMorningBusy { tags.append("calendar:morning:busy") }
         if calendarEveningBusy { tags.append("calendar:evening:busy") }
         if calendarAllDayBusy { tags.append("calendar:allday:busy") }
+        tags.append(contentsOf: calendarHorizonTags)
         return FakeCalendarPack.sanitizeTags(tags)
     }
 
@@ -158,7 +161,10 @@ struct AriaLifeRead: Equatable {
     }
 
     func sessionFitLine() -> String? {
-        FakeCalendarPack.sessionFitLine(fromTags: calendarIngestPayload())
+        if let plan = EventTrainingPolicy.plan(fromTags: calendarIngestPayload()) {
+            return plan.reason
+        }
+        return FakeCalendarPack.sessionFitLine(fromTags: calendarIngestPayload())
     }
 
     func thinkingCalendarLine() -> String? {

@@ -255,10 +255,9 @@ extension AppStore {
     /// HealthKit cannot be written. Real HealthKit samples always win.
     /// Seed for this run's Test-Ready dataset.
     ///
-    /// Stable for the calendar day so Simulator relaunch does not delete and
-    /// rewrite HealthKit + a year of EventKit. A new day may mint a new
-    /// persona. Tests that need a fixed shape pass their own seed into
-    /// `FakeHealthPack.generate`.
+    /// Stable for the process so Home and Lifestyle share one pack. A new
+    /// Simulator launch mints a new persona. Tests that need a fixed shape
+    /// pass their own seed into `FakeHealthPack.generate`.
     static var testReadySessionSeed: Int {
         TestReadyLaunchPolicy.sessionSeed(now: Date(), defaults: .standard) {
             let time = UInt64(max(0, Date().timeIntervalSince1970 * 1_000))

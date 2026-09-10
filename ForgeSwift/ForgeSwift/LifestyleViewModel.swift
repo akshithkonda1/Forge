@@ -148,6 +148,44 @@ final class LifestyleViewModel: ObservableObject {
         )
         deepHabits = AriaContextStore.shared.context.deepHabits
         LifestyleWidgetBridge.update(metrics: metrics, recommendations: recommendations)
+        fileAppleHealthFacts()
+    }
+
+    private func fileAppleHealthFacts() {
+        var facts: [AriaKnowledgeFact] = []
+        if let stats = healthStats {
+            if stats.sleepHours > 0 {
+                facts.append(AriaKnowledgeFact(
+                    category: .appleHealth,
+                    kind: "sleep",
+                    summary: String(format: "Last night: %.1f hours of sleep.", stats.sleepHours),
+                    source: "apple-health"
+                ))
+            }
+            if stats.steps > 0 {
+                facts.append(AriaKnowledgeFact(
+                    category: .appleHealth,
+                    kind: "steps",
+                    summary: "Steps today: \(stats.steps).",
+                    source: "apple-health"
+                ))
+            }
+            if stats.hrv > 0 {
+                facts.append(AriaKnowledgeFact(
+                    category: .appleHealth,
+                    kind: "hrv",
+                    summary: String(format: "HRV today: %.0f ms.", stats.hrv),
+                    source: "apple-health"
+                ))
+            }
+        }
+        facts.append(AriaKnowledgeFact(
+            category: .appleHealth,
+            kind: "qol",
+            summary: "Lifestyle QoL \(metrics.qualityOfLifeScore)/100 — the number ARIA uses.",
+            source: "apple-health"
+        ))
+        AriaKnowledgeLedgerStore.replace(category: .appleHealth, source: "apple-health", with: facts)
     }
 
     /// Overlay ARIA onto the cards. Local orchestrators always run (testers
@@ -355,13 +393,16 @@ final class LifestyleViewModel: ObservableObject {
         // data" refusal — the calculator scores whatever is present and reports
         // how much of life that covered via `confidence`.
         let stats = healthStats
-        let inputs = qualityOfLifeInputs(from: stats)
+        let persona = QualityOfLifeLivingStore.loadPersona()
+        let inputs = qualityOfLifeInputs(from: stats, persona: persona)
         // Smooth against yesterday so one noisy night doesn't swing a measure
         // that is meant to be stable; scaled by today's confidence internally.
         let previousOverall = LifestyleWellbeingStore.loadQOLHistory()
             .last { !Calendar.current.isDateInToday($0.date) }?.score
-        let qol = QualityOfLifeCalculator.score(from: inputs).smoothed(previousOverall: previousOverall)
+        let qol = QualityOfLifeCalculator.score(from: inputs, persona: persona)
+            .smoothed(previousOverall: previousOverall)
         qolConfidence = qol.confidence
+        QualityOfLifeLivingStore.publish(qol, persona: persona)
 
         let sleepQuality = qol.score(for: .sleep) ?? 0
         let nutritionScore = qol.score(for: .nutrition) ?? 0
@@ -376,7 +417,9 @@ final class LifestyleViewModel: ObservableObject {
                                         qol.score(for: .activity),
                                         qol.score(for: .vitals)])
 
-        let sleepNeed = personalAge.map { $0 < 18 ? 9.0 : ($0 >= 65 ? 7.5 : 8.0) } ?? 8.0
+        let sleepNeed = persona.sleepNeedPreferenceHours
+            ?? personalAge.map { $0 < 18 ? 9.0 : ($0 >= 65 ? 7.5 : 8.0) }
+            ?? 8.0
         let stress: StressLevel = {
             guard let hrv = stats?.hrv, hrv > 0 else { return .medium }
             return hrv < 30 ? .high : hrv < 50 ? .medium : .low
@@ -397,15 +440,23 @@ final class LifestyleViewModel: ObservableObject {
         )
     }
 
-    /// Map today's HealthKit stats + profile + mindful minutes into the holistic
-    /// QoL inputs. Zeros are treated as "not measured" so an absent signal lowers
-    /// confidence rather than dragging a pillar to zero.
-    private func qualityOfLifeInputs(from stats: DailyHealthStats?) -> QualityOfLifeInputs {
+    private func qualityOfLifeInputs(
+        from stats: DailyHealthStats?,
+        persona: QualityOfLifePersona
+    ) -> QualityOfLifeInputs {
         var inputs = QualityOfLifeInputs()
         inputs.bodyMassKg = personalWeightKg
         inputs.age = personalAge
         inputs.biologicalSexFemale = personalSexFemale
         inputs.mindfulMinutes = mindfulMinutesToday > 0 ? Double(mindfulMinutesToday) : nil
+        inputs.sleepNeedPreferenceHours = persona.sleepNeedPreferenceHours
+        inputs.workStrain0to10 = persona.workStrain0to10
+        inputs.socialConnection0to10 = persona.socialEnergy0to10
+        inputs.weeklyMood0to10 = AriaKnowledgeLedgerStore.load().latestWeeklyMood()
+        let weekBusy = CalendarManager.shared.weekBusyWindows
+        if weekBusy > 0 {
+            inputs.calendarBusyness0to1 = min(1, Double(weekBusy) / 14.0)
+        }
 
         // Personal HRV baseline from the trailing week, so recovery is scored
         // against the individual's own norm rather than a population constant.

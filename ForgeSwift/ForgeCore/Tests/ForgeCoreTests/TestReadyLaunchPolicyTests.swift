@@ -22,51 +22,52 @@ final class TestReadyLaunchPolicyTests: XCTestCase {
         XCTAssertTrue(TestReadyLaunchPolicy.shouldRewrite(installedSeed: 1, sessionSeed: 7))
     }
 
-    func testSessionSeedIsStableForTheSameDay() {
+    func testSessionSeedIsStableWithinAProcess() {
         let suite = "forge.testReady.launch.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defaults.removePersistentDomain(forName: suite)
         var generated = 0
         let now = Date()
-        let first = TestReadyLaunchPolicy.sessionSeed(now: now, defaults: defaults) {
+        let token = "process-a"
+        let first = TestReadyLaunchPolicy.sessionSeed(
+            now: now,
+            defaults: defaults,
+            processToken: token
+        ) {
             generated += 1
             return 42
         }
-        let second = TestReadyLaunchPolicy.sessionSeed(now: now, defaults: defaults) {
+        let second = TestReadyLaunchPolicy.sessionSeed(
+            now: now,
+            defaults: defaults,
+            processToken: token
+        ) {
             generated += 1
             return 99
         }
         XCTAssertEqual(first, 42)
         XCTAssertEqual(second, 42)
-        XCTAssertEqual(generated, 1, "relaunching the same day must not mint a new seed")
+        XCTAssertEqual(generated, 1, "the same process must not mint a new seed")
         defaults.removePersistentDomain(forName: suite)
     }
 
-    func testSessionSeedRotatesOnANewCalendarDay() {
+    func testSessionSeedMintsForANewProcess() {
         let suite = "forge.testReady.launch.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defaults.removePersistentDomain(forName: suite)
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-        var parts = DateComponents()
-        parts.year = 2026
-        parts.month = 9
-        parts.day = 8
-        let monday = calendar.date(from: parts)!
-        parts.day = 9
-        let tuesday = calendar.date(from: parts)!
-        let mondaySeed = TestReadyLaunchPolicy.sessionSeed(
-            now: monday,
+        let now = Date()
+        let first = TestReadyLaunchPolicy.sessionSeed(
+            now: now,
             defaults: defaults,
-            calendar: calendar
+            processToken: "process-a"
         ) { 11 }
-        let tuesdaySeed = TestReadyLaunchPolicy.sessionSeed(
-            now: tuesday,
+        let second = TestReadyLaunchPolicy.sessionSeed(
+            now: now,
             defaults: defaults,
-            calendar: calendar
+            processToken: "process-b"
         ) { 22 }
-        XCTAssertEqual(mondaySeed, 11)
-        XCTAssertEqual(tuesdaySeed, 22)
+        XCTAssertEqual(first, 11)
+        XCTAssertEqual(second, 22)
         defaults.removePersistentDomain(forName: suite)
     }
 

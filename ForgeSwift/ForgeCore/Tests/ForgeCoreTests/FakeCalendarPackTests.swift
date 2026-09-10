@@ -445,4 +445,23 @@ final class FakeCalendarPackTests: XCTestCase {
         XCTAssertTrue(merged.ingestTags.contains("calendar:kind:game"))
         XCTAssertTrue(merged.ingestTags.contains("calendar:kind:travel"))
     }
+
+    func testHorizonTagsAreKindAndDaysUntilNeverTitles() {
+        let pack = FakeCalendarPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
+        let tags = FakeCalendarPack.horizonTags(
+            events: pack.events,
+            now: pinnedNow,
+            calendar: calendar,
+            withinDays: 21
+        )
+        XCTAssertTrue(tags.allSatisfy { $0.hasPrefix("calendar:horizon:") })
+        XCTAssertTrue(tags.allSatisfy(FakeCalendarPack.isAllowedIngestTag))
+        let blob = tags.joined(separator: " ").lowercased()
+        for event in pack.events where event.title.count >= 6 {
+            XCTAssertFalse(blob.contains(event.title.lowercased()), "horizon leaked \(event.title)")
+        }
+        let combined = FakeCalendarPack.ingestTags(from: pack, now: pinnedNow, calendar: calendar)
+        XCTAssertTrue(combined.contains { $0.hasPrefix("calendar:horizon:") || $0.hasPrefix("calendar:kind:") })
+        XCTAssertTrue(combined.allSatisfy(FakeCalendarPack.isAllowedIngestTag))
+    }
 }

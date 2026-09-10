@@ -192,8 +192,14 @@ enum AriaCoachAgentRouter {
         if matches(lower, Self.progressNeedles) { add(.progress) }
         if matches(lower, Self.workoutNeedles) { add(.workout) }
 
+        // Pin flavors an ambiguous turn. A clear prompt names its own
+        // specialists — a Workout pin must not turn "what's my QoL" into a session.
         if let pinned = context.pinned, isAvailable(pinned, context: context) {
-            add(pinned)
+            let asked = AriaPromptCorrelation.askedDomains(in: message)
+            let pinDomain = Self.domain(for: pinned)
+            if asked.isEmpty || asked.contains(pinDomain) {
+                add(pinned)
+            }
         }
 
         if kinds.isEmpty {
@@ -293,6 +299,12 @@ enum AriaCoachAgentRouter {
                 }
             }
         }
+        let asked = AriaPromptCorrelation.askedDomains(in: message)
+        if !asked.isEmpty {
+            extras.removeAll { extra in
+                !asked.contains(Self.domain(for: extra))
+            }
+        }
         guard !extras.isEmpty else { return keywordPlan }
 
         // A generalist-only plan means the keywords found nothing. In that case
@@ -329,6 +341,18 @@ enum AriaCoachAgentRouter {
         case .cycle:     return .cycle
         case .body:      return .recovery
         case .progress:  return .progress
+        }
+    }
+
+    static func domain(for agent: AriaCoachAgent) -> AriaIntentDomain {
+        switch agent {
+        case .workout:   return .training
+        case .sleep:     return .sleep
+        case .recovery:  return .readiness
+        case .lifestyle: return .lifestyle
+        case .progress:  return .progress
+        case .cycle:     return .cycle
+        case .aria:      return .lifestyle
         }
     }
 
@@ -522,6 +546,7 @@ enum AriaCoachAgentRouter {
         "calories", "lunch", "dinner", "breakfast",
         "calendar", "busy", "travel", "workday", "restaurant", "free time",
         "places", "tonight's plan", "tonights plan",
+        "quality of life", "qol", "tuxedo", "what to wear", "wedding attire",
     ]
     // Mirrors AriaIntentResolver's .progress phrases/keywords.
     private static let progressNeedles = [

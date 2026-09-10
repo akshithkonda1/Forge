@@ -81,6 +81,13 @@ final class AriaIntentResolverTests: XCTestCase {
         XCTAssertFalse(AriaIntentResolver.actionable(ranked).isEmpty)
     }
 
+    func testQualityOfLifeLanguageRanksLifestyle() {
+        let ranked = AriaIntentResolver.rank(
+            AriaIntentInput(text: "what's my quality of life")
+        )
+        XCTAssertEqual(ranked.first?.domain, .lifestyle)
+    }
+
     func testWeddingEveningBusyProtects() {
         let adapted = AriaIntentResolver.adapt(
             AriaIntentInput(

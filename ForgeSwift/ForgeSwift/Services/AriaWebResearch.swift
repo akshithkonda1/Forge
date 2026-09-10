@@ -11,9 +11,10 @@ import ForgeCore
 /// actual question plus a session salt, so ARIA does not recite the same
 /// CDC paragraph every turn.
 ///
-/// Isolated from `LocalTestingOrchestrator`, which must stay
-/// URLSession-free (`scripts/check-aria-web-research.py`). Gated to
-/// local testing because that is still the running ARIA mode.
+/// Isolated from `LocalTestingOrchestrator` and `AriaDummyOrchestrator`,
+/// which must stay URLSession-free (`scripts/check-aria-web-research.py`).
+/// Gated to local testing and the Test-Ready dummy so a live backend
+/// session never silently fetches.
 @MainActor
 enum AriaWebResearch {
 
@@ -38,6 +39,8 @@ enum AriaWebResearch {
         "benefits of", "side effects", "how much sleep", "how often should",
         "fever", "temperature", "too hot", "running hot", "thermometer",
         "chills", "is this normal", "what does it mean if",
+        "tuxedo", "what to wear", "wedding attire", "black tie",
+        "what should i wear", "suit for a wedding",
     ]
 
     static func isResearchWorthy(text: String, leadingDomain: AriaLocalDomain) -> Bool {
@@ -49,7 +52,21 @@ enum AriaWebResearch {
         }
         let lower = text.lowercased()
         if AriaReferenceCatalog.questionSuggestsFever(text) { return true }
+        if AriaReferenceCatalog.questionSuggestsEventPrep(text) { return true }
         return researchPhrases.contains { lower.contains($0) }
+    }
+
+    /// Dummy turns skip the broad "should I" net so Device Hub tests stay
+    /// network-free. Tuxedo / science / fever questions still fetch.
+    static func isDummyResearchWorthy(text: String) -> Bool {
+        if AriaReferenceCatalog.questionSuggestsFever(text) { return true }
+        if AriaReferenceCatalog.questionSuggestsEventPrep(text) { return true }
+        let lower = text.lowercased()
+        let extra = [
+            "what does the science say", "what does research say",
+            "studies show", "evidence for", "evidence on",
+        ]
+        return extra.contains { lower.contains($0) }
     }
 
     // MARK: - Lookup
@@ -61,9 +78,19 @@ enum AriaWebResearch {
         question: String,
         salt: UInt64
     ) async -> String? {
-        guard AriaOperatingMode.current.isLocalTesting else { return nil }
+        await lookUp(question: question, domainRawValue: domain.rawValue, salt: salt)
+    }
+
+    static func lookUp(
+        question: String,
+        domainRawValue: String = "lifestyle",
+        salt: UInt64
+    ) async -> String? {
+        guard AriaOperatingMode.current.isLocalTesting || AriaService.shouldUseTestReadyDummy else {
+            return nil
+        }
         let topic = AriaReferenceCatalog.resolvedTopic(
-            domainRawValue: domain.rawValue,
+            domainRawValue: domainRawValue,
             question: question
         )
         let picks = AriaReferenceCatalog.picks(topic: topic, question: question, salt: salt)
