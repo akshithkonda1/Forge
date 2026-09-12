@@ -75,6 +75,16 @@ final class AriaIntentResolverTests: XCTestCase {
         XCTAssertEqual(AriaIntentResolver.actionable(ranked).count, 1)
     }
 
+    func testSpokenHRVUtteranceRoutesToReadiness() {
+        let ranked = AriaIntentResolver.rank(AriaIntentInput(text: "how's my hrv"))
+        XCTAssertEqual(ranked.first?.domain, .readiness)
+    }
+
+    func testSpokenGymUtteranceRoutesToTraining() {
+        let ranked = AriaIntentResolver.rank(AriaIntentInput(text: "I wanna hit the gym"))
+        XCTAssertEqual(ranked.first?.domain, .training)
+    }
+
     func testAlwaysReturnsSomething() {
         let ranked = AriaIntentResolver.rank(AriaIntentInput(text: "?????"))
         XCTAssertFalse(ranked.isEmpty)

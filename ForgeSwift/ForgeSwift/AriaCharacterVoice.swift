@@ -30,6 +30,14 @@ enum AriaCharacterVoice: Sendable {
         I'm ARIA. Let's look at how you actually slept and what that means for training today. One next move, not a new identity.
         """
 
+    /// Locked live-mouth stack. Byte-for-byte with ``elevenlabs_voice.py``.
+    /// Dummy never uses these; live ConvAI does.
+    static let liveTTSModel = "eleven_v3_conversational"
+    static let liveASRProvider = "scribe_realtime"
+    static let liveTurnModel = "turn_v3"
+    static let liveVoiceDesignModel = "eleven_ttv_v3"
+    static let liveConvAILLM = "claude-sonnet-4-6"
+
     /// Production never uses Apple Zoe / Samantha as ARIA.
     static let productionUsesAppleTTS = false
 

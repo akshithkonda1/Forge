@@ -30,6 +30,13 @@ final class AriaVoiceSessionTests: XCTestCase {
         XCTAssertTrue(AriaVoiceTransport.live.requiresNetwork)
         XCTAssertTrue(AriaVoiceTransport.dummy.usesOnDeviceBrain)
         XCTAssertFalse(AriaCharacterVoice.dummyUpgradesToLiveOnFailure)
+        XCTAssertEqual(AriaCharacterVoice.liveTTSModel, "eleven_v3_conversational")
+        XCTAssertEqual(AriaCharacterVoice.liveASRProvider, "scribe_realtime")
+        XCTAssertEqual(AriaCharacterVoice.liveTurnModel, "turn_v3")
+        XCTAssertEqual(AriaCharacterVoice.liveVoiceDesignModel, "eleven_ttv_v3")
+        XCTAssertEqual(AriaCharacterVoice.liveConvAILLM, "claude-sonnet-4-6")
+        XCTAssertFalse(AriaCharacterVoice.liveTTSModel.contains("turbo"))
+        XCTAssertFalse(AriaCharacterVoice.liveASRProvider == "elevenlabs")
     }
 
     func testMuteGatesDummyAndLiveFillIn() {
