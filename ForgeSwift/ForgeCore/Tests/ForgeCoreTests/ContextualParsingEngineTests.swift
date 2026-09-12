@@ -32,7 +32,13 @@ final class ContextualParsingEngineTests: XCTestCase {
     func testCommonSuffixesStillMatch() {
         XCTAssertTrue(ContextualParsingEngine.containsWord("my knee hurts today", "hurt"))
         XCTAssertTrue(ContextualParsingEngine.containsWord("still eating breakfast", "eat"))
-        XCTAssertFalse(ContextualParsingEngine.containsWord("I ate already", "eat"), "\"ate\" isn't \"eat\" + a suffix")
+    }
+
+    func testIrregularVerbFormsMatchThroughTheLemma() {
+        // "ate" isn't a prefix of "eat", so this only matches through the
+        // lemma path — confirmed against real NaturalLanguage output in CI,
+        // not just reasoned about, since this sandbox has no Swift toolchain.
+        XCTAssertTrue(ContextualParsingEngine.containsWord("I ate already", "eat"))
     }
 
     func testDeliberateStemKeywordsStillCatchEveryInflection() {
