@@ -105,13 +105,10 @@ enum AriaDummyTurn {
     static func clauses(in text: String) -> [String] {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
-        let normalized = trimmed
-            .replacingOccurrences(of: "—", with: " | ")
-            .replacingOccurrences(of: "–", with: " | ")
-            .replacingOccurrences(of: ";", with: " | ")
-        let rawParts = splittingConnectors(normalized)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        // ContextualParsingEngine also splits on commas, which the old
+        // dash/semicolon/connective-only split did not: "slept badly, want
+        // to hit the gym" used to reach here as one unsplit blob.
+        let rawParts = ContextualParsingEngine.splitClauses(trimmed)
         guard rawParts.count > 1 else { return [trimmed] }
 
         var merged: [String] = []
@@ -568,35 +565,11 @@ enum AriaDummyTurn {
     // MARK: - Private
 
     private static func hasIntentNeedle(_ text: String) -> Bool {
-        let lower = text.lowercased()
-        return intentNeedles.contains { lower.contains($0) }
-    }
-
-    private static func splittingConnectors(_ text: String) -> [String] {
-        let pattern = #"\s*(?:\||\band\b|\bthen\b|\balso\b)\s*"#
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
-            return [text]
-        }
-        let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        var parts: [String] = []
-        var last = text.startIndex
-        for match in regex.matches(in: text, options: [], range: range) {
-            guard let matchRange = Range(match.range, in: text) else { continue }
-            let piece = String(text[last..<matchRange.lowerBound])
-            if !piece.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                parts.append(piece)
-            }
-            last = matchRange.upperBound
-        }
-        let tail = String(text[last...])
-        if !tail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            parts.append(tail)
-        }
-        return parts.isEmpty ? [text] : parts
+        ContextualParsingEngine.matchesAny(text, intentNeedles)
     }
 
     private static func matches(_ text: String, _ needles: [String]) -> Bool {
-        needles.contains { text.contains($0) }
+        ContextualParsingEngine.matchesAny(text, needles)
     }
 
     private static func primaryAgent(

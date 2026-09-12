@@ -166,6 +166,32 @@ final class AriaCoachAgentRouterTests: XCTestCase {
         XCTAssertEqual(cycleWorkers.filter(\.isPrimary).count, 1)
     }
 
+    func testRestaurantMentionDoesNotAlsoRouteToSleep() {
+        // "rest" used to fire on plain substring containment inside
+        // "restaurant" and spawn a Sleep worker for a message that has
+        // nothing to do with sleep.
+        let ctx = AriaCoachAgentRouter.Context(pinned: nil, cycleAvailable: false)
+        let plan = AriaCoachAgentRouter.plan(message: "what restaurant should we go to tonight", context: ctx)
+        XCTAssertTrue(plan.kinds.contains(.lifestyle))
+        XCTAssertFalse(plan.kinds.contains(.sleep), "'rest' inside 'restaurant' must not spawn a Sleep worker")
+    }
+
+    func testTypoInSleepLanguageStillRoutesToSleep() {
+        let ctx = AriaCoachAgentRouter.Context(pinned: nil, cycleAvailable: false)
+        XCTAssertEqual(
+            AriaCoachAgentRouter.resolve(message: "how did I sleeep last night", context: ctx),
+            .sleep
+        )
+    }
+
+    func testCommaSplicedRunOnSpawnsBothAgents() {
+        // AriaDummyTurn.clauses now splits on commas too, so a run-on with
+        // no "and"/"then"/dash still reaches the clause-aware path as two
+        // clauses instead of one unsplit blob.
+        let parts = AriaDummyTurn.clauses(in: "I slept badly, want to hit the gym")
+        XCTAssertEqual(parts.count, 2)
+    }
+
     func testPinLeadsButDoesNotBlockOthers() {
         let ctx = AriaCoachAgentRouter.Context(pinned: .progress, cycleAvailable: false)
         let plan = AriaCoachAgentRouter.plan(

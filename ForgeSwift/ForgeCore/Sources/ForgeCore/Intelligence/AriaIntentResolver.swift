@@ -104,14 +104,20 @@ public enum AriaIntentResolver {
         }
 
         // --- Language ---
+        //
+        // Routed through ContextualParsingEngine rather than plain
+        // `lower.contains(...)`: word-boundary safe (a short keyword like
+        // "rest" no longer fires inside an unrelated longer word) and
+        // typo-tolerant, so a single misspelling does not drop a message out
+        // of every phrase/keyword list with zero signal.
         for (domain, phrases) in Self.phrases {
-            for phrase in phrases where lower.contains(phrase) {
+            for phrase in phrases where ContextualParsingEngine.matches(lower, phrase) {
                 add(domain, Weight.phrase, "said “\(phrase)”")
                 break
             }
         }
         for (domain, words) in Self.keywords {
-            let hits = words.filter { lower.contains($0) }
+            let hits = words.filter { ContextualParsingEngine.matches(lower, $0) }
             if !hits.isEmpty {
                 let count: Double = Double(hits.count)
                 let weight: Double = Weight.keyword * min(2.0, count)

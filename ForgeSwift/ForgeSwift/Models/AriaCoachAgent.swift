@@ -564,13 +564,15 @@ enum AriaCoachAgentRouter {
     static func isCycleQuery(_ text: String) -> Bool {
         let lower = text.lowercased()
         if matches(lower, cycleNeedles) { return true }
-        return AriaMessageTokens.containsAnyWord(lower, [
-            "sex", "intimate", "intimacy", "condom", "lube", "conceive", "ttc",
-        ])
+        return matches(lower, ["sex", "intimate", "intimacy", "condom", "lube", "conceive", "ttc"])
     }
 
+    /// Routed through `ContextualParsingEngine` rather than plain
+    /// `text.contains($0)`: word-boundary safe (so "rest" does not fire
+    /// inside "restaurant" the way it used to), and typo-tolerant, without
+    /// changing what a needle list means.
     private static func matches(_ text: String, _ needles: [String]) -> Bool {
-        needles.contains { text.contains($0) }
+        ContextualParsingEngine.matchesAny(text, needles)
     }
 }
 
