@@ -445,17 +445,20 @@ final class HealthKitSleepService: ObservableObject {
 
     private static let profileKey = "forge.sleep.userProfile"
 
+    /// `forge.sleep.userProfile` is one of `SecureStoreMigration.sensitiveKeys`:
+    /// the migration sweeps it out of `UserDefaults` into the Keychain on every
+    /// launch and deletes the plaintext copy. Reading/writing it here through
+    /// anything but this same `SecureStore` would race that migration — save
+    /// would resurrect a plaintext copy for the next launch to delete, and load
+    /// would find nothing right after it's swept, silently resetting the profile.
+    private static let secureStore: SecureStore = KeychainStore()
+
     static func saveUserSleepProfile(_ profile: UserSleepProfile) {
-        guard let data = try? JSONEncoder().encode(profile) else { return }
-        UserDefaults.standard.set(data, forKey: profileKey)
+        try? secureStore.setValue(profile, forKey: profileKey)
     }
 
     static func loadUserSleepProfile() -> UserSleepProfile? {
-        guard let data = UserDefaults.standard.data(forKey: profileKey),
-              let profile = try? JSONDecoder().decode(UserSleepProfile.self, from: data) else {
-            return nil
-        }
-        return profile
+        try? secureStore.value(UserSleepProfile.self, forKey: profileKey)
     }
 
     func chronotypeInsightPrefix() -> String {

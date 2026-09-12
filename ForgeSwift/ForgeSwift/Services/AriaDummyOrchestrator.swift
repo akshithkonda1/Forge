@@ -10,7 +10,8 @@ import ForgeCore
 ///
 /// Local compute only: rule conductor + seeded voice banks, and Apple
 /// Intelligence when the phone has it. Never URLSession, never Bedrock,
-/// never an off-device LLM.
+/// never an off-device LLM. Curated web lookup, when it happens, goes
+/// through `AriaWebResearch` in its own file.
 @MainActor
 enum AriaDummyOrchestrator {
 
@@ -26,7 +27,8 @@ enum AriaDummyOrchestrator {
         agent: AriaCoachAgent,
         agents: [String]? = nil
     ) async -> AriaResponse {
-        let context = store.makeTrainerContext(query: text)
+        AriaContextStore.shared.fileSpoken(text)
+        var context = store.makeTrainerContext(query: text)
         let life = context.lifeRead
         let trimmedName = store.userProfile.name.split(separator: " ").first.map(String.init) ?? ""
         let you = trimmedName.isEmpty ? "" : "\(trimmedName) — "
@@ -62,6 +64,9 @@ enum AriaDummyOrchestrator {
             )
         }
 
+        let occurrence = AriaReplyVariety.beginTurn(prompt: text)
+        context.totalMessageCount = max(context.totalMessageCount, occurrence)
+
         let follow = AriaDummyTurn.followUp(in: text)
         if follow != .none, let followed = handleFollowUp(
             follow,
@@ -71,7 +76,7 @@ enum AriaDummyOrchestrator {
             facts: facts,
             name: trimmedName
         ) {
-            return followed
+            return publish(followed, prompt: text)
         }
 
         let sleepWeak = facts.sleepBand == .weak
@@ -86,14 +91,24 @@ enum AriaDummyOrchestrator {
             sleepWeak: sleepWeak,
             readinessLow: readiness > 0 && readiness < 55
         )
+        if QualityOfLifeLivingStore.isQuestion(text),
+           !interpretation.domains.contains(.lifestyle),
+           !interpretation.domains.contains(.nutrition) {
+            interpretation.domains.append(.lifestyle)
+        }
+        interpretation.domains = AriaPromptCorrelation.filterDomains(
+            interpretation.domains,
+            toPrompt: text
+        )
         let calendarOutcome = FakeCalendarPack.outcome(fromTags: life.calendarIngestPayload())
-        if calendarOutcome.keepLight {
+        if calendarOutcome.keepLight, AriaPromptCorrelation.trainingAsk(text.lowercased()) {
             interpretation.keepLight = true
         }
         let adaptation = AriaIntentResolver.adapt(store.intentSignals(for: text))
-        if adaptation.keepLight {
+        if adaptation.keepLight, AriaPromptCorrelation.trainingAsk(text.lowercased()) {
             interpretation.keepLight = true
         }
+        let asked = AriaPromptCorrelation.askedDomains(in: text)
         for spec in adaptation.specialists {
             let domain: AriaIntentDomain?
             switch spec {
@@ -105,11 +120,11 @@ enum AriaDummyOrchestrator {
             case "cycle": domain = .cycle
             default: domain = nil
             }
-            if let domain, !interpretation.domains.contains(domain) {
+            if let domain, asked.contains(domain), !interpretation.domains.contains(domain) {
                 interpretation.domains.append(domain)
             }
         }
-        if calendarOutcome.shorten {
+        if calendarOutcome.shorten, asked.contains(.training) {
             interpretation.constrainedPlanInput += ". short session that still fits this week's calendar"
         }
 
@@ -120,12 +135,15 @@ enum AriaDummyOrchestrator {
         if emotional, !hasSystems,
            let reading = AriaEmotionalSupportCoach.detect(in: text, context: context) {
             let resp = AriaEmotionalSupportCoach.respond(reading: reading, context: context, input: text)
-            return AriaResponse(
-                confidenceReason: "Local fill-in — companion",
-                proseSummary: resp.content,
-                message: resp.content,
-                suggestedActions: resp.suggestedActions,
-                confidence: resp.confidence
+            return publish(
+                AriaResponse(
+                    confidenceReason: "Local fill-in — companion",
+                    proseSummary: resp.content,
+                    message: resp.content,
+                    suggestedActions: resp.suggestedActions,
+                    confidence: resp.confidence
+                ),
+                prompt: text
             )
         }
 
@@ -146,6 +164,7 @@ enum AriaDummyOrchestrator {
         }
         if beats.contains(where: { $0.domain == .training }),
            !beats.contains(where: { $0.domain == .lifestyle }),
+           asked.contains(.training) || AriaPromptCorrelation.calendarAsk(text.lowercased()),
            let fit = life.sessionFitLine() {
             beats.append(
                 AriaDummyBeat(
@@ -159,16 +178,22 @@ enum AriaDummyOrchestrator {
         if beats.isEmpty {
             let intent = intentFor(agent: interpretation.primaryAgent, text: text)
             let fallback = AriaVoiceEngine.speak(intent: intent, context: context, input: text, facts: facts)
-            let prose = fallback.count > 30
-                ? fallback
-                : humanFallback(you: you, readiness: readiness, facts: facts, coaching: context.userProfile.coachingStyle, life: life)
-            return AriaResponse(
-                confidenceReason: reason(for: interpretation, readiness: readiness, hasSleep: facts.sleepHours != nil),
-                proseSummary: prose,
-                message: prose,
-                suggestedActions: AriaFirstHealthBriefing.suggestedActions,
-                contextUpdates: ["relationship_level": min(10, 1 + store.chatMessages.count / 3)],
-                confidence: 0.82
+            let prose = AriaPromptCorrelation.grounded(
+                prompt: text,
+                draft: fallback.count > 30
+                    ? fallback
+                    : humanFallback(you: you, readiness: readiness, facts: facts, coaching: context.userProfile.coachingStyle, life: life)
+            )
+            return publish(
+                AriaResponse(
+                    confidenceReason: reason(for: interpretation, readiness: readiness, hasSleep: facts.sleepHours != nil),
+                    proseSummary: prose,
+                    message: prose,
+                    suggestedActions: AriaFirstHealthBriefing.suggestedActions,
+                    contextUpdates: ["relationship_level": min(10, 1 + store.chatMessages.count / 3)],
+                    confidence: 0.82
+                ),
+                prompt: text
             )
         }
 
@@ -180,31 +205,50 @@ enum AriaDummyOrchestrator {
         apply(actions, store: store)
         lastAppliedActions = actions
 
-        let seed = UInt64(truncatingIfNeeded: text.utf8.reduce(0) { ($0 &* 33) &+ UInt64($1) })
-            &+ UInt64(store.chatMessages.count)
+        let seed = AriaReplyVariety.salt(
+            prompt: text,
+            occurrence: occurrence,
+            extra: UInt64(store.chatMessages.count)
+        )
         let skeleton = AriaDummyTurn.compose(
             beats: beats,
             interpretation: interpretation,
             name: trimmedName,
-            seed: seed
+            seed: seed,
+            prompt: text
         )
-        let required = requiredTokens(from: interpretation, beats: beats)
-        let woven = weaveStory(softenMetrics(skeleton), life: life)
-        let message = await polishIfOnDevice(skeleton: woven, context: context, required: required)
+        let required = requiredTokens(from: interpretation, beats: beats, prompt: text)
+        let woven = AriaPromptCorrelation.allowsUnpromptedLifeStory(text)
+            ? weaveStory(softenMetrics(skeleton), life: life)
+            : softenMetrics(skeleton)
+        var message = await polishIfOnDevice(skeleton: woven, context: context, required: required, prompt: text)
+        message = AriaPromptCorrelation.grounded(prompt: text, draft: message)
+        if NSClassFromString("XCTestCase") == nil,
+           AriaWebResearch.isDummyResearchWorthy(text: text),
+           let web = await AriaWebResearch.lookUp(
+            question: text,
+            domainRawValue: interpretation.domains.first?.rawValue ?? "lifestyle",
+            salt: seed
+           ) {
+            message = "\(web)\n\n\(message)"
+        }
 
         let card = beats.compactMap(\.card).first
         var suggestions = beats.flatMap(\.suggestedActions)
         if suggestions.isEmpty { suggestions = AriaFirstHealthBriefing.suggestedActions }
         if suggestions.count > 4 { suggestions = Array(suggestions.prefix(4)) }
 
-        return AriaResponse(
-            confidenceReason: reason(for: interpretation, readiness: readiness, hasSleep: facts.sleepHours != nil),
-            proseSummary: message,
-            message: message,
-            richCard: card,
-            suggestedActions: suggestions,
-            contextUpdates: ["relationship_level": min(10, 1 + store.chatMessages.count / 3)],
-            confidence: 0.88
+        return publish(
+            AriaResponse(
+                confidenceReason: reason(for: interpretation, readiness: readiness, hasSleep: facts.sleepHours != nil),
+                proseSummary: message,
+                message: message,
+                richCard: card,
+                suggestedActions: suggestions,
+                contextUpdates: ["relationship_level": min(10, 1 + store.chatMessages.count / 3)],
+                confidence: 0.88
+            ),
+            prompt: text
         )
     }
 
@@ -261,16 +305,19 @@ enum AriaDummyOrchestrator {
             let workout: WorkoutPlan
             var actions: [AriaDummyAction] = [.persistWorkout]
             if interpretation.preferCalisthenics {
-                workout = constrain(
+                workout = constrainedWorkout(
                     ExerciseLibrary.calisthenicsPlan(
                         keepLight: interpretation.keepLight,
                         skipLegs: interpretation.skipLegs
                     ),
                     interpretation: interpretation,
-                    outcome: FakeCalendarPack.outcome(fromTags: life.calendarIngestPayload())
+                    life: life
                 )
                 store.todayWorkout = workout
-                let line = "I pulled this from the calisthenics library. \(workout.name) is on the board for about \(workout.duration) minutes — \(workout.intensity.label.lowercased()) intensity."
+                var line = "I pulled this from the calisthenics library. \(workout.name) is on the board for about \(workout.duration) minutes — \(workout.intensity.label.lowercased()) intensity."
+                if let reason = eventReason(interpretation: interpretation, life: life) {
+                    line = "\(reason) \(line)"
+                }
                 return AriaDummyBeat(
                     domain: .training,
                     prose: line,
@@ -280,10 +327,10 @@ enum AriaDummyOrchestrator {
                 )
             }
             let plan = AriaPlanEngine.evaluate(input: interpretation.constrainedPlanInput, context: context)
-            workout = constrain(
+            workout = constrainedWorkout(
                 plan.workoutPlan,
                 interpretation: interpretation,
-                outcome: FakeCalendarPack.outcome(fromTags: life.calendarIngestPayload())
+                life: life
             )
             if plan.shouldPersistTheme {
                 store.setTrainingTheme(plan.theme, source: "chat")
@@ -294,8 +341,20 @@ enum AriaDummyOrchestrator {
             voiceFacts.sessionDuration = workout.duration
             voiceFacts.sessionIntensity = workout.intensity.label
             let voice = AriaVoiceEngine.speak(intent: .trainingPlan, context: context, input: text, facts: voiceFacts)
-            let line = "\(workout.name) is on the board for about \(workout.duration) minutes — \(workout.intensity.label.lowercased()) intensity."
-            let prose = voice.count > 60 ? voice : line
+            var line = "\(workout.name) is on the board for about \(workout.duration) minutes — \(workout.intensity.label.lowercased()) intensity."
+            if let reason = eventReason(interpretation: interpretation, life: life) {
+                line = "\(reason) \(line)"
+            }
+            let prose: String
+            if voice.count > 60 {
+                if let reason = eventReason(interpretation: interpretation, life: life) {
+                    prose = "\(reason) \(voice)"
+                } else {
+                    prose = voice
+                }
+            } else {
+                prose = line
+            }
             if plan.shouldPersistTheme { actions.append(.persistTheme) }
             return AriaDummyBeat(
                 domain: .training,
@@ -349,12 +408,42 @@ enum AriaDummyOrchestrator {
                     suggestedActions: ["What should I train today?", "What's on my board?"]
                 )
             }
+            if AriaReferenceCatalog.questionSuggestsEventPrep(text) {
+                var line = AriaReplyVariety.pick([
+                    "I don't shop the web — a wedding tux or dark suit should fit you, not chase a trend. Classic black tie, shoes you can stand in.",
+                    "Skip the shopping tab. A classic tuxedo or dark suit that actually fits beats a trendy rental — shoes you can stand in.",
+                    "For the wedding: tux or dark suit, fitted, nothing flashy. I don't shop the web; I care that you can stand in those shoes.",
+                    "Wear a tux or a dark suit that fits your body, not a catalog. Black tie stays classic; comfort is the rest of the night.",
+                ], prompt: text)
+                if let reason = eventReason(interpretation: interpretation, life: life) {
+                    line = "\(reason) \(line)"
+                }
+                return AriaDummyBeat(
+                    domain: .lifestyle,
+                    prose: line,
+                    suggestedActions: ["What should I train today?", "What's my quality of life?"]
+                )
+            }
+            if QualityOfLifeLivingStore.isQuestion(text) {
+                return AriaDummyBeat(
+                    domain: .lifestyle,
+                    prose: QualityOfLifeLivingStore.coachingLine(
+                        variety: AriaReplyVariety.occurrence(for: text)
+                    ),
+                    suggestedActions: ["Open Lifestyle", "What should I change?"]
+                )
+            }
             if text.lowercased().contains("eat") || text.lowercased().contains("food")
                 || text.lowercased().contains("protein") || text.lowercased().contains("meal")
                 || domain == .nutrition {
                 return AriaDummyBeat(
                     domain: .nutrition,
-                    prose: "Keep food simple — protein and something you will actually eat.",
+                    prose: AriaReplyVariety.pick([
+                        "Keep food simple — protein and something you will actually eat.",
+                        "Eat something you'll actually finish — protein first, nothing fancy.",
+                        "Food stays simple: protein plus a plate you will eat.",
+                        "Don't overthink the plate — protein and a meal you'll finish.",
+                    ], prompt: text),
                     suggestedActions: ["What should I eat?", "Protein ideas"]
                 )
             }
@@ -446,10 +535,10 @@ enum AriaDummyOrchestrator {
                 readinessLow: store.readiness.overall > 0 && store.readiness.overall < 55
             )
             let plan = AriaPlanEngine.evaluate(input: interpretation.constrainedPlanInput, context: context)
-            let workout = constrain(
+            let workout = constrainedWorkout(
                 plan.workoutPlan,
                 interpretation: interpretation,
-                outcome: FakeCalendarPack.outcome(fromTags: context.lifeRead.calendarIngestPayload())
+                life: context.lifeRead
             )
             store.todayWorkout = workout
             lastAppliedActions = [.skipLegs, .persistWorkout]
@@ -475,10 +564,42 @@ enum AriaDummyOrchestrator {
         }
     }
 
+    private static func constrainedWorkout(
+        _ workout: WorkoutPlan,
+        interpretation: AriaDummyInterpretation,
+        life: AriaLifeRead
+    ) -> WorkoutPlan {
+        constrain(
+            workout,
+            interpretation: interpretation,
+            outcome: FakeCalendarPack.outcome(fromTags: life.calendarIngestPayload()),
+            eventTags: eventTags(interpretation: interpretation, life: life)
+        )
+    }
+
+    private static func eventTags(
+        interpretation: AriaDummyInterpretation,
+        life: AriaLifeRead
+    ) -> [String] {
+        var tags = life.calendarIngestPayload()
+        if let days = SpokenEventParser.daysUntilWedding(in: interpretation.constrainedPlanInput) {
+            tags.append("calendar:horizon:wedding:\(days)")
+        }
+        return tags
+    }
+
+    private static func eventReason(
+        interpretation: AriaDummyInterpretation,
+        life: AriaLifeRead
+    ) -> String? {
+        EventTrainingPolicy.plan(fromTags: eventTags(interpretation: interpretation, life: life))?.reason
+    }
+
     private static func constrain(
         _ workout: WorkoutPlan,
         interpretation: AriaDummyInterpretation,
-        outcome: AriaCalendarOutcome = .ordinary
+        outcome: AriaCalendarOutcome = .ordinary,
+        eventTags: [String] = []
     ) -> WorkoutPlan {
         var next = workout
         if interpretation.keepLight || outcome.keepLight {
@@ -494,6 +615,21 @@ enum AriaDummyOrchestrator {
             if kept.count >= 2 { next.exercises = kept }
             if !next.name.lowercased().contains("upper") && !next.name.lowercased().contains("pull") {
                 next.name = "Upper " + next.name
+            }
+        }
+        var tags = eventTags
+        if let days = SpokenEventParser.daysUntilWedding(in: interpretation.constrainedPlanInput) {
+            tags.append("calendar:horizon:wedding:\(days)")
+        }
+        if let event = EventTrainingPolicy.plan(fromTags: tags) {
+            if event.reduceVolume {
+                next.duration = min(next.duration, max(25, event.keepLight ? 30 : 40))
+            }
+            if event.keepLight, next.intensity == .max || next.intensity == .high {
+                next.intensity = .moderate
+            }
+            if event.progressive, !next.name.lowercased().contains("progressive") {
+                next.name = "Progressive " + next.name
             }
         }
         return next
@@ -558,45 +694,68 @@ enum AriaDummyOrchestrator {
 
     private static func requiredTokens(
         from interpretation: AriaDummyInterpretation,
-        beats _: [AriaDummyBeat]
+        beats: [AriaDummyBeat],
+        prompt: String
     ) -> [String] {
-        var tokens: [String] = []
+        var tokens: [String] = AriaPromptCorrelation.requiredMentions(in: prompt)
         if interpretation.domains.contains(.sleep) { tokens.append("sleep") }
         if interpretation.domains.contains(.training) { tokens.append("minute") }
         if interpretation.recordedSport != nil { tokens.append("train") }
         if interpretation.logWaterMl != nil { tokens.append("water") }
         if interpretation.domains.contains(.nutrition), interpretation.logWaterMl == nil { tokens.append("eat") }
         if interpretation.skipLegs { tokens.append("leg") }
-        return tokens
+        if beats.contains(where: { $0.prose.localizedCaseInsensitiveContains("Lifestyle QoL") }),
+           let snap = QualityOfLifeLivingStore.load() {
+            tokens.append("\(snap.overall)/100")
+        }
+        var unique: [String] = []
+        for token in tokens where !unique.contains(where: { $0.caseInsensitiveCompare(token) == .orderedSame }) {
+            unique.append(token)
+        }
+        return unique
     }
 
     private static func polishIfOnDevice(
         skeleton: String,
         context: TrainerContext,
-        required: [String]
+        required: [String],
+        prompt: String
     ) async -> String {
         #if canImport(FoundationModels)
         guard #available(iOS 26.0, *) else { return skeleton }
         let gen = FoundationModelsResponseGenerator()
         guard gen.isAvailable else { return skeleton }
-        let prompt = """
-        Rewrite this as one natural ARIA coaching turn. Keep every fact. Do not add medical claims. \
-        Do not say you are a dummy, local, or fill-in.
+        let rewrite = """
+        Rewrite this as one natural ARIA coaching turn that answers THIS user message — do not change the topic:
+        \(prompt)
+
+        Keep every fact. Do not add medical claims. Do not say you are a dummy, local, or fill-in.
+        If they already asked this, rephrase — never reprint the last reply.
 
         \(skeleton)
         """
-        guard let out = try? await gen.generateResponse(for: prompt, context: context) else {
+        guard let out = try? await gen.generateResponse(for: rewrite, context: context) else {
             return skeleton
         }
         let lower = out.content.lowercased()
         let kept = required.allSatisfy { token in
             lower.contains(token.lowercased())
         }
-        if kept, out.content.count > 40 { return out.content }
+        if kept, AriaPromptCorrelation.correlates(reply: out.content, toPrompt: prompt), out.content.count > 40 {
+            return out.content
+        }
         return skeleton
         #else
         return skeleton
         #endif
+    }
+
+    private static func publish(_ response: AriaResponse, prompt: String) -> AriaResponse {
+        var out = response
+        let message = AriaReplyVariety.distinct(prompt: prompt, draft: out.message)
+        out.message = message
+        out.proseSummary = message
+        return out
     }
 
     private static func confirm(_ message: String, store: AppStore, card: RichCardPayload?) -> AriaResponse {

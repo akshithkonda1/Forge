@@ -10,6 +10,7 @@ struct LifestyleView: View {
     @State private var selectedSegment: LifestyleSegment = .nutrition
     @State private var showInsights = false
     @State private var reconnectingHK = false
+    @State private var showLifestyleInterview = false
     @Namespace private var segmentNS
 
     var body: some View {
@@ -95,6 +96,15 @@ struct LifestyleView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
+            if showLifestyleInterview {
+                LifestyleInterviewOverlay {
+                    showLifestyleInterview = false
+                    Task { await vm.refresh() }
+                }
+                .zIndex(20)
+                .transition(.opacity)
+            }
+
         }
         .animation(.easeInOut(duration: 0.3), value: showInsights)
         .task {
@@ -104,6 +114,9 @@ struct LifestyleView: View {
         }
         .onAppear {
             consumePendingLifestyleSegment()
+            if !QualityOfLifeLivingStore.hasCompletedInterview() {
+                showLifestyleInterview = true
+            }
         }
         .onChange(of: store.pendingLifestyleSegment) { _, _ in
             consumePendingLifestyleSegment()

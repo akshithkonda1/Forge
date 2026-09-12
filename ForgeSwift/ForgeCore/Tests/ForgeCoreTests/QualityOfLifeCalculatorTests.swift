@@ -209,4 +209,85 @@ final class QualityOfLifeCalculatorTests: XCTestCase {
         XCTAssertNotNil(withLifeContext.score(for: .social))
         XCTAssertGreaterThan(withLifeContext.gradedAspects, biometricOnly.gradedAspects)
     }
+
+    func testHomebodyWeightsSleepOverActivityVersusOutdoors() {
+        let inputs = QualityOfLifeInputs(
+            sleepHours: 8, steps: 3_000, proteinGrams: 140, totalCalories: 2_200,
+            hrvMs: 50, hrvBaselineMs: 50, selfReportedMood0to10: 7
+        )
+        let home = QualityOfLifeCalculator.score(
+            from: inputs,
+            persona: QualityOfLifePersona(archetype: .homebody)
+        )
+        let out = QualityOfLifeCalculator.score(
+            from: inputs,
+            persona: QualityOfLifePersona(archetype: .outdoors)
+        )
+        XCTAssertGreaterThan(home.overall, out.overall)
+        XCTAssertEqual(home.score(for: .sleep), out.score(for: .sleep))
+        XCTAssertEqual(home.score(for: .activity), out.score(for: .activity))
+        XCTAssertGreaterThan(
+            QualityOfLifePersona(archetype: .homebody).weight(for: .sleep),
+            QualityOfLifePersona(archetype: .homebody).weight(for: .activity)
+        )
+        XCTAssertGreaterThan(
+            QualityOfLifePersona(archetype: .outdoors).weight(for: .activity),
+            QualityOfLifePersona(archetype: .outdoors).weight(for: .sleep)
+        )
+    }
+
+    func testGollumWeekDropsMindAndOverall() {
+        let happy = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(
+            sleepHours: 7.5, steps: 8_000, weeklyMood0to10: 9
+        ))
+        let gollum = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(
+            sleepHours: 7.5, steps: 8_000, weeklyMood0to10: 2
+        ))
+        XCTAssertGreaterThan(happy.score(for: .mind) ?? 0, gollum.score(for: .mind) ?? 100)
+        XCTAssertGreaterThan(happy.overall, gollum.overall)
+    }
+
+    func testPackedCalendarWithoutConnectionStrainsSocial() {
+        let connected = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(
+            socialConnection0to10: 9, calendarBusyness0to1: 0.9
+        ))
+        let isolated = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(
+            socialConnection0to10: 2, calendarBusyness0to1: 0.9
+        ))
+        XCTAssertGreaterThan(connected.score(for: .social) ?? 0, isolated.score(for: .social) ?? 100)
+    }
+
+    func testSleepPreferenceShiftsTheOptimum() {
+        let shortSleeper = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(
+            sleepHours: 6.5, sleepNeedPreferenceHours: 6.5
+        ))
+        let eightHourTarget = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(
+            sleepHours: 6.5
+        ))
+        XCTAssertGreaterThan(shortSleeper.score(for: .sleep) ?? 0, eightHourTarget.score(for: .sleep) ?? 100)
+    }
+
+    func testLivingStoreIsTheScoreARIAReads() {
+        let suite = "forge.qol.live.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let score = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(steps: 8_000))
+        let persona = QualityOfLifePersona(archetype: .homebody)
+        QualityOfLifeLivingStore.publish(score, persona: persona, defaults: defaults)
+        let snap = QualityOfLifeLivingStore.load(defaults: defaults)
+        XCTAssertEqual(snap?.overall, score.overall)
+        XCTAssertEqual(snap?.personaArchetype, "homebody")
+        let line = QualityOfLifeLivingStore.coachingLine(defaults: defaults)
+        XCTAssertTrue(line.contains("\(score.overall)/100"))
+        XCTAssertTrue(line.lowercased().contains("same grade") || line.lowercased().contains("life shows"))
+        defaults.removePersistentDomain(forName: suite)
+    }
+
+    func testQoLQuestionDetectsLifeGradeAsks() {
+        XCTAssertTrue(QualityOfLifeLivingStore.isQuestion("What's my quality of life?"))
+        XCTAssertTrue(QualityOfLifeLivingStore.isQuestion("how's my QoL"))
+        XCTAssertTrue(QualityOfLifeLivingStore.isQuestion("grade my life"))
+        XCTAssertFalse(QualityOfLifeLivingStore.isQuestion("what should I train today"))
+        XCTAssertFalse(QualityOfLifeLivingStore.isQuestion("how's my sleep"))
+    }
 }

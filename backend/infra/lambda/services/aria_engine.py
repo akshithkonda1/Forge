@@ -38,6 +38,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
 
+from services.contextual_parsing import matches_any
+
 # --- Versioned interface -----------------------------------------------------
 
 SCHEMA_VERSION = "1.1"
@@ -881,7 +883,7 @@ _INSIGHT_PATTERNS = (
 _SUMMARY_PATTERNS = (
     "progress", "this month", "this week", "review", "trending", "trend",
     "how am i doing", "how's it going", "summary", "recap", "personal record",
-    " pr ", "prs",
+    "pr", "prs",
 )
 
 # Words → the domain a question is *about*, so an insight answers what was asked
@@ -900,7 +902,7 @@ _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
 def _focus_domain(message: str) -> str | None:
     text = (message or "").lower()
     for domain, words in _DOMAIN_KEYWORDS.items():
-        if any(word in text for word in words):
+        if matches_any(text, words):
             return domain
     return None
 
@@ -920,7 +922,7 @@ def classify_request(message: str, ctx: ARIAContext) -> str:
     if not usable:
         return "clarification"
 
-    if any(p in text for p in _ADVICE_PATTERNS):
+    if matches_any(text, _ADVICE_PATTERNS):
         return "recommendation"
 
     recovery = ctx.readiness.recovery_score
@@ -934,10 +936,10 @@ def classify_request(message: str, ctx: ARIAContext) -> str:
     if focus and focus != "progress":
         return "insight"
 
-    if (focus == "progress" or any(p in text for p in _SUMMARY_PATTERNS)) and ctx.has_progress:
+    if (focus == "progress" or matches_any(text, _SUMMARY_PATTERNS)) and ctx.has_progress:
         return "summary"
 
-    if any(p in text for p in _INSIGHT_PATTERNS) or focus:
+    if matches_any(text, _INSIGHT_PATTERNS) or focus:
         return "insight"
 
     return "insight" if ctx.sleep_baseline_ready or ctx.has_hrv else "recommendation"
