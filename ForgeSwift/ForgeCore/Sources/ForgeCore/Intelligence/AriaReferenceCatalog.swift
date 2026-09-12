@@ -75,6 +75,7 @@ public enum AriaReferenceCatalog {
         .lifestyle: [
             AriaReferenceSource(title: "CDC: Healthy Eating & Activity", url: "https://www.cdc.gov/nutrition/index.html"),
             AriaReferenceSource(title: "MedlinePlus: Healthy Living", url: "https://medlineplus.gov/healthy-living.html"),
+            AriaReferenceSource(title: "MedlinePlus: Stress", url: "https://medlineplus.gov/stress.html"),
         ],
         .activity: [
             AriaReferenceSource(title: "CDC: Adult Activity Guidelines", url: "https://www.cdc.gov/physical-activity-basics/guidelines/adults.html"),
@@ -111,6 +112,16 @@ public enum AriaReferenceCatalog {
             .contains { lower.contains($0) }
     }
 
+    /// Event clothing / prep. Curated public-health pages only — never a shop.
+    public static func questionSuggestsEventPrep(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        if ["tuxedo", "tux ", "black tie", "what to wear", "what should i wear",
+            "wedding attire", "suit for", "dress for a wedding", "outfit for"].contains(where: { lower.contains($0) }) {
+            return true
+        }
+        return lower.contains("wedding") && (lower.contains("wear") || lower.contains("suit") || lower.contains("dress"))
+    }
+
     public static func resolvedTopic(domainRawValue: String, question: String) -> AriaReferenceTopic {
         if questionSuggestsFever(question) { return .fever }
         if let topic = AriaReferenceTopic(rawValue: domainRawValue) {
@@ -137,6 +148,9 @@ public enum AriaReferenceCatalog {
         }
         if questionSuggestsFever(question) {
             pool = (sources[.fever] ?? []) + pool
+        }
+        if questionSuggestsEventPrep(question) {
+            pool = (sources[.lifestyle] ?? []) + pool
         }
 
         var unique: [AriaReferenceSource] = []

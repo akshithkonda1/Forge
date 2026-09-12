@@ -81,4 +81,22 @@ final class AriaReferenceCatalogTests: XCTestCase {
             }
         }
     }
+
+    func testTuxedoQuestionOverlaysLifestylePublicHealthPages() {
+        XCTAssertTrue(
+            AriaReferenceCatalog.questionSuggestsEventPrep(
+                "what tuxedo should I wear to a wedding"
+            )
+        )
+        XCTAssertFalse(AriaReferenceCatalog.questionSuggestsEventPrep("what should I train today"))
+        let picks = AriaReferenceCatalog.picks(
+            topic: .training,
+            question: "what tuxedo should I wear to a wedding",
+            salt: 3,
+            limit: 8
+        )
+        XCTAssertTrue(picks.contains {
+            $0.source.url.contains("medlineplus.gov") || $0.source.url.contains("cdc.gov")
+        })
+    }
 }

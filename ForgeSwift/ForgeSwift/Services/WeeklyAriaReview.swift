@@ -21,6 +21,8 @@ final class WeeklyAriaReviewStore: ObservableObject {
         ("body", "Anything hurting, lingering, or off?", "Injuries, illness, cycle, stress. Empty is fine."),
         ("focus", "What should next week be about?", "Strength, recovery, consistency, or just showing up."),
         ("remember", "What should Forge remember about you?", "A preference, a constraint, a goal."),
+        ("mood", "How has your mood actually been this week?", "Happy, flat, or Gollum-mode — this week, not your whole life."),
+        ("social", "Did you want people around, or space?", "Seeing family vs hiding out both count."),
     ]
 
     static let openNotification = Notification.Name("forge.openWeeklyAria")
@@ -73,6 +75,34 @@ final class WeeklyAriaReviewStore: ObservableObject {
         if let body = cleaned["body"], !body.isEmpty { facts.append("Body note: \(body)") }
         if let focus = cleaned["focus"], !focus.isEmpty { facts.append("Next-week focus: \(focus)") }
         if let remember = cleaned["remember"], !remember.isEmpty { facts.append(remember) }
+        if let mood = cleaned["mood"], !mood.isEmpty { facts.append("Weekly mood: \(mood)") }
+        if let social = cleaned["social"], !social.isEmpty { facts.append("Weekly social: \(social)") }
+
+        let source = "weekly-checkin"
+        for (kind, text) in cleaned where !text.isEmpty {
+            AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
+                category: .weSpokeAbout,
+                kind: "weekly_\(kind)",
+                summary: text,
+                source: source
+            ))
+        }
+        if let mood = cleaned["mood"], let score = WeeklyMoodScale.score(from: mood) {
+            AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
+                category: .weSpokeAbout,
+                kind: "weekly_mood",
+                summary: String(format: "%.0f", score),
+                source: source
+            ))
+            AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
+                category: .inferences,
+                kind: "weekly_mood_shift",
+                summary: score <= 3
+                    ? "This week is a withdrawal week — QoL mind weight should go gentle."
+                    : "This week has lift — protect what's working.",
+                source: source
+            ))
+        }
 
         let summary: String
         if facts.isEmpty {
