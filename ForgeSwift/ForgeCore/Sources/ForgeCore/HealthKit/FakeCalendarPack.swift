@@ -391,6 +391,12 @@ public struct FakeCalendarPack: Sendable, Equatable {
             let raw = String(tag.dropFirst("calendar:kind:".count))
             return FakeCalendarEvent.Kind(rawValue: raw) != nil
         }
+        if tag.hasPrefix("calendar:horizon:") {
+            let rest = String(tag.dropFirst("calendar:horizon:".count))
+            let parts = rest.split(separator: ":")
+            guard parts.count == 2, Int(parts[1]) != nil else { return false }
+            return FakeCalendarEvent.Kind(rawValue: String(parts[0])) != nil
+        }
         return false
     }
 
@@ -419,12 +425,36 @@ public struct FakeCalendarPack: Sendable, Equatable {
         return sanitizeTags(tags)
     }
 
+    /// Headline events in the next `withinDays` — kind and days-until only.
+    public static func horizonTags(
+        events: [FakeCalendarEvent],
+        now: Date = Date(),
+        calendar: Calendar = .current,
+        withinDays: Int = 21
+    ) -> [String] {
+        let start = calendar.startOfDay(for: now)
+        var nearest: [FakeCalendarEvent.Kind: Int] = [:]
+        for event in events where event.kind.isHeadline {
+            let day = calendar.startOfDay(for: event.start)
+            let days = calendar.dateComponents([.day], from: start, to: day).day ?? 0
+            guard days >= 0, days <= withinDays else { continue }
+            if let existing = nearest[event.kind], existing <= days { continue }
+            nearest[event.kind] = days
+        }
+        return sanitizeTags(
+            nearest.keys.sorted().map { "calendar:horizon:\($0.rawValue):\(nearest[$0] ?? 0)" }
+        )
+    }
+
     public static func ingestTags(
         from pack: FakeCalendarPack,
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> [String] {
-        weekContext(from: pack, now: now, calendar: calendar).ingestTags
+        sanitizeTags(
+            weekContext(from: pack, now: now, calendar: calendar).ingestTags
+                + horizonTags(events: pack.events, now: now, calendar: calendar)
+        )
     }
 
     public static func kinds(fromTags tags: [String]) -> [FakeCalendarEvent.Kind] {

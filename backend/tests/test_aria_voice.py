@@ -55,6 +55,17 @@ class VoiceDesignPromptTests(unittest.TestCase):
             elevenlabs_voice.ARIA_DESIGN_PREVIEW_TEXT, _swift_string("designPreviewText")
         )
         self.assertEqual(elevenlabs_voice.ARIA_VOICE_NAME, "ARIA")
+        self.assertEqual(elevenlabs_voice.TTS_MODEL_ID, "eleven_v3_conversational")
+        self.assertEqual(elevenlabs_voice.ASR_PROVIDER, "scribe_realtime")
+        self.assertEqual(elevenlabs_voice.TURN_MODEL, "turn_v3")
+        self.assertEqual(elevenlabs_voice.VOICE_DESIGN_MODEL_ID, "eleven_ttv_v3")
+        self.assertEqual(elevenlabs_voice.CONVAI_LLM, "claude-sonnet-4-6")
+        swift = SWIFT_VOICE.read_text(encoding="utf-8")
+        self.assertIn(f'static let liveTTSModel = "{elevenlabs_voice.TTS_MODEL_ID}"', swift)
+        self.assertIn(f'static let liveASRProvider = "{elevenlabs_voice.ASR_PROVIDER}"', swift)
+        self.assertIn(f'static let liveTurnModel = "{elevenlabs_voice.TURN_MODEL}"', swift)
+        self.assertIn(f'static let liveVoiceDesignModel = "{elevenlabs_voice.VOICE_DESIGN_MODEL_ID}"', swift)
+        self.assertIn(f'static let liveConvAILLM = "{elevenlabs_voice.CONVAI_LLM}"', swift)
         self.assertIn("not a customer-service agent", elevenlabs_voice.ARIA_DESIGN_PROMPT)
         self.assertIn("GPS", elevenlabs_voice.ARIA_DESIGN_PROMPT)
         self.assertNotIn("tiffany", elevenlabs_voice.ARIA_DESIGN_PROMPT.lower())
@@ -161,6 +172,9 @@ class VoiceRouteTests(unittest.TestCase):
         self.assertNotIn("xi-api-key", payload["signed_url"].lower())
         self.assertEqual(payload["voice_name"], "ARIA")
         self.assertIn("You are ARIA", payload["prompt_context"])
+        self.assertEqual(payload["models"]["tts"], "eleven_v3_conversational")
+        self.assertEqual(payload["models"]["asr"], "scribe_realtime")
+        self.assertEqual(payload["models"]["llm"], "claude-sonnet-4-6")
 
     def test_bootstrap_refuses_to_echo_the_api_key(self):
         os.environ["ELEVENLABS_API_KEY"] = "sk_leaky"
@@ -217,6 +231,7 @@ class VoiceRouteTests(unittest.TestCase):
             if url.endswith("/v1/text-to-voice/design"):
                 payload = json.loads(raw.decode("utf-8"))
                 self.assertEqual(payload["voice_description"], elevenlabs_voice.ARIA_DESIGN_PROMPT)
+                self.assertEqual(payload["model_id"], "eleven_ttv_v3")
                 return 200, {
                     "previews": [
                         {"generated_voice_id": "gen_1", "duration_secs": 4.2, "media_type": "audio/mpeg"}
@@ -229,9 +244,19 @@ class VoiceRouteTests(unittest.TestCase):
                 return 200, {"voice_id": "voice_saved"}
             if url.endswith("/v1/convai/agents/create"):
                 payload = json.loads(raw.decode("utf-8"))
-                self.assertEqual(payload["conversation_config"]["tts"]["voice_id"], "voice_saved")
+                tts = payload["conversation_config"]["tts"]
+                asr = payload["conversation_config"]["asr"]
+                turn = payload["conversation_config"]["turn"]
+                prompt = payload["conversation_config"]["agent"]["prompt"]
+                self.assertEqual(tts["voice_id"], "voice_saved")
+                self.assertEqual(tts["model_id"], "eleven_v3_conversational")
+                self.assertTrue(tts["expressive_mode"])
+                self.assertEqual(asr["provider"], "scribe_realtime")
+                self.assertIn("HRV", asr["keywords"])
+                self.assertEqual(turn["turn_model"], "turn_v3")
+                self.assertEqual(prompt["llm"], "claude-sonnet-4-6")
                 self.assertEqual(payload["name"], "ARIA")
-                tools = payload["conversation_config"]["agent"]["prompt"]["tools"]
+                tools = prompt["tools"]
                 self.assertEqual(tools[0]["name"], "forge_coach")
                 self.assertEqual(tools[0]["type"], "client")
                 return 200, {"agent_id": "agent_saved"}
@@ -245,6 +270,36 @@ class VoiceRouteTests(unittest.TestCase):
         self.assertEqual(designed["seed_secret"]["ELEVENLABS_ARIA_VOICE_ID"], "voice_saved")
         self.assertTrue(any("text-to-voice/design" in url for url in calls))
         self.assertTrue(any("agents/create" in url for url in calls))
+        self.assertEqual(designed["models"]["tts"], "eleven_v3_conversational")
+        self.assertEqual(designed["models"]["voice_design"], "eleven_ttv_v3")
+
+    def test_design_patches_existing_agent_instead_of_creating_another(self):
+        os.environ["ELEVENLABS_API_KEY"] = "sk_design"
+        os.environ["ELEVENLABS_ARIA_AGENT_ID"] = "agent_existing"
+        os.environ["ENVIRONMENT"] = "test"
+        provider_secrets.reset_cache()
+        calls: list[str] = []
+
+        def fake_http(method, url, headers, raw):
+            calls.append(f"{method} {url}")
+            if url.endswith("/v1/text-to-voice/design"):
+                return 200, {"previews": [{"generated_voice_id": "gen_1"}]}
+            if url.endswith("/v1/text-to-voice"):
+                return 200, {"voice_id": "voice_saved"}
+            if url.endswith("/v1/convai/agents/agent_existing"):
+                self.assertEqual(method, "PATCH")
+                payload = json.loads(raw.decode("utf-8"))
+                self.assertEqual(
+                    payload["conversation_config"]["tts"]["model_id"],
+                    "eleven_v3_conversational",
+                )
+                return 200, {"agent_id": "agent_existing"}
+            self.fail(url)
+
+        designed = elevenlabs_voice.design_aria(http=fake_http)
+        self.assertEqual(designed["agent_id"], "agent_existing")
+        self.assertTrue(any(call.startswith("PATCH ") for call in calls))
+        self.assertFalse(any("agents/create" in call for call in calls))
 
 
 if __name__ == "__main__":

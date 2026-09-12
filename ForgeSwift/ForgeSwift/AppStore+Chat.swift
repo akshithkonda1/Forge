@@ -59,6 +59,7 @@ extension AppStore {
             durableMemoryAnchors = Array(durableMemoryAnchors.prefix(Self.maxDurableAnchors))
         }
         persistChatSession()
+        AriaContextStore.shared.fileSpoken(trimmed)
     }
 
     func persistChatSession() {

@@ -104,14 +104,20 @@ public enum AriaIntentResolver {
         }
 
         // --- Language ---
+        //
+        // Routed through ContextualParsingEngine rather than plain
+        // `lower.contains(...)`: word-boundary safe (a short keyword like
+        // "rest" no longer fires inside an unrelated longer word) and
+        // typo-tolerant, so a single misspelling does not drop a message out
+        // of every phrase/keyword list with zero signal.
         for (domain, phrases) in Self.phrases {
-            for phrase in phrases where lower.contains(phrase) {
+            for phrase in phrases where ContextualParsingEngine.matches(lower, phrase) {
                 add(domain, Weight.phrase, "said “\(phrase)”")
                 break
             }
         }
         for (domain, words) in Self.keywords {
-            let hits = words.filter { lower.contains($0) }
+            let hits = words.filter { ContextualParsingEngine.matches(lower, $0) }
             if !hits.isEmpty {
                 let count: Double = Double(hits.count)
                 let weight: Double = Weight.keyword * min(2.0, count)
@@ -420,7 +426,7 @@ public enum AriaIntentResolver {
             ("readiness", ["readiness", "recover", "hrv", "tired", "exhausted", "drained"]),
             ("training", ["train", "workout", "session", "lift", "gym"]),
             ("nutrition", ["eat", "food", "protein", "meal", "calorie", "hydrat"]),
-            ("lifestyle", ["work", "travel", "busy", "schedule", "calendar", "tonight"]),
+            ("lifestyle", ["work", "travel", "busy", "schedule", "calendar", "tonight", "quality of life", "qol", "wellbeing"]),
             ("progress", ["progress", "gains", "stronger", "streak", "plateau"]),
             ("body", ["pain", "hurt", "knee", "shoulder", "injury", "ache"]),
             ("cycle", ["period", "cycle", "luteal", "follicular", "pms", "cramp"]),
@@ -544,24 +550,37 @@ public enum AriaIntentResolver {
     /// Multi-word phrases carry more meaning than any single token in them, so
     /// they score higher and only once per domain.
     private static let phrases: [AriaIntentDomain: [String]] = [
-        .training: ["build me a session", "what should i train", "workout for", "training plan", "what's my workout", "give me a session"],
-        .sleep: ["how did i sleep", "slept badly", "couldn't sleep", "keep waking", "sleep debt"],
-        .readiness: ["how am i doing today", "should i train today", "am i recovered", "how's my recovery"],
-        .nutrition: ["what should i eat", "how much protein", "am i eating enough"],
+        .training: [
+            "build me a session", "what should i train", "workout for", "training plan",
+            "what's my workout", "give me a session", "hit the gym", "let's train",
+        ],
+        .sleep: [
+            "how did i sleep", "slept badly", "couldn't sleep", "keep waking", "sleep debt",
+            "didn't sleep", "tossed and turned",
+        ],
+        .readiness: [
+            "how am i doing today", "should i train today", "am i recovered", "how's my recovery",
+            "how's my hrv", "do i have it in me",
+        ],
+        .nutrition: ["what should i eat", "how much protein", "am i eating enough", "what should i drink"],
         .body: ["something hurts", "is this an injury", "still sore", "pain in my"],
         .progress: ["am i getting stronger", "how am i progressing", "is this working"],
         .cycle: ["my cycle", "on my period", "time of the month", "cycle day"],
+        .lifestyle: [
+            "quality of life", "how's my life", "how is my life",
+            "lifestyle score", "grade my life", "how am i living",
+        ],
     ]
 
     private static let keywords: [AriaIntentDomain: [String]] = [
         .training: ["train", "workout", "session", "lift", "run", "gym", "sets", "reps"],
-        .sleep: ["sleep", "slept", "rest", "bed", "insomnia", "nap"],
-        .readiness: ["readiness", "recovery", "hrv", "tired", "exhausted", "drained", "energy"],
+        .sleep: ["sleep", "slept", "rest", "bed", "insomnia", "nap", "wiped"],
+        .readiness: ["readiness", "recovery", "hrv", "tired", "exhausted", "drained", "energy", "wiped"],
         .nutrition: ["eat", "food", "protein", "meal", "calorie", "hydrate", "water", "carbs"],
         .body: ["pain", "hurt", "sore", "injury", "ache", "strain", "tweak"],
         .cycle: ["period", "menstrual", "luteal", "follicular", "ovulat", "pms", "cramp"],
         .progress: ["progress", "gains", "stronger", "streak", "improving", "plateau"],
-        .lifestyle: ["work", "travel", "busy", "stress", "schedule", "time"],
+        .lifestyle: ["work", "travel", "busy", "stress", "schedule", "time", "qol", "wellbeing"],
     ]
 }
 

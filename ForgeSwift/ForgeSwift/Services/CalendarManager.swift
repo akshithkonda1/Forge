@@ -46,6 +46,8 @@ final class CalendarManager: ObservableObject {
     @Published var classifiedKinds: [FakeCalendarEvent.Kind] = []
     /// This week's Test-Ready kinds/busy, applied before EventKit finishes a year write.
     @Published var memoryWeekContext: FakeCalendarWeekContext?
+    /// Headline events in the next 21 days — kind + days-until, never titles.
+    @Published var horizonTags: [String] = []
     private var yearWriteTask: Task<Void, Never>?
 
     var displayedWeekContext: FakeCalendarWeekContext? {
@@ -56,7 +58,7 @@ final class CalendarManager: ObservableObject {
     }
 
     var calendarTags: [String] {
-        displayedWeekContext?.ingestTags ?? []
+        FakeCalendarPack.sanitizeTags((displayedWeekContext?.ingestTags ?? []) + horizonTags)
     }
 
     private var eventKitWeekContext: FakeCalendarWeekContext? {
@@ -204,6 +206,7 @@ final class CalendarManager: ObservableObject {
             FakeCalendarPack.generate(seed: seed)
         }.value
         memoryWeekContext = FakeCalendarPack.weekContext(from: pack)
+        horizonTags = FakeCalendarPack.horizonTags(events: pack.events)
         if TestReadyLaunchPolicy.homeWaitsForCalendarYearWrite {
             await writeTestReadyYear(pack: pack, seed: seed)
             return true

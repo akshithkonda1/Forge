@@ -105,13 +105,10 @@ enum AriaDummyTurn {
     static func clauses(in text: String) -> [String] {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
-        let normalized = trimmed
-            .replacingOccurrences(of: "—", with: " | ")
-            .replacingOccurrences(of: "–", with: " | ")
-            .replacingOccurrences(of: ";", with: " | ")
-        let rawParts = splittingConnectors(normalized)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        // ContextualParsingEngine also splits on commas, which the old
+        // dash/semicolon/connective-only split did not: "slept badly, want
+        // to hit the gym" used to reach here as one unsplit blob.
+        let rawParts = ContextualParsingEngine.splitClauses(trimmed)
         guard rawParts.count > 1 else { return [trimmed] }
 
         var merged: [String] = []
@@ -402,7 +399,8 @@ enum AriaDummyTurn {
         beats: [AriaDummyBeat],
         interpretation: AriaDummyInterpretation,
         name: String,
-        seed: UInt64
+        seed: UInt64,
+        prompt: String = ""
     ) -> String {
         var rng = AriaSeededRNG(seed: seed == 0 ? 0xA11A : seed)
         let sleep = beats.first { $0.domain == .sleep || $0.domain == .readiness }
@@ -412,6 +410,13 @@ enum AriaDummyTurn {
         let extra = beats.filter {
             $0.domain == .cycle || $0.domain == .progress
         }
+        let askedFood = AriaPromptCorrelation.requiredMentions(in: prompt)
+            .contains { ["eat", "food", "protein", "water"].contains($0) }
+            || interpretation.logWaterMl != nil
+            || interpretation.noteToWrite != nil
+            || interpretation.readCalendar
+            || QualityOfLifeLivingStore.isQuestion(prompt)
+            || AriaReferenceCatalog.questionSuggestsEventPrep(prompt)
 
         var sentences: [String] = []
         let hey = name.isEmpty ? "" : rng.pick(["Hey \(name) — ", "\(name), ", ""])
@@ -449,9 +454,9 @@ enum AriaDummyTurn {
         }
 
         if let train {
-            sentences.append(clip(train.prose, limit: 180))
+            sentences.append(clip(train.prose, limit: 280))
         }
-        if let food {
+        if let food, askedFood || train == nil {
             let lowerFood = food.prose.lowercased()
             let calendarThought = interpretation.readCalendar
                 || lowerFood.contains("calendar")
@@ -459,6 +464,10 @@ enum AriaDummyTurn {
                 || lowerFood.contains("trip")
                 || lowerFood.contains("travel")
                 || lowerFood.contains("busy window")
+                || lowerFood.contains("lifestyle qol")
+                || lowerFood.contains("quality of life")
+                || lowerFood.contains("tux")
+                || lowerFood.contains("suit")
             let limit = calendarThought ? 280 : 140
             sentences.append(clip(food.prose, limit: limit))
         }
@@ -479,11 +488,18 @@ enum AriaDummyTurn {
            !lower.contains("sleep"), !lower.contains("night"), !lower.contains("slept") {
             joined = "Last night was thin. " + joined
         }
+        let promptLower = prompt.lowercased()
         if interpretation.domains.contains(.nutrition),
            interpretation.logWaterMl == nil,
+           promptLower.contains("eat") || promptLower.contains("food") || promptLower.contains("protein"),
            !lower.contains("eat"), !lower.contains("food"), !lower.contains("protein"),
            !lower.contains("water") {
-            joined += " Keep food simple — protein and something you will actually eat."
+            joined += " " + AriaReplyVariety.pick([
+                "Keep food simple — protein and something you will actually eat.",
+                "Eat something you'll actually finish — protein first, nothing fancy.",
+                "Food stays simple: protein plus a plate you will eat.",
+                "Don't overthink the plate — protein and a meal you'll finish.",
+            ], prompt: prompt)
         }
         return joined
     }
@@ -549,35 +565,11 @@ enum AriaDummyTurn {
     // MARK: - Private
 
     private static func hasIntentNeedle(_ text: String) -> Bool {
-        let lower = text.lowercased()
-        return intentNeedles.contains { lower.contains($0) }
-    }
-
-    private static func splittingConnectors(_ text: String) -> [String] {
-        let pattern = #"\s*(?:\||\band\b|\bthen\b|\balso\b)\s*"#
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
-            return [text]
-        }
-        let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        var parts: [String] = []
-        var last = text.startIndex
-        for match in regex.matches(in: text, options: [], range: range) {
-            guard let matchRange = Range(match.range, in: text) else { continue }
-            let piece = String(text[last..<matchRange.lowerBound])
-            if !piece.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                parts.append(piece)
-            }
-            last = matchRange.upperBound
-        }
-        let tail = String(text[last...])
-        if !tail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            parts.append(tail)
-        }
-        return parts.isEmpty ? [text] : parts
+        ContextualParsingEngine.matchesAny(text, intentNeedles)
     }
 
     private static func matches(_ text: String, _ needles: [String]) -> Bool {
-        needles.contains { text.contains($0) }
+        ContextualParsingEngine.matchesAny(text, needles)
     }
 
     private static func primaryAgent(

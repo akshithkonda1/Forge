@@ -230,6 +230,8 @@
 		95AE5FF2D55FC04CECA87263 /* ProgressPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125597C26056DBE7682E5451 /* ProgressPageView.swift */; };
 		1933FBEC0A8E8D9D78CE7609 /* WorkoutHistoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */; };
 		F75B54F9794C1DECC9240724 /* SettingsPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DBF3F5B4E943D90A01FB398 /* SettingsPageView.swift */; };
+		1KNOW02000000000000000A /* WhatIKnowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1KNOW01000000000000000A /* WhatIKnowView.swift */; };
+		1LIFE02000000000000000A /* LifestyleInterviewOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1LIFE01000000000000000A /* LifestyleInterviewOverlay.swift */; };
 		651B4E5D41EE26C57D1E169E /* ForgeAboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */; };
 		BCC7261848DBE6001B2DBC5C /* ClinicalDataNonPHIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */; };
 		1MED02000000000000000A /* MedicationPharmacyCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MED01000000000000000A /* MedicationPharmacyCatalog.swift */; };
@@ -322,6 +324,7 @@
 		1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02900000000000000A /* AriaLogoPresenceTests.swift */; };
 		1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */; };
 		1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */; };
+		1TEST03600000000000000A /* AriaDummyOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -483,6 +486,7 @@
 		1TEST02900000000000000A /* AriaLogoPresenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaLogoPresenceTests.swift; sourceTree = "<group>"; };
 		1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentPracticeAPITests.swift; sourceTree = "<group>"; };
 		1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitAuthorizationPlanTests.swift; sourceTree = "<group>"; };
+		1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestratorTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
@@ -639,6 +643,8 @@
 		125597C26056DBE7682E5451 /* ProgressPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressPageView.swift; sourceTree = "<group>"; };
 		23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryListView.swift; sourceTree = "<group>"; };
 		3DBF3F5B4E943D90A01FB398 /* SettingsPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPageView.swift; sourceTree = "<group>"; };
+		1KNOW01000000000000000A /* WhatIKnowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatIKnowView.swift; sourceTree = "<group>"; };
+		1LIFE01000000000000000A /* LifestyleInterviewOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleInterviewOverlay.swift; sourceTree = "<group>"; };
 		6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAboutView.swift; sourceTree = "<group>"; };
 		3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClinicalDataNonPHIView.swift; sourceTree = "<group>"; };
 		1MED01000000000000000A /* MedicationPharmacyCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationPharmacyCatalog.swift; sourceTree = "<group>"; };
@@ -986,6 +992,7 @@
 				125597C26056DBE7682E5451 /* ProgressPageView.swift */,
 				23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */,
 				3DBF3F5B4E943D90A01FB398 /* SettingsPageView.swift */,
+				1KNOW01000000000000000A /* WhatIKnowView.swift */,
 				6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */,
 				3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */,
 				1MED01000000000000000A /* MedicationPharmacyCatalog.swift */,
@@ -1001,6 +1008,7 @@
 				DB90BFB6F1FEB4F1ADCB75B7 /* DataPermissionsView.swift */,
 				AA000200000000000000000C /* Assets.xcassets */,
 				1ED842E22F90C15300693D3E /* LifestyleView.swift */,
+				1LIFE01000000000000000A /* LifestyleInterviewOverlay.swift */,
 				74D9E1B3713556C9528D8A07 /* LifestyleModels.swift */,
 				B69CD378C6DBF59D2A7DA2C7 /* LifestyleServices.swift */,
 				888D3FAA001A21DC8081E395 /* LifestyleViewModel.swift */,
@@ -1221,6 +1229,7 @@
 				1TEST02900000000000000A /* AriaLogoPresenceTests.swift */,
 				1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */,
 				1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */,
+				1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */,
 				1MED03000000000000000A /* MedicationPharmacyTests.swift */,
 			);
 			path = ForgeSwiftTests;
@@ -1668,6 +1677,8 @@
 				95AE5FF2D55FC04CECA87263 /* ProgressPageView.swift in Sources */,
 				1933FBEC0A8E8D9D78CE7609 /* WorkoutHistoryListView.swift in Sources */,
 				F75B54F9794C1DECC9240724 /* SettingsPageView.swift in Sources */,
+				1KNOW02000000000000000A /* WhatIKnowView.swift in Sources */,
+				1LIFE02000000000000000A /* LifestyleInterviewOverlay.swift in Sources */,
 				651B4E5D41EE26C57D1E169E /* ForgeAboutView.swift in Sources */,
 				BCC7261848DBE6001B2DBC5C /* ClinicalDataNonPHIView.swift in Sources */,
 				1MED02000000000000000A /* MedicationPharmacyCatalog.swift in Sources */,
@@ -1785,6 +1796,7 @@
 				1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */,
 				1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */,
 				1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */,
+				1TEST03600000000000000A /* AriaDummyOrchestratorTests.swift in Sources */,
 				1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
