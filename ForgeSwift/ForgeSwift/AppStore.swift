@@ -286,6 +286,17 @@ final class AppStore: ObservableObject {
     static let authEmailKey = "forge.auth.email.v1"
     static let ariaMeetKey = "forge.aria.meet.v1"
 
+    /// `forge.user.profile.v1` is one of `SecureStoreMigration.sensitiveKeys`, so
+    /// the unscoped key gets swept into the Keychain on every launch the same way
+    /// `forge.sleep.userProfile` does — read/write it anywhere but here and the
+    /// same reset/plaintext-leak cycle comes back. The per-user suffixed variant
+    /// (`profileStorageKey()` once someone is signed in) is never in that static
+    /// list — migration runs in `ForgeSwiftApp.init()`, before any session exists
+    /// to know a user id — so `loadUserProfile(forKey:)` below migrates it the
+    /// moment the real scoped key is known, instead of leaving it in `UserDefaults`
+    /// indefinitely.
+    private static let secureStore: SecureStore = KeychainStore()
+
     private func persistUserProfile() {
         persistProfileTask?.cancel()
         let snapshot = userProfile
@@ -293,9 +304,24 @@ final class AppStore: ObservableObject {
         persistProfileTask = Task {
             try? await Task.sleep(for: .milliseconds(80))
             guard !Task.isCancelled else { return }
-            guard let data = try? JSONEncoder().encode(snapshot) else { return }
-            UserDefaults.standard.set(data, forKey: key)
+            try? Self.secureStore.setValue(snapshot, forKey: key)
         }
+    }
+
+    /// Reads a profile from the Keychain, migrating a plaintext `UserDefaults`
+    /// copy under the same key in place the first time that key is read — the
+    /// one-off counterpart to `SecureStoreMigration.run` for keys it can't see.
+    static func loadUserProfile(forKey key: String) -> UserProfile? {
+        if let saved = try? secureStore.value(UserProfile.self, forKey: key) {
+            return saved
+        }
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let saved = try? JSONDecoder().decode(UserProfile.self, from: data) else {
+            return nil
+        }
+        try? secureStore.setValue(saved, forKey: key)
+        UserDefaults.standard.removeObject(forKey: key)
+        return saved
     }
 
     // MARK: - Onboarding → ARIA handoff

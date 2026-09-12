@@ -42,19 +42,12 @@ extension AppStore {
 
     func restoreUserProfileForCurrentUser() {
         let scoped = profileStorageKey()
-        if let data = UserDefaults.standard.data(forKey: scoped),
-           let saved = try? JSONDecoder().decode(UserProfile.self, from: data) {
+        if let saved = Self.loadUserProfile(forKey: scoped) {
             userProfile = saved
             return
         }
         if scoped != Self.profileDefaultsKey,
-           let data = UserDefaults.standard.data(forKey: Self.profileDefaultsKey),
-           let saved = try? JSONDecoder().decode(UserProfile.self, from: data) {
-            userProfile = saved
-            return
-        }
-        if let data = UserDefaults.standard.data(forKey: Self.profileDefaultsKey),
-           let saved = try? JSONDecoder().decode(UserProfile.self, from: data) {
+           let saved = Self.loadUserProfile(forKey: Self.profileDefaultsKey) {
             userProfile = saved
         }
     }
