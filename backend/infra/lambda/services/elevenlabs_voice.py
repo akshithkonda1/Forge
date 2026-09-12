@@ -37,6 +37,37 @@ ARIA_DESIGN_PREVIEW_TEXT = (
 
 ARIA_VOICE_NAME = "ARIA"
 
+# Locked live-mouth stack. Dummy / Device Hub never uses these.
+# Keep names identical to ``AriaCharacterVoice`` on iOS.
+TTS_MODEL_ID = "eleven_v3_conversational"
+ASR_PROVIDER = "scribe_realtime"  # Scribe v2 Realtime. ``elevenlabs`` is deprecated.
+TURN_MODEL = "turn_v3"
+VOICE_DESIGN_MODEL_ID = "eleven_ttv_v3"
+CONVAI_LLM = "claude-sonnet-4-6"  # Same family as the Bedrock primary slot.
+
+# Boost Scribe on coaching terms so "HRV" / "readiness" survive noisy mics.
+ASR_KEYWORDS = [
+    "ARIA",
+    "Forge",
+    "HRV",
+    "readiness",
+    "VO2",
+    "REM",
+    "zone two",
+    "RPE",
+    "hydration",
+    "luteal",
+    "follicular",
+]
+
+# Coach-shaped tags only. Theatrical tags would fight the design prompt.
+EXPRESSIVE_TAGS = [
+    {"tag": "warm", "description": "Close, unhurried, in the room."},
+    {"tag": "focused", "description": "One next move, not a pep talk."},
+    {"tag": "dry", "description": "Slight smile, no breathy narrator."},
+]
+
+
 HttpFn = Callable[[str, str, dict[str, str], bytes | None], tuple[int, dict[str, Any]]]
 
 
@@ -160,6 +191,7 @@ def mint_signed_url(
         "voice_id": voice_id or None,
         "sample_rate": 16000,
         "prompt_context": living_context_block(user_id, body),
+        "models": live_models(),
     }
 
 
@@ -221,6 +253,7 @@ def design_aria(
             "voice_description": ARIA_DESIGN_PROMPT,
             "text": ARIA_DESIGN_PREVIEW_TEXT,
             "auto_generate_text": False,
+            "model_id": VOICE_DESIGN_MODEL_ID,
         }
     ).encode("utf-8")
     status, designed = caller(
@@ -262,16 +295,36 @@ def design_aria(
         raise RouteError(503, "Saving ARIA's voice failed.", code="elevenlabs_design_failed")
     voice_id = str(saved.get("voice_id") or generated_id)
 
+    existing_agent = credentials(get_secret_value=get_secret_value).get(
+        "ELEVENLABS_ARIA_AGENT_ID"
+    ) or ""
     agent_body = json.dumps(_agent_payload(voice_id)).encode("utf-8")
-    status, agent = caller(
-        "POST",
-        f"{ELEVEN_API}/v1/convai/agents/create",
-        _headers(key),
-        agent_body,
-    )
-    if status >= 400:
-        raise RouteError(503, "Creating ARIA's ConvAI agent failed.", code="elevenlabs_agent_failed")
-    agent_id = str(agent.get("agent_id") or agent.get("id") or "")
+    if existing_agent:
+        status, agent = caller(
+            "PATCH",
+            f"{ELEVEN_API}/v1/convai/agents/{existing_agent}",
+            _headers(key),
+            agent_body,
+        )
+        if status >= 400:
+            raise RouteError(
+                503,
+                "Updating ARIA's ConvAI agent failed.",
+                code="elevenlabs_agent_failed",
+            )
+        agent_id = existing_agent
+    else:
+        status, agent = caller(
+            "POST",
+            f"{ELEVEN_API}/v1/convai/agents/create",
+            _headers(key),
+            agent_body,
+        )
+        if status >= 400:
+            raise RouteError(
+                503, "Creating ARIA's ConvAI agent failed.", code="elevenlabs_agent_failed"
+            )
+        agent_id = str(agent.get("agent_id") or agent.get("id") or "")
 
     slim_previews = []
     for item in previews:
@@ -296,6 +349,17 @@ def design_aria(
             "ELEVENLABS_ARIA_VOICE_ID": voice_id,
             "ELEVENLABS_ARIA_AGENT_ID": agent_id,
         },
+        "models": live_models(),
+    }
+
+
+def live_models() -> dict[str, str]:
+    return {
+        "tts": TTS_MODEL_ID,
+        "asr": ASR_PROVIDER,
+        "turn": TURN_MODEL,
+        "voice_design": VOICE_DESIGN_MODEL_ID,
+        "llm": CONVAI_LLM,
     }
 
 
@@ -304,22 +368,39 @@ def _agent_payload(voice_id: str) -> dict[str, Any]:
         f"{aria_engine.live_system_prompt()}\n\n"
         "You are speaking, not reading. Always call the forge_coach tool with "
         "the user's latest utterance before you answer, then speak the tool "
-        "result in ARIA's voice. Do not invent metrics the tool did not return."
+        "result in ARIA's voice. Do not invent metrics the tool did not return. "
+        "Numbers the tool returns must be spoken as words."
     )
     return {
         "name": ARIA_VOICE_NAME,
         "conversation_config": {
+            "asr": {
+                "quality": "high",
+                "provider": ASR_PROVIDER,
+                "user_input_audio_format": "pcm_16000",
+                "keywords": list(ASR_KEYWORDS),
+            },
+            "turn": {
+                "turn_model": TURN_MODEL,
+                "turn_eagerness": "normal",
+            },
             "agent": {
                 "prompt": {
                     "prompt": prompt,
+                    "llm": CONVAI_LLM,
+                    "temperature": 0,
                     "tools": [_forge_coach_tool()],
                 },
                 "first_message": "",
                 "language": "en",
             },
             "tts": {
+                "model_id": TTS_MODEL_ID,
                 "voice_id": voice_id,
                 "agent_output_audio_format": "pcm_16000",
+                "expressive_mode": True,
+                "suggested_audio_tags": list(EXPRESSIVE_TAGS),
+                "text_normalisation_type": "system_prompt",
             },
         },
         "platform_settings": {

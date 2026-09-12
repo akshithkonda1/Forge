@@ -172,6 +172,25 @@ class ClassificationTests(unittest.TestCase):
         resp = aria_engine.generate_response("morning", ctx)
         self.assertEqual(resp["response_type"], "recommendation")
 
+    def test_unrelated_word_containing_a_keyword_does_not_force_a_recommendation(self):
+        # "rest" used to fire on plain substring containment inside
+        # "restaurant" and short-circuit straight to "recommendation" before
+        # the message was ever read as the sleep question it actually is.
+        resp = aria_engine.generate_response(
+            "how was my sleep? we went to a restaurant late last night", full_context()
+        )
+        self.assertEqual(resp["response_type"], "insight")
+
+    def test_typo_in_advice_language_reads_the_same_as_the_correct_spelling(self):
+        ctx = full_context()
+        correct = aria_engine.generate_response("im so tired today", ctx)
+        typo = aria_engine.generate_response("im so tird today", ctx)
+        self.assertEqual(correct["response_type"], "recommendation")
+        self.assertEqual(
+            typo["response_type"], correct["response_type"],
+            "a one-letter typo should not change how the message reads",
+        )
+
 
 class VoiceModeTests(unittest.TestCase):
     def test_voice_mode_suppresses_card_and_uses_prose(self):
