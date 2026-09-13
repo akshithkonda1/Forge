@@ -56,6 +56,12 @@ struct SettingsPageView: View {
             || prefs.hydrationTargetMl != nil
     }
 
+    var appleHealthStatus: AppleHealthYouStatus {
+        _ = health.lastConnectionProbeHasData
+        _ = health.isAuthorized
+        return store.appleHealthYouStatus
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
@@ -260,22 +266,32 @@ struct SettingsPageView: View {
                 SectionCard {
                     SettingsRow(
                         icon: "heart.text.square.fill",
-                        iconColor: store.healthKitLive ? .success : .warning,
+                        iconColor: appleHealthStatus.isLive ? .success : .warning,
                         label: "Apple Health",
-                        trailingText: store.healthKitLive ? "Connected" : "Offline"
+                        trailingText: appleHealthStatus.label
                     )
+                    if appleHealthStatus == .needsPermission {
+                        Text(AppleHealthYouCopy.sharingHint)
+                            .font(.system(size: 12))
+                            .foregroundColor(.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 8)
+                    }
                     Divider().background(Color.borderColor)
                     Button {
                         Task {
                             await store.reconnectHealthKit()
-                            FDS.notificationHaptic(store.healthKitLive ? .success : .warning)
+                            FDS.notificationHaptic(store.appleHealthYouStatus.isLive ? .success : .warning)
                         }
                     } label: {
                         SettingsRow(
-                            icon: "arrow.triangle.2.circlepath",
+                            icon: appleHealthStatus.isLive
+                                ? "arrow.triangle.2.circlepath"
+                                : "heart.text.square",
                             iconColor: .ember,
-                            label: store.healthKitLive ? "Resync Apple Health" : "Reconnect Apple Health",
-                            trailingText: "Now",
+                            label: appleHealthStatus.isLive ? "Resync Apple Health" : "Reconnect Apple Health",
+                            trailingText: appleHealthStatus == .needsPermission ? "Sharing" : "Now",
                             showChevron: true
                         )
                     }
@@ -287,6 +303,15 @@ struct SettingsPageView: View {
                         label: "Cycle quiet sync",
                         trailingText: "Weekly"
                     )
+                }
+                if let ingestError = store.lastLifeIngestError, !ingestError.isEmpty {
+                    Text(ingestError)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                        .accessibilityLabel(ingestError)
                 }
 
                 // Cycle privacy (Home opens the full Cycle surface)
@@ -783,7 +808,10 @@ struct SettingsPageView: View {
                 eveningMinute: updated.eveningMinute
             )
         }
-        .onAppear { weeklyReview.refreshDue() }
+        .onAppear {
+            weeklyReview.refreshDue()
+            Task { await store.refreshAppleHealthYouPageStatus() }
+        }
     }
 
     private func coachPinChip(_ agent: AriaCoachAgent?, title: String) -> some View {

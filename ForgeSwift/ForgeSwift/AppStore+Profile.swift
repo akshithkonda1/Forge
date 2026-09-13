@@ -170,29 +170,86 @@ extension AppStore {
         return text
     }
 
+    var appleHealthYouStatus: AppleHealthYouStatus {
+        HealthKitManager.shared.youPageStatus(
+            hasMeaningfulLifeSignal: hasMeaningfulLifeSignal,
+            usingTestReadyHealthPack: usingTestReadyHealthPack
+        )
+    }
+
     /// Force HealthKit reconnect from Settings / Home offline pill.
+    /// After Deny, iOS will not re-show the Allow sheet — open Health → Sharing.
     func reconnectHealthKit() async {
-        do {
-            try await HealthKitManager.shared.requestAuthorization()
-            await HealthKitManager.shared.applyConnectedHealthToForge()
-            healthKitLive = await HealthKitManager.shared.checkAuthorizationStatus()
-            if healthKitLive {
-                await refreshDailyData()
-            } else {
-                lastLifeIngestError = LifeIngestError.skipped(
-                    doing: "Couldn't reconnect Apple Health",
-                    because: HealthKitManager.shared.authorizationErrorMessage
-                        ?? "the Health permission sheet finished without granting read access"
-                )
+        let hk = HealthKitManager.shared
+        let readable = await hk.probeReadableSamples()
+        let status = AppleHealthYouStatus.resolve(
+            healthAvailable: hk.isHealthDataAvailable(),
+            authorizationRequested: hk.hasRequestedAppleHealthAuthorization || hk.hasDeniedAnyWriteType,
+            canWrite: hk.canWriteAnyRequestedType,
+            hasReadableSamples: readable,
+            hasMeaningfulLifeSignal: hasMeaningfulLifeSignal,
+            usingTestReadyHealthPack: usingTestReadyHealthPack
+        )
+        let action = AppleHealthYouStatus.reconnectAction(
+            status: status,
+            canPresentSheet: hk.canPresentAuthorizationSheet,
+            healthAvailable: hk.isHealthDataAvailable()
+        )
+
+        switch action {
+        case .resync:
+            await hk.applyConnectedHealthToForge()
+            await refreshDailyData()
+            applyHonestHealthKitLive(readableSamples: hk.hasReadableHealthSamples)
+        case .requestAuthorization:
+            do {
+                try await hk.requestAuthorization()
+                await hk.applyConnectedHealthToForge()
+                let liveReadable = await hk.probeReadableSamples()
+                if isHonestlyConnected(readableSamples: liveReadable) {
+                    await refreshDailyData()
+                    applyHonestHealthKitLive(readableSamples: liveReadable)
+                } else {
+                    healthKitLive = false
+                    lastLifeIngestError = AppleHealthYouCopy.stillOffline
+                }
+            } catch {
+                healthKitLive = false
+                lastLifeIngestError = hk.authorizationErrorMessage
+                    ?? LifeIngestError.explain(
+                        error,
+                        doing: "Couldn't reconnect Apple Health"
+                    )
             }
-        } catch {
+        case .openHealthSharing:
             healthKitLive = false
-            lastLifeIngestError = HealthKitManager.shared.authorizationErrorMessage
-                ?? LifeIngestError.explain(
-                    error,
-                    doing: "Couldn't reconnect Apple Health"
-                )
+            lastLifeIngestError = AppleHealthYouCopy.reopenAfterDeny
+            hk.openAppleHealthSharingDestination()
+        case .unavailable:
+            healthKitLive = false
+            lastLifeIngestError = AppleHealthYouCopy.unavailable
         }
         objectWillChange.send()
+    }
+
+    func refreshAppleHealthYouPageStatus() async {
+        _ = await HealthKitManager.shared.probeReadableSamples()
+        objectWillChange.send()
+    }
+
+    private func isHonestlyConnected(readableSamples: Bool) -> Bool {
+        AppleHealthYouStatus.resolve(
+            healthAvailable: HealthKitManager.shared.isHealthDataAvailable(),
+            authorizationRequested: HealthKitManager.shared.hasRequestedAppleHealthAuthorization
+                || HealthKitManager.shared.hasDeniedAnyWriteType,
+            canWrite: HealthKitManager.shared.canWriteAnyRequestedType,
+            hasReadableSamples: readableSamples,
+            hasMeaningfulLifeSignal: hasMeaningfulLifeSignal,
+            usingTestReadyHealthPack: usingTestReadyHealthPack
+        ) == .connected
+    }
+
+    private func applyHonestHealthKitLive(readableSamples: Bool) {
+        healthKitLive = isHonestlyConnected(readableSamples: readableSamples)
     }
 }
