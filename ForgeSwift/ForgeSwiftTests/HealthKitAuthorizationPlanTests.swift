@@ -231,208 +231,24 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
     }
 }
 
-/// Locks You Page Apple Health labels and reconnect routing. Connected is
-/// never claimed just because the Allow sheet was shown.
+/// Locks the false-Connected fix: a shown Allow sheet is not a grant.
 @MainActor
-final class AppleHealthYouStatusTests: XCTestCase {
+final class HealthKitLiveEvidenceTests: XCTestCase {
 
-    func testSheetShownWithoutWriteOrSamplesIsNeedsPermissionNotConnected() {
-        XCTAssertEqual(
-            AppleHealthYouStatus.resolve(
-                healthAvailable: true,
-                authorizationRequested: true,
-                canWrite: false,
-                hasReadableSamples: false,
-                hasMeaningfulLifeSignal: false,
-                usingTestReadyHealthPack: false
-            ),
-            .needsPermission
-        )
+    func testSheetShownWithoutWriteOrSamplesIsNotLive() {
+        XCTAssertFalse(HealthKitLiveEvidence.isLive(canWrite: false, hasReadableSamples: false))
     }
 
-    func testWriteAuthorizationIsConnected() {
-        XCTAssertEqual(
-            AppleHealthYouStatus.resolve(
-                healthAvailable: true,
-                authorizationRequested: true,
-                canWrite: true,
-                hasReadableSamples: false,
-                hasMeaningfulLifeSignal: false,
-                usingTestReadyHealthPack: false
-            ),
-            .connected
-        )
+    func testWriteAuthorizationIsLive() {
+        XCTAssertTrue(HealthKitLiveEvidence.isLive(canWrite: true, hasReadableSamples: false))
     }
 
-    func testReadableSamplesAreConnectedWhenReadStatusIsHidden() {
-        XCTAssertEqual(
-            AppleHealthYouStatus.resolve(
-                healthAvailable: true,
-                authorizationRequested: true,
-                canWrite: false,
-                hasReadableSamples: true,
-                hasMeaningfulLifeSignal: false,
-                usingTestReadyHealthPack: false
-            ),
-            .connected
-        )
+    func testReadableSamplesAreLiveWhenReadStatusIsHidden() {
+        XCTAssertTrue(HealthKitLiveEvidence.isLive(canWrite: false, hasReadableSamples: true))
     }
 
-    func testMeaningfulLifeSignalIsConnectedUnlessTestReadyPack() {
-        XCTAssertEqual(
-            AppleHealthYouStatus.resolve(
-                healthAvailable: true,
-                authorizationRequested: true,
-                canWrite: false,
-                hasReadableSamples: false,
-                hasMeaningfulLifeSignal: true,
-                usingTestReadyHealthPack: false
-            ),
-            .connected
-        )
-        XCTAssertEqual(
-            AppleHealthYouStatus.resolve(
-                healthAvailable: true,
-                authorizationRequested: true,
-                canWrite: false,
-                hasReadableSamples: false,
-                hasMeaningfulLifeSignal: true,
-                usingTestReadyHealthPack: true
-            ),
-            .needsPermission
-        )
-    }
-
-    func testNeverRequestedIsOffline() {
-        XCTAssertEqual(
-            AppleHealthYouStatus.resolve(
-                healthAvailable: true,
-                authorizationRequested: false,
-                canWrite: false,
-                hasReadableSamples: false,
-                hasMeaningfulLifeSignal: false,
-                usingTestReadyHealthPack: false
-            ),
-            .offline
-        )
-    }
-
-    func testUnavailableDeviceIsOffline() {
-        XCTAssertEqual(
-            AppleHealthYouStatus.resolve(
-                healthAvailable: false,
-                authorizationRequested: true,
-                canWrite: true,
-                hasReadableSamples: true,
-                hasMeaningfulLifeSignal: true,
-                usingTestReadyHealthPack: false
-            ),
-            .offline
-        )
-    }
-
-    func testStatusLabelsMatchYouPageCopy() {
-        XCTAssertEqual(AppleHealthYouStatus.offline.label, "Offline")
-        XCTAssertEqual(AppleHealthYouStatus.needsPermission.label, "Needs permission")
-        XCTAssertEqual(AppleHealthYouStatus.connected.label, "Connected")
-    }
-
-    func testReconnectOpensHealthAfterDeterminedDeny() {
-        XCTAssertEqual(
-            AppleHealthYouStatus.reconnectAction(
-                status: .needsPermission,
-                canPresentSheet: false,
-                healthAvailable: true
-            ),
-            .openHealthSharing
-        )
-    }
-
-    func testReconnectRequestsSheetWhenStillUndetermined() {
-        XCTAssertEqual(
-            AppleHealthYouStatus.reconnectAction(
-                status: .offline,
-                canPresentSheet: true,
-                healthAvailable: true
-            ),
-            .requestAuthorization
-        )
-    }
-
-    func testReconnectResyncsWhenLiveWithoutFlippingViaSheet() {
-        XCTAssertEqual(
-            AppleHealthYouStatus.reconnectAction(
-                status: .connected,
-                canPresentSheet: false,
-                healthAvailable: true
-            ),
-            .resync
-        )
-        XCTAssertEqual(
-            AppleHealthYouStatus.reconnectAction(
-                status: .connected,
-                canPresentSheet: true,
-                healthAvailable: true
-            ),
-            .resync
-        )
-    }
-
-    func testReconnectUnavailableWhenHealthMissing() {
-        XCTAssertEqual(
-            AppleHealthYouStatus.reconnectAction(
-                status: .offline,
-                canPresentSheet: false,
-                healthAvailable: false
-            ),
-            .unavailable
-        )
-    }
-
-    func testAppleHealthDeepLinkAndSharingCopy() {
-        XCTAssertEqual(AppleHealthYouStatus.appleHealthURL?.scheme, "x-apple-health")
-        XCTAssertTrue(AppleHealthYouCopy.sharingHint.contains("Health → Sharing"))
-        XCTAssertTrue(AppleHealthYouCopy.reopenAfterDeny.contains("Allow sheet"))
-        XCTAssertFalse(HealthKitManager.dailyStatsHaveReadableSamples(nil))
-        XCTAssertFalse(HealthKitManager.dailyStatsHaveReadableSamples(.default))
-        var stats = DailyHealthStats.default
-        stats = DailyHealthStats(
-            date: Date(),
-            steps: 1200,
-            activeCalories: 0,
-            basalCalories: 0,
-            totalCalories: 0,
-            distanceWalkingRunningMeters: 0,
-            distanceCyclingMeters: 0,
-            distanceSwimmingMeters: 0,
-            flightsClimbed: 0,
-            exerciseMinutes: 0,
-            standMinutes: 0,
-            protein: 0,
-            carbs: 0,
-            fat: 0,
-            fiber: 0,
-            sugar: 0,
-            sodium: 0,
-            caffeine: 0,
-            water: 0,
-            sleepHours: 0,
-            restingHeartRate: 0,
-            walkingHeartRateAverage: 0,
-            heartRateRecoveryOneMinute: 0,
-            hrv: 0,
-            vo2Max: 0,
-            oxygenSaturation: 0,
-            respiratoryRate: 0,
-            bodyTemperature: 0,
-            bloodPressureSystolic: 0,
-            bloodPressureDiastolic: 0,
-            walkingSpeed: 0,
-            runningSpeed: 0,
-            cyclingSpeed: 0,
-            runningPower: 0,
-            cyclingPower: 0
-        )
-        XCTAssertTrue(HealthKitManager.dailyStatsHaveReadableSamples(stats))
+    func testEmptyDailyStatsAreNotReadableEvidence() {
+        XCTAssertFalse(HealthKitLiveEvidence.dailyStatsHaveSamples(nil))
+        XCTAssertFalse(HealthKitLiveEvidence.dailyStatsHaveSamples(.default))
     }
 }

@@ -4,9 +4,9 @@ import ForgeCore
 
 extension HealthKitManager {
 
-    func fetchRecentSnapshot(probeEvenIfUnauthorized: Bool = false) async -> HealthDataSnapshot? {
+    func fetchRecentSnapshot(requireAuthorization: Bool = true) async -> HealthDataSnapshot? {
         guard isHealthDataAvailable() else { return nil }
-        guard probeEvenIfUnauthorized || isAuthorized else { return nil }
+        if requireAuthorization && !isAuthorized { return nil }
         
         async let restingHR = fetchMostRecentRestingHeartRate()
         async let calories = fetchTodayActiveCalories()

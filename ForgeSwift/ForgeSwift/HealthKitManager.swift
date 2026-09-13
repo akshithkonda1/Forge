@@ -1,6 +1,5 @@
 import Foundation
 import HealthKit
-import UIKit
 import ForgeCore
 
 // MARK: - Health Data Snapshot
@@ -292,8 +291,6 @@ class HealthKitManager: ObservableObject {
     let healthStore = HKHealthStore()
     @Published var isAuthorized = false
     @Published var authorizationErrorMessage: String?
-    /// Last You / reconnect probe. True when a snapshot actually had samples.
-    @Published var lastConnectionProbeHasData = false
     
     private let authorizationRequestedKey = "HealthKitAuthorizationRequested"
     let expandedAuthorizationRequestedKey = "HealthKitExpandedAuthorizationRequested"
@@ -384,15 +381,15 @@ class HealthKitManager: ObservableObject {
             isAuthorized = false
             return false
         }
-        
-        let hasRequestedAuthorization = UserDefaults.standard.bool(forKey: authorizationRequestedKey)
-        let canWriteAnyRequestedType = writeTypes.contains { type in
+
+        let canWrite = writeTypes.contains { type in
             healthStore.authorizationStatus(for: type) == .sharingAuthorized
         }
-        
-        // HealthKit intentionally hides read authorization status. Once the request has been
-        // presented, read queries safely return empty results for denied types.
-        isAuthorized = hasRequestedAuthorization || canWriteAnyRequestedType
+        // HealthKit hides read authorization. A shown Allow sheet / UserDefaults
+        // `HealthKitAuthorizationRequested` is not a grant — Deny and empty
+        // reads must stay offline. Write-sharing or a real sample is live.
+        let readable = await hasReadableHealthEvidence()
+        isAuthorized = HealthKitLiveEvidence.isLive(canWrite: canWrite, hasReadableSamples: readable)
         if isAuthorized {
             startBidirectionalSync()
         } else {
@@ -401,97 +398,12 @@ class HealthKitManager: ObservableObject {
         return isAuthorized
     }
 
-    /// UserDefaults flag set after any Allow sheet completes — including Deny.
-    /// Do not treat this as live access.
-    var hasRequestedAppleHealthAuthorization: Bool {
-        UserDefaults.standard.bool(forKey: authorizationRequestedKey)
-    }
-
-    var canWriteAnyRequestedType: Bool {
+    /// True when today's cached stats or a probe snapshot actually has samples.
+    func hasReadableHealthEvidence() async -> Bool {
+        if HealthKitLiveEvidence.dailyStatsHaveSamples(todayStats) { return true }
         guard isHealthDataAvailable() else { return false }
-        return writeTypes.contains { type in
-            healthStore.authorizationStatus(for: type) == .sharingAuthorized
-        }
-    }
-
-    var hasDeniedAnyWriteType: Bool {
-        guard isHealthDataAvailable() else { return false }
-        return writeTypes.contains { type in
-            healthStore.authorizationStatus(for: type) == .sharingDenied
-        }
-    }
-
-    /// iOS will not re-present the Allow sheet once a request has finished
-    /// or any share type is already determined.
-    var canPresentAuthorizationSheet: Bool {
-        guard isHealthDataAvailable() else { return false }
-        guard !hasRequestedAppleHealthAuthorization else { return false }
-        return writeTypes.allSatisfy { type in
-            healthStore.authorizationStatus(for: type) == .notDetermined
-        }
-    }
-
-    var todayStatsHasReadableSamples: Bool {
-        Self.dailyStatsHaveReadableSamples(todayStats)
-    }
-
-    var hasReadableHealthSamples: Bool {
-        todayStatsHasReadableSamples || lastConnectionProbeHasData
-    }
-
-    func youPageStatus(
-        hasMeaningfulLifeSignal: Bool,
-        usingTestReadyHealthPack: Bool
-    ) -> AppleHealthYouStatus {
-        AppleHealthYouStatus.resolve(
-            healthAvailable: isHealthDataAvailable(),
-            authorizationRequested: hasRequestedAppleHealthAuthorization || hasDeniedAnyWriteType,
-            canWrite: canWriteAnyRequestedType,
-            hasReadableSamples: hasReadableHealthSamples,
-            hasMeaningfulLifeSignal: hasMeaningfulLifeSignal,
-            usingTestReadyHealthPack: usingTestReadyHealthPack
-        )
-    }
-
-    /// Read-side evidence. HealthKit hides read authorization, so an empty
-    /// snapshot after Deny is the honest "not live" signal.
-    func probeReadableSamples() async -> Bool {
-        if todayStatsHasReadableSamples {
-            lastConnectionProbeHasData = true
-            return true
-        }
-        guard isHealthDataAvailable() else {
-            lastConnectionProbeHasData = false
-            return false
-        }
-        let snap = await fetchRecentSnapshot(probeEvenIfUnauthorized: true)
-        let has = snap?.hasData == true
-        lastConnectionProbeHasData = has
-        return has
-    }
-
-    func openAppleHealthSharingDestination() {
-        if let healthURL = AppleHealthYouStatus.appleHealthURL {
-            UIApplication.shared.open(healthURL, options: [:]) { opened in
-                if !opened, let settings = URL(string: UIApplication.openSettingsURLString) {
-                    UIApplication.shared.open(settings)
-                }
-            }
-            return
-        }
-        if let settings = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(settings)
-        }
-    }
-
-    static func dailyStatsHaveReadableSamples(_ stats: DailyHealthStats?) -> Bool {
-        guard let stats else { return false }
-        return stats.steps > 0
-            || stats.activeCalories > 0
-            || stats.sleepHours > 0
-            || stats.hrv > 0
-            || stats.restingHeartRate > 0
-            || stats.vo2Max > 0
+        let snap = await fetchRecentSnapshot(requireAuthorization: false)
+        return snap?.hasData == true
     }
     
     /// First connect, Medicine Allow, and lifestyle opt-in all use this.
@@ -585,23 +497,14 @@ class HealthKitManager: ObservableObject {
 
         do {
             try await presentAuthorization(toShare: safeShare, read: safeRead)
-            UserDefaults.standard.set(true, forKey: requestedKey)
-            if requestedKey != authorizationRequestedKey {
-                UserDefaults.standard.set(true, forKey: authorizationRequestedKey)
-            }
-            authorizationErrorMessage = nil
-            isAuthorized = true
-            startBidirectionalSync()
+            await finishAuthorizationRequest(requestedKey: requestedKey)
         } catch {
             // Share-type validation can still fail on some simulators. Read-only
             // never hits `_throwIfAuthorizationDisallowedForSharing`.
             if !safeShare.isEmpty {
                 do {
                     try await presentAuthorization(toShare: [], read: safeRead)
-                    UserDefaults.standard.set(true, forKey: requestedKey)
-                    authorizationErrorMessage = nil
-                    isAuthorized = true
-                    startBidirectionalSync()
+                    await finishAuthorizationRequest(requestedKey: requestedKey)
                     return
                 } catch {
                     authorizationErrorMessage = error.localizedDescription
@@ -613,6 +516,17 @@ class HealthKitManager: ObservableObject {
             isAuthorized = false
             throw error
         }
+    }
+
+    /// Remember that the sheet ran. Do not treat that as Connected — evaluate
+    /// write status and readable samples the same way as `checkAuthorizationStatus()`.
+    private func finishAuthorizationRequest(requestedKey: String) async {
+        UserDefaults.standard.set(true, forKey: requestedKey)
+        if requestedKey != authorizationRequestedKey {
+            UserDefaults.standard.set(true, forKey: authorizationRequestedKey)
+        }
+        authorizationErrorMessage = nil
+        _ = await checkAuthorizationStatus()
     }
 
     /// Completion-handler form, always from the main actor. The async overlay
@@ -868,6 +782,23 @@ final class ClinicalQueryResumeOnce<T>: @unchecked Sendable {
     }
 }
 
+/// Honest live/Connected evidence. A shown Allow sheet is not enough.
+enum HealthKitLiveEvidence {
+    static func isLive(canWrite: Bool, hasReadableSamples: Bool) -> Bool {
+        canWrite || hasReadableSamples
+    }
+
+    static func dailyStatsHaveSamples(_ stats: DailyHealthStats?) -> Bool {
+        guard let stats else { return false }
+        return stats.steps > 0
+            || stats.activeCalories > 0
+            || stats.sleepHours > 0
+            || stats.hrv > 0
+            || stats.restingHeartRate > 0
+            || stats.vo2Max > 0
+    }
+}
+
 enum HealthKitError: Error, LocalizedError {
     case notAvailable
     case authorizationDenied
@@ -889,68 +820,4 @@ enum HealthKitError: Error, LocalizedError {
             return reason
         }
     }
-}
-
-/// Honest You Page Health row. Never treat "Allow sheet was shown" as Connected.
-enum AppleHealthYouStatus: Equatable {
-    case offline
-    case needsPermission
-    case connected
-
-    var label: String {
-        switch self {
-        case .offline: return "Offline"
-        case .needsPermission: return "Needs permission"
-        case .connected: return "Connected"
-        }
-    }
-
-    var isLive: Bool { self == .connected }
-
-    static let appleHealthURL = URL(string: "x-apple-health://")
-
-    static func resolve(
-        healthAvailable: Bool,
-        authorizationRequested: Bool,
-        canWrite: Bool,
-        hasReadableSamples: Bool,
-        hasMeaningfulLifeSignal: Bool,
-        usingTestReadyHealthPack: Bool
-    ) -> AppleHealthYouStatus {
-        guard healthAvailable else { return .offline }
-        let lifeSignal = hasReadableSamples
-            || (hasMeaningfulLifeSignal && !usingTestReadyHealthPack)
-        if canWrite || lifeSignal { return .connected }
-        if authorizationRequested { return .needsPermission }
-        return .offline
-    }
-
-    static func reconnectAction(
-        status: AppleHealthYouStatus,
-        canPresentSheet: Bool,
-        healthAvailable: Bool
-    ) -> AppleHealthReconnectAction {
-        guard healthAvailable else { return .unavailable }
-        if status == .connected { return .resync }
-        if canPresentSheet { return .requestAuthorization }
-        return .openHealthSharing
-    }
-}
-
-enum AppleHealthReconnectAction: Equatable {
-    case resync
-    case requestAuthorization
-    case openHealthSharing
-    case unavailable
-}
-
-enum AppleHealthYouCopy {
-    static let sharingHint =
-        "Turn Forge on under Health → Sharing so movement and sleep can land here."
-    static let reopenAfterDeny =
-        "iOS won't show the Allow sheet again. Open Health → Sharing and turn Forge on, then come back to resync."
-    static let stillOffline =
-        "Couldn't reconnect Apple Health. Open Health → Sharing and turn Forge on."
-    static let unavailable =
-        "Apple Health isn't available on this device."
 }
