@@ -443,6 +443,9 @@ public enum AriaIntentResolver {
                 scores[domain, default: 0] += 1.4
             }
         }
+        if ScheduleGoalParser.isScheduleAsk(input.text) {
+            scores["sleep", default: 0] += 1.8
+        }
 
         for fact in input.rememberedFacts {
             let f = fact.lowercased()
