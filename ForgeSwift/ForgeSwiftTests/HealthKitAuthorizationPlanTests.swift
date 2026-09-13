@@ -251,4 +251,27 @@ final class HealthKitLiveEvidenceTests: XCTestCase {
         XCTAssertFalse(HealthKitLiveEvidence.dailyStatsHaveSamples(nil))
         XCTAssertFalse(HealthKitLiveEvidence.dailyStatsHaveSamples(.default))
     }
+
+    func testReconnectRequestsSheetWhileUndetermined() {
+        XCTAssertEqual(
+            HealthKitLiveEvidence.reconnectAction(isLive: false, canPresentSheet: true),
+            .requestSheet
+        )
+    }
+
+    func testReconnectOpensHealthWhenSheetWillNotReappear() {
+        XCTAssertEqual(
+            HealthKitLiveEvidence.reconnectAction(isLive: false, canPresentSheet: false),
+            .openHealthSharing
+        )
+        XCTAssertEqual(HealthKitLiveEvidence.appleHealthURL?.scheme, "x-apple-health")
+        XCTAssertTrue(HealthKitLiveEvidence.sharingAfterDeny.contains("Health → Sharing"))
+    }
+
+    func testReconnectResyncsWhenLive() {
+        XCTAssertEqual(
+            HealthKitLiveEvidence.reconnectAction(isLive: true, canPresentSheet: false),
+            .resync
+        )
+    }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import UIKit
 import ForgeCore
 
 // MARK: - Health Data Snapshot
@@ -405,6 +406,29 @@ class HealthKitManager: ObservableObject {
         let snap = await fetchRecentSnapshot(requireAuthorization: false)
         return snap?.hasData == true
     }
+
+    /// iOS will not re-present Allow once a request has finished.
+    var canPresentAuthorizationSheet: Bool {
+        guard isHealthDataAvailable() else { return false }
+        guard !UserDefaults.standard.bool(forKey: authorizationRequestedKey) else { return false }
+        return writeTypes.allSatisfy { type in
+            healthStore.authorizationStatus(for: type) == .notDetermined
+        }
+    }
+
+    func openAppleHealthSharingDestination() {
+        if let healthURL = HealthKitLiveEvidence.appleHealthURL {
+            UIApplication.shared.open(healthURL, options: [:]) { opened in
+                if !opened, let settings = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(settings)
+                }
+            }
+            return
+        }
+        if let settings = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(settings)
+        }
+    }
     
     /// First connect, Medicine Allow, and lifestyle opt-in all use this.
     /// Clinical types are omitted when Health Records are unavailable.
@@ -784,6 +808,10 @@ final class ClinicalQueryResumeOnce<T>: @unchecked Sendable {
 
 /// Honest live/Connected evidence. A shown Allow sheet is not enough.
 enum HealthKitLiveEvidence {
+    static let appleHealthURL = URL(string: "x-apple-health://")
+    static let sharingAfterDeny =
+        "iOS won't show the Allow sheet again. Open Health → Sharing and turn Forge on, then come back to resync."
+
     static func isLive(canWrite: Bool, hasReadableSamples: Bool) -> Bool {
         canWrite || hasReadableSamples
     }
@@ -797,6 +825,18 @@ enum HealthKitLiveEvidence {
             || stats.restingHeartRate > 0
             || stats.vo2Max > 0
     }
+
+    static func reconnectAction(isLive: Bool, canPresentSheet: Bool) -> HealthKitReconnectAction {
+        if isLive { return .resync }
+        if canPresentSheet { return .requestSheet }
+        return .openHealthSharing
+    }
+}
+
+enum HealthKitReconnectAction: Equatable {
+    case resync
+    case requestSheet
+    case openHealthSharing
 }
 
 enum HealthKitError: Error, LocalizedError {

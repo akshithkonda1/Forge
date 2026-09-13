@@ -288,6 +288,15 @@ struct SettingsPageView: View {
                         trailingText: "Weekly"
                     )
                 }
+                if let ingestError = store.lastLifeIngestError, !ingestError.isEmpty {
+                    Text(ingestError)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                        .accessibilityLabel(ingestError)
+                }
 
                 // Cycle privacy (Home opens the full Cycle surface)
                 sectionHeader("Cycle privacy")
