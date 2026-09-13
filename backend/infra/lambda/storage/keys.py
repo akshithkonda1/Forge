@@ -46,6 +46,11 @@ def aria_persona_key(user_id: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": "ARIA#PERSONA"}
 
 
+def aria_body_snapshot_key(user_id: str) -> dict:
+    """Last BodyModel projection so /ai/chat shares /ai/observe's ingested truth."""
+    return {"pk": f"USER#{user_id}", "sk": "ARIA#BODY_SNAPSHOT"}
+
+
 def weekly_review_key(user_id: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": "ARIA#WEEKLY_REVIEW"}
 

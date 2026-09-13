@@ -961,9 +961,10 @@ class Signal:
     interpretation: str
     priority: str   # high | medium | low
     direction: str  # negative | positive | neutral
+    baseline_kind: str = "population"  # personal | population
 
 
-def _interpret_sleep(ctx: ARIAContext) -> Signal | None:
+def _interpret_sleep(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     s = ctx.sleep
     if s.duration_minutes is None:
         return None
@@ -973,70 +974,78 @@ def _interpret_sleep(ctx: ARIAContext) -> Signal | None:
     direction = "neutral"
     priority = "low"
     interp_bits: list[str] = []
+    personal_sleep = bool(baselines is not None and getattr(baselines, "personal", lambda *_: False)("sleep_duration"))
+    usual_hours = None
+    if personal_sleep:
+        usual_min = getattr(baselines, "sleep_duration_min", None)
+        if isinstance(usual_min, (int, float)) and usual_min > 0:
+            usual_hours = usual_min / 60.0
+    deep_floor = DEEP_SLEEP_REF_FRAC
+    rem_floor = REM_SLEEP_REF_FRAC
+    eff_floor = EFFICIENCY_REF
+    if baselines is not None and getattr(baselines, "personal", lambda *_: False)("sleep"):
+        if isinstance(getattr(baselines, "deep_frac", None), (int, float)):
+            deep_floor = float(baselines.deep_frac) * 0.85
+        if isinstance(getattr(baselines, "rem_frac", None), (int, float)):
+            rem_floor = float(baselines.rem_frac) * 0.85
+        if isinstance(getattr(baselines, "efficiency", None), (int, float)):
+            eff_floor = float(baselines.efficiency) * 0.97
 
     if s.deep_minutes is not None and s.duration_minutes:
         deep_frac = s.deep_minutes / s.duration_minutes
         parts.append(f"{s.deep_minutes:.0f} min deep ({deep_frac * 100:.0f}%)")
-        if deep_frac < DEEP_SLEEP_REF_FRAC:
+        if deep_frac < deep_floor:
             direction = "negative"
             priority = "high"
+            vs = "your usual" if personal_sleep and getattr(baselines, "deep_frac", None) else f"the ~{DEEP_SLEEP_REF_FRAC * 100:.0f}% typical floor"
             interp_bits.append(
-                f"deep sleep is {deep_frac * 100:.0f}% of the night, under the ~{DEEP_SLEEP_REF_FRAC * 100:.0f}% "
-                "typical floor — the stage that drives physical recovery came up short"
+                f"deep sleep is {deep_frac * 100:.0f}% of the night, under {vs} "
+                "— the stage that drives physical recovery came up short"
             )
         else:
             interp_bits.append(f"deep sleep at {deep_frac * 100:.0f}% is in a healthy band")
 
     if s.rem_minutes is not None and s.duration_minutes:
         rem_frac = s.rem_minutes / s.duration_minutes
-        if rem_frac < REM_SLEEP_REF_FRAC:
+        if rem_frac < rem_floor:
             interp_bits.append(f"REM is light at {rem_frac * 100:.0f}%")
             if priority == "low":
                 priority = "medium"
                 direction = "negative"
 
-    if s.efficiency is not None and s.efficiency < EFFICIENCY_REF:
+    if s.efficiency is not None and s.efficiency < eff_floor:
         interp_bits.append(f"efficiency {s.efficiency * 100:.0f}% means the night was fragmented")
         direction = "negative"
         priority = "high"
 
-    # Personal baseline check — robust band when history exists
-    if s.baseline_median_minutes is not None and s.baseline_mad_minutes is not None and s.baseline_mad_minutes > 1e-9:
-        mad = s.baseline_mad_minutes
-        # 1.4826*MAD ≈ sigma; use 2 sigma as personal low band (≈ 95% interval)
-        personal_low = s.baseline_median_minutes - 2 * 1.4826 * mad
-        if s.duration_minutes < personal_low:
+    duration_floor = usual_hours if usual_hours is not None else 7.0
+    if hours < duration_floor:
+        if usual_hours is not None:
             interp_bits.append(
-                f"{hours:.1f} h is below your usual {s.baseline_median_minutes/60:.1f} h (personal low ~{personal_low/60:.1f} h) — short for you"
+                f"{hours:.1f} h is below your usual {usual_hours:.1f} h — a personal short night"
             )
-            direction = "negative"
-            priority = "high"
-        elif s.duration_minutes >= s.baseline_median_minutes - mad:
-            interp_bits.append(f"{hours:.1f} h is around your usual {s.baseline_median_minutes/60:.1f} h")
-            if direction == "neutral":
-                direction = "positive"
-        baseline_note = f"vs your usual {s.baseline_median_minutes/60:.1f} h (personal baseline, n={s.nights_available or '?'})"
-        # Purge generic population bits when personal band already judged
-        if s.duration_minutes < personal_low:
-            interp_bits = [b for b in interp_bits if "below the 7 h floor" not in b]
-    else:
-        if hours < 7:
+        else:
             interp_bits.append(f"{hours:.1f} h is below the 7 h floor for cognitive recovery")
-            direction = "negative"
-            priority = "high"
-        elif hours >= 7.5 and direction == "neutral":
-            interp_bits.append(f"{hours:.1f} h is solid duration")
-            direction = "positive"
-        baseline_note = (
-            "vs typical adult ranges (no personal sleep baseline yet)"
-            if not ctx.sleep_baseline_ready
-            else "vs your recent nights"
-        )
+        direction = "negative"
+        priority = "high"
+    elif hours >= max(duration_floor + 0.5, 7.5) and direction == "neutral":
+        interp_bits.append(f"{hours:.1f} h is solid duration")
+        direction = "positive"
+
+    if personal_sleep:
+        baseline_note = f"vs your usual {usual_hours:.1f} h" if usual_hours is not None else "vs your recent nights"
+        kind = "personal"
+    elif ctx.sleep_baseline_ready:
+        baseline_note = "vs your recent nights"
+        kind = "personal" if ctx.sleep_baseline_ready else "population"
+    else:
+        baseline_note = "vs typical adult ranges (no personal sleep baseline yet)"
+        kind = "population"
     interpretation = "; ".join(interp_bits) if interp_bits else "sleep architecture looks unremarkable"
-    return Signal("sleep", "Sleep", ", ".join(parts), baseline_note, interpretation, priority, direction)
+    return Signal("sleep", "Sleep", ", ".join(parts), baseline_note, interpretation, priority, direction, kind)
 
 
-def _interpret_readiness(ctx: ARIAContext) -> Signal | None:
+def _interpret_readiness(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     r = ctx.readiness
     if r.hrv_7day_trend is None and r.recovery_score is None:
         return None
@@ -1045,6 +1054,8 @@ def _interpret_readiness(ctx: ARIAContext) -> Signal | None:
     interp_bits: list[str] = []
     direction = "neutral"
     priority = "low"
+    personal = bool(baselines is not None and getattr(baselines, "personal", lambda *_: False)("hrv"))
+    vs = "vs your personal HRV baseline" if personal else "vs 30-day HRV baseline"
 
     if r.hrv_7day_trend is not None:
         sign = "+" if r.hrv_7day_trend >= 0 else ""
@@ -1061,24 +1072,33 @@ def _interpret_readiness(ctx: ARIAContext) -> Signal | None:
         else:
             interp_bits.append("HRV is tracking near baseline")
 
+    low_band = 55.0
+    high_band = 80.0
+    if personal and isinstance(getattr(baselines, "recovery", None), (int, float)):
+        usual = float(baselines.recovery)
+        low_band = usual - 15.0
+        high_band = usual + 10.0
+        vs = "vs your usual recovery"
     if r.recovery_score is not None:
         parts.append(f"recovery {r.recovery_score:.0f}/100")
-        if r.recovery_score < 55:
+        if r.recovery_score < low_band:
             direction = "negative"
             priority = "high"
-            interp_bits.append(f"recovery score {r.recovery_score:.0f} sits in the low band")
-        elif r.recovery_score >= 80:
+            band = "below your usual" if personal else "in the low band"
+            interp_bits.append(f"recovery score {r.recovery_score:.0f} sits {band}")
+        elif r.recovery_score >= high_band:
             if direction != "negative":
                 direction = "positive"
             interp_bits.append(f"recovery score {r.recovery_score:.0f} is strong")
 
     return Signal(
-        "readiness", "Readiness", ", ".join(parts), "vs 30-day HRV baseline",
+        "readiness", "Readiness", ", ".join(parts), vs,
         "; ".join(interp_bits) or "readiness is mid-band", priority, direction,
+        "personal" if personal else "population",
     )
 
 
-def _interpret_training(ctx: ARIAContext) -> Signal | None:
+def _interpret_training(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     t = ctx.training
     if t.hours_since_last_workout is None and t.weekly_load_score is None:
         return None
@@ -1110,7 +1130,7 @@ def _interpret_training(ctx: ARIAContext) -> Signal | None:
     )
 
 
-def _interpret_activity(ctx: ARIAContext) -> Signal | None:
+def _interpret_activity(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     a = ctx.activity
     if a.steps_3day_avg is None and a.active_calories_3day_avg is None:
         return None
@@ -1118,27 +1138,34 @@ def _interpret_activity(ctx: ARIAContext) -> Signal | None:
     interp_bits: list[str] = []
     direction = "neutral"
     priority = "low"
+    personal = bool(baselines is not None and getattr(baselines, "personal", lambda *_: False)("steps"))
+    usual = getattr(baselines, "steps", None) if personal else None
+    low_steps = float(usual) * 0.7 if isinstance(usual, (int, float)) and usual > 0 else 5000
+    high_steps = float(usual) * 1.15 if isinstance(usual, (int, float)) and usual > 0 else 10000
 
     if a.steps_3day_avg is not None:
         parts.append(f"{a.steps_3day_avg:.0f} steps/day (3-day avg)")
-        if a.steps_3day_avg < 5000:
-            interp_bits.append(f"{a.steps_3day_avg:.0f} steps/day is light — daily movement is low")
+        if a.steps_3day_avg < low_steps:
+            vs = f"your usual {usual:.0f}" if isinstance(usual, (int, float)) else "a typical 5k floor"
+            interp_bits.append(f"{a.steps_3day_avg:.0f} steps/day is light — below {vs}")
             direction = "negative"
             priority = "medium"
-        elif a.steps_3day_avg >= 10000:
-            interp_bits.append(f"{a.steps_3day_avg:.0f} steps/day clears the 10k mark — strong baseline movement")
+        elif a.steps_3day_avg >= high_steps:
+            interp_bits.append(f"{a.steps_3day_avg:.0f} steps/day is a strong movement day")
             direction = "positive"
 
     if a.active_calories_3day_avg is not None:
         parts.append(f"{a.active_calories_3day_avg:.0f} active kcal/day")
 
+    vs = "vs your usual step baseline" if personal else "vs a 3-day average"
     return Signal(
-        "activity", "Activity", ", ".join(parts), "vs a 3-day average",
+        "activity", "Activity", ", ".join(parts), vs,
         "; ".join(interp_bits) or "daily activity is moderate", priority, direction,
+        "personal" if personal else "population",
     )
 
 
-def _interpret_body(ctx: ARIAContext) -> Signal | None:
+def _interpret_body(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     b = ctx.body
     if b.weight_trend_kg is None and b.vo2_max is None and b.body_fat_pct is None:
         return None
@@ -1181,7 +1208,7 @@ def _interpret_body(ctx: ARIAContext) -> Signal | None:
     )
 
 
-def _interpret_nutrition(ctx: ARIAContext) -> Signal | None:
+def _interpret_nutrition(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     n = ctx.nutrition
     if n.protein_g_3day_avg is None and n.calories_in_3day_avg is None:
         return None
@@ -1189,17 +1216,25 @@ def _interpret_nutrition(ctx: ARIAContext) -> Signal | None:
     interp_bits: list[str] = []
     direction = "neutral"
     priority = "low"
+    personal = bool(baselines is not None and getattr(baselines, "personal", lambda *_: False)("protein"))
+    usual_protein = getattr(baselines, "protein_g", None) if personal else None
 
     if n.protein_g_3day_avg is not None:
         parts.append(f"{n.protein_g_3day_avg:.0f} g protein/day")
         weight = ctx.body.weight_kg
-        if weight:
+        target = None
+        if isinstance(usual_protein, (int, float)) and usual_protein > 0:
+            target = float(usual_protein)
+            vs_label = "your usual protein"
+        elif weight:
             target = 1.6 * weight
+            vs_label = "what your bodyweight calls for"
+        if target:
             if n.protein_g_3day_avg < 0.85 * target:
                 direction = "negative"
                 priority = "medium"
                 interp_bits.append(
-                    f"protein is {n.protein_g_3day_avg:.0f} g/day, under the ~{target:.0f} g your bodyweight calls for"
+                    f"protein is {n.protein_g_3day_avg:.0f} g/day, under the ~{target:.0f} g {vs_label}"
                 )
             else:
                 interp_bits.append(f"protein at {n.protein_g_3day_avg:.0f} g/day is supporting recovery")
@@ -1210,9 +1245,11 @@ def _interpret_nutrition(ctx: ARIAContext) -> Signal | None:
             delta = n.calories_in_3day_avg - n.calorie_target
             interp_bits.append(f"intake is {delta:+.0f} kcal vs your {n.calorie_target:.0f} target")
 
+    vs = "vs your usual protein" if personal else "vs your targets"
     return Signal(
-        "nutrition", "Nutrition", ", ".join(parts), "vs your targets",
+        "nutrition", "Nutrition", ", ".join(parts), vs,
         "; ".join(interp_bits) or "fueling looks on track", priority, direction,
+        "personal" if personal else "population",
     )
 
 
@@ -1233,88 +1270,8 @@ def _sleep_variance_habit(ctx: ARIAContext) -> tuple[str, str, int] | None:
     return None
 
 
-def _interpret_chronotype(ctx: ARIAContext) -> Signal | None:
-    """Interpret circadian alignment from chronotype context.
-
-    Missing typical times → no signal (not enough to place a phase). Low
-    consistency (<0.5) is the irregular-sleeper pattern — surface it. Very late
-    or early typical onset also shapes coaching windows (melatonin, wind-down).
-    """
-    chrono = ctx.chronotype
-    if chrono.typical_sleep_onset is None and chrono.typical_wake_time is None and chrono.consistency_score is None:
-        return None
-    parts: list[str] = []
-    interp_bits: list[str] = []
-    direction = "neutral"
-    priority = "low"
-    if chrono.typical_sleep_onset:
-        parts.append(f"typical sleep {chrono.typical_sleep_onset}")
-    if chrono.typical_wake_time:
-        parts.append(f"typical wake {chrono.typical_wake_time}")
-    if chrono.consistency_score is not None:
-        parts.append(f"consistency {chrono.consistency_score:.2f}")
-        if chrono.consistency_score < 0.35:
-            direction = "negative"
-            priority = "high"
-            interp_bits.append(
-                f"sleep timing is irregular (consistency {chrono.consistency_score:.2f}) — no single wind-down window is reliable; protect the runway rather than a fixed clock time"
-            )
-        elif chrono.consistency_score < 0.5:
-            direction = "negative"
-            priority = "medium"
-            interp_bits.append(
-                f"sleep timing varies (consistency {chrono.consistency_score:.2f}) — keep the wind-down window flexible tonight"
-            )
-        elif chrono.consistency_score >= 0.75:
-            interp_bits.append(f"sleep timing is steady (consistency {chrono.consistency_score:.2f}) — tonight's wind-down window is trustworthy")
-            priority = "low"
-    if chrono.typical_sleep_onset and chrono.typical_wake_time:
-        # No hard late/early judgment here — the window itself is the coaching cue.
-        # Late chronotypes need protection, not scolding.
-        if direction == "neutral":
-            interp_bits.append(f"your natural window is {chrono.typical_sleep_onset} → {chrono.typical_wake_time}")
-    interpretation = "; ".join(interp_bits) if interp_bits else "chronotype timing is available"
-    return Signal("chronotype", "Chronotype", ", ".join(parts) or "chronotype available", "vs your habitual window", interpretation, priority, direction)
-
-
-def _interpret_progress(ctx: ARIAContext) -> Signal | None:
-    """Trend over 30 days — weeks, not just today."""
-    p = ctx.progress
-    if p.workouts_completed_30d is None and p.training_load_trend is None and p.new_personal_records is None:
-        return None
-    parts: list[str] = []
-    interp_bits: list[str] = []
-    direction = "neutral"
-    priority = "low"
-    if p.workouts_completed_30d is not None:
-        parts.append(f"{p.workouts_completed_30d} sessions/30d")
-        if p.workouts_completed_30d >= 18:
-            interp_bits.append(f"{p.workouts_completed_30d} sessions in 30 days — consistent training block")
-            direction = "positive"
-        elif p.workouts_completed_30d <= 4:
-            interp_bits.append(f"only {p.workouts_completed_30d} sessions in 30 days — light recent training")
-            priority = "medium"
-    if p.training_load_trend:
-        parts.append(f"load {p.training_load_trend}")
-        if p.training_load_trend == "rising":
-            interp_bits.append("training load is rising week over week — watch recovery spacing")
-            if priority == "low":
-                priority = "medium"
-        elif p.training_load_trend == "falling":
-            interp_bits.append("training load has eased — good window to rebuild if you want it")
-    if p.new_personal_records is not None and p.new_personal_records > 0:
-        parts.append(f"{p.new_personal_records} PR(s)")
-        interp_bits.append(f"{p.new_personal_records} new personal record(s) — progress is showing")
-        direction = "positive"
-    if p.recovery_consistency_delta is not None:
-        sign = "+" if p.recovery_consistency_delta >= 0 else ""
-        parts.append(f"recovery delta {sign}{p.recovery_consistency_delta:.0f}")
-    interpretation = "; ".join(interp_bits) if interp_bits else "training progress looks steady"
-    return Signal("progress", "Progress", ", ".join(parts), "vs 30-day trend", interpretation, priority, direction)
-
-
-def _interpret_lifestyle(ctx: ARIAContext) -> Signal | None:
-    """Turn lifestyle habit tags and QoL into a Signal the rest of the engine can use.
+def _interpret_lifestyle(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
+    """Turn lifestyle habit tags into a Signal the rest of the engine can use.
 
     Last-night sleep and HRV can look fine while weekday timing still wobbles.
     ``habit:sleep_variance:sleep:<score>`` is that case: emit a negative lifestyle
@@ -1383,8 +1340,8 @@ _INTERPRETERS = (
 )
 
 
-def _gather_signals(ctx: ARIAContext) -> list[Signal]:
-    present = [signal for interp in _INTERPRETERS if (signal := interp(ctx)) is not None]
+def _gather_signals(ctx: ARIAContext, baselines: Any = None) -> list[Signal]:
+    present = [signal for interp in _INTERPRETERS if (signal := interp(ctx, baselines)) is not None]
     present.sort(key=lambda s: _PRIORITY_RANK.get(s.priority, 3))
     return present
 
@@ -1517,8 +1474,31 @@ def _clarification_response(ctx: ARIAContext, restricted: list[str], voice_mode:
     )
 
 
+_VITALS_SPEAK = re.compile(r"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score)\b", re.I)
+
+
+def _lifestyle_notice(notice: str, brief: Any, fallback: str) -> str:
+    """Lifestyle turns speak the life, not a vitals dump."""
+    if brief is None or str(getattr(brief, "lead_domain", "") or "") != "lifestyle":
+        return notice
+    text = str(getattr(brief, "how_you_work", "") or fallback or notice).strip()
+    if text and not _VITALS_SPEAK.search(text):
+        return text
+    move = str(getattr(brief, "one_next_move", "") or fallback).strip()
+    if move and not _VITALS_SPEAK.search(move):
+        return move
+    return "Fit training around the day you already have."
+
+
 def _recommendation_response(
-    message: str, ctx: ARIAContext, signals: list[Signal], restricted: list[str], voice_mode: bool
+    message: str,
+    ctx: ARIAContext,
+    signals: list[Signal],
+    restricted: list[str],
+    voice_mode: bool,
+    *,
+    stance: str = "",
+    brief: Any = None,
 ) -> dict[str, Any]:
     confidence, reason = _calibrate_confidence(ctx, signals, restricted)
     # Phase 1 — HRV falling + sleep debt >2h → force sleep-first, cap confidence
@@ -1538,32 +1518,54 @@ def _recommendation_response(
         # Keep diverge marker for calibrated test when signals conflict
         if "diverge" not in reason and any(s.direction == "negative" for s in signals):
             reason = f"{reason} (diverge)"
+    if any(getattr(s, "baseline_kind", "") == "personal" for s in signals):
+        if "personal baseline" not in reason:
+            reason = f"{reason}; judged against your personal baseline" if reason else "judged against your personal baseline"
     lead = signals[0] if signals else None
     negative = [s for s in signals if s.direction == "negative"]
     sleep_first = hrv_falling and sleep_debt_h > 2 and "sleep" not in restricted
+    learned = ""
+    if brief is not None and str(getattr(brief, "stance", "") or "") == stance:
+        learned = str(getattr(brief, "one_next_move", "") or "").strip()
 
-    if sleep_first or negative:
-        if sleep_first:
-            action = "Sleep first — protect tonight's wind-down before training volume"
-            timing = "Protect sleep tonight; reassess training after HRV recovers"
-            if ctx.chronotype.typical_sleep_onset:
-                timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
-            rationale = f"HRV {ctx.readiness.hrv_7day_trend:.0f}% + {sleep_debt_h:.1f}h sleep debt — sleep before load"
-            expected = "Prioritizing sleep should pull HRV back toward baseline within 24-48 h"
-            prose = f"HRV {abs(ctx.readiness.hrv_7day_trend):.0f}% below baseline with {sleep_debt_h:.1f}h sleep debt — sleep first tonight, then training."
-            actions = ["Protect tonight's sleep", "Show recovery plan", "Swap to Zone 2"]
-        else:
-            driver = negative[0]
-            action = "Keep today low-intensity — Zone 2 cardio or mobility, not a hard session"
-            timing = "Reassess tomorrow once HRV and deep sleep recover"
-            if ctx.chronotype.typical_sleep_onset:
-                timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
-            rationale = f"{driver.metric.lower()}: {driver.interpretation}"
-            expected = "Protecting today should pull HRV back toward baseline within 24-48 h"
-            prose = f"{_cap(driver.interpretation)} — keep today easy and let recovery catch up."
-            actions = ["Show recovery plan", "Swap to Zone 2", "Protect tonight's sleep"]
+    if sleep_first:
+        action = learned or "Sleep first — protect tonight's wind-down before training volume"
+        timing = "Protect sleep tonight; reassess training after HRV recovers"
+        if ctx.chronotype.typical_sleep_onset:
+            timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
+        rationale = (
+            f"HRV {ctx.readiness.hrv_7day_trend:.0f}% + {sleep_debt_h:.1f}h sleep debt — sleep before load"
+        )
+        expected = "Prioritizing sleep should pull HRV back toward baseline within 24-48 h"
+        prose = f"HRV {abs(ctx.readiness.hrv_7day_trend):.0f}% below baseline with {sleep_debt_h:.1f}h sleep debt — sleep first tonight, then training."
+        actions = ["Protect tonight's sleep", "Show recovery plan", "Swap to Zone 2"]
+    elif stance == "protect" or (not stance and negative):
+        driver = negative[0] if negative else lead
+        action = learned or "Keep today low-intensity — Zone 2 cardio or mobility, not a hard session"
+        timing = "Reassess tomorrow once HRV and deep sleep recover"
+        if ctx.chronotype.typical_sleep_onset:
+            timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
+        rationale = f"{driver.metric.lower()}: {driver.interpretation}" if driver else "protect load"
+        expected = "Protecting today should pull HRV back toward baseline within 24-48 h"
+        detail = driver.interpretation if driver else "signals say protect load"
+        prose = f"{_cap(detail)} — keep today easy and let recovery catch up."
+        actions = ["Show recovery plan", "Swap to Zone 2", "Protect tonight's sleep"]
+    elif stance == "fuel":
+        action = learned or "Protein and water with the next meal, then train inside the day you have"
+        timing = "Eat first, then your normal training window"
+        rationale = lead.interpretation if lead else "fuel first"
+        expected = "Hitting protein and water first keeps the session sustainable"
+        prose = f"{_cap(lead.interpretation) if lead else 'Fuel first'} — eat, then train inside the day you have."
+        actions = ["Log the next meal", "Today's workout", "Check hydration"]
+    elif stance == "clarify":
+        action = learned or "Best-effort read from what I have, then the one missing signal"
+        timing = "Once that signal lands I can lock today's call"
+        rationale = "usable picture is still thin"
+        expected = "One missing signal would change the call"
+        prose = f"{_cap(lead.interpretation) if lead else 'I can give a best-effort read'} — I still want one missing signal before I lock the plan."
+        actions = ["Sync HealthKit", "Tell ARIA about last night", "Today's workout"]
     elif lead and lead.direction == "positive":
-        action = "Green light for intensity — this is a day to push"
+        action = learned or "Green light for intensity — this is a day to push"
         timing = "Train in your usual window while readiness is high"
         rationale = f"{lead.metric.lower()}: {lead.interpretation}"
         expected = "You can absorb a hard stimulus today without digging a recovery hole"
@@ -1571,7 +1573,7 @@ def _recommendation_response(
         actions = ["Build a hard session", "Set a PR target", "Review readiness"]
     else:
         detail = lead.interpretation if lead else "your signals are mid-band"
-        action = "Train at moderate intensity with controlled progressive overload"
+        action = learned or "Train at moderate intensity with controlled progressive overload"
         timing = "Your normal training window works today"
         rationale = detail
         expected = "Steady stimulus keeps adaptation moving without overreaching"
@@ -1600,13 +1602,22 @@ def _recommendation_response(
         "timing": timing,
         "expected_effect": expected,
     }
+    notice = _lifestyle_notice(" ".join(notice_bits), brief, action)
+    why = timing
+    if brief is not None and str(getattr(brief, "lead_domain", "") or "") == "lifestyle":
+        if _VITALS_SPEAK.search(why or ""):
+            why = "Fit the session around the day you already have."
+        if _VITALS_SPEAK.search(action or ""):
+            action = str(getattr(brief, "one_next_move", "") or "Protect load and fit a shorter session around the day they already have.")
+            if card is not None:
+                card["action"] = action
     return _envelope(
         response_type="recommendation",
         confidence=confidence,
         confidence_reason=reason,
         prose_summary=prose,
         card=card,
-        message=_structured_message(" ".join(notice_bits), action, timing),
+        message=_structured_message(notice, action, why),
         suggested_actions=actions,
         voice_mode=voice_mode,
     )
@@ -1731,6 +1742,7 @@ def generate_response(
     permissions: DataPermissions | None = None,
     voice_mode: bool = False,
     persona: Any = None,
+    baselines: Any = None,
 ) -> dict[str, Any]:
     """Top-level entry: message + context (+ permissions) -> response envelope.
 
@@ -1738,6 +1750,11 @@ def generate_response(
     The engine never persists it; the live chat route does. Dummy tests pass an
     in-memory persona. Omitting it still runs cold-start priors so turn one is
     already adapted.
+
+    ``baselines`` is the BodyModel personal-baseline block from ``fusion``.
+    When present and robust, interpreters judge against this person, not a
+    population cutoff. Persona stance (protect / proceed / fuel / clarify)
+    changes the next session — it is not a sidecar and not Bedrock reconcile.
     """
     perms = permissions if isinstance(permissions, DataPermissions) else DataPermissions.allow_all()
     ctx, restricted = apply_permissions(ctx, perms)
@@ -1765,6 +1782,11 @@ def generate_response(
         envelope["emergency_escalation"] = guardrail.wants_escalation
         return envelope
 
+    from services import contextual_learner
+    from services import fusion as fusion_mod
+
+    brief = contextual_learner.adapt(message, ctx, persona)
+    stance = fusion_mod.stance_for_plan(brief, ctx, baselines)
     response_type = classify_request(message, ctx)
 
     # A clarification never reads the interpreted signals, so gather them only on
@@ -1772,11 +1794,13 @@ def generate_response(
     if response_type == "clarification":
         envelope = _clarification_response(ctx, restricted, voice_mode)
     else:
-        signals = _gather_signals(ctx)
+        signals = _gather_signals(ctx, baselines)
         if response_type == "summary":
             envelope = _summary_response(ctx, signals, restricted, voice_mode)
         elif response_type == "recommendation":
-            envelope = _recommendation_response(message, ctx, signals, restricted, voice_mode)
+            envelope = _recommendation_response(
+                message, ctx, signals, restricted, voice_mode, stance=stance, brief=brief
+            )
         else:
             envelope = _insight_response(message, ctx, signals, restricted, voice_mode)
 
@@ -1784,24 +1808,31 @@ def generate_response(
     if response_type == "recommendation" and "training" not in restricted:
         from services import body_library
 
+        recovery = ctx.readiness.recovery_score
+        recovery_f = float(recovery) if isinstance(recovery, (int, float)) else None
         session = body_library.maybe_suggest(
             message,
             last_workout_type=ctx.training.last_workout_type,
             last_workout_name=ctx.training.last_workout_name,
             hours_since=ctx.training.hours_since_last_workout,
             experience=ctx.profile.experience_level or "intermediate",
-            readiness=int(ctx.readiness.recovery_score)
-            if isinstance(ctx.readiness.recovery_score, (int, float))
-            else None,
+            readiness=fusion_mod.session_readiness_for(stance, recovery_f),
             planning_mode=ctx.training.schedule_planning_mode,
             weekly_split=ctx.training.weekly_split,
             sun0_weekday=ctx.training.sun0_weekday
             if ctx.training.sun0_weekday is not None
             else body_library.sun0_from_iso(ctx.timestamp),
+            stance=stance,
         )
         if session is not None:
             envelope["session"] = session.to_dict()
-    _attach_contextualization(envelope, message, ctx, persona)
+    envelope["contextualization"] = brief.as_dict()
+    envelope["fusion"] = {
+        "stance": stance,
+        "baseline_kind": "personal"
+        if baselines is not None and getattr(baselines, "robust", False)
+        else "population",
+    }
     return envelope
 
 
@@ -1837,22 +1868,6 @@ def _envelope(
         "suggested_actions": suggested_actions,
         "model": select_model(response_type, voice_mode=voice_mode),
     }
-
-
-def _attach_contextualization(
-    envelope: dict[str, Any],
-    message: str,
-    ctx: ARIAContext,
-    persona: Any,
-) -> None:
-    """Sidecar from the production learner. Never mutates prose_summary."""
-    try:
-        from services import contextual_learner
-
-        brief = contextual_learner.adapt(message, ctx, persona)
-        envelope["contextualization"] = brief.as_dict()
-    except Exception:
-        return
 
 
 def build_user_prompt(message: str, ctx: ARIAContext, restricted: list[str] | None = None) -> str:
@@ -2064,12 +2079,18 @@ def generate_response_live(
     agent: str | None = None,
     agents: list[str] | None = None,
     persona: Any = None,
+    baselines: Any = None,
 ) -> dict[str, Any]:
     """Top-level entry for the live path: deterministic reasoning, then a real
     Claude pass overlaid on top. Falls back to the deterministic envelope on any
     error. ``converse`` is injectable so tests never need boto3 or AWS."""
     base = generate_response(
-        message, ctx, permissions=permissions, voice_mode=voice_mode, persona=persona
+        message,
+        ctx,
+        permissions=permissions,
+        voice_mode=voice_mode,
+        persona=persona,
+        baselines=baselines,
     )
     caller = converse or _default_converse
     roster = normalize_coach_agents(agents, agent)
