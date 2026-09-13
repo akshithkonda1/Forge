@@ -2,12 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { ARIA_MARK, clampGaze } from "@/lib/aria-mark";
+import { ARIA_MARK, LEGACY_EMBER, clampGaze } from "@/lib/aria-mark";
 import { drawAriaEmber } from "@/lib/aria-ember";
 
 /**
- * Adaptive Recovery Interactive Assistant — living 4-lobe ember.
- * Canvas blob that follows the pointer. No ping rings. PNG is unused at runtime.
+ * Adaptive Recovery Interactive Assistant.
+ * Living contract is the kinetic ring-field in `ARIA_MARK` / `shared/aria-mark.json`.
+ * Canvas still draws the legacy ember until the ring-field renderer lands. No PNG runtime.
  */
 export function AriaMark({
   size = 48,
@@ -53,7 +54,7 @@ export function AriaMark({
         gaze.current.x += (gaze.current.tx - gaze.current.x) * 0.14;
         gaze.current.y += (gaze.current.ty - gaze.current.y) * 0.14;
       }
-      const t = reduce ? ARIA_MARK.stillPose : (now - start) / 1000;
+      const t = reduce ? LEGACY_EMBER.stillPose : (now - start) / 1000;
       drawAriaEmber(ctx, canvas.width, canvas.height, {
         time: t,
         speaking: speakingRef.current,
