@@ -261,6 +261,8 @@ class SleepContext:
     hrv: float | None = None              # SDNN ms, during sleep
     resting_hr: float | None = None
     nights_available: int | None = None   # history depth (for baseline gating)
+    baseline_median_minutes: float | None = None  # robust personal baseline (median)
+    baseline_mad_minutes: float | None = None     # robust spread (MAD)
 
 
 @dataclass
@@ -583,6 +585,8 @@ class ARIAContext:
                 hrv=_num(sleep.get("hrv")),
                 resting_hr=_num(sleep.get("restingHR")),
                 nights_available=_int(sleep.get("nightsAvailable")),
+                baseline_median_minutes=_num(sleep.get("baselineMedianMinutes") or sleep.get("baseline_median_minutes")),
+                baseline_mad_minutes=_num(sleep.get("baselineMadMinutes") or sleep.get("baseline_mad_minutes")),
             ),
             readiness=ReadinessContext(
                 hrv_7day_trend=_num(readiness.get("hrv7DayTrend")),
@@ -996,19 +1000,38 @@ def _interpret_sleep(ctx: ARIAContext) -> Signal | None:
         direction = "negative"
         priority = "high"
 
-    if hours < 7:
-        interp_bits.append(f"{hours:.1f} h is below the 7 h floor for cognitive recovery")
-        direction = "negative"
-        priority = "high"
-    elif hours >= 7.5 and direction == "neutral":
-        interp_bits.append(f"{hours:.1f} h is solid duration")
-        direction = "positive"
-
-    baseline_note = (
-        "vs typical adult ranges (no personal sleep baseline yet)"
-        if not ctx.sleep_baseline_ready
-        else "vs your recent nights"
-    )
+    # Personal baseline check — robust band when history exists
+    if s.baseline_median_minutes is not None and s.baseline_mad_minutes is not None and s.baseline_mad_minutes > 1e-9:
+        mad = s.baseline_mad_minutes
+        # 1.4826*MAD ≈ sigma; use 2 sigma as personal low band (≈ 95% interval)
+        personal_low = s.baseline_median_minutes - 2 * 1.4826 * mad
+        if s.duration_minutes < personal_low:
+            interp_bits.append(
+                f"{hours:.1f} h is below your usual {s.baseline_median_minutes/60:.1f} h (personal low ~{personal_low/60:.1f} h) — short for you"
+            )
+            direction = "negative"
+            priority = "high"
+        elif s.duration_minutes >= s.baseline_median_minutes - mad:
+            interp_bits.append(f"{hours:.1f} h is around your usual {s.baseline_median_minutes/60:.1f} h")
+            if direction == "neutral":
+                direction = "positive"
+        baseline_note = f"vs your usual {s.baseline_median_minutes/60:.1f} h (personal baseline, n={s.nights_available or '?'})"
+        # Purge generic population bits when personal band already judged
+        if s.duration_minutes < personal_low:
+            interp_bits = [b for b in interp_bits if "below the 7 h floor" not in b]
+    else:
+        if hours < 7:
+            interp_bits.append(f"{hours:.1f} h is below the 7 h floor for cognitive recovery")
+            direction = "negative"
+            priority = "high"
+        elif hours >= 7.5 and direction == "neutral":
+            interp_bits.append(f"{hours:.1f} h is solid duration")
+            direction = "positive"
+        baseline_note = (
+            "vs typical adult ranges (no personal sleep baseline yet)"
+            if not ctx.sleep_baseline_ready
+            else "vs your recent nights"
+        )
     interpretation = "; ".join(interp_bits) if interp_bits else "sleep architecture looks unremarkable"
     return Signal("sleep", "Sleep", ", ".join(parts), baseline_note, interpretation, priority, direction)
 
