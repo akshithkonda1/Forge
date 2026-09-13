@@ -50,6 +50,12 @@ _VITALS_SCORE_RE = re.compile(
             r"\d+(?:\.\d+)?\s?bpm\b",
             r"\bacwr\b[^.!?]{0,12}\d",
             r"\d+(?:\.\d+)?\s*%\s*(?:below|above|under|over)\s+(?:baseline|normal)",
+            # Insight HUD leftovers the Iris token scrub does not catch:
+            # "Sleep: 8.1 h total, 93 min deep (19%). Deep sleep at 19%".
+            r"\bsleep:\s*\d",
+            r"\d+(?:\.\d+)?\s?h total\b",
+            r"\d+\s?min deep\b",
+            r"\bdeep sleep at\s+\d+(?:\.\d+)?\s*%",
         )
     ),
     re.I,
@@ -169,6 +175,11 @@ _FRIEND_CUES = (
 
 _SLEEP_CUES = ("sleep", "slept", "last night", "the night", "insomnia")
 _NIGHT_ACK = ("night", "sleep", "slept", "rest")
+_DISCOURSE_MOVES = (
+    "easier", "make it easy", "too hard", "lighter", "gentler", "dial it back",
+    "shorter", "quicker", "less time", "skip it", "skip that", "never mind", "nvm",
+    "forget it",
+)
 
 
 def user_visible_blob(row: dict | None) -> str:
@@ -268,11 +279,18 @@ def repetition_hits(prev_reply: str, curr_reply: str) -> list[str]:
     return hits
 
 
-def memory_hole_hits(prior_user: str, reply: str) -> list[str]:
-    """Follow-up that ignores a sleep/night thread the user just opened."""
+def memory_hole_hits(prior_user: str, reply: str, current_user: str | None = None) -> list[str]:
+    """Follow-up that ignores a sleep/night thread the user just opened.
+
+    Short discourse moves ("make it easier", "skip it") mutate the plan;
+    they do not have to re-narrate the night.
+    """
     prior = (prior_user or "").lower()
     text = (reply or "").lower()
+    current = (current_user or "").lower()
     if not prior or not text:
+        return []
+    if current and len(current.split()) <= 10 and any(move in current for move in _DISCOURSE_MOVES):
         return []
     if any(cue in prior for cue in _SLEEP_CUES) and not any(ack in text for ack in _NIGHT_ACK):
         return ["memory hole: prior night/sleep dropped"]
@@ -290,6 +308,7 @@ def speak_failures(
     *,
     prior_user: str | None = None,
     prior_reply: str | None = None,
+    current_user: str | None = None,
 ) -> list[str]:
     """Return human-readable gate names that this row fails."""
     blob = user_visible_blob(row)
@@ -311,7 +330,7 @@ def speak_failures(
         if r:
             fails.append("repetition: " + ", ".join(r))
     if prior_user:
-        h = memory_hole_hits(prior_user, blob)
+        h = memory_hole_hits(prior_user, blob, current_user=current_user)
         if h:
             fails.extend(h)
     return fails
