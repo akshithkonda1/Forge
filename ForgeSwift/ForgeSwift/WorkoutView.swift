@@ -52,7 +52,6 @@ struct WorkoutIdleView: View {
     @State private var showLibrary = false
     @State private var showDashboard = false
     @State private var showWeekPicker = false
-    @State private var scalingApplied = false
 
     private var scaling: PlanScaling { AdaptiveEngine.scaling(readiness: store.readiness, experience: store.userProfile.experienceLevel) }
 
@@ -82,7 +81,10 @@ struct WorkoutIdleView: View {
                             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 12)
                             .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.22), value: appeared)
 
-                        AdaptiveScalingCard(scaling: scaling, applied: scalingApplied) { applyScaling(workout: workout) }
+                        AdaptiveScalingCard(
+                            scaling: scaling,
+                            applied: workout.autoScaled
+                        )
                             .padding(.horizontal, 16)
                             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 14)
                             .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3), value: appeared)
@@ -127,6 +129,13 @@ struct WorkoutIdleView: View {
         .onAppear {
             withAnimation(.spring(response: 0.72, dampingFraction: 0.8).delay(0.08)) { appeared = true }
             withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) { pulseOrb = true }
+            if let current = store.todayWorkout, !current.autoScaled, scaling.isModified {
+                store.todayWorkout = AdaptiveEngine.apply(
+                    to: current,
+                    readiness: store.readiness,
+                    experience: store.userProfile.experienceLevel
+                )
+            }
         }
     }
 
@@ -185,14 +194,6 @@ struct WorkoutIdleView: View {
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(accent.opacity(0.18), lineWidth: 1))
         }
         .buttonStyle(.plain)
-    }
-
-    private func applyScaling(workout: WorkoutPlan) {
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.82)) {
-            store.todayWorkout?.exercises = workout.exercises.map { AdaptiveEngine.scaled($0, by: scaling) }
-            scalingApplied = true
-        }
     }
 
     private func idleHeader(workout: WorkoutPlan) -> some View {
@@ -282,7 +283,7 @@ struct WorkoutIdleView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "play.fill").font(.system(size: 20, weight: .black))
-                Text("Start Workout").font(.system(size: 20, weight: .bold, design: .rounded))
+                Text("Start session").font(.system(size: 20, weight: .bold, design: .rounded))
                 Spacer()
                 Image(systemName: "arrow.right").font(.system(size: 18, weight: .bold))
             }
@@ -333,8 +334,6 @@ struct WorkoutIdleView: View {
 private struct AdaptiveScalingCard: View {
     let scaling: PlanScaling
     let applied: Bool
-    let onApply: () -> Void
-    @State private var appeared = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -358,20 +357,16 @@ private struct AdaptiveScalingCard: View {
             Text(scaling.detail).font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
 
             if scaling.isModified {
-                Button(action: onApply) {
-                    HStack(spacing: 8) {
-                        Image(systemName: applied ? "checkmark.circle.fill" : "slider.horizontal.3").font(.system(size: 14, weight: .bold))
-                        Text(applied ? "Auto-scaling applied" : "Apply to today's plan").font(.system(size: 14, weight: .bold))
-                        Spacer()
-                    }
-                    .foregroundColor(applied ? scaling.tone : .white)
-                    .padding(.horizontal, 16).padding(.vertical, 12)
-                    .background(applied ? scaling.tone.opacity(0.12) : scaling.tone)
-                    .cornerRadius(13)
-                    .overlay(RoundedRectangle(cornerRadius: 13).stroke(scaling.tone.opacity(applied ? 0.4 : 0), lineWidth: 1))
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: 14, weight: .bold))
+                    Text(applied ? "ARIA already scaled this session. Add a set in Train if you feel it." : "ARIA scaled this from readiness — it's already on the board.")
+                        .font(.system(size: 14, weight: .bold))
+                    Spacer()
                 }
-                .buttonStyle(.plain)
-                .disabled(applied)
+                .foregroundColor(scaling.tone)
+                .padding(.horizontal, 16).padding(.vertical, 12)
+                .background(scaling.tone.opacity(0.12))
+                .cornerRadius(13)
             }
         }
         .padding(18).background(Color.surface).cornerRadius(20)
@@ -620,9 +615,19 @@ struct WorkoutInsightsView: View {
 
     private var insights: [(icon: String, text: String, color: Color)] {
         var r: [(String, String, Color)] = []
-        r.append(("brain.head.profile", "ARIA wrote \(workout.name) from how you showed up today.", .ember))
-        if store.readiness.overall >= 80 { r.append(("bolt.fill", "Readiness \(store.readiness.overall)% — primed for heavy top sets today.", .ember)) }
-        else if store.readiness.overall < 65 { r.append(("bed.double.fill", "Recovery \(store.readiness.overall)% — ARIA trimmed volume to protect tomorrow.", .steel)) }
+        let facts = AriaSpeechFacts()
+        let voice = AriaVoiceEngine.speak(
+            intent: .trainingPlan,
+            context: store.makeTrainerContext(),
+            input: "What's on my board?",
+            facts: facts
+        )
+        r.append(("brain.head.profile", voice, .ember))
+        if let headline = workout.scaleHeadline {
+            r.append(("wand.and.stars", headline, workout.autoScaled ? .warning : .steel))
+        }
+        if store.readiness.overall >= 80 { r.append(("bolt.fill", "Readiness \(store.readiness.overall)% — primed. Add a set if the first compound moves well.", .ember)) }
+        else if store.readiness.overall < 65 { r.append(("bed.double.fill", "Recovery \(store.readiness.overall)% — ARIA already scaled the board. You can still add a set if you feel it.", .steel)) }
         // Balance read across the plan
         if let lean = planRegionLean() { r.append(("scale.3d", lean, Color(hex: "A855F7"))) }
         if workout.intensity == .high || workout.intensity == .max {
@@ -723,8 +728,8 @@ struct WorkoutEmptyState: View {
             }
             .scaleEffect(appeared ? 1 : 0.8).opacity(appeared ? 1 : 0)
             VStack(spacing: 10) {
-                Text("No Workout Planned").font(.system(size: 24, weight: .bold)).foregroundColor(.textPrimary)
-                Text("Chat with ARIA to generate a plan tailored to your readiness and goals — or explore the movement library.")
+                Text("No session on the board").font(.system(size: 24, weight: .bold)).foregroundColor(.textPrimary)
+                Text("ARIA writes Train from sleep, readiness, and the week you actually have — or browse the library.")
                     .font(.system(size: 15)).foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center).lineSpacing(5).padding(.horizontal, 44)
             }
@@ -732,11 +737,11 @@ struct WorkoutEmptyState: View {
             VStack(spacing: 12) {
                 Button {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    store.openChat(with: HomeInsightFlow.todayPlanPrompt, voice: false)
+                    store.startLifeShapedSession()
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "message.fill").font(.system(size: 16))
-                        Text("Chat with ARIA").font(.system(size: 17, weight: .semibold))
+                        Image(systemName: "sparkles").font(.system(size: 16))
+                        Text("Write today’s session").font(.system(size: 17, weight: .semibold))
                     }
                     .foregroundColor(.white).padding(.horizontal, 32).padding(.vertical, 17)
                     .background(Color.ember).cornerRadius(18)
@@ -758,17 +763,5 @@ struct WorkoutEmptyState: View {
         .frame(maxWidth: .infinity)
         .sheet(isPresented: $showLibrary) { ExerciseLibraryView() }
         .onAppear { withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.18)) { appeared = true } }
-    }
-}
-
-struct FeatureBadge: View {
-    let icon: String; let label: String; let color: Color
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 10))
-            Text(label).font(.system(size: 11, weight: .medium))
-        }
-        .foregroundColor(color).padding(.horizontal, 9).padding(.vertical, 5)
-        .background(color.opacity(0.1)).cornerRadius(7)
     }
 }

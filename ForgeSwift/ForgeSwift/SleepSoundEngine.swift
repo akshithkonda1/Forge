@@ -81,6 +81,10 @@ final class SleepWindDownPlayer {
         }
         stop(deactivateSession: false)
         renderer.reset(kind: self.kind)
+        #if targetEnvironment(simulator)
+        // Same RemoteIO 0 Hz abort as the welcome chime. Device still plays.
+        return
+        #else
         guard let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1) else { return }
         let engine = AVAudioEngine()
         let renderer = self.renderer
@@ -118,6 +122,7 @@ final class SleepWindDownPlayer {
             self.wasInterrupted = false
             self.startCountdown()
         }
+        #endif
     }
 
     func stop(deactivateSession: Bool = true) {
