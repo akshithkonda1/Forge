@@ -133,12 +133,7 @@ struct EnergySchedule {
         // in the engine is a `suffix(...)`. Handing it the array in arrival
         // order would silently analyse the *oldest* fortnight — a schedule
         // that was right for whoever the user was last month.
-        let nights: [CircadianRhythm.Night] = history
-            .compactMap { entry -> CircadianRhythm.Night? in
-                guard let onset = entry.onset, let wake = entry.wake, wake > onset else { return nil }
-                return CircadianRhythm.Night(onset: onset, wake: wake, asleepHours: entry.totalHours)
-            }
-            .sorted { $0.wake < $1.wake }
+        let nights: [CircadianRhythm.Night] = SleepCircadianBridge.nights(from: history)
 
         guard nights.count >= minimumNights,
               let phase = CircadianRhythm.phase(from: nights, calendar: calendar) else { return nil }

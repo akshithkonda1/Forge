@@ -132,8 +132,14 @@ enum SleepAlarmScheduler {
         let stale = pending.map(\.identifier).filter(SleepWakeEngine.isWakeNotification)
         center.removePendingNotificationRequests(withIdentifiers: stale)
 
+        let windows: [UUID: Int] = await MainActor.run {
+            Dictionary(uniqueKeysWithValues: alarms.map { alarm in
+                (alarm.id, HealthKitSleepService.shared.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow))
+            })
+        }
+
         for alarm in alarms where alarm.isEnabled {
-            await schedule(alarm)
+            await schedule(alarm, smartWindow: windows[alarm.id] ?? alarm.smartWakeWindow)
         }
     }
 
@@ -150,7 +156,7 @@ enum SleepAlarmScheduler {
         )
     }
 
-    private static func schedule(_ alarm: ForgeAlarm) async {
+    private static func schedule(_ alarm: ForgeAlarm, smartWindow: Int) async {
         let (hour, minute) = SleepWakeEngine.hourMinute(of: alarm.time)
         let days = alarm.days.isEmpty ? Array(1...7) : alarm.days
         for weekday in days {
@@ -169,7 +175,7 @@ enum SleepAlarmScheduler {
                     weekday: weekday,
                     hour: hour,
                     minute: minute,
-                    windowMinutes: alarm.smartWakeWindow
+                    windowMinutes: smartWindow
                 )
                 await addRepeating(
                     id: SleepWakeEngine.smartNotificationId(for: alarm.id) + ".\(smart.weekday)",
@@ -332,6 +338,7 @@ struct AlarmTab: View {
 
 struct NextAlarmHero: View {
     let alarm: ForgeAlarm
+    @ObservedObject private var hk = HealthKitSleepService.shared
 
     private var timeString: String {
         let f = DateFormatter(); f.dateFormat = "h:mm"
@@ -370,7 +377,8 @@ struct NextAlarmHero: View {
                 .font(.system(size: 14))
                 .foregroundColor(.textSecondary)
             if alarm.isSmartWake {
-                Text("Smart wake opens \(alarm.smartWakeWindow) min earlier. Hard alarm still fires.")
+                let lead = hk.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow)
+                Text("Smart wake opens \(lead) min earlier tonight. Hard alarm still fires.")
                     .font(.system(size: 12))
                     .foregroundColor(.textTertiary)
                     .padding(.top, 2)
@@ -630,7 +638,7 @@ struct AlarmEditorSheet: View {
 
                                 if alarm.isSmartWake {
                                     VStack(alignment: .leading, spacing: 10) {
-                                        Text("Wake window: up to \(alarm.smartWakeWindow) min before alarm")
+                                        Text("Base window: \(alarm.smartWakeWindow) min. Tonight adapts from score, debt, and snooze history.")
                                             .font(.system(size: 12, weight: .medium))
                                             .foregroundColor(.textSecondary)
                                         HStack(spacing: 8) {

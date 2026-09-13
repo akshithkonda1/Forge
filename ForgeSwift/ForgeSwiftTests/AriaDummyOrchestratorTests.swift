@@ -547,6 +547,35 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
     }
 
+    func testScheduleGoalPersistsFromChatAndStaysOnPrompt() async {
+        ScheduleGoalStore.clear()
+        let ledgerKey = AriaKnowledgeLedgerStore.defaultsKey
+        let previousLedger = UserDefaults.standard.data(forKey: ledgerKey)
+        defer {
+            ScheduleGoalStore.clear()
+            if let previousLedger {
+                UserDefaults.standard.set(previousLedger, forKey: ledgerKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: ledgerKey)
+            }
+        }
+        let store = makeStore()
+        let prompt = "I need to be up at 6am starting Monday"
+        let reply = await AriaDummyOrchestrator.reply(
+            text: prompt,
+            store: store,
+            agent: .sleep,
+            agents: ["sleep"]
+        )
+        XCTAssertEqual(ScheduleGoalStore.load()?.targetWakeHour, 6.0)
+        XCTAssertTrue(reply.message.lowercased().contains("up at"), reply.message)
+        XCTAssertTrue(AriaPromptCorrelation.correlates(reply: reply.message, toPrompt: prompt), reply.message)
+        XCTAssertTrue(
+            AriaKnowledgeLedgerStore.load().latestSummary(kind: "schedule_goal")?.contains("6") == true
+        )
+        XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
+    }
+
     private func makeStore() -> AppStore {
         let store = AppStore()
         store.chatMessages = []
