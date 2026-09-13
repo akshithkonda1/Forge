@@ -134,6 +134,8 @@ extension AppStore {
         resetInMemoryChat()
         lastCloudSyncError = nil
         lastLifeIngestError = nil
+        isHealthKitPulling = false
+        healthKitLive = false
         remoteSleepInsight = nil
         remoteProgressReview = nil
         metricSources = []
@@ -171,28 +173,57 @@ extension AppStore {
     }
 
     /// Force HealthKit reconnect from Settings / Home offline pill.
+    /// After Deny, iOS will not re-show Allow — open Health → Sharing.
+    /// Does not wait on `refreshDailyData` before returning — flip status first.
     func reconnectHealthKit() async {
-        do {
-            try await HealthKitManager.shared.requestAuthorization()
-            await HealthKitManager.shared.applyConnectedHealthToForge()
-            healthKitLive = await HealthKitManager.shared.checkAuthorizationStatus()
-            if healthKitLive {
-                await refreshDailyData()
-            } else {
-                lastLifeIngestError = LifeIngestError.skipped(
-                    doing: "Couldn't reconnect Apple Health",
-                    because: HealthKitManager.shared.authorizationErrorMessage
-                        ?? "the Health permission sheet finished without granting read access"
-                )
+        let hk = HealthKitManager.shared
+        let action = HealthKitLiveEvidence.reconnectAction(
+            isLive: healthKitLive || hk.canWriteAnyRequestedType,
+            canPresentSheet: hk.canPresentAuthorizationSheet
+        )
+        switch action {
+        case .resync:
+            scheduleHealthKitHydrate()
+        case .requestSheet:
+            do {
+                try await hk.requestAuthorization()
+                healthKitLive = hk.isAuthorized
+                objectWillChange.send()
+                if healthKitLive {
+                    scheduleHealthKitHydrate()
+                } else {
+                    lastLifeIngestError = LifeIngestError.skipped(
+                        doing: "Couldn't reconnect Apple Health",
+                        because: hk.authorizationErrorMessage
+                            ?? "the Health permission sheet finished without granting read access"
+                    )
+                }
+            } catch {
+                healthKitLive = false
+                lastLifeIngestError = hk.authorizationErrorMessage
+                    ?? LifeIngestError.explain(
+                        error,
+                        doing: "Couldn't reconnect Apple Health"
+                    )
             }
-        } catch {
+        case .openHealthSharing:
             healthKitLive = false
-            lastLifeIngestError = HealthKitManager.shared.authorizationErrorMessage
-                ?? LifeIngestError.explain(
-                    error,
-                    doing: "Couldn't reconnect Apple Health"
-                )
+            lastLifeIngestError = HealthKitLiveEvidence.sharingAfterDeny
+            hk.openAppleHealthSharingDestination()
         }
         objectWillChange.send()
+    }
+
+    /// Hydrate after an honest status flip. Keep Home / You interactive.
+    private func scheduleHealthKitHydrate() {
+        isHealthKitPulling = true
+        objectWillChange.send()
+        Task { @MainActor in
+            await HealthKitManager.shared.applyConnectedHealthToForge()
+            await refreshDailyData()
+            healthKitLive = await HealthKitManager.shared.checkAuthorizationStatus()
+            isHealthKitPulling = false
+            objectWillChange.send()
+        }
     }
 }

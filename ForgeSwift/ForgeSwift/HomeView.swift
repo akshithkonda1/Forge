@@ -296,6 +296,7 @@ private struct HomeDataStatusPill: View {
     }
 
     private var statusText: String {
+        if store.isHealthKitPulling { return "Pulling…" }
         if reconnecting { return "Reconnecting…" }
         if let error = store.lastCloudSyncError, !isLive {
             return error

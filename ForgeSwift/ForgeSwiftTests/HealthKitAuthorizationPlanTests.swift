@@ -230,3 +230,59 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
         XCTAssertFalse(HealthKitAuthorizationPlan.isAllowedInBulkRead(notes))
     }
 }
+
+/// Locks the false-Connected fix: a shown Allow sheet is not a grant.
+@MainActor
+final class HealthKitLiveEvidenceTests: XCTestCase {
+
+    func testSheetShownWithoutWriteOrSamplesIsNotLive() {
+        XCTAssertFalse(HealthKitLiveEvidence.isLive(canWrite: false, hasReadableSamples: false))
+    }
+
+    func testWriteAuthorizationIsLive() {
+        XCTAssertTrue(HealthKitLiveEvidence.isLive(canWrite: true, hasReadableSamples: false))
+    }
+
+    func testReadableSamplesAreLiveWhenReadStatusIsHidden() {
+        XCTAssertTrue(HealthKitLiveEvidence.isLive(canWrite: false, hasReadableSamples: true))
+    }
+
+    func testEmptyDailyStatsAreNotReadableEvidence() {
+        XCTAssertFalse(HealthKitLiveEvidence.dailyStatsHaveSamples(nil))
+        XCTAssertFalse(HealthKitLiveEvidence.dailyStatsHaveSamples(.default))
+    }
+
+    func testReconnectRequestsSheetWhileUndetermined() {
+        XCTAssertEqual(
+            HealthKitLiveEvidence.reconnectAction(isLive: false, canPresentSheet: true),
+            .requestSheet
+        )
+    }
+
+    func testReconnectOpensHealthWhenSheetWillNotReappear() {
+        XCTAssertEqual(
+            HealthKitLiveEvidence.reconnectAction(isLive: false, canPresentSheet: false),
+            .openHealthSharing
+        )
+        XCTAssertEqual(HealthKitLiveEvidence.appleHealthURL?.scheme, "x-apple-health")
+        XCTAssertTrue(HealthKitLiveEvidence.sharingAfterDeny.contains("Health → Sharing"))
+    }
+
+    func testReconnectResyncsWhenLive() {
+        XCTAssertEqual(
+            HealthKitLiveEvidence.reconnectAction(isLive: true, canPresentSheet: false),
+            .resync
+        )
+    }
+
+    func testReconnectRoutingDoesNotNeedASnapshotProbe() {
+        XCTAssertEqual(
+            HealthKitLiveEvidence.reconnectAction(isLive: false, canPresentSheet: false),
+            .openHealthSharing
+        )
+        XCTAssertEqual(
+            HealthKitLiveEvidence.reconnectAction(isLive: true, canPresentSheet: true),
+            .resync
+        )
+    }
+}

@@ -17,7 +17,8 @@ This Terraform stack creates a shared AWS backend foundation for Forge, so the N
 
 The repo currently contains two client apps, but no backend implementation yet. This stack sets up the shared primitives both clients will need without locking you into one specific handler layout too early.
 
-The DynamoDB table uses a single-table pattern with `pk`, `sk`, `gsi1pk`, and `gsi1sk`, so you can store:
+The DynamoDB table uses a single-table pattern on `pk` / `sk` (no GSI today —
+an unused ALL-projection GSI previously doubled write cost). You can store:
 
 - user profiles
 - readiness snapshots

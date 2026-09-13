@@ -263,6 +263,8 @@ class SleepContext:
     nights_available: int | None = None   # history depth (for baseline gating)
     baseline_median_minutes: float | None = None  # robust personal baseline (median)
     baseline_mad_minutes: float | None = None     # robust spread (MAD)
+    sleep_debt_7d_hours: float | None = None  # rolling shortfall vs target
+    target_hours: float | None = None     # personal sleep target; default 8h in evidence
 
 
 @dataclass
@@ -283,6 +285,10 @@ class TrainingContext:
     schedule_planning_mode: str | None = None  # fixed | rotate
     weekly_split: list | None = None
     sun0_weekday: int | None = None  # 0=Sun … 6=Sat
+    acwr: float | None = None  # acute:chronic workload ratio when known
+    acute_load: float | None = None
+    chronic_load: float | None = None
+    is_overtrained: bool | None = None
 
 
 @dataclass
@@ -587,6 +593,12 @@ class ARIAContext:
                 nights_available=_int(sleep.get("nightsAvailable")),
                 baseline_median_minutes=_num(sleep.get("baselineMedianMinutes") or sleep.get("baseline_median_minutes")),
                 baseline_mad_minutes=_num(sleep.get("baselineMadMinutes") or sleep.get("baseline_mad_minutes")),
+                sleep_debt_7d_hours=_num(
+                    sleep.get("sleepDebt7dHours")
+                    or sleep.get("sleep_debt_7d_hours")
+                    or sleep.get("sleepDebtHours")
+                ),
+                target_hours=_num(sleep.get("targetHours") or sleep.get("target_hours")),
             ),
             readiness=ReadinessContext(
                 hrv_7day_trend=_num(readiness.get("hrv7DayTrend")),
@@ -609,6 +621,10 @@ class ARIAContext:
                 if isinstance(training.get("weekly_split"), list)
                 else None,
                 sun0_weekday=_int(training.get("sun0Weekday") or training.get("sun0_weekday")),
+                acwr=_num(training.get("acwr") or training.get("ACWR")),
+                acute_load=_num(training.get("acuteLoad") or training.get("acute_load")),
+                chronic_load=_num(training.get("chronicLoad") or training.get("chronic_load")),
+                is_overtrained=_bool(training.get("isOvertrained") or training.get("is_overtrained")),
             ),
             activity=ActivityContext(
                 steps_3day_avg=_num(activity.get("steps3DayAvg")),
@@ -877,7 +893,12 @@ _ADVICE_PATTERNS = (
     "should i", "what should", "what do i", "what would you", "recommend",
     "advice", "train today", "work out", "workout today", "push", "rest",
     "recover", "recovery", "tired", "exhausted", "wiped", "drained",
-    "plan my", "how hard", "go hard", "what's the move", "whats the move",
+    "how hard", "go hard", "what's the move", "whats the move",
+)
+_PLAN_PATTERNS = (
+    "plan my", "build a plan", "training plan", "week plan", "weekly plan",
+    "plan the next", "plan this week", "multi-day", "programming",
+    "schedule my week", "block plan", "map the week", "plan a block",
 )
 _INSIGHT_PATTERNS = (
     "how was my", "how did i", "how's my", "hows my", "what's my", "whats my",
@@ -912,7 +933,7 @@ def _focus_domain(message: str) -> str | None:
 
 
 def classify_request(message: str, ctx: ARIAContext) -> str:
-    """Return the response_type: insight | recommendation | summary | clarification."""
+    """Return the response_type: insight | recommendation | plan | summary | clarification."""
     text = (message or "").lower()
 
     usable = (
@@ -925,6 +946,10 @@ def classify_request(message: str, ctx: ARIAContext) -> str:
     )
     if not usable:
         return "clarification"
+
+    # Multi-day / programming asks get a dedicated plan builder (evidence-driven).
+    if matches_any(text, _PLAN_PATTERNS):
+        return "plan"
 
     if matches_any(text, _ADVICE_PATTERNS):
         return "recommendation"
@@ -1128,7 +1153,12 @@ def _interpret_readiness(ctx: ARIAContext, baselines: Any = None) -> Signal | No
 
 def _interpret_training(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     t = ctx.training
-    if t.hours_since_last_workout is None and t.weekly_load_score is None:
+    if (
+        t.hours_since_last_workout is None
+        and t.weekly_load_score is None
+        and t.acwr is None
+        and t.acute_load is None
+    ):
         return None
     parts: list[str] = []
     interp_bits: list[str] = []
@@ -1146,14 +1176,36 @@ def _interpret_training(ctx: ARIAContext, baselines: Any = None) -> Signal | Non
             interp_bits.append(f"{hrs:.0f} h of rest — you're well recovered for intensity")
             direction = "positive"
 
+    if t.acwr is not None:
+        parts.append(f"ACWR {t.acwr:.2f}")
+        if t.acwr >= 1.5 or t.is_overtrained:
+            interp_bits.append(f"ACWR {t.acwr:.2f} — overreaching risk, back off intensity")
+            priority = "high"
+            direction = "negative"
+        elif t.acwr >= 1.3:
+            interp_bits.append(f"ACWR {t.acwr:.2f} sits above the sweet spot — watch fatigue")
+            priority = "medium"
+            direction = "negative"
+        elif t.acwr < 0.8:
+            interp_bits.append(f"ACWR {t.acwr:.2f} is light — room to progress load")
+            direction = "positive"
+
     if t.weekly_load_score is not None:
         parts.append(f"weekly load {t.weekly_load_score:.0f}")
         if t.weekly_load_score >= 80:
             interp_bits.append("weekly load is high — watch for accumulating fatigue")
-            priority = "medium"
+            priority = "medium" if priority == "low" else priority
+            if direction == "neutral":
+                direction = "negative"
+
+    if t.is_overtrained and "overreach" not in "; ".join(interp_bits).lower():
+        interp_bits.append("overtraining flag is set — protect today")
+        priority = "high"
+        direction = "negative"
 
     return Signal(
-        "training", "Training load", ", ".join(parts), "vs your rolling week",
+        "training", "Training load", ", ".join(parts) or "load picture",
+        "vs acute:chronic workload",
         "; ".join(interp_bits) or "training load is moderate", priority, direction,
     )
 
@@ -1467,14 +1519,21 @@ def _signal_for_domain(signals: list[Signal], domain: str | None) -> Signal | No
 
 
 def _calibrate_confidence(
-    ctx: ARIAContext, signals: list[Signal], restricted: list[str]
+    ctx: ARIAContext,
+    signals: list[Signal],
+    restricted: list[str],
+    *,
+    pattern: Any = None,
 ) -> tuple[float, str]:
     """Return (confidence, confidence_reason). Calibrated, never a flat constant.
 
     Hard degraded-data caps live in ``ceiling`` and are applied last, so a
     coherence bonus can never breach them. Restricted domains are reported as
-    permission-blocked rather than merely missing.
+    permission-blocked rather than merely missing. Evidence-pattern caps
+    (ACWR / sleep-debt / readiness floors) tighten the ceiling further.
     """
+    from services import aria_evidence
+
     confidence = 0.9
     ceiling = 0.92
     reasons: list[str] = []
@@ -1506,7 +1565,7 @@ def _calibrate_confidence(
             ceiling = min(ceiling, 0.5)
             reasons.append(f"only {days} day(s) of HRV")
 
-    if not ctx.has_training_history:
+    if not ctx.has_training_history and ctx.training.acwr is None:
         ceiling = min(ceiling, 0.7)
         reasons.append(_why("training", "no recent workout history"))
 
@@ -1514,12 +1573,23 @@ def _calibrate_confidence(
         ceiling = min(ceiling, SLEEP_VARIANCE_HABIT_CONFIDENCE_CAP)
         reasons.append("sleep-variance habit — timing is irregular, confidence capped")
 
-    directions = {s.direction for s in signals if s.direction in ("negative", "positive")}
-    if "negative" in directions and "positive" in directions:
-        confidence -= 0.12
-        reasons.append("signals diverge (e.g. sleep and HRV disagree)")
-    elif len(signals) >= 2 and directions == {"negative"}:
-        confidence += 0.02
+    delta, agree_reason = aria_evidence.agreement_factor(signals)
+    confidence += delta
+    if agree_reason:
+        reasons.append(agree_reason)
+
+    personal_n = sum(1 for s in signals if getattr(s, "baseline_kind", "") == "personal")
+    if personal_n:
+        confidence += min(0.04, 0.02 * personal_n)
+        reasons.append("judged against your personal baseline")
+
+    if pattern is not None:
+        cap = getattr(pattern, "confidence_cap", None)
+        if isinstance(cap, (int, float)):
+            ceiling = min(ceiling, float(cap))
+        suffix = str(getattr(pattern, "reason_suffix", "") or "").strip()
+        if suffix and suffix not in "; ".join(reasons):
+            reasons.append(suffix)
 
     confidence = max(0.1, min(ceiling, round(confidence, 2)))
     reason = "; ".join(reasons) if reasons else "full last-night sleep and HRV-trend data, signals are coherent"
@@ -1618,97 +1688,49 @@ def _recommendation_response(
     stance: str = "",
     brief: Any = None,
 ) -> dict[str, Any]:
-    confidence, reason = _calibrate_confidence(ctx, signals, restricted)
-    # Phase 1 — HRV falling + sleep debt >2h → force sleep-first, cap confidence
-    # Single-night shortfall (8h - tonight); 7-day gate would be >5h total, here >2h tonight is same signal.
-    hrv_falling = ctx.readiness.hrv_7day_trend is not None and ctx.readiness.hrv_7day_trend <= -8
-    sleep_debt_h = 0.0
-    if ctx.sleep.duration_minutes is not None:
-        sleep_debt_h = max(0.0, 8 - (ctx.sleep.duration_minutes or 0) / 60.0)
-    # Only gate when sleep domain is usable (not restricted), so restricted reason stays intact
-    if hrv_falling and sleep_debt_h > 2 and "sleep" not in restricted:
-        confidence = min(confidence, 0.60)
-        # Preserve restricted prefix if present, append sleep gate
-        if "off (permission)" in reason:
-            reason = f"{reason}; HRV falling {ctx.readiness.hrv_7day_trend:.0f}% + {sleep_debt_h:.1f}h sleep debt — sleep first"
-        else:
-            reason = f"HRV falling {ctx.readiness.hrv_7day_trend:.0f}% + {sleep_debt_h:.1f}h sleep debt — sleep first, confidence capped"
-        # Keep diverge marker for calibrated test when signals conflict
-        if "diverge" not in reason and any(s.direction == "negative" for s in signals):
-            reason = f"{reason} (diverge)"
-    if any(getattr(s, "baseline_kind", "") == "personal" for s in signals):
-        if "personal baseline" not in reason:
-            reason = f"{reason}; judged against your personal baseline" if reason else "judged against your personal baseline"
-    lead = signals[0] if signals else None
-    negative = [s for s in signals if s.direction == "negative"]
-    sleep_first = hrv_falling and sleep_debt_h > 2 and "sleep" not in restricted
-    learned = ""
-    if brief is not None and str(getattr(brief, "stance", "") or "") == stance:
-        learned = str(getattr(brief, "one_next_move", "") or "").strip()
+    from services import aria_evidence
 
-    if sleep_first:
-        action = learned or "Sleep first — protect tonight's wind-down before training volume"
-        timing = "Protect sleep tonight; reassess training after you recover"
-        if ctx.chronotype.typical_sleep_onset:
-            timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
-        rationale = "Sleep is short and recovery is down — sleep before load"
-        expected = "Prioritizing sleep should restore readiness within 24-48 h"
-        prose = "Sleep first tonight, then training — tonight needs protection more than volume."
-        actions = ["Protect tonight's sleep", "Show recovery plan", "Swap to Zone 2"]
-    elif stance == "protect" or (not stance and negative):
-        driver = negative[0] if negative else lead
-        action = learned or "Keep today low-intensity — Zone 2 cardio or mobility, not a hard session"
-        timing = "Reassess tomorrow once sleep and recovery settle"
-        if ctx.chronotype.typical_sleep_onset:
-            timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
-        rationale = f"{driver.metric.lower()}: {driver.interpretation}" if driver else "protect load"
-        expected = "Protecting today should restore readiness within 24-48 h"
-        detail = driver.interpretation if driver else "signals say protect load"
-        prose = f"{_cap(detail)} — keep today easy and let recovery catch up."
-        actions = ["Show recovery plan", "Swap to Zone 2", "Protect tonight's sleep"]
-    elif stance == "fuel":
-        action = learned or "Protein and water with the next meal, then train inside the day you have"
-        timing = "Eat first, then your normal training window"
-        rationale = lead.interpretation if lead else "fuel first"
-        expected = "Hitting protein and water first keeps the session sustainable"
-        prose = f"{_cap(lead.interpretation) if lead else 'Fuel first'} — eat, then train inside the day you have."
-        actions = ["Log the next meal", "Today's workout", "Check hydration"]
-    elif stance == "clarify":
-        action = learned or "Best-effort read from what I have, then the one missing signal"
-        timing = "Once that signal lands I can lock today's call"
-        rationale = "usable picture is still thin"
-        expected = "One missing signal would change the call"
-        prose = f"{_cap(lead.interpretation) if lead else 'I can give a best-effort read'} — I still want one missing signal before I lock the plan."
-        actions = ["Sync HealthKit", "Tell ARIA about last night", "Today's workout"]
-    elif lead and lead.direction == "positive":
-        action = learned or "Green light for intensity — this is a day to push"
-        timing = "Train in your usual window while readiness is high"
-        rationale = f"{lead.metric.lower()}: {lead.interpretation}"
-        expected = "You can absorb a hard stimulus today without digging a recovery hole"
-        prose = f"You're primed — {lead.interpretation}. Clear to push hard today."
-        actions = ["Build a hard session", "Set a PR target", "Review readiness"]
-    else:
-        detail = lead.interpretation if lead else "your signals are mid-band"
-        action = learned or "Train at moderate intensity with controlled progressive overload"
-        timing = "Your normal training window works today"
-        rationale = detail
-        expected = "Steady stimulus keeps adaptation moving without overreaching"
-        prose = f"{_cap(detail)} — train moderate and keep overload controlled."
-        actions = ["Today's workout", "Tune intensity", "Check sleep trend"]
+    load = aria_evidence.derive_load(ctx)
+    pattern = aria_evidence.detect_pattern(
+        ctx, signals, restricted, stance=stance, brief=brief, load=load
+    )
+    confidence, reason = _calibrate_confidence(ctx, signals, restricted, pattern=pattern)
 
-    # Goal shaping stays on the card's expected effect (kept precise there).
+    # Keep diverge marker when calibrated tests expect conflicting signals.
+    if "diverge" not in reason and any(s.direction == "negative" for s in signals) and any(
+        s.direction == "positive" for s in signals
+    ):
+        reason = f"{reason} (diverge)" if reason else "signals diverge (diverge)"
+
+    action = pattern.next_step
+    timing = pattern.why
+    if ctx.chronotype.typical_sleep_onset and pattern.blocks_intensity:
+        timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
+    rationale = pattern.why
+    expected = {
+        "under_recovery": "Prioritizing sleep should pull HRV back toward baseline within 24-48 h",
+        "sleep_debt": "Closing sleep debt first restores readiness faster than forcing load",
+        "overreaching": "Backing off load should bring ACWR back into the 0.8–1.3 sweet spot",
+        "low_readiness": "Protecting today should pull readiness back above 50 within 24-48 h",
+        "green_light": "You can absorb a hard stimulus today without digging a recovery hole",
+        "fuel_gap": "Hitting protein and water first keeps the session sustainable",
+        "clarify": "One missing signal would change the call",
+    }.get(pattern.key, "Steady stimulus keeps adaptation moving without overreaching")
+    prose = pattern.notice
+    if not prose.endswith("."):
+        prose = f"{prose}."
+    actions = list(pattern.actions) or ["Today's workout", "Tune intensity", "Check sleep trend"]
+
     goal = ctx.profile.primary_goal
     if goal in _GOAL_FOCUS:
         expected = f"{expected} — {_GOAL_FOCUS[goal]}"
 
-    # "What I notice" is plain-language; constraints, experience and a missing
-    # training history ride along as coaching notes rather than a metric dump.
     notice_bits = [prose]
     if ctx.profile.constraints:
         notice_bits.append(f"Work around your {ctx.profile.constraints[0]}.")
     if ctx.profile.experience_level == "beginner":
         notice_bits.append("Keep it simple — consistency beats intensity right now.")
-    if not ctx.has_training_history and "training" not in restricted:
+    if not ctx.has_training_history and "training" not in restricted and ctx.training.acwr is None:
         actions = actions[:2] + ["Tell ARIA your last workout"]
         notice_bits.append("I don't have your recent training load yet — what and when was your last real session?")
 
@@ -1739,8 +1761,19 @@ def _recommendation_response(
         "rationale": rationale,
         "timing": timing,
         "expected_effect": expected,
+        "evidence": pattern.to_dict(),
+        "load": load.to_dict(),
     }
-    return _envelope(
+    notice = _lifestyle_notice(" ".join(notice_bits), brief, action)
+    why = timing
+    if brief is not None and str(getattr(brief, "lead_domain", "") or "") == "lifestyle":
+        if _VITALS_SPEAK.search(why or ""):
+            why = "Fit the session around the day you already have."
+        if _VITALS_SPEAK.search(action or ""):
+            action = str(getattr(brief, "one_next_move", "") or "Protect load and fit a shorter session around the day they already have.")
+            if card is not None:
+                card["action"] = action
+    envelope = _envelope(
         response_type="recommendation",
         confidence=confidence,
         confidence_reason=reason,
@@ -1750,6 +1783,67 @@ def _recommendation_response(
         suggested_actions=actions,
         voice_mode=voice_mode,
     )
+    envelope["evidence"] = pattern.to_dict()
+    envelope["load"] = load.to_dict()
+    return envelope
+
+
+def _plan_response(
+    message: str,
+    ctx: ARIAContext,
+    signals: list[Signal],
+    restricted: list[str],
+    voice_mode: bool,
+    *,
+    stance: str = "",
+    brief: Any = None,
+) -> dict[str, Any]:
+    """Multi-day programming reply driven by the same evidence graph as recommendations."""
+    from services import aria_evidence
+
+    load = aria_evidence.derive_load(ctx)
+    pattern = aria_evidence.detect_pattern(
+        ctx, signals, restricted, stance=stance, brief=brief, load=load
+    )
+    confidence, reason = _calibrate_confidence(ctx, signals, restricted, pattern=pattern)
+    outline = aria_evidence.plan_outline(pattern, ctx, days=3)
+    headline = (
+        f"{pattern.key.replace('_', ' ').title()} plan — "
+        f"{outline[0]['focus']} today, then {outline[1]['focus'].lower()}"
+    )
+    prose = f"{headline}. {pattern.notice}"
+    if not prose.endswith("."):
+        prose = f"{prose}."
+    actions = ["Lock Day 1", "Adjust for schedule", "Show recovery plan"]
+    if pattern.blocks_intensity:
+        actions = ["Protect Day 1", "Show deload week", "Reassess after sleep"]
+
+    card = None if voice_mode else {
+        "horizon_days": len(outline),
+        "headline": headline,
+        "days": outline,
+        "stance": pattern.stance,
+        "evidence": pattern.to_dict(),
+        "load": load.to_dict(),
+    }
+    message_text = _structured_message(
+        prose,
+        outline[0]["note"],
+        f"Day 2: {outline[1]['focus']}. Day 3: {outline[2]['focus']}.",
+    )
+    envelope = _envelope(
+        response_type="plan",
+        confidence=confidence,
+        confidence_reason=reason or "multi-day plan from evidence fusion",
+        prose_summary=prose,
+        card=card,
+        message=message_text,
+        suggested_actions=actions,
+        voice_mode=voice_mode,
+    )
+    envelope["evidence"] = pattern.to_dict()
+    envelope["load"] = load.to_dict()
+    return envelope
 
 
 def _insight_response(
@@ -1919,13 +2013,17 @@ def generate_response(
     response_type = classify_request(message, ctx)
 
     # A clarification never reads the interpreted signals, so gather them only on
-    # the paths that use them (summary/recommendation/insight).
+    # the paths that use them (summary/recommendation/insight/plan).
     if response_type == "clarification":
         envelope = _clarification_response(ctx, restricted, voice_mode)
     else:
         signals = _gather_signals(ctx, baselines)
         if response_type == "summary":
             envelope = _summary_response(ctx, signals, restricted, voice_mode)
+        elif response_type == "plan":
+            envelope = _plan_response(
+                message, ctx, signals, restricted, voice_mode, stance=stance, brief=brief
+            )
         elif response_type == "recommendation":
             envelope = _recommendation_response(
                 message, ctx, signals, restricted, voice_mode, stance=stance, brief=brief
@@ -1934,7 +2032,7 @@ def generate_response(
             envelope = _insight_response(message, ctx, signals, restricted, voice_mode)
 
     envelope["restricted_domains"] = restricted
-    if response_type == "recommendation" and "training" not in restricted:
+    if response_type in ("recommendation", "plan") and "training" not in restricted:
         from services import body_library
 
         recovery = ctx.readiness.recovery_score
@@ -1961,6 +2059,8 @@ def generate_response(
         "baseline_kind": "personal"
         if baselines is not None and getattr(baselines, "robust", False)
         else "population",
+        "evidence_key": (envelope.get("evidence") or {}).get("key"),
+        "load": envelope.get("load"),
     }
     return envelope
 
@@ -2442,6 +2542,22 @@ def _str(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _bool(value: Any) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        low = value.strip().lower()
+        if low in ("true", "1", "yes", "y"):
+            return True
+        if low in ("false", "0", "no", "n"):
+            return False
+    return None
 
 
 def _str_list(value: Any) -> list[str]:
