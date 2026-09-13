@@ -365,11 +365,11 @@ class CoachContextEngine:
     ) -> list[MemoryItem]:
         """Ingest normalized calendar events (Apple/Google) into short-term memory.
 
-        Provider-agnostic: each event is a dict with a title (``title`` /
-        ``summary`` / ``name``) and ``start`` (+ optional ``end``) as ISO strings.
-        Past events are skipped; events beyond the horizon are ignored until they
-        get closer; re-ingesting the same event overwrites rather than duplicates
-        (deterministic id from title + start).
+        Provider-agnostic: each event needs ``start`` (+ optional ``end``) as ISO
+        strings. Titles / summaries / names are never persisted — only a generic
+        busy window and the time. Past events are skipped; events beyond the
+        horizon are ignored until they get closer; re-ingesting the same start
+        overwrites rather than duplicates.
         """
         if not events:
             return []
@@ -379,25 +379,23 @@ class CoachContextEngine:
         for event in events:
             if not isinstance(event, dict):
                 continue
-            title = str(
-                event.get("title") or event.get("summary") or event.get("name") or ""
-            ).strip()
             start = _parse_dt(event.get("start") or event.get("start_at") or event.get("date"))
-            if not title or start is None:
+            if start is None:
                 continue
             end = _parse_dt(event.get("end") or event.get("end_at")) or (start + timedelta(hours=1))
             # Keep it while it's relevant: until the day after it ends.
             expires_at = end + timedelta(days=1)
             if expires_at <= now or start > horizon:
                 continue
+            label = f"Busy window on {start.date().isoformat()}"
             item = self.remember_short_term(
                 user_id,
-                f"{title} on {start.date().isoformat()}",
+                label,
                 source="calendar",
                 category="event",
                 expires_at=expires_at,
                 event_at=start,
-                mem_id=_slug(f"calendar:{title}:{start.isoformat()}"),
+                mem_id=_slug(f"calendar:{start.isoformat()}"),
                 now=now,
             )
             if item is not None:
