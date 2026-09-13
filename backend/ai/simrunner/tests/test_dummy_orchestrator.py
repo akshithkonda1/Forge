@@ -54,7 +54,7 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertEqual([w.subject for w in cycle], ["Sam", "Maya"])
 
     def test_respond_is_simrunner_stub_not_bedrock(self):
-        row = dummy.respond("What should I train today?", seed=42)
+        row = dummy.respond("What should I train today?", seed=42, engine="stub")
         self.assertTrue(row["test_ready"])
         self.assertEqual(row["reasoning_source"], dummy.REASONING_SOURCE)
         self.assertEqual(row["model"], dummy.STUB_MODEL)
@@ -63,8 +63,8 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertTrue(row["prose_summary"].strip())
 
     def test_same_seed_is_deterministic(self):
-        a = dummy.respond("How did I sleep last night?", seed=7)
-        b = dummy.respond("How did I sleep last night?", seed=7)
+        a = dummy.respond("How did I sleep last night?", seed=7, engine="stub")
+        b = dummy.respond("How did I sleep last night?", seed=7, engine="stub")
         self.assertEqual(a["prose_summary"], b["prose_summary"])
         self.assertEqual(a["agents"], b["agents"])
 
@@ -121,26 +121,26 @@ class DummyOrchestratorTests(unittest.TestCase):
         original = bedrock_client.converse
         bedrock_client.converse = boom
         try:
-            row = dummy.respond("What should I train today?", seed=1)
+            row = dummy.respond("What should I train today?", seed=1, engine="stub")
             self.assertEqual(row["reasoning_source"], dummy.REASONING_SOURCE)
         finally:
             bedrock_client.converse = original
 
     def test_research_worthy_message_appends_a_cited_web_note(self):
         with patch.object(web_research, "look_up", return_value="From Some Source: real info.") as mock_look_up:
-            row = dummy.respond("how do I improve my workout routine?", seed=1)
+            row = dummy.respond("how do I improve my workout routine?", seed=1, engine="stub")
         mock_look_up.assert_called_once_with("workout")
         # Trailing period may be normalized when the cite is parenthesized.
         self.assertIn("From Some Source: real info", row["message"])
 
     def test_non_research_message_never_calls_web_research(self):
         with patch.object(web_research, "look_up") as mock_look_up:
-            dummy.respond("What should I train today?", seed=1)
+            dummy.respond("What should I train today?", seed=1, engine="stub")
         mock_look_up.assert_not_called()
 
     def test_a_failed_lookup_leaves_the_reply_unchanged(self):
         with patch.object(web_research, "look_up", return_value=None):
-            row = dummy.respond("how do I improve my workout routine?", seed=1)
+            row = dummy.respond("how do I improve my workout routine?", seed=1, engine="stub")
         self.assertTrue(row["prose_summary"])
         self.assertEqual(row["message"], row["prose_summary"])
 
@@ -148,7 +148,7 @@ class DummyOrchestratorTests(unittest.TestCase):
         # The stub used to splice `_context_phrase` ("Readiness is 96, HRV 52ms")
         # into the chat. The dummy orchestra must rewrite that before a person
         # (or voice-check) sees it.
-        row = dummy.respond("How did I sleep last night?", seed=42)
+        row = dummy.respond("How did I sleep last night?", seed=42, engine="stub")
         self._assert_no_vitals_speak(row)
         prose = row["prose_summary"]
         self.assertNotRegex(prose, r"Readiness is \d")
@@ -168,20 +168,20 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertEqual(report["summary"]["data_driven"], 0)
 
     def test_supporting_briefs_are_sentences_not_huds(self):
-        row = dummy.respond("I slept badly — what should I train and eat?", seed=1)
+        row = dummy.respond("I slept badly — what should I train and eat?", seed=1, engine="stub")
         self.assertNotRegex(row["message"], r"Recovery · ")
         self.assertNotRegex(row["message"], r"HRV \d+ms")
         self.assertIn("thinking", row)
         self.assertTrue(row["thinking"])
 
     def test_respond_includes_a_voice_diagnosis(self):
-        row = dummy.respond("How did I sleep last night?", seed=42)
+        row = dummy.respond("How did I sleep last night?", seed=42, engine="stub")
         diag = row["voice_diagnosis"]
         self.assertIn(diag["verdict"], ("human", "data_driven", "mixed"))
         self.assertIn("evidence", diag)
 
     def test_respond_voice_diagnosis_matches_diagnosing_the_prose_directly(self):
-        row = dummy.respond("How did I sleep last night?", seed=42)
+        row = dummy.respond("How did I sleep last night?", seed=42, engine="stub")
         expected = voice_diagnostics.diagnose(row["prose_summary"]).as_dict()
         self.assertEqual(row["voice_diagnosis"], expected)
 
@@ -193,7 +193,7 @@ class DummyOrchestratorTests(unittest.TestCase):
             web_research, "look_up",
             return_value="From Some Source: unrelated filler with its own shape.",
         ):
-            row = dummy.respond("how do I improve my workout routine?", seed=1)
+            row = dummy.respond("how do I improve my workout routine?", seed=1, engine="stub")
         self.assertNotEqual(row["prose_summary"], row["message"])
         expected = voice_diagnostics.diagnose(row["prose_summary"]).as_dict()
         self.assertEqual(row["voice_diagnosis"], expected)
@@ -274,7 +274,7 @@ class DummyOrchestratorTests(unittest.TestCase):
             sys.stdout = old
 
     def test_train_ask_attaches_a_body_session(self):
-        row = dummy.respond("What should I train today?", seed=1)
+        row = dummy.respond("What should I train today?", seed=1, engine="stub")
         session = row.get("session")
         self.assertIsInstance(session, dict)
         self.assertTrue(session.get("exercises"))
@@ -282,7 +282,7 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertNotRegex(session.get("reason") or "", r"\d+\s?(ms|bpm|sets)")
 
     def test_orchestration_envelope_is_a_real_pipeline(self):
-        row = dummy.respond("I slept badly — what should I train and eat?", seed=1)
+        row = dummy.respond("I slept badly — what should I train and eat?", seed=1, engine="stub")
         orch = row["orchestration"]
         self.assertEqual(orch["stages"], list(dummy.ORCH_STAGES))
         kinds = {h["kind"] for h in orch["intents"]}
@@ -307,11 +307,13 @@ class DummyOrchestratorTests(unittest.TestCase):
             "What should I train today?",
             seed=3,
             prior_turns=["How did I sleep last night?"],
+            engine="stub",
         )
         b = dummy.respond(
             "What should I train today?",
             seed=3,
             prior_turns=["How did I sleep last night?"],
+            engine="stub",
         )
         self.assertEqual(a["prose_summary"], b["prose_summary"])
         prose = a["prose_summary"]
@@ -334,16 +336,17 @@ class DummyOrchestratorTests(unittest.TestCase):
             prose,
         )
         self.assertEqual(a["orchestration"]["prior_turns"], 1)
-        fresh = dummy.respond("What should I train today?", seed=3)
+        fresh = dummy.respond("What should I train today?", seed=3, engine="stub")
         self.assertNotEqual(fresh["prose_summary"], a["prose_summary"])
 
     def test_multi_turn_sounds_spoken_not_templated(self):
         history = ["How did I sleep last night?"]
-        first = dummy.respond(history[0], seed=11)
+        first = dummy.respond(history[0], seed=11, engine="stub")
         second = dummy.respond(
             "ok what should I train then",
             seed=11,
             prior_turns=history,
+            engine="stub",
         )
         chat = second["message"]
         # One spoken reply — not stacked specialist briefs.
@@ -366,9 +369,9 @@ class DummyOrchestratorTests(unittest.TestCase):
 
     def test_short_follow_ups_mutate_the_plan_like_a_real_coach(self):
         history = ["How did I sleep last night?", "what should I train"]
-        easier = dummy.respond("make it easier", seed=11, prior_turns=history)
-        shorter = dummy.respond("shorter", seed=11, prior_turns=history + ["make it easier"])
-        skip = dummy.respond("skip it", seed=11, prior_turns=history + ["make it easier", "shorter"])
+        easier = dummy.respond("make it easier", seed=11, prior_turns=history, engine="stub")
+        shorter = dummy.respond("shorter", seed=11, prior_turns=history + ["make it easier"], engine="stub")
+        skip = dummy.respond("skip it", seed=11, prior_turns=history + ["make it easier", "shorter"], engine="stub")
         for row in (easier, shorter, skip):
             self.assertNotIn("\n\n", row["message"])
             self.assertNotIn("from the training side of what you asked", row["message"].lower())
@@ -381,6 +384,7 @@ class DummyOrchestratorTests(unittest.TestCase):
         row = dummy.respond(
             "I slept badly — what should I train and eat?",
             seed=1,
+            engine="stub",
         )
         self.assertNotIn("\n\n", row["message"])
         # Orchestration still records specialists; the user-facing message does not list them as reports.
@@ -391,7 +395,7 @@ class DummyOrchestratorTests(unittest.TestCase):
 
     def test_phrase_banks_vary_across_seeds(self):
         texts = {
-            dummy.respond("What should I train today?", seed=s)["prose_summary"]
+            dummy.respond("What should I train today?", seed=s, engine="stub")["prose_summary"]
             for s in range(20, 40)
         }
         # Enough spoken variety that twenty seeds are not a single canned line.
@@ -400,7 +404,7 @@ class DummyOrchestratorTests(unittest.TestCase):
     def test_persona_colors_lifestyle_without_dumping_fields(self):
         # Default tier-1 persona is a teacher. Lifestyle asides should sound
         # like they know the life, not like they read a spreadsheet.
-        row = dummy.respond("I slept badly — what should I train and eat?", seed=1)
+        row = dummy.respond("I slept badly — what should I train and eat?", seed=1, engine="stub")
         self.assertIn("teacher", (row["orchestration"]["persona"]["occupation"] or "").lower())
         self._assert_no_vitals_speak(row)
         joined = row["message"].lower()
@@ -450,19 +454,19 @@ class DummyOrchestratorTests(unittest.TestCase):
         )
         history: list[str] = []
         for prompt in prompts:
-            row = dummy.respond(prompt, seed=11, prior_turns=history or None)
+            row = dummy.respond(prompt, seed=11, prior_turns=history or None, engine="stub")
             self._assert_no_vitals_speak(row)
             history.append(prompt)
 
     def test_follow_up_does_not_repeat_the_prior_essay(self):
         history = ["How did I sleep last night?"]
-        first = dummy.respond(history[0], seed=11)
-        second = dummy.respond("make it easier", seed=11, prior_turns=history)
+        first = dummy.respond(history[0], seed=11, engine="stub")
+        second = dummy.respond("make it easier", seed=11, prior_turns=history, engine="stub")
         self.assertNotEqual(first["prose_summary"], second["prose_summary"])
         self.assertNotIn(first["prose_summary"].strip(), second["message"])
 
     def test_dummy_speak_stays_a_friend_not_a_clinician(self):
-        row = dummy.respond("I slept badly — what should I train and eat?", seed=1)
+        row = dummy.respond("I slept badly — what should I train and eat?", seed=1, engine="stub")
         blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}".lower()
         for banned in ("diagnos", "prescrib", "cure", "treat this", "medical condition"):
             self.assertNotIn(banned, blob, banned)
@@ -470,13 +474,14 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertNotIn("fresh pass", blob)
         self.assertNotIn("following on from", blob)
 
-    def test_default_engine_stays_stub_for_simrunner_matrix(self):
-        stub = dummy.respond("What should I train today?", seed=5)
-        explicit = dummy.respond("What should I train today?", seed=5, engine="stub")
+    def test_default_engine_is_lambda_hypertune(self):
+        row = dummy.respond("What should I train today?", seed=5)
+        stub = dummy.respond("What should I train today?", seed=5, engine="stub")
+        self.assertEqual(row["reasoning_source"], dummy.LAMBDA_REASONING_SOURCE)
+        self.assertEqual(row["orchestration"]["engine"], dummy.ENGINE_LAMBDA)
         self.assertEqual(stub["reasoning_source"], dummy.REASONING_SOURCE)
         self.assertEqual(stub["model"], dummy.STUB_MODEL)
-        self.assertEqual(stub["prose_summary"], explicit["prose_summary"])
-        self.assertNotEqual(stub["reasoning_source"], dummy.LAMBDA_REASONING_SOURCE)
+        self.assertNotEqual(row["prose_summary"], stub["prose_summary"])
 
     def test_lambda_engine_refuses_cloud_and_production(self):
         os.environ["ENVIRONMENT"] = "production"
@@ -530,7 +535,7 @@ class DummyOrchestratorTests(unittest.TestCase):
                 engine_mod, "generate_response", wraps=engine_mod.generate_response
             ) as gen:
                 with patch.object(engine_mod, "generate_response_live") as live:
-                    row = dummy.respond("What should I train today?", seed=1, engine="lambda")
+                    row = dummy.respond("What should I train today?", seed=1)
         fuse.assert_called_once()
         self.assertFalse(fuse.call_args.kwargs.get("persist", True))
         gen.assert_called_once()
@@ -615,6 +620,46 @@ class DummyOrchestratorTests(unittest.TestCase):
         blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}".lower()
         for banned in ("prescrib", "cure", "treat this", "medical condition"):
             self.assertNotIn(banned, blob, banned)
+
+    def test_both_engines_skip_empty_cheerleading(self):
+        banned = (
+            "crushing it",
+            "you got this",
+            "you're killing it",
+            "great job",
+            "beast mode",
+            "so proud",
+        )
+        for engine in ("stub", "lambda"):
+            row = dummy.respond("What should I train today?", seed=1, engine=engine)
+            blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}".lower()
+            for phrase in banned:
+                self.assertNotIn(phrase, blob, f"{engine}: {phrase}")
+            self._assert_no_vitals_speak(row)
+            self.assertNotIn("\n\n", row["message"])
+
+    def test_both_engines_sound_like_a_friend_with_a_point(self):
+        needles = (
+            "clap you into",
+            "victory-lap",
+            "spend it like it's a dare",
+            "plot getting interesting",
+            "hold-steady",
+            "don't-pick-a-fight",
+            "not a pep talk",
+            "not a parade",
+            "sharp, not endless",
+            "hero set",
+        )
+        for engine in ("stub", "lambda"):
+            row = dummy.respond("What should I train today?", seed=1, engine=engine)
+            blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}".lower()
+            self.assertTrue(
+                any(n in blob for n in needles),
+                f"{engine} sounded like sludge: {row.get('prose_summary')!r}",
+            )
+            for banned in ("prescrib", "cure", "treat this", "medical condition"):
+                self.assertNotIn(banned, blob, banned)
 
     def test_lambda_engine_same_seed_is_deterministic(self):
         a = dummy.respond("How did I sleep last night?", seed=7, engine="lambda")

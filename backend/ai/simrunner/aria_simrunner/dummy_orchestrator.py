@@ -763,6 +763,29 @@ _VITALS_SPEAK = re.compile(
 _SPEAK_FALLBACK = (
     "I'm with you. Let's pick one next step that respects today rather than performing it."
 )
+_CHEER_SLUDGE = re.compile(
+    r"\b("
+    r"crushing it|you're killing it|you got this|you've got this|"
+    r"so proud of you|amazing work|great job|keep slaying|beast mode|"
+    r"you're a machine|keep up the great|so inspiring"
+    r")\b",
+    re.I,
+)
+_WIT_PROTECT = (
+    "The ambitious plan can wait — I'm not going to clap you into a hole.",
+    "Kind yes. Heroics no. The work will still be there when the night pays you back.",
+    "Today's a don't-pick-a-fight-with-your-own-recovery kind of day.",
+)
+_WIT_PROCEED = (
+    "You've got enough to spend — just don't spend it like it's a dare.",
+    "I'm in. Sharp over loud. Leave the victory-lap energy in the bag.",
+    "Yes to the session. No to performing it for an audience that isn't there.",
+)
+_WIT_HONEST = (
+    "Mixed isn't failure — it's just the plot getting interesting.",
+    "I can be kind without lying to you. Today's a hold-steady chapter.",
+    "Not a pep talk. A read: we work with the day we actually have.",
+)
 
 
 def _speak_without_vitals(*candidates: str) -> str:
@@ -772,6 +795,62 @@ def _speak_without_vitals(*candidates: str) -> str:
         if text and not _VITALS_SPEAK.search(text):
             return text
     return _SPEAK_FALLBACK
+
+
+def _collapse_spoken(text: str) -> str:
+    """One spoken reply — product cards use labeled \\n\\n sections."""
+    body = str(text or "")
+    body = re.sub(r"\bWhat I notice\s+", "", body)
+    body = re.sub(r"\bOne next step\s+", " ", body)
+    body = re.sub(r"\bWhy\s+", " — ", body)
+    body = re.sub(r"\n{2,}", " ", body)
+    return re.sub(r"\s+", " ", body).strip()
+
+
+def friend_speak(
+    text: str,
+    *,
+    seed: int,
+    stance: str = "",
+    signals: SignalRead | None = None,
+    guidance: str | None = None,
+) -> str:
+    """Bubbly/kind friend with a point — not empty cheerleading.
+
+    Shared by stub phrase banks and the lambda hypertune path. Guidance /
+    emergency copy is left alone. Iris vitals scrub still wins after this.
+    """
+    if guidance:
+        return str(text or "").strip()
+    body = _CHEER_SLUDGE.sub("that's real work", _collapse_spoken(text))
+    if not body:
+        return _SPEAK_FALLBACK
+    already = (
+        "clap you into",
+        "victory-lap",
+        "spend it like it's a dare",
+        "plot getting interesting",
+        "hold-steady chapter",
+        "don't-pick-a-fight",
+        "not a pep talk",
+    )
+    if any(n in body.lower() for n in already):
+        return body
+    # Short mid-thread mutations ("make it easier") already sound like a person.
+    if len(body.split()) < 28:
+        return _speak_without_vitals(body)
+    sleep = getattr(signals, "sleep", "") if signals is not None else ""
+    if stance == "protect" or sleep == "thin":
+        extra = _pick(seed ^ 17, list(_WIT_PROTECT))
+    elif stance == "proceed":
+        extra = _pick(seed ^ 17, list(_WIT_PROCEED))
+    else:
+        extra = _pick(seed ^ 17, list(_WIT_HONEST))
+    if extra and extra.lower() not in body.lower():
+        if body[-1] not in ".!?":
+            body += "."
+        body = f"{body} {extra}"
+    return _speak_without_vitals(body, extra, _SPEAK_FALLBACK)
 
 
 def _weave_specialists(prose: str, notes: list[SpecialistNote], seed: int) -> str:
@@ -1110,18 +1189,18 @@ def humanize_prose(
                 " Consistency is already winning; don't blow it on one flashy day.",
             )
         if sleep_clause:
-            return finish(pick(
-                f"You're in a good spot to train, since {sleep_clause}.{session_bit} "
-                f"A solid moderate session fits — progress one thing, leave the hero set.",
-                f"Body's willing today because {sleep_clause}.{session_bit} Let's use that on something "
-                f"clean rather than reckless. Want the session mapped?",
-                f"Green enough — {sleep_clause}.{session_bit} I'd take a focused session and stop "
-                f"while quality is still high.",
-                f"Yeah, you can train. {sleep_clause[0].upper() + sleep_clause[1:]}.{session_bit} "
-                f"Keep it sharp, not endless.",
-            ))
         return finish(pick(
-            f"You're in a good spot to train.{session_bit} I'd take a solid moderate-to-hard session "
+            f"You've got something to spend, since {sleep_clause}.{session_bit} "
+            f"A solid moderate session fits — progress one thing, leave the hero set.",
+            f"Body's willing today because {sleep_clause}.{session_bit} Let's use that on something "
+            f"clean rather than reckless. Want the session mapped?",
+            f"Green enough to be useful — {sleep_clause}.{session_bit} I'd take a focused session and stop "
+            f"while quality is still high.",
+            f"Yeah, you can train. {sleep_clause[0].upper() + sleep_clause[1:]}.{session_bit} "
+            f"Keep it sharp, not endless.",
+        ))
+        return finish(pick(
+            f"There's room to train — not a parade.{session_bit} I'd take a solid moderate-to-hard session "
             "and see how the first sets feel.",
             f"Today can handle real work.{session_bit} One honest session, one variable progressed — that's the play.",
             f"Go train — just stay honest about how set one feels.{session_bit}",
@@ -1414,8 +1493,26 @@ def _respond_via_lambda(
     existing = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
     envelope["fusion"] = {**sidecar, **existing}
     stance = envelope["fusion"].get("stance")
-
-    prose = envelope.get("prose_summary") or ""
+    signals = read_signals(ctx)
+    guidance = envelope.get("guidance_band")
+    prose = friend_speak(
+        envelope.get("prose_summary") or "",
+        seed=seed,
+        stance=str(stance or ""),
+        signals=signals,
+        guidance=guidance,
+    )
+    chat = friend_speak(
+        envelope.get("message") or prose,
+        seed=seed,
+        stance=str(stance or ""),
+        signals=signals,
+        guidance=guidance,
+    )
+    prose = _speak_without_vitals(prose)
+    chat = _speak_without_vitals(chat, prose)
+    envelope["prose_summary"] = prose
+    envelope["message"] = chat
     diagnosis = voice_diagnostics.diagnose(prose)
     orch_ms = _orchestration_latency_ms(message, seed, len(plan.workers))
     brief = envelope.get("contextualization") if isinstance(envelope.get("contextualization"), dict) else None
@@ -1488,11 +1585,12 @@ def respond(
     cycle_subjects: list[str] | None = None,
     prior_turns: list[str] | None = None,
     day_index: int = 29,
-    engine: str = ENGINE_STUB,
+    engine: str = ENGINE_LAMBDA,
     lifestyle_tags: list[str] | None = None,
 ) -> dict:
-    """One SimRunner turn. ``engine="stub"`` is the matrix path; ``engine="lambda"``
-    hypertunes against fused product speak (``fuse_turn`` + ``generate_response``).
+    """One SimRunner turn. Default ``engine="lambda"`` hypertunes against fused
+    product speak (``fuse_turn`` + ``generate_response``). ``engine="stub"``
+    is the SimRunner matrix path.
 
     Pipeline (always local, Bedrock off):
       ingest → route specialists → reason → specialize → synthesize → voice.
@@ -1523,7 +1621,7 @@ def respond(
     profile = model["behavioral_profile"]
     stream = generate_stream(profile, seed)
     ctx = build_context(stream, profile, day_index)
-    if (engine or ENGINE_STUB).strip().lower() == ENGINE_LAMBDA:
+    if (engine or ENGINE_LAMBDA).strip().lower() == ENGINE_LAMBDA:
         return _respond_via_lambda(
             message,
             ctx,
@@ -1544,6 +1642,8 @@ def respond(
     )
     # Weave specialists into one spoken reply — not stacked \n\n briefs.
     prose = _weave_specialists(prose, notes, seed=seed ^ _fnv(message))
+    stub_stance = "protect" if scenario == "recovery_first" else ""
+    prose = friend_speak(prose, seed=seed, stance=stub_stance, signals=signals)
     body_session = _suggest_body_session(message, ctx)
     if (
         body_session is not None
@@ -1659,6 +1759,7 @@ def run_smoke(messages: list[str] | None = None, *, seed: int = 42) -> list[dict
         subjects = ["Sam", "Maya"] if "sam" in prompt.lower() else []
         out.append(respond(
             prompt, seed=seed, cycle_subjects=subjects, prior_turns=list(history),
+            engine=ENGINE_STUB,
         ))
         history.append(prompt)
     return out
@@ -1695,7 +1796,7 @@ def run_voice_diagnostics(messages: list[str] | None = None, *, seed: int = 42) 
     ]
     turns = []
     for prompt in prompts:
-        row = respond(prompt, seed=seed)
+        row = respond(prompt, seed=seed, engine=ENGINE_STUB)
         turns.append({
             "message": prompt,
             "agent": row["agent"],
