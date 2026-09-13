@@ -8,6 +8,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy  # noqa: E402
+from backend.ai.simrunner.aria_simrunner import speak_quality  # noqa: E402
 from backend.ai.simrunner.aria_simrunner import voice_diagnostics  # noqa: E402
 from backend.ai.simrunner.aria_simrunner import web_research  # noqa: E402
 from backend.ai.simrunner import lifetime_suite  # noqa: E402
@@ -467,12 +468,10 @@ class DummyOrchestratorTests(unittest.TestCase):
 
     def test_dummy_speak_stays_a_friend_not_a_clinician(self):
         row = dummy.respond("I slept badly — what should I train and eat?", seed=1, engine="stub")
-        blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}".lower()
-        for banned in ("diagnos", "prescrib", "cure", "treat this", "medical condition"):
-            self.assertNotIn(banned, blob, banned)
+        fails = speak_quality.speak_failures(row)
+        self.assertEqual(fails, [], fails)
+        self.assertTrue(speak_quality.has_friend_throughline(speak_quality.user_visible_blob(row)))
         self.assertNotIn("\n\n", row["message"])
-        self.assertNotIn("fresh pass", blob)
-        self.assertNotIn("following on from", blob)
 
     def test_default_engine_is_lambda_hypertune(self):
         row = dummy.respond("What should I train today?", seed=5)
@@ -617,9 +616,10 @@ class DummyOrchestratorTests(unittest.TestCase):
 
     def test_lambda_engine_speak_stays_a_friend_not_a_clinician(self):
         row = dummy.respond("What should I train today?", seed=1, engine="lambda")
-        blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}".lower()
-        for banned in ("prescrib", "cure", "treat this", "medical condition"):
-            self.assertNotIn(banned, blob, banned)
+        fails = speak_quality.speak_failures(row)
+        self.assertEqual(fails, [], fails)
+        self.assertEqual(speak_quality.medical_hits(speak_quality.user_visible_blob(row)), [])
+        self.assertEqual(speak_quality.bark_hits(speak_quality.user_visible_blob(row)), [])
 
     def test_both_engines_skip_empty_cheerleading(self):
         banned = (
@@ -670,16 +670,8 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertEqual(a["reasoning_source"], dummy.LAMBDA_REASONING_SOURCE)
 
     def _assert_no_vitals_speak(self, row: dict) -> None:
-        blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}".lower()
-        for banned in (
-            "hrv",
-            "bpm",
-            "mmhg",
-            "spo2",
-            "vo2",
-            "sleep debt",
-            "sleep-debt",
-            "% below baseline",
-            "recovery score",
-        ):
-            self.assertNotIn(banned, blob, banned)
+        fails = speak_quality.speak_failures(row)
+        self.assertEqual(fails, [], fails)
+        blob = speak_quality.user_visible_blob(row)
+        self.assertTrue(blob.strip())
+        self.assertEqual(speak_quality.vitals_hits(row.get("prose_summary") or ""), [])

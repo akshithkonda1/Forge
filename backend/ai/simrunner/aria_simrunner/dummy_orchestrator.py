@@ -43,6 +43,7 @@ from ..backend_simulator.behavior_engine import generate_stream
 from ..backend_simulator.data_generator import build_context
 from ..backend_simulator import model_registry
 from .aria_engine import ARIAEngine
+from . import speak_quality
 from . import voice_diagnostics
 from . import web_research
 
@@ -788,11 +789,26 @@ _WIT_HONEST = (
 )
 
 
+def _dumps_user_speak(text: str) -> bool:
+    """Iris token scrub plus the Dummy FAIL GATES (scores, bark, clinic, sludge)."""
+    raw = str(text or "")
+    if not raw.strip():
+        return False
+    if _VITALS_SPEAK.search(raw):
+        return True
+    return bool(
+        speak_quality.vitals_hits(raw)
+        or speak_quality.bark_hits(raw)
+        or speak_quality.medical_hits(raw)
+        or speak_quality.sludge_hits(raw)
+    )
+
+
 def _speak_without_vitals(*candidates: str) -> str:
     """Return the first candidate that does not dump banned vitals tokens."""
     for text in candidates:
         text = str(text or "").strip()
-        if text and not _VITALS_SPEAK.search(text):
+        if text and not _dumps_user_speak(text):
             return text
     return _SPEAK_FALLBACK
 
@@ -864,7 +880,7 @@ def _weave_specialists(prose: str, notes: list[SpecialistNote], seed: int) -> st
         return body
     usable = [
         n for n in notes
-        if (n.text or "").strip() and not _VITALS_SPEAK.search(n.text)
+        if (n.text or "").strip() and not _dumps_user_speak(n.text)
     ]
     if not usable:
         return body
@@ -906,7 +922,7 @@ def _weave_specialists(prose: str, notes: list[SpecialistNote], seed: int) -> st
             "Meanwhile,",
         ])
         clause = f"{lead} {text[0].lower() + text[1:] if text and text[0].isupper() else text}."
-        if _VITALS_SPEAK.search(clause):
+        if _dumps_user_speak(clause):
             continue
         if clause.lower() not in body.lower():
             clauses.append(clause)
@@ -1445,6 +1461,30 @@ def _scrub_fused_speak(envelope: dict) -> dict:
     return envelope
 
 
+def _bridge_fused_memory(
+    envelope: dict,
+    prior_turns: list[str] | None,
+    seed: int,
+    intents: list[IntentHit],
+) -> dict:
+    """Keep a spoken night/sleep thread on the lambda engine (single-turn product)."""
+    if not prior_turns:
+        return envelope
+    opener = _callback(prior_turns, seed, intents)
+    if not opener:
+        return envelope
+    prior = " ".join(t for t in prior_turns if t)
+    for key in ("prose_summary", "message"):
+        text = str(envelope.get(key) or "").strip()
+        if not text or not speak_quality.memory_hole_hits(prior, text):
+            continue
+        body = text
+        if opener.endswith(("— ", ": ")) and body[:1].isupper() and not body.startswith(("I ", "I'm ", "I'll ")):
+            body = body[0].lower() + body[1:]
+        envelope[key] = f"{opener}{body}"
+    return envelope
+
+
 def _respond_via_lambda(
     message: str,
     ctx,
@@ -1489,6 +1529,7 @@ def _respond_via_lambda(
         baselines=fused.baselines,
     )
     envelope = _scrub_fused_speak(envelope)
+    envelope = _bridge_fused_memory(envelope, prior_turns, seed, intents)
     sidecar = fused.fusion_sidecar()
     existing = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
     envelope["fusion"] = {**sidecar, **existing}

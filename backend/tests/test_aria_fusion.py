@@ -16,6 +16,7 @@ from unittest.mock import patch
 import _bootstrap  # noqa: F401
 
 from handler import handler  # noqa: E402
+from backend.ai.simrunner.aria_simrunner import speak_quality  # noqa: E402
 from services import aria_engine, contextual_learner, fusion  # noqa: E402
 from services.aria_engine import (  # noqa: E402
     ARIAContext,
@@ -335,7 +336,7 @@ class FusionContractTests(unittest.TestCase):
         r = aria_engine.generate_response("What should I train today?", ctx)
         self.assertEqual(r["fusion"]["stance"], "protect")
         self._assert_no_vitals_speak(r)
-        blob = f"{r.get('prose_summary') or ''} {r.get('message') or ''}".lower()
+        blob = speak_quality.user_visible_blob(r).lower()
         self.assertTrue(
             "wedding" in blob
             or "calendar" in blob
@@ -344,29 +345,24 @@ class FusionContractTests(unittest.TestCase):
             r.get("prose_summary"),
         )
 
+    def test_lifestyle_prose_summary_gate_fails_metric_dumps(self):
+        dirty = {
+            "prose_summary": "HRV is 12% under baseline at recovery score 48.",
+            "message": "Sleep debt 2.4h. Readiness is 58.",
+            "card": {"action": "Crush it — clear to push hard.", "why": "You have diabetes."},
+        }
+        fails = speak_quality.speak_failures(dirty)
+        self.assertTrue(any(f.startswith("vitals:") for f in fails), fails)
+        self.assertTrue(any(f.startswith("bark:") for f in fails), fails)
+        self.assertTrue(any(f.startswith("medical:") for f in fails), fails)
+        self.assertTrue(speak_quality.vitals_hits(dirty["prose_summary"]))
+
     def _assert_no_vitals_speak(self, r: dict) -> None:
-        card = r.get("card") or {}
-        why = card.get("why") or card.get("timing") or ""
-        blob = " ".join(
-            [
-                r.get("prose_summary") or "",
-                r.get("message") or "",
-                card.get("action") or "",
-                why,
-            ]
-        ).lower()
-        for banned in (
-            "hrv",
-            "bpm",
-            "mmhg",
-            "spo2",
-            "vo2",
-            "sleep debt",
-            "sleep-debt",
-            "% below baseline",
-            "recovery score",
-        ):
-            self.assertNotIn(banned, blob, banned)
+        fails = speak_quality.speak_failures(r)
+        self.assertEqual(fails, [], fails)
+        self.assertEqual(speak_quality.vitals_hits(r.get("prose_summary") or ""), [])
+        self.assertEqual(speak_quality.bark_hits(speak_quality.user_visible_blob(r)), [])
+        self.assertEqual(speak_quality.medical_hits(speak_quality.user_visible_blob(r)), [])
 
 
 if __name__ == "__main__":

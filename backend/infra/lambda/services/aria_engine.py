@@ -1652,18 +1652,38 @@ def _clarification_response(ctx: ARIAContext, restricted: list[str], voice_mode:
     )
 
 
+_SLEEP_STAGE_PCT = re.compile(
+    r"\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%"
+    r"|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%",
+    re.I,
+)
 _VITALS_SPEAK = re.compile(
     r"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score|sleep[- ]?debt)\b"
-    r"|%\s*(?:below|above|under|over)\s+baseline",
+    r"|%\s*(?:below|above|under|over)\s+baseline"
+    # Sleep-stage % leftovers _interpret_sleep still emits; strip at speak.
+    r"|\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%"
+    r"|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%",
     re.I,
 )
 _SPEAK_FALLBACK = "Fit training around the day you already have."
 
 
+def _strip_sleep_stage_pct(text: str) -> str:
+    """Drop deep/REM/light sleep-at-N% dumps; keep the rest of the sentence."""
+    cleaned = _SLEEP_STAGE_PCT.sub("", str(text or ""))
+    cleaned = re.sub(r"\s*is in a healthy band", "", cleaned, flags=re.I)
+    cleaned = re.sub(r"\bsleep:\s*;\s*", "", cleaned, flags=re.I)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    cleaned = re.sub(r"\s+([,.;:])", r"\1", cleaned)
+    cleaned = re.sub(r"\s*[—–-]\s*([,.;])", r"\1", cleaned)
+    cleaned = re.sub(r"\s*[—–-]\s*$", "", cleaned)
+    return cleaned.strip(" ,;:—–-")
+
+
 def _speak_without_vitals(*candidates: str) -> str:
     """User-visible speak never dumps vitals or metric scores."""
     for text in candidates:
-        text = str(text or "").strip()
+        text = _strip_sleep_stage_pct(str(text or "").strip())
         if text and not _VITALS_SPEAK.search(text):
             return text
     return _SPEAK_FALLBACK
