@@ -1567,6 +1567,20 @@ def _respond_via_lambda(
     }
     if brief is not None:
         row["contextualization"] = brief
+        orch = dict(row.get("orchestration") or {})
+        orch.update(
+            {
+                "learner": "services.contextual_learner",
+                "owner": "live-backend",
+                "consumer": "dummy-test",
+                "durable": True,
+                "grounding": brief.get("grounding"),
+                "prioritize": list(brief.get("prioritize") or []),
+                "event": brief.get("event_bucket"),
+                "learner_stages": ["observe", "rank", "adapt", "commit", "judge"],
+            }
+        )
+        row["orchestration"] = orch
     return row
 
 
