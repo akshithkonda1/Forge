@@ -125,6 +125,9 @@ public enum AriaIntentResolver {
                 add(domain, weight, "mentions \(named)")
             }
         }
+        if ScheduleGoalParser.isScheduleAsk(input.text) {
+            add(.sleep, Weight.phrase, "named a wake target")
+        }
 
         // --- The body's own argument ---
         //
@@ -442,6 +445,9 @@ public enum AriaIntentResolver {
             if hit {
                 scores[domain, default: 0] += 1.4
             }
+        }
+        if ScheduleGoalParser.isScheduleAsk(input.text) {
+            scores["sleep", default: 0] += 1.8
         }
 
         for fact in input.rememberedFacts {

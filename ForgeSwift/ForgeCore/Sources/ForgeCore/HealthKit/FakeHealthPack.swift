@@ -125,6 +125,23 @@ public struct FakeHealthDay: Sendable, Equatable {
     public var cycle: FakeCycleDayFacts?
     /// Logged / Watch-adjacent body temperature in °F.
     public var bodyTemperatureF: Double
+    /// Optional daytime nap — 20–50 min in the 12–16 window. Teaches the
+    /// distinction between "time asleep" and "main sleep" for phase/debt.
+    public var nap: SleepNight?
+    /// One long mid-night wake (20–45 min) that fragments the night into two
+    /// bouts — the realistic failure case for debt/phase that a continuous
+    /// loop would never produce.
+    public var isFragmented: Bool
+    /// Extra `awake` minutes that are watch-off-wrist, not real wake. The
+    /// debt and phase helpers must learn to discount this, not treat it as
+    /// fragmentation.
+    public var watchOffInflatedMinutes: Int
+    /// Circadian-predicted energy at habitual wake (0…1), for felt-vs-energy
+    /// calibration. Nil when there aren't enough nights to place a phase.
+    public var predictedEnergyAtWake: Double?
+    /// Felt category mapped to a numeric anchor so `felt - predicted` drift is
+    /// computable without a model call.
+    public var feltEnergyAnchor: Double
 
     public init(
         dayStart: Date,
@@ -142,7 +159,12 @@ public struct FakeHealthDay: Sendable, Equatable {
         felt: String = "steady",
         storyLine: String = "",
         cycle: FakeCycleDayFacts? = nil,
-        bodyTemperatureF: Double = 98.2
+        bodyTemperatureF: Double = 98.2,
+        nap: SleepNight? = nil,
+        isFragmented: Bool = false,
+        watchOffInflatedMinutes: Int = 0,
+        predictedEnergyAtWake: Double? = nil,
+        feltEnergyAnchor: Double = 0.52
     ) {
         self.dayStart = dayStart
         self.isoDate = isoDate
@@ -160,6 +182,11 @@ public struct FakeHealthDay: Sendable, Equatable {
         self.storyLine = storyLine
         self.cycle = cycle
         self.bodyTemperatureF = bodyTemperatureF
+        self.nap = nap
+        self.isFragmented = isFragmented
+        self.watchOffInflatedMinutes = watchOffInflatedMinutes
+        self.predictedEnergyAtWake = predictedEnergyAtWake
+        self.feltEnergyAnchor = feltEnergyAnchor
     }
 }
 
@@ -273,7 +300,12 @@ public struct FakeHealthPack: Sendable, Equatable {
                 )
             )
         }
-        return FakeHealthPack(days: built, generatedAt: now, seed: effectiveSeed, personaLabel: personaLabel)
+        // Post-pass: felt-vs-energy calibration. Each day's predicted energy
+        // is derived from its trailing nights (suffix), exactly as
+        // EnergySchedule does — so the drift `felt - predicted` is the
+        // calibration signal: positive means felt better than physics predicts.
+        let calibrated = calibrateFeltVsEnergy(days: built, calendar: calendar)
+        return FakeHealthPack(days: calibrated, generatedAt: now, seed: effectiveSeed, personaLabel: personaLabel)
     }
 
     // MARK: - Persona (the body, not the sticker)
@@ -438,12 +470,27 @@ public struct FakeHealthPack: Sendable, Equatable {
         onsetParts.minute = onsetMinute
         let onset = calendar.date(from: onsetParts) ?? dayStart.addingTimeInterval(-8 * 3600)
 
-        let night = SleepNight(segments: nightSegments(
+        let isFragmented = offset > 0 && !shortNight && rng.int(1...100) <= 14
+        let fragmentedExtraWake = isFragmented ? rng.int(20...42) : 0
+        var nightSegmentsList = nightSegments(
             onset: onset,
             asleepMinutes: asleepMinutes,
             extraWake: bias.extraWake,
+            fragmentedExtraWake: fragmentedExtraWake,
             rng: &rng
-        ))
+        )
+        // Watch-off-wrist inflation: extra awake that is not real fragmentation.
+        // Modeled as 8% of nights getting 15–32 min of spurious awake appended.
+        let watchOffInflatedMinutes: Int = {
+            guard offset > 0, rng.int(1...100) <= 8, !isFragmented else { return 0 }
+            return rng.int(15...32)
+        }()
+        if watchOffInflatedMinutes > 0, let last = nightSegmentsList.last {
+            // Append a trailing watch-off awake segment (watch removed before true wake).
+            let extra = SleepStageSegment(start: last.end, end: last.end.addingTimeInterval(Double(watchOffInflatedMinutes) * 60), stage: .awake)
+            nightSegmentsList.append(extra)
+        }
+        let night = SleepNight(segments: nightSegmentsList)
         let sleepScore = scoreNight(night)
 
         var hrv = 52 + rng.int(-6...8) + bias.hrv
@@ -506,6 +553,23 @@ public struct FakeHealthPack: Sendable, Equatable {
             bodyTemp = 97.7 + Double(rng.int(0...8)) / 10
         }
 
+        // Daytime nap — 12% of non-today days, 20–50 min in the 12–16 window.
+        // Never on a fragmented night (too much chaos for one day) and never
+        // today (today is still being written).
+        let nap: SleepNight? = {
+            guard offset > 0, !isFragmented, rng.int(1...100) <= 12 else { return nil }
+            let napStartHour = rng.int(12...15)
+            let napStartMinute = rng.int(0...40)
+            guard let napStart = calendar.date(bySettingHour: napStartHour, minute: napStartMinute, second: 0, of: dayStart) else { return nil }
+            let napMinutes = rng.int(20...50)
+            let napSegments = napSegments(start: napStart, minutes: napMinutes, rng: &rng)
+            return SleepNight(segments: napSegments)
+        }()
+
+        let feltAnchor = feltEnergyAnchor(for: felt)
+        // predictedEnergyAtWake is filled in a post-pass after the pack is built,
+        // when trailing nights are available to estimate phase.
+
         return FakeHealthDay(
             dayStart: dayStart,
             isoDate: isoDate(dayStart, calendar: calendar),
@@ -522,7 +586,12 @@ public struct FakeHealthPack: Sendable, Equatable {
             felt: felt,
             storyLine: storyLine,
             cycle: FakeCycleOverlay.facts(offsetFromToday: offset, seed: seed),
-            bodyTemperatureF: bodyTemp
+            bodyTemperatureF: bodyTemp,
+            nap: nap,
+            isFragmented: isFragmented,
+            watchOffInflatedMinutes: watchOffInflatedMinutes,
+            predictedEnergyAtWake: nil,
+            feltEnergyAnchor: feltAnchor
         )
     }
 
@@ -743,12 +812,14 @@ public struct FakeHealthPack: Sendable, Equatable {
         onset: Date,
         asleepMinutes: Int,
         extraWake: Bool = false,
+        fragmentedExtraWake: Int = 0,
         rng: inout SplitMix64
     ) -> [SleepStageSegment] {
         var cursor = onset
         var remaining = Double(asleepMinutes)
         var segments: [SleepStageSegment] = []
         var cycle = 0
+        var didFragment = false
         while remaining > 12 {
             let core = min(remaining, Double(rng.int(38...52)))
             segments.append(segment(&cursor, minutes: core, .core))
@@ -764,7 +835,13 @@ public struct FakeHealthPack: Sendable, Equatable {
             segments.append(segment(&cursor, minutes: rem, .rem))
             remaining -= rem
 
-            if (cycle % 2 == 1 || extraWake), remaining > 20 {
+            // Fragmentation: one long mid-night wake (22–42 min) inserted once,
+            // after at least one full cycle, to create two distinct sleep bouts.
+            if !didFragment, fragmentedExtraWake > 0, cycle >= 1, remaining > Double(fragmentedExtraWake) + 10 {
+                segments.append(segment(&cursor, minutes: Double(fragmentedExtraWake), .awake))
+                didFragment = true
+                // Don't also insert the usual micro-wake in the same cycle.
+            } else if (cycle % 2 == 1 || extraWake), remaining > 20 {
                 let wake = Double(rng.int(4...8))
                 segments.append(segment(&cursor, minutes: wake, .awake))
             }
@@ -775,6 +852,36 @@ public struct FakeHealthPack: Sendable, Equatable {
             segments.append(segment(&cursor, minutes: remaining, .core))
         }
         return segments
+    }
+
+    private static func napSegments(
+        start: Date,
+        minutes: Int,
+        rng: inout SplitMix64
+    ) -> [SleepStageSegment] {
+        var cursor = start
+        var remaining = Double(minutes)
+        var segs: [SleepStageSegment] = []
+        // Naps are core-heavy, little deep, rare REM — distinct from nights.
+        if remaining > 8 {
+            let core = min(remaining, Double(rng.int(12...22)))
+            segs.append(segment(&cursor, minutes: core, .core))
+            remaining -= core
+        }
+        if remaining > 8 {
+            let awake = Double(rng.int(1...3))
+            segs.append(segment(&cursor, minutes: awake, .awake))
+            remaining -= awake
+        }
+        if remaining > 10, rng.int(1...100) <= 35 {
+            let deep = min(remaining, Double(rng.int(6...14)))
+            segs.append(segment(&cursor, minutes: deep, .deep))
+            remaining -= deep
+        }
+        if remaining > 4 {
+            segs.append(segment(&cursor, minutes: remaining, .core))
+        }
+        return segs
     }
 
     private static func segment(
@@ -795,6 +902,74 @@ public struct FakeHealthPack: Sendable, Equatable {
         let rem = min(100, (night.remMinutes / 90) * 100)
         let awakePenalty = min(20, night.awakeMinutes * 0.4)
         return min(100, max(40, Int(((duration * 0.45) + (deep * 0.3) + (rem * 0.25) - awakePenalty).rounded())))
+    }
+
+    /// Maps felt string to a numeric energy anchor for calibration.
+    static func feltEnergyAnchor(for felt: String) -> Double {
+        switch felt {
+        case "rebuilt": return 0.78
+        case "steady": return 0.52
+        case "sore": return 0.48
+        case "social": return 0.46
+        case "groggy": return 0.38
+        case "thin": return 0.34
+        case "spent": return 0.28
+        default: return 0.52
+        }
+    }
+
+    /// Post-pass: computes predicted energy at wake for each day from its
+    /// trailing nights, mirroring EnergySchedule/CircadianRhythm. Needs at
+    /// least 5 nights to place a phase, exactly like the real schedule.
+    static func calibrateFeltVsEnergy(days: [FakeHealthDay], calendar: Calendar) -> [FakeHealthDay] {
+        // Nights oldest-first for the engine (suffix window).
+        let nightsOrdered = days.reversed().map { $0.night }
+        var result = days
+        for idx in days.indices {
+            let offset = idx // 0 = today (newest)
+            // Trailing nights *before* this day's night — what was known at wake.
+            // For today, that's days[1...]; for day 5, days[6...].
+            let trailingCount = days.count - idx - 1
+            guard trailingCount >= 5 else { continue }
+            let trailing = Array(nightsOrdered.prefix(trailingCount).suffix(14))
+            // Need enough nights with valid onset/wake.
+            let valid = trailing.filter { $0.start != nil && $0.end != nil }
+            guard valid.count >= 5 else { continue }
+            let circNights = valid.map { n -> CircadianRhythm.Night in
+                CircadianRhythm.Night(onset: n.start!, wake: n.end!, asleepHours: n.totalMinutes / 60)
+            }
+            guard let phase = CircadianRhythm.phase(from: circNights, calendar: calendar) else { continue }
+            guard let wake = days[idx].night.end else { continue }
+            let wakeHour = CircadianRhythm.hourOfDay(wake, calendar: calendar)
+            // Use trailing debt/need for the energy at this wake.
+            let need = CircadianRhythm.sleepNeedHours(from: circNights)
+            let debt = CircadianRhythm.sleepDebtHours(nights: circNights, need: need)
+            let hoursAwake = CircadianRhythm.hoursAwake(atHour: wakeHour, phase: phase)
+            let predicted = CircadianRhythm.energy(atHour: wakeHour, phase: phase, hoursAwake: hoursAwake, sleepDebtHours: debt, sleepNeedHours: need)
+            result[idx].predictedEnergyAtWake = predicted
+        }
+        return result
+    }
+
+    /// Drift for validation: felt anchor minus predicted. Positive = felt
+    /// better than physics predicts (e.g. good placebo), negative = felt
+    /// worse (fragmentation, alcohol, stress not in the physics).
+    public static func drift(_ day: FakeHealthDay) -> Double? {
+        guard let pred = day.predictedEnergyAtWake else { return nil }
+        return day.feltEnergyAnchor - pred
+    }
+
+    /// Aggregate calibration summary for the whole pack — mean absolute drift
+    /// and count of days where felt strongly diverges (>0.22) from predicted.
+    public static func calibrationSummary(for pack: FakeHealthPack) -> (meanAbsDrift: Double, divergentDays: Int, total: Int) {
+        let drifts = pack.days.compactMap { drift($0).map { abs($0) } }
+        guard !drifts.isEmpty else { return (0, 0, 0) }
+        let mean = drifts.reduce(0, +) / Double(drifts.count)
+        let divergent = pack.days.filter { day in
+            guard let d = drift(day) else { return false }
+            return abs(d) > 0.22
+        }.count
+        return (mean, divergent, drifts.count)
     }
 
     private static func isoDate(_ date: Date, calendar: Calendar) -> String {

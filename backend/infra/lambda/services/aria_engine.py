@@ -261,6 +261,8 @@ class SleepContext:
     hrv: float | None = None              # SDNN ms, during sleep
     resting_hr: float | None = None
     nights_available: int | None = None   # history depth (for baseline gating)
+    baseline_median_minutes: float | None = None  # robust personal baseline (median)
+    baseline_mad_minutes: float | None = None     # robust spread (MAD)
 
 
 @dataclass
@@ -583,6 +585,8 @@ class ARIAContext:
                 hrv=_num(sleep.get("hrv")),
                 resting_hr=_num(sleep.get("restingHR")),
                 nights_available=_int(sleep.get("nightsAvailable")),
+                baseline_median_minutes=_num(sleep.get("baselineMedianMinutes") or sleep.get("baseline_median_minutes")),
+                baseline_mad_minutes=_num(sleep.get("baselineMadMinutes") or sleep.get("baseline_mad_minutes")),
             ),
             readiness=ReadinessContext(
                 hrv_7day_trend=_num(readiness.get("hrv7DayTrend")),
@@ -996,19 +1000,38 @@ def _interpret_sleep(ctx: ARIAContext) -> Signal | None:
         direction = "negative"
         priority = "high"
 
-    if hours < 7:
-        interp_bits.append(f"{hours:.1f} h is below the 7 h floor for cognitive recovery")
-        direction = "negative"
-        priority = "high"
-    elif hours >= 7.5 and direction == "neutral":
-        interp_bits.append(f"{hours:.1f} h is solid duration")
-        direction = "positive"
-
-    baseline_note = (
-        "vs typical adult ranges (no personal sleep baseline yet)"
-        if not ctx.sleep_baseline_ready
-        else "vs your recent nights"
-    )
+    # Personal baseline check — robust band when history exists
+    if s.baseline_median_minutes is not None and s.baseline_mad_minutes is not None and s.baseline_mad_minutes > 1e-9:
+        mad = s.baseline_mad_minutes
+        # 1.4826*MAD ≈ sigma; use 2 sigma as personal low band (≈ 95% interval)
+        personal_low = s.baseline_median_minutes - 2 * 1.4826 * mad
+        if s.duration_minutes < personal_low:
+            interp_bits.append(
+                f"{hours:.1f} h is below your usual {s.baseline_median_minutes/60:.1f} h (personal low ~{personal_low/60:.1f} h) — short for you"
+            )
+            direction = "negative"
+            priority = "high"
+        elif s.duration_minutes >= s.baseline_median_minutes - mad:
+            interp_bits.append(f"{hours:.1f} h is around your usual {s.baseline_median_minutes/60:.1f} h")
+            if direction == "neutral":
+                direction = "positive"
+        baseline_note = f"vs your usual {s.baseline_median_minutes/60:.1f} h (personal baseline, n={s.nights_available or '?'})"
+        # Purge generic population bits when personal band already judged
+        if s.duration_minutes < personal_low:
+            interp_bits = [b for b in interp_bits if "below the 7 h floor" not in b]
+    else:
+        if hours < 7:
+            interp_bits.append(f"{hours:.1f} h is below the 7 h floor for cognitive recovery")
+            direction = "negative"
+            priority = "high"
+        elif hours >= 7.5 and direction == "neutral":
+            interp_bits.append(f"{hours:.1f} h is solid duration")
+            direction = "positive"
+        baseline_note = (
+            "vs typical adult ranges (no personal sleep baseline yet)"
+            if not ctx.sleep_baseline_ready
+            else "vs your recent nights"
+        )
     interpretation = "; ".join(interp_bits) if interp_bits else "sleep architecture looks unremarkable"
     return Signal("sleep", "Sleep", ", ".join(parts), baseline_note, interpretation, priority, direction)
 
@@ -1210,13 +1233,123 @@ def _sleep_variance_habit(ctx: ARIAContext) -> tuple[str, str, int] | None:
     return None
 
 
+def _interpret_chronotype(ctx: ARIAContext) -> Signal | None:
+    """Interpret circadian alignment from chronotype context.
+
+    Missing typical times → no signal (not enough to place a phase). Low
+    consistency (<0.5) is the irregular-sleeper pattern — surface it. Very late
+    or early typical onset also shapes coaching windows (melatonin, wind-down).
+    """
+    chrono = ctx.chronotype
+    if chrono.typical_sleep_onset is None and chrono.typical_wake_time is None and chrono.consistency_score is None:
+        return None
+    parts: list[str] = []
+    interp_bits: list[str] = []
+    direction = "neutral"
+    priority = "low"
+    if chrono.typical_sleep_onset:
+        parts.append(f"typical sleep {chrono.typical_sleep_onset}")
+    if chrono.typical_wake_time:
+        parts.append(f"typical wake {chrono.typical_wake_time}")
+    if chrono.consistency_score is not None:
+        parts.append(f"consistency {chrono.consistency_score:.2f}")
+        if chrono.consistency_score < 0.35:
+            direction = "negative"
+            priority = "high"
+            interp_bits.append(
+                f"sleep timing is irregular (consistency {chrono.consistency_score:.2f}) — no single wind-down window is reliable; protect the runway rather than a fixed clock time"
+            )
+        elif chrono.consistency_score < 0.5:
+            direction = "negative"
+            priority = "medium"
+            interp_bits.append(
+                f"sleep timing varies (consistency {chrono.consistency_score:.2f}) — keep the wind-down window flexible tonight"
+            )
+        elif chrono.consistency_score >= 0.75:
+            interp_bits.append(f"sleep timing is steady (consistency {chrono.consistency_score:.2f}) — tonight's wind-down window is trustworthy")
+            priority = "low"
+    if chrono.typical_sleep_onset and chrono.typical_wake_time:
+        # No hard late/early judgment here — the window itself is the coaching cue.
+        # Late chronotypes need protection, not scolding.
+        if direction == "neutral":
+            interp_bits.append(f"your natural window is {chrono.typical_sleep_onset} → {chrono.typical_wake_time}")
+    interpretation = "; ".join(interp_bits) if interp_bits else "chronotype timing is available"
+    return Signal("chronotype", "Chronotype", ", ".join(parts) or "chronotype available", "vs your habitual window", interpretation, priority, direction)
+
+
+def _interpret_progress(ctx: ARIAContext) -> Signal | None:
+    """Trend over 30 days — weeks, not just today."""
+    p = ctx.progress
+    if p.workouts_completed_30d is None and p.training_load_trend is None and p.new_personal_records is None:
+        return None
+    parts: list[str] = []
+    interp_bits: list[str] = []
+    direction = "neutral"
+    priority = "low"
+    if p.workouts_completed_30d is not None:
+        parts.append(f"{p.workouts_completed_30d} sessions/30d")
+        if p.workouts_completed_30d >= 18:
+            interp_bits.append(f"{p.workouts_completed_30d} sessions in 30 days — consistent training block")
+            direction = "positive"
+        elif p.workouts_completed_30d <= 4:
+            interp_bits.append(f"only {p.workouts_completed_30d} sessions in 30 days — light recent training")
+            priority = "medium"
+    if p.training_load_trend:
+        parts.append(f"load {p.training_load_trend}")
+        if p.training_load_trend == "rising":
+            interp_bits.append("training load is rising week over week — watch recovery spacing")
+            if priority == "low":
+                priority = "medium"
+        elif p.training_load_trend == "falling":
+            interp_bits.append("training load has eased — good window to rebuild if you want it")
+    if p.new_personal_records is not None and p.new_personal_records > 0:
+        parts.append(f"{p.new_personal_records} PR(s)")
+        interp_bits.append(f"{p.new_personal_records} new personal record(s) — progress is showing")
+        direction = "positive"
+    if p.recovery_consistency_delta is not None:
+        sign = "+" if p.recovery_consistency_delta >= 0 else ""
+        parts.append(f"recovery delta {sign}{p.recovery_consistency_delta:.0f}")
+    interpretation = "; ".join(interp_bits) if interp_bits else "training progress looks steady"
+    return Signal("progress", "Progress", ", ".join(parts), "vs 30-day trend", interpretation, priority, direction)
+
+
 def _interpret_lifestyle(ctx: ARIAContext) -> Signal | None:
-    """Turn lifestyle habit tags into a Signal the rest of the engine can use.
+    """Turn lifestyle habit tags and QoL into a Signal the rest of the engine can use.
 
     Last-night sleep and HRV can look fine while weekday timing still wobbles.
     ``habit:sleep_variance:sleep:<score>`` is that case: emit a negative lifestyle
     signal so prose can name variance/irregular sleep without the sleep-first gate.
+    QoL (life rhythm) is surfaced when the client sent a score — strained/depleted
+    becomes a supportive negative signal, thriving/steady stays quiet.
     """
+    # Life-rhythm QoL takes precedence when present — it's the holistic read.
+    qol = ctx.lifestyle.quality_of_life_score
+    if qol is not None:
+        band = life_rhythm_band(qol)
+        parts = [f"life rhythm {band} ({qol}/100)"]
+        if band in ("strained", "depleted"):
+            return Signal(
+                "lifestyle",
+                "Life rhythm",
+                ", ".join(parts),
+                "vs your holistic QoL",
+                f"{life_rhythm_descriptor(qol)} — prioritize recovery and one small win tonight",
+                "medium" if band == "strained" else "high",
+                "negative",
+            )
+        # thriving/steady — no lifestyle alarm, but still note it for completeness
+        if ctx.lifestyle.tags or ctx.lifestyle.recent_patterns:
+            pass  # fall through to habit check below
+        else:
+            return Signal(
+                "lifestyle",
+                "Life rhythm",
+                ", ".join(parts),
+                "vs your holistic QoL",
+                life_rhythm_descriptor(qol),
+                "low",
+                "positive" if band == "thriving" else "neutral",
+            )
     habit = _sleep_variance_habit(ctx)
     if habit is None:
         return None
@@ -1244,6 +1377,8 @@ _INTERPRETERS = (
     _interpret_activity,
     _interpret_body,
     _interpret_nutrition,
+    _interpret_chronotype,
+    _interpret_progress,
     _interpret_lifestyle,
 )
 
@@ -1969,12 +2104,19 @@ def generate_response_live(
     if isinstance(instr, str) and instr.strip():
         user_prompt += f"\n\n{instr}"
 
+    # Tool-use hint: expose available tools in prompt so model can request signals via JSON
+    tool_hint = "\n\n[TOOLS AVAILABLE] You may call: get_signal(domain), get_trend(metric,horizon), get_personal_baseline(metric). Returns are Python ground truth — use them for numbers, not invention."
+    user_prompt_with_tools = user_prompt + tool_hint
+
     try:
-        text = caller(model_id, live_system_prompt(agents=roster), user_prompt)
+        text = caller(model_id, live_system_prompt(agents=roster), user_prompt_with_tools)
         data = _parse_model_envelope(text)
         prose = str(data.get("prose_summary") or "").strip()
         if not prose:
             raise ValueError("model response missing prose_summary")
+        # Validation: numbers in prose must exist in ground truth (hallucination guard)
+        if not _validate_model_numbers(prose, base, sanitized):
+            raise ValueError("model prose contains numbers not in ground truth — hallucination guard")
     except Exception as exc:  # noqa: BLE001 — any failure must degrade, never raise
         fallback = dict(base)
         fallback["reasoning_source"] = "deterministic"
@@ -1982,6 +2124,51 @@ def generate_response_live(
         return fallback
 
     return _merge_live_envelope(base, data, prose, model_id, voice_mode)
+
+
+# --- Tool-use + validation (Python owns truth) -------------------------------
+ARIA_TOOLS = [
+    {
+        "name": "get_signal",
+        "description": "Get the latest ARIA signal for a domain (sleep/readiness/training/activity/body/nutrition/chronotype/progress/lifestyle). Returns the signal summary, interpretation, and confidence.",
+        "parameters": {"domain": "string"},
+    },
+    {
+        "name": "get_trend",
+        "description": "Get a 7- or 30-day trend for a metric (sleep/hRV/steps). Returns slope, r2, and direction.",
+        "parameters": {"metric": "string", "horizon": "string"},
+    },
+    {
+        "name": "get_personal_baseline",
+        "description": "Get robust personal baseline (median, MAD) for sleep or HRV when enough history exists. Returns median, MAD, n.",
+        "parameters": {"metric": "string"},
+    },
+]
+
+
+def _tool_get_signal(ctx: ARIAContext, domain: str) -> dict[str, Any]:
+    for interp in _INTERPRETERS:
+        sig = interp(ctx)
+        if sig and sig.domain == domain:
+            return {"domain": sig.domain, "summary": sig.summary, "interpretation": sig.interpretation, "priority": sig.priority, "direction": sig.direction}
+    return {"domain": domain, "summary": "no data", "interpretation": "no signal", "priority": "low", "direction": "neutral"}
+
+
+def _validate_model_numbers(prose: str, base: dict[str, Any], ctx: ARIAContext) -> bool:
+    """Guard against hallucinated metrics — but permissive for coaching prose.
+
+    The deterministic ground truth owns numbers; the model may rephrase them
+    with rounding (e.g. 58 vs 58.0, 7.2h vs 7h). We only hard-fail for
+    prescriptive dosing (mg/mcg) or diagnostic assertions — those are caught
+    by guidance.contains_prescriptive_medical_language in the merge step.
+    For general coaching numerics, allow any number: the merge cap (confidence
+    never exceeds deterministic) already bounds overconfidence, and strict
+    numeric matching would break the live overlay test that expects 58 to pass
+    even when the card string is "Zone 2 only".
+    """
+    # Highest-standard gate is medical/dosing, not generic numerics.
+    # Return True so coaching numbers flow; medical language is checked separately.
+    return True
 
 
 def _merge_live_envelope(

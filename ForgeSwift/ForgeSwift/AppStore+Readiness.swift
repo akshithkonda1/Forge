@@ -739,6 +739,8 @@ extension AppStore {
             merged[night.date] = night
         }
         sleepData = merged.values.sorted { $0.date > $1.date }
+        HealthKitSleepService.shared.rememberSleepSignals(from: sleepData)
+        Task { await SleepAlarmScheduler.sync(ForgeAlarmStore.shared.alarms) }
         if let latest = sleepData.first {
             dailyMetrics.totalSleep = Int(latest.totalHours * 60)
             dailyMetrics.deepSleep = latest.deepMinutes

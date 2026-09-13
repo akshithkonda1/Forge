@@ -53,14 +53,7 @@ struct SleepNightTab: View {
     @State private var showSounds = false
 
     private var coach: SleepBedtimeCoach {
-        let nights = store.sleepData.prefix(14)
-        let schedule = EnergySchedule.make(from: store.sleepData)
-        return SleepBedtimeCoach.make(
-            onsets: nights.compactMap(\.onset),
-            sleepMinutes: nights.map { $0.totalHours * 60 },
-            needMinutes: (schedule?.needHours ?? 8) * 60,
-            fallbackOnsetHour: schedule?.phase.onsetHour
-        )
+        SleepBedtimeCoach.make(from: store.sleepData)
     }
 
     var body: some View {

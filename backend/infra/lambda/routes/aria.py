@@ -52,8 +52,14 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     # Never trust body.user_id for context — stamp auth principal into payload.
     payload = dict(body)
     payload["user_id"] = uid
-    context = aria_engine.ARIAContext.from_payload(payload)
-    permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
+    # Canonical builder: history (BodyModel) + payload merged, single definition
+    try:
+        from services.aria_user_model import build_user_model
+
+        context, permissions = build_user_model(payload, user_id=uid)
+    except Exception:
+        context = aria_engine.ARIAContext.from_payload(payload)
+        permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
 
     # Lifestyle cards: deterministic only. No Bedrock, no Dynamo relationship
     # bump, no weekly briefing. Opening a tab must not cost a chat turn.

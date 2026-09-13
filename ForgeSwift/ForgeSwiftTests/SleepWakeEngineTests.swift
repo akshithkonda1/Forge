@@ -1,5 +1,6 @@
 import XCTest
 @testable import ForgeSwift
+import ForgeCore
 
 final class SleepWakeEngineTests: XCTestCase {
 
@@ -140,6 +141,40 @@ final class SleepWakeEngineTests: XCTestCase {
             SleepWakeEngine.countdownLabel(until: date(2026, 9, 3, 8, 15), now: now),
             "in 2h 15m"
         )
+    }
+
+    func testCoachUsesExplicitAdaptiveWindow() {
+        var alarm = weekdayAlarm(hour: 7, minute: 0)
+        alarm.isSmartWake = true
+        alarm.smartWakeWindow = 15
+        let coach = SleepWakeCoach.make(
+            alarms: [alarm],
+            now: date(2026, 9, 3, 10, 0),
+            calendar: calendar,
+            smartWindowMinutes: 45
+        )
+        XCTAssertEqual(calendar.component(.hour, from: coach.smartFire!), 6)
+        XCTAssertEqual(calendar.component(.minute, from: coach.smartFire!), 15)
+    }
+
+    @MainActor
+    func testComputeSmartAlarmWindowDelegatesToCoreMath() {
+        let minutes = HealthKitSleepService.shared.computeSmartAlarmWindow(
+            baseWindow: 30,
+            recentScore: 60,
+            debt: 0,
+            chronotype: .bear,
+            struggleAverageSnoozes: 0
+        )
+        XCTAssertEqual(minutes, 45)
+        let lion = HealthKitSleepService.shared.computeSmartAlarmWindow(
+            baseWindow: 30,
+            recentScore: 90,
+            debt: 0,
+            chronotype: .lion,
+            struggleAverageSnoozes: 0
+        )
+        XCTAssertEqual(lion, 15)
     }
 
     func testSoundLibraryHasNamedBedsNotJustBrown() {

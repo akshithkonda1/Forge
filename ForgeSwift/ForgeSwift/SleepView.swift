@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SleepView: View {
     @EnvironmentObject var store: AppStore
-    @StateObject private var hkService = HealthKitSleepService.shared
+    @ObservedObject private var hkService = HealthKitSleepService.shared
     @State private var selectedTab: SleepTab = SleepTab.suggested(
         hour: Calendar.current.component(.hour, from: Date())
     )
@@ -11,21 +11,17 @@ struct SleepView: View {
     @ObservedObject private var alarmStore = ForgeAlarmStore.shared
 
     private var tonightCoach: SleepBedtimeCoach {
-        let nights = store.sleepData.prefix(14)
-        let schedule = EnergySchedule.make(from: store.sleepData)
-        return SleepBedtimeCoach.make(
-            onsets: nights.compactMap(\.onset),
-            sleepMinutes: nights.map { $0.totalHours * 60 },
-            needMinutes: (schedule?.needHours ?? 8) * 60,
-            fallbackOnsetHour: schedule?.phase.onsetHour
-        )
+        SleepBedtimeCoach.make(from: store.sleepData)
     }
 
     private var wakeCoach: SleepWakeCoach {
         SleepWakeCoach.make(
             alarms: alarmStore.alarms,
             sleepScore: store.sleepData.first?.score,
-            lastNightHours: store.sleepData.first?.totalHours
+            lastNightHours: store.sleepData.first?.totalHours,
+            smartWindowMinutes: alarmStore.next.map {
+                hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow)
+            }
         )
     }
 
@@ -143,64 +139,94 @@ struct SleepHeaderView: View {
     let onPersonalize: () -> Void
     let onTabSelect: (SleepTab) -> Void
 
+    private var tabIcon: [SleepTab: String] {
+        [.day: "chart.line.uptrend.xyaxis", .night: "moon.stars.fill", .alarms: "alarm.fill"]
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Sleep")
-                        .font(.system(size: 28, weight: .semibold, design: .rounded))
-                        .foregroundColor(.textPrimary)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text("Sleep")
+                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                            .foregroundColor(.textPrimary)
+                        // Tiny live dot — calm proof the page is reading HealthKit, not a mock.
+                        Circle().fill(Color.vitality).frame(width: 6, height: 6)
+                            .shadow(color: Color.vitality.opacity(0.6), radius: 4)
+                            .opacity(selectedTab == .day ? 1 : 0.5)
+                    }
                     Text(subtitle)
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundColor(.textTertiary)
                         .lineLimit(2)
+                        .animation(.easeInOut(duration: 0.2), value: subtitle)
                 }
                 Spacer()
-                Button(action: onPersonalize) {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.textSecondary)
-                        .frame(width: 40, height: 40)
-                        .background(Color.white.opacity(0.06))
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 1))
-                }
-                .accessibilityLabel("Sleep preferences")
-                Button(action: onAskAria) {
-                    Text("Ask ARIA")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundColor(.textPrimary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Color.white.opacity(0.06))
+                HStack(spacing: 8) {
+                    Button(action: onPersonalize) {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.textSecondary)
+                            .frame(width: 40, height: 40)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(Color.white.opacity(0.12), lineWidth: 1))
+                    }
+                    .accessibilityLabel("Sleep preferences")
+                    Button(action: onAskAria) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles").font(.system(size: 11, weight: .semibold))
+                            Text("Ask ARIA")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .background(FDS.Gradient.ember)
                         .clipShape(Capsule())
-                        .overlay(Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1))
+                        .shadow(color: Color.ember.opacity(0.28), radius: 8, y: 3)
+                    }
+                    .accessibilityLabel("Ask ARIA about sleep")
                 }
-                .accessibilityLabel("Ask ARIA about sleep")
             }
 
-            HStack(spacing: 0) {
+            HStack(spacing: 6) {
                 ForEach(SleepTab.allCases, id: \.self) { tab in
                     Button {
                         onTabSelect(tab)
                         UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
-                        VStack(spacing: 8) {
+                        HStack(spacing: 6) {
+                            Image(systemName: tabIcon[tab] ?? "circle")
+                                .font(.system(size: 11, weight: .semibold))
                             Text(tab.title)
-                                .font(.system(size: 14, weight: selectedTab == tab ? .semibold : .medium, design: .rounded))
-                                .foregroundColor(selectedTab == tab ? .textPrimary : .textTertiary)
-                            Capsule()
-                                .fill(selectedTab == tab ? AnyShapeStyle(FDS.Gradient.ember) : AnyShapeStyle(Color.clear))
-                                .frame(width: selectedTab == tab ? 28 : 0, height: 2.5)
+                                .font(.system(size: 13, weight: selectedTab == tab ? .bold : .medium, design: .rounded))
                         }
-                        .frame(maxWidth: .infinity)
+                        .foregroundColor(selectedTab == tab ? .white : .textTertiary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .background(
+                            selectedTab == tab
+                                ? AnyShapeStyle(FDS.Gradient.ember)
+                                : AnyShapeStyle(Color.white.opacity(0.06))
+                        )
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule().stroke(
+                                selectedTab == tab ? Color.white.opacity(0.0) : Color.white.opacity(0.10),
+                                lineWidth: 1
+                            )
+                        )
+                        .shadow(color: selectedTab == tab ? Color.ember.opacity(0.22) : .clear, radius: 6, y: 2)
                     }
                     .buttonStyle(.plain)
                 }
+                Spacer(minLength: 0)
             }
         }
         .padding(.horizontal, 20)
         .padding(.top, 56)
-        .padding(.bottom, 8)
+        .padding(.bottom, 12)
     }
 }

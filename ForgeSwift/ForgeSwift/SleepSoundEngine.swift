@@ -1,6 +1,7 @@
 import AVFoundation
 import Observation
 import os
+import ForgeCore
 
 /// Generated café / noise / lo-fi / nature beds. Observation (not Combine) so
 /// Tonight and the library both redraw from the same singleton without
@@ -194,7 +195,14 @@ final class SleepWakePlayer {
     func start(for alarm: ForgeAlarm) {
         stop(deactivateSession: false)
         SleepWindDownPlayer.shared.stop(deactivateSession: false)
-        let ramp = alarm.gradualVolume ? ForgeAlarmStore.shared.volumeRamp : .instant
+        let ramp: VolumeRampCurve
+        if WakeStruggleStore.isRepeatStruggler() {
+            ramp = .instant
+        } else if alarm.gradualVolume {
+            ramp = ForgeAlarmStore.shared.volumeRamp
+        } else {
+            ramp = .instant
+        }
         renderer.reset(rampSeconds: ramp.rampSeconds, sound: alarm.sound)
         guard let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1) else { return }
         let engine = AVAudioEngine()

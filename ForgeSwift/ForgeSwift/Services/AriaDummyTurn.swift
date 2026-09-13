@@ -422,7 +422,8 @@ enum AriaDummyTurn {
         let hey = name.isEmpty ? "" : rng.pick(["Hey \(name) — ", "\(name), ", ""])
 
         if let sleep {
-            sentences.append(hey + clip(sleep.prose, limit: 140))
+            let limit = sleep.prose.lowercased().contains("up at") ? 220 : 140
+            sentences.append(hey + clip(sleep.prose, limit: limit))
         } else if let body {
             sentences.append(hey + clip(body.prose, limit: 140))
         } else if !hey.isEmpty {

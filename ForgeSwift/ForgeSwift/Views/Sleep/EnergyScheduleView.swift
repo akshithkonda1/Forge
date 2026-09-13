@@ -133,12 +133,7 @@ struct EnergySchedule {
         // in the engine is a `suffix(...)`. Handing it the array in arrival
         // order would silently analyse the *oldest* fortnight — a schedule
         // that was right for whoever the user was last month.
-        let nights: [CircadianRhythm.Night] = history
-            .compactMap { entry -> CircadianRhythm.Night? in
-                guard let onset = entry.onset, let wake = entry.wake, wake > onset else { return nil }
-                return CircadianRhythm.Night(onset: onset, wake: wake, asleepHours: entry.totalHours)
-            }
-            .sorted { $0.wake < $1.wake }
+        let nights: [CircadianRhythm.Night] = SleepCircadianBridge.nights(from: history)
 
         guard nights.count >= minimumNights,
               let phase = CircadianRhythm.phase(from: nights, calendar: calendar) else { return nil }
@@ -325,20 +320,59 @@ struct EnergyScheduleCard: View {
         }
     }
 
+    private func debtIcon(_ level: EnergySchedule.DebtLevel) -> String {
+        switch level {
+        case .clear: return "checkmark.seal.fill"
+        case .mild: return "moon.zzz.fill"
+        case .heavy: return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private func debtAction(_ level: EnergySchedule.DebtLevel) -> String {
+        switch level {
+        case .clear: return "You're square. Keep the window steady tonight."
+        case .mild: return "One steady week clears it — protect the last hour before bed."
+        case .heavy: return "Skip the late scroll. Bank an extra 45 min the next 3 nights."
+        }
+    }
+
     private func debtBlock(_ schedule: EnergySchedule) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(schedule.debtHeadline)
-                .font(.system(size: 24, weight: .bold, design: .rounded))
-                .foregroundColor(debtTint(schedule.debtLevel))
-                // The figure moves by tenths as nights land; rolling the digits
-                // reads as the same number updating rather than a new one.
-                .contentTransition(.numericText())
-                .minimumScaleFactor(0.7)
-                .lineLimit(1)
-            Text(schedule.debtDetail)
-                .font(.system(size: 12))
-                .foregroundColor(.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle().fill(debtTint(schedule.debtLevel).opacity(0.14)).frame(width: 36, height: 36)
+                    Image(systemName: debtIcon(schedule.debtLevel))
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(debtTint(schedule.debtLevel))
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(schedule.debtHeadline)
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .foregroundColor(debtTint(schedule.debtLevel))
+                        .contentTransition(.numericText())
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
+                    Text(schedule.debtDetail)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            // Actionable next step — the one thing to do tonight, not a number to stare at.
+            HStack(spacing: 7) {
+                Image(systemName: "arrow.forward.circle.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(debtTint(schedule.debtLevel))
+                Text(debtAction(schedule.debtLevel))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(debtTint(schedule.debtLevel).opacity(0.07))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -349,9 +383,17 @@ struct EnergyScheduleCard: View {
     // ------------------------------------------------------------
 
     private func chart(_ schedule: EnergySchedule) -> some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             GeometryReader { geo in
                 ZStack(alignment: .topLeading) {
+                    // Subtle horizontal grid — 3 lines so the curve has a reference without a y-axis to read.
+                    VStack(spacing: 0) {
+                        ForEach(0..<3, id: \.self) { i in
+                            Rectangle().fill(Color.borderColor.opacity(i == 1 ? 0.18 : 0.09))
+                                .frame(height: 1)
+                            if i < 2 { Spacer() }
+                        }
+                    }
                     sleepShade(schedule, size: geo.size)
                     areaPath(schedule, size: geo.size)
                         .fill(
@@ -378,11 +420,19 @@ struct EnergyScheduleCard: View {
                 .contentShape(Rectangle())
                 .gesture(scrubGesture(schedule, width: geo.size.width))
             }
-            .frame(height: 126)
+            .frame(height: 132)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(chartDescription(schedule))
 
             axis(schedule)
+            HStack(spacing: 4) {
+                Image(systemName: "hand.draw.fill").font(.system(size: 9)).foregroundColor(.textTertiary.opacity(0.7))
+                Text("Drag the curve — or tap a time — to see that moment")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.textTertiary.opacity(0.9))
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 2)
         }
     }
 
@@ -630,33 +680,69 @@ struct EnergyScheduleCard: View {
     // ------------------------------------------------------------
 
     private func hedge(_ schedule: EnergySchedule) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(.warning)
-            Text(schedule.unreliableNote)
-                .font(.system(size: 11))
-                .foregroundColor(.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+        HStack(alignment: .top, spacing: 10) {
+            ZStack {
+                Circle().fill(Color.warning.opacity(0.14)).frame(width: 28, height: 28)
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.warning)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Rough read — bedtimes moved around")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                Text(schedule.unreliableNote)
+                    .font(.system(size: 11))
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
         }
-        .padding(10)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.warning.opacity(0.08))
-        .cornerRadius(10)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.warning.opacity(0.18), lineWidth: 1))
     }
 
     /// Shown until there are enough nights with real bedtimes to place a phase.
     /// Inventing a schedule from three nights would be worse than waiting: the
     /// failure mode is telling someone their slump is at 4am.
     private var learningState: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Still learning your rhythm")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.textPrimary)
-            Text("Once there are about five nights with bedtimes recorded, this becomes your sleep debt and an hour-by-hour read on the day ahead.")
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(Color.aurora.opacity(0.12)).frame(width: 40, height: 40)
+                    Image(systemName: "waveform.path.ecg")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.aurora)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Still learning your rhythm")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                    Text("About \(EnergySchedule.minimumNights) nights")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundColor(.aurora)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(Color.aurora.opacity(0.10))
+                        .clipShape(Capsule())
+                }
+                Spacer(minLength: 0)
+            }
+            Text("Once there are about five nights with bedtimes recorded, this becomes your sleep debt and an hour-by-hour read on the day ahead. Log in-bed windows on Tonight, or connect Apple Health.")
                 .font(.system(size: 12))
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) {
+                Image(systemName: "bed.double.fill").font(.system(size: 10)).foregroundColor(.steel)
+                Text("Tip: Tonight → I'm in bed builds the fastest signal")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.textTertiary)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .background(Color.surfaceElevated)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
