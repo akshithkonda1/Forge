@@ -426,13 +426,23 @@ def stance_for_plan(
     """Persona stance is the plan. A personal-model deficit can only protect.
 
     This is not ``/ai/router`` answer-merge: no votes, no agreement, no Bedrock.
+    Evidence-derived overtraining / readiness floors also force protect so the
+    session picker never sees a green light on a hot ACWR day.
     """
+    from services import aria_evidence
     from services import contextual_learner
 
     stance = str(getattr(brief, "stance", "") or "")
     if stance not in contextual_learner.STANCES:
         stance = "proceed"
     if _personal_deficit_protect(ctx, baselines):
+        return "protect"
+    load = aria_evidence.derive_load(ctx)
+    if load.is_overtrained or (
+        load.readiness is not None and load.readiness < aria_evidence.READINESS_PROTECT
+    ):
+        return "protect"
+    if load.acwr is not None and load.acwr >= aria_evidence.ACWR_SWEET_HIGH:
         return "protect"
     return stance
 
