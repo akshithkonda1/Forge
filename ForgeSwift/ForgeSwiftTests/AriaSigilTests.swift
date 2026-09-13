@@ -5,11 +5,15 @@ import XCTest
 final class AriaSigilTests: XCTestCase {
 
     func testFiveEllipsesOrangeAndStillPose() {
+        XCTAssertEqual(AriaSigilGeometry.kind, "ring-field")
+        XCTAssertEqual(AriaSigilGeometry.assetName, "AriaMark")
+        XCTAssertEqual(AriaSigilGeometry.ringCount, 5)
         XCTAssertEqual(AriaSigilGeometry.ellipseCount, 5)
         XCTAssertEqual(AriaSigilGeometry.forgeOrangeHex, "FF4D00")
+        XCTAssertEqual(AriaSigilGeometry.brandHueLightHex, "FF6B2B")
         XCTAssertEqual(AriaSigilPalette.forgeOrangeHex, "FF4D00")
         XCTAssertEqual(AriaSigilPalette.emberHex, "FF4D00")
-        XCTAssertEqual(AriaSigilGeometry.stillPose, 1.72, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.stillPoseAngleDeg, 18, accuracy: 0.0001)
         let a = AriaSigilGeometry.ellipse(index: 0, time: AriaSigilGeometry.stillPose, state: .idle, reduceMotion: true)
         let b = AriaSigilGeometry.ellipse(index: 0, time: 99, state: .idle, reduceMotion: true)
         XCTAssertEqual(a.rx, b.rx, accuracy: 0.0001)
@@ -65,7 +69,8 @@ final class AriaSigilTests: XCTestCase {
     func testCoveContrastFloor() {
         XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.40, 0.72, 0.78, 0.45, 0.55])
         XCTAssertEqual(AriaSigilGeometry.contrastFloor, 0.70, accuracy: 0.0001)
-        XCTAssertGreaterThanOrEqual(AriaSigilGeometry.strokeWidthCompact, 1.5)
+        XCTAssertEqual(AriaSigilGeometry.strokeWidthCompact, 1.5, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.strokeWidthHero, 1.85, accuracy: 0.0001)
         XCTAssertGreaterThanOrEqual(
             AriaSigilGeometry.ringOpacities.filter { $0 >= AriaSigilGeometry.contrastFloor }.count,
             2
@@ -87,15 +92,24 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertEqual(AriaSigilGeometry.visibleRingIndices(size: 90), Array(0..<5))
     }
 
-    func testLexRadiiAndHzUnchanged() {
+    /// Copied from https://github.com/akshithkonda1/Forge/pull/270 @ fab0a40.
+    func testMatchesPR270Contract() {
+        XCTAssertEqual(AriaSigilGeometry.kind, "ring-field")
+        XCTAssertEqual(AriaSigilGeometry.assetName, "AriaMark")
+        XCTAssertEqual(AriaSigilGeometry.ringCount, 5)
         XCTAssertEqual(AriaSigilGeometry.radii, [0.38, 0.48, 0.58, 0.68, 0.78])
         XCTAssertEqual(AriaSigilGeometry.eccentricity, [0.1, 0.14, 0.08, 0.16, 0.11])
         XCTAssertEqual(AriaSigilGeometry.tiltDeg, [14, -22, 28, -10, 18])
         XCTAssertEqual(AriaSigilGeometry.phaseOffsets, [0, 0.18, 0.41, 0.63, 0.88])
+        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.40, 0.72, 0.78, 0.45, 0.55])
         XCTAssertEqual(AriaSigilGeometry.idleSpinHz, 0.04, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.speakingSpinHz, 0.075, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.stillPoseAngleDeg, 18, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.strokeWidthCompact, 1.5, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.strokeWidthHero, 1.85, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.heroMinimumSize, 90)
+        XCTAssertEqual(AriaSigilGeometry.compactRecommend, 28)
+        XCTAssertEqual(AriaSigilGeometry.forgeOrangeHex, "FF4D00")
     }
 
     func testMeetCopyIsARIANotAForgePairing() {

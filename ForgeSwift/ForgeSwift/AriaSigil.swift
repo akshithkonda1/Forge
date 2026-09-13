@@ -1,41 +1,37 @@
 import Foundation
 import SwiftUI
 
-/// Kinetic orange ring-field. Five overlapping ellipses, Forge orange `#FF4D00`.
+/// Kinetic orange ring-field. Numbers copied from Lex `#270` head
+/// `fab0a402097050dfec528f014e902591314204ca` (`shared/aria-mark.json`).
+/// That PR is mergeable but not on `main` yet — do not invent a second geometry.
 /// Soft spin while alive; Reduce Motion / `forgeMinimalAnimation` freeze at
 /// `stillPoseAngleDeg`.
-///
-/// Lex contract (`#270` `shared/aria-mark.json`, not yet on `main`): radii, tilt,
-/// eccentricity, phase, Hz. Cove contrast floor overlays opacity + compact stroke.
-/// Tree `main` copy is still the 4-lobe ember file — do not treat that as the mark.
 enum AriaSigilGeometry: Sendable {
 
-    static let ellipseCount: Int = 5
+    static let kind = "ring-field"
+    static let assetName = "AriaMark"
+    static let ringCount: Int = 5
+    static let ellipseCount: Int = ringCount
     static let forgeOrangeHex = "FF4D00"
     static let brandHueLightHex = "FF6B2B"
 
-    /// Timeline clock used when the view is frozen. Angle lock is `stillPoseAngleDeg`.
+    /// Frozen TimelineView clock only. Angle lock is `stillPoseAngleDeg` (Lex).
     static let stillPose: Double = 1.72
     static let stillPoseAngleDeg: Double = 18
     static let heroMinimumSize: CGFloat = 90
     static let compactRecommend: CGFloat = 28
 
-    /// Lex `#270` spin. Idle is slower than speaking.
     static let idleSpinHz: Double = 0.04
     static let speakingSpinHz: Double = 0.075
 
-    /// Cove contrast floor. Lex `#270` still lists `1.35` — phone ships ≥ 1.5.
     static let strokeWidthCompact: CGFloat = 1.5
     static let strokeWidthHero: CGFloat = 1.85
     static let contrastFloor: Double = 0.70
 
-    /// Lex `#270` radii / eccentricity / tilt / phase. Unchanged by Cove.
     static let radii: [Double] = [0.38, 0.48, 0.58, 0.68, 0.78]
     static let eccentricity: [Double] = [0.1, 0.14, 0.08, 0.16, 0.11]
     static let tiltDeg: [Double] = [14, -22, 28, -10, 18]
     static let phaseOffsets: [Double] = [0, 0.18, 0.41, 0.63, 0.88]
-
-    /// Cove floor: at least two rings ≥ 0.70. Lex `#270` still lists dimmer values.
     static let ringOpacities: [Double] = [0.40, 0.72, 0.78, 0.45, 0.55]
 
     struct EllipsePose: Equatable, Sendable {

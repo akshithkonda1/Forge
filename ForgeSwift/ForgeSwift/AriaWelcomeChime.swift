@@ -3,8 +3,8 @@ import CoreGraphics
 import os
 
 /// Welcome arrive-sound. Live phone ARIA is the 5-ellipse ring-field
-/// (`AuroraOrbView`). `shared/aria-mark.json` on `main` is still ember;
-/// Lex `#270` is the ring-field contract. PNG is unused.
+/// (`AuroraOrbView`). Contract numbers from Lex `#270` @ `fab0a40`.
+/// `main`'s `shared/aria-mark.json` is still ember until that PR merges. PNG unused.
 /// Pure gates so tests can lock quiet mode and Reduce Motion without audio.
 enum AriaWelcomeChime: Sendable {
     static let assetName = "AriaLogo"
