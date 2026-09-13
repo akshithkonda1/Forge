@@ -1189,16 +1189,16 @@ def humanize_prose(
                 " Consistency is already winning; don't blow it on one flashy day.",
             )
         if sleep_clause:
-        return finish(pick(
-            f"You've got something to spend, since {sleep_clause}.{session_bit} "
-            f"A solid moderate session fits — progress one thing, leave the hero set.",
-            f"Body's willing today because {sleep_clause}.{session_bit} Let's use that on something "
-            f"clean rather than reckless. Want the session mapped?",
-            f"Green enough to be useful — {sleep_clause}.{session_bit} I'd take a focused session and stop "
-            f"while quality is still high.",
-            f"Yeah, you can train. {sleep_clause[0].upper() + sleep_clause[1:]}.{session_bit} "
-            f"Keep it sharp, not endless.",
-        ))
+            return finish(pick(
+                f"You've got something to spend, since {sleep_clause}.{session_bit} "
+                f"A solid moderate session fits — progress one thing, leave the hero set.",
+                f"Body's willing today because {sleep_clause}.{session_bit} Let's use that on something "
+                f"clean rather than reckless. Want the session mapped?",
+                f"Green enough to be useful — {sleep_clause}.{session_bit} I'd take a focused session and stop "
+                f"while quality is still high.",
+                f"Yeah, you can train. {sleep_clause[0].upper() + sleep_clause[1:]}.{session_bit} "
+                f"Keep it sharp, not endless.",
+            ))
         return finish(pick(
             f"There's room to train — not a parade.{session_bit} I'd take a solid moderate-to-hard session "
             "and see how the first sets feel.",
