@@ -317,6 +317,7 @@
 		1TEST02000000000000000A /* SleepWakeEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST01F00000000000000A /* SleepWakeEngineTests.swift */; };
 		1TEST02200000000000000A /* SleepBedtimeCoachTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02100000000000000A /* SleepBedtimeCoachTests.swift */; };
 		1TEST02400000000000000A /* AriaInterviewVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */; };
+		1TEST03C00000000000000A /* FriendFirstOnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03B00000000000000A /* FriendFirstOnboardingTests.swift */; };
 		1TEST02600000000000000A /* AriaSigilTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02500000000000000A /* AriaSigilTests.swift */; };
 		1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */; };
 		1TEST03400000000000000A /* AriaVoiceSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03300000000000000A /* AriaVoiceSessionTests.swift */; };
@@ -484,6 +485,7 @@
 		1TEST03700000000000000A /* SleepNightGroupingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepNightGroupingTests.swift; sourceTree = "<group>"; };
 		1TEST03900000000000000A /* HealthKitSleepServiceScoringTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepServiceScoringTests.swift; sourceTree = "<group>"; };
 		1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewVoiceTests.swift; sourceTree = "<group>"; };
+		1TEST03B00000000000000A /* FriendFirstOnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendFirstOnboardingTests.swift; sourceTree = "<group>"; };
 		1TEST02500000000000000A /* AriaSigilTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSigilTests.swift; sourceTree = "<group>"; };
 		1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoiceTests.swift; sourceTree = "<group>"; };
 		1TEST03300000000000000A /* AriaVoiceSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceSessionTests.swift; sourceTree = "<group>"; };
@@ -1226,6 +1228,7 @@
 				1TEST01F00000000000000A /* SleepWakeEngineTests.swift */,
 				1TEST02100000000000000A /* SleepBedtimeCoachTests.swift */,
 				1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */,
+				1TEST03B00000000000000A /* FriendFirstOnboardingTests.swift */,
 				1TEST02500000000000000A /* AriaSigilTests.swift */,
 				1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */,
 				1TEST03300000000000000A /* AriaVoiceSessionTests.swift */,
@@ -1795,6 +1798,7 @@
 				1TEST02000000000000000A /* SleepWakeEngineTests.swift in Sources */,
 				1TEST02200000000000000A /* SleepBedtimeCoachTests.swift in Sources */,
 				1TEST02400000000000000A /* AriaInterviewVoiceTests.swift in Sources */,
+				1TEST03C00000000000000A /* FriendFirstOnboardingTests.swift in Sources */,
 				1TEST02600000000000000A /* AriaSigilTests.swift in Sources */,
 				1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */,
 				1TEST03400000000000000A /* AriaVoiceSessionTests.swift in Sources */,

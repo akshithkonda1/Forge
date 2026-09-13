@@ -5,24 +5,26 @@ import XCTest
 /// and voice matching. Does not spin AVSpeech — that's AriaPresence.
 final class AriaInterviewVoiceTests: XCTestCase {
 
-    func testIntroAlwaysSaysARIANotAriaAndNotADoctor() {
+    func testIntroAlwaysSaysARIANotAriaAsAFriend() {
         let unnamed = AriaInterviewVoice.introLine(firstName: "", questLabel: nil)
         XCTAssertTrue(unnamed.contains("I'm ARIA"))
         XCTAssertFalse(unnamed.contains("I'm Aria"))
-        XCTAssertTrue(unnamed.localizedCaseInsensitiveContains("not a doctor"))
-        XCTAssertTrue(unnamed.localizedCaseInsensitiveContains("every day"))
+        XCTAssertTrue(unnamed.contains("Hi — I'm ARIA"))
+        XCTAssertTrue(unnamed.localizedCaseInsensitiveContains("friend"))
+        XCTAssertTrue(unnamed.localizedCaseInsensitiveContains("trainer"))
+        XCTAssertFalse(unnamed.localizedCaseInsensitiveContains("calibrate"))
 
         let named = AriaInterviewVoice.introLine(firstName: "Maya", questLabel: "Build Muscle")
-        XCTAssertTrue(named.contains("Welcome, Maya"))
+        XCTAssertTrue(named.contains("Hey Maya"))
         XCTAssertTrue(named.contains("I'm ARIA"))
         XCTAssertTrue(named.contains("Build Muscle"))
-        XCTAssertTrue(named.localizedCaseInsensitiveContains("every day"))
+        XCTAssertTrue(named.localizedCaseInsensitiveContains("friend"))
     }
 
-    func testNameAcknowledgmentUsesTheNameAndImpliesDaily() {
+    func testNameAcknowledgmentUsesTheName() {
         let line = AriaInterviewVoice.acknowledgeName("Maya")
         XCTAssertTrue(line.hasPrefix("Maya"))
-        XCTAssertTrue(line.localizedCaseInsensitiveContains("every day"))
+        XCTAssertTrue(line.localizedCaseInsensitiveContains("friend"))
         XCTAssertLessThan(line.count, AriaSpeechPrep.characterLimit)
     }
 
@@ -81,6 +83,22 @@ final class AriaInterviewVoiceTests: XCTestCase {
             AriaInterviewVoice.matchSpoken("keep me steady", step: .coaching, profile: profile),
             .coaching(.balanced)
         )
+        XCTAssertEqual(
+            AriaInterviewVoice.matchSpoken("check-in", step: .coaching, profile: profile),
+            .coaching(.balanced)
+        )
+        XCTAssertEqual(
+            AriaInterviewVoice.matchSpoken("give me space", step: .coaching, profile: profile),
+            .coaching(.supportive)
+        )
+        XCTAssertEqual(
+            AriaInterviewVoice.matchSpoken("patterns", step: .coaching, profile: profile),
+            .coaching(.scientist)
+        )
+        XCTAssertEqual(
+            AriaInterviewVoice.matchSpoken("honest peer", step: .coaching, profile: profile),
+            .coaching(.driven)
+        )
     }
 
     func testHealthSkipAndConnectVoiceMatch() {
@@ -100,7 +118,7 @@ final class AriaInterviewVoiceTests: XCTestCase {
         )
     }
 
-    func testSuggestedRepliesStayOnTheTwelveStepGraph() {
+    func testSuggestedRepliesStayOnTheSixBeatGraph() {
         let empty = OnboardingProfile()
         XCTAssertEqual(
             AriaInterviewVoice.suggestedReplies(
@@ -193,7 +211,8 @@ final class AriaInterviewVoiceTests: XCTestCase {
         profile.sleepBand = .nightOwl
         let script = AriaOnboardingGuide.firstSessionScript(profile: profile, healthConnected: true)
         XCTAssertTrue(script.contains("Maya"))
-        XCTAssertTrue(script.localizedCaseInsensitiveContains("build muscle") || script.contains("weightlifting"))
+        XCTAssertTrue(script.contains("I'm ARIA") || script.contains("I’m ARIA"))
+        XCTAssertFalse(script.localizedCaseInsensitiveContains("calibrate"))
         XCTAssertLessThan(script.count, AriaSpeechPrep.characterLimit)
     }
 

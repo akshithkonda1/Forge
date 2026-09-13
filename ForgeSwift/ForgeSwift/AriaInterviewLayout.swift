@@ -8,14 +8,16 @@ struct AriaInterviewLayout: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(AriaSpokenMute.mutedKey) private var spokenMuted = true
 
+    private var beat: AriaInterviewStep {
+        AriaInterviewStep(OnboardingGraph.normalized(coordinator.step.graph))
+    }
+
     var body: some View {
         // Header stays fixed in the safe area. Tall composers (e.g. 8 training
         // themes) scroll inside a capped region so they never crush the
         // transcript or push content under the status bar / Dynamic Island.
         GeometryReader { geo in
-            let composerCap = (coordinator.step == .details || coordinator.step == .schedule)
-                ? max(300, geo.size.height * 0.64)
-                : max(248, geo.size.height * 0.52)
+            let composerCap = max(248, geo.size.height * 0.52)
             VStack(spacing: 0) {
                 header
                 transcript
@@ -216,7 +218,7 @@ struct AriaInterviewLayout: View {
             }
             .frame(minHeight: min(180, maxHeight), maxHeight: maxHeight, alignment: .top)
 
-            if AriaInterviewVoice.shouldShowVoiceDock(for: coordinator.step) {
+            if AriaInterviewVoice.shouldShowVoiceDock(for: beat) {
                 voiceDock
             }
         }
@@ -254,7 +256,7 @@ struct AriaInterviewLayout: View {
     @ViewBuilder
     private var suggestedRepliesBar: some View {
         let replies = AriaInterviewVoice.suggestedReplies(
-            step: coordinator.step,
+            step: beat,
             profile: coordinator.profile,
             health: coordinator.healthKitState,
             calendar: coordinator.calendarState
@@ -302,7 +304,7 @@ struct AriaInterviewLayout: View {
                     .foregroundColor(dictation.isListening ? .ember : .textPrimary)
                 Text(dictation.isListening
                      ? (dictation.recognizedText.isEmpty ? "Go ahead — I’m with you." : dictation.recognizedText)
-                     : AriaInterviewVoice.voiceHint(for: coordinator.step))
+                     : AriaInterviewVoice.voiceHint(for: beat))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.textTertiary)
                     .lineLimit(2)
@@ -336,7 +338,7 @@ struct AriaInterviewLayout: View {
     @ViewBuilder
     private var composerBody: some View {
         Group {
-            switch coordinator.step {
+            switch AriaInterviewStep(OnboardingGraph.normalized(coordinator.step.graph)) {
             case .intro:
                 EmptyView()
             case .name:
@@ -344,7 +346,7 @@ struct AriaInterviewLayout: View {
             case .health:
                 HealthComposer(coordinator: coordinator)
             case .details:
-                DetailsComposer(coordinator: coordinator)
+                HealthComposer(coordinator: coordinator)
             case .goals:
                 MultiChipComposer(
                     title: "Goals",
@@ -404,21 +406,7 @@ struct AriaInterviewLayout: View {
                     }
                 )
             case .freeTime:
-                MultiChipComposer(
-                    title: "Free time",
-                    items: LifestyleInterest.allCases.map { ($0.id, $0.label) },
-                    isSelected: { id in
-                        coordinator.profile.freeTimeInterests.contains { $0.id == id }
-                    },
-                    onToggle: { id in
-                        if let interest = LifestyleInterest.allCases.first(where: { $0.id == id }) {
-                            coordinator.toggleInterest(interest)
-                        }
-                    },
-                    canContinue: true,
-                    continueTitle: coordinator.profile.freeTimeInterests.isEmpty ? "Skip" : "Continue",
-                    onContinue: { coordinator.confirmInterests() }
-                )
+                HabitsComposer(coordinator: coordinator)
             case .conditions:
                 ConditionsComposer(coordinator: coordinator, dictation: dictation)
             case .coaching:

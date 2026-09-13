@@ -205,7 +205,7 @@ final class CurrentPracticeAPITests: XCTestCase {
         XCTAssertFalse(FakeCalendarPack.writesToPersonalCalendars)
         XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
         XCTAssertFalse(AriaDummyTurn.usesOffDeviceLLM)
-        XCTAssertEqual(AriaOnboardingGuide.welcomeTitle, "ARIA is already learning.")
+        XCTAssertEqual(AriaOnboardingGuide.welcomeTitle, "Hey — I'm ARIA.")
         XCTAssertTrue(QualityOfLifeLivingStore.isQuestion("what's my quality of life"))
         XCTAssertFalse(QualityOfLifeLivingStore.isQuestion("what should I train today"))
         XCTAssertTrue(

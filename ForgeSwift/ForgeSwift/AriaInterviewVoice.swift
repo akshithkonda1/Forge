@@ -5,9 +5,9 @@ import UIKit
 /// onboarding. Pure so tests can lock the relationship beats without spinning
 /// the synthesizer or HealthKit.
 ///
-/// The graph stays 13 steps (week calendar sits after training). What changes is the beat *inside* each step:
-/// ARIA thinks, speaks, hears a tap or a spoken reply, then answers *this*
-/// person before the next ask.
+/// Visible graph is six friend-first beats (Meet, Name, Health, Habits,
+/// Tone, First chat). Collapsed leftover steps keep matching so a migration
+/// landing still hears *this* person.
 enum AriaInterviewVoice {
 
     /// Long enough to feel like a person gathering a thought. Reduce Motion
@@ -43,11 +43,24 @@ enum AriaInterviewVoice {
         case .workouts: return "Name a training style, or say “continue.”"
         case .schedule: return "Say rotate, or I’ll pick the days."
         case .sleep: return "Say early bird, night owl, average, or irregular."
-        case .freeTime: return "Name how you spend free time, or say skip."
-        case .coaching: return "Say push me, balanced, patient, explain, or elite."
+        case .freeTime: return "Say nights, move, stay close — or skip."
+        case .coaching: return "Say check-in, space, patterns, or honest peer."
         case .conditions: return "Optional. Say skip, none, or talk."
         case .ready: return ""
         }
+    }
+
+    /// Lex Health nest — wrapper above the Apple Health row.
+    static let healthWrapper = "So I can keep up with you"
+    static let healthBody =
+        "If you connect Apple Health, I can learn your sleep and movement with you — so I can take care of you better, not to judge."
+    static let healthDenyLine = "All good… I’m still here."
+    static let habitsWrapper = "So I can learn more about you"
+
+    static func healthStatusLabel(state: HealthKitState, pulling: Bool) -> String {
+        if pulling || state == .requesting { return "Pulling…" }
+        if state == .authorized { return "Connected" }
+        return "Offline"
     }
 
     // MARK: - Suggested replies
@@ -73,6 +86,7 @@ enum AriaInterviewVoice {
             case confirmSchedule
             case skipInterests
             case confirmInterests
+            case habit(FriendHabitChip)
             case skipConditions
             case noneConditions
         }
@@ -138,17 +152,21 @@ enum AriaInterviewVoice {
                 Reply(id: "sl-irr", label: "No fixed pattern", kind: .sleep(.irregular)),
             ]
         case .freeTime:
-            if profile.freeTimeInterests.isEmpty {
-                return [Reply(id: "ft-skip", label: "Skip this", kind: .skipInterests)]
+            var rows = FriendHabitChip.allCases.map { chip in
+                Reply(id: "habit-\(chip.id)", label: chip.label, kind: .habit(chip))
             }
-            return [Reply(id: "ft-go", label: "That’s my life", kind: .confirmInterests)]
+            if profile.friendHabits.isEmpty {
+                rows.append(Reply(id: "ft-skip", label: "Skip this", kind: .skipInterests))
+            } else {
+                rows.append(Reply(id: "ft-go", label: "That’s us", kind: .confirmInterests))
+            }
+            return rows
         case .coaching:
             return [
-                Reply(id: "c-drive", label: "Push me", kind: .coaching(.driven)),
-                Reply(id: "c-bal", label: "Keep me steady", kind: .coaching(.balanced)),
-                Reply(id: "c-sup", label: "Be patient", kind: .coaching(.supportive)),
-                Reply(id: "c-sci", label: "Explain the why", kind: .coaching(.scientist)),
-                Reply(id: "c-elite", label: "Treat me like an athlete", kind: .coaching(.elite)),
+                Reply(id: "c-bal", label: "Check-in", kind: .coaching(.balanced)),
+                Reply(id: "c-sup", label: "Space", kind: .coaching(.supportive)),
+                Reply(id: "c-sci", label: "Patterns", kind: .coaching(.scientist)),
+                Reply(id: "c-drive", label: "Honest peer", kind: .coaching(.driven)),
             ]
         case .conditions:
             return [
@@ -162,11 +180,11 @@ enum AriaInterviewVoice {
     // MARK: - Opening + prompts
 
     static func introLine(firstName: String, questLabel: String?) -> String {
-        let quest = questLabel.map { " You already locked \($0) — we’ll train from that." } ?? ""
+        let quest = questLabel.map { " You already picked \($0) — we’ll go from there." } ?? ""
         if firstName.isEmpty {
-            return "I'm ARIA. I'll be in your mornings, your sessions, and the night you actually sleep. Lifestyle coach, not a doctor. About a minute — then I'm in the loop every day."
+            return "Hi — I'm ARIA. I'm really glad you're here. I'll take care of you like a friend who notices your sleep and your day. Trainer, doctor, therapist — flavors when you need them, not who I am. About a minute, then I'm with you."
         }
-        return "Welcome, \(firstName). I'm ARIA — I'll be in your mornings, your sessions, and the night you actually sleep. Lifestyle coach, not a doctor.\(quest) About a minute, then I'm with you every day."
+        return "Hey \(firstName) — I'm ARIA. I'm really glad you're here. I'll take care of you like a friend who notices your sleep and your day. Trainer, doctor, therapist — flavors when you need them, not who I am.\(quest) About a minute, then I'm with you."
     }
 
     static func prompt(
@@ -181,11 +199,11 @@ enum AriaInterviewVoice {
             return introLine(firstName: profile.firstName, questLabel: profile.fitnessGoals.first?.label)
         case .name:
             if profile.isPreferredNameValid {
-                return "I have you as \(profile.firstName) from sign-up. That’s what I’ll say at wake-up and after training. Confirm the spelling — last name is optional and stays on your profile."
+                return "I have you as \(profile.firstName) from sign-up. I want to say it right — that’s how I’ll take care of you. Confirm the spelling? Last name is optional and stays on your profile."
             }
-            return "What should I call you every day? First name is enough — that’s what I’ll use in coaching. Last name is optional and stays on your profile."
+            return "What should I call you? I want to get it right — first name is enough. Last name is optional and stays on your profile."
         case .health:
-            return "Two things make me useful tomorrow morning: Apple Health, and the busy windows on your calendar — never the titles. Health first. This is how I stop being an app you open when you remember."
+            return "\(healthWrapper). \(healthBody)"
         case .details:
             if healthAuthorized && healthPrefill {
                 return "Apple Health already has some of your details. Check date of birth, biological sex, height, and weight — change anything that's off. I use these for heart-rate zones and Cycle Health. This is not gender."
@@ -202,9 +220,9 @@ enum AriaInterviewVoice {
         case .sleep:
             return "When do you actually sleep and wake? I'll put hard sessions and wind-down on your clock, not a generic 6am."
         case .freeTime:
-            return "Outside training — how do you like to spend free time? I design around the life you already have, not a fantasy week."
+            return "\(habitsWrapper) — pick up to three things that feel like us. I just want to take care of you better."
         case .coaching:
-            return "Last coaching choice: how should I talk to you when the day is messy — 6am and 10pm, not just when you're motivated?"
+            return "How should I show up when the day is messy — a check-in, some space, the patterns, or an honest peer? Trainer, doctor, therapist — those are flavors. I'm still me."
         case .conditions:
             return "Do you have any conditions I should respect when coaching — ADHD, epilepsy, an injury, a chronic illness, a disability, or something else? Optional. I'm a lifestyle coach, not a doctor. I won't diagnose or treat; I'll only use this to keep guidance safer and more realistic."
         case .ready:
@@ -232,23 +250,23 @@ enum AriaInterviewVoice {
     // MARK: - Acknowledgments (spoken after *this* answer)
 
     static func acknowledgeName(_ firstName: String) -> String {
-        "\(firstName). I'll use that every day — morning check-ins, session cues, the night you should already be down."
+        "\(firstName). I’ll say it like a friend who remembers."
     }
 
     static func acknowledgeHealthSkip() -> String {
-        "Alright. I can still coach — I'll just guess more until Health is in. You can add it in Settings when you're ready. Let's keep going."
+        healthDenyLine
     }
 
     static func acknowledgeHealthContinue(health: HealthKitState, calendar: HealthKitState) -> String {
         switch (health == .authorized, calendar == .authorized) {
         case (true, true):
-            return "Health and calendar are in. Tomorrow morning I won't be starting from zero."
+            return "Health and calendar are in. I’ll learn your sleep and movement with you — not to judge."
         case (true, false):
-            return "Health is in. That's the daily loop. Calendar can wait."
+            return "Health is in. I’ll learn your sleep and movement with you — not to judge."
         case (false, true):
-            return "Calendar's in — I'll fit training around busy windows. Health whenever you're ready."
+            return "Calendar’s in. Health whenever you’re ready. \(healthDenyLine)"
         case (false, false):
-            return "We'll go on what you tell me. The invitation stays open."
+            return healthDenyLine
         }
     }
 
@@ -303,28 +321,28 @@ enum AriaInterviewVoice {
 
     static func acknowledgeInterests(_ labels: [String]) -> String {
         if labels.isEmpty {
-            return "All good. Training still has to fit a real week."
+            return "All good. I’m still here — we’ll learn more as we go."
         }
-        return "\(labels.joined(separator: ", ")). I'll protect that time, not eat it."
+        return "\(labels.joined(separator: ", ")). That’s enough for me to take care of you better."
     }
 
     static func acknowledgeCoaching(_ style: OnboardingCoachingStyle) -> String {
         switch style {
         case .driven:
-            return "Push. That's how I'll sound at 6am and at 10pm — standards, not vibes."
+            return "Honest peer. Kind, and I won’t flinch."
         case .balanced:
-            return "Steady. I'll push when the signal says so, and I'll back off when it doesn't."
+            return "Check-in. I’ll come find you — trainer flavor when you want it."
         case .supportive:
-            return "Patient. I'll still tell you the truth — just without turning the day into a trial."
+            return "Space. I’ll give you room and still be here."
         case .scientist:
-            return "I'll show the why. You get the mechanism, not just the order."
+            return "Patterns. I’ll notice them with you — not to judge."
         case .elite:
-            return "Athlete mode. Readiness, output, recovery — that's the daily conversation."
+            return "Honest peer. Kind, and I won’t flinch."
         }
     }
 
     static func missedLine() -> String {
-        "I missed that. Tap a reply, or say it again — I'm here."
+        "I missed that. Tap a reply, or say it again — I’m here."
     }
 
     // MARK: - Spoken matching
@@ -346,6 +364,7 @@ enum AriaInterviewVoice {
         case scheduleFixed
         case confirmSchedule
         case toggleInterests([LifestyleInterest])
+        case toggleHabits([FriendHabitChip])
         case skipInterests
         case confirmInterests
         case skipConditions
@@ -423,6 +442,10 @@ enum AriaInterviewVoice {
                 return .skipInterests
             }
             if isContinuePhrase(lower) { return .confirmInterests }
+            let habitHits = FriendHabitChip.allCases.filter { chip in
+                lower.contains(chip.label.lowercased()) || spokenHabitAliases(chip).contains { lower.contains($0) }
+            }
+            if !habitHits.isEmpty { return .toggleHabits(habitHits) }
             let hits = LifestyleInterest.allCases.filter { interest in
                 lower.contains(interest.label.lowercased())
             }
@@ -527,21 +550,31 @@ enum AriaInterviewVoice {
         return nil
     }
 
+    private static func spokenHabitAliases(_ chip: FriendHabitChip) -> [String] {
+        switch chip {
+        case .betterNights: return ["night", "sleep", "rest"]
+        case .moveWithMe: return ["move", "train", "walk"]
+        case .stayClose: return ["close", "check in", "check-in"]
+        }
+    }
+
     private static func matchCoaching(_ lower: String) -> OnboardingCoachingStyle? {
-        if lower.contains("push") || lower.contains("driven") || lower.contains("intense") {
+        if lower.contains("honest") || lower.contains("peer") || lower.contains("push")
+            || lower.contains("driven") || lower.contains("intense") {
             return .driven
         }
-        if lower.contains("patient") || lower.contains("support") || lower.contains("kind") {
+        if lower.contains("space") || lower.contains("patient") || lower.contains("support")
+            || lower.contains("kind") {
             return .supportive
         }
-        if lower.contains("scientist") || lower.contains("explain") || lower.contains("data")
-            || lower.contains("why") {
+        if lower.contains("pattern") || lower.contains("scientist") || lower.contains("explain")
+            || lower.contains("data") || lower.contains("why") {
             return .scientist
         }
         if lower.contains("elite") || lower.contains("athlete") || lower.contains("performance") {
             return .elite
         }
-        if lower.contains("balance") || lower.contains("steady") {
+        if lower.contains("check") || lower.contains("balance") || lower.contains("steady") {
             return .balanced
         }
         return nil
