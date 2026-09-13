@@ -90,6 +90,8 @@ final class AriaIntentResolverTests: XCTestCase {
             AriaIntentInput(text: "I need to be up at 6am starting Monday")
         )
         XCTAssertEqual(ranked.first?.domain, .sleep)
+        let gym = AriaIntentResolver.rank(AriaIntentInput(text: "what's up at the gym"))
+        XCTAssertEqual(gym.first?.domain, .training)
     }
 
     func testAlwaysReturnsSomething() {

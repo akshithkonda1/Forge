@@ -562,7 +562,7 @@ public enum AriaIntentResolver {
         ],
         .sleep: [
             "how did i sleep", "slept badly", "couldn't sleep", "keep waking", "sleep debt",
-            "didn't sleep", "tossed and turned", "up at", "wake me", "need to be up",
+            "didn't sleep", "tossed and turned",
         ],
         .readiness: [
             "how am i doing today", "should i train today", "am i recovered", "how's my recovery",
