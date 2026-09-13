@@ -293,36 +293,27 @@ enum AriaServiceError: Error {
 /// Local scripts for ARIA-led onboarding handoff into live chat.
 enum AriaOnboardingGuide {
 
-    /// First hook on the welcome carousel — learning, not eavesdropping.
-    static let welcomeTitle = "ARIA is already learning."
-    static let welcomeSpokenLine = "I'm ARIA. I'm already learning how you live — then we'll train from that."
+    /// First hook on the welcome carousel — Meet beat, friend-first.
+    static let welcomeTitle = "Hey — I'm ARIA."
+    static let welcomeSpokenLine = "Hi — I'm ARIA. I'm really glad you're here. I'll take care of you like a friend who notices your sleep and your day."
 
     static func firstSessionScript(profile: OnboardingProfile, healthConnected: Bool) -> String {
-        let name = profile.trimmedName.isEmpty ? "there" : profile.firstName
-        let goal = profile.fitnessGoals.first?.label.lowercased() ?? "general fitness"
-        let workouts = profile.preferredWorkouts.prefix(2).map(\.label).joined(separator: " & ")
-        let style = profile.coachingStyle
-        let sleep = profile.sleepBand.map { " Sleep: \($0.label.lowercased())." } ?? ""
-        let theme = profile.trainingTheme
-        let themeLine: String = {
-            guard theme != .classic else { return "" }
-            return " Lens: \(theme.label)."
-        }()
+        let name = profile.trimmedName.isEmpty ? "" : profile.firstName
+        let hi = name.isEmpty ? "Hey" : "Hey \(name)"
         let healthLine = healthConnected
-            ? " Recovery is already in the loop."
-            : " Connect Apple Health anytime and I'll fold recovery in."
-
-        switch style {
+            ? " I’ll learn your sleep and movement with you — not to judge."
+            : " Connect Apple Health anytime and I’ll learn with you — not to judge."
+        switch profile.coachingStyle {
         case .driven:
-            return "\(name) — I'm in the loop tomorrow morning. Week one targets \(goal)\(workouts.isEmpty ? "" : " through \(workouts)").\(sleep)\(themeLine)\(healthLine) Don't wait until you feel like it."
+            return "\(hi) — I'm ARIA. I'm here as an honest peer.\(healthLine) Ask me about last night, how you feel, or what you want today."
         case .balanced:
-            return "\(name), I'm with you in the mornings now. First block balances work and recovery around \(goal)\(workouts.isEmpty ? "" : ", favoring \(workouts)").\(sleep)\(themeLine)\(healthLine)"
+            return "\(hi) — I'm ARIA. I'll check in.\(healthLine) Ask me about last night, how you feel, or what you want today."
         case .supportive:
-            return "\(name), we make this doable from day one — small wins toward \(goal) that you'll still do when the day is messy.\(sleep)\(themeLine)\(healthLine)"
+            return "\(hi) — I'm ARIA. I'll give you space and still be here.\(healthLine) Ask me about last night, how you feel, or what you want today."
         case .scientist:
-            return "\(name) — load and recovery will map back to \(goal). I'll explain the why, every day.\(sleep)\(themeLine)\(healthLine)"
+            return "\(hi) — I'm ARIA. I'll notice patterns with you.\(healthLine) Ask me about last night, how you feel, or what you want today."
         case .elite:
-            return "\(name), readiness and output pointed at \(goal). I'll be in the morning numbers.\(sleep)\(themeLine)\(healthLine)"
+            return "\(hi) — I'm ARIA. I'm here as an honest peer.\(healthLine) Ask me about last night, how you feel, or what you want today."
         }
     }
 
@@ -337,10 +328,9 @@ enum AriaOnboardingGuide {
 
     static func welcomeChatMessage(profile: OnboardingProfile, healthConnected: Bool) -> String {
         var message = firstSessionScript(profile: profile, healthConnected: healthConnected)
-        message += "\n\nOpen chat anytime — I'm already tracking the context we built together. I'll be here every day. That's the job."
-        message += "\n\nOne human thing: if there's a partner, wife, or daughter whose cycle days you try to show up for, tell me in plain words. A lot of people do — I'll keep it practical and never clinical for them."
+        message += "\n\nI'm here. That's the first chat — tell me what’s going on and I’ll take care of you."
         if profile.guidanceOnlyMode {
-            message += "\n\nReminder: for any conditions you shared, I only provide lifestyle guidance — not diagnosis, treatment, or medical solutions."
+            message += "\n\nFor anything you flagged, I only give lifestyle guidance — not diagnosis or treatment."
         }
         return message
     }

@@ -35,19 +35,19 @@ enum AriaInterviewStep: Int, CaseIterable, Hashable {
 
     var progressLabel: String {
         switch self {
-        case .intro:          return "Meet ARIA"
-        case .name:           return "What I call you"
-        case .health:         return "Your signals"
-        case .details:        return "Your details"
-        case .goals:          return "What we’re building"
-        case .experience:     return "Level"
-        case .workouts:       return "Training"
-        case .schedule:       return "Your week"
-        case .sleep:          return "Your clock"
-        case .freeTime:       return "Your life"
-        case .conditions:     return "Boundaries"
-        case .coaching:       return "How I talk"
-        case .ready:          return "Every day"
+        case .intro:          return "Meet"
+        case .name:           return "Name"
+        case .health:         return "Health"
+        case .details:        return "Health"
+        case .goals:          return "Habits"
+        case .experience:     return "Habits"
+        case .workouts:       return "Habits"
+        case .schedule:       return "Habits"
+        case .sleep:          return "Habits"
+        case .freeTime:       return "Habits"
+        case .conditions:     return "Tone"
+        case .coaching:       return "Tone"
+        case .ready:          return "First chat"
         }
     }
 
@@ -133,6 +133,32 @@ enum SleepRhythmBand: String, CaseIterable, Identifiable {
         }
     }
     var tag: String { "sleep:\(rawValue)" }
+}
+
+/// Friend-first Habits beat — at most three chips. Maps onto existing
+/// goals / sleep / workouts / interests. Not a new persistence API.
+enum FriendHabitChip: String, CaseIterable, Identifiable {
+    case betterNights
+    case moveWithMe
+    case stayClose
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .betterNights: return "Better nights"
+        case .moveWithMe: return "Move with me"
+        case .stayClose: return "Stay close"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .betterNights: return "Sleep I can learn with you"
+        case .moveWithMe: return "Movement that fits a real week"
+        case .stayClose: return "Check in like a friend"
+        }
+    }
 }
 
 enum LifestyleInterest: String, CaseIterable, Identifiable {

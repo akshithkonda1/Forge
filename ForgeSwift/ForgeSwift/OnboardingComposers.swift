@@ -38,7 +38,7 @@ struct NameComposer: View {
                             lineWidth: 1
                         )
                 }
-                Text("What you’ll hear every morning and after training. First name is enough.")
+                Text("What I’ll call you. First name is enough.")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color.textTertiary)
             }
@@ -482,26 +482,51 @@ struct DictationMicButton: View {
 struct HealthComposer: View {
     @Bindable var coordinator: OnboardingCoordinator
 
+    private var pulling: Bool {
+        coordinator.isHealthPulling
+    }
+
+    private var healthStatus: String {
+        AriaInterviewVoice.healthStatusLabel(state: coordinator.healthKitState, pulling: pulling)
+    }
+
     var body: some View {
-        VStack(spacing: 16) {
-            // Health + Calendar — one permission moment, two toggles
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(AriaInterviewVoice.healthWrapper)
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.textPrimary)
+                Text(AriaInterviewVoice.healthBody)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             VStack(spacing: 12) {
                 ConnectionRow(
                     icon: "heart.text.square.fill", color: .vitality,
-                    title: "Apple Health", subtitle: "Sleep, heart, activity — on this iPhone",
-                    state: coordinator.healthKitState, action: coordinator.connectHealthKit
+                    title: "Apple Health",
+                    subtitle: "Sleep and movement I can learn with you",
+                    state: coordinator.healthKitState,
+                    statusOverride: healthStatus,
+                    action: coordinator.connectHealthKit
                 )
                 ConnectionRow(
                     icon: "calendar", color: .steel,
-                    title: "Apple Calendar", subtitle: "This week's busy windows and event kinds — never titles. Fits training around your day.",
-                    state: coordinator.calendarState, action: { Task { await coordinator.connectCalendar() } }
+                    title: "Apple Calendar",
+                    subtitle: "This week's busy windows — never titles",
+                    state: coordinator.calendarState,
+                    action: { Task { await coordinator.connectCalendar() } }
                 )
             }
 
-            Text("Both optional — but Health is how I become something you open before coffee, not when you remember. One tap each, or skip.")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.textMuted)
-                .multilineTextAlignment(.center)
+            if let hint = coordinator.lastHealthSharingHint, !hint.isEmpty {
+                Text(hint)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.warning)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(hint)
+            }
 
             Button("Continue") { coordinator.continueFromHealth() }
                 .font(.system(size: 15, weight: .semibold))
@@ -516,28 +541,41 @@ struct HealthComposer: View {
 
 private struct ConnectionRow: View {
     let icon: String; let color: Color; let title: String; let subtitle: String
-    let state: HealthKitState; let action: () -> Void
+    let state: HealthKitState
+    var statusOverride: String? = nil
+    let action: () -> Void
+
+    private var statusText: String {
+        statusOverride ?? AriaInterviewVoice.healthStatusLabel(state: state, pulling: state == .requesting)
+    }
+
+    private var isLive: Bool { statusText == "Connected" }
+    private var isPulling: Bool { statusText == "Pulling…" }
+
     var body: some View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12).fill(color.opacity(0.12)).frame(width: 48, height: 48)
-                if state == .requesting {
+                if isPulling {
                     ProgressView().tint(color)
                 } else {
-                    Image(systemName: state == .authorized ? "checkmark.seal.fill" : icon)
-                        .font(.system(size: 22, weight: .semibold)).foregroundStyle(state == .authorized ? Color.success : color)
+                    Image(systemName: isLive ? "checkmark.seal.fill" : icon)
+                        .font(.system(size: 22, weight: .semibold)).foregroundStyle(isLive ? Color.success : color)
                 }
             }
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(Color.textPrimary)
-                Text(state == .authorized ? "Connected" : subtitle).font(.system(size: 12, weight: .medium)).foregroundStyle(state == .authorized ? Color.success : Color.textTertiary).lineLimit(2)
+                Text(isLive || isPulling ? statusText : "\(statusText) · \(subtitle)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(isLive ? Color.success : Color.textTertiary)
+                    .lineLimit(2)
             }
             Spacer()
-            if state != .authorized {
+            if !isLive {
                 Button(action: action) {
-                    Text("Connect").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
+                    Text(state == .denied ? "Reconnect" : "Connect").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
                         .padding(.horizontal, 14).padding(.vertical, 8).background(color).clipShape(RoundedRectangle(cornerRadius: 9))
-                }.disabled(state == .requesting)
+                }.disabled(isPulling)
             } else {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.success)
             }
@@ -684,12 +722,64 @@ struct ConditionsComposer: View {
     }
 }
 
+struct HabitsComposer: View {
+    @Bindable var coordinator: OnboardingCoordinator
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(AriaInterviewVoice.habitsWrapper)
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color.textPrimary)
+            Text("Pick up to three. I just want to take care of you better.")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.textSecondary)
+
+            VStack(spacing: 8) {
+                ForEach(FriendHabitChip.allCases) { chip in
+                    let selected = coordinator.profile.friendHabits.contains(chip)
+                    Button { coordinator.toggleHabit(chip) } label: {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(chip.label)
+                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(Color.textPrimary)
+                                Text(chip.detail)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(Color.textTertiary)
+                            }
+                            Spacer()
+                            Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(selected ? Color.ember : Color.textMuted)
+                        }
+                        .padding(16)
+                        .background(selected ? Color.ember.opacity(0.16) : Color.surfaceElevated.opacity(0.8))
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(selected ? Color.ember.opacity(0.55) : Color.white.opacity(0.06), lineWidth: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!selected && coordinator.profile.friendHabits.count >= 3)
+                }
+            }
+
+            PrimaryCTA(
+                title: coordinator.profile.friendHabits.isEmpty ? "Skip" : "Continue",
+                icon: "arrow.right",
+                enabled: true,
+                action: coordinator.confirmInterests
+            )
+        }
+    }
+}
+
 struct CoachingComposer: View {
     @Bindable var coordinator: OnboardingCoordinator
 
     var body: some View {
         VStack(spacing: 8) {
-            ForEach(OnboardingCoachingStyle.allCases) { style in
+            ForEach(OnboardingCoachingStyle.friendToneStyles) { style in
                 Button {
                     coordinator.selectCoachingStyle(style)
                 } label: {
@@ -700,10 +790,10 @@ struct CoachingComposer: View {
                             .background(style.color.opacity(0.14))
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(style.label)
+                            Text(style.friendToneTitle)
                                 .font(.subheadline.weight(.bold))
                                 .foregroundStyle(Color.textPrimary)
-                            Text(style.description)
+                            Text(style.friendToneLine)
                                 .font(.caption)
                                 .foregroundStyle(Color.textTertiary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -731,7 +821,7 @@ struct ReadyComposer: View {
     var body: some View {
         VStack(spacing: 14) {
             if !coordinator.profile.firstName.isEmpty {
-                Text("You’re set, \(coordinator.profile.firstName). I’ll be here tomorrow.")
+                Text("You’re set, \(coordinator.profile.firstName). I’m here.")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.textPrimary)
                     .frame(maxWidth: .infinity)
@@ -1009,6 +1099,7 @@ struct ScheduleComposer: View {
 }
 
 struct TypingIndicator: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase = 0.0
 
     var body: some View {
@@ -1018,7 +1109,7 @@ struct TypingIndicator: View {
                     Circle()
                         .fill(Color.ember.opacity(0.85))
                         .frame(width: 6, height: 6)
-                        .offset(y: sin(phase + Double(i)) * 3)
+                        .offset(y: reduceMotion ? 0 : sin(phase + Double(i)) * 3)
                 }
             }
             .padding(.horizontal, 16)
@@ -1032,6 +1123,7 @@ struct TypingIndicator: View {
             Spacer()
         }
         .onAppear {
+            guard !reduceMotion else { return }
             withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) {
                 phase = .pi * 2
             }

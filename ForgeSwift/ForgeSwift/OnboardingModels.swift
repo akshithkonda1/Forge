@@ -153,6 +153,37 @@ enum OnboardingCoachingStyle: String, CaseIterable, Identifiable {
         case .elite:      return .ultraElite
         }
     }
+
+    /// Onboarding Tone beat — check-in / space / patterns / honest peer.
+    /// Roles stay flavors on the line, not the card title.
+    static let friendToneStyles: [OnboardingCoachingStyle] = [
+        .balanced, .supportive, .scientist, .driven,
+    ]
+
+    var friendToneTitle: String {
+        switch self {
+        case .balanced:   return "Check-in"
+        case .supportive: return "Space"
+        case .scientist:  return "Patterns"
+        case .driven:     return "Honest peer"
+        case .elite:      return "Honest peer"
+        }
+    }
+
+    var friendToneLine: String {
+        switch self {
+        case .balanced:
+            return "I'll check in — trainer flavor when you want it, friend first."
+        case .supportive:
+            return "I'll give you space and still be here."
+        case .scientist:
+            return "I'll notice patterns with you — not to judge."
+        case .driven:
+            return "I'll be an honest peer. Kind, and I won't flinch."
+        case .elite:
+            return "I'll be an honest peer. Kind, and I won't flinch."
+        }
+    }
 }
 
 struct OnboardingProfile {
@@ -171,6 +202,8 @@ struct OnboardingProfile {
     var experienceLevel: ExperienceLevel = .intermediate
     var preferredWorkouts: [OnboardingWorkoutType] = []
     var coachingStyle: OnboardingCoachingStyle = .balanced
+    /// Habits beat — ≤3 friend chips. Empty is fine.
+    var friendHabits: [FriendHabitChip] = []
     var schedulePlanningMode: SchedulePlanningMode = .rotate
     var weeklySplit: [WeeklySplitSlot] = WeeklySplitSlot.defaultWeek
 

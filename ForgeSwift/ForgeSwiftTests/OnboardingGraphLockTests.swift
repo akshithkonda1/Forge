@@ -1,4 +1,5 @@
 import XCTest
+import ForgeCore
 @testable import ForgeSwift
 
 /// App-side lock for the #168 graph. Same shape as AriaCoachAgentRouterTests:
@@ -22,27 +23,24 @@ final class OnboardingGraphLockTests: XCTestCase {
         let coordinator = OnboardingCoordinator()
         coordinator.step = .ready
         XCTAssertEqual(coordinator.progress, 1.0)
-        XCTAssertEqual(coordinator.progressStepIndex, 13)
-        XCTAssertEqual(coordinator.progressStepCount, 13)
+        XCTAssertEqual(coordinator.progressStepIndex, 6)
+        XCTAssertEqual(coordinator.progressStepCount, 6)
 
-        // The app-side trainingTheme/lifeContext legacy cases are gone (deleted
-        // with their now-unreachable interview screens), so allCases and the
-        // graph's activeSteps agree on count. OnboardingGraph.Step (ForgeCore)
-        // still carries the two legacy cases for migration -- see
-        // OnboardingGraphTests.swift for that half of the lock.
+        // App-side interview still lists the leftover cases; the header counts
+        // the six friend-first beats from OnboardingGraph.activeSteps.
         XCTAssertEqual(AriaInterviewStep.allCases.count, 13)
+        XCTAssertEqual(OnboardingGraph.activeSteps.count, 6)
 
         coordinator.step = .intro
         XCTAssertEqual(coordinator.progress, 0)
         XCTAssertEqual(coordinator.progressStepIndex, 1)
 
         coordinator.step = .freeTime
-        XCTAssertEqual(coordinator.progressStepIndex, 10)
-        XCTAssertEqual(coordinator.progressStepCount, 13)
+        XCTAssertEqual(coordinator.progressStepIndex, 4)
+        XCTAssertEqual(coordinator.progressStepCount, 6)
 
         let active: [AriaInterviewStep] = [
-            .intro, .name, .health, .details, .goals, .experience,
-            .workouts, .schedule, .sleep, .freeTime, .coaching, .conditions, .ready,
+            .intro, .name, .health, .freeTime, .coaching, .ready,
         ]
         var last = -1.0
         for step in active {
@@ -62,8 +60,10 @@ final class OnboardingGraphLockTests: XCTestCase {
         coordinator.hasAgreedToTerms = true
         XCTAssertFalse(
             coordinator.canFinish,
-            "terms alone are not enough — name, details, goals, workouts still required"
+            "terms alone are not enough — preferred name is still required"
         )
+        coordinator.profile.name = "Maya"
+        XCTAssertTrue(coordinator.canFinish)
     }
 
     @MainActor
@@ -79,15 +79,19 @@ final class OnboardingGraphLockTests: XCTestCase {
 
         coordinator.step = .sleep
         coordinator.goBack()
-        XCTAssertEqual(coordinator.step, .schedule)
+        XCTAssertEqual(coordinator.step, .health)
 
         coordinator.step = .ready
         coordinator.goBack()
-        XCTAssertEqual(coordinator.step, .conditions)
+        XCTAssertEqual(coordinator.step, .coaching)
 
         coordinator.step = .coaching
         coordinator.goBack()
         XCTAssertEqual(coordinator.step, .freeTime)
+
+        coordinator.step = .freeTime
+        coordinator.goBack()
+        XCTAssertEqual(coordinator.step, .health)
 
         coordinator.isCompleting = true
         coordinator.step = .ready
@@ -102,10 +106,11 @@ final class OnboardingGraphLockTests: XCTestCase {
         XCTAssertFalse(coordinator.canGoBack)
     }
 
-    func testWelcomeHookSaysLearningNotListening() {
-        XCTAssertEqual(AriaOnboardingGuide.welcomeTitle, "ARIA is already learning.")
+    func testWelcomeHookSaysARIANotListening() {
+        XCTAssertEqual(AriaOnboardingGuide.welcomeTitle, "Hey — I'm ARIA.")
         XCTAssertFalse(AriaOnboardingGuide.welcomeTitle.localizedCaseInsensitiveContains("listening"))
         XCTAssertTrue(AriaOnboardingGuide.welcomeSpokenLine.contains("ARIA"))
+        XCTAssertFalse(AriaOnboardingGuide.welcomeSpokenLine.contains("I'm Aria"))
         XCTAssertFalse(AriaOnboardingGuide.welcomeSpokenLine.isEmpty)
     }
 }
