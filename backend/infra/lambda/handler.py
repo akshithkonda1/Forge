@@ -6,33 +6,8 @@ import uuid
 from base64 import b64decode
 from datetime import datetime, timezone
 
-from ai_router import (
-    AIRouter,
-    RouteRequest,
-    RoutingError,
-    bedrock_enabled,
-    default_models,
-    humanize_bytes,
-)
 from auth import extract_user_id
 from responses import RouteError, error_response, not_found, ok
-from routes import (
-    aria,
-    biometrics,
-    chat,
-    coach,
-    cycle,
-    dashboard,
-    devices,
-    form_check,
-    health,
-    integrations,
-    profile,
-    progress,
-    sleep,
-    watch,
-    workouts,
-)
 from security import (
     MAX_JSON_BODY_CHARS,
     is_production_like,
@@ -104,6 +79,8 @@ def _query_int(event: dict, name: str, default: int, *, minimum: int = 1, maximu
 
 
 def _route(event, _context):
+    # Lazy per-route imports: a /health or /dashboard cold start must not pay
+    # for aria_engine + biometrics + Bedrock router at module load.
     request_context = event.get("requestContext", {})
     http_context = request_context.get("http", {})
     method = http_context.get("method", "GET")
@@ -119,6 +96,8 @@ def _route(event, _context):
             "yes",
         }:
             return ok(redacted_health_payload())
+        from ai_router import default_models, humanize_bytes
+
         models = default_models()
         return ok({
             "status": "ok",
@@ -148,11 +127,15 @@ def _route(event, _context):
     # Public product shelf — not user data. The phone merges this onto the
     # bundled catalog so a new SKU can appear without an App Store release.
     if method == "GET" and path == "/devices/catalog":
+        from routes import devices
+
         return devices.handle_get_devices_catalog()
 
     # --- AI router (authenticated; no cross-user data in request) ---
     if method == "POST" and path == "/ai/router":
         try:
+            from ai_router import AIRouter, RouteRequest, RoutingError, bedrock_enabled
+
             # Require auth so the multi-model path cannot be used anonymously for cost abuse.
             extract_user_id(event, required=True)
             # Gate Bedrock the same way /ai/chat is gated: with the flag off, this
@@ -180,102 +163,164 @@ def _route(event, _context):
 
         # AI routes: always bind to authenticated principal (ignore spoofed body user_id)
         if method == "POST" and path == "/ai/archetype":
+            from routes import aria
+
             return aria.handle_post_ai_archetype(body, user_id=user_id)
 
         if method == "POST" and path == "/ai/chat":
+            from routes import aria
+
             return aria.handle_post_ai_chat(body, user_id=user_id)
 
         if method == "GET" and path == "/ai/voice/bootstrap":
+            from routes import aria
+
             return aria.handle_get_ai_voice_bootstrap(body, user_id=user_id)
 
         if method == "POST" and path == "/ai/voice/tool":
+            from routes import aria
+
             return aria.handle_post_ai_voice_tool(body, user_id=user_id)
 
         if method == "POST" and path == "/ai/voice/design":
+            from routes import aria
+
             return aria.handle_post_ai_voice_design(body, user_id=user_id)
 
         if method == "POST" and path == "/ai/weekly-review":
+            from routes import aria
+
             return aria.handle_post_ai_weekly_review(body, user_id=user_id)
 
         if method == "POST" and path == "/ai/observe":
+            from routes import biometrics
+
             return biometrics.handle_post_observe(body, user_id=user_id)
 
         if method == "POST" and path == "/ai/feedback/reaction":
+            from routes import aria
+
             return aria.handle_post_feedback_reaction(body, user_id=user_id)
 
         if method == "POST" and path == "/ai/feedback/plan-outcome":
+            from routes import aria
+
             return aria.handle_post_feedback_plan_outcome(body, user_id=user_id)
 
         if method == "GET" and path == "/me":
+            from routes import profile
+
             return profile.handle_get_me(user_id)
 
         if method == "PUT" and path == "/me/profile":
+            from routes import profile
+
             return profile.handle_put_profile(user_id, body)
 
         if method == "GET" and path == "/dashboard/today":
+            from routes import dashboard
+
             return dashboard.handle_get_dashboard_today(user_id)
 
         if method == "GET" and path == "/sleep":
+            from routes import sleep
+
             days = _query_int(event, "days", 14, maximum=90)
             return sleep.handle_get_sleep(user_id, days)
 
         if method == "POST" and path == "/sleep/sessions":
+            from routes import sleep
+
             return sleep.handle_post_sleep_sessions(user_id, body)
 
         if method == "POST" and path == "/sleep/environment-check":
+            from routes import sleep
+
             return sleep.handle_post_sleep_environment_check(body, user_id=user_id)
 
         if method == "GET" and path == "/workouts/today":
+            from routes import workouts
+
             return workouts.handle_get_workouts_today(user_id)
 
         if method == "GET" and path == "/workouts/history":
+            from routes import workouts
+
             days = _query_int(event, "days", 30, maximum=365)
             return workouts.handle_get_workouts_history(user_id, days)
 
         if method == "POST" and path == "/workouts/logs":
+            from routes import workouts
+
             return workouts.handle_post_workout_log(user_id, body)
 
         if method == "POST" and path == "/workouts/form-check":
+            from routes import form_check
+
             return form_check.handle_post_form_check(body, user_id=user_id)
 
         if method == "GET" and path == "/progress/summary":
+            from routes import progress
+
             days = _query_int(event, "days", 30, maximum=365)
             return progress.handle_get_progress_summary(user_id, days)
 
         if method == "GET" and path == "/chat/threads/current":
+            from routes import chat
+
             return chat.handle_get_chat_thread(user_id)
 
         if method == "POST" and path == "/chat/threads/current/messages":
+            from routes import chat
+
             return chat.handle_post_chat_message(user_id, body)
 
         if method == "POST" and path == "/health/batch":
+            from routes import health
+
             return health.handle_post_health_batch(user_id, body)
 
         if method == "POST" and path == "/coach/messages":
+            from routes import coach
+
             return coach.handle_post_coach_message(user_id, body)
 
         if method == "POST" and path == "/coach/workout-plan":
+            from routes import coach
+
             return coach.handle_post_coach_workout_plan(user_id, body)
 
         if method == "POST" and path == "/coach/sleep-insight":
+            from routes import coach
+
             return coach.handle_post_coach_sleep_insight(user_id, body)
 
         if method == "POST" and path == "/coach/progress-review":
+            from routes import coach
+
             return coach.handle_post_coach_progress_review(user_id, body)
 
         if method == "POST" and path == "/watch/aria/suggest":
+            from routes import watch
+
             return watch.handle_post_watch_aria_suggest(body, user_id)
 
         if method == "POST" and path == "/devices/catalog/seen":
+            from routes import devices
+
             return devices.handle_post_devices_seen(body)
 
         if method == "POST" and path.startswith("/integrations/") and path.endswith("/sync"):
+            from routes import integrations
+
             provider = path[len("/integrations/"):-len("/sync")]
             if provider and "/" not in provider:
                 return integrations.handle_post_integration_sync(user_id, provider, body)
 
         # Apple Cycle PDF: presigned PUT/GET only. No Dynamo. No PDF body in Lambda.
         if method == "POST" and path == "/cycle/report-upload":
+            from routes import cycle
+
             return cycle.handle_post_cycle_report_upload(user_id, body)
 
     except RouteError as exc:
