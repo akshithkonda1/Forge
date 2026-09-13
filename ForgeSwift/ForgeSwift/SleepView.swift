@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SleepView: View {
     @EnvironmentObject var store: AppStore
-    @StateObject private var hkService = HealthKitSleepService.shared
+    @ObservedObject private var hkService = HealthKitSleepService.shared
     @State private var selectedTab: SleepTab = SleepTab.suggested(
         hour: Calendar.current.component(.hour, from: Date())
     )

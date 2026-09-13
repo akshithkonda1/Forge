@@ -591,71 +591,81 @@ extension HealthKitManager {
                 limit: HKObjectQueryNoLimit,
                 sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
             ) { _, samples, _ in
-                guard let samples = samples as? [HKCategorySample], !samples.isEmpty else {
-                    continuation.resume(returning: [])
-                    return
-                }
-
-                let grouped = Dictionary(grouping: samples) { sample -> String in
-                    let day = Calendar.current.startOfDay(for: sample.endDate)
-                    return ISO8601DateFormatter().string(from: day).prefix(10).description
-                }
-
-                let nights: [SleepNightSample] = grouped.compactMap { date, daySamples in
-                    var deep: TimeInterval = 0
-                    var rem: TimeInterval = 0
-                    var light: TimeInterval = 0
-                    var awake: TimeInterval = 0
-
-                    for sample in daySamples {
-                        let duration = sample.endDate.timeIntervalSince(sample.startDate)
-                        switch sample.value {
-                        case HKCategoryValueSleepAnalysis.asleepDeep.rawValue:
-                            deep += duration
-                        case HKCategoryValueSleepAnalysis.asleepREM.rawValue:
-                            rem += duration
-                        case HKCategoryValueSleepAnalysis.asleepCore.rawValue:
-                            light += duration
-                        case HKCategoryValueSleepAnalysis.awake.rawValue:
-                            awake += duration
-                        case HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue:
-                            light += duration
-                        default:
-                            break
-                        }
-                    }
-
-                    let totalHours = (deep + rem + light) / 3600
-                    guard totalHours > 0 else { return nil }
-
-                    // Sleep onset and final wake, from asleep samples only.
-                    // Time in bed reading or lying awake is not sleep, and
-                    // letting it into these bounds drags the mid-sleep point
-                    // toward whenever the watch went on rather than whenever the
-                    // person actually went under — which is the whole signal the
-                    // circadian phase estimate rests on.
-                    let asleepValues: Set<Int> = [
-                        HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
-                        HKCategoryValueSleepAnalysis.asleepREM.rawValue,
-                        HKCategoryValueSleepAnalysis.asleepCore.rawValue,
-                        HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
-                    ]
-                    let asleepSamples = daySamples.filter { asleepValues.contains($0.value) }
-
-                    return SleepNightSample(
-                        date: date,
-                        totalHours: totalHours,
-                        deepMinutes: Int(deep / 60),
-                        remMinutes: Int(rem / 60),
-                        lightMinutes: Int(light / 60),
-                        awakeMinutes: Int(awake / 60),
-                        onset: asleepSamples.map(\.startDate).min(),
-                        wake: asleepSamples.map(\.endDate).max()
-                    )
-                }
-                continuation.resume(returning: nights.sorted { $0.date > $1.date })
+                let categorySamples = samples as? [HKCategorySample] ?? []
+                continuation.resume(returning: Self.makeSleepNightSamples(from: categorySamples))
             }
             healthStore.execute(query)
         }
+    }
+
+    /// Groups raw sleep-analysis samples into one entry per night. Pulled out of
+    /// `fetchRecentSleepSessions` so it can be unit tested without a live
+    /// HealthKit query.
+    static func makeSleepNightSamples(from samples: [HKCategorySample]) -> [SleepNightSample] {
+        guard !samples.isEmpty else { return [] }
+
+        // Bucket by the day containing each sample's start, shifted back 12h —
+        // so a sample starting at 23:40 and one starting at 02:10 land in the
+        // same night instead of fragmenting into two partial ones. Same
+        // technique as SleepNight.groupIntoNights (ForgeCore's SleepModels.swift).
+        let grouped = Dictionary(grouping: samples) { sample -> String in
+            let shifted = sample.startDate.addingTimeInterval(-12 * 3600)
+            let day = Calendar.current.startOfDay(for: shifted)
+            return ISO8601DateFormatter().string(from: day).prefix(10).description
+        }
+
+        let nights: [SleepNightSample] = grouped.compactMap { date, daySamples in
+            var deep: TimeInterval = 0
+            var rem: TimeInterval = 0
+            var light: TimeInterval = 0
+            var awake: TimeInterval = 0
+
+            for sample in daySamples {
+                let duration = sample.endDate.timeIntervalSince(sample.startDate)
+                switch sample.value {
+                case HKCategoryValueSleepAnalysis.asleepDeep.rawValue:
+                    deep += duration
+                case HKCategoryValueSleepAnalysis.asleepREM.rawValue:
+                    rem += duration
+                case HKCategoryValueSleepAnalysis.asleepCore.rawValue:
+                    light += duration
+                case HKCategoryValueSleepAnalysis.awake.rawValue:
+                    awake += duration
+                case HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue:
+                    light += duration
+                default:
+                    break
+                }
+            }
+
+            let totalHours = (deep + rem + light) / 3600
+            guard totalHours > 0 else { return nil }
+
+            // Sleep onset and final wake, from asleep samples only.
+            // Time in bed reading or lying awake is not sleep, and
+            // letting it into these bounds drags the mid-sleep point
+            // toward whenever the watch went on rather than whenever the
+            // person actually went under — which is the whole signal the
+            // circadian phase estimate rests on.
+            let asleepValues: Set<Int> = [
+                HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
+                HKCategoryValueSleepAnalysis.asleepREM.rawValue,
+                HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+                HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
+            ]
+            let asleepSamples = daySamples.filter { asleepValues.contains($0.value) }
+
+            return SleepNightSample(
+                date: date,
+                totalHours: totalHours,
+                deepMinutes: Int(deep / 60),
+                remMinutes: Int(rem / 60),
+                lightMinutes: Int(light / 60),
+                awakeMinutes: Int(awake / 60),
+                onset: asleepSamples.map(\.startDate).min(),
+                wake: asleepSamples.map(\.endDate).max()
+            )
+        }
+        return nights.sorted { $0.date > $1.date }
     }
 }

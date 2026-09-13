@@ -433,6 +433,7 @@ struct AlarmRow: View {
             }))
             .tint(.ember)
             .labelsHidden()
+            .accessibilityLabel("\(alarm.label) alarm, \(timeStr), \(daysStr)")
         }
         .padding(.vertical, 12)
         .opacity(alarm.isEnabled ? 1 : 0.45)

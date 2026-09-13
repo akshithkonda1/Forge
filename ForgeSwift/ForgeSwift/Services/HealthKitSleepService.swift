@@ -110,10 +110,8 @@ final class HealthKitSleepService: ObservableObject {
         let deepScore = min(100, (Double(deepMinutes) / Double(chronotype.deepSleepGoalMinutes)) * 100)
         let remScore = min(100, (Double(remMinutes) / Double(chronotype.remSleepGoalMinutes)) * 100)
 
-        let totalMinutes = totalHours * 60
-        let efficiency = totalMinutes > 0
-            ? max(0, ((totalMinutes - Double(awakeMinutes)) / totalMinutes) * 100)
-            : 0
+        let asleepMinutes = totalHours * 60
+        let efficiency = Self.sleepEfficiencyPercent(asleepMinutes: asleepMinutes, awakeMinutes: awakeMinutes)
 
         // Same spread→confidence map as CircadianRhythm.phase: a 3-hour circular
         // SD is "no schedule". Under five wakes there is not enough signal, so
@@ -133,6 +131,15 @@ final class HealthKitSleepService: ObservableObject {
             + consistency * 0.05
 
         return min(100, max(0, Int(weighted.rounded())))
+    }
+
+    /// Time actually asleep as a fraction of time in bed (asleep + awake).
+    /// Same formula as `SleepData.efficiencyPercent` (Models.swift) — keep them
+    /// consistent rather than each drifting to its own definition of "efficiency".
+    static func sleepEfficiencyPercent(asleepMinutes: Double, awakeMinutes: Int) -> Double {
+        let bed = asleepMinutes + Double(awakeMinutes)
+        guard bed > 0 else { return 0 }
+        return max(0, min(100, (asleepMinutes / bed) * 100))
     }
 
     // MARK: - Sleep Debt
