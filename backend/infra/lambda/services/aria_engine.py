@@ -1019,54 +1019,56 @@ def _interpret_sleep(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
         priority = "high"
 
     duration_floor = usual_hours if usual_hours is not None else 7.0
-    if hours < duration_floor:
-        if usual_hours is not None:
-            interp_bits.append(
-                f"{hours:.1f} h is below your usual {usual_hours:.1f} h — a personal short night"
-            )
-        else:
-            interp_bits.append(f"{hours:.1f} h is below the 7 h floor for cognitive recovery")
-        direction = "negative"
-        priority = "high"
-    elif hours >= max(duration_floor + 0.5, 7.5) and direction == "neutral":
-        interp_bits.append(f"{hours:.1f} h is solid duration")
-        direction = "positive"
-
-    if personal_sleep:
-        baseline_note = f"vs your usual {usual_hours:.1f} h" if usual_hours is not None else "vs your recent nights"
-        kind = "personal"
-    elif ctx.sleep_baseline_ready:
-        baseline_note = "vs your recent nights"
-        kind = "personal" if ctx.sleep_baseline_ready else "population"
-    else:
-        baseline_note = "vs typical adult ranges (no personal sleep baseline yet)"
-        kind = "population"
-    # Personal baseline check — robust band when history exists
-    if s.baseline_median_minutes is not None and s.baseline_mad_minutes is not None and s.baseline_mad_minutes > 1e-9:
+    used_personal_mad = (
+        s.baseline_median_minutes is not None
+        and s.baseline_mad_minutes is not None
+        and s.baseline_mad_minutes > 1e-9
+    )
+    if used_personal_mad:
         mad = s.baseline_mad_minutes
         # 1.4826*MAD ≈ sigma; use 2 sigma as personal low band (≈ 95% interval)
         personal_low = s.baseline_median_minutes - 2 * 1.4826 * mad
+        usual = s.baseline_median_minutes / 60
         if s.duration_minutes < personal_low:
             interp_bits.append(
-                f"{hours:.1f} h is below your usual {usual_hours:.1f} h — a personal short night"
+                f"{hours:.1f} h is below your usual {usual:.1f} h "
+                f"(personal low ~{personal_low / 60:.1f} h) — short for you"
             )
-        else:
-            interp_bits.append(f"{hours:.1f} h is below the 7 h floor for cognitive recovery")
-        direction = "negative"
-        priority = "high"
-    elif hours >= max(duration_floor + 0.5, 7.5) and direction == "neutral":
-        interp_bits.append(f"{hours:.1f} h is solid duration")
-        direction = "positive"
-
-    if personal_sleep:
-        baseline_note = f"vs your usual {usual_hours:.1f} h" if usual_hours is not None else "vs your recent nights"
+            direction = "negative"
+            priority = "high"
+        elif s.duration_minutes >= s.baseline_median_minutes - mad:
+            interp_bits.append(f"{hours:.1f} h is around your usual {usual:.1f} h")
+            if direction == "neutral":
+                direction = "positive"
+        interp_bits = [b for b in interp_bits if "below the 7 h floor" not in b]
+        baseline_note = (
+            f"vs your usual {usual:.1f} h (personal baseline, n={s.nights_available or '?'})"
+        )
         kind = "personal"
-    elif ctx.sleep_baseline_ready:
-        baseline_note = "vs your recent nights"
-        kind = "personal" if ctx.sleep_baseline_ready else "population"
     else:
-        baseline_note = "vs typical adult ranges (no personal sleep baseline yet)"
-        kind = "population"
+        if hours < duration_floor:
+            if usual_hours is not None:
+                interp_bits.append(
+                    f"{hours:.1f} h is below your usual {usual_hours:.1f} h — a personal short night"
+                )
+            else:
+                interp_bits.append(f"{hours:.1f} h is below the 7 h floor for cognitive recovery")
+            direction = "negative"
+            priority = "high"
+        elif hours >= max(duration_floor + 0.5, 7.5) and direction == "neutral":
+            interp_bits.append(f"{hours:.1f} h is solid duration")
+            direction = "positive"
+        if personal_sleep:
+            baseline_note = (
+                f"vs your usual {usual_hours:.1f} h" if usual_hours is not None else "vs your recent nights"
+            )
+            kind = "personal"
+        elif ctx.sleep_baseline_ready:
+            baseline_note = "vs your recent nights"
+            kind = "personal"
+        else:
+            baseline_note = "vs typical adult ranges (no personal sleep baseline yet)"
+            kind = "population"
     interpretation = "; ".join(interp_bits) if interp_bits else "sleep architecture looks unremarkable"
     return Signal("sleep", "Sleep", ", ".join(parts), baseline_note, interpretation, priority, direction, kind)
 
@@ -1296,9 +1298,7 @@ def _sleep_variance_habit(ctx: ARIAContext) -> tuple[str, str, int] | None:
     return None
 
 
-def _interpret_lifestyle(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
-    """Turn lifestyle habit tags into a Signal the rest of the engine can use.
-def _interpret_chronotype(ctx: ARIAContext) -> Signal | None:
+def _interpret_chronotype(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     """Interpret circadian alignment from chronotype context.
 
     Missing typical times → no signal (not enough to place a phase). Low
@@ -1342,7 +1342,7 @@ def _interpret_chronotype(ctx: ARIAContext) -> Signal | None:
     return Signal("chronotype", "Chronotype", ", ".join(parts) or "chronotype available", "vs your habitual window", interpretation, priority, direction)
 
 
-def _interpret_progress(ctx: ARIAContext) -> Signal | None:
+def _interpret_progress(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     """Trend over 30 days — weeks, not just today."""
     p = ctx.progress
     if p.workouts_completed_30d is None and p.training_load_trend is None and p.new_personal_records is None:
@@ -1378,7 +1378,7 @@ def _interpret_progress(ctx: ARIAContext) -> Signal | None:
     return Signal("progress", "Progress", ", ".join(parts), "vs 30-day trend", interpretation, priority, direction)
 
 
-def _interpret_lifestyle(ctx: ARIAContext) -> Signal | None:
+def _interpret_lifestyle(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     """Turn lifestyle habit tags and QoL into a Signal the rest of the engine can use.
 
     Last-night sleep and HRV can look fine while weekday timing still wobbles.
