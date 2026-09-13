@@ -1654,7 +1654,12 @@ def _clarification_response(ctx: ARIAContext, restricted: list[str], voice_mode:
 
 _VITALS_SPEAK = re.compile(
     r"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score|sleep[- ]?debt)\b"
-    r"|%\s*(?:below|above|under|over)\s+baseline",
+    r"|%\s*(?:below|above|under|over)\s+baseline"
+    # HUD leftovers Dummy speak_quality also rejects (Iris tokens miss these).
+    r"|\bsleep:\s*\d"
+    r"|\d+(?:\.\d+)?\s?h total\b"
+    r"|\d+\s?min deep\b"
+    r"|\bdeep sleep at\s+\d+(?:\.\d+)?\s*%",
     re.I,
 )
 _SPEAK_FALLBACK = "Fit training around the day you already have."
