@@ -484,7 +484,7 @@ class HealthKitManager: ObservableObject {
         }
     }
 
-    nonisolated static func dailyStatsHaveReadableSamples(_ stats: DailyHealthStats?) -> Bool {
+    static func dailyStatsHaveReadableSamples(_ stats: DailyHealthStats?) -> Bool {
         guard let stats else { return false }
         return stats.steps > 0
             || stats.activeCalories > 0
