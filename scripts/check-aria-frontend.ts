@@ -1,8 +1,8 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { coachReply } from "../src/lib/aria-coach.ts";
 import { ARIA_CINEMATIC_LINES, firstSessionScript, whisperForStep, welcomeChatMessage } from "../src/lib/aria-onboarding.ts";
 import { ARIA_INTRO } from "../src/lib/aria-intro.ts";
-import { ARIA_LOBES, ARIA_MARK, clampGaze, emberCoreRadius, emberLobe } from "../src/lib/aria-mark.ts";
+import { ARIA_LOBES, ARIA_MARK, LEGACY_EMBER, clampGaze, emberCoreRadius, emberLobe } from "../src/lib/aria-mark.ts";
 import type { DailyMetrics, ReadinessData, UserProfile } from "../src/types/index.ts";
 
 const profile: UserProfile = {
@@ -37,27 +37,25 @@ function assert(cond: unknown, msg: string) {
 }
 
 const contract = JSON.parse(readFileSync("shared/aria-mark.json", "utf8")) as typeof ARIA_MARK;
-assert(ARIA_MARK.assetName === "AriaLogo", "ARIA mark asset is AriaLogo");
-assert(ARIA_MARK.assetName === contract.assetName, "web assetName matches shared/aria-mark.json");
-assert(ARIA_MARK.cropScale === 1, "ember mark is not zoom-cropped past a ring");
-assert(ARIA_MARK.cropScale === contract.cropScale, "web cropScale matches shared/aria-mark.json");
-assert(ARIA_MARK.lobeCount === 4, "living ember has four lobes");
-assert(ARIA_MARK.lobeCount === contract.lobeCount, "web lobeCount matches shared/aria-mark.json");
-assert(ARIA_LOBES.length === ARIA_MARK.lobeCount, "lobe table matches lobeCount");
-assert(ARIA_MARK.idleBreathHz === contract.idleBreathHz, "web idle breath matches shared/aria-mark.json");
-assert(ARIA_MARK.speakingBreathHz === contract.speakingBreathHz, "web speaking breath matches shared/aria-mark.json");
-assert(ARIA_MARK.maxGaze === 0.14, "gaze stays inside the mark");
-assert(ARIA_MARK.maxGaze === contract.maxGaze, "web maxGaze matches shared/aria-mark.json");
-assert(ARIA_MARK.stillPose === contract.stillPose, "web stillPose matches shared/aria-mark.json");
-assert(existsSync("public/aria-mark.png"), "still-frame web ARIA mark asset is present");
-assert(existsSync("shared/brand/aria-mark.png"), "still-frame shared ARIA mark asset is present");
+assert(ARIA_MARK.assetName === "AriaMark", "ARIA mark asset is AriaMark");
+assert(ARIA_MARK.kind === "ring-field", "living mark is kinetic ring-field");
+assert(ARIA_MARK.ringCount === 5, "ring-field has five ellipses");
+assert(ARIA_MARK.radii.length === ARIA_MARK.ringCount, "radii match ringCount");
+assert(ARIA_MARK.eccentricity.length === ARIA_MARK.ringCount, "eccentricity match ringCount");
+assert(ARIA_MARK.tiltDeg.length === ARIA_MARK.ringCount, "tiltDeg match ringCount");
+assert(ARIA_MARK.phaseOffsets.length === ARIA_MARK.ringCount, "phaseOffsets match ringCount");
+assert(ARIA_MARK.opacity.length === ARIA_MARK.ringCount, "opacity match ringCount");
+assert(ARIA_MARK.idleSpinHz < ARIA_MARK.speakingSpinHz, "speaking spins faster than idle");
+assert(JSON.stringify(ARIA_MARK) === JSON.stringify(contract), "web ARIA_MARK matches shared/aria-mark.json");
+assert(!("webPath" in ARIA_MARK) && !("sharedPath" in contract), "PNG is not the brand runtime");
 
 const stillA = emberLobe(0, 1, false, true);
 const stillB = emberLobe(0, 99, true, true);
 assert(stillA.x === stillB.x && stillA.y === stillB.y && stillA.r === stillB.r, "reduce-motion freezes lobes");
 assert(emberCoreRadius(1, true, true) === emberCoreRadius(40, false, true), "reduce-motion freezes the core");
 assert(emberCoreRadius(0.4, true, false) > emberCoreRadius(0.4, false, false), "speaking core is larger");
-assert(clampGaze(1) === ARIA_MARK.maxGaze && clampGaze(-1) === -ARIA_MARK.maxGaze, "gaze is clamped");
+assert(clampGaze(1) === LEGACY_EMBER.maxGaze && clampGaze(-1) === -LEGACY_EMBER.maxGaze, "gaze is clamped");
+assert(ARIA_LOBES.length === 4, "legacy ember still has four lobes");
 const liveA = emberLobe(1, 0.4, false, false);
 const liveB = emberLobe(1, 1.1, false, false);
 assert(liveA.x !== liveB.x || liveA.y !== liveB.y || liveA.r !== liveB.r, "idle lobes move when alive");
