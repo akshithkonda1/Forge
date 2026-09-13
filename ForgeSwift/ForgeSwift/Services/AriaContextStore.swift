@@ -734,7 +734,7 @@ final class AriaContextStore: ObservableObject {
         context.deepHabits = habits
         tags.append(contentsOf: HabitEngine.lifestyleTags(for: habits))
         patterns.append(contentsOf: habits.map { "habit_loop:\($0.id):\($0.cue) → \($0.cost)" })
-        if AriaGuidancePolicy.shouldRemindOnOrdinaryTurn(turnIndex: context.totalMessageCount),
+        if AriaGuidancePolicy.shouldRemindOnOrdinaryTurn(turnIndex: lastObservedContext?.conversation?.totalTurns ?? 0),
            let line = HabitEngine.companionLine(for: habits) {
             context.lastInsights.insert(line, at: 0)
             if context.lastInsights.count > 15 { context.lastInsights = Array(context.lastInsights.prefix(15)) }
