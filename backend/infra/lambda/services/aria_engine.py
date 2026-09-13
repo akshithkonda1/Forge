@@ -1737,6 +1737,13 @@ def _recommendation_response(
     is_lifestyle = brief is not None and str(getattr(brief, "lead_domain", "") or "") == "lifestyle"
     notice = _lifestyle_notice(" ".join(notice_bits), brief, action)
     sleep_safe = "Sleep first tonight — protect wind-down before training volume."
+    # #264 sanitizer still keys off sleep_first; #262 moved the gate into
+    # aria_evidence, so restore the same HRV↓ + tonight-debt>2h flag here.
+    hrv_falling = ctx.readiness.hrv_7day_trend is not None and ctx.readiness.hrv_7day_trend <= -8
+    sleep_debt_h = 0.0
+    if ctx.sleep.duration_minutes is not None:
+        sleep_debt_h = max(0.0, 8 - (ctx.sleep.duration_minutes or 0) / 60.0)
+    sleep_first = hrv_falling and sleep_debt_h > 2 and "sleep" not in restricted
     if is_lifestyle:
         # Keep already-clean lifestyle/habit prose (e.g. sleep variance);
         # swap in how_you_work only when the recommendation dump is dirty.
