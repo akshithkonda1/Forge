@@ -1302,9 +1302,7 @@ def _sleep_variance_habit(ctx: ARIAContext) -> tuple[str, str, int] | None:
     return None
 
 
-def _interpret_lifestyle(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
-    """Turn lifestyle habit tags into a Signal the rest of the engine can use.
-def _interpret_chronotype(ctx: ARIAContext) -> Signal | None:
+def _interpret_chronotype(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     """Interpret circadian alignment from chronotype context.
 
     Missing typical times → no signal (not enough to place a phase). Low
@@ -1348,7 +1346,7 @@ def _interpret_chronotype(ctx: ARIAContext) -> Signal | None:
     return Signal("chronotype", "Chronotype", ", ".join(parts) or "chronotype available", "vs your habitual window", interpretation, priority, direction)
 
 
-def _interpret_progress(ctx: ARIAContext) -> Signal | None:
+def _interpret_progress(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     """Trend over 30 days — weeks, not just today."""
     p = ctx.progress
     if p.workouts_completed_30d is None and p.training_load_trend is None and p.new_personal_records is None:
@@ -1384,7 +1382,7 @@ def _interpret_progress(ctx: ARIAContext) -> Signal | None:
     return Signal("progress", "Progress", ", ".join(parts), "vs 30-day trend", interpretation, priority, direction)
 
 
-def _interpret_lifestyle(ctx: ARIAContext) -> Signal | None:
+def _interpret_lifestyle(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     """Turn lifestyle habit tags and QoL into a Signal the rest of the engine can use.
 
     Last-night sleep and HRV can look fine while weekday timing still wobbles.

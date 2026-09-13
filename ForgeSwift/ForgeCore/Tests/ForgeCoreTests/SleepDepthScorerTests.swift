@@ -10,9 +10,11 @@ final class OnlineStatTests: XCTestCase {
         }
         XCTAssertEqual(stat.n, 8)
         XCTAssertEqual(stat.mean, 5.0, accuracy: 1e-9)
-        // Sample stdev of that series is 2.
-        XCTAssertEqual(stat.std, 2.0, accuracy: 1e-9)
-        XCTAssertEqual(stat.zscore(7), 1.0, accuracy: 1e-9)
+        // Same series Wikipedia uses for σ = 2 (divide by n). Welford here
+        // matches Python `OnlineStat`: sample std, divide by n-1 → √(32/7).
+        let sampleStd = (32.0 / 7.0).squareRoot()
+        XCTAssertEqual(stat.std, sampleStd, accuracy: 1e-9)
+        XCTAssertEqual(stat.zscore(7), 2.0 / sampleStd, accuracy: 1e-9)
         XCTAssertEqual(stat.last, 9.0)
     }
 

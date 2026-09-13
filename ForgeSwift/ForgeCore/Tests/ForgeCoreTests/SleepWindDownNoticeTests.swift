@@ -27,6 +27,10 @@ final class SleepWindDownNoticeTests: XCTestCase {
             cutoverStart: Date(timeIntervalSince1970: 1_700_000_000)
         )
         let hour = SleepWindDownNotice.inferredBedtimeHour(goal: goal, needHours: 8)
+        guard let hour else {
+            XCTFail("active wake goal should infer a bedtime")
+            return
+        }
         XCTAssertEqual(hour, 22.0, accuracy: 0.01)
     }
 
