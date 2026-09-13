@@ -72,6 +72,12 @@ final class WorkoutActivityCoordinator: NSObject, WCSessionDelegate {
                 )
             }
         }
+        if let data = payload[WorkoutLinkKeys.sleepSample] as? Data,
+           let sample = try? JSONDecoder().decode(WatchSleepSamplePayload.self, from: data) {
+            Task { @MainActor in
+                await SleepAlarmScheduler.considerWatchSleep(sample)
+            }
+        }
         if payload[WorkoutLinkKeys.ended] != nil {
             Task { await self.endActivity() }
             return

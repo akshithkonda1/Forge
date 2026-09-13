@@ -35,13 +35,16 @@ final class HealthDeviceCatalogSync: ObservableObject {
 
     func refresh(healthSources: [String] = []) async {
         loadCached()
-        if let payload = await fetchRemote() {
+        let dummy = AriaService.shouldUseTestReadyDummy || AriaOperatingMode.current.isLocalTesting
+        if !dummy, let payload = await fetchRemote() {
             try? HealthDeviceCatalog.encodePayload(payload).write(to: cacheURL, options: .atomic)
             HealthDeviceCatalog.applyRemote(payload)
         }
         let discovered = HealthDeviceCatalog.inferredDevices(fromHealthSources: healthSources)
         HealthDeviceCatalog.applyDiscovered(discovered)
-        await reportSeen(discovered)
+        if !dummy {
+            await reportSeen(discovered)
+        }
         lastUpdated = Date()
         bump()
     }

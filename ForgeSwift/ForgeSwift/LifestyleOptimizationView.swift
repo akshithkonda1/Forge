@@ -12,13 +12,11 @@ struct AIOptimizationContent: View {
         LazyVStack(spacing: 20) {
             LocationQuickLogCard(locationLogger: locationLogger, vm: vm)
             TodaysFocusCard(vm: vm)
-            
-            // NEW: Real-time HealthKit Dashboard
+
             if let stats = vm.healthStats {
                 LiveHealthDashboard(stats: stats, trends: vm.weeklyTrends)
             }
-            
-            // NEW: AI Workout Suggestions
+
             if !vm.aiWorkouts.isEmpty {
                 AIWorkoutSuggestionsCard(workouts: vm.aiWorkouts)
             }
@@ -28,8 +26,7 @@ struct AIOptimizationContent: View {
             AILifeAnalysisCard(metrics: vm.metrics, analysis: vm.aiLifeAnalysis, isLive: vm.aiInsightsLive)
             AIRecommendationsCard(recommendations: vm.recommendations, store: store)
             OptimizationGoalsCard(vm: vm)
-            
-            // NEW: Recovery & Performance
+
             if let stats = vm.healthStats {
                 RecoveryMetricsCard(stats: stats)
             }

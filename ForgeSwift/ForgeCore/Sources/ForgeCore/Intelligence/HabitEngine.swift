@@ -199,7 +199,7 @@ public enum HabitEngine {
         guard let top = habits.first else { return nil }
         switch top.id {
         case "sleep_variance":
-            return "I see a wobbly wind-down \(top.evidence.lowercased()). Want to try the kitchen-phone break tonight?"
+            return "You're becoming someone with a regular night. \(top.evidence) Tonight: leave the phone in the kitchen at 22:00."
         case "social_late":
             return "Late social nights are pushing your sleep \(top.evidence.lowercased()). One earlier night this week would move the needle."
         case "hydration":

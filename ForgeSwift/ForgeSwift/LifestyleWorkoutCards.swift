@@ -1,9 +1,8 @@
 import SwiftUI
-import WorkoutKit
-import ForgeCore
 
 struct AIWorkoutSuggestionsCard: View {
     let workouts: [AIWorkoutSuggestion]
+    @EnvironmentObject var store: AppStore
     @State private var appeared = false
     @State private var selectedWorkout: CustomWorkoutPlan?
     
@@ -13,7 +12,7 @@ struct AIWorkoutSuggestionsCard: View {
                 Image(systemName: "figure.strengthtraining.traditional")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.ember)
-                Text("AI Workout Suggestions")
+                Text("Train suggestions")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.textPrimary)
                 Spacer()
@@ -44,6 +43,7 @@ struct AIWorkoutSuggestionsCard: View {
         .onAppear { appeared = true }
         .sheet(item: $selectedWorkout) { workout in
             WorkoutDetailSheet(workout: workout)
+                .environmentObject(store)
         }
     }
 }
@@ -106,6 +106,7 @@ struct AIWorkoutCard: View {
 
 struct WorkoutDetailSheet: View {
     let workout: CustomWorkoutPlan
+    @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -139,15 +140,15 @@ struct WorkoutDetailSheet: View {
                         }
                     }
                     
-                    // Start workout button
                     Button {
-                        // Integration with WorkoutKit would go here
+                        store.adoptCustomWorkoutPlan(workout)
+                        store.startExistingWorkout()
                         dismiss()
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "play.fill")
                                 .font(.system(size: 16, weight: .bold))
-                            Text("Start Workout")
+                            Text("Start session")
                                 .font(.system(size: 17, weight: .bold))
                         }
                         .foregroundColor(.white)

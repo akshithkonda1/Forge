@@ -121,6 +121,10 @@ enum SleepWakeEngine {
             .0
     }
 
+    static func liveNotificationId(for alarmID: UUID, dayKey: String) -> String {
+        idPrefix + "live." + alarmID.uuidString + "." + dayKey
+    }
+
     static func hardNotificationId(for alarmID: UUID) -> String { idPrefix + "hard." + alarmID.uuidString }
     static func smartNotificationId(for alarmID: UUID) -> String { idPrefix + "smart." + alarmID.uuidString }
     static func snoozeNotificationId(for alarmID: UUID) -> String { idPrefix + "snooze." + alarmID.uuidString }
@@ -302,7 +306,7 @@ struct SleepWakeCoach: Equatable {
         case .windowOpen:
             return (
                 "Smart window is open",
-                "If you're already light, get up now. The hard alarm still fires at \(timeLabel).",
+                "If you're already light, get up now. The hard alarm still fires at \(timeLabel). Forge only knows that if Apple has delivered a sample in this window.",
                 "I'm in the smart-wake window before \(timeLabel). If I'm light, get me up now."
             )
         case .due:

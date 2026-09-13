@@ -21,7 +21,7 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .home: return "Home"
-        case .workout: return "Workout"
+        case .workout: return "Train"
         case .chat: return "ARIA"
         case .lifestyle: return "Lifestyle"
         case .sleep: return "Sleep"
@@ -35,7 +35,7 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .home: return "Readiness, brief, next action"
-        case .workout: return "Today’s session & training"
+        case .workout: return "Today’s session — scaled to how you showed up"
         case .chat: return "Talk to ARIA"
         case .lifestyle: return "Nutrition, meals, wellbeing"
         case .sleep: return "Sleep, alarms, wind-down"

@@ -17,7 +17,7 @@ extension AppStore {
     @MainActor
     func shareWorkoutInsightsIfNeeded(_ lines: [String]) {
         guard !lines.isEmpty else { return }
-        let text = "Workout: " + lines.joined(separator: " ")
+        let text = "Train: " + lines.joined(separator: " ")
         guard AriaContextStore.shared.context.lastInsights.first != text else { return }
         AriaContextStore.shared.addInsight(text)
     }
@@ -49,23 +49,39 @@ extension AppStore {
         currentSet = 1
     }
 
-    func endWorkout(completed: Bool = true) {
+    func endWorkout(
+        completed: Bool = true,
+        startedAt: Date? = nil,
+        elapsedSeconds: Int? = nil,
+        energyKilocalories: Double? = nil
+    ) {
         isWorkoutActive = false
         currentExerciseIndex = 0
         currentSet = 1
         
         let planId = todayWorkout?.id ?? "today-workout"
         if let workout = todayWorkout, completed {
+            let minutes = max(1, (elapsedSeconds ?? (workout.duration * 60)) / 60)
             let history = WorkoutHistory(
                 id: UUID().uuidString,
                 date: ISO8601DateFormatter().string(from: Date()),
                 name: workout.name,
                 type: workout.type,
-                duration: workout.duration,
+                duration: minutes,
                 volume: workout.exercises.reduce(0) { $0 + ($1.sets * ($1.weight ?? 0)) },
                 intensity: workout.intensity
             )
             workoutHistory.insert(history, at: 0)
+            let energy = energyKilocalories ?? Double(workout.estimatedCalories)
+            let started = startedAt ?? Date().addingTimeInterval(-TimeInterval(max(1, minutes) * 60))
+            Task {
+                await HealthKitManager.shared.saveTrainWorkout(
+                    startedAt: started,
+                    endedAt: Date(),
+                    name: workout.name,
+                    energyKilocalories: energy
+                )
+            }
         }
         recomputeStreak()
 
@@ -101,7 +117,7 @@ extension AppStore {
             if duration >= 35 { return .moderate }
             return .low
         }()
-        todayWorkout = WorkoutPlan(
+        let plan = WorkoutPlan(
             id: "aria-today-\(UUID().uuidString.prefix(6))",
             name: name,
             type: .strength,
@@ -109,6 +125,48 @@ extension AppStore {
             intensity: intensity,
             exercises: exercises
         )
+        todayWorkout = AdaptiveEngine.apply(
+            to: plan,
+            readiness: readiness,
+            experience: userProfile.experienceLevel
+        )
+    }
+
+    /// Lifestyle suggestion → today's Train board, already scaled.
+    func adoptCustomWorkoutPlan(_ plan: CustomWorkoutPlan) {
+        guard !isWorkoutActive else { return }
+        let exercises = plan.exercises.enumerated().map { index, move in
+            Exercise(
+                id: move.id.uuidString,
+                name: move.name,
+                sets: move.sets,
+                reps: "\(move.reps)",
+                weight: nil,
+                restSeconds: move.restSeconds,
+                notes: nil
+            )
+        }
+        let mapped = WorkoutPlan(
+            id: plan.id.uuidString,
+            name: plan.name,
+            type: .strength,
+            duration: plan.duration,
+            intensity: .moderate,
+            exercises: exercises
+        )
+        todayWorkout = AdaptiveEngine.apply(
+            to: mapped,
+            readiness: readiness,
+            experience: userProfile.experienceLevel
+        )
+    }
+
+    /// User feels good — add a working set on this movement without undoing ARIA's scale.
+    func addFeltSet(exerciseId: String) {
+        guard var workout = todayWorkout,
+              let index = workout.exercises.firstIndex(where: { $0.id == exerciseId }) else { return }
+        workout.exercises[index].sets += 1
+        todayWorkout = workout
     }
     
     // MARK: - Data Management

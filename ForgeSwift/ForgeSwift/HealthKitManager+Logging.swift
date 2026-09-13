@@ -372,4 +372,134 @@ extension HealthKitManager {
             print("Mucus HK save failed: \(error.localizedDescription)")
         }
     }
+
+    // MARK: - Train + Sleep session I/O
+
+    func latestHeartRateBPM() async -> Int? {
+        let bpm = await fetchMostRecentQuantity(
+            .heartRate,
+            unit: HKUnit.count().unitDivided(by: .minute())
+        )
+        guard let bpm, bpm > 30, bpm < 230 else { return nil }
+        return Int(bpm.rounded())
+    }
+
+    func startLiveHeartRateUpdates(_ onBPM: @escaping @Sendable (Int) -> Void) {
+        stopLiveHeartRateUpdates()
+        let type = HKQuantityType(.heartRate)
+        let unit = HKUnit.count().unitDivided(by: .minute())
+        let query = HKAnchoredObjectQuery(
+            type: type,
+            predicate: nil,
+            anchor: nil,
+            limit: HKObjectQueryNoLimit
+        ) { _, samples, _, _, _ in
+            Self.emitHeartRate(samples, unit: unit, onBPM: onBPM)
+        }
+        query.updateHandler = { _, samples, _, _, _ in
+            Self.emitHeartRate(samples, unit: unit, onBPM: onBPM)
+        }
+        healthStore.execute(query)
+        liveHeartRateQuery = query
+    }
+
+    func stopLiveHeartRateUpdates() {
+        if let liveHeartRateQuery {
+            healthStore.stop(liveHeartRateQuery)
+        }
+        liveHeartRateQuery = nil
+    }
+
+    private nonisolated static func emitHeartRate(
+        _ samples: [HKSample]?,
+        unit: HKUnit,
+        onBPM: @escaping @Sendable (Int) -> Void
+    ) {
+        guard let sample = samples?.last as? HKQuantitySample else { return }
+        let bpm = Int(sample.quantity.doubleValue(for: unit).rounded())
+        guard bpm > 30, bpm < 230 else { return }
+        Task { @MainActor in onBPM(bpm) }
+    }
+
+    func saveTrainWorkout(
+        startedAt: Date,
+        endedAt: Date,
+        name: String,
+        energyKilocalories: Double
+    ) async {
+        guard isHealthDataAvailable(), isAuthorized else { return }
+        let end = max(endedAt, startedAt.addingTimeInterval(60))
+        let config = HKWorkoutConfiguration()
+        config.activityType = .traditionalStrengthTraining
+        config.locationType = .indoor
+        let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: config, device: .local())
+        do {
+            try await builder.beginCollection(at: startedAt)
+            if energyKilocalories > 0 {
+                let energy = HKQuantity(unit: .kilocalorie(), doubleValue: energyKilocalories)
+                let sample = HKQuantitySample(
+                    type: HKQuantityType(.activeEnergyBurned),
+                    quantity: energy,
+                    start: startedAt,
+                    end: end,
+                    metadata: [
+                        HKMetadataKeyWorkoutBrandName: "Forge",
+                    ]
+                )
+                try await builder.addSamples([sample])
+            }
+            try await builder.addMetadata([
+                HKMetadataKeyWorkoutBrandName: "Forge",
+                HKMetadataKeyIndoorWorkout: true,
+            ])
+            try await builder.endCollection(at: end)
+            _ = try await builder.finishWorkout()
+        } catch {
+            print("Train Health write failed: \(error.localizedDescription)")
+        }
+    }
+
+    func saveInBedWindow(startedAt: Date, endedAt: Date = Date()) async {
+        guard isHealthDataAvailable(), isAuthorized else { return }
+        let end = max(endedAt, startedAt.addingTimeInterval(60))
+        let sample = HKCategorySample(
+            type: HKCategoryType(.sleepAnalysis),
+            value: HKCategoryValueSleepAnalysis.inBed.rawValue,
+            start: startedAt,
+            end: end,
+            metadata: [HKMetadataKeyWasUserEntered: true]
+        )
+        do {
+            try await healthStore.save(sample)
+        } catch {
+            print("Sleep in-bed Health write failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Most recent user-entered or Watch in-bed sample in the last two days.
+    /// Stages still come from `fetchRecentSleepSessions`; this is the window
+    /// someone actually logged when Apple has not scored a night yet.
+    func fetchLatestInBedWindow() async -> (start: Date, end: Date)? {
+        guard isAuthorized else { return nil }
+        let sleepType = HKCategoryType(.sleepAnalysis)
+        let start = Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date()
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: sleepType,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
+            ) { _, samples, _ in
+                let match = (samples as? [HKCategorySample])?
+                    .first { $0.value == HKCategoryValueSleepAnalysis.inBed.rawValue }
+                guard let match else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: (match.startDate, match.endDate))
+            }
+            healthStore.execute(query)
+        }
+    }
 }

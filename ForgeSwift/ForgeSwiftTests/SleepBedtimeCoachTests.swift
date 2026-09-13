@@ -164,6 +164,22 @@ final class SleepBedtimeCoachTests: XCTestCase {
         )
         XCTAssertTrue(coach.cue.contains("earlier") || coach.cue.contains("Shifting"), coach.cue)
         XCTAssertFalse(coach.scheduleNote.isEmpty)
+    func testDayEmptyCopyIsHonestWhenHealthIsConnected() {
+        let connected = HealthKitSleepService.dayEmptyCopy(healthConnected: true)
+        XCTAssertEqual(connected.title, "No scored night yet")
+        XCTAssertTrue(connected.message.localizedCaseInsensitiveContains("in-bed"))
+        XCTAssertFalse(connected.message.localizedCaseInsensitiveContains("reconnect"))
+        XCTAssertEqual(connected.cta, "Refresh from Apple Health")
+
+        let disconnected = HealthKitSleepService.dayEmptyCopy(healthConnected: false)
+        XCTAssertEqual(disconnected.title, "Connect Apple Health to unlock sleep")
+        XCTAssertEqual(disconnected.cta, "Reconnect Apple Health")
+    }
+
+    func testInBedWindowIsHoursNotAScore() {
+        let start = Date(timeIntervalSince1970: 0)
+        let window = InBedWindow(start: start, end: start.addingTimeInterval(7.5 * 3600))
+        XCTAssertEqual(window.hours, 7.5, accuracy: 0.01)
     }
 
     private func date(_ y: Int, _ m: Int, _ d: Int, _ h: Int, _ min: Int) -> Date {

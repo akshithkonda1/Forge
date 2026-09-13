@@ -4,6 +4,13 @@ import UIKit
 import CoreGraphics
 import ForgeCore
 
+/// A logged in-bed window from Apple Health. Not a scored night.
+struct InBedWindow: Equatable {
+    let start: Date
+    let end: Date
+    var hours: Double { max(0, end.timeIntervalSince(start) / 3600) }
+}
+
 /// Chronotype-aware sleep intelligence: HealthKit ingestion, scoring, adaptive wake/sunrise, and ARIA context.
 @MainActor
 final class HealthKitSleepService: ObservableObject {
@@ -32,8 +39,16 @@ final class HealthKitSleepService: ObservableObject {
     /// Last scored nights, so the alarm scheduler can widen/narrow the smart
     /// window from score and debt without re-querying HealthKit.
     @Published private(set) var cachedSleepData: [SleepData] = []
+    /// Open in-bed clock, local until they tap I'm up and Apple Health accepts the write.
+    @Published var inBedStartedAt: Date?
+    /// Last in-bed window we wrote or read. Not a sleep score.
+    @Published var lastInBedWindow: InBedWindow?
+
+    /// Unusual-for-you flags from the newest scored night. Nil until a night lands.
+    @Published private(set) var lastDepthResult: SleepDepthResult?
 
     private let healthKit = HealthKitManager.shared
+    private var cachedSleepData: [SleepData] = []
 
     private init() {
         userProfile = Self.loadUserSleepProfile() ?? UserSleepProfile()
@@ -45,10 +60,12 @@ final class HealthKitSleepService: ObservableObject {
             intensity: Chronotype.bear.baseSunriseIntensity,
             rationale: "Balanced sunrise for your chronotype"
         )
+        loadOpenInBed()
     }
 
     private static let sunriseDurationKey = "forge.sunrise.durationMinutes"
     private static let sunriseColorKey = "forge.sunrise.colorTemp"
+    private static let inBedStartKey = "forge.sleep.inBedStartedAt"
 
     func applySunriseOverrides(durationMinutes: Int, colorTemp: Double) {
         currentSunriseConfig.durationMinutes = min(60, max(5, durationMinutes))
@@ -72,10 +89,71 @@ final class HealthKitSleepService: ObservableObject {
 
     // MARK: - Fetch + Score
 
+    /// Honest Day-tab empty copy. Connected-but-empty is not "reconnect."
+    nonisolated static func dayEmptyCopy(healthConnected: Bool) -> (title: String, message: String, cta: String) {
+        if healthConnected {
+            return (
+                "No scored night yet",
+                "Forge reads stages from Apple Health. Until a night lands, log in-bed on Tonight — that's a real window, not a fake score.",
+                "Refresh from Apple Health"
+            )
+        }
+        return (
+            "Connect Apple Health to unlock sleep",
+            "Forge reads last night's stages from Apple Health. Once a night lands, ARIA can explain recovery and bedtime.",
+            "Reconnect Apple Health"
+        )
+    }
+
+    func refreshFromAppleHealth(into store: AppStore, days: Int = 14) async {
+        loadOpenInBed()
+        guard await requestAuthorization() else { return }
+        let nights = await fetchRecentSleepData(days: days)
+        store.mergeSleepDataLocally(nights)
+        if let window = await healthKit.fetchLatestInBedWindow() {
+            lastInBedWindow = InBedWindow(start: window.start, end: window.end)
+        }
+    }
+
+    func beginInBed(at date: Date = Date()) {
+        inBedStartedAt = date
+        UserDefaults.standard.set(date, forKey: Self.inBedStartKey)
+    }
+
+    func cancelInBed() {
+        inBedStartedAt = nil
+        UserDefaults.standard.removeObject(forKey: Self.inBedStartKey)
+    }
+
+    @discardableResult
+    func endInBed(at date: Date = Date()) async -> Bool {
+        guard let start = inBedStartedAt else { return false }
+        _ = await requestAuthorization()
+        guard healthKit.isAuthorized else { return false }
+        await healthKit.saveInBedWindow(startedAt: start, endedAt: date)
+        lastInBedWindow = InBedWindow(start: start, end: max(date, start.addingTimeInterval(60)))
+        cancelInBed()
+        return true
+    }
+
+    @discardableResult
+    func logInBedWindow(startedAt: Date, endedAt: Date) async -> Bool {
+        _ = await requestAuthorization()
+        guard healthKit.isAuthorized else { return false }
+        await healthKit.saveInBedWindow(startedAt: startedAt, endedAt: endedAt)
+        lastInBedWindow = InBedWindow(start: startedAt, end: max(endedAt, startedAt.addingTimeInterval(60)))
+        return true
+    }
+
+    private func loadOpenInBed() {
+        inBedStartedAt = UserDefaults.standard.object(forKey: Self.inBedStartKey) as? Date
+    }
+
     func fetchRecentSleepData(days: Int = 14) async -> [SleepData] {
         guard isAuthorized || healthKit.isAuthorized else { return [] }
         let sessions = await healthKit.fetchRecentSleepSessions(days: days)
         let recentWakes = sessions.compactMap(\.wake)
+        var baselines = SleepDepthBaselineStore.load()
         let scoredNights = sessions.map { session -> SleepData in
             let scored = scoreNight(
                 totalHours: session.totalHours,
@@ -83,7 +161,8 @@ final class HealthKitSleepService: ObservableObject {
                 remMinutes: session.remMinutes,
                 awakeMinutes: session.awakeMinutes,
                 profile: userProfile,
-                recentWakes: recentWakes
+                recentWakes: recentWakes,
+                baselines: baselines
             )
             return SleepData(
                 date: session.date,
@@ -92,12 +171,36 @@ final class HealthKitSleepService: ObservableObject {
                 remMinutes: session.remMinutes,
                 lightMinutes: session.lightMinutes,
                 awakeMinutes: session.awakeMinutes,
-                score: scored,
+                score: scored.score,
                 onset: session.onset,
                 wake: session.wake
             )
         }
         rememberSleepSignals(from: scoredNights)
+        .sorted { $0.date > $1.date }
+        if let newest = scoredNights.first {
+            lastDepthResult = scoreNight(
+                totalHours: newest.totalHours,
+                deepMinutes: newest.deepMinutes,
+                remMinutes: newest.remMinutes,
+                awakeMinutes: newest.awakeMinutes,
+                profile: userProfile,
+                recentWakes: recentWakes,
+                baselines: baselines
+            )
+        } else {
+            lastDepthResult = nil
+        }
+        rememberSleepSignals(from: scoredNights, baselines: &baselines)
+        SleepDepthBaselineStore.save(baselines)
+        if let flag = lastDepthResult?.headline {
+            AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
+                category: .appleHealth,
+                kind: "sleep_depth",
+                summary: flag,
+                source: "sleep-depth"
+            ))
+        }
         return scoredNights
     }
 
@@ -107,8 +210,9 @@ final class HealthKitSleepService: ObservableObject {
         remMinutes: Int,
         awakeMinutes: Int,
         profile: UserSleepProfile,
-        recentWakes: [Date] = []
-    ) -> Int {
+        recentWakes: [Date] = [],
+        baselines: SleepDepthBaselines? = nil
+    ) -> SleepDepthResult {
         let chronotype = profile.chronotype
         let targetHours = chronotype.targetSleepHours
 
@@ -129,14 +233,26 @@ final class HealthKitSleepService: ObservableObject {
         } else {
             consistency = 80
         }
-
-        let weighted = durationScore * 0.35
-            + deepScore * 0.25
-            + remScore * 0.20
-            + efficiency * 0.15
-            + consistency * 0.05
-
-        return min(100, max(0, Int(weighted.rounded())))
+        let metrics = SleepNightMetrics(
+            totalHours: totalHours,
+            deepMinutes: Double(deepMinutes),
+            remMinutes: Double(remMinutes),
+            efficiencyPercent: SleepNightMetrics.efficiencyPercent(
+                asleepHours: totalHours,
+                awakeMinutes: Double(awakeMinutes)
+            ),
+            wakeConsistency: consistency
+        )
+        let targets = SleepChronotypeTargets(
+            targetHours: chronotype.targetSleepHours,
+            deepGoalMinutes: Double(chronotype.deepSleepGoalMinutes),
+            remGoalMinutes: Double(chronotype.remSleepGoalMinutes)
+        )
+        return SleepDepthScorer.score(
+            metrics: metrics,
+            targets: targets,
+            baselines: baselines ?? SleepDepthBaselineStore.load()
+        )
     }
 
     /// Time actually asleep as a fraction of time in bed (asleep + awake).
@@ -152,6 +268,23 @@ final class HealthKitSleepService: ObservableObject {
 
     func rememberSleepSignals(from data: [SleepData]) {
         cachedSleepData = data
+        var baselines = SleepDepthBaselineStore.load()
+        rememberSleepSignals(from: data, baselines: &baselines)
+        SleepDepthBaselineStore.save(baselines)
+    }
+
+    private func rememberSleepSignals(from data: [SleepData], baselines: inout SleepDepthBaselines) {
+        cachedSleepData = data
+        for night in data.reversed() {
+            let metrics = SleepNightMetrics(
+                totalHours: night.totalHours,
+                deepMinutes: Double(night.deepMinutes),
+                remMinutes: Double(night.remMinutes),
+                efficiencyPercent: Double(night.efficiencyPercent),
+                wakeConsistency: 80
+            )
+            SleepDepthScorer.observe(&baselines, metrics: metrics, nightKey: night.date)
+        }
     }
 
     func adaptiveSmartWakeMinutes(base: Int) -> Int {
@@ -391,7 +524,9 @@ final class HealthKitSleepService: ObservableObject {
         let prompt = """
         Tonight's bedtime works out to \(EnergySchedule.clockLabel(schedule.phase.onsetHour)), \
         with \(String(format: "%.1f", schedule.debtHours))h of sleep debt over the last \
-        \(schedule.nightsUsed) nights. In one sentence, why does tonight specifically call for that time?
+        \(schedule.nightsUsed) nights. Speak as if this person is becoming someone who keeps \
+        a regular night — not as if they have a streak to protect. One sentence, why tonight \
+        specifically calls for that time.
         """
         let resp = await store.ariaInsight(prompt: prompt, agent: .sleep)
         aiBedtimeNote = resp.map { $0.proseSummary ?? $0.message }
@@ -404,8 +539,8 @@ final class HealthKitSleepService: ObservableObject {
         guard aiGoalsNote == nil, let behind = goals.min(by: { ($0.current / max(0.01, $0.target)) < ($1.current / max(0.01, $1.target)) }) else { return }
         let prompt = """
         Of my sleep goals, \(behind.title) is furthest off — \(String(format: "%.1f", behind.current)) \
-        of \(String(format: "%.1f", behind.target)) \(behind.unit). In one sentence, what's the single \
-        highest-leverage change to close that gap?
+        of \(String(format: "%.1f", behind.target)) \(behind.unit). Speak as identity, not a score to \
+        protect: what's the single highest-leverage change to close that gap? One sentence.
         """
         let resp = await store.ariaInsight(prompt: prompt, agent: .sleep)
         aiGoalsNote = resp.map { $0.proseSummary ?? $0.message }

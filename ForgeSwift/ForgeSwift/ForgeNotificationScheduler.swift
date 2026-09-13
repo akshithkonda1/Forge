@@ -85,13 +85,7 @@ enum ForgeNotificationScheduler {
                 body: "Plan a protein-forward dinner to close your macro gap.",
                 destination: "forge://lifestyle/nutrition"
             )
-            await scheduleDaily(
-                id: ID.lifestyleSleep,
-                hour: 21, minute: 0,
-                title: "Wind Down",
-                body: "Start your bedtime routine for better recovery tomorrow.",
-                destination: "forge://sleep/night"
-            )
+            await schedulePhoneWindDown(bedtimeHour: SleepWindDownNotice.inferredBedtimeHour())
         }
 
         if briefEnabled {
@@ -125,12 +119,32 @@ enum ForgeNotificationScheduler {
         let ids = [
             ID.workout, ID.recovery, ID.weeklySummary,
             ID.lifestyleHydration, ID.lifestyleLunch, ID.lifestyleDinner, ID.lifestyleSleep,
+            SleepWindDownNotice.phoneIdentifier,
             ID.briefMorning, ID.briefEvening, ID.weeklyAriaReview,
             ID.cycleBBTReminder, ID.cycleOPKWindow, ID.cycleFertileWindow,
             ID.cyclePeriodReminder,
         ]
         center.removePendingNotificationRequests(withIdentifiers: ids)
         center.removeDeliveredNotifications(withIdentifiers: ids)
+        center.removePendingNotificationRequests(withIdentifiers: SleepWindDownNotice.retiredPhoneIdentifiers)
+        center.removeDeliveredNotifications(withIdentifiers: SleepWindDownNotice.retiredPhoneIdentifiers)
+    }
+
+    /// One phone wind-down. Replaces both the old 21:00 lifestyle id and
+    /// LifestyleServices `sleep-wind-down`. Watch `WindDownScheduler` stays.
+    static func schedulePhoneWindDown(bedtimeHour: Double?) async {
+        center.removePendingNotificationRequests(
+            withIdentifiers: [ID.lifestyleSleep, SleepWindDownNotice.phoneIdentifier] + SleepWindDownNotice.retiredPhoneIdentifiers
+        )
+        let clock = SleepWindDownNotice.fireHourMinute(bedtimeHour: bedtimeHour)
+        await scheduleDaily(
+            id: SleepWindDownNotice.phoneIdentifier,
+            hour: clock.hour,
+            minute: clock.minute,
+            title: "Wind Down",
+            body: "Tonight's window is opening. A quieter last hour helps the night land — no streak to protect.",
+            destination: "forge://sleep/night"
+        )
     }
 
     // MARK: - Cycle notifications
