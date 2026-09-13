@@ -72,4 +72,28 @@ public enum HabitFeedbackStore: Sendable {
             return "Habit breaker too big: \(habit.id) — \(habit.breaker) — user said nah, next breaker should be smaller (just \(habit.breakerAction.lowercased()) without extra)."
         }
     }
+
+    /// Dated fact ARIA can read the moment the breaker is tried — not a streak.
+    public static func attemptFact(for habit: DeepHabit) -> AriaKnowledgeFact {
+        AriaKnowledgeFact(
+            category: .weSpokeAbout,
+            kind: "habit_attempt",
+            summary: "Tried \(habit.id): \(habit.breaker)",
+            source: "habit-loop"
+        )
+    }
+
+    /// Outcome of last night's breaker. Files as soon as they answer yeah/nah.
+    public static func outcomeFact(for habit: DeepHabit, answer: String) -> AriaKnowledgeFact {
+        let worked = answer == "yeah"
+        let summary = worked
+            ? "\(habit.id) breaker landed — keep this size."
+            : "\(habit.id) breaker was too big — next one should be smaller."
+        return AriaKnowledgeFact(
+            category: .inferences,
+            kind: "habit_outcome",
+            summary: summary,
+            source: "habit-loop"
+        )
+    }
 }
