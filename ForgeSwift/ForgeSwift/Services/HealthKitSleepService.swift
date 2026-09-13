@@ -48,7 +48,6 @@ final class HealthKitSleepService: ObservableObject {
     @Published private(set) var lastDepthResult: SleepDepthResult?
 
     private let healthKit = HealthKitManager.shared
-    private var cachedSleepData: [SleepData] = []
 
     private init() {
         userProfile = Self.loadUserSleepProfile() ?? UserSleepProfile()
