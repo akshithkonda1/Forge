@@ -41,7 +41,11 @@ final class HealthKitSleepService: ObservableObject {
     /// Last in-bed window we wrote or read. Not a sleep score.
     @Published var lastInBedWindow: InBedWindow?
 
+    /// Unusual-for-you flags from the newest scored night. Nil until a night lands.
+    @Published private(set) var lastDepthResult: SleepDepthResult?
+
     private let healthKit = HealthKitManager.shared
+    private var cachedSleepData: [SleepData] = []
 
     private init() {
         userProfile = Self.loadUserSleepProfile() ?? UserSleepProfile()
@@ -146,6 +150,7 @@ final class HealthKitSleepService: ObservableObject {
         guard isAuthorized || healthKit.isAuthorized else { return [] }
         let sessions = await healthKit.fetchRecentSleepSessions(days: days)
         let recentWakes = sessions.compactMap(\.wake)
+        var baselines = SleepDepthBaselineStore.load()
         let scoredNights = sessions.map { session -> SleepData in
             let scored = scoreNight(
                 totalHours: session.totalHours,
@@ -153,7 +158,8 @@ final class HealthKitSleepService: ObservableObject {
                 remMinutes: session.remMinutes,
                 awakeMinutes: session.awakeMinutes,
                 profile: userProfile,
-                recentWakes: recentWakes
+                recentWakes: recentWakes,
+                baselines: baselines
             )
             return SleepData(
                 date: session.date,
@@ -162,12 +168,35 @@ final class HealthKitSleepService: ObservableObject {
                 remMinutes: session.remMinutes,
                 lightMinutes: session.lightMinutes,
                 awakeMinutes: session.awakeMinutes,
-                score: scored,
+                score: scored.score,
                 onset: session.onset,
                 wake: session.wake
             )
         }
-        rememberSleepSignals(from: scoredNights)
+        .sorted { $0.date > $1.date }
+        if let newest = scoredNights.first {
+            lastDepthResult = scoreNight(
+                totalHours: newest.totalHours,
+                deepMinutes: newest.deepMinutes,
+                remMinutes: newest.remMinutes,
+                awakeMinutes: newest.awakeMinutes,
+                profile: userProfile,
+                recentWakes: recentWakes,
+                baselines: baselines
+            )
+        } else {
+            lastDepthResult = nil
+        }
+        rememberSleepSignals(from: scoredNights, baselines: &baselines)
+        SleepDepthBaselineStore.save(baselines)
+        if let flag = lastDepthResult?.headline {
+            AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
+                category: .appleHealth,
+                kind: "sleep_depth",
+                summary: flag,
+                source: "sleep-depth"
+            ))
+        }
         return scoredNights
     }
 
@@ -177,23 +206,10 @@ final class HealthKitSleepService: ObservableObject {
         remMinutes: Int,
         awakeMinutes: Int,
         profile: UserSleepProfile,
-        recentWakes: [Date] = []
-    ) -> Int {
+        recentWakes: [Date] = [],
+        baselines: SleepDepthBaselines? = nil
+    ) -> SleepDepthResult {
         let chronotype = profile.chronotype
-        let targetHours = chronotype.targetSleepHours
-
-        let durationScore = min(100, (totalHours / targetHours) * 100)
-        let deepScore = min(100, (Double(deepMinutes) / Double(chronotype.deepSleepGoalMinutes)) * 100)
-        let remScore = min(100, (Double(remMinutes) / Double(chronotype.remSleepGoalMinutes)) * 100)
-
-        let totalMinutes = totalHours * 60
-        let efficiency = totalMinutes > 0
-            ? max(0, ((totalMinutes - Double(awakeMinutes)) / totalMinutes) * 100)
-            : 0
-
-        // Same spread→confidence map as CircadianRhythm.phase: a 3-hour circular
-        // SD is "no schedule". Under five wakes there is not enough signal, so
-        // keep the old neutral 80 rather than punish a new user for missing data.
         let consistency: Double
         if recentWakes.count >= 5 {
             let spread = CircadianRhythm.circularSpread(recentWakes.map { CircadianRhythm.hourOfDay($0) })
@@ -201,20 +217,48 @@ final class HealthKitSleepService: ObservableObject {
         } else {
             consistency = 80
         }
-
-        let weighted = durationScore * 0.35
-            + deepScore * 0.25
-            + remScore * 0.20
-            + efficiency * 0.15
-            + consistency * 0.05
-
-        return min(100, max(0, Int(weighted.rounded())))
+        let metrics = SleepNightMetrics(
+            totalHours: totalHours,
+            deepMinutes: Double(deepMinutes),
+            remMinutes: Double(remMinutes),
+            efficiencyPercent: SleepNightMetrics.efficiencyPercent(
+                asleepHours: totalHours,
+                awakeMinutes: Double(awakeMinutes)
+            ),
+            wakeConsistency: consistency
+        )
+        let targets = SleepChronotypeTargets(
+            targetHours: chronotype.targetSleepHours,
+            deepGoalMinutes: Double(chronotype.deepSleepGoalMinutes),
+            remGoalMinutes: Double(chronotype.remSleepGoalMinutes)
+        )
+        return SleepDepthScorer.score(
+            metrics: metrics,
+            targets: targets,
+            baselines: baselines ?? SleepDepthBaselineStore.load()
+        )
     }
 
     // MARK: - Sleep Debt
 
     func rememberSleepSignals(from data: [SleepData]) {
+        var baselines = SleepDepthBaselineStore.load()
+        rememberSleepSignals(from: data, baselines: &baselines)
+        SleepDepthBaselineStore.save(baselines)
+    }
+
+    private func rememberSleepSignals(from data: [SleepData], baselines: inout SleepDepthBaselines) {
         cachedSleepData = data
+        for night in data.reversed() {
+            let metrics = SleepNightMetrics(
+                totalHours: night.totalHours,
+                deepMinutes: Double(night.deepMinutes),
+                remMinutes: Double(night.remMinutes),
+                efficiencyPercent: Double(night.efficiencyPercent),
+                wakeConsistency: 80
+            )
+            SleepDepthScorer.observe(&baselines, metrics: metrics, nightKey: night.date)
+        }
     }
 
     func adaptiveSmartWakeMinutes(base: Int) -> Int {
@@ -454,7 +498,9 @@ final class HealthKitSleepService: ObservableObject {
         let prompt = """
         Tonight's bedtime works out to \(EnergySchedule.clockLabel(schedule.phase.onsetHour)), \
         with \(String(format: "%.1f", schedule.debtHours))h of sleep debt over the last \
-        \(schedule.nightsUsed) nights. In one sentence, why does tonight specifically call for that time?
+        \(schedule.nightsUsed) nights. Speak as if this person is becoming someone who keeps \
+        a regular night — not as if they have a streak to protect. One sentence, why tonight \
+        specifically calls for that time.
         """
         let resp = await store.ariaInsight(prompt: prompt, agent: .sleep)
         aiBedtimeNote = resp.map { $0.proseSummary ?? $0.message }
@@ -467,8 +513,8 @@ final class HealthKitSleepService: ObservableObject {
         guard aiGoalsNote == nil, let behind = goals.min(by: { ($0.current / max(0.01, $0.target)) < ($1.current / max(0.01, $1.target)) }) else { return }
         let prompt = """
         Of my sleep goals, \(behind.title) is furthest off — \(String(format: "%.1f", behind.current)) \
-        of \(String(format: "%.1f", behind.target)) \(behind.unit). In one sentence, what's the single \
-        highest-leverage change to close that gap?
+        of \(String(format: "%.1f", behind.target)) \(behind.unit). Speak as identity, not a score to \
+        protect: what's the single highest-leverage change to close that gap? One sentence.
         """
         let resp = await store.ariaInsight(prompt: prompt, agent: .sleep)
         aiGoalsNote = resp.map { $0.proseSummary ?? $0.message }
