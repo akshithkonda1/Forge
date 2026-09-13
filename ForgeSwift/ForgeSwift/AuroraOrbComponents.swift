@@ -179,7 +179,7 @@ enum AriaSigilEmberLegacy: Sendable {
     ZStack {
         Color(hex: "07060A").ignoresSafeArea()
         AuroraOrbView(state: .idle, amplitude: 0.3, size: 168, followPresence: false)
-            .environment(\.accessibilityReduceMotion, true)
+            .environment(\.forgeMinimalAnimation, true)
     }
     .preferredColorScheme(.dark)
 }
