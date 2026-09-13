@@ -1,8 +1,9 @@
 import XCTest
 @testable import ForgeSwift
 
-/// Locks the ARIA ember contract: AriaLogo asset, no-ring crop, and when
-/// the welcome chime may fire. Does not start AVAudioEngine.
+/// Locks the welcome-chime gates and the unused AriaLogo still-frame name.
+/// Live mark is the procedural ring-field — this file does not assert PNG paint.
+/// Does not start AVAudioEngine.
 final class AriaLogoPresenceTests: XCTestCase {
 
     func testFluidMarkUsesAriaLogoAssetWithoutARingCrop() {
@@ -11,7 +12,7 @@ final class AriaLogoPresenceTests: XCTestCase {
         XCTAssertLessThanOrEqual(
             AriaWelcomeChime.cropScale,
             1.05,
-            "ARIA ember — do not zoom past its frame"
+            "ARIA ring-field — do not zoom past its frame"
         )
         XCTAssertEqual(AriaWelcomeChime.heroMinimumSize, 90)
     }
