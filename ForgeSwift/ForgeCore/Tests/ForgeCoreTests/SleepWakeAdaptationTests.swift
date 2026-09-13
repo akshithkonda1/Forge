@@ -70,4 +70,76 @@ final class SleepWakeAdaptationTests: XCTestCase {
         XCTAssertTrue(WakeStruggleStore.isRepeatStruggler(defaults: defaults))
         defaults.removePersistentDomain(forName: suite)
     }
+
+    func testCoreSleepInTheWindowFiresEarly() {
+        let hard = date(2026, 9, 14, 7, 0)
+        let smart = date(2026, 9, 14, 6, 30)
+        let now = date(2026, 9, 14, 6, 40)
+        let sampleEnd = date(2026, 9, 14, 6, 38)
+        XCTAssertEqual(
+            SmartWakeEarlyFire.decide(
+                now: now, smartFire: smart, hardFire: hard,
+                sampleEnd: sampleEnd, stage: .core
+            ),
+            .fireEarly
+        )
+    }
+
+    func testDeepSleepInTheWindowIsIgnored() {
+        let hard = date(2026, 9, 14, 7, 0)
+        let smart = date(2026, 9, 14, 6, 30)
+        XCTAssertEqual(
+            SmartWakeEarlyFire.decide(
+                now: date(2026, 9, 14, 6, 40),
+                smartFire: smart, hardFire: hard,
+                sampleEnd: date(2026, 9, 14, 6, 38),
+                stage: .deep
+            ),
+            .ignore
+        )
+    }
+
+    func testStaleSampleIsIgnored() {
+        let hard = date(2026, 9, 14, 7, 0)
+        let smart = date(2026, 9, 14, 6, 30)
+        XCTAssertEqual(
+            SmartWakeEarlyFire.decide(
+                now: date(2026, 9, 14, 6, 55),
+                smartFire: smart, hardFire: hard,
+                sampleEnd: date(2026, 9, 14, 6, 20),
+                stage: .core
+            ),
+            .ignore
+        )
+    }
+
+    func testPastHardAlarmIsAlreadyPastHard() {
+        XCTAssertEqual(
+            SmartWakeEarlyFire.decide(
+                now: date(2026, 9, 14, 7, 1),
+                smartFire: date(2026, 9, 14, 6, 30),
+                hardFire: date(2026, 9, 14, 7, 0),
+                sampleEnd: date(2026, 9, 14, 7, 0),
+                stage: .awake
+            ),
+            .alreadyPastHard
+        )
+    }
+
+    func testEarlyFireStoreIsOncePerMorning() {
+        let suite = "forge.early.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        XCTAssertFalse(SmartWakeEarlyFireStore.alreadyFired(alarmId: "a", dayKey: "2026-09-14", defaults: defaults))
+        SmartWakeEarlyFireStore.markFired(alarmId: "a", dayKey: "2026-09-14", defaults: defaults)
+        XCTAssertTrue(SmartWakeEarlyFireStore.alreadyFired(alarmId: "a", dayKey: "2026-09-14", defaults: defaults))
+        XCTAssertFalse(SmartWakeEarlyFireStore.alreadyFired(alarmId: "a", dayKey: "2026-09-15", defaults: defaults))
+        defaults.removePersistentDomain(forName: suite)
+    }
+
+    private func date(_ y: Int, _ m: Int, _ d: Int, _ h: Int, _ min: Int) -> Date {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        return cal.date(from: DateComponents(year: y, month: m, day: d, hour: h, minute: min))!
+    }
 }

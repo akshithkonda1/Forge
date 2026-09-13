@@ -105,18 +105,8 @@ final class SmartNotificationManager: ObservableObject {
     }
     
     func scheduleSleepReminder(bedtime: DateComponents) async {
-        let content = UNMutableNotificationContent()
-        content.title = "🌙 Wind Down Time"
-        content.body = "Start your bedtime routine. Quality sleep = better gains!"
-        content.sound = .default
-        
-        var earlyTime = bedtime
-        earlyTime.hour = (earlyTime.hour ?? 22) - 1
-        
-        let trigger = UNCalendarNotificationTrigger(dateMatching: earlyTime, repeats: true)
-        let request = UNNotificationRequest(identifier: "sleep-wind-down", content: content, trigger: trigger)
-
-        try? await UNUserNotificationCenter.current().add(request)
+        let hour = Double(bedtime.hour ?? 22) + Double(bedtime.minute ?? 0) / 60.0
+        await ForgeNotificationScheduler.schedulePhoneWindDown(bedtimeHour: hour)
     }
 
     /// Replaces any prior recommendation notifications with the current top

@@ -127,6 +127,17 @@ public enum ForgeHealthQueries {
             .filter { $0.totalMinutes > 0 }
     }
 
+    /// Most recently ended staged sample. Observer queries do not include the
+    /// sample — callers re-read. `inBed` is dropped by `sleepSegments`.
+    public static func latestSleepSegment(
+        store: HKHealthStore,
+        minutesBack: Double = 45
+    ) async -> SleepStageSegment? {
+        let start = Date().addingTimeInterval(-minutesBack * 60)
+        let segments = await sleepSegments(store: store, from: start, to: Date())
+        return segments.max(by: { $0.end < $1.end })
+    }
+
     private static func sleepSegments(store: HKHealthStore, from start: Date, to end: Date) async -> [SleepStageSegment] {
         let type = HKCategoryType(.sleepAnalysis)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end)

@@ -1041,6 +1041,32 @@ def _interpret_sleep(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     else:
         baseline_note = "vs typical adult ranges (no personal sleep baseline yet)"
         kind = "population"
+    # Personal baseline check — robust band when history exists
+    if s.baseline_median_minutes is not None and s.baseline_mad_minutes is not None and s.baseline_mad_minutes > 1e-9:
+        mad = s.baseline_mad_minutes
+        # 1.4826*MAD ≈ sigma; use 2 sigma as personal low band (≈ 95% interval)
+        personal_low = s.baseline_median_minutes - 2 * 1.4826 * mad
+        if s.duration_minutes < personal_low:
+            interp_bits.append(
+                f"{hours:.1f} h is below your usual {usual_hours:.1f} h — a personal short night"
+            )
+        else:
+            interp_bits.append(f"{hours:.1f} h is below the 7 h floor for cognitive recovery")
+        direction = "negative"
+        priority = "high"
+    elif hours >= max(duration_floor + 0.5, 7.5) and direction == "neutral":
+        interp_bits.append(f"{hours:.1f} h is solid duration")
+        direction = "positive"
+
+    if personal_sleep:
+        baseline_note = f"vs your usual {usual_hours:.1f} h" if usual_hours is not None else "vs your recent nights"
+        kind = "personal"
+    elif ctx.sleep_baseline_ready:
+        baseline_note = "vs your recent nights"
+        kind = "personal" if ctx.sleep_baseline_ready else "population"
+    else:
+        baseline_note = "vs typical adult ranges (no personal sleep baseline yet)"
+        kind = "population"
     interpretation = "; ".join(interp_bits) if interp_bits else "sleep architecture looks unremarkable"
     return Signal("sleep", "Sleep", ", ".join(parts), baseline_note, interpretation, priority, direction, kind)
 
@@ -1272,6 +1298,88 @@ def _sleep_variance_habit(ctx: ARIAContext) -> tuple[str, str, int] | None:
 
 def _interpret_lifestyle(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     """Turn lifestyle habit tags into a Signal the rest of the engine can use.
+def _interpret_chronotype(ctx: ARIAContext) -> Signal | None:
+    """Interpret circadian alignment from chronotype context.
+
+    Missing typical times → no signal (not enough to place a phase). Low
+    consistency (<0.5) is the irregular-sleeper pattern — surface it. Very late
+    or early typical onset also shapes coaching windows (melatonin, wind-down).
+    """
+    chrono = ctx.chronotype
+    if chrono.typical_sleep_onset is None and chrono.typical_wake_time is None and chrono.consistency_score is None:
+        return None
+    parts: list[str] = []
+    interp_bits: list[str] = []
+    direction = "neutral"
+    priority = "low"
+    if chrono.typical_sleep_onset:
+        parts.append(f"typical sleep {chrono.typical_sleep_onset}")
+    if chrono.typical_wake_time:
+        parts.append(f"typical wake {chrono.typical_wake_time}")
+    if chrono.consistency_score is not None:
+        parts.append(f"consistency {chrono.consistency_score:.2f}")
+        if chrono.consistency_score < 0.35:
+            direction = "negative"
+            priority = "high"
+            interp_bits.append(
+                f"sleep timing is irregular (consistency {chrono.consistency_score:.2f}) — no single wind-down window is reliable; protect the runway rather than a fixed clock time"
+            )
+        elif chrono.consistency_score < 0.5:
+            direction = "negative"
+            priority = "medium"
+            interp_bits.append(
+                f"sleep timing varies (consistency {chrono.consistency_score:.2f}) — keep the wind-down window flexible tonight"
+            )
+        elif chrono.consistency_score >= 0.75:
+            interp_bits.append(f"sleep timing is steady (consistency {chrono.consistency_score:.2f}) — tonight's wind-down window is trustworthy")
+            priority = "low"
+    if chrono.typical_sleep_onset and chrono.typical_wake_time:
+        # No hard late/early judgment here — the window itself is the coaching cue.
+        # Late chronotypes need protection, not scolding.
+        if direction == "neutral":
+            interp_bits.append(f"your natural window is {chrono.typical_sleep_onset} → {chrono.typical_wake_time}")
+    interpretation = "; ".join(interp_bits) if interp_bits else "chronotype timing is available"
+    return Signal("chronotype", "Chronotype", ", ".join(parts) or "chronotype available", "vs your habitual window", interpretation, priority, direction)
+
+
+def _interpret_progress(ctx: ARIAContext) -> Signal | None:
+    """Trend over 30 days — weeks, not just today."""
+    p = ctx.progress
+    if p.workouts_completed_30d is None and p.training_load_trend is None and p.new_personal_records is None:
+        return None
+    parts: list[str] = []
+    interp_bits: list[str] = []
+    direction = "neutral"
+    priority = "low"
+    if p.workouts_completed_30d is not None:
+        parts.append(f"{p.workouts_completed_30d} sessions/30d")
+        if p.workouts_completed_30d >= 18:
+            interp_bits.append(f"{p.workouts_completed_30d} sessions in 30 days — consistent training block")
+            direction = "positive"
+        elif p.workouts_completed_30d <= 4:
+            interp_bits.append(f"only {p.workouts_completed_30d} sessions in 30 days — light recent training")
+            priority = "medium"
+    if p.training_load_trend:
+        parts.append(f"load {p.training_load_trend}")
+        if p.training_load_trend == "rising":
+            interp_bits.append("training load is rising week over week — watch recovery spacing")
+            if priority == "low":
+                priority = "medium"
+        elif p.training_load_trend == "falling":
+            interp_bits.append("training load has eased — good window to rebuild if you want it")
+    if p.new_personal_records is not None and p.new_personal_records > 0:
+        parts.append(f"{p.new_personal_records} PR(s)")
+        interp_bits.append(f"{p.new_personal_records} new personal record(s) — progress is showing")
+        direction = "positive"
+    if p.recovery_consistency_delta is not None:
+        sign = "+" if p.recovery_consistency_delta >= 0 else ""
+        parts.append(f"recovery delta {sign}{p.recovery_consistency_delta:.0f}")
+    interpretation = "; ".join(interp_bits) if interp_bits else "training progress looks steady"
+    return Signal("progress", "Progress", ", ".join(parts), "vs 30-day trend", interpretation, priority, direction)
+
+
+def _interpret_lifestyle(ctx: ARIAContext) -> Signal | None:
+    """Turn lifestyle habit tags and QoL into a Signal the rest of the engine can use.
 
     Last-night sleep and HRV can look fine while weekday timing still wobbles.
     ``habit:sleep_variance:sleep:<score>`` is that case: emit a negative lifestyle

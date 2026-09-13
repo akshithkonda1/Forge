@@ -141,6 +141,7 @@ struct HabitLoopListCard: View {
                             HabitFeedbackStore.submitFeedback(habitId: pending.habitId, answer: "yeah")
                             if let habit = vm.deepHabits.first(where: { $0.id == pending.habitId }) {
                                 AriaContextStore.shared.addInsight(HabitFeedbackStore.feedbackInsight(for: habit, answer: "yeah"))
+                                AriaKnowledgeLedgerStore.file(HabitFeedbackStore.outcomeFact(for: habit, answer: "yeah"))
                             }
                             pendingFeedback = nil
                             FeedbackGenerator.light()
@@ -152,6 +153,7 @@ struct HabitLoopListCard: View {
                             HabitFeedbackStore.submitFeedback(habitId: pending.habitId, answer: "nah")
                             if let habit = vm.deepHabits.first(where: { $0.id == pending.habitId }) {
                                 AriaContextStore.shared.addInsight(HabitFeedbackStore.feedbackInsight(for: habit, answer: "nah"))
+                                AriaKnowledgeLedgerStore.file(HabitFeedbackStore.outcomeFact(for: habit, answer: "nah"))
                             }
                             pendingFeedback = nil
                             FeedbackGenerator.light()
@@ -175,6 +177,7 @@ struct HabitLoopListCard: View {
                     HabitLoopCard(habit: habit, onTry: {
                         HabitFeedbackStore.markTried(habit)
                         AriaContextStore.shared.addInsight("Tried habit breaker: \(habit.id) — \(habit.breaker)")
+                        AriaKnowledgeLedgerStore.file(HabitFeedbackStore.attemptFact(for: habit))
                         FeedbackGenerator.light()
                     }, onSnooze: {
                         FeedbackGenerator.light()

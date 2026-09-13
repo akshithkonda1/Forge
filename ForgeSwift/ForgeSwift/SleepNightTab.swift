@@ -582,6 +582,7 @@ struct SleepTonightSoundDock: View {
 
 struct SleepLastNightStrip: View {
     @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
 
     private var night: SleepData? { store.sleepData.first }
 
@@ -613,6 +614,11 @@ struct SleepLastNightStrip: View {
                 }
                 SleepHypnogram(night: night, height: 54)
                 SleepStageLegend(night: night)
+                if let flag = hkService.lastDepthResult?.headline {
+                    Text(flag)
+                        .font(.system(size: 12))
+                        .foregroundColor(.textSecondary)
+                }
             }
         } else {
             Text("Last night will show duration, stages, and efficiency once Apple Health is connected.")

@@ -112,6 +112,47 @@ final class SleepBedtimeCoachTests: XCTestCase {
         XCTAssertEqual(disconnected.cta, "Reconnect Apple Health")
     }
 
+        let nights: [SleepData] = (0..<7).map { offset in
+            let wake = date(2026, 9, 13 - offset, 8, 0)
+            return SleepData(
+                date: String(format: "2026-09-%02d", 13 - offset),
+                totalHours: 8,
+                deepMinutes: 90,
+                remMinutes: 90,
+                lightMinutes: 240,
+                awakeMinutes: 20,
+                score: 80,
+                onset: wake.addingTimeInterval(-8 * 3600),
+                wake: wake
+            )
+        }
+        ScheduleGoalStore.save(
+            ScheduleGoal(
+                targetWakeHour: 6.0,
+                cutoverStart: date(2026, 9, 1, 0, 0)
+            ),
+            defaults: defaults
+        )
+        let coach = SleepBedtimeCoach.make(
+            from: nights,
+            now: date(2026, 9, 13, 16, 0),
+            calendar: calendar,
+            defaults: defaults
+        )
+        XCTAssertTrue(coach.cue.contains("earlier") || coach.cue.contains("Shifting"), coach.cue)
+        XCTAssertFalse(coach.scheduleNote.isEmpty)
+    func testDayEmptyCopyIsHonestWhenHealthIsConnected() {
+        let connected = HealthKitSleepService.dayEmptyCopy(healthConnected: true)
+        XCTAssertEqual(connected.title, "No scored night yet")
+        XCTAssertTrue(connected.message.localizedCaseInsensitiveContains("in-bed"))
+        XCTAssertFalse(connected.message.localizedCaseInsensitiveContains("reconnect"))
+        XCTAssertEqual(connected.cta, "Refresh from Apple Health")
+
+        let disconnected = HealthKitSleepService.dayEmptyCopy(healthConnected: false)
+        XCTAssertEqual(disconnected.title, "Connect Apple Health to unlock sleep")
+        XCTAssertEqual(disconnected.cta, "Reconnect Apple Health")
+    }
+
     func testInBedWindowIsHoursNotAScore() {
         let start = Date(timeIntervalSince1970: 0)
         let window = InBedWindow(start: start, end: start.addingTimeInterval(7.5 * 3600))
