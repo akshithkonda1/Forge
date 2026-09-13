@@ -531,6 +531,7 @@ def suggest_session(
     sun0_weekday: int | None = None,  # 0=Sun … 6=Sat
     pick_weekday: int | None = None,
     replay_prior: bool = False,
+    stance: str | None = None,
 ) -> SessionSuggestion:
     """Pick the session from the week, yesterday, the clock, and what they know."""
     exp = (experience or "intermediate").lower()
@@ -539,6 +540,10 @@ def suggest_session(
     long_gap = hours is None or hours >= FULL_BODY_HOURS
     late = hour is not None and hour >= 21
     low = readiness is not None and readiness < 55
+    # Learned stance is an action source: protect keeps the floor small even
+    # when a raw recovery number would have green-lit a hard session.
+    if (stance or "").strip().lower() == "protect":
+        low = True
     beginner = exp == "beginner"
     mode = (planning_mode or "rotate").lower()
     if mode not in ("fixed", "rotate"):
@@ -758,6 +763,7 @@ def maybe_suggest(
     planning_mode: str | None = None,
     weekly_split: Any = None,
     sun0_weekday: int | None = None,
+    stance: str | None = None,
 ) -> SessionSuggestion | None:
     """Entry used by ARIA / the dummy orchestra. None when this isn't a session ask."""
     if not is_training_ask(message):
@@ -787,4 +793,5 @@ def maybe_suggest(
         sun0_weekday=sun0_weekday,
         pick_weekday=asked_day,
         replay_prior=replay,
+        stance=stance,
     )

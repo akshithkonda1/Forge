@@ -16,22 +16,8 @@ from typing import Any
 from responses import RouteError, ok
 from services import aria_engine
 from services import emergency
-from services.biometrics import BodyModel, classify_batch
-from services.biometrics.body_model import redact_snapshot
+from services import fusion as fusion_mod
 from storage import dynamodb, keys
-
-
-def _load_stored_metrics(user_id: str) -> list[dict[str, Any]]:
-    """Metrics already written to the app (via /health/batch) for this user."""
-    return dynamodb.query_prefix(keys.user_pk(user_id), "METRIC#")
-
-
-def _age(body: dict[str, Any]) -> float | None:
-    raw = body.get("age_years", body.get("age"))
-    try:
-        return float(raw) if raw is not None else None
-    except (TypeError, ValueError):
-        return None
 
 
 def _context_payload(ctx: aria_engine.ARIAContext) -> dict[str, Any]:
@@ -100,24 +86,26 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
     # Cap sample batch size to bound CPU / memory on abuse.
     if len(raw) > 500:
         raise RouteError(400, "samples batch too large (max 500).")
-    if body.get("include_stored", True):
-        raw.extend(_load_stored_metrics(uid))
 
-    result = classify_batch(raw)
     permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
-    model = BodyModel.from_observations(result.observations, age_years=_age(body))
-    snapshot = model.snapshot()
-    context = model.to_aria_context(permissions)
+    fused = fusion_mod.fuse_turn(
+        uid,
+        body,
+        permissions,
+        include_stored=bool(body.get("include_stored", True)),
+        persist=True,
+        load_learner=True,
+    )
+    context = fused.context
 
     payload: dict[str, Any] = {
         "user_id": uid,
-        "classification": {
-            **result.counts,
-            "rejects": [r.to_dict() for r in result.rejects][:25],
-        },
-        "snapshot": redact_snapshot(snapshot.to_dict(), permissions),
+        "classification": fused.classification
+        or {"accepted": 0, "rejected": 0, "rejects": []},
+        "snapshot": fused.snapshot or {},
         "aria_context": _context_payload(context),
-        "restricted_domains": permissions.restricted(),
+        "restricted_domains": fused.restricted or permissions.restricted(),
+        "fusion": fused.fusion_sidecar(),
     }
 
     # Real-time vitals safety monitor. During an active session, a sustained,
@@ -129,8 +117,46 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
     message = sanitize_user_text(str(body.get("message") or ""), max_chars=MAX_CHAT_MESSAGE_CHARS)
     if message:
         voice = bool(body.get("voice_mode"))
-        payload["aria_response"] = aria_engine.generate_response(
-            message, context, permissions=permissions, voice_mode=voice
+        from services import contextual_learner
+
+        persona = fused.persona
+        if fused.persona_status != "load_failed" and persona is not None:
+            try:
+                contextual_learner.observe_turn(
+                    persona,
+                    message=message,
+                    tags=list(context.lifestyle.tags or []),
+                    ctx=context,
+                )
+            except Exception as exc:  # noqa: BLE001 — named, not a silent cold-start
+                fused.persona_error = f"observe_turn:{exc.__class__.__name__}: {exc}"
+        response = aria_engine.generate_response(
+            message,
+            context,
+            permissions=permissions,
+            voice_mode=voice,
+            persona=persona,
+            baselines=fused.baselines,
         )
+        payload["fusion"] = {**fused.fusion_sidecar(), **(response.get("fusion") or {})}
+        if fused.persona_status != "load_failed" and persona is not None:
+            try:
+                brief = response.get("contextualization") if isinstance(response.get("contextualization"), dict) else {}
+                plan = (response.get("fusion") or {}).get("plan") if isinstance(response.get("fusion"), dict) else None
+                stance = str((plan or {}).get("stance") or brief.get("stance") or "")
+                contextual_learner.commit_action(
+                    persona,
+                    str(brief.get("bucket") or ""),
+                    stance,
+                    brief.get("specialists") or [],
+                    event_bucket_key=brief.get("event_bucket"),
+                    priority=brief.get("prioritize"),
+                    stance_p=float((brief.get("stance_probs") or {}).get(stance, 0.0) or 0.0),
+                    sources=brief.get("sources") or (),
+                )
+                contextual_learner.save(uid, persona)
+            except Exception as exc:  # noqa: BLE001
+                payload["fusion"]["persona_error"] = f"commit:{exc.__class__.__name__}: {exc}"
+        payload["aria_response"] = response
 
     return ok(payload)

@@ -121,11 +121,21 @@ def living_context_block(user_id: str, body: dict[str, Any] | None = None) -> st
     """Same sources ``POST /ai/chat`` uses, compressed for the live mouth."""
     payload = dict(body or {})
     payload["user_id"] = user_id
-    context = aria_engine.ARIAContext.from_payload(payload)
     permissions = aria_engine.DataPermissions.from_payload(
         (body or {}).get("permissions")
     )
-    sanitized, restricted = aria_engine.apply_permissions(context, permissions)
+    try:
+        from services import fusion as fusion_mod
+
+        fused = fusion_mod.fuse_turn(
+            user_id, payload, permissions, persist=False, load_learner=False
+        )
+        context = fused.context
+        restricted = fused.restricted
+        sanitized = context
+    except Exception:
+        context = aria_engine.ARIAContext.from_payload(payload)
+        sanitized, restricted = aria_engine.apply_permissions(context, permissions)
     memory = ""
     try:
         from services.aria_context import CoachContextEngine
@@ -207,15 +217,30 @@ def run_tool(body: dict[str, Any], *, user_id: str) -> dict[str, Any]:
 
     payload = dict(body)
     payload["user_id"] = user_id
-    context = aria_engine.ARIAContext.from_payload(payload)
     permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
+    from services import fusion as fusion_mod
+
+    fused = fusion_mod.fuse_turn(
+        user_id, payload, permissions, persist=False, load_learner=True
+    )
+    context = fused.context
     if aria_engine.bedrock_enabled():
         envelope = aria_engine.generate_response_live(
-            message, context, permissions=permissions, voice_mode=True
+            message,
+            context,
+            permissions=permissions,
+            voice_mode=True,
+            persona=fused.persona,
+            baselines=fused.baselines,
         )
     else:
         envelope = aria_engine.generate_response(
-            message, context, permissions=permissions, voice_mode=True
+            message,
+            context,
+            permissions=permissions,
+            voice_mode=True,
+            persona=fused.persona,
+            baselines=fused.baselines,
         )
     prose = str(envelope.get("prose_summary") or envelope.get("message") or "").strip()
     envelope["result"] = prose
