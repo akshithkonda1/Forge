@@ -2,7 +2,24 @@ import { readFileSync } from "node:fs";
 import { coachReply } from "../src/lib/aria-coach.ts";
 import { ARIA_CINEMATIC_LINES, firstSessionScript, whisperForStep, welcomeChatMessage } from "../src/lib/aria-onboarding.ts";
 import { ARIA_INTRO } from "../src/lib/aria-intro.ts";
-import { ARIA_LOBES, ARIA_MARK, LEGACY_EMBER, clampGaze, emberCoreRadius, emberLobe } from "../src/lib/aria-mark.ts";
+import {
+  ARIA_LOBES,
+  ARIA_MARK,
+  ARIA_MARK_COMPACT_MAX,
+  ARIA_MARK_CONTRAST_FLOOR,
+  LEGACY_EMBER,
+  ariaMarkShouldSpin,
+  ariaMarkSizeTier,
+  clampGaze,
+  compactRingIndices,
+  contrastRingIndices,
+  emberCoreRadius,
+  emberLobe,
+  ringEllipse,
+  ringSpinHz,
+  ringStrokeWidth,
+  visibleRingIndices,
+} from "../src/lib/aria-mark.ts";
 import type { DailyMetrics, ReadinessData, UserProfile } from "../src/types/index.ts";
 
 const profile: UserProfile = {
@@ -52,6 +69,51 @@ assert(ARIA_MARK.opacity.filter((o) => o >= 0.7).length >= 2, "at least two ring
 assert(JSON.stringify(ARIA_MARK) === JSON.stringify(contract), "web ARIA_MARK matches shared/aria-mark.json");
 assert(!("webPath" in ARIA_MARK) && !("sharedPath" in contract), "PNG is not the brand runtime");
 
+assert(contrastRingIndices().join(",") === "1,2", "contrast rings are the two ≥0.70 ellipses");
+assert(compactRingIndices().join(",") === "1,2,4", "compact 3-ring is contrast pair + strongest support");
+assert(visibleRingIndices(ARIA_MARK.compactRecommend).join(",") === "1,2,4", "compact recommend draws 3 rings");
+assert(visibleRingIndices(32).join(",") === "1,2,4", "compact ceiling draws 3 rings");
+assert(visibleRingIndices(48).join(",") === "1,2,4", "mid draws the compact 3-ring subset");
+assert(visibleRingIndices(ARIA_MARK.heroMinimumSize).join(",") === "0,1,2,3,4", "hero draws all five");
+assert(ringStrokeWidth(28) === ARIA_MARK.strokeWidthCompact, "compact stroke is 1.5");
+assert(ringStrokeWidth(90) === ARIA_MARK.strokeWidthHero, "hero stroke is 1.85");
+assert(ringSpinHz(false) === ARIA_MARK.idleSpinHz && ringSpinHz(true) === ARIA_MARK.speakingSpinHz, "spin Hz follows presence");
+assert(ariaMarkSizeTier(24) === "compact" && ariaMarkSizeTier(ARIA_MARK_COMPACT_MAX) === "compact", "nav slots are compact");
+assert(ariaMarkSizeTier(36) === "mid" && ariaMarkSizeTier(89) === "mid", "chat chrome is mid");
+assert(ariaMarkSizeTier(90) === "hero", "hero floor is 90");
+assert(!ariaMarkShouldSpin(24, false), "compact marks stay still-pose");
+assert(ariaMarkShouldSpin(96, false) && !ariaMarkShouldSpin(96, true), "hero spins only when motion is allowed");
+assert(ARIA_MARK_CONTRAST_FLOOR === 0.7, "cove contrast floor is 0.70");
+
+const stillRingA = ringEllipse(0, 1, false, true);
+const stillRingB = ringEllipse(0, 99, true, true);
+assert(
+  stillRingA.rx === stillRingB.rx &&
+    stillRingA.ry === stillRingB.ry &&
+    stillRingA.rotation === stillRingB.rotation &&
+    stillRingA.opacity === stillRingB.opacity,
+  "reduce-motion freezes the ring-field at stillPoseAngleDeg"
+);
+assert(
+  Math.abs(stillRingA.rotation - ((ARIA_MARK.tiltDeg[0] * Math.PI) / 180 + ARIA_MARK.phaseOffsets[0] * Math.PI * 2 + (ARIA_MARK.stillPoseAngleDeg * Math.PI) / 180)) < 1e-9,
+  "still pose is tilt + phase + stillPoseAngleDeg"
+);
+const liveRingA = ringEllipse(1, 0.4, false, false);
+const liveRingB = ringEllipse(1, 1.1, false, false);
+assert(liveRingA.rotation !== liveRingB.rotation, "idle rings spin when alive");
+const idleDelta = ringEllipse(1, 1.1, false, false).rotation - ringEllipse(1, 0, false, false).rotation;
+const talkDelta = ringEllipse(1, 1.1, true, false).rotation - ringEllipse(1, 0, true, false).rotation;
+assert(talkDelta > idleDelta, "speaking spins faster than idle");
+
+const rotations = new Set<string>();
+for (let i = 0; i < ARIA_MARK.ringCount; i++) {
+  const pose = ringEllipse(i, 0, false, true);
+  assert(pose.rx > pose.ry, `ring ${i} is eccentric`);
+  assert(pose.ry > 0.3 && pose.rx < 1.05, `ring ${i} stays in the mark disc`);
+  rotations.add(pose.rotation.toFixed(4));
+}
+assert(rotations.size === ARIA_MARK.ringCount, "five rings overlap at distinct tilts");
+
 const stillA = emberLobe(0, 1, false, true);
 const stillB = emberLobe(0, 99, true, true);
 assert(stillA.x === stillB.x && stillA.y === stillB.y && stillA.r === stillB.r, "reduce-motion freezes lobes");
@@ -59,6 +121,7 @@ assert(emberCoreRadius(1, true, true) === emberCoreRadius(40, false, true), "red
 assert(emberCoreRadius(0.4, true, false) > emberCoreRadius(0.4, false, false), "speaking core is larger");
 assert(clampGaze(1) === LEGACY_EMBER.maxGaze && clampGaze(-1) === -LEGACY_EMBER.maxGaze, "gaze is clamped");
 assert(ARIA_LOBES.length === 4, "legacy ember still has four lobes");
+assert(ARIA_LOBES.length !== ARIA_MARK.ringCount, "retired ember is not the five-ring mark");
 const liveA = emberLobe(1, 0.4, false, false);
 const liveB = emberLobe(1, 1.1, false, false);
 assert(liveA.x !== liveB.x || liveA.y !== liveB.y || liveA.r !== liveB.r, "idle lobes move when alive");

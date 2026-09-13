@@ -13,7 +13,10 @@ export type EmberDrawInput = {
   reduceMotion: boolean;
 };
 
-/** Procedural 4-lobe gooey ember. No ping rings. */
+/**
+ * Retired 4-lobe gooey ember. Unused by brand slots — do not ship as the ARIA mark.
+ * Living renderer is `drawAriaRingField`. Kept so a cleanup can delete this file.
+ */
 export function drawAriaEmber(
   ctx: CanvasRenderingContext2D,
   width: number,

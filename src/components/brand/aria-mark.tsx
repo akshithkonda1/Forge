@@ -2,13 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { ARIA_MARK, LEGACY_EMBER, clampGaze } from "@/lib/aria-mark";
-import { drawAriaEmber } from "@/lib/aria-ember";
+import { ARIA_MARK, ariaMarkShouldSpin } from "@/lib/aria-mark";
+import { drawAriaRingField } from "@/lib/aria-ring-field";
 
 /**
  * Adaptive Recovery Interactive Assistant.
- * Living contract is the kinetic ring-field in `ARIA_MARK` / `shared/aria-mark.json`.
- * Canvas still draws the legacy ember until the ring-field renderer lands. No PNG runtime.
+ * Living mark is the kinetic ring-field in `ARIA_MARK` / `shared/aria-mark.json`.
+ * Procedural canvas only — no PNG runtime, no ember, no readiness chrome.
  */
 export function AriaMark({
   size = 48,
@@ -24,7 +24,6 @@ export function AriaMark({
   const hero = size >= ARIA_MARK.heroMinimumSize;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const speakingRef = useRef(speaking);
-  const gaze = useRef({ x: 0, y: 0, tx: 0, ty: 0 });
   speakingRef.current = speaking;
 
   useEffect(() => {
@@ -44,38 +43,15 @@ export function AriaMark({
     const start = performance.now();
 
     const paint = (now: number) => {
-      const reduce = media.matches;
-      if (reduce) {
-        gaze.current.x = 0;
-        gaze.current.y = 0;
-        gaze.current.tx = 0;
-        gaze.current.ty = 0;
-      } else {
-        gaze.current.x += (gaze.current.tx - gaze.current.x) * 0.14;
-        gaze.current.y += (gaze.current.ty - gaze.current.y) * 0.14;
-      }
-      const t = reduce ? LEGACY_EMBER.stillPose : (now - start) / 1000;
-      drawAriaEmber(ctx, canvas.width, canvas.height, {
+      const reduce = !ariaMarkShouldSpin(size, media.matches);
+      const t = reduce ? 0 : (now - start) / 1000;
+      drawAriaRingField(ctx, canvas.width, canvas.height, {
         time: t,
         speaking: speakingRef.current,
-        gazeX: gaze.current.x,
-        gazeY: gaze.current.y,
         reduceMotion: reduce,
+        cssSize: size,
       });
       if (!reduce) raf = requestAnimationFrame(paint);
-    };
-
-    const followPointer = (event: PointerEvent) => {
-      if (media.matches) return;
-      const box = canvas.getBoundingClientRect();
-      const reach = Math.max(box.width, 48);
-      gaze.current.tx = clampGaze((event.clientX - (box.left + box.width / 2)) / reach);
-      gaze.current.ty = clampGaze((event.clientY - (box.top + box.height / 2)) / reach);
-    };
-
-    const restGaze = () => {
-      gaze.current.tx = 0;
-      gaze.current.ty = 0;
     };
 
     const onMotionPref = () => {
@@ -84,15 +60,9 @@ export function AriaMark({
     };
 
     paint(start);
-    window.addEventListener("pointermove", followPointer, { passive: true });
-    window.addEventListener("blur", restGaze);
-    document.documentElement.addEventListener("mouseleave", restGaze);
     media.addEventListener("change", onMotionPref);
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("pointermove", followPointer);
-      window.removeEventListener("blur", restGaze);
-      document.documentElement.removeEventListener("mouseleave", restGaze);
       media.removeEventListener("change", onMotionPref);
     };
   }, [size]);
