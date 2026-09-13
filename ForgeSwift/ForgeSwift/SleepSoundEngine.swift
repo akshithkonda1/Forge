@@ -93,6 +93,10 @@ final class SleepWindDownPlayer {
             return noErr
         }
         engine.attach(source)
+        #if targetEnvironment(simulator)
+        // Same RemoteIO 0 Hz abort as the welcome chime. Device still plays.
+        return
+        #else
         engine.mainMixerNode.outputVolume = Float(volume)
         do {
             #if compiler(>=6.4)
@@ -103,6 +107,7 @@ final class SleepWindDownPlayer {
         } catch {
             return
         }
+        #endif
         let holdMinutes = minutes
         Task { @MainActor [weak self] in
             guard let self else { return }

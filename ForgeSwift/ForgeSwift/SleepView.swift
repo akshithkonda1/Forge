@@ -95,10 +95,7 @@ struct SleepView: View {
         .onAppear { consumePendingSleepTab() }
         .onChange(of: store.pendingSleepTab) { _, _ in consumePendingSleepTab() }
         .task {
-            if await hkService.requestAuthorization() {
-                let hkSleep = await hkService.fetchRecentSleepData(days: 14)
-                store.mergeSleepDataLocally(hkSleep)
-            }
+            await hkService.refreshFromAppleHealth(into: store)
             let debt = hkService.computeSleepDebt(from: store.sleepData)
             let recentScore = store.sleepData.first?.score
             _ = hkService.computeAdaptiveSunrise(

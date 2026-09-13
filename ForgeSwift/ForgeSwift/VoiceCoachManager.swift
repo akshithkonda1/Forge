@@ -45,7 +45,9 @@ final class VoiceCoachManager {
     
     init() {
         speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+        #if !targetEnvironment(simulator)
         Task { await self.setupAudioSession() }
+        #endif
     }
     
     // MARK: - Public API
@@ -253,10 +255,13 @@ final class VoiceCoachManager {
     // MARK: - Private: TTS
     
     private func speak(_ text: String) {
-        guard isVoiceEnabled else { return }
         lastCoachMessage = text
-        // Train cues stay silent in v1. ARIA's mouth is the character session
-        // (dummy fill-in or live ConvAI), not gym TTS.
+        guard isVoiceEnabled else { return }
+        #if targetEnvironment(simulator)
+        return
+        #else
+        AriaPresence.shared.speak(text)
+        #endif
     }
     
     // MARK: - Private: ARIA backend

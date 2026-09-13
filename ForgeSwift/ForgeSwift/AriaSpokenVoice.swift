@@ -35,8 +35,9 @@ enum AriaTrainVoice: Sendable {
 
     @MainActor
     static func speakHowTo(_ def: ExerciseDefinition) {
-        // Train cues stay silent in v1 — ARIA's mouth is the character session.
-        _ = def
+        guard isEnabled else { return }
+        let cue = def.cues.first ?? "Set up, then own the first rep."
+        AriaPresence.shared.speak("\(def.name). \(cue)")
     }
 }
 
