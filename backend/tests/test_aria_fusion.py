@@ -322,10 +322,51 @@ class FusionContractTests(unittest.TestCase):
         ctx = _ready_ctx(tags=["calendar:kind:wedding", "calendar:evening:busy"])
         r = aria_engine.generate_response("What should I train today?", ctx)
         self.assertEqual(r["fusion"]["stance"], "protect")
-        blob = f"{r.get('message') or ''} {r.get('card', {}).get('action') or ''}".lower()
-        for banned in ("hrv", "bpm", "mmhg", "spo2"):
-            self.assertNotIn(banned, blob, banned)
+        self._assert_no_vitals_speak(r)
         self.assertNotIn("guidance_band", r)
+
+    def test_lifestyle_sleep_first_prose_does_not_dump_vitals(self):
+        ctx = _ready_ctx(
+            tags=["calendar:kind:wedding", "calendar:evening:busy"],
+            hrv_trend=-12.0,
+            sleep_minutes=300,
+            recovery=48,
+        )
+        r = aria_engine.generate_response("What should I train today?", ctx)
+        self.assertEqual(r["fusion"]["stance"], "protect")
+        self._assert_no_vitals_speak(r)
+        blob = f"{r.get('prose_summary') or ''} {r.get('message') or ''}".lower()
+        self.assertTrue(
+            "wedding" in blob
+            or "calendar" in blob
+            or "day you already have" in blob
+            or "shorter session" in blob,
+            r.get("prose_summary"),
+        )
+
+    def _assert_no_vitals_speak(self, r: dict) -> None:
+        card = r.get("card") or {}
+        why = card.get("why") or card.get("timing") or ""
+        blob = " ".join(
+            [
+                r.get("prose_summary") or "",
+                r.get("message") or "",
+                card.get("action") or "",
+                why,
+            ]
+        ).lower()
+        for banned in (
+            "hrv",
+            "bpm",
+            "mmhg",
+            "spo2",
+            "vo2",
+            "sleep debt",
+            "sleep-debt",
+            "% below baseline",
+            "recovery score",
+        ):
+            self.assertNotIn(banned, blob, banned)
 
 
 if __name__ == "__main__":

@@ -32,6 +32,7 @@ read on whether the primary reply reads as human or as data-driven.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 
 from ..backend_simulator.behavior_engine import generate_stream
@@ -744,6 +745,27 @@ def _follow_up_reply(
     ])
 
 
+# User-visible Dummy speak never dumps vitals/metrics. Orchestration notes may
+# still name missing HRV for guard tests; those tokens must not reach prose.
+_VITALS_SPEAK = re.compile(
+    r"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score|sleep[- ]?debt)\b"
+    r"|%\s*(?:below|above|under|over)\s+baseline",
+    re.I,
+)
+_SPEAK_FALLBACK = (
+    "I'm with you. Let's pick one next step that respects today rather than performing it."
+)
+
+
+def _speak_without_vitals(*candidates: str) -> str:
+    """Return the first candidate that does not dump banned vitals tokens."""
+    for text in candidates:
+        text = str(text or "").strip()
+        if text and not _VITALS_SPEAK.search(text):
+            return text
+    return _SPEAK_FALLBACK
+
+
 def _weave_specialists(prose: str, notes: list[SpecialistNote], seed: int) -> str:
     """Fold specialist asides into one spoken reply instead of stacked briefs.
 
@@ -753,7 +775,10 @@ def _weave_specialists(prose: str, notes: list[SpecialistNote], seed: int) -> st
     body = (prose or "").rstrip()
     if not notes or not body:
         return body
-    usable = [n for n in notes if (n.text or "").strip()]
+    usable = [
+        n for n in notes
+        if (n.text or "").strip() and not _VITALS_SPEAK.search(n.text)
+    ]
     if not usable:
         return body
     # Keep at most two asides; pick by seed for determinism.
@@ -794,6 +819,8 @@ def _weave_specialists(prose: str, notes: list[SpecialistNote], seed: int) -> st
             "Meanwhile,",
         ])
         clause = f"{lead} {text[0].lower() + text[1:] if text and text[0].isupper() else text}."
+        if _VITALS_SPEAK.search(clause):
+            continue
         if clause.lower() not in body.lower():
             clauses.append(clause)
     if not clauses:
@@ -1234,6 +1261,8 @@ def respond(
         web_note = web_research.look_up(plan.primary.kind)
         if web_note and web_note not in chat:
             chat = f"{chat} ({web_note.rstrip('.')})"
+    prose = _speak_without_vitals(prose)
+    chat = _speak_without_vitals(chat, prose)
     recovery_needed = scenario == "recovery_first" or ctx.today.readiness_score < 50
 
     # Diagnosed against the primary reply alone, not the full chat: supporting

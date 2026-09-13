@@ -149,11 +149,10 @@ class DummyOrchestratorTests(unittest.TestCase):
         # into the chat. The dummy orchestra must rewrite that before a person
         # (or voice-check) sees it.
         row = dummy.respond("How did I sleep last night?", seed=42)
+        self._assert_no_vitals_speak(row)
         prose = row["prose_summary"]
         self.assertNotRegex(prose, r"Readiness is \d")
-        self.assertNotRegex(prose, r"\bHRV \d")
         self.assertNotRegex(prose, r"\bACWR ")
-        self.assertNotIn("sleep debt", prose.lower())
         self.assertTrue(prose.strip())
         self.assertIn(row["voice_diagnosis"]["verdict"], ("human", "mixed"))
         self.assertNotEqual(row["voice_diagnosis"]["verdict"], "data_driven")
@@ -357,9 +356,10 @@ class DummyOrchestratorTests(unittest.TestCase):
             "same question, new phrasing",
             "following on from",
             "readiness is ",
-            "hrv ",
         ):
             self.assertNotIn(banned, lowered, chat)
+        self._assert_no_vitals_speak(second)
+        self._assert_no_vitals_speak(first)
         # Voice gate still reads as human on the primary prose.
         self.assertEqual(second["voice_diagnosis"]["verdict"], "human")
         self.assertTrue(first["prose_summary"].strip())
@@ -402,9 +402,9 @@ class DummyOrchestratorTests(unittest.TestCase):
         # like they know the life, not like they read a spreadsheet.
         row = dummy.respond("I slept badly — what should I train and eat?", seed=1)
         self.assertIn("teacher", (row["orchestration"]["persona"]["occupation"] or "").lower())
+        self._assert_no_vitals_speak(row)
         joined = row["message"].lower()
         self.assertNotRegex(row["message"], r"Readiness is \d")
-        self.assertNotRegex(row["message"], r"\bHRV \d")
         # Either the lifestyle specialist, a woven aside, or the persona life
         # clause should show the week — without dumping a spreadsheet.
         notes = " ".join(n["text"] for n in row["orchestration"]["specialist_notes"]).lower()
@@ -427,3 +427,44 @@ class DummyOrchestratorTests(unittest.TestCase):
         signals = dummy.read_signals(ctx)
         blob = f"{signals.sleep} {signals.recovery} {signals.load} {signals.life}"
         self.assertNotRegex(blob, r"\d")
+
+    def test_weave_does_not_speak_missing_hrv_hud(self):
+        note = dummy.SpecialistNote(
+            "recovery",
+            "missing",
+            "Recovery is looking without a full picture — sleep unavailable, HRV unavailable — "
+            "so I won't pretend I have a clean read.",
+        )
+        spoken = dummy._weave_specialists("Keep today kind.", [note], seed=1)
+        self.assertIn("kind", spoken.lower())
+        self.assertNotIn("hrv", spoken.lower())
+        self.assertNotIn("sleep debt", spoken.lower())
+        self.assertNotIn("% below baseline", spoken.lower())
+
+    def test_user_visible_speak_never_dumps_vitals(self):
+        prompts = (
+            "How did I sleep last night?",
+            "What should I train today?",
+            "I slept badly — what should I train and eat?",
+            "ok what should I train then",
+        )
+        history: list[str] = []
+        for prompt in prompts:
+            row = dummy.respond(prompt, seed=11, prior_turns=history or None)
+            self._assert_no_vitals_speak(row)
+            history.append(prompt)
+
+    def _assert_no_vitals_speak(self, row: dict) -> None:
+        blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}".lower()
+        for banned in (
+            "hrv",
+            "bpm",
+            "mmhg",
+            "spo2",
+            "vo2",
+            "sleep debt",
+            "sleep-debt",
+            "% below baseline",
+            "recovery score",
+        ):
+            self.assertNotIn(banned, blob, banned)
