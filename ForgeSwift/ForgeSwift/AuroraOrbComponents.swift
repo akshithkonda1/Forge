@@ -88,8 +88,8 @@ struct AuroraOrbView: View {
 }
 
 /// Stroked ellipses only. Identity is orange — mood does not recolor the field.
-/// Drawn with SwiftUI shapes (not Canvas + `.plusLighter`) so Simulator never
-/// hits the Metal MSAA 0×0 resolve crash the retired gooey ember used.
+/// Hero (≥90pt) draws all five. Compact slots draw the Cove 3-ring
+/// (two ≥0.70 + one support). Shape strokes, not Canvas + `.plusLighter`.
 private struct AriaRingFieldView: View {
     let time: TimeInterval
     let state: AROrbState
@@ -115,7 +115,7 @@ private struct AriaRingFieldView: View {
                         endRadius: size * 0.48
                     )
                 )
-            ForEach(0..<AriaSigilGeometry.ellipseCount, id: \.self) { index in
+            ForEach(AriaSigilGeometry.visibleRingIndices(size: size), id: \.self) { index in
                 let pose = AriaSigilGeometry.ellipse(
                     index: index,
                     time: time,

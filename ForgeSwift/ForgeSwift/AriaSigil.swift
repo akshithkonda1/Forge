@@ -2,22 +2,41 @@ import Foundation
 import SwiftUI
 
 /// Kinetic orange ring-field. Five overlapping ellipses, Forge orange `#FF4D00`.
-/// Soft spin while alive; Reduce Motion / `forgeMinimalAnimation` freeze at `stillPose`.
+/// Soft spin while alive; Reduce Motion / `forgeMinimalAnimation` freeze at
+/// `stillPoseAngleDeg`.
 ///
-/// Lex owns `shared/aria-mark.json` / Frontend. The tree copy is still the
-/// 4-lobe ember contract (`lobeCount: 4`, breath Hz, `maxGaze`). Phone ships
-/// this craft until that JSON lands — do not treat the ember file as the mark.
+/// Lex contract (`#270` `shared/aria-mark.json`, not yet on `main`): radii, tilt,
+/// eccentricity, phase, Hz. Cove contrast floor overlays opacity + compact stroke.
+/// Tree `main` copy is still the 4-lobe ember file — do not treat that as the mark.
 enum AriaSigilGeometry: Sendable {
 
-    static let stillPose: Double = 1.72
     static let ellipseCount: Int = 5
     static let forgeOrangeHex = "FF4D00"
+    static let brandHueLightHex = "FF6B2B"
 
-    /// Soft field spin. Idle is slower than speaking. All well under a flicker bar.
-    static let idleSpinHz: Double = 0.08
-    static let listeningSpinHz: Double = 0.11
-    static let processingSpinHz: Double = 0.13
-    static let speakingSpinHz: Double = 0.16
+    /// Timeline clock used when the view is frozen. Angle lock is `stillPoseAngleDeg`.
+    static let stillPose: Double = 1.72
+    static let stillPoseAngleDeg: Double = 18
+    static let heroMinimumSize: CGFloat = 90
+    static let compactRecommend: CGFloat = 28
+
+    /// Lex `#270` spin. Idle is slower than speaking.
+    static let idleSpinHz: Double = 0.04
+    static let speakingSpinHz: Double = 0.075
+
+    /// Cove contrast floor. Lex `#270` still lists `1.35` — phone ships ≥ 1.5.
+    static let strokeWidthCompact: CGFloat = 1.5
+    static let strokeWidthHero: CGFloat = 1.85
+    static let contrastFloor: Double = 0.70
+
+    /// Lex `#270` radii / eccentricity / tilt / phase. Unchanged by Cove.
+    static let radii: [Double] = [0.38, 0.48, 0.58, 0.68, 0.78]
+    static let eccentricity: [Double] = [0.1, 0.14, 0.08, 0.16, 0.11]
+    static let tiltDeg: [Double] = [14, -22, 28, -10, 18]
+    static let phaseOffsets: [Double] = [0, 0.18, 0.41, 0.63, 0.88]
+
+    /// Cove floor: at least two rings ≥ 0.70. Lex `#270` still lists dimmer values.
+    static let ringOpacities: [Double] = [0.40, 0.72, 0.78, 0.45, 0.55]
 
     struct EllipsePose: Equatable, Sendable {
         var rx: Double
@@ -26,22 +45,28 @@ enum AriaSigilGeometry: Sendable {
         var opacity: Double
     }
 
-    /// Aspect + counter-spin. Tilts are `index * 2π / 5` so the five rings overlap
-    /// as a field, not a stacked nest.
-    private static let rings: [(rx: Double, ry: Double, spinSign: Double, opacity: Double)] = [
-        (0.94, 0.62, 1.00, 0.92),
-        (0.90, 0.54, -0.92, 0.76),
-        (0.86, 0.58, 1.08, 0.84),
-        (0.92, 0.50, -1.04, 0.70),
-        (0.88, 0.66, 0.96, 0.86),
-    ]
+    static var contrastRingIndices: [Int] {
+        ringOpacities.enumerated().compactMap { $0.element >= contrastFloor ? $0.offset : nil }
+    }
+
+    /// Compact 3-ring: the two ≥ 0.70 rings plus the strongest support ring.
+    /// Watch later / tab / avatar slots. Not Home readiness chrome.
+    static var compactRingIndices: [Int] {
+        let support = ringOpacities.enumerated()
+            .filter { $0.element < contrastFloor }
+            .max { $0.element < $1.element }?
+            .offset
+        return (contrastRingIndices + [support].compactMap { $0 }).sorted()
+    }
+
+    static func visibleRingIndices(size: CGFloat) -> [Int] {
+        size < heroMinimumSize ? compactRingIndices : Array(0..<ellipseCount)
+    }
 
     static func spinHz(for state: AROrbState) -> Double {
         switch state {
-        case .idle: return idleSpinHz
-        case .listening: return listeningSpinHz
-        case .processing: return processingSpinHz
-        case .speaking: return speakingSpinHz
+        case .idle, .listening: return idleSpinHz
+        case .processing, .speaking: return speakingSpinHz
         }
     }
 
@@ -52,26 +77,29 @@ enum AriaSigilGeometry: Sendable {
         reduceMotion: Bool
     ) -> EllipsePose {
         let i = max(0, min(ellipseCount - 1, index))
-        let ring = rings[i]
-        let tilt = Double(i) * (.pi * 2 / Double(ellipseCount))
-        // Still-pose is one composition: freeze the clock and the idle rate
-        // so speaking / listening cannot drift the reduced frame.
-        let hz = reduceMotion ? idleSpinHz : spinHz(for: state)
-        let clock = reduceMotion ? stillPose : time
-        let rotation = tilt + ring.spinSign * clock * hz * .pi * 2
-        let talk = (!reduceMotion && state == .speaking) ? 0.03 : 0
+        let radius = radii[i]
+        let ecc = eccentricity[i]
+        let tilt = tiltDeg[i] * .pi / 180
+        let phase = phaseOffsets[i] * .pi * 2
+        let still = stillPoseAngleDeg * .pi / 180
+        let spin: Double
+        if reduceMotion {
+            spin = still
+        } else {
+            spin = time * spinHz(for: state) * .pi * 2
+        }
         return EllipsePose(
-            rx: ring.rx + talk,
-            ry: ring.ry + talk * 0.5,
-            rotation: rotation,
-            opacity: ring.opacity
+            rx: radius * (1 + ecc),
+            ry: radius * (1 - ecc),
+            rotation: tilt + phase + spin,
+            opacity: ringOpacities[i]
         )
     }
 
-    static func strokeWidth(size: CGFloat, index: Int) -> CGFloat {
-        let i = max(0, min(ellipseCount - 1, index))
-        let weights: [CGFloat] = [1.12, 0.92, 1.04, 0.86, 1.00]
-        return max(1.15, size * 0.022) * weights[i]
+    static func strokeWidth(size: CGFloat, index: Int = 0) -> CGFloat {
+        _ = index
+        let raw = size < heroMinimumSize ? strokeWidthCompact : strokeWidthHero
+        return max(strokeWidthCompact, raw)
     }
 }
 
@@ -112,7 +140,7 @@ enum AriaSigilPalette: Sendable {
 // MARK: - Minimal animation (phone)
 
 /// Mirrors the Watch `forgeMinimalAnimation` key. Either this or Reduce Motion
-/// freezes the ring-field at `AriaSigilGeometry.stillPose`. Default is off;
+/// freezes the ring-field at `AriaSigilGeometry.stillPoseAngleDeg`. Default is off;
 /// iOS has no separate Settings toggle yet.
 private struct ForgeMinimalAnimationKey: EnvironmentKey {
     static let defaultValue = false

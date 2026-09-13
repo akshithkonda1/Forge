@@ -28,8 +28,8 @@ final class AriaSigilTests: XCTestCase {
 
     func testIdleSpinIsSofterThanSpeaking() {
         XCTAssertLessThan(AriaSigilGeometry.idleSpinHz, AriaSigilGeometry.speakingSpinHz)
-        XCTAssertLessThan(AriaSigilGeometry.idleSpinHz, 0.20)
-        XCTAssertLessThan(AriaSigilGeometry.speakingSpinHz, 0.25)
+        XCTAssertEqual(AriaSigilGeometry.idleSpinHz, 0.04, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.speakingSpinHz, 0.075, accuracy: 0.0001)
     }
 
     func testEllipsesMoveWhenAliveAndFreezeWhenReduced() {
@@ -62,9 +62,40 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertEqual(rotations.count, AriaSigilGeometry.ellipseCount)
     }
 
-    func testStrokeWidthStaysVisibleAtTabAndHero() {
-        XCTAssertGreaterThanOrEqual(AriaSigilGeometry.strokeWidth(size: 22, index: 0), 1.15)
-        XCTAssertGreaterThan(AriaSigilGeometry.strokeWidth(size: 168, index: 0), 3)
+    func testCoveContrastFloor() {
+        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.40, 0.72, 0.78, 0.45, 0.55])
+        XCTAssertEqual(AriaSigilGeometry.contrastFloor, 0.70, accuracy: 0.0001)
+        XCTAssertGreaterThanOrEqual(AriaSigilGeometry.strokeWidthCompact, 1.5)
+        XCTAssertGreaterThanOrEqual(
+            AriaSigilGeometry.ringOpacities.filter { $0 >= AriaSigilGeometry.contrastFloor }.count,
+            2
+        )
+        XCTAssertEqual(AriaSigilGeometry.contrastRingIndices, [1, 2])
+        XCTAssertEqual(AriaSigilGeometry.compactRingIndices.count, 3)
+        XCTAssertEqual(AriaSigilGeometry.compactRingIndices, [1, 2, 4])
+        XCTAssertEqual(
+            AriaSigilGeometry.compactRingIndices.filter { AriaSigilGeometry.ringOpacities[$0] >= 0.70 }.count,
+            2
+        )
+        for index in 0..<AriaSigilGeometry.ellipseCount {
+            XCTAssertGreaterThanOrEqual(
+                AriaSigilGeometry.strokeWidth(size: AriaSigilGeometry.compactRecommend, index: index),
+                AriaSigilGeometry.strokeWidthCompact
+            )
+        }
+        XCTAssertEqual(AriaSigilGeometry.visibleRingIndices(size: 28), AriaSigilGeometry.compactRingIndices)
+        XCTAssertEqual(AriaSigilGeometry.visibleRingIndices(size: 90), Array(0..<5))
+    }
+
+    func testLexRadiiAndHzUnchanged() {
+        XCTAssertEqual(AriaSigilGeometry.radii, [0.38, 0.48, 0.58, 0.68, 0.78])
+        XCTAssertEqual(AriaSigilGeometry.eccentricity, [0.1, 0.14, 0.08, 0.16, 0.11])
+        XCTAssertEqual(AriaSigilGeometry.tiltDeg, [14, -22, 28, -10, 18])
+        XCTAssertEqual(AriaSigilGeometry.phaseOffsets, [0, 0.18, 0.41, 0.63, 0.88])
+        XCTAssertEqual(AriaSigilGeometry.idleSpinHz, 0.04, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.speakingSpinHz, 0.075, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.stillPoseAngleDeg, 18, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.strokeWidthHero, 1.85, accuracy: 0.0001)
     }
 
     func testMeetCopyIsARIANotAForgePairing() {
