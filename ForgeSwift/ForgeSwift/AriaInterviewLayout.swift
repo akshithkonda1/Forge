@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct AriaInterviewLayout: View {
     @Bindable var coordinator: OnboardingCoordinator
