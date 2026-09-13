@@ -55,7 +55,8 @@ _VITALS_SCORE_RE = re.compile(
             r"\bsleep:\s*\d",
             r"\d+(?:\.\d+)?\s?h total\b",
             r"\d+\s?min deep\b",
-            r"\bdeep sleep at\s+\d+(?:\.\d+)?\s*%",
+            r"\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%",
+            r"\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%",
         )
     ),
     re.I,

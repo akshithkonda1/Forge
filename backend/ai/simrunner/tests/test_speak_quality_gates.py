@@ -25,6 +25,7 @@ class GateFixturesFailOnBadSpeak(unittest.TestCase):
             "Readiness 96, HRV 52ms, ACWR 0.63, sleep debt 0.2h.",
             "Sleep score 80 with HRV 12% below baseline.",
             "Sleep: 8.1 h total, 93 min deep (19%). Deep sleep at 19% is in a healthy band.",
+            "REM is light at 12%. Light sleep at 61%.",
         )
         for text in dumps:
             with self.subTest(text=text):
