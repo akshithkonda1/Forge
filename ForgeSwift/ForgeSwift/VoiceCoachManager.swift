@@ -32,9 +32,6 @@ final class VoiceCoachManager {
     // Context passed in from ActiveWorkoutView
     private var workoutContext: WorkoutContext = .empty
     
-    // Conversation history for Claude
-    private var conversationHistory: [[String: String]] = []
-    
     // Forge's own backend. This used to be a direct POST to api.anthropic.com
     // with a key read from Info.plist — an extractable secret in any build that
     // set one, and a request that skipped auth, sanitization, the model router
@@ -123,14 +120,9 @@ final class VoiceCoachManager {
     func askClaude(_ userMessage: String) async {
         guard isVoiceEnabled else { return }
         isThinking = true
-        
-        conversationHistory.append(["role": "user", "content": userMessage])
-        trimConversationHistory()
 
         do {
             let response = try await askForge(userMessage)
-            conversationHistory.append(["role": "assistant", "content": response])
-            trimConversationHistory()
             lastCoachMessage = response
             isThinking = false
             speak(response)
@@ -140,10 +132,6 @@ final class VoiceCoachManager {
         }
     }
     
-    func toggleVoice() {
-        setVoiceEnabled(!isVoiceEnabled)
-    }
-
     func setVoiceEnabled(_ enabled: Bool) {
         isVoiceEnabled = enabled
         AriaTrainVoice.isEnabled = enabled
@@ -158,19 +146,7 @@ final class VoiceCoachManager {
         stopListening()
         interruptSpeech()
     }
-    
-    func clearHistory() {
-        conversationHistory = []
-    }
 
-    /// Mid-workout coaching only needs the last few exchanges; anything older
-    /// just inflates every request. Keeps the window at 12 turns.
-    private func trimConversationHistory() {
-        let maxTurns = 12
-        guard conversationHistory.count > maxTurns else { return }
-        conversationHistory = Array(conversationHistory.suffix(maxTurns))
-    }
-    
     // MARK: - Private: Speech Recognition
     
     private func beginRecognition() async {
@@ -272,8 +248,7 @@ final class VoiceCoachManager {
     /// persona and the security law live server-side in `live_system_prompt()`,
     /// so a client cannot define — or quietly drift from — the rules the model
     /// answers under. Conversation continuity is the server's job too, via the
-    /// relationship/context engine; `conversationHistory` is kept only for the
-    /// on-screen transcript.
+    /// relationship/context engine.
     private func askForge(_ message: String) async throws -> String {
         guard let url = URL(string: "ai/chat", relativeTo: AriaService.shared.baseURL) else {
             throw CoachError.apiError("This build isn't pointed at a Forge server.")

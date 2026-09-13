@@ -65,33 +65,6 @@ struct SubstitutionBanner: View {
     }
 }
 
-struct O2WarningBanner: View {
-    let spO2: Int
-    let onDismiss: () -> Void
-    var body: some View {
-        VStack {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle().fill(Color.danger.opacity(0.2)).frame(width: 40, height: 40)
-                    Image(systemName: "lungs.fill").font(.system(size: 18)).foregroundColor(.danger)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("LOW O₂ SATURATION").font(.system(size: 11, weight: .black)).foregroundColor(.danger).tracking(1.5)
-                    Text("\(spO2)% — Slow down and breathe deeply").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                }
-                Spacer()
-                Button(action: onDismiss) { Image(systemName: "xmark").font(.system(size: 12, weight: .bold)).foregroundColor(.textMuted).frame(width: 28, height: 28).background(Color.surfaceElevated).clipShape(Circle()) }
-            }
-            .padding(.horizontal, 20).padding(.vertical, 14)
-            .background(ZStack { Color.surface; LinearGradient(colors: [Color.danger.opacity(0.1), .clear], startPoint: .leading, endPoint: .trailing) })
-            .cornerRadius(18).overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.danger.opacity(0.45), lineWidth: 1.5))
-            .shadow(color: Color.danger.opacity(0.25), radius: 20, y: 6)
-            .padding(.horizontal, 16).padding(.top, 56)
-            Spacer()
-        }
-    }
-}
-
 struct SetLoggerPanel: View {
     let exercise: Exercise
     let definition: ExerciseDefinition?

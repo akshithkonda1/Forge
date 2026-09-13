@@ -52,7 +52,6 @@ struct WorkoutIdleView: View {
     @State private var showLibrary = false
     @State private var showDashboard = false
     @State private var showWeekPicker = false
-    @State private var scalingApplied = false
 
     private var scaling: PlanScaling { AdaptiveEngine.scaling(readiness: store.readiness, experience: store.userProfile.experienceLevel) }
 
@@ -84,7 +83,7 @@ struct WorkoutIdleView: View {
 
                         AdaptiveScalingCard(
                             scaling: scaling,
-                            applied: workout.autoScaled || scalingApplied
+                            applied: workout.autoScaled
                         )
                             .padding(.horizontal, 16)
                             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 14)
@@ -136,9 +135,6 @@ struct WorkoutIdleView: View {
                     readiness: store.readiness,
                     experience: store.userProfile.experienceLevel
                 )
-                scalingApplied = true
-            } else if store.todayWorkout?.autoScaled == true {
-                scalingApplied = true
             }
         }
     }
@@ -338,7 +334,6 @@ struct WorkoutIdleView: View {
 private struct AdaptiveScalingCard: View {
     let scaling: PlanScaling
     let applied: Bool
-    @State private var appeared = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -768,17 +763,5 @@ struct WorkoutEmptyState: View {
         .frame(maxWidth: .infinity)
         .sheet(isPresented: $showLibrary) { ExerciseLibraryView() }
         .onAppear { withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.18)) { appeared = true } }
-    }
-}
-
-struct FeatureBadge: View {
-    let icon: String; let label: String; let color: Color
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 10))
-            Text(label).font(.system(size: 11, weight: .medium))
-        }
-        .foregroundColor(color).padding(.horizontal, 9).padding(.vertical, 5)
-        .background(color.opacity(0.1)).cornerRadius(7)
     }
 }

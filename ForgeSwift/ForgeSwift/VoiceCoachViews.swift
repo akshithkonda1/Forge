@@ -223,16 +223,6 @@ struct ThinkingDotsView: View {
     }
 }
 
-// MARK: - Voice Toggle Button
-
-struct VoiceToggleButton: View {
-    @Bindable var coach: VoiceCoachManager
-
-    var body: some View {
-        AriaTrainMuteButton(coach: coach)
-    }
-}
-
 /// Mute ARIA's spoken voice on every surface that talks: welcome, onboarding,
 /// chat, Train. One UserDefaults flag so mute actually sticks.
 struct AriaSpokenMuteButton: View {

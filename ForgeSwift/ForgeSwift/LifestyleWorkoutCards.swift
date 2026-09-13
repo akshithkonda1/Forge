@@ -1,6 +1,4 @@
 import SwiftUI
-import WorkoutKit
-import ForgeCore
 
 struct AIWorkoutSuggestionsCard: View {
     let workouts: [AIWorkoutSuggestion]
