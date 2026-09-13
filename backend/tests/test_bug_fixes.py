@@ -69,6 +69,44 @@ class SleepDurationThresholdTests(unittest.TestCase):
         self.assertNotIn("7 h floor", sig.interpretation)
 
 
+class PersonalSleepBandTests(unittest.TestCase):
+    """A personal MAD band must judge duration against this person, not also
+    slap on the population 7 h floor — and must not mark every night with a
+    baseline as negative."""
+
+    def test_short_for_you_uses_personal_low_not_seven_hour_floor(self):
+        sig = _interpret_sleep(_ctx(sleep=SleepContext(
+            duration_minutes=300, efficiency=0.95, rem_minutes=70,
+            deep_minutes=70, hrv=58, resting_hr=52, nights_available=14,
+            baseline_median_minutes=390, baseline_mad_minutes=20)))
+        self.assertIsNotNone(sig)
+        self.assertIn("short for you", sig.interpretation)
+        self.assertIn("personal low", sig.interpretation)
+        self.assertNotIn("7 h floor", sig.interpretation)
+        self.assertEqual(sig.direction, "negative")
+        self.assertEqual(sig.baseline_kind, "personal")
+
+    def test_usual_six_and_a_half_hours_is_not_a_population_shortfall(self):
+        sig = _interpret_sleep(_ctx(sleep=SleepContext(
+            duration_minutes=390, efficiency=0.95, rem_minutes=95,
+            deep_minutes=95, hrv=58, resting_hr=52, nights_available=14,
+            baseline_median_minutes=390, baseline_mad_minutes=20)))
+        self.assertIsNotNone(sig)
+        self.assertIn("around your usual", sig.interpretation)
+        self.assertNotIn("7 h floor", sig.interpretation)
+        self.assertNotEqual(sig.direction, "negative")
+
+    def test_having_a_baseline_does_not_force_a_good_night_negative(self):
+        sig = _interpret_sleep(_ctx(sleep=SleepContext(
+            duration_minutes=480, efficiency=0.95, rem_minutes=110,
+            deep_minutes=110, hrv=58, resting_hr=52, nights_available=14,
+            baseline_median_minutes=450, baseline_mad_minutes=20)))
+        self.assertIsNotNone(sig)
+        self.assertNotIn("7 h floor", sig.interpretation)
+        self.assertNotEqual(sig.direction, "negative")
+        self.assertEqual(sig.baseline_kind, "personal")
+
+
 class DomainKeywordTests(unittest.TestCase):
     """aria_engine: the bare 'pr' progress keyword substring-matched ordinary
     words like 'press', misrouting questions into a progress summary."""

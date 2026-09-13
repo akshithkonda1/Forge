@@ -164,6 +164,8 @@ final class SleepBedtimeCoachTests: XCTestCase {
         )
         XCTAssertTrue(coach.cue.contains("earlier") || coach.cue.contains("Shifting"), coach.cue)
         XCTAssertFalse(coach.scheduleNote.isEmpty)
+    }
+
     func testDayEmptyCopyIsHonestWhenHealthIsConnected() {
         let connected = HealthKitSleepService.dayEmptyCopy(healthConnected: true)
         XCTAssertEqual(connected.title, "No scored night yet")
