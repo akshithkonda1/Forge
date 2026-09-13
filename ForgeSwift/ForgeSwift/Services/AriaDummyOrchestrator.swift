@@ -891,8 +891,18 @@ enum AriaDummyOrchestrator {
                 "we've got something to build on.",
               ])
         let invite = readiness < 55
-            ? rng.pick(["Want a gentle reset or just a check-in? Your call.", "Want breathing + light movement, or just rest?"])
-            : rng.pick(["Want a light, honest session or full rest? You choose.", "Want me to map something light, or keep it to a walk?"])
+            ? rng.pick([
+                "Want a gentle reset or just a check-in? Your call.",
+                "Want breathing + light movement, or just rest?",
+                "Soft day or just a check-in — you pick.",
+                "We can keep it tiny. Reset, or just talk?",
+              ])
+            : rng.pick([
+                "Want a light, honest session or full rest? You choose.",
+                "Want me to map something light, or keep it to a walk?",
+                "Light work or a walk — either is a clean call.",
+                "I can sketch a short session, or we leave it at easy movement.",
+              ])
         return "\(opener)\(empathy) \(body) \(invite)".replacingOccurrences(of: "  ", with: " ")
     }
 

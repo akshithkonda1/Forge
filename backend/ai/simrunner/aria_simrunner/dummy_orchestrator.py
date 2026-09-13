@@ -5,8 +5,10 @@ streams and a stub so ARIA features can be exercised on a laptop. The
 long-term learner is ``services.contextual_learner`` on the Lambda hot path.
 ``respond()`` may *consume* that module in-process so dummy tests exercise
 the same policy a real backend will; it must never own Q-tables, persona
-storage, or teaching copy. Deleting this file must leave the learner and
-``POST /ai/chat`` intact.
+storage, or teaching copy. With ``engine="lambda"`` it also consumes
+``services.fusion.fuse_turn`` and ``aria_engine.generate_response`` (Bedrock
+off) so hypertune reads fused product speak. Deleting this file must leave
+the learner, fusion, and ``POST /ai/chat`` intact.
 
 This is *not* a live model. It is a staged stand-in for one: ingest the
 turn, score intents, fan the specialists out, let the stub decide the
@@ -23,7 +25,9 @@ The one intentional exception: ``respond()`` can call out to
 ``web_research``, a separate, clearly-named collaborator whose entire job is
 a curated, keyless fetch from a handful of general (non-Forge) reference
 URLs — gated to non-cloud execution, isolated in its own module so this
-module's "no network to Forge/AWS" claim stays literally true.
+module's "no network to Forge/AWS" claim stays literally true. The lambda
+engine is in-process only: fusion + deterministic ``generate_response``,
+never ``generate_response_live`` and never a cloud SDK.
 
 Every ``respond()`` call also carries a ``voice_diagnosis`` — a deterministic
 read on whether the primary reply reads as human or as data-driven.
@@ -32,6 +36,7 @@ read on whether the primary reply reads as human or as data-driven.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 
 from ..backend_simulator.behavior_engine import generate_stream
@@ -53,6 +58,10 @@ _CLOUD_RUNTIME_ENV = (
 )
 REASONING_SOURCE = "simrunner-test-ready"
 STUB_MODEL = "simrunner-stub"
+LAMBDA_REASONING_SOURCE = "lambda-fused"
+LAMBDA_MODEL = "lambda-deterministic"
+ENGINE_STUB = "stub"
+ENGINE_LAMBDA = "lambda"
 ORCH_STAGES = ("ingest", "route", "reason", "specialize", "synthesize", "voice")
 
 # Keep needles aligned with iOS ``AriaCoachAgentRouter``. Duplicated on
@@ -615,17 +624,25 @@ def _callback(
     seed: int,
     current_intents: list[IntentHit] | None = None,
 ) -> str:
-    """Cheap multi-turn memory: acknowledge the last thing they asked.
+    """Multi-turn memory that sounds like a person, not a thread picker.
 
     Only fires when this turn still overlaps the last one — a cycle question
-    after a sleep question is a new thread, not a follow-up.
+    after a sleep question is a new thread, not a follow-up. Prefers short
+    spoken bridges ("Yeah — after that night…") over meta narration
+    ("Following on from your previous message").
     """
     if not prior_turns:
         return ""
     last = (prior_turns[-1] or "").strip()
     if not last:
         return ""
+    # Reach one more turn back when the last message was a tiny follow-up.
+    earlier = ""
+    if len(prior_turns) >= 2 and len(last.split()) <= 4:
+        earlier = (prior_turns[-2] or "").strip()
     prior_kinds = {h.kind for h in score_intents(last)}
+    if earlier:
+        prior_kinds |= {h.kind for h in score_intents(earlier)}
     current_kinds = {h.kind for h in (current_intents or [])}
     # Sleep → train is a follow-up. Cycle after sleep is a new thread.
     _follow = {
@@ -644,20 +661,260 @@ def _callback(
         if not related:
             return ""
     lower = last.lower()
-    if any(n in lower for n in ("sleep", "slept", "last night")):
+    earlier_lower = earlier.lower()
+    sleepish = any(n in lower or n in earlier_lower for n in ("sleep", "slept", "last night", "insomnia"))
+    trainish = any(n in lower or n in earlier_lower for n in ("train", "workout", "session", "gym"))
+    if sleepish and trainish:
         return _pick(seed, [
-            "You were asking about the night — this is the next piece. ",
+            "Yeah — after that night, ",
+            "Right, with the night still in play — ",
+            "You were asking about the night — so for training, ",
+            "Picking up from last night into the session: ",
+            "Okay, night first then the work — ",
+        ])
+    if sleepish:
+        return _pick(seed, [
+            "Yeah — about that night, ",
+            "You were asking about the night — ",
             "Picking up from last night: ",
+            "Still thinking about the sleep piece — ",
+            "Right, the night you mentioned — ",
+            "After what you said about sleeping — ",
         ])
-    if any(n in lower for n in ("train", "workout", "session")):
+    if trainish:
         return _pick(seed, [
-            "Still on the session question — ",
+            "Still on the session — ",
+            "Yeah, for the training side — ",
             "From the training side of what you asked: ",
+            "On the workout question — ",
+            "Okay, back to what you'd train — ",
         ])
-    snippet = last.split()[:4]
+    # Soft recall without announcing "I am continuing a thread."
+    snippet = [w for w in last.replace("?", "").split() if w.lower() not in {"i", "a", "the", "to", "and"}][:3]
     if snippet:
-        return f"Following on from “{' '.join(snippet)}…” — "
-    return ""
+        bit = " ".join(snippet)
+        return _pick(seed, [
+            f"Yeah — about “{bit}” — ",
+            f"Still with you on “{bit}” — ",
+            f"Okay, on “{bit}” — ",
+        ])
+    return _pick(seed, ["Yeah — ", "Okay — ", "Right — "])
+
+
+def _follow_up_reply(
+    message: str,
+    prior_turns: list[str] | None,
+    signals: SignalRead,
+    seed: int,
+) -> str:
+    """Handle short discourse moves the way a real coach would mid-thread."""
+    if not prior_turns:
+        return ""
+    text = (message or "").strip().lower()
+    if len(text.split()) > 10:
+        return ""
+    easier = any(p in text for p in (
+        "easier", "make it easy", "too hard", "lighter", "gentler", "dial it back",
+    ))
+    shorter = any(p in text for p in ("shorter", "quicker", "less time", "15 min", "ten min"))
+    skip = any(p in text for p in ("skip it", "skip that", "never mind", "nvm", "forget it"))
+    if not (easier or shorter or skip):
+        return ""
+    if skip:
+        return _pick(seed, [
+            "Got it — we drop that. Want a walk instead, or just leave today alone?",
+            "Okay, scratched. Rest is a plan too — or I can swap in something tiny.",
+            "Fair. We park it. Soft movement, or a clean rest day?",
+        ])
+    if shorter and easier:
+        return _pick(seed, [
+            "Alright — shorter and lighter. Ten to fifteen minutes, easy effort, done.",
+            "We cut it down and soft: a brief mobility or Zone-2 stroll, then stop.",
+            "Yep — compress it. Short, kind, no hero finish.",
+        ])
+    if shorter:
+        return _pick(seed, [
+            "Shorter works. Cap it at fifteen minutes and keep the quality high.",
+            "We trim it — fewer sets, same intent, then you're out.",
+            "Okay, time-box it. Short session, clean reps, no linger.",
+        ])
+    # easier
+    thin = signals.sleep == "thin" or signals.recovery == "asking"
+    if thin:
+        return _pick(seed, [
+            "Yeah — we ease it. Keep the work gentle and protect the night you already spent.",
+            "Lighter it is. Easy movement only; the night still owns the day.",
+            "Makes sense. Soft session, no ego sets — recovery is still in the room.",
+        ])
+    return _pick(seed, [
+        "Sure — we dial it back. Same idea, less intensity, stop while it still feels good.",
+        "Easier works. Drop the load, keep the pattern, leave something in the tank.",
+        "Okay, soft mode. Honest movement without the push.",
+    ])
+
+
+# User-visible Dummy speak never dumps vitals/metrics. Orchestration notes may
+# still name missing HRV for guard tests; those tokens must not reach prose.
+_VITALS_SPEAK = re.compile(
+    r"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score|sleep[- ]?debt)\b"
+    r"|%\s*(?:below|above|under|over)\s+baseline",
+    re.I,
+)
+_SPEAK_FALLBACK = (
+    "I'm with you. Let's pick one next step that respects today rather than performing it."
+)
+_CHEER_SLUDGE = re.compile(
+    r"\b("
+    r"crushing it|you're killing it|you got this|you've got this|"
+    r"so proud of you|amazing work|great job|keep slaying|beast mode|"
+    r"you're a machine|keep up the great|so inspiring"
+    r")\b",
+    re.I,
+)
+_WIT_PROTECT = (
+    "The ambitious plan can wait — I'm not going to clap you into a hole.",
+    "Kind yes. Heroics no. The work will still be there when the night pays you back.",
+    "Today's a don't-pick-a-fight-with-your-own-recovery kind of day.",
+)
+_WIT_PROCEED = (
+    "You've got enough to spend — just don't spend it like it's a dare.",
+    "I'm in. Sharp over loud. Leave the victory-lap energy in the bag.",
+    "Yes to the session. No to performing it for an audience that isn't there.",
+)
+_WIT_HONEST = (
+    "Mixed isn't failure — it's just the plot getting interesting.",
+    "I can be kind without lying to you. Today's a hold-steady chapter.",
+    "Not a pep talk. A read: we work with the day we actually have.",
+)
+
+
+def _speak_without_vitals(*candidates: str) -> str:
+    """Return the first candidate that does not dump banned vitals tokens."""
+    for text in candidates:
+        text = str(text or "").strip()
+        if text and not _VITALS_SPEAK.search(text):
+            return text
+    return _SPEAK_FALLBACK
+
+
+def _collapse_spoken(text: str) -> str:
+    """One spoken reply — product cards use labeled \\n\\n sections."""
+    body = str(text or "")
+    body = re.sub(r"\bWhat I notice\s+", "", body)
+    body = re.sub(r"\bOne next step\s+", " ", body)
+    body = re.sub(r"\bWhy\s+", " — ", body)
+    body = re.sub(r"\n{2,}", " ", body)
+    return re.sub(r"\s+", " ", body).strip()
+
+
+def friend_speak(
+    text: str,
+    *,
+    seed: int,
+    stance: str = "",
+    signals: SignalRead | None = None,
+    guidance: str | None = None,
+) -> str:
+    """Bubbly/kind friend with a point — not empty cheerleading.
+
+    Shared by stub phrase banks and the lambda hypertune path. Guidance /
+    emergency copy is left alone. Iris vitals scrub still wins after this.
+    """
+    if guidance:
+        return str(text or "").strip()
+    body = _CHEER_SLUDGE.sub("that's real work", _collapse_spoken(text))
+    if not body:
+        return _SPEAK_FALLBACK
+    already = (
+        "clap you into",
+        "victory-lap",
+        "spend it like it's a dare",
+        "plot getting interesting",
+        "hold-steady chapter",
+        "don't-pick-a-fight",
+        "not a pep talk",
+    )
+    if any(n in body.lower() for n in already):
+        return body
+    # Short mid-thread mutations ("make it easier") already sound like a person.
+    if len(body.split()) < 28:
+        return _speak_without_vitals(body)
+    sleep = getattr(signals, "sleep", "") if signals is not None else ""
+    if stance == "protect" or sleep == "thin":
+        extra = _pick(seed ^ 17, list(_WIT_PROTECT))
+    elif stance == "proceed":
+        extra = _pick(seed ^ 17, list(_WIT_PROCEED))
+    else:
+        extra = _pick(seed ^ 17, list(_WIT_HONEST))
+    if extra and extra.lower() not in body.lower():
+        if body[-1] not in ".!?":
+            body += "."
+        body = f"{body} {extra}"
+    return _speak_without_vitals(body, extra, _SPEAK_FALLBACK)
+
+
+def _weave_specialists(prose: str, notes: list[SpecialistNote], seed: int) -> str:
+    """Fold specialist asides into one spoken reply instead of stacked briefs.
+
+    Ultra-realistic chat does not dump a Recovery paragraph, then a Sleep
+    paragraph. It keeps one voice and lets a second concern ride as a clause.
+    """
+    body = (prose or "").rstrip()
+    if not notes or not body:
+        return body
+    usable = [
+        n for n in notes
+        if (n.text or "").strip() and not _VITALS_SPEAK.search(n.text)
+    ]
+    if not usable:
+        return body
+    # Keep at most two asides; pick by seed for determinism.
+    count = 1 if len(usable) == 1 or abs(seed) % 3 else min(2, len(usable))
+    chosen = usable[:count]
+    clauses: list[str] = []
+    for note in chosen:
+        text = note.text.strip().rstrip(".")
+        # Strip specialist-label openers so it doesn't sound like a meeting.
+        for prefix in (
+            "Recovery is also in the room — ",
+            "Recovery would keep today kind. ",
+            "Recovery's steady enough that ",
+            "Recovery is looking without a full picture — ",
+            "Sleep's been catching up this week, which is why ",
+            "Sleep's been running a bit thin this week, so ",
+            "Lifestyle's vote: ",
+            "Lifestyle's vote is simple: ",
+            "Progress is the streak, not a single day — ",
+            "Last ",  # workout notes often start "Last {kind} is still…"
+        ):
+            if prefix == "Last ":
+                continue
+            if text.startswith(prefix.rstrip()):
+                text = text[len(prefix.rstrip()):].lstrip(" —,-")
+                break
+            # Also match when the note uses a slightly different opener.
+            short = prefix.rstrip(" —.")
+            if text.startswith(short):
+                text = text[len(short):].lstrip(" —,-.")
+                break
+        if not text:
+            continue
+        lead = _pick(seed ^ _fnv(note.kind), [
+            "Also —",
+            "And on the side,",
+            "One more thing —",
+            "Meanwhile,",
+        ])
+        clause = f"{lead} {text[0].lower() + text[1:] if text and text[0].isupper() else text}."
+        if _VITALS_SPEAK.search(clause):
+            continue
+        if clause.lower() not in body.lower():
+            clauses.append(clause)
+    if not clauses:
+        return body
+    if body[-1] not in ".!?":
+        body += "."
+    return f"{body} {' '.join(clauses)}"
 
 
 def humanize_prose(
@@ -703,6 +960,20 @@ def humanize_prose(
     honor_felt_bad = felt_bad and signals.sleep in ("rebuilt", "decent")
     aside = _life_aside(signals, base)
 
+    # Discourse follow-ups — "make it easier", "shorter", "skip it" — mutate the
+    # last plan instead of restarting a fresh coaching essay. Keep the bridge
+    # tiny so we don't stack "from the training side" + a full rewrite.
+    follow = _follow_up_reply(message, prior_turns, signals, base)
+    if follow:
+        # Avoid "Okay — Okay, …" when the follow-up already opens like speech.
+        leading = follow.split(",", 1)[0].split("—", 1)[0].strip().lower()
+        if leading in {"yeah", "ok", "okay", "sure", "right", "alright", "yep", "got it", "fair"}:
+            soft = ""
+        else:
+            soft = _pick(base, ["Yeah — ", "Okay — ", "Right — ", ""])
+        body = follow[0].lower() + follow[1:] if soft.endswith(("— ", ": ")) and follow[:1].isupper() and not follow.startswith(("I ", "I'm ")) else follow
+        return f"{soft}{body}" if soft else follow
+
     def finish(text: str, *, allow_life: bool = True) -> str:
         body = text.rstrip()
         # Persona texture only where the life actually changes the advice —
@@ -719,6 +990,9 @@ def humanize_prose(
             )
         ):
             body = f"{body} Because {aside}."
+        # Spoken join: after an em-dash bridge, don't restart like a new essay.
+        if opener.endswith(("— ", ": ")) and body[:1].isupper() and not body.startswith(("I ", "I'm ", "I'll ")):
+            body = body[0].lower() + body[1:]
         return f"{opener}{body}"
 
     sleep_clause = ""
@@ -728,18 +1002,24 @@ def humanize_prose(
                 "last night didn't give you a full reset",
                 "sleep came up short",
                 "the night was thinner than you needed",
+                "you woke up already spending energy you didn't bank",
+                "rest didn't stick the way it should have",
             )
         elif signals.sleep == "rebuilt":
             sleep_clause = pick(
                 "you actually rebuilt",
                 "you got a night you can spend",
                 "sleep finally gave you something to work with",
+                "you put real hours in the bank",
+                "the night actually paid you back",
             )
         else:
             sleep_clause = pick(
                 "sleep was decent, not extra",
                 "the night was middle-ground",
                 "you slept enough to move, not enough to burn",
+                "it was a usable night — not a free pass",
+                "rest was fine, nothing flashy",
             )
 
     if scenario == "sparse_clarify" or "someone like me" in lower:
@@ -748,6 +1028,10 @@ def humanize_prose(
             "and how have the last few nights actually felt?",
             "I'd rather ask than invent a version of you. What are you training toward, "
             "and has sleep been on your side or not?",
+            "Give me two things and I'll stop guessing: what you're chasing, and whether "
+            "sleep has been helping or fighting you.",
+            "I'm not going to cosplay knowing your life. Tell me the goal and how nights "
+            "have felt lately — then I can get specific.",
         ), allow_life=False)
 
     if scenario == "sparse_overconfident":
@@ -869,46 +1153,72 @@ def humanize_prose(
     if recovery:
         ack = ""
         if any(p in lower for p in ("hard", "push", "as hard")):
-            ack = "I hear that you want to go hard — and I'll help you train, but not like that today. "
+            ack = pick(
+                "I hear that you want to go hard — and I'll help you train, but not like that today. ",
+                "Yeah, I get the urge to push. Not today though — ",
+                "Wanting hard is fine. Signing off on hard today isn't. ",
+            )
         why = sleep_clause or "your recovery hasn't caught up yet"
         session = (
             f" Last {signals.last_session} is still in the picture."
             if signals.last_session and signals.load == "in_the_legs"
             else ""
         )
-        return finish(
+        return finish(pick(
             f"{ack}I'd keep today kind, because {why}.{session} "
-            f"A walk, mobility, or a very light session is enough. We protect tomorrow."
-        )
+            f"A walk, mobility, or a very light session is enough. We protect tomorrow.",
+            f"{ack}Easy day. {why[0].upper() + why[1:] if why else 'Recovery needs the vote'}.{session} "
+            f"Save the heavy stuff for a night that actually paid you back.",
+            f"{ack}I'm not talking you into hero work while {why}.{session} "
+            f"Light movement counts. Rest counts harder.",
+        ))
 
-    # Train / default — Claude-like: observe, correlate, invite.
+    # Train / default — observe, correlate, invite — with spoken variety.
     if kind == "workout" or any(n in lower for n in ("train", "workout", "session", "gym")):
         session_bit = ""
         if signals.last_session and signals.load == "in_the_legs":
-            session_bit = f" Last {signals.last_session} is still in the legs, so we progress one thing, not everything."
+            session_bit = pick(
+                f" Last {signals.last_session} is still in the legs, so we progress one thing, not everything.",
+                f" You're still carrying yesterday's {signals.last_session} — keep the ask narrow.",
+                f" That last {signals.last_session} hasn't fully left, so don't stack hero volume on it.",
+            )
         elif signals.load == "on_a_streak":
-            session_bit = " You're already on a streak, so today's job is to keep it honest, not heroic."
+            session_bit = pick(
+                " You're already on a streak, so today's job is to keep it honest, not heroic.",
+                " Streak's alive — protect it with clean work, not a victory lap.",
+                " Consistency is already winning; don't blow it on one flashy day.",
+            )
         if sleep_clause:
             return finish(pick(
-                f"You're in a good spot to train, since {sleep_clause}.{session_bit} "
+                f"You've got something to spend, since {sleep_clause}.{session_bit} "
                 f"A solid moderate session fits — progress one thing, leave the hero set.",
                 f"Body's willing today because {sleep_clause}.{session_bit} Let's use that on something "
                 f"clean rather than reckless. Want the session mapped?",
+                f"Green enough to be useful — {sleep_clause}.{session_bit} I'd take a focused session and stop "
+                f"while quality is still high.",
+                f"Yeah, you can train. {sleep_clause[0].upper() + sleep_clause[1:]}.{session_bit} "
+                f"Keep it sharp, not endless.",
             ))
         return finish(pick(
-            f"You're in a good spot to train.{session_bit} I'd take a solid moderate-to-hard session "
+            f"There's room to train — not a parade.{session_bit} I'd take a solid moderate-to-hard session "
             "and see how the first sets feel.",
             f"Today can handle real work.{session_bit} One honest session, one variable progressed — that's the play.",
+            f"Go train — just stay honest about how set one feels.{session_bit}",
+            f"There's room for a real session today.{session_bit} Want me to sketch it?",
         ))
 
     if sleep_clause:
-        return finish(
+        return finish(pick(
             f"Here's how I read you: {sleep_clause}. "
-            f"What would help most — train, recover, or just talk it through?"
-        )
+            f"What would help most — train, recover, or just talk it through?",
+            f"Short version — {sleep_clause}. Want a plan, a softer day, or just the read?",
+            f"My take: {sleep_clause}. Tell me if you want the training version or the recovery one.",
+        ))
     return finish(pick(
         "I'm with you. Let's pick one next step that respects today rather than performing it.",
         "I'm here. Tell me whether you want a plan, a read on last night, or just a check-in.",
+        "Okay — what's the one thing you want from me right now: a plan, a call on rest, or a straight read?",
+        "We can keep this simple. Plan, recover, or talk — your call.",
     ))
 
 
@@ -966,6 +1276,300 @@ def _suggest_body_session(message: str, context) -> dict | None:
     return suggestion
 
 
+def _production_fusion():
+    """Lazy import of live fusion + engine. Dummy must not own these modules."""
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from services import aria_engine as engine_mod
+        from services import fusion as fusion_mod
+
+        return fusion_mod, engine_mod
+    except Exception:
+        return None, None
+
+
+def _sanitize_chat_message(message: str) -> str:
+    """Same inbound scrub ``POST /ai/chat`` uses. Compose, don't reimplement."""
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from security import MAX_CHAT_MESSAGE_CHARS, sanitize_user_text
+
+        return sanitize_user_text(str(message or ""), max_chars=MAX_CHAT_MESSAGE_CHARS)
+    except Exception:
+        return (message or "").strip()
+
+
+def _hrv_trend_points(ctx) -> float | None:
+    hist = getattr(ctx, "history", None) or []
+    vals = [float(r.hrv) for r in hist if getattr(r, "hrv", None) is not None]
+    if len(vals) >= 4:
+        half = len(vals) // 2
+        early = sum(vals[:half]) / max(len(vals[:half]), 1)
+        late = sum(vals[half:]) / max(len(vals[half:]), 1)
+        return round(late - early, 2)
+    label = str(getattr(ctx, "hrv_7d_trend", "") or "")
+    return {"rising": 4.0, "falling": -8.0, "stable": 0.0}.get(label)
+
+
+def _stream_samples(ctx) -> list[dict]:
+    """Project the synthetic stream onto the observe/chat sample bag."""
+    history = list(getattr(ctx, "history", None) or [])
+    today = getattr(ctx, "today", None)
+    if not history and today is not None:
+        history = [today]
+    samples: list[dict] = []
+
+    def add(rec, typ: str, value, unit: str, **extra) -> None:
+        if value is None:
+            return
+        row = {
+            "type": typ,
+            "value": value,
+            "unit": unit,
+            "timestamp": getattr(rec, "date", None) or "",
+            "source": "simrunner",
+        }
+        row.update(extra)
+        samples.append(row)
+
+    for rec in history:
+        hours = getattr(rec, "total_sleep_hours", None)
+        if hours is not None:
+            add(rec, "sleep", float(hours) * 60.0, "min")
+        add(rec, "sleep-stage", getattr(rec, "deep_sleep_minutes", None), "min", stage="deep")
+        add(rec, "sleep-stage", getattr(rec, "rem_sleep_minutes", None), "min", stage="rem")
+        add(rec, "hrv", getattr(rec, "hrv", None), "ms")
+        add(rec, "resting-heart-rate", getattr(rec, "resting_hr", None), "bpm")
+        add(rec, "steps", getattr(rec, "steps", None), "count")
+        add(rec, "active-calories", getattr(rec, "active_calories", None), "kcal")
+    return samples
+
+
+def sim_context_to_chat_payload(
+    ctx,
+    *,
+    lifestyle_tags: list[str] | None = None,
+) -> dict:
+    """Bridge SimRunner's flat day snapshot onto an ``ARIAContext`` chat bag.
+
+    Body-owned fields ride as ``samples`` so ``fuse_turn`` can run BodyModel.
+    Client-kept domains (training / profile / lifestyle) stay on ``context``.
+    """
+    today = ctx.today
+    hist = list(getattr(ctx, "history", None) or [])
+    window3 = hist[-3:] or ([today] if today is not None else [])
+    steps = [r.steps for r in window3 if getattr(r, "steps", None)]
+    cals = [r.active_calories for r in window3 if getattr(r, "active_calories", None)]
+    hours_since = None
+    days = getattr(ctx, "days_since_last_workout", None)
+    if getattr(today, "workout_logged", False):
+        hours_since = 0.0
+    elif isinstance(days, (int, float)):
+        hours_since = float(days) * 24.0
+    sleep_min = None
+    if getattr(today, "total_sleep_hours", None) is not None:
+        sleep_min = float(today.total_sleep_hours) * 60.0
+    last = getattr(ctx, "last_workout_type", None) or getattr(today, "workout_type", None)
+    tags = [str(t) for t in (lifestyle_tags or []) if t]
+    patterns = [p for p in (getattr(ctx, "occupation", None), getattr(ctx, "life_season", None)) if p]
+    if getattr(ctx, "notable_event_note", None):
+        patterns.append(str(ctx.notable_event_note))
+    wake = getattr(ctx, "target_wake_hour", None)
+    wake_s = f"{int(wake):02d}:00" if isinstance(wake, (int, float)) else None
+    return {
+        "user_id": "test-user-00000000",
+        "include_stored": False,
+        "samples": _stream_samples(ctx),
+        "context": {
+            "timestamp": getattr(today, "date", None) or "",
+            "sleep": {
+                "durationMinutes": sleep_min,
+                "deepMinutes": getattr(today, "deep_sleep_minutes", None),
+                "remMinutes": getattr(today, "rem_sleep_minutes", None),
+                "hrv": getattr(today, "hrv", None),
+                "restingHR": getattr(today, "resting_hr", None),
+                "nightsAvailable": getattr(ctx, "sleep_nights_available_7d", None),
+            },
+            "readiness": {
+                "hrv7DayTrend": _hrv_trend_points(ctx),
+                "hrv30DayBaseline": getattr(ctx, "hrv_7d_avg", None),
+                "recoveryScore": getattr(today, "readiness_score", None),
+                "hrvDaysAvailable": getattr(ctx, "hrv_days_available_7d", None),
+            },
+            "training": {
+                "lastWorkoutType": last,
+                "lastWorkoutName": last,
+                "lastWorkoutDurationMinutes": getattr(today, "workout_duration_minutes", None),
+                "hoursSinceLastWorkout": hours_since,
+                "weeklyLoadScore": getattr(today, "acwr", None),
+            },
+            "activity": {
+                "steps3DayAvg": (sum(steps) / len(steps)) if steps else None,
+                "activeCalories3DayAvg": (sum(cals) / len(cals)) if cals else None,
+            },
+            "chronotype": {
+                "typicalWakeTime": wake_s,
+            },
+            "profile": {
+                "experienceLevel": getattr(ctx, "experience_level", None),
+                "coachingStyle": getattr(ctx, "coaching_style", None),
+            },
+            "progress": {
+                "trainingLoadTrend": getattr(ctx, "readiness_trend", None),
+                "workoutsCompleted30d": getattr(ctx, "training_streak", None),
+            },
+            "lifestyle": {
+                "tags": tags,
+                "recentPatterns": patterns,
+            },
+        },
+    }
+
+
+def _scrub_fused_speak(envelope: dict) -> dict:
+    """Compose with the Iris vitals scrub already on this branch — don't replace it."""
+    prose = _speak_without_vitals(envelope.get("prose_summary") or "")
+    chat = _speak_without_vitals(envelope.get("message") or "", prose)
+    envelope["prose_summary"] = prose
+    envelope["message"] = chat
+    card = envelope.get("card")
+    if isinstance(card, dict):
+        for key in ("action", "rationale", "timing", "expected_effect", "why", "interpretation"):
+            if card.get(key):
+                card[key] = _speak_without_vitals(str(card[key]), prose)
+        envelope["card"] = card
+    return envelope
+
+
+def _respond_via_lambda(
+    message: str,
+    ctx,
+    plan: Plan,
+    intents: list[IntentHit],
+    *,
+    seed: int,
+    day_index: int,
+    prior_turns: list[str] | None,
+    lifestyle_tags: list[str] | None,
+) -> dict:
+    """Product path: fuse the synthetic day, then deterministic generate_response."""
+    fusion_mod, engine_mod = _production_fusion()
+    if fusion_mod is None or engine_mod is None:
+        raise RuntimeError("lambda engine requires services.fusion and services.aria_engine")
+
+    safe = _sanitize_chat_message(message)
+    payload = sim_context_to_chat_payload(ctx, lifestyle_tags=lifestyle_tags)
+    payload["message"] = safe
+    # Compose with the inbound sanitizer already on this branch — partner/cycle
+    # PII and calendar titles never reach fuse_turn.
+    try:
+        from routes.aria import sanitize_inbound_chat_payload
+
+        payload = sanitize_inbound_chat_payload(payload)
+    except Exception:
+        pass
+    permissions = engine_mod.DataPermissions.allow_all()
+    fused = fusion_mod.fuse_turn(
+        "test-user-00000000",
+        payload,
+        permissions,
+        persist=False,
+        include_stored=False,
+        load_learner=True,
+    )
+    envelope = engine_mod.generate_response(
+        safe,
+        fused.context,
+        permissions=permissions,
+        persona=fused.persona,
+        baselines=fused.baselines,
+    )
+    envelope = _scrub_fused_speak(envelope)
+    sidecar = fused.fusion_sidecar()
+    existing = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
+    envelope["fusion"] = {**sidecar, **existing}
+    stance = envelope["fusion"].get("stance")
+    signals = read_signals(ctx)
+    guidance = envelope.get("guidance_band")
+    prose = friend_speak(
+        envelope.get("prose_summary") or "",
+        seed=seed,
+        stance=str(stance or ""),
+        signals=signals,
+        guidance=guidance,
+    )
+    chat = friend_speak(
+        envelope.get("message") or prose,
+        seed=seed,
+        stance=str(stance or ""),
+        signals=signals,
+        guidance=guidance,
+    )
+    prose = _speak_without_vitals(prose)
+    chat = _speak_without_vitals(chat, prose)
+    envelope["prose_summary"] = prose
+    envelope["message"] = chat
+    diagnosis = voice_diagnostics.diagnose(prose)
+    orch_ms = _orchestration_latency_ms(message, seed, len(plan.workers))
+    brief = envelope.get("contextualization") if isinstance(envelope.get("contextualization"), dict) else None
+
+    row = {
+        **envelope,
+        "schema_version": envelope.get("schema_version") or "1.1",
+        "prose_summary": prose,
+        "message": envelope.get("message") or prose,
+        "suggested_actions": list(envelope.get("suggested_actions") or suggested_actions(plan)),
+        "card": envelope.get("card"),
+        "rich_card": envelope.get("rich_card"),
+        "restricted_domains": list(envelope.get("restricted_domains") or []),
+        "agent": plan.primary.kind,
+        "agents": plan.kinds,
+        "workers": [w.as_dict() for w in plan.workers],
+        "reasoning_source": LAMBDA_REASONING_SOURCE,
+        "test_ready": True,
+        "model": LAMBDA_MODEL,
+        "user_id": "test-user-00000000",
+        "voice_diagnosis": diagnosis.as_dict(),
+        "thinking": (
+            f"Heard {', '.join(h.kind for h in intents[:3]) or plan.primary.kind}. "
+            f"Fused {stance or 'stance'} via BodyModel ({fused.source}); Bedrock off."
+        ),
+        "scenario": str(envelope.get("guidance_band") or stance or envelope.get("response_type") or ""),
+        "stub_prose": None,
+        "session": envelope.get("session"),
+        "orchestration": {
+            "engine": ENGINE_LAMBDA,
+            "stages": list(ORCH_STAGES),
+            "intents": [
+                {"kind": h.kind, "weight": h.weight, "cues": list(h.cues)}
+                for h in intents
+            ],
+            "primary": plan.primary.kind,
+            "fusion_source": fused.source,
+            "owned_domains": list(fused.owned_domains),
+            "observation_count": fused.observation_count,
+            "stance": stance,
+            "persona": {
+                "occupation": getattr(ctx, "occupation", None),
+                "chronotype": getattr(ctx, "chronotype", None),
+                "season": getattr(ctx, "life_season", None),
+                "experience": getattr(ctx, "experience_level", None),
+            },
+            "latency_ms": orch_ms,
+            "engine_latency_ms": 0,
+            "prior_turns": len(prior_turns or []),
+            "day_index": day_index,
+        },
+    }
+    if brief is not None:
+        row["contextualization"] = brief
+    return row
+
+
 def _orchestration_latency_ms(message: str, seed: int, worker_count: int) -> int:
     """Fake-but-stable overhead: scoring + fan-out, not a wall-clock sleep."""
     return 40 + (_fnv(message) ^ (seed * 16777619) ^ (worker_count * 31)) % 90
@@ -981,11 +1585,15 @@ def respond(
     cycle_subjects: list[str] | None = None,
     prior_turns: list[str] | None = None,
     day_index: int = 29,
+    engine: str = ENGINE_LAMBDA,
+    lifestyle_tags: list[str] | None = None,
 ) -> dict:
-    """One SimRunner stub call for the primary agent; supporting briefs in-process.
+    """One SimRunner turn. Default ``engine="lambda"`` hypertunes against fused
+    product speak (``fuse_turn`` + ``generate_response``). ``engine="stub"``
+    is the SimRunner matrix path.
 
-    Pipeline (always local, always stub):
-      ingest → route specialists → reason (stub) → specialize → synthesize → voice.
+    Pipeline (always local, Bedrock off):
+      ingest → route specialists → reason → specialize → synthesize → voice.
 
     Never calls Bedrock, AWS, or any other cloud.
     """
@@ -1013,20 +1621,29 @@ def respond(
     profile = model["behavioral_profile"]
     stream = generate_stream(profile, seed)
     ctx = build_context(stream, profile, day_index)
+    if (engine or ENGINE_LAMBDA).strip().lower() == ENGINE_LAMBDA:
+        return _respond_via_lambda(
+            message,
+            ctx,
+            plan,
+            intents,
+            seed=seed,
+            day_index=day_index,
+            prior_turns=prior_turns,
+            lifestyle_tags=lifestyle_tags,
+        )
     stub = _offline_stub(message, ctx, seed)
     signals = read_signals(ctx)
 
     notes = specialist_notes(plan, ctx)
-    extras = [n.text for n in notes]
-    if web_research.is_research_worthy(message, plan.primary.kind):
-        web_note = web_research.look_up(plan.primary.kind)
-        if web_note:
-            extras = [*extras, web_note]
-
     scenario = str((getattr(stub, "raw", None) or {}).get("scenario") or "")
     prose = humanize_prose(
         message, stub, ctx, plan, seed=seed, prior_turns=prior_turns,
     )
+    # Weave specialists into one spoken reply — not stacked \n\n briefs.
+    prose = _weave_specialists(prose, notes, seed=seed ^ _fnv(message))
+    stub_stance = "protect" if scenario == "recovery_first" else ""
+    prose = friend_speak(prose, seed=seed, stance=stub_stance, signals=signals)
     body_session = _suggest_body_session(message, ctx)
     if (
         body_session is not None
@@ -1036,7 +1653,14 @@ def respond(
         spoken = body_session.spoken()
         if spoken and spoken not in prose:
             prose = f"{prose} {spoken}"
-    chat = prose if not extras else f"{prose}\n\n" + "\n".join(extras)
+    # Optional web note stays as a short trailing cite — not a specialist dump.
+    chat = prose
+    if web_research.is_research_worthy(message, plan.primary.kind):
+        web_note = web_research.look_up(plan.primary.kind)
+        if web_note and web_note not in chat:
+            chat = f"{chat} ({web_note.rstrip('.')})"
+    prose = _speak_without_vitals(prose)
+    chat = _speak_without_vitals(chat, prose)
     recovery_needed = scenario == "recovery_first" or ctx.today.readiness_score < 50
 
     # Diagnosed against the primary reply alone, not the full chat: supporting
@@ -1135,6 +1759,7 @@ def run_smoke(messages: list[str] | None = None, *, seed: int = 42) -> list[dict
         subjects = ["Sam", "Maya"] if "sam" in prompt.lower() else []
         out.append(respond(
             prompt, seed=seed, cycle_subjects=subjects, prior_turns=list(history),
+            engine=ENGINE_STUB,
         ))
         history.append(prompt)
     return out
@@ -1171,7 +1796,7 @@ def run_voice_diagnostics(messages: list[str] | None = None, *, seed: int = 42) 
     ]
     turns = []
     for prompt in prompts:
-        row = respond(prompt, seed=seed)
+        row = respond(prompt, seed=seed, engine=ENGINE_STUB)
         turns.append({
             "message": prompt,
             "agent": row["agent"],

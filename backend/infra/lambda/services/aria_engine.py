@@ -1652,20 +1652,30 @@ def _clarification_response(ctx: ARIAContext, restricted: list[str], voice_mode:
     )
 
 
-_VITALS_SPEAK = re.compile(r"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score)\b", re.I)
+_VITALS_SPEAK = re.compile(
+    r"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score|sleep[- ]?debt)\b"
+    r"|%\s*(?:below|above|under|over)\s+baseline",
+    re.I,
+)
+_SPEAK_FALLBACK = "Fit training around the day you already have."
+
+
+def _speak_without_vitals(*candidates: str) -> str:
+    """User-visible speak never dumps vitals or metric scores."""
+    for text in candidates:
+        text = str(text or "").strip()
+        if text and not _VITALS_SPEAK.search(text):
+            return text
+    return _SPEAK_FALLBACK
 
 
 def _lifestyle_notice(notice: str, brief: Any, fallback: str) -> str:
     """Lifestyle turns speak the life, not a vitals dump."""
     if brief is None or str(getattr(brief, "lead_domain", "") or "") != "lifestyle":
         return notice
-    text = str(getattr(brief, "how_you_work", "") or fallback or notice).strip()
-    if text and not _VITALS_SPEAK.search(text):
-        return text
-    move = str(getattr(brief, "one_next_move", "") or fallback).strip()
-    if move and not _VITALS_SPEAK.search(move):
-        return move
-    return "Fit training around the day you already have."
+    how = str(getattr(brief, "how_you_work", "") or "").strip()
+    move = str(getattr(brief, "one_next_move", "") or "").strip()
+    return _speak_without_vitals(how, move, fallback, notice)
 
 
 def _recommendation_response(
@@ -1724,6 +1734,28 @@ def _recommendation_response(
         actions = actions[:2] + ["Tell ARIA your last workout"]
         notice_bits.append("I don't have your recent training load yet — what and when was your last real session?")
 
+    is_lifestyle = brief is not None and str(getattr(brief, "lead_domain", "") or "") == "lifestyle"
+    notice = _lifestyle_notice(" ".join(notice_bits), brief, action)
+    sleep_safe = "Sleep first tonight — protect wind-down before training volume."
+    if is_lifestyle:
+        # Keep already-clean lifestyle/habit prose (e.g. sleep variance);
+        # swap in how_you_work only when the recommendation dump is dirty.
+        prose = _speak_without_vitals(prose, notice)
+        action = _speak_without_vitals(
+            action,
+            str(getattr(brief, "one_next_move", "") or ""),
+            "Protect load and fit a shorter session around the day they already have.",
+        )
+        timing = _speak_without_vitals(timing, "Fit the session around the day you already have.")
+        rationale = _speak_without_vitals(rationale, action)
+        expected = _speak_without_vitals(expected, action)
+    else:
+        prose = _speak_without_vitals(prose, sleep_safe if sleep_first else "", action)
+        notice_bits[0] = prose
+        notice = " ".join(bit for bit in notice_bits if bit)
+        action = _speak_without_vitals(action, sleep_safe if sleep_first else "", _SPEAK_FALLBACK)
+        timing = _speak_without_vitals(timing, "Reassess after you recover.")
+    why = timing
     card = None if voice_mode else {
         "action": action,
         "rationale": rationale,

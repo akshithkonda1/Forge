@@ -104,10 +104,13 @@ class MemoryEngineTests(unittest.TestCase):
         ingested = self.engine.ingest_calendar_events(USER, events, now=NOW)
         self.assertEqual(len(ingested), 3)
         # Sorted soonest first: Dentist (6/5), Trip (6/10), Wedding (6/22)
-        self.assertEqual([m.text for m in ingested][0], "Dentist on 2026-06-05")
+        self.assertEqual([m.text for m in ingested][0], "Busy window on 2026-06-05")
         for m in ingested:
             self.assertEqual(m.source, "calendar")
             self.assertEqual(m.category, "event")
+            self.assertNotIn("Wedding", m.text)
+            self.assertNotIn("Dentist", m.text)
+            self.assertNotIn("Trip", m.text)
 
     def test_ingest_skips_past_and_far_events(self):
         events = [
@@ -116,7 +119,7 @@ class MemoryEngineTests(unittest.TestCase):
             {"title": "Good", "start": "2026-06-15T00:00:00+00:00"},
         ]
         ingested = self.engine.ingest_calendar_events(USER, events, now=NOW, horizon_days=120)
-        self.assertEqual([m.text for m in ingested], ["Good on 2026-06-15"])
+        self.assertEqual([m.text for m in ingested], ["Busy window on 2026-06-15"])
 
     def test_ingest_dedupes_on_reingest(self):
         events = [{"title": "Wedding", "start": "2026-06-22T15:00:00+00:00"}]
@@ -126,7 +129,7 @@ class MemoryEngineTests(unittest.TestCase):
         self.assertEqual(len(items), 1)
 
     def test_ingest_ignores_bad_events(self):
-        events = ["nope", {"title": "", "start": "2026-06-10T00:00:00+00:00"}, {"title": "NoStart"}]
+        events = ["nope", {"title": "NoStart"}, {"summary": "AlsoNoStart"}]
         self.assertEqual(self.engine.ingest_calendar_events(USER, events, now=NOW), [])
 
     # --- daily self-evaluation ------------------------------------------
@@ -176,7 +179,8 @@ class MemoryEngineTests(unittest.TestCase):
             USER, [{"title": "Wedding", "start": "2026-06-04T15:00:00+00:00"}], now=NOW
         )
         checkin = self.engine.daily_checkin(USER, now=NOW)
-        self.assertIn("Wedding", checkin.text)
+        self.assertNotIn("Wedding", checkin.text)
+        self.assertIn("Busy window", checkin.text)
         self.assertIn("in 3 days", checkin.text)
         self.assertEqual(len(checkin.upcoming), 1)
 
@@ -193,7 +197,8 @@ class MemoryEngineTests(unittest.TestCase):
         self.assertIn("[MEMORY — long term]", block)
         self.assertIn("Training for a first 10k", block)
         self.assertIn("[MEMORY — short term / coming up]", block)
-        self.assertIn("Race day", block)
+        self.assertIn("Busy window", block)
+        self.assertNotIn("Race day", block)
 
     # --- determinism -----------------------------------------------------
     def test_deterministic_ids_across_instances(self):
@@ -259,7 +264,10 @@ class RouteWiringTests(unittest.TestCase):
         self.assertTrue(out["calendar_ingested"])
         self.assertIsNotNone(out["checkin"])
         self.assertIn("Anything new", out["checkin"]["text"])
-        self.assertIn("wedding", (out["memory"] or "").lower())
+        memory = (out["memory"] or "").lower()
+        self.assertIn("busy window", memory)
+        self.assertNotIn("sister", memory)
+        self.assertNotIn("wedding", memory)
         # Second chat the same day -> already checked in.
         out2 = self._chat(uid, {"message": "again", "recent_metrics": {"readiness": 80}})
         self.assertIsNone(out2["checkin"])

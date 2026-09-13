@@ -74,6 +74,21 @@ final class AriaReplyVarietyTests: XCTestCase {
         XCTAssertNotEqual(second, first)
         XCTAssertTrue(AriaPromptCorrelation.correlates(reply: second, toPrompt: prompt))
         XCTAssertTrue(second.lowercased().contains("train") || second.lowercased().contains("session"))
+        // Variety must not announce itself with rewriter meta-prefixes.
+        let banned = ["fresh pass:", "another cut", "same question, new phrasing", "still on what you asked"]
+        for phrase in banned {
+            XCTAssertFalse(second.lowercased().contains(phrase), second)
+        }
+    }
+
+    func testVariantsNeverUseMetaRewriterPrefixes() {
+        let draft = "You're primed to train. Want the session mapped?"
+        let options = AriaReplyVariety.variants(draft: draft, occurrence: 3)
+        let joined = options.joined(separator: " || ").lowercased()
+        for phrase in ["fresh pass:", "another cut", "same question, new phrasing", "still on what you asked"] {
+            XCTAssertFalse(joined.contains(phrase), joined)
+        }
+        XCTAssertTrue(options.contains(where: { $0 != draft }))
     }
 
     func testPickRotatesAcrossPastes() {
