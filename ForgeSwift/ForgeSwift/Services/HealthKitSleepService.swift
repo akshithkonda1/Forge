@@ -4,6 +4,13 @@ import UIKit
 import CoreGraphics
 import ForgeCore
 
+/// A logged in-bed window from Apple Health. Not a scored night.
+struct InBedWindow: Equatable {
+    let start: Date
+    let end: Date
+    var hours: Double { max(0, end.timeIntervalSince(start) / 3600) }
+}
+
 /// Chronotype-aware sleep intelligence: HealthKit ingestion, scoring, adaptive wake/sunrise, and ARIA context.
 @MainActor
 final class HealthKitSleepService: ObservableObject {
@@ -29,9 +36,10 @@ final class HealthKitSleepService: ObservableObject {
     @Published private(set) var isAnalyzingEnvironment = false
     @Published var environmentCheckError: String?
 
-    /// Last scored nights, so the alarm scheduler can widen/narrow the smart
-    /// window from score and debt without re-querying HealthKit.
-    @Published private(set) var cachedSleepData: [SleepData] = []
+    /// Open in-bed clock, local until they tap I'm up and Apple Health accepts the write.
+    @Published var inBedStartedAt: Date?
+    /// Last in-bed window we wrote or read. Not a sleep score.
+    @Published var lastInBedWindow: InBedWindow?
 
     private let healthKit = HealthKitManager.shared
 
@@ -45,10 +53,12 @@ final class HealthKitSleepService: ObservableObject {
             intensity: Chronotype.bear.baseSunriseIntensity,
             rationale: "Balanced sunrise for your chronotype"
         )
+        loadOpenInBed()
     }
 
     private static let sunriseDurationKey = "forge.sunrise.durationMinutes"
     private static let sunriseColorKey = "forge.sunrise.colorTemp"
+    private static let inBedStartKey = "forge.sleep.inBedStartedAt"
 
     func applySunriseOverrides(durationMinutes: Int, colorTemp: Double) {
         currentSunriseConfig.durationMinutes = min(60, max(5, durationMinutes))
@@ -71,6 +81,66 @@ final class HealthKitSleepService: ObservableObject {
     }
 
     // MARK: - Fetch + Score
+
+    /// Honest Day-tab empty copy. Connected-but-empty is not "reconnect."
+    nonisolated static func dayEmptyCopy(healthConnected: Bool) -> (title: String, message: String, cta: String) {
+        if healthConnected {
+            return (
+                "No scored night yet",
+                "Forge reads stages from Apple Health. Until a night lands, log in-bed on Tonight — that's a real window, not a fake score.",
+                "Refresh from Apple Health"
+            )
+        }
+        return (
+            "Connect Apple Health to unlock sleep",
+            "Forge reads last night's stages from Apple Health. Once a night lands, ARIA can explain recovery and bedtime.",
+            "Reconnect Apple Health"
+        )
+    }
+
+    func refreshFromAppleHealth(into store: AppStore, days: Int = 14) async {
+        loadOpenInBed()
+        guard await requestAuthorization() else { return }
+        let nights = await fetchRecentSleepData(days: days)
+        store.mergeSleepDataLocally(nights)
+        if let window = await healthKit.fetchLatestInBedWindow() {
+            lastInBedWindow = InBedWindow(start: window.start, end: window.end)
+        }
+    }
+
+    func beginInBed(at date: Date = Date()) {
+        inBedStartedAt = date
+        UserDefaults.standard.set(date, forKey: Self.inBedStartKey)
+    }
+
+    func cancelInBed() {
+        inBedStartedAt = nil
+        UserDefaults.standard.removeObject(forKey: Self.inBedStartKey)
+    }
+
+    @discardableResult
+    func endInBed(at date: Date = Date()) async -> Bool {
+        guard let start = inBedStartedAt else { return false }
+        _ = await requestAuthorization()
+        guard healthKit.isAuthorized else { return false }
+        await healthKit.saveInBedWindow(startedAt: start, endedAt: date)
+        lastInBedWindow = InBedWindow(start: start, end: max(date, start.addingTimeInterval(60)))
+        cancelInBed()
+        return true
+    }
+
+    @discardableResult
+    func logInBedWindow(startedAt: Date, endedAt: Date) async -> Bool {
+        _ = await requestAuthorization()
+        guard healthKit.isAuthorized else { return false }
+        await healthKit.saveInBedWindow(startedAt: startedAt, endedAt: endedAt)
+        lastInBedWindow = InBedWindow(start: startedAt, end: max(endedAt, startedAt.addingTimeInterval(60)))
+        return true
+    }
+
+    private func loadOpenInBed() {
+        inBedStartedAt = UserDefaults.standard.object(forKey: Self.inBedStartKey) as? Date
+    }
 
     func fetchRecentSleepData(days: Int = 14) async -> [SleepData] {
         guard isAuthorized || healthKit.isAuthorized else { return [] }

@@ -409,7 +409,11 @@ extension AppStore {
             return f.string(from: Date())
         }()
         workout.id = "life-\(dayKey)-\(workout.name)"
-        todayWorkout = workout
+        todayWorkout = AdaptiveEngine.apply(
+            to: workout,
+            readiness: readiness,
+            experience: userProfile.experienceLevel
+        )
     }
 
     /// Open a specific weekday (or yesterday) from the walking week.
@@ -433,7 +437,11 @@ extension AppStore {
             return f.string(from: Date())
         }()
         workout.id = "life-\(dayKey)-\(workout.name)"
-        todayWorkout = workout
+        todayWorkout = AdaptiveEngine.apply(
+            to: workout,
+            readiness: readiness,
+            experience: userProfile.experienceLevel
+        )
     }
 
     func syncHealthBatchAndDashboard() async {
@@ -599,13 +607,18 @@ extension AppStore {
                 notes: move.notes
             )
         }
-        return WorkoutPlan(
+        let mapped = WorkoutPlan(
             id: plan.id ?? "cloud-today",
             name: plan.name,
             type: WorkoutType(rawValue: plan.type ?? "") ?? .strength,
             duration: plan.duration ?? max(20, exercises.count * 8),
             intensity: WorkoutIntensity(rawValue: plan.intensity ?? "") ?? .moderate,
             exercises: exercises
+        )
+        return AdaptiveEngine.apply(
+            to: mapped,
+            readiness: readiness,
+            experience: userProfile.experienceLevel
         )
     }
 

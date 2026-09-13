@@ -7,12 +7,13 @@ import FoundationModels
 #if canImport(FoundationModels)
 @available(iOS 26.0, *)
 final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
-    private let session: LanguageModelSession
     private let model = SystemLanguageModel.default
-    
-    init() {
-        // Base identity; per-turn voice directives are injected in buildPrompt.
-        let instructions = """
+
+    /// Simulator has no model catalog. Constructing `LanguageModelSession` in
+    /// `init` spammed Biome lock errors and a Code=5000 catalog miss.
+    init() {}
+
+    private static let instructions = """
         You are ARIA — an adaptive lifestyle coach inside Forge.
         You can lead someone to water; you cannot make them drink. They have intellect and autonomy.
         Improve the life they already have. Raise QOL with the smallest useful change.
@@ -30,9 +31,6 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         reply. A reply with more questions than answers has failed. Have a full
         conversation, not an interview.
         """
-        
-        self.session = LanguageModelSession(instructions: instructions)
-    }
     
     var isAvailable: Bool {
         switch model.availability {
@@ -44,10 +42,15 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
     }
     
     func generateResponse(for input: String, context: TrainerContext) async throws -> TrainerResponse {
-        // Build contextual prompt
+        guard isAvailable else {
+            throw NSError(
+                domain: "Forge.FoundationModels",
+                code: 5000,
+                userInfo: [NSLocalizedDescriptionKey: "On-device language model isn't on this device."]
+            )
+        }
         let prompt = await buildPrompt(input: input, context: context)
-        
-        // Generate response from Foundation Models
+        let session = LanguageModelSession(instructions: Self.instructions)
         let response = try await session.respond(to: prompt)
         
         // Parse response and extract any rich card data

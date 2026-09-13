@@ -170,7 +170,7 @@ struct HomeView: View {
                 }
             } else {
                 ForgeActionButton(
-                    title: "Start Workout",
+                    title: "Start session",
                     systemImage: "figure.run",
                     tint: ForgePalette.ember,
                     accessibilityHint: "Opens workout options, with today's suggested session first."

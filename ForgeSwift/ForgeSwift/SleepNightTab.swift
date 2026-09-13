@@ -4,6 +4,7 @@ import ForgeCore
 
 struct SleepDayTab: View {
     @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
 
     private var isInitialLoading: Bool {
         store.dataLoadState == .loading && store.sleepData.isEmpty
@@ -17,20 +18,27 @@ struct SleepDayTab: View {
                     ForgeSkeletonBlock(height: 160, cornerRadius: 16)
                     ForgeSkeletonBlock(height: 120, cornerRadius: 16)
                 } else if store.sleepData.isEmpty {
+                    let copy = HealthKitSleepService.dayEmptyCopy(healthConnected: store.healthKitLive)
                     ForgeEmptyStateCard(
                         icon: "moon.zzz.fill",
-                        title: "Connect Apple Health to unlock sleep",
-                        message: "Forge reads last night's stages from Apple Health. Once a night lands, ARIA can explain recovery and bedtime.",
+                        title: copy.title,
+                        message: copy.message,
                         accent: Color(hex: "6366F1"),
-                        cta: store.healthKitLive ? "Ask ARIA about tonight" : "Reconnect Apple Health",
+                        cta: copy.cta,
                         action: {
-                            if store.healthKitLive {
-                                store.openChat(with: "How did I sleep last night, and what should I change tonight?", voice: false)
-                            } else {
-                                Task { await store.reconnectHealthKit() }
+                            Task {
+                                if store.healthKitLive {
+                                    await hkService.refreshFromAppleHealth(into: store)
+                                } else {
+                                    await store.reconnectHealthKit()
+                                    await hkService.refreshFromAppleHealth(into: store)
+                                }
                             }
                         }
                     )
+                    if let window = hkService.lastInBedWindow {
+                        SleepInBedFact(window: window)
+                    }
                 } else {
                     EnergyScheduleCard()
                     SleepLastNightStrip()
@@ -43,6 +51,9 @@ struct SleepDayTab: View {
             .padding(.horizontal, 20)
             .padding(.top, 12)
             .padding(.bottom, 120)
+        }
+        .task {
+            await hkService.refreshFromAppleHealth(into: store)
         }
     }
 }
@@ -60,6 +71,7 @@ struct SleepNightTab: View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
                 SleepTonightHero(coach: coach)
+                SleepInBedCard()
                 SleepEveningStoryCard(store: store, coach: coach)
                 SleepWindDownRitual(coach: coach, onSounds: { showSounds = true })
                 SleepTonightSoundDock(onMore: { showSounds = true })
@@ -113,6 +125,168 @@ struct SleepNightTab: View {
                         }
                     }
             }
+        }
+    }
+}
+
+struct SleepInBedFact: View {
+    let window: InBedWindow
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Last in-bed window")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.textTertiary)
+            Text("\(window.start.formatted(date: .omitted, time: .shortened)) → \(window.end.formatted(date: .omitted, time: .shortened)) · \(EnergySchedule.durationLabel(window.hours))")
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundColor(.textPrimary)
+            Text("In-bed is not a sleep score. Stages land when Apple Watch or iPhone records the night.")
+                .font(.system(size: 12))
+                .foregroundColor(.textTertiary)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+struct SleepInBedCard: View {
+    @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
+    @State private var showLogSheet = false
+    @State private var logStart = Calendar.current.date(byAdding: .hour, value: -8, to: Date()) ?? Date()
+    @State private var logEnd = Date()
+    @State private var writeFailed = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("IN BED")
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(1.2)
+                .foregroundColor(.textTertiary)
+
+            if let start = hkService.inBedStartedAt {
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    let hours = context.date.timeIntervalSince(start) / 3600
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("In bed since \(start.formatted(date: .omitted, time: .shortened))")
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .foregroundColor(.textPrimary)
+                        Text("\(EnergySchedule.durationLabel(hours)) so far. Tap I'm up to write this window to Apple Health.")
+                            .font(.system(size: 13))
+                            .foregroundColor(.textSecondary)
+                    }
+                }
+                HStack(spacing: 10) {
+                    Button {
+                        Task {
+                            writeFailed = false
+                            let ok = await hkService.endInBed()
+                            writeFailed = !ok
+                            if ok {
+                                await hkService.refreshFromAppleHealth(into: store)
+                            }
+                        }
+                    } label: {
+                        Text("I'm up")
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.aurora)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    Button {
+                        hkService.cancelInBed()
+                    } label: {
+                        Text("Cancel")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundColor(.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.surfaceElevated)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else {
+                Text("Log the window you were actually in bed. Apple Health still owns stages.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+                HStack(spacing: 10) {
+                    Button {
+                        hkService.beginInBed()
+                        writeFailed = false
+                    } label: {
+                        Text("I'm in bed")
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.aurora)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    Button {
+                        logEnd = Date()
+                        logStart = Calendar.current.date(byAdding: .hour, value: -8, to: logEnd) ?? logEnd
+                        showLogSheet = true
+                    } label: {
+                        Text("Log a window")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundColor(.aurora)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.aurora.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+                if let window = hkService.lastInBedWindow {
+                    SleepInBedFact(window: window)
+                }
+            }
+
+            if writeFailed {
+                Text("Connect Apple Health to save this window. The clock stays until it writes.")
+                    .font(.system(size: 12))
+                    .foregroundColor(.danger)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .sheet(isPresented: $showLogSheet) {
+            NavigationStack {
+                Form {
+                    DatePicker("Got in bed", selection: $logStart)
+                    DatePicker("Got up", selection: $logEnd)
+                }
+                .navigationTitle("Log in-bed")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { showLogSheet = false }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            Task {
+                                writeFailed = false
+                                let ok = await hkService.logInBedWindow(startedAt: logStart, endedAt: logEnd)
+                                writeFailed = !ok
+                                if ok {
+                                    showLogSheet = false
+                                    await hkService.refreshFromAppleHealth(into: store)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
         }
     }
 }

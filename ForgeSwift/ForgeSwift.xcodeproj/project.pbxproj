@@ -148,7 +148,6 @@
 		C82BC7E19F20D94DAE955D97 /* OnboardingInterviewModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */; };
 		1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */; };
 		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
-		1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */; };
 		1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED842E22F90C15300693D3E /* LifestyleView.swift */; };
 		35A81356CC836973378A412F /* LifestyleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74D9E1B3713556C9528D8A07 /* LifestyleModels.swift */; };
 		373EC9928467751C3ADEA77F /* LifestyleServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = B69CD378C6DBF59D2A7DA2C7 /* LifestyleServices.swift */; };
@@ -325,8 +324,7 @@
 		1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */; };
 		1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */; };
 		1TEST03600000000000000A /* AriaDummyOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */; };
-		1TEST03800000000000000A /* SleepNightGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03700000000000000A /* SleepNightGroupingTests.swift */; };
-		1TEST03A00000000000000A /* HealthKitSleepServiceScoringTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03900000000000000A /* HealthKitSleepServiceScoringTests.swift */; };
+		1TEST04200000000000000A /* TrainSleepUsableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04100000000000000A /* TrainSleepUsableTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -491,6 +489,7 @@
 		1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentPracticeAPITests.swift; sourceTree = "<group>"; };
 		1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitAuthorizationPlanTests.swift; sourceTree = "<group>"; };
 		1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestratorTests.swift; sourceTree = "<group>"; };
+		1TEST04100000000000000A /* TrainSleepUsableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainSleepUsableTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
@@ -565,7 +564,6 @@
 		20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingInterviewModels.swift; sourceTree = "<group>"; };
 		1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachManager.swift; sourceTree = "<group>"; };
 		1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachViews.swift; sourceTree = "<group>"; };
-		1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoachIntegration.swift; sourceTree = "<group>"; };
 		1ED842E22F90C15300693D3E /* LifestyleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleView.swift; sourceTree = "<group>"; };
 		74D9E1B3713556C9528D8A07 /* LifestyleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleModels.swift; sourceTree = "<group>"; };
 		B69CD378C6DBF59D2A7DA2C7 /* LifestyleServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleServices.swift; sourceTree = "<group>"; };
@@ -1026,7 +1024,6 @@
 				CD24B87686B6EA1C5B7C9474 /* RestaurantCatalog.swift */,
 				1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */,
 				1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */,
-				1E9C57152F91607F00F365E3 /* VoiceCoachIntegration.swift */,
 				1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */,
 				1DATA0102F9FF867004091AA /* Data */,
 				1ARIA0172F9FF867004091AA /* Models */,
@@ -1234,8 +1231,7 @@
 				1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */,
 				1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */,
 				1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */,
-				1TEST03700000000000000A /* SleepNightGroupingTests.swift */,
-				1TEST03900000000000000A /* HealthKitSleepServiceScoringTests.swift */,
+				1TEST04100000000000000A /* TrainSleepUsableTests.swift */,
 				1MED03000000000000000A /* MedicationPharmacyTests.swift */,
 			);
 			path = ForgeSwiftTests;
@@ -1493,7 +1489,6 @@
 				AA00010000000000000000F6 /* WeeklyAriaReview.swift in Sources */,
 				AA00010000000000000000F7 /* DeviceProductImage.swift in Sources */,
 				AA00010000000000000000F8 /* HealthDeviceCatalogSync.swift in Sources */,
-				1E9C57162F91607F00F365E3 /* VoiceCoachIntegration.swift in Sources */,
 				AA0001000000000000000001 /* ForgeSwiftApp.swift in Sources */,
 				1E7A68E82FA31E6E00B0DD08 /* View+ForgeCardShadow.swift in Sources */,
 				AA0001000000000000000002 /* Theme.swift in Sources */,
@@ -1803,8 +1798,7 @@
 				1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */,
 				1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */,
 				1TEST03600000000000000A /* AriaDummyOrchestratorTests.swift in Sources */,
-				1TEST03800000000000000A /* SleepNightGroupingTests.swift in Sources */,
-				1TEST03A00000000000000A /* HealthKitSleepServiceScoringTests.swift in Sources */,
+				1TEST04200000000000000A /* TrainSleepUsableTests.swift in Sources */,
 				1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -11,7 +11,7 @@ enum TabItem: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .home: return "Home"
-        case .workout: return "Workout"
+        case .workout: return "Train"
         case .chat: return "ARIA"
         case .lifestyle: return "Lifestyle"
         case .sleep: return "Sleep"
