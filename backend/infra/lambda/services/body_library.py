@@ -296,9 +296,10 @@ class SessionSuggestion:
     avoided: str | None = None  # region we skipped because it's still fresh
     weekday: int | None = None  # 0=Sun when this came from a week slot
     planning_mode: str | None = None  # fixed | rotate
+    stance: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "region": self.region,
             "title": self.title,
             "reason": self.reason,
@@ -311,6 +312,9 @@ class SessionSuggestion:
             "planningMode": self.planning_mode,
             "exerciseCount": len(self.exercises),
         }
+        if self.stance:
+            payload["stance"] = self.stance
+        return payload
 
     def spoken(self) -> str:
         """One companion sentence — no sets/reps, no metric dump."""
@@ -750,6 +754,43 @@ def is_training_ask(message: str) -> bool:
     )
 
 
+def shape_session_for_stance(
+    session: SessionSuggestion | None,
+    stance: str | None,
+    *,
+    honor_pick: bool = False,
+) -> SessionSuggestion | None:
+    """Stance changes the next session, not a sidecar note."""
+    if session is None:
+        return None
+    label = (stance or "").strip().lower()
+    if label not in ("protect", "proceed", "fuel", "clarify"):
+        return session
+    exercises = list(session.exercises)
+    reason = session.reason
+    if label == "fuel" and len(exercises) > 4:
+        exercises = exercises[:4]
+        reason = f"Protein and water with the next meal, then train. {reason}"
+    elif label == "clarify" and not honor_pick and len(exercises) > 2:
+        exercises = exercises[:2]
+        reason = f"Best-effort session while a signal is still missing. {reason}"
+    elif label == "protect" and "Protect load" not in reason:
+        reason = f"Protect load and fit a shorter session around the day they already have. {reason}"
+    return SessionSuggestion(
+        region=session.region,
+        title=session.title,
+        reason=reason,
+        muscles=_muscles_of(exercises),
+        exercises=exercises,
+        alternatives=list(session.alternatives),
+        combo=list(session.combo),
+        avoided=session.avoided,
+        weekday=session.weekday,
+        planning_mode=session.planning_mode,
+        stance=label,
+    )
+
+
 def maybe_suggest(
     message: str,
     *,
@@ -779,7 +820,7 @@ def maybe_suggest(
     last = infer_region(last_workout_name, last_workout_type)
     asked_day = infer_asked_weekday(message)
     replay = wants_replay_prior(message)
-    return suggest_session(
+    session = suggest_session(
         last_region=last,
         last_label=last_workout_name or last_workout_type,
         hours_since=hours_since,
@@ -794,4 +835,9 @@ def maybe_suggest(
         pick_weekday=asked_day,
         replay_prior=replay,
         stance=stance,
+    )
+    return shape_session_for_stance(
+        session,
+        stance,
+        honor_pick=bool(replay or asked_day is not None),
     )

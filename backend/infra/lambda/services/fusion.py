@@ -1,26 +1,17 @@
-"""One ingested truth for a coaching turn.
+"""Shared BodyModel + persona hot path for ``/ai/chat`` and ``/ai/observe``.
 
-``/ai/observe`` already classifies samples into a ``BodyModel`` and projects
-that onto ``ARIAContext``. ``/ai/chat`` used to template ``generate_response``
-off the client bag — a second, stale picture of the same body — and observe
-coached without a persona. This module is the shared hot path both routes
-must call:
+Law: ingest → canonicalize → personal model → stance → speak.
+Python owns truth; the model owns language.
 
-    samples + stored metrics + last snapshot
-        → BodyModel
-        → personal baselines
-        → overlay client-only domains (training, profile, lifestyle, …)
-        → persona stance
-        → reconciled coaching action
-
-Generation packages that action. This is **not** the Bedrock ``/ai/router``
-path: that router merges multi-model *answers* and stays kill-switch gated.
-Coaching reconcile here is BodyModel + persona, deterministic, no AWS.
+Both routes call ``fuse_turn``. Body-owned biometric domains win over a
+stale client ``ARIAContext`` template. Persona stance
+(protect / proceed / fuel / clarify) is the action source for the next
+session — not a sidecar, and not ``/ai/router`` Bedrock answer-merge.
 """
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from services import aria_engine
@@ -57,9 +48,16 @@ _DOMAIN_METRICS: dict[str, tuple[MetricType, ...]] = {
     "nutrition": (MetricType.DIETARY_ENERGY, MetricType.DIETARY_PROTEIN, MetricType.WATER),
 }
 
-# Router-style safest common ground when BodyModel and persona disagree.
-# protect is the conservative call; proceed is the most aggressive.
-_SAFETY_RANK = {"protect": 0, "fuel": 1, "clarify": 2, "proceed": 3}
+# Storage / parse failures around persona I/O. Never a bare Exception that
+# gets relabeled as a silent cold-start.
+PERSONA_IO_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    RuntimeError,
+    AttributeError,
+)
 
 
 @dataclass
@@ -132,38 +130,6 @@ class PersonalBaselines:
 
 
 @dataclass
-class CoachingAction:
-    """The plan the coach ships this turn. Stance is the source, not a sidecar."""
-
-    stance: str
-    intensity: str
-    action: str
-    timing: str
-    rationale: str
-    expected_effect: str
-    suggested_actions: list[str] = field(default_factory=list)
-    session_readiness: int | None = None
-    votes: dict[str, str] = field(default_factory=dict)
-    agreement: str = "agree"
-    baseline_kind: str = "population"
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "stance": self.stance,
-            "intensity": self.intensity,
-            "action": self.action,
-            "timing": self.timing,
-            "rationale": self.rationale,
-            "expected_effect": self.expected_effect,
-            "suggested_actions": list(self.suggested_actions),
-            "session_readiness": self.session_readiness,
-            "votes": dict(self.votes),
-            "agreement": self.agreement,
-            "baseline_kind": self.baseline_kind,
-        }
-
-
-@dataclass
 class PersonaLoad:
     state: Any
     status: str
@@ -184,7 +150,7 @@ class FusedTurn:
     owned_domains: list[str]
     restricted: list[str]
 
-    def fusion_sidecar(self, plan: CoachingAction | None = None) -> dict[str, Any]:
+    def fusion_sidecar(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "source": self.source,
             "observation_count": self.observation_count,
@@ -195,10 +161,6 @@ class FusedTurn:
         }
         if self.persona_error:
             payload["persona_error"] = self.persona_error
-        if plan is not None:
-            payload["plan"] = plan.to_dict()
-            payload["stance"] = plan.stance
-            payload["agreement"] = plan.agreement
         return payload
 
 
@@ -208,7 +170,7 @@ def load_persona(user_id: str) -> PersonaLoad:
 
     try:
         state = contextual_learner.load(user_id)
-    except Exception as exc:  # noqa: BLE001 — caller must see the class of failure
+    except PERSONA_IO_ERRORS as exc:
         return PersonaLoad(
             contextual_learner.PersonaState(),
             "load_failed",
@@ -456,234 +418,50 @@ def load_body_snapshot(user_id: str) -> dict[str, Any] | None:
     return item if isinstance(item, dict) else None
 
 
-def reconcile_action(
-    message: str,
-    ctx: aria_engine.ARIAContext,
-    signals: list[Any],
+def stance_for_plan(
     brief: Any,
-    baselines: PersonalBaselines | None,
-    restricted: list[str],
-    *,
-    recovery_score: float | None = None,
-) -> CoachingAction:
-    """Deterministic BodyModel + persona reconcile.
+    ctx: aria_engine.ARIAContext,
+    baselines: PersonalBaselines | None = None,
+) -> str:
+    """Persona stance is the plan. A personal-model deficit can only protect.
 
-    Same maturity idea as the router finalizer — keep what agrees, and on
-    disagreement take the safest common-ground call — but the votes are
-    biometric + learned stance, not Bedrock answers. No AWS.
+    This is not ``/ai/router`` answer-merge: no votes, no agreement, no Bedrock.
     """
     from services import contextual_learner
 
-    stance_persona = str(getattr(brief, "stance", "") or "")
-    if stance_persona not in contextual_learner.STANCES:
-        stance_persona = "proceed"
+    stance = str(getattr(brief, "stance", "") or "")
+    if stance not in contextual_learner.STANCES:
+        stance = "proceed"
+    if _personal_deficit_protect(ctx, baselines):
+        return "protect"
+    return stance
 
-    sleep_first = _sleep_first(ctx, restricted)
-    body_vote = _body_vote(ctx, signals, baselines, sleep_first)
-    baseline_vote = _baseline_vote(ctx, baselines)
-    votes = {"body": body_vote, "persona": stance_persona}
-    if baseline_vote:
-        votes["baseline"] = baseline_vote
 
-    training_ask = _is_training_ask(message)
-    stance, agreement = _pick_stance(votes, training_ask=training_ask)
-    baseline_kind = "personal" if baselines is not None and baselines.robust else "population"
-    recovery = recovery_score
+def session_readiness_for(stance: str, recovery: float | None) -> int | None:
+    """Protect/fuel change the number the session picker sees."""
+    if stance == "protect":
+        return 40
+    if stance == "fuel":
+        return int(min(recovery, 65)) if recovery is not None else 60
     if recovery is None:
-        raw = ctx.readiness.recovery_score
-        recovery = float(raw) if isinstance(raw, (int, float)) else None
-
-    intensity, action, timing, rationale, expected, suggestions, session_readiness = _plan_for_stance(
-        stance,
-        ctx,
-        signals,
-        brief,
-        sleep_first=sleep_first,
-        recovery=recovery,
-    )
-    return CoachingAction(
-        stance=stance,
-        intensity=intensity,
-        action=action,
-        timing=timing,
-        rationale=rationale,
-        expected_effect=expected,
-        suggested_actions=suggestions,
-        session_readiness=session_readiness,
-        votes=votes,
-        agreement=agreement,
-        baseline_kind=baseline_kind,
-    )
-
-
-def _pick_stance(votes: dict[str, str], *, training_ask: bool) -> tuple[str, str]:
-    unique = {v for v in votes.values() if v in _SAFETY_RANK}
-    if not unique:
-        return "proceed", "agree"
-    if len(unique) == 1:
-        return unique.pop(), "agree"
-    if "protect" in unique:
-        return "protect", "safest_common_ground"
-    if "fuel" in unique:
-        return "fuel", "safest_common_ground"
-    if training_ask and "proceed" in unique:
-        return "proceed", "ask_wins_over_clarify"
-    return min(unique, key=lambda s: _SAFETY_RANK[s]), "safest_common_ground"
-
-
-def _sleep_first(ctx: aria_engine.ARIAContext, restricted: list[str]) -> bool:
-    hrv_falling = ctx.readiness.hrv_7day_trend is not None and ctx.readiness.hrv_7day_trend <= -8
-    sleep_debt_h = 0.0
-    if ctx.sleep.duration_minutes is not None:
-        sleep_debt_h = max(0.0, 8 - (ctx.sleep.duration_minutes or 0) / 60.0)
-    return bool(hrv_falling and sleep_debt_h > 2 and "sleep" not in restricted)
-
-
-def _body_vote(
-    ctx: aria_engine.ARIAContext,
-    signals: list[Any],
-    baselines: PersonalBaselines | None,
-    sleep_first: bool,
-) -> str:
-    if sleep_first:
-        return "protect"
-    high_neg = [
-        s
-        for s in signals
-        if getattr(s, "direction", None) == "negative" and getattr(s, "priority", "") == "high"
-    ]
-    if high_neg:
-        if any(getattr(s, "domain", "") == "nutrition" for s in high_neg):
-            return "fuel"
-        return "protect"
-    if any(getattr(s, "domain", "") == "nutrition" and getattr(s, "direction", None) == "negative" for s in signals):
-        return "fuel"
-    if any(getattr(s, "direction", None) == "positive" for s in signals):
-        return "proceed"
-    if not signals and not ctx.has_sleep and ctx.readiness.recovery_score is None:
-        return "clarify"
-    return "proceed"
-
-
-def _baseline_vote(ctx: aria_engine.ARIAContext, baselines: PersonalBaselines | None) -> str | None:
-    """Protect when tonight is well below *this person's* usual, not the population floor."""
-    if baselines is None or not baselines.robust:
         return None
+    return int(recovery)
+
+
+def _personal_deficit_protect(
+    ctx: aria_engine.ARIAContext, baselines: PersonalBaselines | None
+) -> bool:
+    """Tonight well below *this person's* usual — not a population cutoff."""
+    if baselines is None or not baselines.robust:
+        return False
     if baselines.personal("sleep_duration") and ctx.sleep.duration_minutes is not None:
         usual = baselines.sleep_duration_min or 0.0
         if usual > 0 and ctx.sleep.duration_minutes < 0.85 * usual:
-            return "protect"
+            return True
     if baselines.personal("hrv") and ctx.readiness.hrv_7day_trend is not None:
         if ctx.readiness.hrv_7day_trend <= -8:
-            return "protect"
-    return None
-
-
-def _plan_for_stance(
-    stance: str,
-    ctx: aria_engine.ARIAContext,
-    signals: list[Any],
-    brief: Any,
-    *,
-    sleep_first: bool,
-    recovery: float | None,
-) -> tuple[str, str, str, str, str, list[str], int | None]:
-    lead = signals[0] if signals else None
-    # one_next_move is written for the *persona* stance. After reconcile it
-    # may disagree — never let a proceed sentence ship on a protect plan.
-    learned_move = ""
-    if str(getattr(brief, "stance", "") or "") == stance:
-        learned_move = str(getattr(brief, "one_next_move", "") or "").strip()
-    slot = str(getattr(brief, "preferred_slot", "") or "").strip()
-    onset = ctx.chronotype.typical_sleep_onset
-
-    if sleep_first:
-        timing = "Protect sleep tonight; reassess training after HRV recovers"
-        if onset:
-            timing = f"{timing}; protect your {onset} wind-down tonight"
-        return (
-            "low",
-            "Sleep first — protect tonight's wind-down before training volume",
-            timing,
-            f"HRV {ctx.readiness.hrv_7day_trend:.0f}% + sleep debt — sleep before load",
-            "Prioritizing sleep should pull HRV back toward baseline within 24-48 h",
-            ["Protect tonight's sleep", "Show recovery plan", "Swap to Zone 2"],
-            40,
-        )
-
-    if stance == "protect":
-        timing = "Fit a shorter session around the day you already have"
-        if onset:
-            timing = f"{timing}; protect your {onset} wind-down tonight"
-        action = learned_move or "Protect load — shorter session or mobility, not a hard push"
-        return (
-            "low",
-            action,
-            timing,
-            lead.interpretation if lead else "signals plus how you work say protect load",
-            "Protecting today should pull readiness back toward your usual within 24-48 h",
-            ["Protect tonight's sleep", "Show recovery plan", "Swap to Zone 2"],
-            40,
-        )
-
-    if stance == "fuel":
-        action = learned_move or "Protein and water with the next meal, then train inside the day you have"
-        session_r = int(min(recovery, 65)) if recovery is not None else 60
-        return (
-            "moderate",
-            action,
-            "Eat first, then your normal training window",
-            lead.interpretation if lead else "fueling is the constraint on today's session",
-            "Hitting protein and water first keeps the session from digging a hole",
-            ["Log the next meal", "Today's workout", "Check hydration"],
-            session_r,
-        )
-
-    if stance == "clarify":
-        action = learned_move or "Best-effort read from what I have, then the one missing signal"
-        return (
-            "ask",
-            action,
-            "Once that signal lands I can lock today's call",
-            "usable picture is still thin",
-            "One missing signal would change the call",
-            ["Sync HealthKit", "Tell ARIA about last night", "Today's workout"],
-            int(recovery) if recovery is not None else None,
-        )
-
-    # proceed
-    window = f"in the {slot}" if slot else "in your usual window"
-    if lead and getattr(lead, "direction", None) == "positive":
-        action = learned_move or "Spend the readiness on one quality session"
-        return (
-            "high",
-            action,
-            f"Train {window} while readiness is high",
-            lead.interpretation,
-            "You can absorb a hard stimulus today without digging a recovery hole",
-            ["Build a hard session", "Set a PR target", "Review readiness"],
-            int(recovery) if recovery is not None else None,
-        )
-    action = learned_move or "Train at moderate intensity with controlled progressive overload"
-    return (
-        "moderate",
-        action,
-        f"Your normal training window works today — {window}" if slot else "Your normal training window works today",
-        lead.interpretation if lead else "your signals are mid-band",
-        "Steady stimulus keeps adaptation moving without overreaching",
-        ["Today's workout", "Tune intensity", "Check sleep trend"],
-        int(recovery) if recovery is not None else None,
-    )
-
-
-def _is_training_ask(message: str) -> bool:
-    try:
-        from services import body_library
-
-        return body_library.is_training_ask(message)
-    except Exception:
-        text = (message or "").lower()
-        return any(n in text for n in ("train", "workout", "session", "should i"))
+            return True
+    return False
 
 
 def _collect_samples(
@@ -701,7 +479,7 @@ def _collect_samples(
             from storage import dynamodb, keys
 
             raw.extend(dynamodb.query_prefix(keys.user_pk(user_id), "METRIC#"))
-        except Exception:
+        except PERSONA_IO_ERRORS:
             pass
     return raw
 

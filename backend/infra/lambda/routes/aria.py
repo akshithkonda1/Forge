@@ -45,7 +45,7 @@ def _lifestyle_tags(context: Any, living: Any, permissions: Any) -> list[str]:
 
 
 def _merge_fusion(response: dict[str, Any], fused: Any) -> None:
-    sidecar = fused.fusion_sidecar(None)
+    sidecar = fused.fusion_sidecar()
     existing = response.get("fusion") if isinstance(response.get("fusion"), dict) else {}
     response["fusion"] = {**sidecar, **existing}
 
@@ -118,7 +118,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
                 relationship_level=living.relationship_level,
                 ctx=context,
             )
-        except Exception as exc:  # noqa: BLE001 — named on the envelope, not a silent cold-start
+        except fusion_mod.PERSONA_IO_ERRORS as exc:
             fused.persona_error = f"observe_turn:{exc.__class__.__name__}: {exc}"
 
     weekly_note = weekly_review.briefing_for_chat(uid)
@@ -190,12 +190,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         updated_level = int(rich.get("relationship_level", 1))
 
     brief = response.get("contextualization") if isinstance(response.get("contextualization"), dict) else {}
-    plan = (response.get("fusion") or {}).get("plan") if isinstance(response.get("fusion"), dict) else None
-    shipped_stance = ""
-    if isinstance(plan, dict):
-        shipped_stance = str(plan.get("stance") or "")
-    if not shipped_stance:
-        shipped_stance = str(brief.get("stance") or "")
+    shipped_stance = str((response.get("fusion") or {}).get("stance") or brief.get("stance") or "")
     if persona is not None and fused.persona_status != "load_failed":
         try:
             probs = brief.get("stance_probs") or {}
@@ -219,7 +214,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             )
             contextual_learner.observe_relationship(persona, updated_level)
             contextual_learner.save(uid, persona)
-        except Exception as exc:  # noqa: BLE001 — surface; do not pretend this was a cold start
+        except fusion_mod.PERSONA_IO_ERRORS as exc:
             response.setdefault("fusion", {})
             if isinstance(response["fusion"], dict):
                 response["fusion"]["persona_error"] = f"commit:{exc.__class__.__name__}: {exc}"
