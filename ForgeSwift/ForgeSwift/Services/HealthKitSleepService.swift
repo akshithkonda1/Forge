@@ -29,6 +29,10 @@ final class HealthKitSleepService: ObservableObject {
     @Published private(set) var isAnalyzingEnvironment = false
     @Published var environmentCheckError: String?
 
+    /// Last scored nights, so the alarm scheduler can widen/narrow the smart
+    /// window from score and debt without re-querying HealthKit.
+    @Published private(set) var cachedSleepData: [SleepData] = []
+
     private let healthKit = HealthKitManager.shared
 
     private init() {
@@ -72,7 +76,7 @@ final class HealthKitSleepService: ObservableObject {
         guard isAuthorized || healthKit.isAuthorized else { return [] }
         let sessions = await healthKit.fetchRecentSleepSessions(days: days)
         let recentWakes = sessions.compactMap(\.wake)
-        return sessions.map { session in
+        let scoredNights = sessions.map { session -> SleepData in
             let scored = scoreNight(
                 totalHours: session.totalHours,
                 deepMinutes: session.deepMinutes,
@@ -93,6 +97,8 @@ final class HealthKitSleepService: ObservableObject {
                 wake: session.wake
             )
         }
+        rememberSleepSignals(from: scoredNights)
+        return scoredNights
     }
 
     func scoreNight(
@@ -136,6 +142,19 @@ final class HealthKitSleepService: ObservableObject {
     }
 
     // MARK: - Sleep Debt
+
+    func rememberSleepSignals(from data: [SleepData]) {
+        cachedSleepData = data
+    }
+
+    func adaptiveSmartWakeMinutes(base: Int) -> Int {
+        computeSmartAlarmWindow(
+            baseWindow: base,
+            recentScore: cachedSleepData.first?.score,
+            debt: computeSleepDebt(from: cachedSleepData),
+            chronotype: userProfile.chronotype
+        )
+    }
 
     /// Hours of sleep owed over the trailing fortnight.
     ///
@@ -211,21 +230,25 @@ final class HealthKitSleepService: ObservableObject {
         baseWindow: Int,
         recentScore: Int?,
         debt: Double,
-        chronotype: Chronotype
+        chronotype: Chronotype,
+        struggleAverageSnoozes: Double? = nil
     ) -> Int {
-        var window = baseWindow
-        if let score = recentScore {
-            if score < 70 { window = min(45, window + 15) }
-            else if score >= 85 { window = max(15, window - 10) }
-        }
-        if debt > 3 { window = min(45, window + 5) }
+        SmartAlarmWindow.minutes(
+            base: baseWindow,
+            recentScore: recentScore,
+            debtHours: debt,
+            bias: smartBias(for: chronotype),
+            struggleAverageSnoozes: struggleAverageSnoozes ?? WakeStruggleStore.averageSnoozes()
+        )
+    }
+
+    private func smartBias(for chronotype: Chronotype) -> SmartAlarmWindow.ChronotypeBias {
         switch chronotype {
-        case .dolphin: window = min(45, window + 5)
-        case .wolf: window = min(45, window + 5)
-        case .lion: window = max(15, window - 5)
-        case .bear: break
+        case .lion: return .lion
+        case .bear: return .bear
+        case .wolf: return .wolf
+        case .dolphin: return .dolphin
         }
-        return max(15, min(45, window))
     }
 
     // MARK: - Adaptive Goals

@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 @MainActor
 final class SleepWakeStore: ObservableObject {
@@ -33,6 +34,7 @@ final class SleepWakeStore: ObservableObject {
     }
 
     func dismiss() {
+        WakeStruggleStore.record(snoozes: snoozeCount, on: startedAt)
         isRinging = false
         current = nil
         SleepWakePlayer.shared.stop()
@@ -292,7 +294,10 @@ struct WakeUpTab: View {
         SleepWakeCoach.make(
             alarms: store.alarms,
             sleepScore: appStore.sleepData.first?.score,
-            lastNightHours: appStore.sleepData.first?.totalHours
+            lastNightHours: appStore.sleepData.first?.totalHours,
+            smartWindowMinutes: store.next.map {
+                hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow)
+            }
         )
     }
 
@@ -317,7 +322,10 @@ struct WakeUpTab: View {
                             next.smartWakeWindow = mins
                             store.upsert(next)
                         }
-                    )
+                    ),
+                    adaptedMinutes: store.next.map {
+                        hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow)
+                    } ?? 30
                 )
             }
 
@@ -401,6 +409,7 @@ struct NextWakePlanCard: View {
 struct SmartWakeCard: View {
     @Binding var enabled: Bool
     @Binding var windowMinutes: Int
+    var adaptedMinutes: Int
 
     var body: some View {
         VStack(spacing: 0) {
@@ -410,7 +419,7 @@ struct SmartWakeCard: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Earlier nudge, then the hard alarm")
                                 .font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                            Text("iPhone cannot read live sleep stage. Smart wake fires first — if you're already light, get up. The hard alarm still stands.")
+                            Text("iPhone cannot read live sleep stage. Tonight's lead is \(adaptedMinutes) min from last night's score, debt, and snooze history — your pick is the base. The hard alarm still stands.")
                                 .font(.system(size: 12)).foregroundColor(.textTertiary).lineSpacing(3)
                         }
                     }

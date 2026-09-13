@@ -11,21 +11,17 @@ struct SleepView: View {
     @ObservedObject private var alarmStore = ForgeAlarmStore.shared
 
     private var tonightCoach: SleepBedtimeCoach {
-        let nights = store.sleepData.prefix(14)
-        let schedule = EnergySchedule.make(from: store.sleepData)
-        return SleepBedtimeCoach.make(
-            onsets: nights.compactMap(\.onset),
-            sleepMinutes: nights.map { $0.totalHours * 60 },
-            needMinutes: (schedule?.needHours ?? 8) * 60,
-            fallbackOnsetHour: schedule?.phase.onsetHour
-        )
+        SleepBedtimeCoach.make(from: store.sleepData)
     }
 
     private var wakeCoach: SleepWakeCoach {
         SleepWakeCoach.make(
             alarms: alarmStore.alarms,
             sleepScore: store.sleepData.first?.score,
-            lastNightHours: store.sleepData.first?.totalHours
+            lastNightHours: store.sleepData.first?.totalHours,
+            smartWindowMinutes: alarmStore.next.map {
+                hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow)
+            }
         )
     }
 

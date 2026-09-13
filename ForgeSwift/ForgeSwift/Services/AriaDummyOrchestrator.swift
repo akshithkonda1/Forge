@@ -266,6 +266,25 @@ enum AriaDummyOrchestrator {
     ) async -> AriaDummyBeat? {
         switch domain {
         case .sleep, .readiness:
+            if let goal = ScheduleGoalParser.parse(text) {
+                ScheduleGoalStore.save(goal)
+                AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
+                    category: .weSpokeAbout,
+                    kind: "schedule_goal",
+                    summary: "Wake target is \(ScheduleCorrector.clockLabel(goal.targetWakeHour)).",
+                    source: "aria-dummy"
+                ))
+                let nights = SleepCircadianBridge.nights(from: store.sleepData)
+                let step = ScheduleCorrector.tonight(goal: goal, nights: nights)
+                let target = ScheduleCorrector.clockLabel(goal.targetWakeHour)
+                let prose = step?.coachingReply
+                    ?? "I'll get you up at \(target). A few more nights of sleep and I'll ratchet bedtime toward it."
+                return AriaDummyBeat(
+                    domain: .sleep,
+                    prose: prose,
+                    suggestedActions: ["How did I sleep?", "Keep it light today"]
+                )
+            }
             let raw = AriaVoiceEngine.speak(
                 intent: domain == .readiness ? .lowEnergy : .sleep,
                 context: context,
