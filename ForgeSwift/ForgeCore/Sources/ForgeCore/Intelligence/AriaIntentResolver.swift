@@ -125,6 +125,9 @@ public enum AriaIntentResolver {
                 add(domain, weight, "mentions \(named)")
             }
         }
+        if ScheduleGoalParser.isScheduleAsk(input.text) {
+            add(.sleep, Weight.phrase, "named a wake target")
+        }
 
         // --- The body's own argument ---
         //
@@ -559,7 +562,7 @@ public enum AriaIntentResolver {
         ],
         .sleep: [
             "how did i sleep", "slept badly", "couldn't sleep", "keep waking", "sleep debt",
-            "didn't sleep", "tossed and turned",
+            "didn't sleep", "tossed and turned", "up at", "wake me", "need to be up",
         ],
         .readiness: [
             "how am i doing today", "should i train today", "am i recovered", "how's my recovery",
