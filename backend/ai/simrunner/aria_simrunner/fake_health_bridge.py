@@ -80,6 +80,24 @@ def context_from_pack_day(day: Any, *, persona: str | None = None) -> SimpleName
     elif occupation in ("nightowl", "night owl"):
         occupation = "engineer"
 
+    # New realism fields — optional, never required for older packs.
+    is_fragmented = bool(get("isFragmented") or False)
+    nap = get("nap")
+    nap_minutes = None
+    if nap is not None:
+        if isinstance(nap, dict):
+            nap_minutes = _hours_from_minutes(nap.get("totalMinutes"))
+            if nap_minutes is not None:
+                nap_minutes = round(nap_minutes * 60)
+        else:
+            nap_minutes = getattr(nap, "totalMinutes", None)
+    watch_off = int(get("watchOffInflatedMinutes") or 0)
+    predicted = _opt(get("predictedEnergyAtWake"))
+    felt_anchor = _opt(get("feltEnergyAnchor"))
+    drift = None
+    if predicted is not None and felt_anchor is not None:
+        drift = round(felt_anchor - predicted, 3)
+
     return SimpleNamespace(
         today=today,
         sleep_debt_7d_hours=float(get("sleepDebtHours") or 0.0),
@@ -104,6 +122,12 @@ def context_from_pack_day(day: Any, *, persona: str | None = None) -> SimpleName
         felt=felt,
         story_line=story,
         acwr=today.acwr,
+        is_fragmented=is_fragmented,
+        nap_minutes=nap_minutes,
+        watch_off_inflated_minutes=watch_off,
+        predicted_energy_at_wake=predicted,
+        felt_energy_anchor=felt_anchor,
+        felt_vs_predicted_drift=drift,
     )
 
 

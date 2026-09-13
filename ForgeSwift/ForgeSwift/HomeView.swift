@@ -67,6 +67,7 @@ struct HomeView: View {
                             }
                         }
 
+                        // Visual breathing room: max 1 hero, 1 ARIA, 1 social proof, then lifestyle.
                         HomeLifestylePreviewCard()
                         HomeWidgetBoard()
                         HomeAgendaCard()
@@ -162,16 +163,24 @@ struct HomeHeaderView: View {
                     .forgeSectionLabel()
 
                 Text(greeting + (firstName.isEmpty ? "" : ", \(firstName)"))
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundColor(.textPrimary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
                     .accessibilityAddTraits(.isHeader)
+                    // Subtle warm underline for depth without adding chrome.
+                    .overlay(alignment: .bottomLeading) {
+                        Rectangle().fill(Color.ember.opacity(0.18))
+                            .frame(width: 36, height: 3)
+                            .offset(y: 6)
+                            .clipShape(Capsule())
+                    }
 
                 HomeDataStatusPill(
                     isLive: store.healthKitLive,
                     updatedAt: store.lastMetricsRefresh
                 )
+                .padding(.top, 4)
                 if let ingestError = ingestErrorText, !ingestError.isEmpty {
                     Text(ingestError)
                         .font(.system(size: 11, weight: .medium, design: .rounded))
