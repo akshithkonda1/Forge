@@ -537,20 +537,27 @@ private struct AuroraGrain: View {
     let size: CGSize
 
     var body: some View {
-        Canvas { context, canvasSize in
-            var seed: UInt64 = 0x9E37_79B9_7F4A_7C15
-            func next() -> Double {
-                seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
-                return Double((seed >> 33) & 0xFF_FFFF) / Double(0xFF_FFFF)
-            }
-            for _ in 0..<1400 {
-                let x = next() * canvasSize.width
-                let y = next() * canvasSize.height
-                let a = 0.014 + next() * 0.020
-                context.fill(
-                    Path(CGRect(x: x, y: y, width: 1, height: 1)),
-                    with: .color(.white.opacity(a))
-                )
+        Group {
+            if size.width < 2 || size.height < 2 {
+                Color.clear
+            } else {
+                Canvas { context, canvasSize in
+                    guard canvasSize.width >= 2, canvasSize.height >= 2 else { return }
+                    var seed: UInt64 = 0x9E37_79B9_7F4A_7C15
+                    func next() -> Double {
+                        seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+                        return Double((seed >> 33) & 0xFF_FFFF) / Double(0xFF_FFFF)
+                    }
+                    for _ in 0..<1400 {
+                        let x = next() * canvasSize.width
+                        let y = next() * canvasSize.height
+                        let a = 0.014 + next() * 0.020
+                        context.fill(
+                            Path(CGRect(x: x, y: y, width: 1, height: 1)),
+                            with: .color(.white.opacity(a))
+                        )
+                    }
+                }
             }
         }
         .frame(width: size.width, height: size.height)
