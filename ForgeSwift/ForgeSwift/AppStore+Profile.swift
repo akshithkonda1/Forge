@@ -134,6 +134,8 @@ extension AppStore {
         resetInMemoryChat()
         lastCloudSyncError = nil
         lastLifeIngestError = nil
+        isHealthKitPulling = false
+        healthKitLive = false
         remoteSleepInsight = nil
         remoteProgressReview = nil
         metricSources = []
@@ -172,24 +174,23 @@ extension AppStore {
 
     /// Force HealthKit reconnect from Settings / Home offline pill.
     /// After Deny, iOS will not re-show Allow — open Health → Sharing.
+    /// Does not wait on `refreshDailyData` before returning — flip status first.
     func reconnectHealthKit() async {
         let hk = HealthKitManager.shared
-        let live = await hk.checkAuthorizationStatus()
-        switch HealthKitLiveEvidence.reconnectAction(
-            isLive: live,
+        let action = HealthKitLiveEvidence.reconnectAction(
+            isLive: healthKitLive || hk.canWriteAnyRequestedType,
             canPresentSheet: hk.canPresentAuthorizationSheet
-        ) {
+        )
+        switch action {
         case .resync:
-            await hk.applyConnectedHealthToForge()
-            await refreshDailyData()
-            healthKitLive = await hk.checkAuthorizationStatus()
+            scheduleHealthKitHydrate()
         case .requestSheet:
             do {
                 try await hk.requestAuthorization()
-                await hk.applyConnectedHealthToForge()
-                healthKitLive = await hk.checkAuthorizationStatus()
+                healthKitLive = hk.isAuthorized
+                objectWillChange.send()
                 if healthKitLive {
-                    await refreshDailyData()
+                    scheduleHealthKitHydrate()
                 } else {
                     lastLifeIngestError = LifeIngestError.skipped(
                         doing: "Couldn't reconnect Apple Health",
@@ -211,5 +212,18 @@ extension AppStore {
             hk.openAppleHealthSharingDestination()
         }
         objectWillChange.send()
+    }
+
+    /// Hydrate after an honest status flip. Keep Home / You interactive.
+    private func scheduleHealthKitHydrate() {
+        isHealthKitPulling = true
+        objectWillChange.send()
+        Task { @MainActor in
+            await HealthKitManager.shared.applyConnectedHealthToForge()
+            await refreshDailyData()
+            healthKitLive = await HealthKitManager.shared.checkAuthorizationStatus()
+            isHealthKitPulling = false
+            objectWillChange.send()
+        }
     }
 }

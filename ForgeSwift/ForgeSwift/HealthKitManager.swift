@@ -383,9 +383,7 @@ class HealthKitManager: ObservableObject {
             return false
         }
 
-        let canWrite = writeTypes.contains { type in
-            healthStore.authorizationStatus(for: type) == .sharingAuthorized
-        }
+        let canWrite = canWriteAnyRequestedType
         // HealthKit hides read authorization. A shown Allow sheet / UserDefaults
         // `HealthKitAuthorizationRequested` is not a grant — Deny and empty
         // reads must stay offline. Write-sharing or a real sample is live.
@@ -405,6 +403,14 @@ class HealthKitManager: ObservableObject {
         guard isHealthDataAvailable() else { return false }
         let snap = await fetchRecentSnapshot(requireAuthorization: false)
         return snap?.hasData == true
+    }
+
+    /// Cheap write-side grant. Does not probe samples or UserDefaults.
+    var canWriteAnyRequestedType: Bool {
+        guard isHealthDataAvailable() else { return false }
+        return writeTypes.contains { type in
+            healthStore.authorizationStatus(for: type) == .sharingAuthorized
+        }
     }
 
     /// iOS will not re-present Allow once a request has finished.

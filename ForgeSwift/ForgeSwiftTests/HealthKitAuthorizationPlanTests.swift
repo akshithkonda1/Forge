@@ -274,4 +274,15 @@ final class HealthKitLiveEvidenceTests: XCTestCase {
             .resync
         )
     }
+
+    func testReconnectRoutingDoesNotNeedASnapshotProbe() {
+        XCTAssertEqual(
+            HealthKitLiveEvidence.reconnectAction(isLive: false, canPresentSheet: false),
+            .openHealthSharing
+        )
+        XCTAssertEqual(
+            HealthKitLiveEvidence.reconnectAction(isLive: true, canPresentSheet: true),
+            .resync
+        )
+    }
 }

@@ -262,7 +262,9 @@ struct SettingsPageView: View {
                         icon: "heart.text.square.fill",
                         iconColor: store.healthKitLive ? .success : .warning,
                         label: "Apple Health",
-                        trailingText: store.healthKitLive ? "Connected" : "Offline"
+                        trailingText: store.isHealthKitPulling
+                            ? "Pulling…"
+                            : (store.healthKitLive ? "Connected" : "Offline")
                     )
                     Divider().background(Color.borderColor)
                     Button {
