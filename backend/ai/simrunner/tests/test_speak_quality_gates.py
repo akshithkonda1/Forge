@@ -24,6 +24,7 @@ class GateFixturesFailOnBadSpeak(unittest.TestCase):
             "Readiness is 58 and recovery score 48.",
             "Readiness 96, HRV 52ms, ACWR 0.63, sleep debt 0.2h.",
             "Sleep score 80 with HRV 12% below baseline.",
+            "Sleep: 8.1 h total, 93 min deep (19%). Deep sleep at 19% is in a healthy band.",
         )
         for text in dumps:
             with self.subTest(text=text):
@@ -98,6 +99,11 @@ class GateFixturesFailOnBadSpeak(unittest.TestCase):
         self.assertTrue(sq.memory_hole_hits("How did I sleep last night?", hole))
         ack = "Yeah — about that night, keep today kind."
         self.assertEqual(sq.memory_hole_hits("How did I sleep last night?", ack), [])
+        easier = "Sure — we dial it back. Same idea, less intensity."
+        self.assertEqual(
+            sq.memory_hole_hits("How did I sleep last night?", easier, current_user="make it easier"),
+            [],
+        )
 
 
 class DummyLiveSpeakPassesFriendGates(unittest.TestCase):
@@ -131,6 +137,7 @@ class DummyLiveSpeakPassesFriendGates(unittest.TestCase):
                 row,
                 prior_user=history[-1] if history else None,
                 prior_reply=prev or None,
+                current_user=prompt,
             )
             self.assertEqual(fails, [], f"{prompt!r} → {row['prose_summary']!r} fails {fails}")
             # Every user-visible field is scanned, including prose_summary.
@@ -176,10 +183,37 @@ class DummyLiveSpeakPassesFriendGates(unittest.TestCase):
             second,
             prior_user=history[0],
             prior_reply=first["prose_summary"],
+            current_user="ok what should I train then",
         )
         self.assertEqual(fails, [], second["prose_summary"])
         self.assertNotEqual(first["prose_summary"], second["prose_summary"])
         self.assertTrue(sq.has_friend_throughline(second["prose_summary"]) or "night" in second["prose_summary"].lower())
+
+    def test_lambda_engine_user_visible_fields_pass_the_same_gates(self):
+        history: list[str] = []
+        prev = ""
+        for prompt in (
+            "How did I sleep last night?",
+            "What should I train today?",
+            "I slept badly — what should I train and eat?",
+        ):
+            row = dummy.respond(prompt, seed=11, engine="lambda", prior_turns=history or None)
+            fails = sq.speak_failures(
+                row,
+                prior_user=history[-1] if history else None,
+                prior_reply=prev or None,
+                current_user=prompt,
+            )
+            self.assertEqual(fails, [], f"{prompt!r} → {row['prose_summary']!r} fails {fails}")
+            self.assertEqual(sq.vitals_hits(row.get("prose_summary") or ""), [])
+            history.append(prompt)
+            prev = row["prose_summary"]
+
+        diagnose = dummy.respond("diagnose me", seed=1, engine="lambda")
+        self.assertEqual(diagnose.get("guidance_band"), "refer_out")
+        self.assertEqual(sq.medical_hits(sq.user_visible_blob(diagnose)), [])
+        self.assertEqual(sq.bark_hits(sq.user_visible_blob(diagnose)), [])
+        self.assertIn("not a doctor", (diagnose.get("prose_summary") or "").lower())
 
 
 if __name__ == "__main__":

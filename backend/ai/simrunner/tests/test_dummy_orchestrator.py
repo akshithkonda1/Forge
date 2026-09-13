@@ -616,9 +616,10 @@ class DummyOrchestratorTests(unittest.TestCase):
 
     def test_lambda_engine_speak_stays_a_friend_not_a_clinician(self):
         row = dummy.respond("What should I train today?", seed=1, engine="lambda")
-        blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}".lower()
-        for banned in ("prescrib", "cure", "treat this", "medical condition"):
-            self.assertNotIn(banned, blob, banned)
+        fails = speak_quality.speak_failures(row)
+        self.assertEqual(fails, [], fails)
+        self.assertEqual(speak_quality.medical_hits(speak_quality.user_visible_blob(row)), [])
+        self.assertEqual(speak_quality.bark_hits(speak_quality.user_visible_blob(row)), [])
 
     def test_both_engines_skip_empty_cheerleading(self):
         banned = (
