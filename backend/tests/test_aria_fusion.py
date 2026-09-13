@@ -260,5 +260,73 @@ class SnapshotKeyTests(unittest.TestCase):
         self.assertNotEqual(key["sk"], keys.aria_persona_key("u1")["sk"])
 
 
+class FusionContractTests(unittest.TestCase):
+    """Fail if chat bypasses fusion, stance ignores the session, or this
+    path is wired through ``/ai/router`` Bedrock reconcile."""
+
+    def test_chat_and_observe_share_fuse_turn_not_client_template(self):
+        import inspect
+        from routes import aria, biometrics
+
+        chat_src = inspect.getsource(aria.handle_post_ai_chat)
+        observe_src = inspect.getsource(biometrics.handle_post_observe)
+        self.assertIn("fuse_turn", chat_src)
+        self.assertIn("fuse_turn", observe_src)
+        self.assertNotIn("ARIAContext.from_payload", chat_src)
+        self.assertNotIn("ai_router", chat_src)
+        self.assertNotIn("ai_router", observe_src)
+
+    def test_fusion_helper_is_not_bedrock_router_reconcile(self):
+        import inspect
+
+        src = inspect.getsource(fusion)
+        self.assertIn("def fuse_turn", src)
+        self.assertNotIn("ai_router", src)
+        self.assertNotIn("reconcile_action", src)
+        self.assertNotIn("except Exception", inspect.getsource(fusion.load_persona))
+
+    def test_fuel_and_clarify_change_the_session(self):
+        from services import body_library as B
+
+        proceed = B.maybe_suggest(
+            "What should I train today?",
+            last_workout_name="Tuesday Leg Day",
+            hours_since=20,
+            readiness=74,
+            stance="proceed",
+        )
+        fuel = B.maybe_suggest(
+            "What should I train today?",
+            last_workout_name="Tuesday Leg Day",
+            hours_since=20,
+            readiness=74,
+            stance="fuel",
+        )
+        clarify = B.maybe_suggest(
+            "What should I train today?",
+            last_workout_name="Tuesday Leg Day",
+            hours_since=20,
+            readiness=74,
+            stance="clarify",
+        )
+        self.assertIsNotNone(proceed)
+        self.assertIsNotNone(fuel)
+        self.assertIsNotNone(clarify)
+        self.assertEqual(proceed.stance, "proceed")
+        self.assertEqual(fuel.stance, "fuel")
+        self.assertEqual(clarify.stance, "clarify")
+        self.assertLessEqual(len(fuel.exercises), len(proceed.exercises))
+        self.assertLess(len(clarify.exercises), len(proceed.exercises))
+
+    def test_lifestyle_speak_does_not_dump_vitals(self):
+        ctx = _ready_ctx(tags=["calendar:kind:wedding", "calendar:evening:busy"])
+        r = aria_engine.generate_response("What should I train today?", ctx)
+        self.assertEqual(r["fusion"]["stance"], "protect")
+        blob = f"{r.get('message') or ''} {r.get('card', {}).get('action') or ''}".lower()
+        for banned in ("hrv", "bpm", "mmhg", "spo2"):
+            self.assertNotIn(banned, blob, banned)
+        self.assertNotIn("guidance_band", r)
+
+
 if __name__ == "__main__":
     unittest.main()

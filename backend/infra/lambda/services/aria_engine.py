@@ -1438,13 +1438,31 @@ def _clarification_response(ctx: ARIAContext, restricted: list[str], voice_mode:
     )
 
 
+_VITALS_SPEAK = re.compile(r"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score)\b", re.I)
+
+
+def _lifestyle_notice(notice: str, brief: Any, fallback: str) -> str:
+    """Lifestyle turns speak the life, not a vitals dump."""
+    if brief is None or str(getattr(brief, "lead_domain", "") or "") != "lifestyle":
+        return notice
+    text = str(getattr(brief, "how_you_work", "") or fallback or notice).strip()
+    if text and not _VITALS_SPEAK.search(text):
+        return text
+    move = str(getattr(brief, "one_next_move", "") or fallback).strip()
+    if move and not _VITALS_SPEAK.search(move):
+        return move
+    return "Fit training around the day you already have."
+
+
 def _recommendation_response(
     message: str,
     ctx: ARIAContext,
     signals: list[Signal],
     restricted: list[str],
     voice_mode: bool,
-    plan: Any = None,
+    *,
+    stance: str = "",
+    brief: Any = None,
 ) -> dict[str, Any]:
     confidence, reason = _calibrate_confidence(ctx, signals, restricted)
     # Phase 1 — HRV falling + sleep debt >2h → force sleep-first, cap confidence
@@ -1470,65 +1488,61 @@ def _recommendation_response(
     lead = signals[0] if signals else None
     negative = [s for s in signals if s.direction == "negative"]
     sleep_first = hrv_falling and sleep_debt_h > 2 and "sleep" not in restricted
+    learned = ""
+    if brief is not None and str(getattr(brief, "stance", "") or "") == stance:
+        learned = str(getattr(brief, "one_next_move", "") or "").strip()
 
-    stance = str(getattr(plan, "stance", "") or "")
     if sleep_first:
-        action = getattr(plan, "action", None) or "Sleep first — protect tonight's wind-down before training volume"
-        timing = getattr(plan, "timing", None) or "Protect sleep tonight; reassess training after HRV recovers"
-        if ctx.chronotype.typical_sleep_onset and "wind-down" not in timing:
+        action = learned or "Sleep first — protect tonight's wind-down before training volume"
+        timing = "Protect sleep tonight; reassess training after HRV recovers"
+        if ctx.chronotype.typical_sleep_onset:
             timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
-        rationale = getattr(plan, "rationale", None) or (
+        rationale = (
             f"HRV {ctx.readiness.hrv_7day_trend:.0f}% + {sleep_debt_h:.1f}h sleep debt — sleep before load"
         )
-        expected = getattr(plan, "expected_effect", None) or (
-            "Prioritizing sleep should pull HRV back toward baseline within 24-48 h"
-        )
+        expected = "Prioritizing sleep should pull HRV back toward baseline within 24-48 h"
         prose = f"HRV {abs(ctx.readiness.hrv_7day_trend):.0f}% below baseline with {sleep_debt_h:.1f}h sleep debt — sleep first tonight, then training."
-        actions = list(getattr(plan, "suggested_actions", None) or ["Protect tonight's sleep", "Show recovery plan", "Swap to Zone 2"])
-    elif stance == "protect" or (plan is None and negative):
+        actions = ["Protect tonight's sleep", "Show recovery plan", "Swap to Zone 2"]
+    elif stance == "protect" or (not stance and negative):
         driver = negative[0] if negative else lead
-        action = getattr(plan, "action", None) or "Keep today low-intensity — Zone 2 cardio or mobility, not a hard session"
-        timing = getattr(plan, "timing", None) or "Reassess tomorrow once HRV and deep sleep recover"
-        if ctx.chronotype.typical_sleep_onset and timing and "wind-down" not in timing:
+        action = learned or "Keep today low-intensity — Zone 2 cardio or mobility, not a hard session"
+        timing = "Reassess tomorrow once HRV and deep sleep recover"
+        if ctx.chronotype.typical_sleep_onset:
             timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
-        rationale = getattr(plan, "rationale", None) or (
-            f"{driver.metric.lower()}: {driver.interpretation}" if driver else "protect load"
-        )
-        expected = getattr(plan, "expected_effect", None) or (
-            "Protecting today should pull HRV back toward baseline within 24-48 h"
-        )
+        rationale = f"{driver.metric.lower()}: {driver.interpretation}" if driver else "protect load"
+        expected = "Protecting today should pull HRV back toward baseline within 24-48 h"
         detail = driver.interpretation if driver else "signals say protect load"
         prose = f"{_cap(detail)} — keep today easy and let recovery catch up."
-        actions = list(getattr(plan, "suggested_actions", None) or ["Show recovery plan", "Swap to Zone 2", "Protect tonight's sleep"])
+        actions = ["Show recovery plan", "Swap to Zone 2", "Protect tonight's sleep"]
     elif stance == "fuel":
-        action = getattr(plan, "action", None) or "Protein and water with the next meal, then train inside the day you have"
-        timing = getattr(plan, "timing", None) or "Eat first, then your normal training window"
-        rationale = getattr(plan, "rationale", None) or (lead.interpretation if lead else "fuel first")
-        expected = getattr(plan, "expected_effect", None) or "Hitting protein and water first keeps the session sustainable"
+        action = learned or "Protein and water with the next meal, then train inside the day you have"
+        timing = "Eat first, then your normal training window"
+        rationale = lead.interpretation if lead else "fuel first"
+        expected = "Hitting protein and water first keeps the session sustainable"
         prose = f"{_cap(lead.interpretation) if lead else 'Fuel first'} — eat, then train inside the day you have."
-        actions = list(getattr(plan, "suggested_actions", None) or ["Log the next meal", "Today's workout", "Check hydration"])
+        actions = ["Log the next meal", "Today's workout", "Check hydration"]
     elif stance == "clarify":
-        action = getattr(plan, "action", None) or "Best-effort read from what I have, then the one missing signal"
-        timing = getattr(plan, "timing", None) or "Once that signal lands I can lock today's call"
-        rationale = getattr(plan, "rationale", None) or "usable picture is still thin"
-        expected = getattr(plan, "expected_effect", None) or "One missing signal would change the call"
+        action = learned or "Best-effort read from what I have, then the one missing signal"
+        timing = "Once that signal lands I can lock today's call"
+        rationale = "usable picture is still thin"
+        expected = "One missing signal would change the call"
         prose = f"{_cap(lead.interpretation) if lead else 'I can give a best-effort read'} — I still want one missing signal before I lock the plan."
-        actions = list(getattr(plan, "suggested_actions", None) or ["Sync HealthKit", "Tell ARIA about last night", "Today's workout"])
+        actions = ["Sync HealthKit", "Tell ARIA about last night", "Today's workout"]
     elif lead and lead.direction == "positive":
-        action = getattr(plan, "action", None) or "Green light for intensity — this is a day to push"
-        timing = getattr(plan, "timing", None) or "Train in your usual window while readiness is high"
-        rationale = getattr(plan, "rationale", None) or f"{lead.metric.lower()}: {lead.interpretation}"
-        expected = getattr(plan, "expected_effect", None) or "You can absorb a hard stimulus today without digging a recovery hole"
+        action = learned or "Green light for intensity — this is a day to push"
+        timing = "Train in your usual window while readiness is high"
+        rationale = f"{lead.metric.lower()}: {lead.interpretation}"
+        expected = "You can absorb a hard stimulus today without digging a recovery hole"
         prose = f"You're primed — {lead.interpretation}. Clear to push hard today."
-        actions = list(getattr(plan, "suggested_actions", None) or ["Build a hard session", "Set a PR target", "Review readiness"])
+        actions = ["Build a hard session", "Set a PR target", "Review readiness"]
     else:
         detail = lead.interpretation if lead else "your signals are mid-band"
-        action = getattr(plan, "action", None) or "Train at moderate intensity with controlled progressive overload"
-        timing = getattr(plan, "timing", None) or "Your normal training window works today"
-        rationale = getattr(plan, "rationale", None) or detail
-        expected = getattr(plan, "expected_effect", None) or "Steady stimulus keeps adaptation moving without overreaching"
+        action = learned or "Train at moderate intensity with controlled progressive overload"
+        timing = "Your normal training window works today"
+        rationale = detail
+        expected = "Steady stimulus keeps adaptation moving without overreaching"
         prose = f"{_cap(detail)} — train moderate and keep overload controlled."
-        actions = list(getattr(plan, "suggested_actions", None) or ["Today's workout", "Tune intensity", "Check sleep trend"])
+        actions = ["Today's workout", "Tune intensity", "Check sleep trend"]
 
     # Goal shaping stays on the card's expected effect (kept precise there).
     goal = ctx.profile.primary_goal
@@ -1552,13 +1566,22 @@ def _recommendation_response(
         "timing": timing,
         "expected_effect": expected,
     }
+    notice = _lifestyle_notice(" ".join(notice_bits), brief, action)
+    why = timing
+    if brief is not None and str(getattr(brief, "lead_domain", "") or "") == "lifestyle":
+        if _VITALS_SPEAK.search(why or ""):
+            why = "Fit the session around the day you already have."
+        if _VITALS_SPEAK.search(action or ""):
+            action = str(getattr(brief, "one_next_move", "") or "Protect load and fit a shorter session around the day they already have.")
+            if card is not None:
+                card["action"] = action
     return _envelope(
         response_type="recommendation",
         confidence=confidence,
         confidence_reason=reason,
         prose_summary=prose,
         card=card,
-        message=_structured_message(" ".join(notice_bits), action, timing),
+        message=_structured_message(notice, action, why),
         suggested_actions=actions,
         voice_mode=voice_mode,
     )
@@ -1692,10 +1715,10 @@ def generate_response(
     in-memory persona. Omitting it still runs cold-start priors so turn one is
     already adapted.
 
-    ``baselines`` is the BodyModel personal-baseline sidecar from ``fusion``.
+    ``baselines`` is the BodyModel personal-baseline block from ``fusion``.
     When present and robust, interpreters judge against this person, not a
-    population cutoff. Stance from the learner is reconciled with BodyModel
-    votes into the plan the coach ships — not a prose-only sidecar.
+    population cutoff. Persona stance (protect / proceed / fuel / clarify)
+    changes the next session — it is not a sidecar and not Bedrock reconcile.
     """
     perms = permissions if isinstance(permissions, DataPermissions) else DataPermissions.allow_all()
     ctx, restricted = apply_permissions(ctx, perms)
@@ -1724,13 +1747,14 @@ def generate_response(
         return envelope
 
     from services import contextual_learner
+    from services import fusion as fusion_mod
 
     brief = contextual_learner.adapt(message, ctx, persona)
+    stance = fusion_mod.stance_for_plan(brief, ctx, baselines)
     response_type = classify_request(message, ctx)
 
     # A clarification never reads the interpreted signals, so gather them only on
     # the paths that use them (summary/recommendation/insight).
-    plan = None
     if response_type == "clarification":
         envelope = _clarification_response(ctx, restricted, voice_mode)
     else:
@@ -1738,13 +1762,8 @@ def generate_response(
         if response_type == "summary":
             envelope = _summary_response(ctx, signals, restricted, voice_mode)
         elif response_type == "recommendation":
-            from services import fusion as fusion_mod
-
-            plan = fusion_mod.reconcile_action(
-                message, ctx, signals, brief, baselines, restricted
-            )
             envelope = _recommendation_response(
-                message, ctx, signals, restricted, voice_mode, plan=plan
+                message, ctx, signals, restricted, voice_mode, stance=stance, brief=brief
             )
         else:
             envelope = _insight_response(message, ctx, signals, restricted, voice_mode)
@@ -1753,45 +1772,31 @@ def generate_response(
     if response_type == "recommendation" and "training" not in restricted:
         from services import body_library
 
-        session_readiness = getattr(plan, "session_readiness", None)
-        if session_readiness is None and isinstance(ctx.readiness.recovery_score, (int, float)):
-            session_readiness = int(ctx.readiness.recovery_score)
+        recovery = ctx.readiness.recovery_score
+        recovery_f = float(recovery) if isinstance(recovery, (int, float)) else None
         session = body_library.maybe_suggest(
             message,
             last_workout_type=ctx.training.last_workout_type,
             last_workout_name=ctx.training.last_workout_name,
             hours_since=ctx.training.hours_since_last_workout,
             experience=ctx.profile.experience_level or "intermediate",
-            readiness=session_readiness,
+            readiness=fusion_mod.session_readiness_for(stance, recovery_f),
             planning_mode=ctx.training.schedule_planning_mode,
             weekly_split=ctx.training.weekly_split,
             sun0_weekday=ctx.training.sun0_weekday
             if ctx.training.sun0_weekday is not None
             else body_library.sun0_from_iso(ctx.timestamp),
-            stance=getattr(plan, "stance", None),
+            stance=stance,
         )
         if session is not None:
             envelope["session"] = session.to_dict()
     envelope["contextualization"] = brief.as_dict()
-    fusion_block: dict[str, Any] = {
-        "stance": brief.stance,
+    envelope["fusion"] = {
+        "stance": stance,
         "baseline_kind": "personal"
         if baselines is not None and getattr(baselines, "robust", False)
         else "population",
     }
-    if plan is not None:
-        fusion_block.update(
-            {
-                "stance": plan.stance,
-                "agreement": plan.agreement,
-                "votes": dict(plan.votes),
-                "baseline_kind": plan.baseline_kind,
-                "intensity": plan.intensity,
-                "action": plan.action,
-                "plan": plan.to_dict(),
-            }
-        )
-    envelope["fusion"] = fusion_block
     return envelope
 
 
@@ -1827,22 +1832,6 @@ def _envelope(
         "suggested_actions": suggested_actions,
         "model": select_model(response_type, voice_mode=voice_mode),
     }
-
-
-def _attach_contextualization(
-    envelope: dict[str, Any],
-    message: str,
-    ctx: ARIAContext,
-    persona: Any,
-) -> None:
-    """Sidecar from the production learner. Never mutates prose_summary."""
-    try:
-        from services import contextual_learner
-
-        brief = contextual_learner.adapt(message, ctx, persona)
-        envelope["contextualization"] = brief.as_dict()
-    except Exception:
-        return
 
 
 def build_user_prompt(message: str, ctx: ARIAContext, restricted: list[str] | None = None) -> str:

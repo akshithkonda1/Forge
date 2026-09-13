@@ -87,6 +87,8 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
     if len(raw) > 500:
         raise RouteError(400, "samples batch too large (max 500).")
 
+    message = sanitize_user_text(str(body.get("message") or ""), max_chars=MAX_CHAT_MESSAGE_CHARS)
+
     permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
     fused = fusion_mod.fuse_turn(
         uid,
@@ -114,7 +116,6 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
     # decides and records; it never dials 911 itself.
     _apply_vitals_monitor(body, uid, payload)
 
-    message = sanitize_user_text(str(body.get("message") or ""), max_chars=MAX_CHAT_MESSAGE_CHARS)
     if message:
         voice = bool(body.get("voice_mode"))
         from services import contextual_learner
@@ -128,7 +129,7 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
                     tags=list(context.lifestyle.tags or []),
                     ctx=context,
                 )
-            except Exception as exc:  # noqa: BLE001 — named, not a silent cold-start
+            except fusion_mod.PERSONA_IO_ERRORS as exc:
                 fused.persona_error = f"observe_turn:{exc.__class__.__name__}: {exc}"
         response = aria_engine.generate_response(
             message,
@@ -142,8 +143,7 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
         if fused.persona_status != "load_failed" and persona is not None:
             try:
                 brief = response.get("contextualization") if isinstance(response.get("contextualization"), dict) else {}
-                plan = (response.get("fusion") or {}).get("plan") if isinstance(response.get("fusion"), dict) else None
-                stance = str((plan or {}).get("stance") or brief.get("stance") or "")
+                stance = str((response.get("fusion") or {}).get("stance") or brief.get("stance") or "")
                 contextual_learner.commit_action(
                     persona,
                     str(brief.get("bucket") or ""),
@@ -155,7 +155,7 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
                     sources=brief.get("sources") or (),
                 )
                 contextual_learner.save(uid, persona)
-            except Exception as exc:  # noqa: BLE001
+            except fusion_mod.PERSONA_IO_ERRORS as exc:
                 payload["fusion"]["persona_error"] = f"commit:{exc.__class__.__name__}: {exc}"
         payload["aria_response"] = response
 
