@@ -62,6 +62,45 @@ public enum WatchVitalsLinkKeys {
     public static let snapshot = "forge.watch.vitals"
 }
 
+/// Watch → iPhone latest sleep stage Apple just delivered. Not a live stream.
+public struct WatchSleepSamplePayload: Codable, Sendable, Equatable {
+    public var sampledAt: Date
+    public var stage: String
+    public var start: Date
+    public var end: Date
+    public var source: String
+
+    public init(
+        sampledAt: Date = Date(),
+        stage: String,
+        start: Date,
+        end: Date,
+        source: String
+    ) {
+        self.sampledAt = sampledAt
+        self.stage = stage
+        self.start = start
+        self.end = end
+        self.source = source
+    }
+
+    public init(segment: SleepStageSegment, sampledAt: Date = Date(), source: String) {
+        self.init(
+            sampledAt: sampledAt,
+            stage: segment.stage.rawValue,
+            start: segment.start,
+            end: segment.end,
+            source: source
+        )
+    }
+
+    public var sleepStage: SleepStage? { SleepStage(rawValue: stage) }
+}
+
+public enum WatchSleepLinkKeys {
+    public static let snapshot = "forge.watch.sleepSample"
+}
+
 /// On-device inbox. Not uploaded. App Group when it works; WCSession fills
 /// the same key on the phone when the Watch pair cannot share defaults.
 public enum WatchVitalsInbox {

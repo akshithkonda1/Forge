@@ -97,3 +97,85 @@ public enum WakeStruggleStore: Sendable {
         }
     }
 }
+
+/// Decide whether a HealthKit-delivered sleep sample should ring the smart
+/// wake *now*. iPhone cannot stream live stage; this reacts when Apple
+/// delivers a sample, not as EEG.
+public enum SmartWakeEarlyFire: Sendable {
+    public enum Decision: String, Sendable, Equatable {
+        case ignore
+        case fireEarly
+        case alreadyPastHard
+    }
+
+    /// Samples older than this are history, not "you are in this stage now".
+    public static let maxSampleAge: TimeInterval = 20 * 60
+
+    public static func decide(
+        now: Date,
+        smartFire: Date?,
+        hardFire: Date?,
+        sampleEnd: Date,
+        stage: SleepStage
+    ) -> Decision {
+        guard let smartFire, let hardFire else { return .ignore }
+        if now >= hardFire { return .alreadyPastHard }
+        if now < smartFire { return .ignore }
+        let age = now.timeIntervalSince(sampleEnd)
+        if age < -60 || age > maxSampleAge { return .ignore }
+        switch stage {
+        case .core, .awake:
+            return .fireEarly
+        case .deep, .rem:
+            return .ignore
+        }
+    }
+}
+
+/// One early fire per alarm per morning so a burst of HealthKit samples
+/// does not stack nudges.
+public enum SmartWakeEarlyFireStore: Sendable {
+    public static let defaultsKey = "forge.sleep.earlyFire.v1"
+
+    public static func alreadyFired(
+        alarmId: String,
+        dayKey: String,
+        defaults: UserDefaults = .standard
+    ) -> Bool {
+        load(defaults: defaults).contains(token(alarmId: alarmId, dayKey: dayKey))
+    }
+
+    public static func markFired(
+        alarmId: String,
+        dayKey: String,
+        defaults: UserDefaults = .standard
+    ) {
+        var tokens = load(defaults: defaults)
+        let token = token(alarmId: alarmId, dayKey: dayKey)
+        if !tokens.contains(token) {
+            tokens.append(token)
+        }
+        if tokens.count > 28 {
+            tokens.removeFirst(tokens.count - 28)
+        }
+        if let data = try? JSONEncoder().encode(tokens) {
+            defaults.set(data, forKey: defaultsKey)
+        }
+    }
+
+    public static func reset(defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: defaultsKey)
+    }
+
+    private static func token(alarmId: String, dayKey: String) -> String {
+        "\(alarmId)|\(dayKey)"
+    }
+
+    private static func load(defaults: UserDefaults) -> [String] {
+        guard let data = defaults.data(forKey: defaultsKey),
+              let tokens = try? JSONDecoder().decode([String].self, from: data) else {
+            return []
+        }
+        return tokens
+    }
+}

@@ -419,7 +419,7 @@ struct SmartWakeCard: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Earlier nudge, then the hard alarm")
                                 .font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                            Text("iPhone cannot read live sleep stage. Tonight's lead is \(adaptedMinutes) min from last night's score, debt, and snooze history — your pick is the base. The hard alarm still stands.")
+                            Text("When Apple delivers a sample in the window, Forge can nudge earlier if you're in light or core sleep. iPhone cannot stream live stage. Tonight's lead is \(adaptedMinutes) min from last night's score, debt, and snooze history — your pick is the base. The hard alarm still stands.")
                                 .font(.system(size: 12)).foregroundColor(.textTertiary).lineSpacing(3)
                         }
                     }

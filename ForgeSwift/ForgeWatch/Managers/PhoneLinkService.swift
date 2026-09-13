@@ -96,6 +96,20 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
         }
     }
 
+    func sendSleepSample(_ payload: WatchSleepSamplePayload) {
+        guard WCSession.isSupported(),
+              WCSession.default.activationState == .activated,
+              let data = try? JSONEncoder().encode(payload) else { return }
+        let envelope: [String: Any] = [WorkoutLinkKeys.sleepSample: data]
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(envelope, replyHandler: nil) { _ in
+                self.pushMergedApplicationContext(envelope)
+            }
+        } else {
+            pushMergedApplicationContext(envelope)
+        }
+    }
+
     func sendMindfulnessCompleted(practice: String, minutes: Double) {
         guard WCSession.isSupported(),
               WCSession.default.activationState == .activated else { return }

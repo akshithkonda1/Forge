@@ -651,6 +651,15 @@ class HealthKitManager: ObservableObject {
             await AriaHealthRiskBridge.evaluateFromHealthKit(
                 quietMode: UserDefaults.standard.bool(forKey: "forge.quiet.mode.v1")
             )
+            // Sleep is in `bidirectionalSampleTypes` at `.immediate`. The old
+            // handler ignored it (hydration + risk only). A delivered sample
+            // is the closest thing iPhone gets to live stage — not EEG.
+            if let segment = await ForgeHealthQueries.latestSleepSegment(store: healthStore) {
+                await SleepAlarmScheduler.considerDeliveredSleep(
+                    stage: segment.stage,
+                    sampleEnd: segment.end
+                )
+            }
         }
     }
 

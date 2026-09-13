@@ -117,6 +117,7 @@ let package = Package(
                 "ScheduleCorrectorTests.swift",
                 "SleepWakeAdaptationTests.swift",
                 "SleepDepthScorerTests.swift",
+                "HabitEngineTests.swift",
                 "OnboardingGraphTests.swift",
                 "FakeHealthPackTests.swift",
                 "FakeCalendarPackTests.swift",

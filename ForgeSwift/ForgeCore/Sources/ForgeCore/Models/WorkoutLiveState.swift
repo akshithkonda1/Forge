@@ -83,4 +83,5 @@ public enum WorkoutLinkKeys {
     public static let mindfulnessCompleted = "forge.mindfulness.completed"
     public static let mindfulnessPractice = "forge.mindfulness.practice"
     public static let mindfulnessMinutes = "forge.mindfulness.minutes"
+    public static let sleepSample = WatchSleepLinkKeys.snapshot
 }
