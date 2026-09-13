@@ -278,22 +278,9 @@ resource "aws_dynamodb_table" "app_data" {
     type = "S"
   }
 
-  attribute {
-    name = "gsi1pk"
-    type = "S"
-  }
-
-  attribute {
-    name = "gsi1sk"
-    type = "S"
-  }
-
-  global_secondary_index {
-    name            = "gsi1"
-    hash_key        = "gsi1pk"
-    range_key       = "gsi1sk"
-    projection_type = "ALL"
-  }
+  # No GSI: the Lambda storage layer only reads/writes pk/sk. An ALL-projection
+  # GSI previously doubled write cost with zero query benefit. Re-add when an
+  # access pattern (metrics-by-type, activity feed) actually writes gsi1pk/sk.
 
   point_in_time_recovery {
     enabled = var.enable_point_in_time_recovery
