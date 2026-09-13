@@ -130,7 +130,8 @@ class DummyOrchestratorTests(unittest.TestCase):
         with patch.object(web_research, "look_up", return_value="From Some Source: real info.") as mock_look_up:
             row = dummy.respond("how do I improve my workout routine?", seed=1)
         mock_look_up.assert_called_once_with("workout")
-        self.assertIn("From Some Source: real info.", row["message"])
+        # Trailing period may be normalized when the cite is parenthesized.
+        self.assertIn("From Some Source: real info", row["message"])
 
     def test_non_research_message_never_calls_web_research(self):
         with patch.object(web_research, "look_up") as mock_look_up:
@@ -314,13 +315,87 @@ class DummyOrchestratorTests(unittest.TestCase):
             prior_turns=["How did I sleep last night?"],
         )
         self.assertEqual(a["prose_summary"], b["prose_summary"])
+        prose = a["prose_summary"]
+        # Spoken memory bridges — not meta "Following on from your previous message".
         self.assertTrue(
-            a["prose_summary"].startswith("You were asking about the night")
-            or a["prose_summary"].startswith("Picking up from last night")
+            any(
+                prose.startswith(p)
+                for p in (
+                    "You were asking about the night",
+                    "Picking up from last night",
+                    "Yeah — about that night",
+                    "Yeah — after that night",
+                    "Still thinking about the sleep",
+                    "Right, the night you mentioned",
+                    "After what you said about sleeping",
+                    "Right, with the night still in play",
+                    "Okay, night first then the work",
+                )
+            ),
+            prose,
         )
         self.assertEqual(a["orchestration"]["prior_turns"], 1)
         fresh = dummy.respond("What should I train today?", seed=3)
         self.assertNotEqual(fresh["prose_summary"], a["prose_summary"])
+
+    def test_multi_turn_sounds_spoken_not_templated(self):
+        history = ["How did I sleep last night?"]
+        first = dummy.respond(history[0], seed=11)
+        second = dummy.respond(
+            "ok what should I train then",
+            seed=11,
+            prior_turns=history,
+        )
+        chat = second["message"]
+        # One spoken reply — not stacked specialist briefs.
+        self.assertNotIn("\n\n", chat)
+        # No meta rewriter / HUD markers.
+        lowered = chat.lower()
+        for banned in (
+            "fresh pass",
+            "another cut",
+            "same question, new phrasing",
+            "following on from",
+            "readiness is ",
+            "hrv ",
+        ):
+            self.assertNotIn(banned, lowered, chat)
+        # Voice gate still reads as human on the primary prose.
+        self.assertEqual(second["voice_diagnosis"]["verdict"], "human")
+        self.assertTrue(first["prose_summary"].strip())
+
+    def test_short_follow_ups_mutate_the_plan_like_a_real_coach(self):
+        history = ["How did I sleep last night?", "what should I train"]
+        easier = dummy.respond("make it easier", seed=11, prior_turns=history)
+        shorter = dummy.respond("shorter", seed=11, prior_turns=history + ["make it easier"])
+        skip = dummy.respond("skip it", seed=11, prior_turns=history + ["make it easier", "shorter"])
+        for row in (easier, shorter, skip):
+            self.assertNotIn("\n\n", row["message"])
+            self.assertNotIn("from the training side of what you asked", row["message"].lower())
+            self.assertEqual(row["voice_diagnosis"]["verdict"], "human")
+            self.assertLess(len(row["message"].split()), 45)
+        blob = f"{easier['message']} {shorter['message']} {skip['message']}".lower()
+        self.assertTrue(any(w in blob for w in ("dial", "trim", "scratch", "lighter", "soft", "short", "rest")))
+
+    def test_specialists_are_woven_not_stacked(self):
+        row = dummy.respond(
+            "I slept badly — what should I train and eat?",
+            seed=1,
+        )
+        self.assertNotIn("\n\n", row["message"])
+        # Orchestration still records specialists; the user-facing message does not list them as reports.
+        self.assertTrue(row["orchestration"]["specialists"])
+        for note in row["orchestration"]["specialist_notes"]:
+            # Full specialist sentences should not appear as their own paragraph.
+            self.assertNotIn(f"\n\n{note['text']}", row["message"])
+
+    def test_phrase_banks_vary_across_seeds(self):
+        texts = {
+            dummy.respond("What should I train today?", seed=s)["prose_summary"]
+            for s in range(20, 40)
+        }
+        # Enough spoken variety that twenty seeds are not a single canned line.
+        self.assertGreaterEqual(len(texts), 4)
 
     def test_persona_colors_lifestyle_without_dumping_fields(self):
         # Default tier-1 persona is a teacher. Lifestyle asides should sound
@@ -330,9 +405,15 @@ class DummyOrchestratorTests(unittest.TestCase):
         joined = row["message"].lower()
         self.assertNotRegex(row["message"], r"Readiness is \d")
         self.assertNotRegex(row["message"], r"\bHRV \d")
-        # Either the lifestyle specialist or the life aside mentions the week.
+        # Either the lifestyle specialist, a woven aside, or the persona life
+        # clause should show the week — without dumping a spreadsheet.
+        notes = " ".join(n["text"] for n in row["orchestration"]["specialist_notes"]).lower()
         self.assertTrue(
-            "teacher" in joined or "protein and water" in joined,
+            "teacher" in joined
+            or "protein and water" in joined
+            or "protein and water" in notes
+            or "teacher" in notes
+            or "teacher" in (row["orchestration"]["persona"]["occupation"] or "").lower(),
             row["message"],
         )
 

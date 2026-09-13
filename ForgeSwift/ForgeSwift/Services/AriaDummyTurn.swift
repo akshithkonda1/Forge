@@ -437,18 +437,22 @@ enum AriaDummyTurn {
                     "so I'm not writing heavy legs on a thin night.",
                     "so we skip the heavy lower work and keep the load honest.",
                     "so legs stay off the menu and intensity stays kind.",
+                    "which means no hero legs today — keep it honest.",
+                    "so lower-body stays light and we don't pretend last night didn't happen.",
                 ])
             } else if interpretation.skipLegs {
                 constraint = rng.pick([
                     "so I'm not writing heavy legs.",
                     "so we route around that joint and leave squats off.",
                     "so lower-body load stays out of the way.",
+                    "which means we protect that joint and skip the heavy lower work.",
                 ])
             } else {
                 constraint = rng.pick([
                     "so this is not a hero day.",
                     "so we keep the session honest, not heroic.",
                     "so intensity stays on a leash.",
+                    "which means we earn the work without forcing it.",
                 ])
             }
             sentences.append(constraint)

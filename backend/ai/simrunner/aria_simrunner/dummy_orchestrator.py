@@ -615,17 +615,25 @@ def _callback(
     seed: int,
     current_intents: list[IntentHit] | None = None,
 ) -> str:
-    """Cheap multi-turn memory: acknowledge the last thing they asked.
+    """Multi-turn memory that sounds like a person, not a thread picker.
 
     Only fires when this turn still overlaps the last one — a cycle question
-    after a sleep question is a new thread, not a follow-up.
+    after a sleep question is a new thread, not a follow-up. Prefers short
+    spoken bridges ("Yeah — after that night…") over meta narration
+    ("Following on from your previous message").
     """
     if not prior_turns:
         return ""
     last = (prior_turns[-1] or "").strip()
     if not last:
         return ""
+    # Reach one more turn back when the last message was a tiny follow-up.
+    earlier = ""
+    if len(prior_turns) >= 2 and len(last.split()) <= 4:
+        earlier = (prior_turns[-2] or "").strip()
     prior_kinds = {h.kind for h in score_intents(last)}
+    if earlier:
+        prior_kinds |= {h.kind for h in score_intents(earlier)}
     current_kinds = {h.kind for h in (current_intents or [])}
     # Sleep → train is a follow-up. Cycle after sleep is a new thread.
     _follow = {
@@ -644,20 +652,155 @@ def _callback(
         if not related:
             return ""
     lower = last.lower()
-    if any(n in lower for n in ("sleep", "slept", "last night")):
+    earlier_lower = earlier.lower()
+    sleepish = any(n in lower or n in earlier_lower for n in ("sleep", "slept", "last night", "insomnia"))
+    trainish = any(n in lower or n in earlier_lower for n in ("train", "workout", "session", "gym"))
+    if sleepish and trainish:
         return _pick(seed, [
-            "You were asking about the night — this is the next piece. ",
+            "Yeah — after that night, ",
+            "Right, with the night still in play — ",
+            "You were asking about the night — so for training, ",
+            "Picking up from last night into the session: ",
+            "Okay, night first then the work — ",
+        ])
+    if sleepish:
+        return _pick(seed, [
+            "Yeah — about that night, ",
+            "You were asking about the night — ",
             "Picking up from last night: ",
+            "Still thinking about the sleep piece — ",
+            "Right, the night you mentioned — ",
+            "After what you said about sleeping — ",
         ])
-    if any(n in lower for n in ("train", "workout", "session")):
+    if trainish:
         return _pick(seed, [
-            "Still on the session question — ",
+            "Still on the session — ",
+            "Yeah, for the training side — ",
             "From the training side of what you asked: ",
+            "On the workout question — ",
+            "Okay, back to what you'd train — ",
         ])
-    snippet = last.split()[:4]
+    # Soft recall without announcing "I am continuing a thread."
+    snippet = [w for w in last.replace("?", "").split() if w.lower() not in {"i", "a", "the", "to", "and"}][:3]
     if snippet:
-        return f"Following on from “{' '.join(snippet)}…” — "
-    return ""
+        bit = " ".join(snippet)
+        return _pick(seed, [
+            f"Yeah — about “{bit}” — ",
+            f"Still with you on “{bit}” — ",
+            f"Okay, on “{bit}” — ",
+        ])
+    return _pick(seed, ["Yeah — ", "Okay — ", "Right — "])
+
+
+def _follow_up_reply(
+    message: str,
+    prior_turns: list[str] | None,
+    signals: SignalRead,
+    seed: int,
+) -> str:
+    """Handle short discourse moves the way a real coach would mid-thread."""
+    if not prior_turns:
+        return ""
+    text = (message or "").strip().lower()
+    if len(text.split()) > 10:
+        return ""
+    easier = any(p in text for p in (
+        "easier", "make it easy", "too hard", "lighter", "gentler", "dial it back",
+    ))
+    shorter = any(p in text for p in ("shorter", "quicker", "less time", "15 min", "ten min"))
+    skip = any(p in text for p in ("skip it", "skip that", "never mind", "nvm", "forget it"))
+    if not (easier or shorter or skip):
+        return ""
+    if skip:
+        return _pick(seed, [
+            "Got it — we drop that. Want a walk instead, or just leave today alone?",
+            "Okay, scratched. Rest is a plan too — or I can swap in something tiny.",
+            "Fair. We park it. Soft movement, or a clean rest day?",
+        ])
+    if shorter and easier:
+        return _pick(seed, [
+            "Alright — shorter and lighter. Ten to fifteen minutes, easy effort, done.",
+            "We cut it down and soft: a brief mobility or Zone-2 stroll, then stop.",
+            "Yep — compress it. Short, kind, no hero finish.",
+        ])
+    if shorter:
+        return _pick(seed, [
+            "Shorter works. Cap it at fifteen minutes and keep the quality high.",
+            "We trim it — fewer sets, same intent, then you're out.",
+            "Okay, time-box it. Short session, clean reps, no linger.",
+        ])
+    # easier
+    thin = signals.sleep == "thin" or signals.recovery == "asking"
+    if thin:
+        return _pick(seed, [
+            "Yeah — we ease it. Keep the work gentle and protect the night you already spent.",
+            "Lighter it is. Easy movement only; the night still owns the day.",
+            "Makes sense. Soft session, no ego sets — recovery is still in the room.",
+        ])
+    return _pick(seed, [
+        "Sure — we dial it back. Same idea, less intensity, stop while it still feels good.",
+        "Easier works. Drop the load, keep the pattern, leave something in the tank.",
+        "Okay, soft mode. Honest movement without the push.",
+    ])
+
+
+def _weave_specialists(prose: str, notes: list[SpecialistNote], seed: int) -> str:
+    """Fold specialist asides into one spoken reply instead of stacked briefs.
+
+    Ultra-realistic chat does not dump a Recovery paragraph, then a Sleep
+    paragraph. It keeps one voice and lets a second concern ride as a clause.
+    """
+    body = (prose or "").rstrip()
+    if not notes or not body:
+        return body
+    usable = [n for n in notes if (n.text or "").strip()]
+    if not usable:
+        return body
+    # Keep at most two asides; pick by seed for determinism.
+    count = 1 if len(usable) == 1 or abs(seed) % 3 else min(2, len(usable))
+    chosen = usable[:count]
+    clauses: list[str] = []
+    for note in chosen:
+        text = note.text.strip().rstrip(".")
+        # Strip specialist-label openers so it doesn't sound like a meeting.
+        for prefix in (
+            "Recovery is also in the room — ",
+            "Recovery would keep today kind. ",
+            "Recovery's steady enough that ",
+            "Recovery is looking without a full picture — ",
+            "Sleep's been catching up this week, which is why ",
+            "Sleep's been running a bit thin this week, so ",
+            "Lifestyle's vote: ",
+            "Lifestyle's vote is simple: ",
+            "Progress is the streak, not a single day — ",
+            "Last ",  # workout notes often start "Last {kind} is still…"
+        ):
+            if prefix == "Last ":
+                continue
+            if text.startswith(prefix.rstrip()):
+                text = text[len(prefix.rstrip()):].lstrip(" —,-")
+                break
+            # Also match when the note uses a slightly different opener.
+            short = prefix.rstrip(" —.")
+            if text.startswith(short):
+                text = text[len(short):].lstrip(" —,-.")
+                break
+        if not text:
+            continue
+        lead = _pick(seed ^ _fnv(note.kind), [
+            "Also —",
+            "And on the side,",
+            "One more thing —",
+            "Meanwhile,",
+        ])
+        clause = f"{lead} {text[0].lower() + text[1:] if text and text[0].isupper() else text}."
+        if clause.lower() not in body.lower():
+            clauses.append(clause)
+    if not clauses:
+        return body
+    if body[-1] not in ".!?":
+        body += "."
+    return f"{body} {' '.join(clauses)}"
 
 
 def humanize_prose(
@@ -703,6 +846,20 @@ def humanize_prose(
     honor_felt_bad = felt_bad and signals.sleep in ("rebuilt", "decent")
     aside = _life_aside(signals, base)
 
+    # Discourse follow-ups — "make it easier", "shorter", "skip it" — mutate the
+    # last plan instead of restarting a fresh coaching essay. Keep the bridge
+    # tiny so we don't stack "from the training side" + a full rewrite.
+    follow = _follow_up_reply(message, prior_turns, signals, base)
+    if follow:
+        # Avoid "Okay — Okay, …" when the follow-up already opens like speech.
+        leading = follow.split(",", 1)[0].split("—", 1)[0].strip().lower()
+        if leading in {"yeah", "ok", "okay", "sure", "right", "alright", "yep", "got it", "fair"}:
+            soft = ""
+        else:
+            soft = _pick(base, ["Yeah — ", "Okay — ", "Right — ", ""])
+        body = follow[0].lower() + follow[1:] if soft.endswith(("— ", ": ")) and follow[:1].isupper() and not follow.startswith(("I ", "I'm ")) else follow
+        return f"{soft}{body}" if soft else follow
+
     def finish(text: str, *, allow_life: bool = True) -> str:
         body = text.rstrip()
         # Persona texture only where the life actually changes the advice —
@@ -719,6 +876,9 @@ def humanize_prose(
             )
         ):
             body = f"{body} Because {aside}."
+        # Spoken join: after an em-dash bridge, don't restart like a new essay.
+        if opener.endswith(("— ", ": ")) and body[:1].isupper() and not body.startswith(("I ", "I'm ", "I'll ")):
+            body = body[0].lower() + body[1:]
         return f"{opener}{body}"
 
     sleep_clause = ""
@@ -728,18 +888,24 @@ def humanize_prose(
                 "last night didn't give you a full reset",
                 "sleep came up short",
                 "the night was thinner than you needed",
+                "you woke up already spending energy you didn't bank",
+                "rest didn't stick the way it should have",
             )
         elif signals.sleep == "rebuilt":
             sleep_clause = pick(
                 "you actually rebuilt",
                 "you got a night you can spend",
                 "sleep finally gave you something to work with",
+                "you put real hours in the bank",
+                "the night actually paid you back",
             )
         else:
             sleep_clause = pick(
                 "sleep was decent, not extra",
                 "the night was middle-ground",
                 "you slept enough to move, not enough to burn",
+                "it was a usable night — not a free pass",
+                "rest was fine, nothing flashy",
             )
 
     if scenario == "sparse_clarify" or "someone like me" in lower:
@@ -748,6 +914,10 @@ def humanize_prose(
             "and how have the last few nights actually felt?",
             "I'd rather ask than invent a version of you. What are you training toward, "
             "and has sleep been on your side or not?",
+            "Give me two things and I'll stop guessing: what you're chasing, and whether "
+            "sleep has been helping or fighting you.",
+            "I'm not going to cosplay knowing your life. Tell me the goal and how nights "
+            "have felt lately — then I can get specific.",
         ), allow_life=False)
 
     if scenario == "sparse_overconfident":
@@ -869,46 +1039,72 @@ def humanize_prose(
     if recovery:
         ack = ""
         if any(p in lower for p in ("hard", "push", "as hard")):
-            ack = "I hear that you want to go hard — and I'll help you train, but not like that today. "
+            ack = pick(
+                "I hear that you want to go hard — and I'll help you train, but not like that today. ",
+                "Yeah, I get the urge to push. Not today though — ",
+                "Wanting hard is fine. Signing off on hard today isn't. ",
+            )
         why = sleep_clause or "your recovery hasn't caught up yet"
         session = (
             f" Last {signals.last_session} is still in the picture."
             if signals.last_session and signals.load == "in_the_legs"
             else ""
         )
-        return finish(
+        return finish(pick(
             f"{ack}I'd keep today kind, because {why}.{session} "
-            f"A walk, mobility, or a very light session is enough. We protect tomorrow."
-        )
+            f"A walk, mobility, or a very light session is enough. We protect tomorrow.",
+            f"{ack}Easy day. {why[0].upper() + why[1:] if why else 'Recovery needs the vote'}.{session} "
+            f"Save the heavy stuff for a night that actually paid you back.",
+            f"{ack}I'm not talking you into hero work while {why}.{session} "
+            f"Light movement counts. Rest counts harder.",
+        ))
 
-    # Train / default — Claude-like: observe, correlate, invite.
+    # Train / default — observe, correlate, invite — with spoken variety.
     if kind == "workout" or any(n in lower for n in ("train", "workout", "session", "gym")):
         session_bit = ""
         if signals.last_session and signals.load == "in_the_legs":
-            session_bit = f" Last {signals.last_session} is still in the legs, so we progress one thing, not everything."
+            session_bit = pick(
+                f" Last {signals.last_session} is still in the legs, so we progress one thing, not everything.",
+                f" You're still carrying yesterday's {signals.last_session} — keep the ask narrow.",
+                f" That last {signals.last_session} hasn't fully left, so don't stack hero volume on it.",
+            )
         elif signals.load == "on_a_streak":
-            session_bit = " You're already on a streak, so today's job is to keep it honest, not heroic."
+            session_bit = pick(
+                " You're already on a streak, so today's job is to keep it honest, not heroic.",
+                " Streak's alive — protect it with clean work, not a victory lap.",
+                " Consistency is already winning; don't blow it on one flashy day.",
+            )
         if sleep_clause:
             return finish(pick(
                 f"You're in a good spot to train, since {sleep_clause}.{session_bit} "
                 f"A solid moderate session fits — progress one thing, leave the hero set.",
                 f"Body's willing today because {sleep_clause}.{session_bit} Let's use that on something "
                 f"clean rather than reckless. Want the session mapped?",
+                f"Green enough — {sleep_clause}.{session_bit} I'd take a focused session and stop "
+                f"while quality is still high.",
+                f"Yeah, you can train. {sleep_clause[0].upper() + sleep_clause[1:]}.{session_bit} "
+                f"Keep it sharp, not endless.",
             ))
         return finish(pick(
             f"You're in a good spot to train.{session_bit} I'd take a solid moderate-to-hard session "
             "and see how the first sets feel.",
             f"Today can handle real work.{session_bit} One honest session, one variable progressed — that's the play.",
+            f"Go train — just stay honest about how set one feels.{session_bit}",
+            f"There's room for a real session today.{session_bit} Want me to sketch it?",
         ))
 
     if sleep_clause:
-        return finish(
+        return finish(pick(
             f"Here's how I read you: {sleep_clause}. "
-            f"What would help most — train, recover, or just talk it through?"
-        )
+            f"What would help most — train, recover, or just talk it through?",
+            f"Short version — {sleep_clause}. Want a plan, a softer day, or just the read?",
+            f"My take: {sleep_clause}. Tell me if you want the training version or the recovery one.",
+        ))
     return finish(pick(
         "I'm with you. Let's pick one next step that respects today rather than performing it.",
         "I'm here. Tell me whether you want a plan, a read on last night, or just a check-in.",
+        "Okay — what's the one thing you want from me right now: a plan, a call on rest, or a straight read?",
+        "We can keep this simple. Plan, recover, or talk — your call.",
     ))
 
 
@@ -1017,16 +1213,12 @@ def respond(
     signals = read_signals(ctx)
 
     notes = specialist_notes(plan, ctx)
-    extras = [n.text for n in notes]
-    if web_research.is_research_worthy(message, plan.primary.kind):
-        web_note = web_research.look_up(plan.primary.kind)
-        if web_note:
-            extras = [*extras, web_note]
-
     scenario = str((getattr(stub, "raw", None) or {}).get("scenario") or "")
     prose = humanize_prose(
         message, stub, ctx, plan, seed=seed, prior_turns=prior_turns,
     )
+    # Weave specialists into one spoken reply — not stacked \n\n briefs.
+    prose = _weave_specialists(prose, notes, seed=seed ^ _fnv(message))
     body_session = _suggest_body_session(message, ctx)
     if (
         body_session is not None
@@ -1036,7 +1228,12 @@ def respond(
         spoken = body_session.spoken()
         if spoken and spoken not in prose:
             prose = f"{prose} {spoken}"
-    chat = prose if not extras else f"{prose}\n\n" + "\n".join(extras)
+    # Optional web note stays as a short trailing cite — not a specialist dump.
+    chat = prose
+    if web_research.is_research_worthy(message, plan.primary.kind):
+        web_note = web_research.look_up(plan.primary.kind)
+        if web_note and web_note not in chat:
+            chat = f"{chat} ({web_note.rstrip('.')})"
     recovery_needed = scenario == "recovery_first" or ctx.today.readiness_score < 50
 
     # Diagnosed against the primary reply alone, not the full chat: supporting

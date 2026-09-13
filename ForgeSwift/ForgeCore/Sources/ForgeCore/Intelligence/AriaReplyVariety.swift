@@ -141,15 +141,55 @@ public enum AriaReplyVariety: Sendable {
 
     static func variants(draft: String, occurrence: Int) -> [String] {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Prefer structural reordering over meta prefixes like "Fresh pass:" —
+        // those announce the system as a rewriter instead of a coach.
         let rotated = rotatedSentences(trimmed, shift: max(1, occurrence))
-        let extras = [
-            rotated,
-            "Another cut at that — \(trimmed)",
-            "Still on what you asked — \(trimmed)",
-            "Fresh pass: \(trimmed)",
-            "Same question, new phrasing — \(trimmed)",
+        let softened = softInviteSwap(trimmed, occurrence: occurrence)
+        let contracted = contractionPass(trimmed, occurrence: occurrence)
+        let extras = [rotated, softened, contracted].filter { !$0.isEmpty && $0 != trimmed }
+        return uniqueKeepingOrder([trimmed] + extras)
+    }
+
+    /// Swap trailing invite clauses so a pasted prompt doesn't reprint the same ask.
+    private static func softInviteSwap(_ text: String, occurrence: Int) -> String {
+        let invites = [
+            ("Want the session mapped?", "Want me to sketch the session?"),
+            ("Want me to sketch it?", "Should I map the sets?"),
+            ("Your call.", "You choose."),
+            ("You choose.", "Your call."),
+            ("or just a check-in.", "or just talk it through."),
+            ("or just talk it through?", "or keep it to a check-in?"),
+            ("Want a gentle reset or just a check-in? Your call.", "Soft reset, or just a check-in — your pick."),
+            ("Want breathing + light movement, or just rest?", "Breathing and easy movement, or straight rest?"),
         ]
-        return uniqueKeepingOrder([trimmed] + extras.filter { !$0.isEmpty })
+        var out = text
+        let idx = max(0, occurrence - 1)
+        for (from, to) in invites {
+            if out.contains(from) {
+                let pick = (idx % 2 == 0) ? to : from
+                out = out.replacingOccurrences(of: from, with: pick)
+                break
+            }
+        }
+        return out
+    }
+
+    /// Light contraction / discourse polish so replays don't feel typed by a template.
+    private static func contractionPass(_ text: String, occurrence: Int) -> String {
+        guard occurrence > 1 else { return text }
+        var out = text
+        let swaps = [
+            ("I am ", "I'm "),
+            ("you are ", "you're "),
+            ("do not ", "don't "),
+            ("That is ", "That's "),
+            ("Here is ", "Here's "),
+        ]
+        let pair = swaps[(occurrence - 1) % swaps.count]
+        if out.contains(pair.0) {
+            out = out.replacingOccurrences(of: pair.0, with: pair.1, options: [], range: out.range(of: pair.0))
+        }
+        return out
     }
 
     static func rotatedSentences(_ text: String, shift: Int) -> String {
