@@ -33,11 +33,29 @@ def _bind_user(body: dict[str, Any], user_id: str) -> str:
         raise RouteError(403, str(exc)) from exc
 
 
+def _lifestyle_tags(context: Any, living: Any, permissions: Any) -> list[str]:
+    tags: list[str] = []
+    if not permissions.allows("lifestyle"):
+        return tags
+    tags = list(context.lifestyle.tags or [])
+    for tag in getattr(living, "lifestyle_tags", None) or []:
+        if tag not in tags:
+            tags.append(tag)
+    return tags
+
+
+def _merge_fusion(response: dict[str, Any], fused: Any) -> None:
+    sidecar = fused.fusion_sidecar(None)
+    existing = response.get("fusion") if isinstance(response.get("fusion"), dict) else {}
+    response["fusion"] = {**sidecar, **existing}
+
+
 def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     """Layer 4 — structured ARIA chat response.
 
     Reasoning lives in ``services.aria_engine`` (deterministic core + optional
     Bedrock). This route owns auth binding, sanitization, and relationship state.
+    Body truth comes from the same ``fusion.fuse_turn`` path ``/ai/observe`` uses.
     """
     uid = _bind_user(body, user_id)
     message = sanitize_user_text(
@@ -52,15 +70,33 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     # Never trust body.user_id for context — stamp auth principal into payload.
     payload = dict(body)
     payload["user_id"] = uid
-    context = aria_engine.ARIAContext.from_payload(payload)
     permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
 
+    from services import contextual_learner
+    from services import fusion as fusion_mod
+
+    fused = fusion_mod.fuse_turn(uid, payload, permissions, persist=True, load_learner=True)
+    context = fused.context
+    persona = fused.persona
+    living = _context.get_or_create_context(uid)
+    tags = _lifestyle_tags(context, living, permissions)
+    if permissions.allows("lifestyle"):
+        contextual_learner.stamp_living_context(context, living)
+
     # Lifestyle cards: deterministic only. No Bedrock, no Dynamo relationship
-    # bump, no weekly briefing. Opening a tab must not cost a chat turn.
+    # bump, no weekly briefing, no learner write-back. Opening a tab must not
+    # cost a chat turn — but it still consumes the fused snapshot + current
+    # stance so the card is not a second picture of the body.
     if insight_mode:
         response = aria_engine.generate_response(
-            message, context, permissions=permissions, voice_mode=voice_mode
+            message,
+            context,
+            permissions=permissions,
+            voice_mode=voice_mode,
+            persona=persona,
+            baselines=fused.baselines,
         )
+        _merge_fusion(response, fused)
         response.update(
             {
                 "rich_card": None,
@@ -73,28 +109,17 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         )
         return ok(response)
 
-    from services import contextual_learner
-
-    persona = None
-    try:
-        persona = contextual_learner.load(uid)
-        living = _context.get_or_create_context(uid)
-        tags: list[str] = []
-        if permissions.allows("lifestyle"):
-            tags = list(context.lifestyle.tags or [])
-            for tag in living.lifestyle_tags:
-                if tag not in tags:
-                    tags.append(tag)
-            contextual_learner.stamp_living_context(context, living)
-        contextual_learner.observe_turn(
-            persona,
-            message=message,
-            tags=tags,
-            relationship_level=living.relationship_level,
-            ctx=context,
-        )
-    except Exception:
-        persona = None
+    if fused.persona_status != "load_failed" and persona is not None:
+        try:
+            contextual_learner.observe_turn(
+                persona,
+                message=message,
+                tags=tags,
+                relationship_level=living.relationship_level,
+                ctx=context,
+            )
+        except Exception as exc:  # noqa: BLE001 — named on the envelope, not a silent cold-start
+            fused.persona_error = f"observe_turn:{exc.__class__.__name__}: {exc}"
 
     weekly_note = weekly_review.briefing_for_chat(uid)
     if weekly_note:
@@ -108,6 +133,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             voice_mode=voice_mode,
             agents=roster,
             persona=persona,
+            baselines=fused.baselines,
         )
     else:
         response = aria_engine.generate_response(
@@ -116,9 +142,11 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             permissions=permissions,
             voice_mode=voice_mode,
             persona=persona,
+            baselines=fused.baselines,
         )
         response["agent"] = roster[0]
         response["agents"] = roster
+    _merge_fusion(response, fused)
 
     # Companion memory (lifestyle-gated): ingest calendar, run ARIA's daily
     # self-evaluation once per day, and offer a daily check-in. All deterministic
@@ -162,10 +190,16 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         updated_level = int(rich.get("relationship_level", 1))
 
     brief = response.get("contextualization") if isinstance(response.get("contextualization"), dict) else {}
-    if persona is not None:
+    plan = (response.get("fusion") or {}).get("plan") if isinstance(response.get("fusion"), dict) else None
+    shipped_stance = ""
+    if isinstance(plan, dict):
+        shipped_stance = str(plan.get("stance") or "")
+    if not shipped_stance:
+        shipped_stance = str(brief.get("stance") or "")
+    if persona is not None and fused.persona_status != "load_failed":
         try:
             probs = brief.get("stance_probs") or {}
-            stance = str(brief.get("stance") or "")
+            stance = shipped_stance or str(brief.get("stance") or "")
             stance_p = 0.0
             if isinstance(probs, dict) and stance:
                 try:
@@ -185,8 +219,11 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             )
             contextual_learner.observe_relationship(persona, updated_level)
             contextual_learner.save(uid, persona)
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 — surface; do not pretend this was a cold start
+            response.setdefault("fusion", {})
+            if isinstance(response["fusion"], dict):
+                response["fusion"]["persona_error"] = f"commit:{exc.__class__.__name__}: {exc}"
+                response["fusion"]["persona_status"] = fused.persona_status
 
     if memory and not voice_mode:
         response["message"] = f"{memory}\n\n{response['message']}"
