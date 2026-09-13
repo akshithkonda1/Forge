@@ -23,6 +23,7 @@ struct CelebrationOverlay: View {
                 TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { tl in
                     let t = tl.date.timeIntervalSinceReferenceDate
                     Canvas { ctx, size in
+                        guard size.width >= 2, size.height >= 2 else { return }
                         for p in particles {
                             var tctx = ctx
                             tctx.opacity = 0.9

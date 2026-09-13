@@ -51,19 +51,30 @@ struct AuroraOrbView: View {
         return 1.0 / 24.0
     }
 
+    /// Simulator uses a static radial stand-in (see EmberCanvas) — don't burn a
+    /// 24 Hz TimelineView just to redraw the same circles.
+    private var pauseTimeline: Bool {
+        #if targetEnvironment(simulator)
+        true
+        #else
+        reduceMotion || scenePhase != .active
+        #endif
+    }
+
     var body: some View {
         TimelineView(.animation(
             minimumInterval: tick,
-            paused: reduceMotion || scenePhase != .active
+            paused: pauseTimeline
         )) { timeline in
-            let t = reduceMotion ? AriaSigilGeometry.stillPose : timeline.date.timeIntervalSinceReferenceDate
+            let frozen = pauseTimeline
+            let t = frozen ? AriaSigilGeometry.stillPose : timeline.date.timeIntervalSinceReferenceDate
             EmberCanvas(
                 time: t,
                 state: resolvedState,
                 mood: mood,
                 amplitude: amplitude,
                 size: size,
-                reduceMotion: reduceMotion
+                reduceMotion: frozen
             )
         }
         .frame(width: size, height: size)
@@ -89,8 +100,67 @@ private struct EmberCanvas: View {
     let reduceMotion: Bool
 
     var body: some View {
+        // Zero-size Canvas on Simulator (iOS 26/27 betas especially) creates a
+        // CAMetalLayer with drawableSize 0×0, then MSAA resolve asserts and
+        // kills the process under Metal API Validation. Skip the pass entirely.
+        // On Simulator, prefer a static radial stand-in: TimelineView+Canvas with
+        // `.plusLighter` still hits the same MSAA path even at non-zero size.
+        Group {
+            if size < 2 {
+                Color.clear
+            } else if Self.useStaticSimulatorStandIn {
+                simulatorStandIn
+            } else {
+                liveCanvas
+            }
+        }
+        .frame(width: size, height: size)
+        .allowsHitTesting(false)
+    }
+
+    /// Simulator Metal validation + SwiftUI Canvas MSAA has been killing the
+    /// process on iOS 27 betas (`MTLStoreActionMultisampleResolve` with a nil
+    /// resolve texture after a 0×0 drawable). Device keeps the live ember.
+    private static var useStaticSimulatorStandIn: Bool {
+        #if targetEnvironment(simulator)
+        true
+        #else
+        false
+        #endif
+    }
+
+    private var simulatorStandIn: some View {
+        let ember = Color(hex: AriaSigilPalette.emberHex)
+        let teal = Color(hex: AriaSigilPalette.tealHex)
+        let hot = Color(hex: "FFE28A")
+        let accent = Color(hex: AriaSigilPalette.photonPrimary(for: mood))
+        return ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [hot.opacity(0.9), ember.opacity(0.75), accent.opacity(0.35), teal.opacity(0.2), .clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: size * 0.5
+                    )
+                )
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.white.opacity(state == .speaking ? 0.85 : 0.55), ember.opacity(0.4), .clear],
+                        center: UnitPoint(x: 0.42, y: 0.38),
+                        startRadius: 0,
+                        endRadius: size * 0.28
+                    )
+                )
+                .frame(width: size * 0.55, height: size * 0.55)
+        }
+    }
+
+    private var liveCanvas: some View {
         Canvas { context, canvasSize in
             let s = min(canvasSize.width, canvasSize.height)
+            guard s >= 2 else { return }
             let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
             let gaze = AriaSigilGeometry.gaze(time: time, state: state, reduceMotion: reduceMotion)
             let ember = Color(hex: AriaSigilPalette.emberHex)
@@ -105,6 +175,7 @@ private struct EmberCanvas: View {
                 let lx = center.x + CGFloat(lobe.x + gaze.x) * s * 0.5
                 let ly = center.y + CGFloat(lobe.y + gaze.y) * s * 0.5
                 let rad = CGFloat(lobe.r) * s * 0.5
+                guard rad >= 0.5 else { continue }
                 let rect = CGRect(x: lx - rad, y: ly - rad, width: rad * 2, height: rad * 2)
                 context.fill(
                     Path(ellipseIn: rect),
@@ -125,6 +196,7 @@ private struct EmberCanvas: View {
 
             let extra = CGFloat(max(0, min(1, Double(amplitude)))) * 0.04
             let coreR = (CGFloat(AriaSigilGeometry.coreRadius(time: time, state: state, reduceMotion: reduceMotion)) + extra) * s
+            guard coreR >= 0.5 else { return }
             let coreCenter = CGPoint(
                 x: center.x + CGFloat(gaze.x) * s * 0.35,
                 y: center.y + CGFloat(gaze.y) * s * 0.35
@@ -148,6 +220,7 @@ private struct EmberCanvas: View {
                 y: center.y + CGFloat(gaze.y) * s * 0.2 - s * 0.1
             )
             let specR = s * 0.08
+            guard specR >= 0.5 else { return }
             context.fill(
                 Path(ellipseIn: CGRect(x: spec.x - specR, y: spec.y - specR, width: specR * 2, height: specR * 2)),
                 with: .radialGradient(
@@ -158,8 +231,6 @@ private struct EmberCanvas: View {
                 )
             )
         }
-        .frame(width: size, height: size)
-        .allowsHitTesting(false)
     }
 }
 

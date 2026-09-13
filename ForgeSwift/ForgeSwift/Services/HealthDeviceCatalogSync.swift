@@ -50,8 +50,12 @@ final class HealthDeviceCatalogSync: ObservableObject {
     }
 
     private func fetchRemote() async -> HealthDeviceCatalogPayload? {
-        var request = URLRequest(url: AriaService.shared.baseURL.appendingPathComponent("devices/catalog"))
-        request.timeoutInterval = 8
+        let url = AriaService.shared.baseURL.appendingPathComponent("devices/catalog")
+        var request = URLRequest(url: url)
+        // Localhost with no server otherwise sits on the default timeout and
+        // floods the Simulator console with NSURLErrorTimedOut / connection refused.
+        let loopback = ["127.0.0.1", "localhost", "0.0.0.0"].contains(url.host ?? "")
+        request.timeoutInterval = loopback ? 1.5 : 8
         request.cachePolicy = .reloadIgnoringLocalCacheData
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               let http = response as? HTTPURLResponse,

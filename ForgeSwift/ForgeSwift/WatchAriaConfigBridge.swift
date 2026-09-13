@@ -64,6 +64,10 @@ enum WatchAriaConfigBridge {
         guard session.activationState == .activated else { return }
         // Only the iPhone side should push companion config.
         #if os(iOS)
+        // Simulator / unpaired phone: no Watch app → updateApplicationContext
+        // spam `WCErrorCodeWatchAppNotInstalled` and "Application context data is nil".
+        guard session.isPaired, session.isWatchAppInstalled else { return }
+
         let envelope: [String: Any] = [WC.config: payload]
         // Merge with any in-flight workout context so we don't clobber Live Activity state.
         var merged = session.applicationContext
@@ -72,11 +76,16 @@ enum WatchAriaConfigBridge {
             try session.updateApplicationContext(merged)
         } catch {
             // Context can fail if not activated yet or rate-limited — best effort.
+            // Do not fall back to transferUserInfo when the watch app is missing;
+            // that path logs the same WCError noise.
+            guard session.isWatchAppInstalled else { return }
             session.transferUserInfo(envelope)
         }
+        guard session.isWatchAppInstalled else { return }
         if session.isReachable {
             session.sendMessage(envelope, replyHandler: nil, errorHandler: { _ in
-                session.transferUserInfo(envelope)
+                guard WCSession.default.isWatchAppInstalled else { return }
+                WCSession.default.transferUserInfo(envelope)
             })
         } else {
             // Guaranteed delivery when the watch next wakes.

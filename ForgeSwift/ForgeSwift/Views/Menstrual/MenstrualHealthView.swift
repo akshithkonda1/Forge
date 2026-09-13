@@ -654,7 +654,7 @@ struct MenstrualHealthView: View {
                 showPeriodEndFeedback = true
             }
         } label: {
-            Label("My period finished", systemImage: "checkmark.flag.fill")
+            Label("My period finished", systemImage: "checkmark.circle.fill")
                 .font(FDS.TypeScale.label(14))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
@@ -2430,7 +2430,7 @@ struct MenstrualHealthView: View {
                             showToast(msg)
                         }
                     } label: {
-                        Label("Mark \(received.ownerName)'s period finished", systemImage: "checkmark.flag.fill")
+                        Label("Mark \(received.ownerName)'s period finished", systemImage: "checkmark.circle.fill")
                             .font(FDS.TypeScale.label(13))
                             .foregroundStyle(Color(hex: "22C55E"))
                     }
@@ -2729,7 +2729,7 @@ struct MenstrualHealthView: View {
                     cycleStore.refresh(from: store)
                     showToast(msg)
                 } label: {
-                    Label("Their period finished", systemImage: "checkmark.flag.fill")
+                    Label("Their period finished", systemImage: "checkmark.circle.fill")
                         .font(FDS.TypeScale.label(14))
                         .foregroundStyle(Color(hex: "22C55E"))
                         .frame(maxWidth: .infinity)

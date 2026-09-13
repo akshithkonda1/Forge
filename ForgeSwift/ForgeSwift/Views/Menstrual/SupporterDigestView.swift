@@ -86,7 +86,7 @@ struct SupporterDigestView: View {
     }
 
     private var finishedBanner: some View {
-        Label("Period finished — both of you can see this.", systemImage: "checkmark.flag.fill")
+        Label("Period finished — both of you can see this.", systemImage: "checkmark.circle.fill")
             .font(FDS.TypeScale.label(13))
             .foregroundStyle(Color(hex: "22C55E"))
             .padding(.horizontal, 12)
