@@ -120,6 +120,7 @@ class DummyLiveSpeakPassesFriendGates(unittest.TestCase):
             os.environ["ENVIRONMENT"] = self._env
 
     def _row(self, message: str, *, seed: int = 11, prior=None, **kwargs) -> dict:
+        kwargs.setdefault("engine", "stub")
         return dummy.respond(message, seed=seed, prior_turns=prior, **kwargs)
 
     def test_lifestyle_and_sleep_speak_is_friend_not_bark_or_clinic(self):
