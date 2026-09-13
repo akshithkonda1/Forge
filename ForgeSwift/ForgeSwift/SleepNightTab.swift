@@ -64,14 +64,7 @@ struct SleepNightTab: View {
     @State private var showSounds = false
 
     private var coach: SleepBedtimeCoach {
-        let nights = store.sleepData.prefix(14)
-        let schedule = EnergySchedule.make(from: store.sleepData)
-        return SleepBedtimeCoach.make(
-            onsets: nights.compactMap(\.onset),
-            sleepMinutes: nights.map { $0.totalHours * 60 },
-            needMinutes: (schedule?.needHours ?? 8) * 60,
-            fallbackOnsetHour: schedule?.phase.onsetHour
-        )
+        SleepBedtimeCoach.make(from: store.sleepData)
     }
 
     var body: some View {
@@ -589,6 +582,7 @@ struct SleepTonightSoundDock: View {
 
 struct SleepLastNightStrip: View {
     @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
 
     private var night: SleepData? { store.sleepData.first }
 
@@ -620,6 +614,11 @@ struct SleepLastNightStrip: View {
                 }
                 SleepHypnogram(night: night, height: 54)
                 SleepStageLegend(night: night)
+                if let flag = hkService.lastDepthResult?.headline {
+                    Text(flag)
+                        .font(.system(size: 12))
+                        .foregroundColor(.textSecondary)
+                }
             }
         } else {
             Text("Last night will show duration, stages, and efficiency once Apple Health is connected.")

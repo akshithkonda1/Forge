@@ -70,7 +70,11 @@ public enum AriaPromptCorrelation: Sendable {
             "quality of life", "knee", "shoulder", "progress", "cycle",
             "period", "wear", "suit",
         ]
-        return stems.filter { lower.contains($0) }
+        var found = stems.filter { lower.contains($0) }
+        if ScheduleGoalParser.isScheduleAsk(lower), !found.contains("up at") {
+            found.append("up at")
+        }
+        return found
     }
 
     public static func correlates(reply: String, toPrompt text: String) -> Bool {
@@ -119,7 +123,11 @@ public enum AriaPromptCorrelation: Sendable {
     }
 
     public static func sleepAsk(_ lower: String) -> Bool {
-        ["sleep", "slept", "insomnia", "bedtime", "nap"].contains { lower.contains($0) }
+        if ["sleep", "slept", "insomnia", "bedtime", "nap"].contains(where: { lower.contains($0) }) {
+            return true
+        }
+        // Time-stamped wake asks only — "what's up at the gym" must not qualify.
+        return ScheduleGoalParser.isScheduleAsk(lower)
     }
 
     public static func nutritionAsk(_ lower: String) -> Bool {
@@ -148,6 +156,8 @@ public enum AriaPromptCorrelation: Sendable {
             return ["train", "workout", "session"]
         case "tuxedo", "tux":
             return ["tuxedo", "tux", "suit"]
+        case "up at", "wake me", "wake at", "get up", "be up", "alarm at":
+            return ["up at", "wake", "am", "pm"]
         default:
             return [mention]
         }

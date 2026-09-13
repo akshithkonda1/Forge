@@ -121,6 +121,10 @@ enum SleepWakeEngine {
             .0
     }
 
+    static func liveNotificationId(for alarmID: UUID, dayKey: String) -> String {
+        idPrefix + "live." + alarmID.uuidString + "." + dayKey
+    }
+
     static func hardNotificationId(for alarmID: UUID) -> String { idPrefix + "hard." + alarmID.uuidString }
     static func smartNotificationId(for alarmID: UUID) -> String { idPrefix + "smart." + alarmID.uuidString }
     static func snoozeNotificationId(for alarmID: UUID) -> String { idPrefix + "snooze." + alarmID.uuidString }
@@ -212,13 +216,15 @@ struct SleepWakeCoach: Equatable {
         now: Date = Date(),
         calendar: Calendar = .current,
         sleepScore: Int? = nil,
-        lastNightHours: Double? = nil
+        lastNightHours: Double? = nil,
+        smartWindowMinutes: Int? = nil
     ) -> SleepWakeCoach {
         let alarm = SleepWakeEngine.nextAlarm(in: alarms, now: now, calendar: calendar)
         let hard = alarm.flatMap { SleepWakeEngine.nextHardFire(alarm: $0, now: now, calendar: calendar) }
         let smart: Date? = {
             guard let alarm, let hard, alarm.isSmartWake else { return nil }
-            return SleepWakeEngine.smartWakeFire(hard: hard, windowMinutes: alarm.smartWakeWindow)
+            let window = smartWindowMinutes ?? alarm.smartWakeWindow
+            return SleepWakeEngine.smartWakeFire(hard: hard, windowMinutes: window)
         }()
         let until = hard.map { SleepWakeEngine.minutesUntil($0, now: now) } ?? 0
         let hour = calendar.component(.hour, from: now)
@@ -300,7 +306,7 @@ struct SleepWakeCoach: Equatable {
         case .windowOpen:
             return (
                 "Smart window is open",
-                "If you're already light, get up now. The hard alarm still fires at \(timeLabel).",
+                "If you're already light, get up now. The hard alarm still fires at \(timeLabel). Forge only knows that if Apple has delivered a sample in this window.",
                 "I'm in the smart-wake window before \(timeLabel). If I'm light, get me up now."
             )
         case .due:
@@ -475,6 +481,9 @@ struct SleepBedtimeCoach: Equatable {
     var headline: String
     var cue: String
     var ariaPrompt: String
+    /// Goal-directed schedule line. `advancing()` keeps this so the Tonight
+    /// hero does not drop the ratchet when it refreshes copy from the clock.
+    var scheduleNote: String = ""
 
     var bedtimeLabel: String {
         bedtime.formatted(date: .omitted, time: .shortened)
@@ -507,7 +516,10 @@ struct SleepBedtimeCoach: Equatable {
             next = .dayplan
         }
         let bedLabel = bedtime.formatted(date: .omitted, time: .shortened)
-        let (headline, cue, prompt) = Self.copy(phase: next, bedLabel: bedLabel, untilBed: max(0, untilBed))
+        var (headline, cue, prompt) = Self.copy(phase: next, bedLabel: bedLabel, untilBed: max(0, untilBed))
+        if !scheduleNote.isEmpty {
+            cue = "\(cue) \(scheduleNote)"
+        }
         return SleepBedtimeCoach(
             phase: next,
             bedtime: bedtime,
@@ -516,7 +528,8 @@ struct SleepBedtimeCoach: Equatable {
             minutesUntilWindDown: untilWind,
             headline: headline,
             cue: cue,
-            ariaPrompt: prompt
+            ariaPrompt: prompt,
+            scheduleNote: scheduleNote
         )
     }
 
@@ -526,15 +539,26 @@ struct SleepBedtimeCoach: Equatable {
         needMinutes: Double = 8 * 60,
         fallbackOnsetHour: Double? = nil,
         now: Date = Date(),
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        correction: ScheduleCorrectionStep? = nil,
+        savedGoal: ScheduleGoal? = nil
     ) -> SleepBedtimeCoach {
-        let plan = WindDownPredictor.plan(
+        var plan = WindDownPredictor.plan(
             recentOnsets: onsets,
             recentSleepMinutes: sleepMinutes,
             sleepNeedMinutes: needMinutes,
             now: now,
             calendar: calendar
         ) ?? fallbackPlan(onsetHour: fallbackOnsetHour, now: now, calendar: calendar)
+
+        if let correction {
+            let bed = dateTonight(hour: correction.recommendedOnsetHour, now: now, calendar: calendar)
+            plan = WindDownPlan(
+                windDownStart: bed.addingTimeInterval(-WindDownPredictor.windDownLeadMinutes * 60),
+                bedtimeWindowStart: bed,
+                bedtimeWindowEnd: bed.addingTimeInterval(WindDownPredictor.windowLengthMinutes * 60)
+            )
+        }
 
         let untilBed = Int((plan.bedtimeWindowStart.timeIntervalSince(now) / 60).rounded())
         let untilWind = Int((plan.windDownStart.timeIntervalSince(now) / 60).rounded())
@@ -552,7 +576,18 @@ struct SleepBedtimeCoach: Equatable {
         }
 
         let bedLabel = plan.bedtimeWindowStart.formatted(date: .omitted, time: .shortened)
-        let (headline, cue, prompt) = copy(phase: phase, bedLabel: bedLabel, untilBed: max(0, untilBed))
+        var (headline, cue, prompt) = copy(phase: phase, bedLabel: bedLabel, untilBed: max(0, untilBed))
+        let scheduleNote: String
+        if let correction {
+            scheduleNote = correction.guidanceLine
+        } else if let savedGoal {
+            scheduleNote = "Wake target \(ScheduleCorrector.clockLabel(savedGoal.targetWakeHour)) is saved — a few more nights and I'll ratchet toward it."
+        } else {
+            scheduleNote = ""
+        }
+        if !scheduleNote.isEmpty {
+            cue = "\(cue) \(scheduleNote)"
+        }
         return SleepBedtimeCoach(
             phase: phase,
             bedtime: plan.bedtimeWindowStart,
@@ -561,7 +596,42 @@ struct SleepBedtimeCoach: Equatable {
             minutesUntilWindDown: untilWind,
             headline: headline,
             cue: cue,
-            ariaPrompt: prompt
+            ariaPrompt: prompt,
+            scheduleNote: scheduleNote
+        )
+    }
+
+    /// Sleep tab entry: WindDownPredictor plus any saved `ScheduleGoal`.
+    static func make(
+        from history: [SleepData],
+        now: Date = Date(),
+        calendar: Calendar = .current,
+        defaults: UserDefaults = .standard
+    ) -> SleepBedtimeCoach {
+        let recent = Array(history.prefix(14))
+        let circadian = SleepCircadianBridge.nights(from: history)
+        let needHours: Double
+        if let schedule = EnergySchedule.make(from: history, now: now, calendar: calendar) {
+            needHours = schedule.needHours
+        } else if circadian.isEmpty {
+            needHours = 8
+        } else {
+            needHours = CircadianRhythm.sleepNeedHours(from: circadian)
+        }
+        let phase = CircadianRhythm.phase(from: circadian, calendar: calendar)
+        let goal = ScheduleGoalStore.load(defaults: defaults)
+        let correction = goal.flatMap {
+            ScheduleCorrector.tonight(goal: $0, nights: circadian, now: now, calendar: calendar)
+        }
+        return make(
+            onsets: recent.compactMap(\.onset),
+            sleepMinutes: recent.map { $0.totalHours * 60 },
+            needMinutes: needHours * 60,
+            fallbackOnsetHour: phase?.onsetHour,
+            now: now,
+            calendar: calendar,
+            correction: correction,
+            savedGoal: correction == nil ? goal : nil
         )
     }
 
@@ -627,6 +697,19 @@ struct SleepBedtimeCoach: Equatable {
                 "I am past bedtime. Get me to sleep in the next ten minutes."
             )
         }
+    }
+}
+
+/// HealthKit nights → circadian engine input. History arrives newest-first;
+/// every rolling window in the engine is a suffix, so we sort oldest-first.
+enum SleepCircadianBridge {
+    static func nights(from history: [SleepData]) -> [CircadianRhythm.Night] {
+        history
+            .compactMap { entry -> CircadianRhythm.Night? in
+                guard let onset = entry.onset, let wake = entry.wake, wake > onset else { return nil }
+                return CircadianRhythm.Night(onset: onset, wake: wake, asleepHours: entry.totalHours)
+            }
+            .sorted { $0.wake < $1.wake }
     }
 }
 

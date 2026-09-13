@@ -62,9 +62,8 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             return generateLowEnergyResponse(context: context)
         }
         
-        // Sleep analysis
         if isSleepQuery(lower) {
-            return generateSleepAnalysis(context: context)
+            return generateSleepAnalysis(context: context, input: input)
         }
         
         // Pain/injury
@@ -236,8 +235,9 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
     }
     
     private func isSleepQuery(_ text: String) -> Bool {
-        (text.contains("sleep") || text.contains("slept") || text.contains("rest")) && 
-        !text.contains("restaurant")
+        if ScheduleGoalParser.isScheduleAsk(text) { return true }
+        return (text.contains("sleep") || text.contains("slept") || text.contains("rest")) &&
+            !text.contains("restaurant")
     }
     
     private func isPainMention(_ text: String) -> Bool {
@@ -577,7 +577,22 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         )
     }
     
-    private func generateSleepAnalysis(context: TrainerContext) -> TrainerResponse {
+    private func generateSleepAnalysis(context: TrainerContext, input: String) -> TrainerResponse {
+        if let goal = ScheduleGoalParser.parse(input) {
+            ScheduleGoalStore.save(goal)
+            AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
+                category: .weSpokeAbout,
+                kind: "schedule_goal",
+                summary: "Wake target is \(ScheduleCorrector.clockLabel(goal.targetWakeHour)).",
+                source: "aria-rules"
+            ))
+            let nights = SleepCircadianBridge.nights(from: context.sleepData)
+            let step = ScheduleCorrector.tonight(goal: goal, nights: nights)
+            let target = ScheduleCorrector.clockLabel(goal.targetWakeHour)
+            let content = step?.coachingReply
+                ?? "I'll get you up at \(target). A few more nights of sleep and I'll ratchet bedtime toward it."
+            return TrainerResponse(content: content, confidence: 0.9)
+        }
         let lastSleep = context.sleepData.first
         let deepMin = lastSleep?.deepMinutes ?? context.dailyMetrics.deepSleep
         let totalHrs = lastSleep?.totalHours ?? Double(context.dailyMetrics.totalSleep) / 60

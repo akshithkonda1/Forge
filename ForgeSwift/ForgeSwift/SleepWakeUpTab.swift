@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 @MainActor
 final class SleepWakeStore: ObservableObject {
@@ -33,6 +34,7 @@ final class SleepWakeStore: ObservableObject {
     }
 
     func dismiss() {
+        WakeStruggleStore.record(snoozes: snoozeCount, on: startedAt)
         isRinging = false
         current = nil
         SleepWakePlayer.shared.stop()
@@ -292,7 +294,10 @@ struct WakeUpTab: View {
         SleepWakeCoach.make(
             alarms: store.alarms,
             sleepScore: appStore.sleepData.first?.score,
-            lastNightHours: appStore.sleepData.first?.totalHours
+            lastNightHours: appStore.sleepData.first?.totalHours,
+            smartWindowMinutes: store.next.map {
+                hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow)
+            }
         )
     }
 
@@ -317,7 +322,10 @@ struct WakeUpTab: View {
                             next.smartWakeWindow = mins
                             store.upsert(next)
                         }
-                    )
+                    ),
+                    adaptedMinutes: store.next.map {
+                        hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow)
+                    } ?? 30
                 )
             }
 
@@ -401,6 +409,7 @@ struct NextWakePlanCard: View {
 struct SmartWakeCard: View {
     @Binding var enabled: Bool
     @Binding var windowMinutes: Int
+    var adaptedMinutes: Int
 
     var body: some View {
         VStack(spacing: 0) {
@@ -410,7 +419,8 @@ struct SmartWakeCard: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Earlier nudge, then the hard alarm")
                                 .font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                            Text("iPhone cannot read live sleep stage. Smart wake fires first — if you're already light, get up. The hard alarm still stands.")
+                            Text("iPhone cannot read live sleep stage. Tonight's lead is \(adaptedMinutes) min from last night's score, debt, and snooze history — your pick is the base. The hard alarm still stands.")
+                            Text("When Apple delivers a sample in the window, Forge can nudge earlier if you're in light or core sleep. iPhone cannot stream live stage. Tonight's lead is \(adaptedMinutes) min from last night's score, debt, and snooze history — your pick is the base. The hard alarm still stands.")
                                 .font(.system(size: 12)).foregroundColor(.textTertiary).lineSpacing(3)
                         }
                     }
@@ -464,100 +474,6 @@ struct SmartWakeCard: View {
                         .padding(12).background(Color.steel.opacity(0.06)).cornerRadius(12)
                         .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                     }
-                }
-            }
-        }
-    }
-}
-
-struct SunriseSimulationCard: View {
-    @Binding var enabled: Bool
-    @Binding var duration: Int
-    @Binding var colorTemp: Double   // 0=warm 2700K, 1=cool 5000K
-
-    private var displayColor: Color {
-        Color(
-            red: 1.0,
-            green: 0.6 + colorTemp * 0.35,
-            blue: 0.3 + colorTemp * 0.7
-        ).opacity(0.9)
-    }
-
-    var body: some View {
-        WakeUpSection(icon: "sunrise.fill", title: "Sunrise Simulation", color: Color(hex: "F59E0B")) {
-            VStack(spacing: 16) {
-                Toggle(isOn: $enabled) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Gradual light increase")
-                            .font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                        Text("Mimics a natural sunrise to gently bring you out of sleep")
-                            .font(.system(size: 12)).foregroundColor(.textTertiary)
-                    }
-                }
-                .tint(Color(hex: "F59E0B"))
-
-                if enabled {
-                    VStack(spacing: 14) {
-                        // Duration
-                        HStack {
-                            Text("Duration").font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
-                            Spacer()
-                            HStack(spacing: 4) {
-                                Text("\(duration) min")
-                                    .font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
-                                Stepper("", value: $duration, in: 5...60, step: 5)
-                                    .labelsHidden().tint(Color(hex: "F59E0B"))
-                            }
-                        }
-
-                        // Color temperature
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                Text("Color Temperature").font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
-                                Spacer()
-                                Text(colorTemp < 0.3 ? "2700K Warm" : colorTemp < 0.7 ? "3500K Neutral" : "5000K Cool")
-                                    .font(.system(size: 12, weight: .semibold)).foregroundColor(displayColor)
-                            }
-
-                            // Gradient slider preview
-                            ZStack(alignment: .bottom) {
-                                LinearGradient(
-                                    colors: [Color(hex: "FF8C42"), Color(hex: "FFD166"), Color(hex: "FEFAE0"), Color(hex: "C8E6FF")],
-                                    startPoint: .leading, endPoint: .trailing
-                                )
-                                .frame(height: 24).cornerRadius(12)
-
-                                Slider(value: $colorTemp)
-                                    .tint(.clear)
-                                    .padding(.horizontal, 2)
-                            }
-                        }
-
-                        // Preview
-                        HStack(spacing: 8) {
-                            ForEach(Array(stride(from: 0.1, through: 1.0, by: 0.18)), id: \.self) { t in
-                                Circle()
-                                    .fill(Color(
-                                        red: 1.0,
-                                        green: 0.4 + t * 0.55,
-                                        blue: 0.1 + t * 0.85
-                                    ))
-                                    .frame(width: 8, height: 8)
-                                    .frame(maxWidth: .infinity)
-                                    .opacity(0.3 + t * 0.7)
-                            }
-                        }
-                        .frame(height: 16)
-                        .padding(.horizontal, 4)
-                        .overlay(alignment: .leading) {
-                            Text("Start").font(.system(size: 9, weight: .medium)).foregroundColor(.textMuted)
-                        }
-                        .overlay(alignment: .trailing) {
-                            Text("Full").font(.system(size: 9, weight: .medium)).foregroundColor(.textMuted)
-                        }
-                    }
-                    .padding(12).background(Color(hex: "F59E0B").opacity(0.06)).cornerRadius(12)
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                 }
             }
         }

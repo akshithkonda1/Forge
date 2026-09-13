@@ -1,5 +1,6 @@
 import SwiftUI
 import UserNotifications
+import ForgeCore
 
 @MainActor
 final class ForgeAlarmStore: ObservableObject {
@@ -132,8 +133,14 @@ enum SleepAlarmScheduler {
         let stale = pending.map(\.identifier).filter(SleepWakeEngine.isWakeNotification)
         center.removePendingNotificationRequests(withIdentifiers: stale)
 
+        let windows: [UUID: Int] = await MainActor.run {
+            Dictionary(uniqueKeysWithValues: alarms.map { alarm in
+                (alarm.id, HealthKitSleepService.shared.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow))
+            })
+        }
+
         for alarm in alarms where alarm.isEnabled {
-            await schedule(alarm)
+            await schedule(alarm, smartWindow: windows[alarm.id] ?? alarm.smartWakeWindow)
         }
     }
 
@@ -150,7 +157,7 @@ enum SleepAlarmScheduler {
         )
     }
 
-    private static func schedule(_ alarm: ForgeAlarm) async {
+    private static func schedule(_ alarm: ForgeAlarm, smartWindow: Int) async {
         let (hour, minute) = SleepWakeEngine.hourMinute(of: alarm.time)
         let days = alarm.days.isEmpty ? Array(1...7) : alarm.days
         for weekday in days {
@@ -169,7 +176,7 @@ enum SleepAlarmScheduler {
                     weekday: weekday,
                     hour: hour,
                     minute: minute,
-                    windowMinutes: alarm.smartWakeWindow
+                    windowMinutes: smartWindow
                 )
                 await addRepeating(
                     id: SleepWakeEngine.smartNotificationId(for: alarm.id) + ".\(smart.weekday)",
@@ -177,7 +184,7 @@ enum SleepAlarmScheduler {
                     hour: smart.hour,
                     minute: smart.minute,
                     title: "Smart wake · \(alarm.label)",
-                    body: "If you're already light, get up now. Hard alarm still fires at the set time.",
+                    body: "If Apple has you in light sleep, get up now. Hard alarm still fires at the set time.",
                     alarmID: alarm.id.uuidString,
                     kind: "smart"
                 )
@@ -237,6 +244,74 @@ enum SleepAlarmScheduler {
             "alarmID": alarmID,
             "kind": kind
         ]
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+        try? await center.add(request)
+    }
+
+    /// React to a HealthKit-delivered stage. Not a live stream — Apple's
+    /// sample is the event. One early fire per alarm per morning.
+    @MainActor
+    static func considerDeliveredSleep(
+        stage: SleepStage,
+        sampleEnd: Date,
+        now: Date = Date()
+    ) async {
+        let alarms = ForgeAlarmStore.shared.alarms
+        guard let alarm = SleepWakeEngine.nextAlarm(in: alarms, now: now), alarm.isSmartWake else { return }
+        let window = HealthKitSleepService.shared.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow)
+        guard let hard = SleepWakeEngine.nextHardFire(alarm: alarm, now: now) else { return }
+        let smart = SleepWakeEngine.smartWakeFire(hard: hard, windowMinutes: window)
+        let decision = SmartWakeEarlyFire.decide(
+            now: now,
+            smartFire: smart,
+            hardFire: hard,
+            sampleEnd: sampleEnd,
+            stage: stage
+        )
+        guard decision == .fireEarly else { return }
+        let dayKey = WakeStruggleStore.dayKey(for: now)
+        guard !SmartWakeEarlyFireStore.alreadyFired(alarmId: alarm.id.uuidString, dayKey: dayKey) else { return }
+        SmartWakeEarlyFireStore.markFired(alarmId: alarm.id.uuidString, dayKey: dayKey)
+        await addImmediate(
+            id: SleepWakeEngine.liveNotificationId(for: alarm.id, dayKey: dayKey),
+            title: "Smart wake · \(alarm.label)",
+            body: "Apple just delivered light sleep. Get up now if you can — the hard alarm still stands.",
+            alarmID: alarm.id.uuidString,
+            kind: "smart-live"
+        )
+        AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
+            category: .appleHealth,
+            kind: "smart_wake_early",
+            summary: "Smart wake fired early — Apple delivered \(stage.displayName.lowercased()) sleep in the window.",
+            source: "sleep-live"
+        ))
+    }
+
+    @MainActor
+    static func considerWatchSleep(_ payload: WatchSleepSamplePayload, now: Date = Date()) async {
+        guard let stage = payload.sleepStage else { return }
+        await considerDeliveredSleep(stage: stage, sampleEnd: payload.end, now: now)
+    }
+
+    private static func addImmediate(
+        id: String,
+        title: String,
+        body: String,
+        alarmID: String,
+        kind: String
+    ) async {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.categoryIdentifier = SleepWakeEngine.category
+        content.interruptionLevel = .timeSensitive
+        content.userInfo = [
+            "destination": "forge://wake",
+            "alarmID": alarmID,
+            "kind": kind
+        ]
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
         try? await center.add(request)
     }
@@ -332,6 +407,7 @@ struct AlarmTab: View {
 
 struct NextAlarmHero: View {
     let alarm: ForgeAlarm
+    @ObservedObject private var hk = HealthKitSleepService.shared
 
     private var timeString: String {
         let f = DateFormatter(); f.dateFormat = "h:mm"
@@ -370,7 +446,8 @@ struct NextAlarmHero: View {
                 .font(.system(size: 14))
                 .foregroundColor(.textSecondary)
             if alarm.isSmartWake {
-                Text("Smart wake opens \(alarm.smartWakeWindow) min earlier. Hard alarm still fires.")
+                let lead = hk.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow)
+                Text("Smart wake opens \(lead) min earlier tonight. Hard alarm still fires.")
                     .font(.system(size: 12))
                     .foregroundColor(.textTertiary)
                     .padding(.top, 2)
@@ -433,6 +510,7 @@ struct AlarmRow: View {
             }))
             .tint(.ember)
             .labelsHidden()
+            .accessibilityLabel("\(alarm.label) alarm, \(timeStr), \(daysStr)")
         }
         .padding(.vertical, 12)
         .opacity(alarm.isEnabled ? 1 : 0.45)
@@ -629,7 +707,7 @@ struct AlarmEditorSheet: View {
 
                                 if alarm.isSmartWake {
                                     VStack(alignment: .leading, spacing: 10) {
-                                        Text("Wake window: up to \(alarm.smartWakeWindow) min before alarm")
+                                        Text("Base window: \(alarm.smartWakeWindow) min. Tonight adapts from score, debt, and snooze history.")
                                             .font(.system(size: 12, weight: .medium))
                                             .foregroundColor(.textSecondary)
                                         HStack(spacing: 8) {

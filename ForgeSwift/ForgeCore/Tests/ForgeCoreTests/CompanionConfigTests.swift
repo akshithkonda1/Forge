@@ -71,6 +71,7 @@ final class CompanionConfigTests: XCTestCase {
             "forge.aria.authToken": "must-be-ignored-here",
         ]), "a workout payload is rejected whole, not picked over")
         XCTAssertNil(CompanionConfig.parse([WorkoutLinkKeys.vitals: Data()]))
+        XCTAssertNil(CompanionConfig.parse([WorkoutLinkKeys.sleepSample: Data()]))
     }
 
     func testNonStringValuesAndEmptyPayloadsYieldNothing() {

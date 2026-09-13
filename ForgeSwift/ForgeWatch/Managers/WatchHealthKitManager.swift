@@ -182,6 +182,7 @@ final class WatchHealthKitManager {
         publishSnapshot()
         startBackgroundObservers()
         pushVitalsAndEvaluateRisk()
+        pushSleepSampleIfNeeded()
     }
 
     private func publishSnapshot() {
@@ -221,15 +222,39 @@ final class WatchHealthKitManager {
         WatchHealthRiskBridge.consider(payload)
     }
 
-    /// HK background delivery so temperature / HRV checks still run when
+    private func pushSleepSampleIfNeeded() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard let segment = await ForgeHealthQueries.latestSleepSegment(store: self.store) else { return }
+            PhoneLinkService.shared.sendSleepSample(
+                WatchSleepSamplePayload(segment: segment, sampledAt: Date(), source: "watch")
+            )
+        }
+    }
+
+    /// HK background delivery so temperature / HRV / sleep checks still run when
     /// ForgeWatch is not on screen (complication + HealthKit wake).
+    ///
+    /// Watch does not carry `com.apple.developer.healthkit.background-delivery`
+    /// (the phone does). `enableBackgroundDelivery` is still requested so a
+    /// worn watch can wake opportunistically; it is not a guaranteed live stream.
     func startBackgroundObservers() {
-        guard isAuthorized, !isObserving else { return }
+        guard isAuthorized else { return }
+        if isObserving {
+            // Upgrade path: older builds observed 4 types and skipped sleep.
+            if observerQueries.count >= 5 { return }
+            for query in observerQueries {
+                store.stop(query)
+            }
+            observerQueries.removeAll()
+            isObserving = false
+        }
         isObserving = true
         var observed: [HKSampleType] = [
             HKQuantityType(.bodyTemperature),
             HKQuantityType(.heartRateVariabilitySDNN),
             HKQuantityType(.restingHeartRate),
+            HKCategoryType(.sleepAnalysis),
         ]
         observed.append(HKQuantityType(.appleSleepingWristTemperature))
         for type in observed {
@@ -258,6 +283,7 @@ final class WatchHealthKitManager {
                 HKQuantityType(.heartRateVariabilitySDNN),
                 HKQuantityType(.restingHeartRate),
                 HKQuantityType(.appleSleepingWristTemperature),
+                HKCategoryType(.sleepAnalysis),
             ]
             for type in types {
                 store.disableBackgroundDelivery(for: type) { _, _ in }

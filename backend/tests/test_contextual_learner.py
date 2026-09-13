@@ -165,6 +165,29 @@ class ReinforcementTests(unittest.TestCase):
             0.0,
         )
 
+    def test_sleep_nudge_followed_after_protect_raises_q(self):
+        state = contextual_learner.PersonaState()
+        feat = {
+            "evening_busy": 0.0,
+            "headline": 0.0,
+            "low_recovery": 0.0,
+            "high_recovery": 0.0,
+            "short_sleep": 1.0,
+        }
+        key = contextual_learner.bucket(feat)
+        contextual_learner.commit_action(state, key, "protect", ("sleep",))
+        before = contextual_learner._q(state, key, "protect")
+        reward = contextual_learner.apply_sleep_nudge_outcome(state, followed=True)
+        after = contextual_learner._q(state, key, "protect")
+        self.assertGreater(reward, 0.0)
+        self.assertGreater(after, before)
+
+    def test_sleep_nudge_ignored_after_protect_is_negative(self):
+        reward = contextual_learner.reward_for_sleep_nudge(
+            followed=False, last_stance="protect"
+        )
+        self.assertLess(reward, 0.0)
+
 
 class LiveEngineSidecarTests(unittest.TestCase):
     def test_generate_response_attaches_brief_without_changing_prose(self):

@@ -324,6 +324,8 @@
 		1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */; };
 		1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */; };
 		1TEST03600000000000000A /* AriaDummyOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */; };
+		1TEST03800000000000000A /* SleepNightGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03700000000000000A /* SleepNightGroupingTests.swift */; };
+		1TEST03A00000000000000A /* HealthKitSleepServiceScoringTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03900000000000000A /* HealthKitSleepServiceScoringTests.swift */; };
 		1TEST04200000000000000A /* TrainSleepUsableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04100000000000000A /* TrainSleepUsableTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -479,6 +481,8 @@
 		1TEST01D00000000000000A /* FakeCyclePackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeCyclePackTests.swift; sourceTree = "<group>"; };
 		1TEST01F00000000000000A /* SleepWakeEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeEngineTests.swift; sourceTree = "<group>"; };
 		1TEST02100000000000000A /* SleepBedtimeCoachTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepBedtimeCoachTests.swift; sourceTree = "<group>"; };
+		1TEST03700000000000000A /* SleepNightGroupingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepNightGroupingTests.swift; sourceTree = "<group>"; };
+		1TEST03900000000000000A /* HealthKitSleepServiceScoringTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepServiceScoringTests.swift; sourceTree = "<group>"; };
 		1TEST02300000000000000A /* AriaInterviewVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewVoiceTests.swift; sourceTree = "<group>"; };
 		1TEST02500000000000000A /* AriaSigilTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSigilTests.swift; sourceTree = "<group>"; };
 		1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoiceTests.swift; sourceTree = "<group>"; };
@@ -1229,6 +1233,8 @@
 				1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */,
 				1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */,
 				1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */,
+				1TEST03700000000000000A /* SleepNightGroupingTests.swift */,
+				1TEST03900000000000000A /* HealthKitSleepServiceScoringTests.swift */,
 				1TEST04100000000000000A /* TrainSleepUsableTests.swift */,
 				1MED03000000000000000A /* MedicationPharmacyTests.swift */,
 			);
@@ -1796,6 +1802,8 @@
 				1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */,
 				1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */,
 				1TEST03600000000000000A /* AriaDummyOrchestratorTests.swift in Sources */,
+				1TEST03800000000000000A /* SleepNightGroupingTests.swift in Sources */,
+				1TEST03A00000000000000A /* HealthKitSleepServiceScoringTests.swift in Sources */,
 				1TEST04200000000000000A /* TrainSleepUsableTests.swift in Sources */,
 				1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */,
 			);

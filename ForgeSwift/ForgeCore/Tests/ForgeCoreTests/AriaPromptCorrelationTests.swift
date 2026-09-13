@@ -78,4 +78,22 @@ final class AriaPromptCorrelationTests: XCTestCase {
         XCTAssertFalse(AriaPromptCorrelation.allowsUnpromptedLifeStory("what should I train today"))
         XCTAssertTrue(AriaPromptCorrelation.allowsUnpromptedLifeStory("hey"))
     }
+
+    func testWakeTargetAskIsSleepAndGymChatterIsNot() {
+        let prompt = "I need to be up at 6am starting Monday"
+        let asked = AriaPromptCorrelation.askedDomains(in: prompt)
+        XCTAssertTrue(asked.contains(.sleep), "\(asked)")
+        XCTAssertFalse(asked.contains(.training))
+        XCTAssertTrue(AriaPromptCorrelation.sleepAsk(prompt.lowercased()))
+        XCTAssertFalse(AriaPromptCorrelation.sleepAsk("what's up at the gym"))
+        XCTAssertTrue(
+            AriaPromptCorrelation.correlates(
+                reply: "I'll get you up at 6:00 am — 15 min earlier tonight.",
+                toPrompt: prompt
+            )
+        )
+        XCTAssertFalse(
+            AriaPromptCorrelation.requiredMentions(in: "what's up at the gym").contains("up at")
+        )
+    }
 }

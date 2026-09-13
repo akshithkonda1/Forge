@@ -129,6 +129,15 @@ struct AISleepEnvironmentView: View {
                     ProgressView().controlSize(.small)
                     Text("Looking at the room…").font(.system(size: 12)).foregroundColor(.textSecondary)
                 }
+            } else if let error = hkService.environmentCheckError {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11)).foregroundColor(.warning)
+                    Text(error).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.warning.opacity(0.08))
+                .cornerRadius(10)
             } else if let assessment = hkService.environmentAssessment {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.steel)
@@ -283,42 +292,5 @@ struct AISmartRecommendationsView: View {
             let debt = hkService.computeSleepDebt(from: store.sleepData)
             await hkService.refreshRecommendationsNote(store: store, debt: debt)
         }
-    }
-}
-
-struct SleepQuickActionsBar: View {
-    @State private var appeared = false
-    let onAITap: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            QuickActionButton(icon: "moon.fill",                  title: "Tips",   color: .steel,   action: {})
-            QuickActionButton(icon: "bell.badge.fill",            title: "Alarm",  color: .ember,   action: {})
-            QuickActionButton(icon: "brain.head.profile",         title: "ARIA",   color: .steel,   action: onAITap)
-            QuickActionButton(icon: "chart.line.uptrend.xyaxis",  title: "Trends", color: Color(hex: "6366F1"), action: {})
-        }
-        .padding(.horizontal, 16).padding(.vertical, 14)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.1), radius: 14, y: 5)
-        .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 20)
-        .onAppear { withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3)) { appeared = true } }
-    }
-}
-
-struct QuickActionButton: View {
-    let icon: String; let title: String; let color: Color; let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                ZStack {
-                    Circle().fill(color.opacity(0.14)).frame(width: 44, height: 44)
-                    Image(systemName: icon).font(.system(size: 18, weight: .medium)).foregroundColor(color)
-                }
-                Text(title).font(.system(size: 11, weight: .medium)).foregroundColor(.textPrimary)
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.plain)
     }
 }

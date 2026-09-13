@@ -85,6 +85,22 @@ final class AriaIntentResolverTests: XCTestCase {
         XCTAssertEqual(ranked.first?.domain, .training)
     }
 
+    func testWakeTargetRoutesToSleep() {
+        let ranked = AriaIntentResolver.rank(
+            AriaIntentInput(text: "I need to be up at 6am starting Monday")
+        )
+        XCTAssertEqual(ranked.first?.domain, .sleep)
+        let gym = AriaIntentResolver.rank(AriaIntentInput(text: "what's up at the gym"))
+        XCTAssertEqual(gym.first?.domain, .training)
+    }
+
+    func testGymChatterIsNotAWakeTarget() {
+        let ranked = AriaIntentResolver.rank(
+            AriaIntentInput(text: "what's up at the gym")
+        )
+        XCTAssertEqual(ranked.first?.domain, .training)
+    }
+
     func testAlwaysReturnsSomething() {
         let ranked = AriaIntentResolver.rank(AriaIntentInput(text: "?????"))
         XCTAssertFalse(ranked.isEmpty)

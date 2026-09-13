@@ -542,6 +542,15 @@ def observe_workout(
     return state
 
 
+def observe_sleep_nudge(state: PersonaState, *, followed: bool) -> PersonaState:
+    """A wind-down / bedtime nudge landed or didn't — same follow axis as workouts."""
+    _bump(state.follow, "complete" if followed else "skip", 0.6)
+    _bump(state.ingest, "sleep", 0.8)
+    _bump(state.domain, "sleep", 0.4)
+    state.n_ingest += 1
+    return state
+
+
 def observe_reaction(state: PersonaState, reaction: str) -> PersonaState:
     token = (reaction or "").strip().lower()
     if token in ("🔥", "💪", "thumbs_up", "love", "up", "like"):
@@ -635,6 +644,24 @@ def reward_for_workout(
     if stance == "clarify":
         return 0.05
     return 0.4 if completed else -0.3
+
+
+def reward_for_sleep_nudge(
+    *,
+    followed: bool,
+    last_stance: str | None = None,
+) -> float:
+    """Did the last coaching action fit whether they actually protected the night?"""
+    stance = last_stance or ""
+    if stance == "protect":
+        return 0.9 if followed else -0.2
+    if stance == "proceed":
+        return 0.2 if followed else -0.45
+    if stance == "fuel":
+        return 0.3 if followed else -0.1
+    if stance == "clarify":
+        return 0.05
+    return 0.45 if followed else -0.25
 
 
 def reward_for_reaction(reaction: str) -> float:
@@ -1629,6 +1656,21 @@ def apply_workout_outcome(
         completed=completed,
         evening_busy=evening_busy,
         headline=headline,
+        last_stance=state.last_stance,
+    )
+    reinforce(state, reward)
+    return reward
+
+
+def apply_sleep_nudge_outcome(
+    state: PersonaState,
+    *,
+    followed: bool,
+) -> float:
+    """Wind-down / bedtime breaker: observe + TD reward on the last stance."""
+    observe_sleep_nudge(state, followed=followed)
+    reward = reward_for_sleep_nudge(
+        followed=followed,
         last_stance=state.last_stance,
     )
     reinforce(state, reward)

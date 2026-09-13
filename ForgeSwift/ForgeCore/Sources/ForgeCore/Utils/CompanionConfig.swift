@@ -54,7 +54,8 @@ public struct CompanionConfig: Equatable, Sendable {
     public static func parse(_ message: [String: Any]) -> CompanionConfig? {
         if message[WorkoutLinkKeys.state] != nil
             || message[WorkoutLinkKeys.ended] != nil
-            || message[WorkoutLinkKeys.vitals] != nil {
+            || message[WorkoutLinkKeys.vitals] != nil
+            || message[WorkoutLinkKeys.sleepSample] != nil {
             return nil
         }
 
