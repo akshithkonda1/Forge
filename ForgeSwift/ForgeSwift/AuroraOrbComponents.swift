@@ -19,7 +19,7 @@ struct ARIAIdentityMark: View {
             )
             if showsPresence {
                 Circle()
-                    .fill(Color(hex: AriaSigilPalette.emberHex).opacity(0.9))
+                    .fill(Color(hex: AriaSigilPalette.forgeOrangeHex).opacity(0.9))
                     .frame(width: max(7, size * 0.18), height: max(7, size * 0.18))
                     .offset(x: 1, y: 1)
             }
@@ -29,8 +29,10 @@ struct ARIAIdentityMark: View {
     }
 }
 
-/// Procedural 4-lobe gooey ember. No ping rings, no PNG stretch.
-/// Presence (speech / listen) drives energy. Reduce Motion freezes the pose.
+/// Procedural kinetic orange ring-field. Five overlapping ellipses, `#FF4D00`.
+/// Soft spin. No PNG, no gooey hearth, no Home readiness chrome.
+/// Presence (speech / listen) raises spin rate. Reduce Motion and
+/// `forgeMinimalAnimation` freeze at `AriaSigilGeometry.stillPose`.
 struct AuroraOrbView: View {
     let state: AROrbState
     let amplitude: Float
@@ -40,38 +42,32 @@ struct AuroraOrbView: View {
 
     private let presence = AriaPresence.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.forgeMinimalAnimation) private var minimalAnimation
     @Environment(\.scenePhase) private var scenePhase
 
     private var resolvedState: AROrbState {
         followPresence && presence.orbState != .idle ? presence.orbState : state
     }
 
-    private var tick: Double {
-        if reduceMotion { return 1 }
-        return 1.0 / 24.0
+    private var frozen: Bool {
+        reduceMotion || minimalAnimation || scenePhase != .active
     }
 
-    /// Simulator uses a static radial stand-in (see EmberCanvas) — don't burn a
-    /// 24 Hz TimelineView just to redraw the same circles.
-    private var pauseTimeline: Bool {
-        #if targetEnvironment(simulator)
-        true
-        #else
-        reduceMotion || scenePhase != .active
-        #endif
+    private var tick: Double {
+        frozen ? 1 : 1.0 / 12.0
     }
 
     var body: some View {
+        // Mood stays on the call-site API. Identity does not recolor — the field is `#FF4D00`.
+        let _ = mood
         TimelineView(.animation(
             minimumInterval: tick,
-            paused: pauseTimeline
+            paused: frozen
         )) { timeline in
-            let frozen = pauseTimeline
             let t = frozen ? AriaSigilGeometry.stillPose : timeline.date.timeIntervalSinceReferenceDate
-            EmberCanvas(
+            AriaRingFieldView(
                 time: t,
                 state: resolvedState,
-                mood: mood,
                 amplitude: amplitude,
                 size: size,
                 reduceMotion: frozen
@@ -91,147 +87,63 @@ struct AuroraOrbView: View {
     }
 }
 
-private struct EmberCanvas: View {
+/// Stroked ellipses only. Identity is orange — mood does not recolor the field.
+/// Hero (≥90pt) draws all five. Compact slots draw the Cove 3-ring
+/// (two ≥0.70 + one support). Shape strokes, not Canvas + `.plusLighter`.
+private struct AriaRingFieldView: View {
     let time: TimeInterval
     let state: AROrbState
-    let mood: ARIAMood
     let amplitude: Float
     let size: CGFloat
     let reduceMotion: Bool
 
+    private var orange: Color { Color(hex: AriaSigilPalette.forgeOrangeHex) }
+    private var energy: Double { max(0, min(1, Double(amplitude))) }
+
     var body: some View {
-        // Zero-size Canvas on Simulator (iOS 26/27 betas especially) creates a
-        // CAMetalLayer with drawableSize 0×0, then MSAA resolve asserts and
-        // kills the process under Metal API Validation. Skip the pass entirely.
-        // On Simulator, prefer a static radial stand-in: TimelineView+Canvas with
-        // `.plusLighter` still hits the same MSAA path even at non-zero size.
-        Group {
-            if size < 2 {
-                Color.clear
-            } else if Self.useStaticSimulatorStandIn {
-                simulatorStandIn
-            } else {
-                liveCanvas
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            orange.opacity(0.16 + energy * 0.06),
+                            orange.opacity(0.04),
+                            .clear
+                        ],
+                        center: .center,
+                        startRadius: size * 0.04,
+                        endRadius: size * 0.48
+                    )
+                )
+            ForEach(AriaSigilGeometry.visibleRingIndices(size: size), id: \.self) { index in
+                let pose = AriaSigilGeometry.ellipse(
+                    index: index,
+                    time: time,
+                    state: state,
+                    reduceMotion: reduceMotion
+                )
+                Ellipse()
+                    .stroke(
+                        orange.opacity(pose.opacity),
+                        lineWidth: AriaSigilGeometry.strokeWidth(size: size, index: index)
+                    )
+                    .frame(width: size * pose.rx, height: size * pose.ry)
+                    .rotationEffect(.radians(pose.rotation))
             }
         }
         .frame(width: size, height: size)
+        .shadow(color: orange.opacity(0.28 + energy * 0.12), radius: max(4, size * 0.08))
         .allowsHitTesting(false)
     }
+}
 
-    /// Simulator Metal validation + SwiftUI Canvas MSAA has been killing the
-    /// process on iOS 27 betas (`MTLStoreActionMultisampleResolve` with a nil
-    /// resolve texture after a 0×0 drawable). Device keeps the live ember.
-    private static var useStaticSimulatorStandIn: Bool {
-        #if targetEnvironment(simulator)
-        true
-        #else
-        false
-        #endif
-    }
+// MARK: - Retired gooey hearth (unused — do not ship as the brand mark)
 
-    private var simulatorStandIn: some View {
-        let ember = Color(hex: AriaSigilPalette.emberHex)
-        let teal = Color(hex: AriaSigilPalette.tealHex)
-        let hot = Color(hex: "FFE28A")
-        let accent = Color(hex: AriaSigilPalette.photonPrimary(for: mood))
-        return ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [hot.opacity(0.9), ember.opacity(0.75), accent.opacity(0.35), teal.opacity(0.2), .clear],
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: size * 0.5
-                    )
-                )
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.white.opacity(state == .speaking ? 0.85 : 0.55), ember.opacity(0.4), .clear],
-                        center: UnitPoint(x: 0.42, y: 0.38),
-                        startRadius: 0,
-                        endRadius: size * 0.28
-                    )
-                )
-                .frame(width: size * 0.55, height: size * 0.55)
-        }
-    }
-
-    private var liveCanvas: some View {
-        Canvas { context, canvasSize in
-            let s = min(canvasSize.width, canvasSize.height)
-            guard s >= 2 else { return }
-            let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
-            let gaze = AriaSigilGeometry.gaze(time: time, state: state, reduceMotion: reduceMotion)
-            let ember = Color(hex: AriaSigilPalette.emberHex)
-            let teal = Color(hex: AriaSigilPalette.tealHex)
-            let hot = Color(hex: "FFE28A")
-            let accent = Color(hex: AriaSigilPalette.photonPrimary(for: mood))
-
-            context.blendMode = .plusLighter
-
-            for index in 0..<AriaSigilGeometry.lobeCount {
-                let lobe = AriaSigilGeometry.lobe(index: index, time: time, state: state, reduceMotion: reduceMotion)
-                let lx = center.x + CGFloat(lobe.x + gaze.x) * s * 0.5
-                let ly = center.y + CGFloat(lobe.y + gaze.y) * s * 0.5
-                let rad = CGFloat(lobe.r) * s * 0.5
-                guard rad >= 0.5 else { continue }
-                let rect = CGRect(x: lx - rad, y: ly - rad, width: rad * 2, height: rad * 2)
-                context.fill(
-                    Path(ellipseIn: rect),
-                    with: .radialGradient(
-                        Gradient(colors: [
-                            hot.opacity(0.95),
-                            ember.opacity(0.82),
-                            accent.opacity(0.42),
-                            teal.opacity(0.28),
-                            .clear
-                        ]),
-                        center: CGPoint(x: lx, y: ly),
-                        startRadius: 0,
-                        endRadius: rad
-                    )
-                )
-            }
-
-            let extra = CGFloat(max(0, min(1, Double(amplitude)))) * 0.04
-            let coreR = (CGFloat(AriaSigilGeometry.coreRadius(time: time, state: state, reduceMotion: reduceMotion)) + extra) * s
-            guard coreR >= 0.5 else { return }
-            let coreCenter = CGPoint(
-                x: center.x + CGFloat(gaze.x) * s * 0.35,
-                y: center.y + CGFloat(gaze.y) * s * 0.35
-            )
-            context.fill(
-                Path(ellipseIn: CGRect(x: coreCenter.x - coreR, y: coreCenter.y - coreR, width: coreR * 2, height: coreR * 2)),
-                with: .radialGradient(
-                    Gradient(colors: [
-                        (state == .speaking ? Color.white.opacity(0.9) : hot.opacity(0.85)),
-                        ember.opacity(0.5),
-                        .clear
-                    ]),
-                    center: coreCenter,
-                    startRadius: 0,
-                    endRadius: coreR
-                )
-            )
-
-            let spec = CGPoint(
-                x: center.x + CGFloat(gaze.x) * s * 0.2 - s * 0.08,
-                y: center.y + CGFloat(gaze.y) * s * 0.2 - s * 0.1
-            )
-            let specR = s * 0.08
-            guard specR >= 0.5 else { return }
-            context.fill(
-                Path(ellipseIn: CGRect(x: spec.x - specR, y: spec.y - specR, width: specR * 2, height: specR * 2)),
-                with: .radialGradient(
-                    Gradient(colors: [Color.white.opacity(0.55), .clear]),
-                    center: spec,
-                    startRadius: 0,
-                    endRadius: specR
-                )
-            )
-        }
-    }
+/// Legacy 4-lobe additive ember. Kept so a future cleanup can delete it in one
+/// place. Not referenced by `AuroraOrbView` / `ARIAIdentityMark`.
+enum AriaSigilEmberLegacy: Sendable {
+    static let lobeCount: Int = 4
+    static let hearthHex = "FF6A1A"
 }
 
 #Preview("ARIA idle") {
@@ -259,6 +171,15 @@ private struct EmberCanvas: View {
             AuroraOrbView(state: .idle, amplitude: 0.2, size: 44, followPresence: false)
             AuroraOrbView(state: .listening, amplitude: 0.5, size: 58, followPresence: false)
         }
+    }
+    .preferredColorScheme(.dark)
+}
+
+#Preview("ARIA still-pose") {
+    ZStack {
+        Color(hex: "07060A").ignoresSafeArea()
+        AuroraOrbView(state: .idle, amplitude: 0.3, size: 168, followPresence: false)
+            .environment(\.forgeMinimalAnimation, true)
     }
     .preferredColorScheme(.dark)
 }

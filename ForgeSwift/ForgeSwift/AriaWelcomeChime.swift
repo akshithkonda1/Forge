@@ -2,14 +2,13 @@ import AVFoundation
 import CoreGraphics
 import os
 
-/// Welcome arrive-sound and the shared still-frame mark contract
-/// (`shared/aria-mark.json`, `shared/brand/aria-mark.png`).
-/// Live ARIA is a procedural 4-lobe ember (`AuroraOrbView` / web canvas).
-/// The PNG stays on disk as the Reduce Motion / fallback still.
+/// Welcome arrive-sound. Live phone ARIA is the 5-ellipse ring-field
+/// (`AuroraOrbView`). Contract numbers from Lex `#270` @ `fab0a40`.
+/// `main`'s `shared/aria-mark.json` is still ember until that PR merges. PNG unused.
 /// Pure gates so tests can lock quiet mode and Reduce Motion without audio.
 enum AriaWelcomeChime: Sendable {
     static let assetName = "AriaLogo"
-    /// 1.0 — show the whole ember. Lockstep with `shared/aria-mark.json`.
+    /// 1.0 — show the whole mark. Lockstep with `shared/aria-mark.json` cropScale.
     static let cropScale: CGFloat = 1.0
     static let heroMinimumSize: CGFloat = 90
 
