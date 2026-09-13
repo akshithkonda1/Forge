@@ -100,17 +100,40 @@ final class SleepBedtimeCoachTests: XCTestCase {
         XCTAssertEqual(later.phase, .lightsOut)
     }
 
-    func testDayEmptyCopyIsHonestWhenHealthIsConnected() {
-        let connected = HealthKitSleepService.dayEmptyCopy(healthConnected: true)
-        XCTAssertEqual(connected.title, "No scored night yet")
-        XCTAssertTrue(connected.message.localizedCaseInsensitiveContains("in-bed"))
-        XCTAssertFalse(connected.message.localizedCaseInsensitiveContains("reconnect"))
-        XCTAssertEqual(connected.cta, "Refresh from Apple Health")
-
-        let disconnected = HealthKitSleepService.dayEmptyCopy(healthConnected: false)
-        XCTAssertEqual(disconnected.title, "Connect Apple Health to unlock sleep")
-        XCTAssertEqual(disconnected.cta, "Reconnect Apple Health")
+    func testCorrectionOverridesPredictorBedtimeAndSurvivesAdvancing() {
+        let now = date(2026, 9, 13, 16, 0)
+        let correction = ScheduleCorrectionStep(
+            recommendedWakeHour: 7.75,
+            recommendedOnsetHour: 23.0,
+            shiftMinutesTonight: -15,
+            remainingGapMinutes: 105,
+            nightsRemainingEstimate: 8,
+            reachedTarget: false,
+            currentWakeHour: 8.0,
+            confidence: 0.9,
+            targetWakeHour: 6.0
+        )
+        let coach = SleepBedtimeCoach.make(
+            onsets: [],
+            sleepMinutes: [],
+            fallbackOnsetHour: 22.5,
+            now: now,
+            calendar: calendar,
+            correction: correction
+        )
+        XCTAssertEqual(calendar.component(.hour, from: coach.bedtime), 23)
+        XCTAssertEqual(calendar.component(.minute, from: coach.bedtime), 0)
+        XCTAssertTrue(coach.cue.contains("earlier"), coach.cue)
+        let later = coach.advancing(now: date(2026, 9, 13, 21, 0))
+        XCTAssertEqual(later.bedtime, coach.bedtime)
+        XCTAssertTrue(later.cue.contains("earlier"), later.cue)
     }
+
+    func testMakeFromHistoryUsesSavedGoal() {
+        let suite = "forge.coach.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
 
         let nights: [SleepData] = (0..<7).map { offset in
             let wake = date(2026, 9, 13 - offset, 8, 0)
@@ -141,6 +164,8 @@ final class SleepBedtimeCoachTests: XCTestCase {
         )
         XCTAssertTrue(coach.cue.contains("earlier") || coach.cue.contains("Shifting"), coach.cue)
         XCTAssertFalse(coach.scheduleNote.isEmpty)
+    }
+
     func testDayEmptyCopyIsHonestWhenHealthIsConnected() {
         let connected = HealthKitSleepService.dayEmptyCopy(healthConnected: true)
         XCTAssertEqual(connected.title, "No scored night yet")

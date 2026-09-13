@@ -176,7 +176,6 @@ final class HealthKitSleepService: ObservableObject {
                 wake: session.wake
             )
         }
-        rememberSleepSignals(from: scoredNights)
         .sorted { $0.date > $1.date }
         if let newest = scoredNights.first {
             lastDepthResult = scoreNight(
@@ -214,15 +213,6 @@ final class HealthKitSleepService: ObservableObject {
         baselines: SleepDepthBaselines? = nil
     ) -> SleepDepthResult {
         let chronotype = profile.chronotype
-        let targetHours = chronotype.targetSleepHours
-
-        let durationScore = min(100, (totalHours / targetHours) * 100)
-        let deepScore = min(100, (Double(deepMinutes) / Double(chronotype.deepSleepGoalMinutes)) * 100)
-        let remScore = min(100, (Double(remMinutes) / Double(chronotype.remSleepGoalMinutes)) * 100)
-
-        let asleepMinutes = totalHours * 60
-        let efficiency = Self.sleepEfficiencyPercent(asleepMinutes: asleepMinutes, awakeMinutes: awakeMinutes)
-
         // Same spread→confidence map as CircadianRhythm.phase: a 3-hour circular
         // SD is "no schedule". Under five wakes there is not enough signal, so
         // keep the old neutral 80 rather than punish a new user for missing data.
@@ -237,9 +227,9 @@ final class HealthKitSleepService: ObservableObject {
             totalHours: totalHours,
             deepMinutes: Double(deepMinutes),
             remMinutes: Double(remMinutes),
-            efficiencyPercent: SleepNightMetrics.efficiencyPercent(
-                asleepHours: totalHours,
-                awakeMinutes: Double(awakeMinutes)
+            efficiencyPercent: Self.sleepEfficiencyPercent(
+                asleepMinutes: totalHours * 60,
+                awakeMinutes: awakeMinutes
             ),
             wakeConsistency: consistency
         )
