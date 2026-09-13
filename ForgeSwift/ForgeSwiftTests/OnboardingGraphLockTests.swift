@@ -1,4 +1,5 @@
 import XCTest
+import ForgeCore
 @testable import ForgeSwift
 
 /// App-side lock for the #168 graph. Same shape as AriaCoachAgentRouterTests:
