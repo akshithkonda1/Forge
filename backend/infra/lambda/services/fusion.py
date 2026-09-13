@@ -589,7 +589,11 @@ def _plan_for_stance(
     recovery: float | None,
 ) -> tuple[str, str, str, str, str, list[str], int | None]:
     lead = signals[0] if signals else None
-    learned_move = str(getattr(brief, "one_next_move", "") or "").strip()
+    # one_next_move is written for the *persona* stance. After reconcile it
+    # may disagree — never let a proceed sentence ship on a protect plan.
+    learned_move = ""
+    if str(getattr(brief, "stance", "") or "") == stance:
+        learned_move = str(getattr(brief, "one_next_move", "") or "").strip()
     slot = str(getattr(brief, "preferred_slot", "") or "").strip()
     onset = ctx.chronotype.typical_sleep_onset
 
