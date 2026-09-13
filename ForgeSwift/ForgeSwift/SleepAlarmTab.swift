@@ -505,7 +505,7 @@ struct AlarmRow: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Edit \(alarm.label) alarm, \(timeStr), \(daysStr)")
-            Toggle("", isOn: Binding(get: { alarm.isEnabled }, set: { on in}
+            Toggle("", isOn: Binding(get: { alarm.isEnabled }, set: { on in
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 onToggle(on)
             }))
