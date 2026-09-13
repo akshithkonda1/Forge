@@ -125,6 +125,12 @@ public enum AriaIntentResolver {
                 add(domain, weight, "mentions \(named)")
             }
         }
+        // Wake-target asks ("up at 6am starting Monday") have no sleep keyword.
+        // Without this, `rank` falls through to lifestyle. Do not put "up at"
+        // on the sleep phrase list — that steals "what's up at the gym".
+        if ScheduleGoalParser.isScheduleAsk(input.text) {
+            add(.sleep, Weight.phrase, "named a wake target")
+        }
 
         // --- The body's own argument ---
         //
