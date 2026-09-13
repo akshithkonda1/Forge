@@ -359,8 +359,35 @@ class CoachRouteTests(unittest.TestCase):
         )
         self.assertEqual(response["statusCode"], 200)
         payload = body(response)
-        self.assertIn("recovery", payload["message"].lower())
+        card = payload.get("card") or {}
+        speak = " ".join(
+            [
+                payload.get("message") or "",
+                payload.get("prose_summary") or "",
+                card.get("action") or "",
+                card.get("rationale") or "",
+                card.get("timing") or "",
+            ]
+        ).lower()
+        # #264 vitals scrub: speak must stay clean. Recovery intent lives on
+        # suggested_actions, not a "recovery score" dump in message.
+        for banned in (
+            "hrv",
+            "bpm",
+            "mmhg",
+            "spo2",
+            "vo2",
+            "sleep debt",
+            "sleep-debt",
+            "% below baseline",
+            "recovery score",
+        ):
+            self.assertNotIn(banned, speak, banned)
         self.assertIsInstance(payload["suggested_actions"], list)
+        self.assertTrue(
+            any("recovery" in str(action).lower() for action in payload["suggested_actions"]),
+            payload["suggested_actions"],
+        )
         self.assertEqual(payload["context_updates"]["relationship_level"], 2)
 
     def test_aria_chat_uses_live_bedrock_when_enabled(self):

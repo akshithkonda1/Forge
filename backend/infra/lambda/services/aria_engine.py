@@ -1737,7 +1737,6 @@ def _recommendation_response(
     is_lifestyle = brief is not None and str(getattr(brief, "lead_domain", "") or "") == "lifestyle"
     notice = _lifestyle_notice(" ".join(notice_bits), brief, action)
     sleep_safe = "Sleep first tonight — protect wind-down before training volume."
-    recovery_safe = "Keep today easy and let recovery catch up."
     # #264 sanitizer still keys off sleep_first; #262 moved the gate into
     # aria_evidence, so restore the same HRV↓ + tonight-debt>2h flag here.
     hrv_falling = ctx.readiness.hrv_7day_trend is not None and ctx.readiness.hrv_7day_trend <= -8
@@ -1758,20 +1757,10 @@ def _recommendation_response(
         rationale = _speak_without_vitals(rationale, action)
         expected = _speak_without_vitals(expected, action)
     else:
-        prose = _speak_without_vitals(
-            prose,
-            sleep_safe if sleep_first else "",
-            recovery_safe if pattern.key == "low_readiness" else "",
-            action,
-        )
+        prose = _speak_without_vitals(prose, sleep_safe if sleep_first else "", action)
         notice_bits[0] = prose
         notice = " ".join(bit for bit in notice_bits if bit)
-        action = _speak_without_vitals(
-            action,
-            sleep_safe if sleep_first else "",
-            recovery_safe if pattern.key == "low_readiness" else "",
-            _SPEAK_FALLBACK,
-        )
+        action = _speak_without_vitals(action, sleep_safe if sleep_first else "", _SPEAK_FALLBACK)
         timing = _speak_without_vitals(timing, "Reassess after you recover.")
     why = timing
     card = None if voice_mode else {
