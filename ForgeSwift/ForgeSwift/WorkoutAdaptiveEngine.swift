@@ -81,6 +81,25 @@ enum AdaptiveEngine {
         }
     }
 
+    /// Apply today's recovery scaling to every movement. Call this when the
+    /// plan is written, not behind an extra tap — ARIA thrives when the
+    /// board already matches the body. Users can still add a set in Train.
+    static func apply(to workout: WorkoutPlan, readiness: ReadinessData, experience: ExperienceLevel) -> WorkoutPlan {
+        let scaling = Self.scaling(readiness: readiness, experience: experience)
+        var next = workout
+        next.scaleHeadline = scaling.headline
+        guard scaling.isModified else {
+            next.autoScaled = false
+            return next
+        }
+        next.exercises = workout.exercises.map { scaled($0, by: scaling) }
+        next.autoScaled = true
+        if scaling.volumeMultiplier < 1 {
+            next.duration = max(12, Int((Double(workout.duration) * scaling.volumeMultiplier).rounded()))
+        }
+        return next
+    }
+
     /// Applies scaling to a single plan row (non-destructive — returns a new Exercise).
     static func scaled(_ exercise: Exercise, by scaling: PlanScaling) -> Exercise {
         guard scaling.isModified else { return exercise }

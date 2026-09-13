@@ -360,6 +360,10 @@ struct WorkoutPlan: Identifiable {
     var duration: Int
     var intensity: WorkoutIntensity
     var exercises: [Exercise]
+    /// ARIA already trimmed or nudged this plan from readiness. The user can
+    /// still add a set when they feel it — auto-scale is the default, not a lock.
+    var autoScaled: Bool = false
+    var scaleHeadline: String? = nil
     var estimatedCalories: Int {
         // Estimate based on duration and intensity
         let baseCalories = duration * 5 // ~5 cal per minute base

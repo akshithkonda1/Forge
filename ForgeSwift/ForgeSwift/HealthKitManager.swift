@@ -314,6 +314,7 @@ class HealthKitManager: ObservableObject {
     var testReadyHydrationMilliliters: Double?
 
     private var observerQueries: [HKObserverQuery] = []
+    var liveHeartRateQuery: HKQuery?
     private var liveRefreshTask: Task<Void, Never>?
     private var isObserving = false
     /// Last Test-Ready pack successfully written. Persisted so Simulator

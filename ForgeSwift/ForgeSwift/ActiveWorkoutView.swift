@@ -12,22 +12,20 @@ struct ActiveWorkoutView: View {
 
     // Bio metrics
     @State private var elapsedSecs:    Int    = 0
-    @State private var simulatedHR:    Int    = 72
+    @State private var simulatedHR:    Int    = 0
+    @State private var liveHeartRate:  Int?   = nil
+    @State private var heartRateIsLive = false
     @State private var peakHR:         Int    = 72
     @State private var hrHistory:      [Int]  = []
     @State private var estimatedCals:  Double = 0
+    /// Recommendation engine treats unknown O₂ as normal. The chip never
+    /// displays this — we do not invent a saturation walk.
     @State private var simulatedSpO2:  Int    = 98
-    @State private var peakSpO2:       Int    = 98
-    @State private var minSpO2:        Int    = 98
-    @State private var showO2Warning:  Bool   = false
 
     // Rest
     @State private var isResting:      Bool   = false
     @State private var restTimeLeft:   Int    = 0
     @State private var restTotal:      Int    = 90
-
-    // Coach
-    @State private var coachIndex:     Int    = 0
 
     // Set logging
     @State private var setLog:         [SetLogEntry] = []
@@ -43,7 +41,6 @@ struct ActiveWorkoutView: View {
     @State private var showPainLogger: Bool   = false
 
     // Adaptive / ARIA
-    @StateObject private var aria = ARIACoachService()
     @State private var voiceCoach = VoiceCoachManager()
     @State private var autoRegLog:     [String] = []
     @State private var muscleVolume:   [TargetMuscle: Double] = [:]
@@ -68,11 +65,8 @@ struct ActiveWorkoutView: View {
 
     // Tasks
     @State private var elapsedTask: Task<Void, Never>? = nil
-    @State private var hrTask:      Task<Void, Never>? = nil
     @State private var calTask:     Task<Void, Never>? = nil
-    @State private var o2Task:      Task<Void, Never>? = nil
     @State private var restTask:    Task<Void, Never>? = nil
-    @State private var coachTask:   Task<Void, Never>? = nil
 
     private var exercises:       [Exercise] { store.todayWorkout?.exercises ?? [] }
     private var currentExercise: Exercise?  { exercises.indices.contains(store.currentExerciseIndex) ? exercises[store.currentExerciseIndex] : nil }
@@ -130,10 +124,6 @@ struct ActiveWorkoutView: View {
                                    onDismiss: { withAnimation { showSwapBanner = false } })
                 .transition(.move(edge: .top).combined(with: .opacity)).zIndex(30)
             }
-            if showO2Warning {
-                O2WarningBanner(spO2: simulatedSpO2) { withAnimation { showO2Warning = false } }
-                .transition(.move(edge: .top).combined(with: .opacity)).zIndex(25)
-            }
             if showPRBanner {
                 PRBannerView(exerciseName: prExerciseName)
                     .transition(.move(edge: .top).combined(with: .opacity)).zIndex(20)
@@ -173,16 +163,19 @@ struct ActiveWorkoutView: View {
             startTasks()
             setupCurrentWeight()
             if store.dailyMetrics.restingHR > 0 {
-                simulatedHR = max(simulatedHR, store.dailyMetrics.restingHR)
+                simulatedHR = store.dailyMetrics.restingHR
             }
+            startHealthHeartRate()
             syncVoiceCoach()
             voiceCoach.setVoiceEnabled(AriaTrainVoice.isEnabled)
             voiceCoach.announceWorkoutStart()
             publishLiveActivity()
         }
-        .onDisappear { cancelTasks() }
+        .onDisappear {
+            cancelTasks()
+            HealthKitManager.shared.stopLiveHeartRateUpdates()
+        }
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: showPRBanner)
-        .animation(.spring(response: 0.4, dampingFraction: 0.82), value: showO2Warning)
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: showSwapBanner)
         .animation(.spring(response: 0.45, dampingFraction: 0.85), value: showSetLogger)
         .animation(.spring(response: 0.45, dampingFraction: 0.85), value: showPainLogger)
@@ -259,8 +252,8 @@ struct ActiveWorkoutView: View {
                 .background(showEndConfirm ? Color.danger : Color.danger.opacity(0.12)).cornerRadius(9)
                 .animation(.spring(response: 0.3, dampingFraction: 0.72), value: showEndConfirm)
         }
-        .accessibilityLabel(showEndConfirm ? "Confirm end workout" : "End workout")
-        .accessibilityHint(showEndConfirm ? "Ends and saves this session" : "Activate twice to end and save this session")
+        .accessibilityLabel(showEndConfirm ? "Confirm end session" : "End session")
+        .accessibilityHint(showEndConfirm ? "Ends and saves this session to Apple Health" : "Activate twice to end and save this session")
     }
 
     // MARK: Nav Strip
@@ -331,10 +324,9 @@ struct ActiveWorkoutView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 heartRateChip
-                let o2Color: Color = simulatedSpO2 < 94 ? .danger : simulatedSpO2 < 96 ? .warning : Color(hex: "38BDF8")
-                primaryMetricChip(icon: "lungs.fill", iconColor: o2Color, value: "\(simulatedSpO2)%", unit: "O₂", accent: o2Color, glowing: simulatedSpO2 < 95)
+                primaryMetricChip(icon: "lungs.fill", iconColor: Color(hex: "38BDF8"), value: "—", unit: "O₂", accent: Color(hex: "38BDF8"), glowing: false)
                     .accessibilityLabel("Blood oxygen")
-                    .accessibilityValue("\(simulatedSpO2) percent")
+                    .accessibilityValue("No live blood oxygen from Apple Health")
                 liveChip(icon: "flame.fill", iconColor: .ember, value: "\(Int(estimatedCals))", unit: "kcal", accent: .ember)
                     .accessibilityLabel("Energy burned")
                     .accessibilityValue("\(Int(estimatedCals)) calories")
@@ -368,8 +360,8 @@ struct ActiveWorkoutView: View {
                 }
                 .fixedSize()
             }
-            Text("\(simulatedHR)").font(.system(size: 16, weight: .black, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
-            Text("bpm").font(.system(size: 11, weight: .semibold)).foregroundColor(currentZone.color.opacity(0.8))
+            Text(simulatedHR > 0 ? "\(simulatedHR)" : "—").font(.system(size: 16, weight: .black, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
+            Text(heartRateIsLive ? "live" : "bpm").font(.system(size: 11, weight: .semibold)).foregroundColor(currentZone.color.opacity(0.8))
             Rectangle().fill(currentZone.color.opacity(0.28)).frame(width: 1, height: 13).padding(.horizontal, 2)
             Text(currentZone.label).font(.system(size: 12, weight: .black)).foregroundColor(currentZone.color)
         }
@@ -381,7 +373,7 @@ struct ActiveWorkoutView: View {
         .animation(.easeInOut(duration: 0.7), value: currentZone.label)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Heart rate")
-        .accessibilityValue("\(simulatedHR) beats per minute, \(currentZone.label)")
+        .accessibilityValue(simulatedHR > 0 ? "\(simulatedHR) beats per minute, \(currentZone.label)" : "No live heart rate from Apple Health")
     }
 
     @ViewBuilder
@@ -617,6 +609,23 @@ struct ActiveWorkoutView: View {
                 .cornerRadius(20).shadow(color: (isFinish ? Color.success : Color.ember).opacity(0.5), radius: 20, y: 8)
                 .animation(.spring(response: 0.35, dampingFraction: 0.72), value: isFinish)
             }
+            Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                store.addFeltSet(exerciseId: exercise.id)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill").font(.system(size: 15, weight: .bold))
+                    Text("I feel another set").font(.system(size: 15, weight: .bold, design: .rounded))
+                    Spacer()
+                    Text("\(exercise.sets) sets").font(.system(size: 12, weight: .semibold)).foregroundColor(.white.opacity(0.8))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 20).padding(.vertical, 14)
+                .background(Color.steel.opacity(0.85))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .accessibilityLabel("Add a set because you feel it")
+            .accessibilityHint("Adds one working set to this movement without undoing ARIA's scale")
             HStack(spacing: 10) {
                 actionMini(icon: "forward.fill", label: "Skip", color: .textSecondary) { skipExercise() }
                 Button {
@@ -642,14 +651,6 @@ struct ActiveWorkoutView: View {
                     .background(Color.success.opacity(0.12)).cornerRadius(14)
                     .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.success.opacity(0.3), lineWidth: 1))
                 }
-                Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.easeInOut(duration: 0.4)) { coachIndex += 1 }
-                } label: {
-                    Image(systemName: "brain.head.profile").font(.system(size: 14)).foregroundColor(.ember).frame(width: 46, height: 46)
-                        .background(Color.ember.opacity(0.1)).cornerRadius(14).overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.ember.opacity(0.3), lineWidth: 1))
-                }
-                .accessibilityLabel("Next coaching cue")
             }
         }
     }
@@ -669,10 +670,19 @@ struct ActiveWorkoutView: View {
     // MARK: Coach Bar (contextual, data-driven)
 
     private var liveCoachCues: [String] {
-        var cues: [String] = [recommendation.rationale]
+        var cues: [String] = []
+        let voice = AriaVoiceEngine.speak(
+            intent: .trainingPlan,
+            context: store.makeTrainerContext(),
+            input: currentExercise.map { "Cue me through \($0.name)" } ?? "What's the next set?",
+            facts: AriaSpeechFacts()
+        )
+        if !voice.isEmpty { cues.append(voice) }
+        cues.append(recommendation.rationale)
         if let def = currentDef { cues.append(contentsOf: def.cues) }
-        cues.append(currentZone.index >= 4 ? "HR is climbing — keep technique tight as you fatigue." : "O₂ is solid — you can hold this pace.")
-        cues.append("Brace the core and own every rep.")
+        if heartRateIsLive, currentZone.index >= 4 {
+            cues.append("Heart rate is climbing — keep technique tight as you fatigue.")
+        }
         return cues
     }
 
@@ -771,7 +781,6 @@ struct ActiveWorkoutView: View {
         } else {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
-        if loggedRPE >= 9 { withAnimation(.easeInOut(duration: 0.4)) { coachIndex += 1 } }
 
         let isLastSet = store.currentSet >= exercise.sets
         let isLastEx  = store.currentExerciseIndex >= exercises.count - 1
@@ -829,6 +838,7 @@ struct ActiveWorkoutView: View {
 
     private func endWorkout() {
         cancelTasks()
+        HealthKitManager.shared.stopLiveHeartRateUpdates()
         let avgHR  = hrHistory.isEmpty ? simulatedHR : hrHistory.reduce(0, +) / hrHistory.count
         let rpes   = setLog.map { Double($0.rpe) }
         let avgRPE = rpes.isEmpty ? 0 : rpes.reduce(0, +) / Double(rpes.count)
@@ -839,11 +849,15 @@ struct ActiveWorkoutView: View {
         let data = WorkoutSummaryData(
             duration: elapsedSecs, totalVolume: totalVolume, totalSets: setLog.count,
             totalReps: setLog.reduce(0) { $0 + $1.repsPerformed }, peakHR: peakHR, avgHR: avgHR,
-            peakO2: peakSpO2, minO2: minSpO2, caloriesBurned: Int(estimatedCals), personalRecords: prs,
+            peakO2: 0, minO2: 0, caloriesBurned: Int(estimatedCals), personalRecords: prs,
             exercisesCompleted: min(store.currentExerciseIndex + 1, exercises.count), avgRPE: avgRPE, hrHistory: hrHistory,
             muscleVolume: mvStr, autoRegLog: autoRegLog, painFlags: painFlags,
-            readiness: store.readiness.overall, workoutName: store.todayWorkout?.name ?? "Workout")
-        store.endWorkout()
+            readiness: store.readiness.overall, workoutName: store.todayWorkout?.name ?? "Train")
+        store.endWorkout(
+            startedAt: sessionStartedAt,
+            elapsedSeconds: elapsedSecs,
+            energyKilocalories: estimatedCals
+        )
         Task { await WorkoutActivityCoordinator.shared.finishActivity() }
         onWorkoutEnd(data)
     }
@@ -892,7 +906,7 @@ struct ActiveWorkoutView: View {
     private func nextLabel(exercise: Exercise) -> String {
         let isLastSet = store.currentSet >= exercise.sets
         let isLastEx  = store.currentExerciseIndex >= exercises.count - 1
-        if isLastSet && isLastEx { return "Workout Complete 🎉" }
+        if isLastSet && isLastEx { return "Session complete" }
         if isLastSet {
             let next = exercises.indices.contains(store.currentExerciseIndex + 1) ? exercises[store.currentExerciseIndex + 1].name : "Done"
             return "Next: \(next)"
@@ -900,23 +914,39 @@ struct ActiveWorkoutView: View {
         return "Set \(store.currentSet) of \(exercise.sets) done"
     }
 
+    private func startHealthHeartRate() {
+        Task {
+            if let bpm = await HealthKitManager.shared.latestHeartRateBPM() {
+                applyLiveHeartRate(bpm, warn: false)
+            }
+            HealthKitManager.shared.startLiveHeartRateUpdates { bpm in
+                Task { @MainActor in
+                    applyLiveHeartRate(bpm, warn: true)
+                }
+            }
+        }
+    }
+
+    private func applyLiveHeartRate(_ bpm: Int, warn: Bool) {
+        liveHeartRate = bpm
+        heartRateIsLive = true
+        simulatedHR = bpm
+        hrHistory.append(bpm)
+        if bpm > peakHR { peakHR = bpm }
+        if warn, bpm >= 175, !didWarnHR {
+            didWarnHR = true
+            voiceCoach.announceHRWarning(hr: bpm)
+        }
+    }
+
     // MARK: Tasks
 
     private func startTasks() {
         elapsedTask = Task {
-            while !Task.isCancelled { try? await Task.sleep(for: .seconds(1)); guard !Task.isCancelled else { return }; elapsedSecs += 1 }
-        }
-        hrTask = Task {
             while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(1500)); guard !Task.isCancelled else { return }
-                let target = isResting ? (108 + Double.random(in: 0...18)) : (140 + Double.random(in: 0...26))
-                simulatedHR = Int((Double(simulatedHR) + (target - Double(simulatedHR)) * 0.12 + Double.random(in: -4...4)).rounded().clamped(to: 55...200))
-                hrHistory.append(simulatedHR)
-                if simulatedHR > peakHR { peakHR = simulatedHR }
-                if simulatedHR >= 175, !didWarnHR {
-                    didWarnHR = true
-                    voiceCoach.announceHRWarning(hr: simulatedHR)
-                }
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                elapsedSecs += 1
                 if elapsedSecs % 5 == 0 { publishLiveActivity() }
             }
         }
@@ -930,28 +960,10 @@ struct ActiveWorkoutView: View {
                 estimatedCals += (met * 3.5 * weightKg / 200 / 60) * hrScale
             }
         }
-        o2Task = Task {
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(3)); guard !Task.isCancelled else { return }
-                let drop     = simulatedHR > 160 ? Double.random(in: 1...3) : simulatedHR > 140 ? Double.random(in: 0...1.5) : 0.0
-                let recovery = isResting ? Double.random(in: 0...1) : 0
-                simulatedSpO2 = Int((Double(simulatedSpO2) - drop + recovery).rounded().clamped(to: 90.0...100.0))
-                if simulatedSpO2 > peakSpO2 { peakSpO2 = simulatedSpO2 }
-                if simulatedSpO2 < minSpO2  { minSpO2  = simulatedSpO2 }
-                if simulatedSpO2 < 94 && !showO2Warning {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { showO2Warning = true }
-                    UINotificationFeedbackGenerator().notificationOccurred(.warning)
-                    Task { try? await Task.sleep(for: .seconds(5)); withAnimation { showO2Warning = false } }
-                }
-            }
-        }
-        coachTask = Task {
-            while !Task.isCancelled { try? await Task.sleep(for: .seconds(9)); guard !Task.isCancelled else { return }; withAnimation(.easeInOut(duration: 0.4)) { coachIndex += 1 } }
-        }
     }
     private func cancelTasks() {
-        [elapsedTask, hrTask, calTask, o2Task, restTask, coachTask].forEach { $0?.cancel() }
-        elapsedTask = nil; hrTask = nil; calTask = nil; o2Task = nil; restTask = nil; coachTask = nil
+        [elapsedTask, calTask, restTask].forEach { $0?.cancel() }
+        elapsedTask = nil; calTask = nil; restTask = nil
     }
     private func formatTime(_ s: Int, flashColon: Bool = true) -> String {
         // A plain space would give the clock a line-break opportunity, so a tight
