@@ -18,7 +18,7 @@ const TABS: TabId[] = ["home", "chat", "workout", "sleep", "profile"];
 function BootSplash() {
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background">
-      <AriaOrb mood="focused" size={88} />
+      <AriaOrb mood="focused" size={96} />
       <p className="mt-5 text-[11px] font-black uppercase tracking-[0.28em] text-ember">
         This is ARIA
       </p>

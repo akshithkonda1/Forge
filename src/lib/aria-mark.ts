@@ -21,9 +21,95 @@ export const ARIA_MARK = {
     "Brand mark = kinetic overlapping ellipses in Forge orange. Not gooey ember. Not readiness progress trim or score label. Reduce Motion freezes at stillPoseAngleDeg. No PNG runtime. Cove contrast: strokeWidthCompact 1.5 (never below ~3 CSS px at 1×). Compact 3-ring subset should prefer the two ≥0.70 rings + one supporting ring.",
 } as const;
 
+/** Web compact ceiling. Contract recommends 28; slots ≤32 stay still-pose. */
+export const ARIA_MARK_COMPACT_MAX = 32;
+export const ARIA_MARK_CONTRAST_FLOOR = 0.7;
+
+export type AriaMarkSizeTier = "compact" | "mid" | "hero";
+export type AriaRingPose = {
+  rx: number;
+  ry: number;
+  rotation: number;
+  opacity: number;
+};
+
+export function ariaMarkSizeTier(size: number): AriaMarkSizeTier {
+  if (size <= ARIA_MARK_COMPACT_MAX) return "compact";
+  if (size >= ARIA_MARK.heroMinimumSize) return "hero";
+  return "mid";
+}
+
+/** Compact marks stay still. Mid/hero spin unless Reduce Motion. */
+export function ariaMarkShouldSpin(size: number, reduceMotion: boolean): boolean {
+  return !reduceMotion && ariaMarkSizeTier(size) !== "compact";
+}
+
+export function contrastRingIndices(
+  opacities: readonly number[] = ARIA_MARK.opacity
+): number[] {
+  return opacities.flatMap((opacity, index) =>
+    opacity >= ARIA_MARK_CONTRAST_FLOOR ? [index] : []
+  );
+}
+
+/** Two ≥0.70 rings plus the strongest supporting ring — Cove 3-ring subset. */
+export function compactRingIndices(
+  opacities: readonly number[] = ARIA_MARK.opacity
+): number[] {
+  const contrast = contrastRingIndices(opacities);
+  let support = -1;
+  let best = Number.NEGATIVE_INFINITY;
+  opacities.forEach((opacity, index) => {
+    if (opacity < ARIA_MARK_CONTRAST_FLOOR && opacity > best) {
+      best = opacity;
+      support = index;
+    }
+  });
+  return [...contrast, ...(support >= 0 ? [support] : [])].sort((a, b) => a - b);
+}
+
+export function visibleRingIndices(size: number): number[] {
+  if (size < ARIA_MARK.heroMinimumSize) return compactRingIndices();
+  return Array.from({ length: ARIA_MARK.ringCount }, (_, index) => index);
+}
+
+export function ringStrokeWidth(size: number): number {
+  const raw =
+    size < ARIA_MARK.heroMinimumSize
+      ? ARIA_MARK.strokeWidthCompact
+      : ARIA_MARK.strokeWidthHero;
+  return Math.max(ARIA_MARK.strokeWidthCompact, raw);
+}
+
+export function ringSpinHz(speaking: boolean): number {
+  return speaking ? ARIA_MARK.speakingSpinHz : ARIA_MARK.idleSpinHz;
+}
+
+/** Lockstep with Swift `AriaSigilGeometry.ellipse`. */
+export function ringEllipse(
+  index: number,
+  time: number,
+  speaking: boolean,
+  reduceMotion: boolean
+): AriaRingPose {
+  const i = Math.max(0, Math.min(ARIA_MARK.ringCount - 1, index));
+  const radius = ARIA_MARK.radii[i] ?? ARIA_MARK.radii[0];
+  const ecc = ARIA_MARK.eccentricity[i] ?? ARIA_MARK.eccentricity[0];
+  const tilt = ((ARIA_MARK.tiltDeg[i] ?? 0) * Math.PI) / 180;
+  const phase = (ARIA_MARK.phaseOffsets[i] ?? 0) * Math.PI * 2;
+  const still = (ARIA_MARK.stillPoseAngleDeg * Math.PI) / 180;
+  const spin = reduceMotion ? still : time * ringSpinHz(speaking) * Math.PI * 2;
+  return {
+    rx: radius * (1 + ecc),
+    ry: radius * (1 - ecc),
+    rotation: tilt + phase + spin,
+    opacity: ARIA_MARK.opacity[i] ?? ARIA_MARK.opacity[0],
+  };
+}
+
 /**
- * Legacy gooey-ember motion. Canvas still draws this until the ring-field
- * renderer lands. Not part of the living brand contract.
+ * Legacy gooey-ember motion. Unused by brand slots — ring-field is the living mark.
+ * Kept so the retired hearth can be deleted in one place.
  */
 export const LEGACY_EMBER = {
   idleBreathHz: 0.42,
