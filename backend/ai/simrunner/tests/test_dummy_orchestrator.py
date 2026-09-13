@@ -470,6 +470,160 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertNotIn("fresh pass", blob)
         self.assertNotIn("following on from", blob)
 
+    def test_default_engine_stays_stub_for_simrunner_matrix(self):
+        stub = dummy.respond("What should I train today?", seed=5)
+        explicit = dummy.respond("What should I train today?", seed=5, engine="stub")
+        self.assertEqual(stub["reasoning_source"], dummy.REASONING_SOURCE)
+        self.assertEqual(stub["model"], dummy.STUB_MODEL)
+        self.assertEqual(stub["prose_summary"], explicit["prose_summary"])
+        self.assertNotEqual(stub["reasoning_source"], dummy.LAMBDA_REASONING_SOURCE)
+
+    def test_lambda_engine_refuses_cloud_and_production(self):
+        os.environ["ENVIRONMENT"] = "production"
+        with self.assertRaises(RuntimeError):
+            dummy.respond("What should I train today?", engine="lambda")
+        os.environ.pop("ENVIRONMENT", None)
+        previous = os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+        os.environ["AWS_LAMBDA_FUNCTION_NAME"] = "forge-dummy-test"
+        try:
+            with self.assertRaises(RuntimeError) as ctx:
+                dummy.respond("how did I sleep?", engine="lambda")
+            self.assertIn("local-only", str(ctx.exception))
+        finally:
+            if previous is None:
+                os.environ.pop("AWS_LAMBDA_FUNCTION_NAME", None)
+            else:
+                os.environ["AWS_LAMBDA_FUNCTION_NAME"] = previous
+
+    def test_lambda_engine_never_calls_bedrock(self):
+        from backend._paths import ensure_lambda_on_path
+        from backend.ai.simrunner.aria_simrunner import bedrock_client
+
+        ensure_lambda_on_path()
+        from services import aria_engine as engine_mod
+
+        def boom(*_args, **_kwargs):
+            raise AssertionError("dummy lambda engine must not call Bedrock")
+
+        original = bedrock_client.converse
+        live = engine_mod.generate_response_live
+        bedrock_client.converse = boom
+        engine_mod.generate_response_live = boom
+        try:
+            self.assertFalse(engine_mod.bedrock_enabled())
+            row = dummy.respond("What should I train today?", seed=1, engine="lambda")
+            self.assertEqual(row["reasoning_source"], dummy.LAMBDA_REASONING_SOURCE)
+            self.assertEqual(row["model"], dummy.LAMBDA_MODEL)
+        finally:
+            bedrock_client.converse = original
+            engine_mod.generate_response_live = live
+
+    def test_lambda_engine_uses_fuse_turn_and_generate_response(self):
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from services import aria_engine as engine_mod
+        from services import fusion as fusion_mod
+
+        with patch.object(fusion_mod, "fuse_turn", wraps=fusion_mod.fuse_turn) as fuse:
+            with patch.object(
+                engine_mod, "generate_response", wraps=engine_mod.generate_response
+            ) as gen:
+                with patch.object(engine_mod, "generate_response_live") as live:
+                    row = dummy.respond("What should I train today?", seed=1, engine="lambda")
+        fuse.assert_called_once()
+        self.assertFalse(fuse.call_args.kwargs.get("persist", True))
+        gen.assert_called_once()
+        live.assert_not_called()
+        self.assertEqual(row["orchestration"]["engine"], dummy.ENGINE_LAMBDA)
+        self.assertIn(row["fusion"]["source"], ("body_model", "payload", "persisted"))
+        self.assertTrue(row["orchestration"]["observation_count"] >= 0)
+
+    def test_lambda_engine_guidance_short_circuit(self):
+        row = dummy.respond("diagnose me", seed=1, engine="lambda")
+        self.assertEqual(row.get("guidance_band"), "refer_out")
+        blob = f"{row['prose_summary']} {row['message']}".lower()
+        self.assertIn("not a doctor", blob)
+        self.assertNotIn("guidance_band", dummy.respond("What should I train today?", seed=1, engine="lambda"))
+
+    def test_lambda_engine_stance_protect_changes_session_or_prose(self):
+        proceed = dummy.respond("What should I train today?", seed=1, engine="lambda")
+        protect = dummy.respond(
+            "What should I train today?",
+            seed=1,
+            engine="lambda",
+            lifestyle_tags=["calendar:kind:wedding", "calendar:evening:busy", "calendar:busy:4"],
+        )
+        self.assertEqual(protect["fusion"]["stance"], "protect")
+        self.assertNotEqual(proceed["fusion"]["stance"], "protect")
+        proceed_session = proceed.get("session") or {}
+        protect_session = protect.get("session") or {}
+        self.assertTrue(proceed_session)
+        self.assertTrue(protect_session)
+        self.assertTrue(
+            proceed_session != protect_session
+            or proceed["prose_summary"] != protect["prose_summary"]
+            or (proceed.get("card") or {}).get("action") != (protect.get("card") or {}).get("action"),
+            (proceed["prose_summary"], protect["prose_summary"]),
+        )
+        self.assertIn("protect", (protect_session.get("reason") or protect["prose_summary"]).lower())
+
+    def test_lambda_engine_no_vitals_dump(self):
+        for prompt in (
+            "How did I sleep last night?",
+            "What should I train today?",
+            "I slept badly — what should I train and eat?",
+        ):
+            row = dummy.respond(prompt, seed=11, engine="lambda")
+            self._assert_no_vitals_speak(row)
+            self.assertTrue(row["prose_summary"].strip())
+
+    def test_lambda_engine_strips_partner_cycle_tags_before_fuse(self):
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from services import fusion as fusion_mod
+
+        captured: dict = {}
+        original = fusion_mod.fuse_turn
+
+        def wrap(user_id, payload, *args, **kwargs):
+            captured["payload"] = payload
+            return original(user_id, payload, *args, **kwargs)
+
+        with patch.object(fusion_mod, "fuse_turn", side_effect=wrap):
+            dummy.respond(
+                "What should I train today?",
+                seed=1,
+                engine="lambda",
+                lifestyle_tags=[
+                    "partner_name:Sam",
+                    "calendar:kind:wedding",
+                    "cycle:bleeding",
+                    "calendar:evening:busy",
+                ],
+            )
+        tags = ((captured.get("payload") or {}).get("context") or {}).get("lifestyle") or {}
+        kept = tags.get("tags") or []
+        blob = " ".join(kept).lower()
+        self.assertNotIn("partner_name", blob)
+        self.assertNotIn("cycle:bleeding", blob)
+        self.assertIn("calendar:kind:wedding", kept)
+
+    def test_lambda_engine_speak_stays_a_friend_not_a_clinician(self):
+        row = dummy.respond("What should I train today?", seed=1, engine="lambda")
+        blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}".lower()
+        for banned in ("prescrib", "cure", "treat this", "medical condition"):
+            self.assertNotIn(banned, blob, banned)
+
+    def test_lambda_engine_same_seed_is_deterministic(self):
+        a = dummy.respond("How did I sleep last night?", seed=7, engine="lambda")
+        b = dummy.respond("How did I sleep last night?", seed=7, engine="lambda")
+        self.assertEqual(a["prose_summary"], b["prose_summary"])
+        self.assertEqual(a["message"], b["message"])
+        self.assertEqual(a["fusion"]["stance"], b["fusion"]["stance"])
+        self.assertEqual(a["reasoning_source"], dummy.LAMBDA_REASONING_SOURCE)
+
     def _assert_no_vitals_speak(self, row: dict) -> None:
         blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}".lower()
         for banned in (

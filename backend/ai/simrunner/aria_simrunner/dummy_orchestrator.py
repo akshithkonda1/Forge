@@ -5,8 +5,10 @@ streams and a stub so ARIA features can be exercised on a laptop. The
 long-term learner is ``services.contextual_learner`` on the Lambda hot path.
 ``respond()`` may *consume* that module in-process so dummy tests exercise
 the same policy a real backend will; it must never own Q-tables, persona
-storage, or teaching copy. Deleting this file must leave the learner and
-``POST /ai/chat`` intact.
+storage, or teaching copy. With ``engine="lambda"`` it also consumes
+``services.fusion.fuse_turn`` and ``aria_engine.generate_response`` (Bedrock
+off) so hypertune reads fused product speak. Deleting this file must leave
+the learner, fusion, and ``POST /ai/chat`` intact.
 
 This is *not* a live model. It is a staged stand-in for one: ingest the
 turn, score intents, fan the specialists out, let the stub decide the
@@ -23,7 +25,9 @@ The one intentional exception: ``respond()`` can call out to
 ``web_research``, a separate, clearly-named collaborator whose entire job is
 a curated, keyless fetch from a handful of general (non-Forge) reference
 URLs — gated to non-cloud execution, isolated in its own module so this
-module's "no network to Forge/AWS" claim stays literally true.
+module's "no network to Forge/AWS" claim stays literally true. The lambda
+engine is in-process only: fusion + deterministic ``generate_response``,
+never ``generate_response_live`` and never a cloud SDK.
 
 Every ``respond()`` call also carries a ``voice_diagnosis`` — a deterministic
 read on whether the primary reply reads as human or as data-driven.
@@ -54,6 +58,10 @@ _CLOUD_RUNTIME_ENV = (
 )
 REASONING_SOURCE = "simrunner-test-ready"
 STUB_MODEL = "simrunner-stub"
+LAMBDA_REASONING_SOURCE = "lambda-fused"
+LAMBDA_MODEL = "lambda-deterministic"
+ENGINE_STUB = "stub"
+ENGINE_LAMBDA = "lambda"
 ORCH_STAGES = ("ingest", "route", "reason", "specialize", "synthesize", "voice")
 
 # Keep needles aligned with iOS ``AriaCoachAgentRouter``. Duplicated on
@@ -1189,6 +1197,282 @@ def _suggest_body_session(message: str, context) -> dict | None:
     return suggestion
 
 
+def _production_fusion():
+    """Lazy import of live fusion + engine. Dummy must not own these modules."""
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from services import aria_engine as engine_mod
+        from services import fusion as fusion_mod
+
+        return fusion_mod, engine_mod
+    except Exception:
+        return None, None
+
+
+def _sanitize_chat_message(message: str) -> str:
+    """Same inbound scrub ``POST /ai/chat`` uses. Compose, don't reimplement."""
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from security import MAX_CHAT_MESSAGE_CHARS, sanitize_user_text
+
+        return sanitize_user_text(str(message or ""), max_chars=MAX_CHAT_MESSAGE_CHARS)
+    except Exception:
+        return (message or "").strip()
+
+
+def _hrv_trend_points(ctx) -> float | None:
+    hist = getattr(ctx, "history", None) or []
+    vals = [float(r.hrv) for r in hist if getattr(r, "hrv", None) is not None]
+    if len(vals) >= 4:
+        half = len(vals) // 2
+        early = sum(vals[:half]) / max(len(vals[:half]), 1)
+        late = sum(vals[half:]) / max(len(vals[half:]), 1)
+        return round(late - early, 2)
+    label = str(getattr(ctx, "hrv_7d_trend", "") or "")
+    return {"rising": 4.0, "falling": -8.0, "stable": 0.0}.get(label)
+
+
+def _stream_samples(ctx) -> list[dict]:
+    """Project the synthetic stream onto the observe/chat sample bag."""
+    history = list(getattr(ctx, "history", None) or [])
+    today = getattr(ctx, "today", None)
+    if not history and today is not None:
+        history = [today]
+    samples: list[dict] = []
+
+    def add(rec, typ: str, value, unit: str, **extra) -> None:
+        if value is None:
+            return
+        row = {
+            "type": typ,
+            "value": value,
+            "unit": unit,
+            "timestamp": getattr(rec, "date", None) or "",
+            "source": "simrunner",
+        }
+        row.update(extra)
+        samples.append(row)
+
+    for rec in history:
+        hours = getattr(rec, "total_sleep_hours", None)
+        if hours is not None:
+            add(rec, "sleep", float(hours) * 60.0, "min")
+        add(rec, "sleep-stage", getattr(rec, "deep_sleep_minutes", None), "min", stage="deep")
+        add(rec, "sleep-stage", getattr(rec, "rem_sleep_minutes", None), "min", stage="rem")
+        add(rec, "hrv", getattr(rec, "hrv", None), "ms")
+        add(rec, "resting-heart-rate", getattr(rec, "resting_hr", None), "bpm")
+        add(rec, "steps", getattr(rec, "steps", None), "count")
+        add(rec, "active-calories", getattr(rec, "active_calories", None), "kcal")
+    return samples
+
+
+def sim_context_to_chat_payload(
+    ctx,
+    *,
+    lifestyle_tags: list[str] | None = None,
+) -> dict:
+    """Bridge SimRunner's flat day snapshot onto an ``ARIAContext`` chat bag.
+
+    Body-owned fields ride as ``samples`` so ``fuse_turn`` can run BodyModel.
+    Client-kept domains (training / profile / lifestyle) stay on ``context``.
+    """
+    today = ctx.today
+    hist = list(getattr(ctx, "history", None) or [])
+    window3 = hist[-3:] or ([today] if today is not None else [])
+    steps = [r.steps for r in window3 if getattr(r, "steps", None)]
+    cals = [r.active_calories for r in window3 if getattr(r, "active_calories", None)]
+    hours_since = None
+    days = getattr(ctx, "days_since_last_workout", None)
+    if getattr(today, "workout_logged", False):
+        hours_since = 0.0
+    elif isinstance(days, (int, float)):
+        hours_since = float(days) * 24.0
+    sleep_min = None
+    if getattr(today, "total_sleep_hours", None) is not None:
+        sleep_min = float(today.total_sleep_hours) * 60.0
+    last = getattr(ctx, "last_workout_type", None) or getattr(today, "workout_type", None)
+    tags = [str(t) for t in (lifestyle_tags or []) if t]
+    patterns = [p for p in (getattr(ctx, "occupation", None), getattr(ctx, "life_season", None)) if p]
+    if getattr(ctx, "notable_event_note", None):
+        patterns.append(str(ctx.notable_event_note))
+    wake = getattr(ctx, "target_wake_hour", None)
+    wake_s = f"{int(wake):02d}:00" if isinstance(wake, (int, float)) else None
+    return {
+        "user_id": "test-user-00000000",
+        "include_stored": False,
+        "samples": _stream_samples(ctx),
+        "context": {
+            "timestamp": getattr(today, "date", None) or "",
+            "sleep": {
+                "durationMinutes": sleep_min,
+                "deepMinutes": getattr(today, "deep_sleep_minutes", None),
+                "remMinutes": getattr(today, "rem_sleep_minutes", None),
+                "hrv": getattr(today, "hrv", None),
+                "restingHR": getattr(today, "resting_hr", None),
+                "nightsAvailable": getattr(ctx, "sleep_nights_available_7d", None),
+            },
+            "readiness": {
+                "hrv7DayTrend": _hrv_trend_points(ctx),
+                "hrv30DayBaseline": getattr(ctx, "hrv_7d_avg", None),
+                "recoveryScore": getattr(today, "readiness_score", None),
+                "hrvDaysAvailable": getattr(ctx, "hrv_days_available_7d", None),
+            },
+            "training": {
+                "lastWorkoutType": last,
+                "lastWorkoutName": last,
+                "lastWorkoutDurationMinutes": getattr(today, "workout_duration_minutes", None),
+                "hoursSinceLastWorkout": hours_since,
+                "weeklyLoadScore": getattr(today, "acwr", None),
+            },
+            "activity": {
+                "steps3DayAvg": (sum(steps) / len(steps)) if steps else None,
+                "activeCalories3DayAvg": (sum(cals) / len(cals)) if cals else None,
+            },
+            "chronotype": {
+                "typicalWakeTime": wake_s,
+            },
+            "profile": {
+                "experienceLevel": getattr(ctx, "experience_level", None),
+                "coachingStyle": getattr(ctx, "coaching_style", None),
+            },
+            "progress": {
+                "trainingLoadTrend": getattr(ctx, "readiness_trend", None),
+                "workoutsCompleted30d": getattr(ctx, "training_streak", None),
+            },
+            "lifestyle": {
+                "tags": tags,
+                "recentPatterns": patterns,
+            },
+        },
+    }
+
+
+def _scrub_fused_speak(envelope: dict) -> dict:
+    """Compose with the Iris vitals scrub already on this branch — don't replace it."""
+    prose = _speak_without_vitals(envelope.get("prose_summary") or "")
+    chat = _speak_without_vitals(envelope.get("message") or "", prose)
+    envelope["prose_summary"] = prose
+    envelope["message"] = chat
+    card = envelope.get("card")
+    if isinstance(card, dict):
+        for key in ("action", "rationale", "timing", "expected_effect", "why", "interpretation"):
+            if card.get(key):
+                card[key] = _speak_without_vitals(str(card[key]), prose)
+        envelope["card"] = card
+    return envelope
+
+
+def _respond_via_lambda(
+    message: str,
+    ctx,
+    plan: Plan,
+    intents: list[IntentHit],
+    *,
+    seed: int,
+    day_index: int,
+    prior_turns: list[str] | None,
+    lifestyle_tags: list[str] | None,
+) -> dict:
+    """Product path: fuse the synthetic day, then deterministic generate_response."""
+    fusion_mod, engine_mod = _production_fusion()
+    if fusion_mod is None or engine_mod is None:
+        raise RuntimeError("lambda engine requires services.fusion and services.aria_engine")
+
+    safe = _sanitize_chat_message(message)
+    payload = sim_context_to_chat_payload(ctx, lifestyle_tags=lifestyle_tags)
+    payload["message"] = safe
+    # Compose with the inbound sanitizer already on this branch — partner/cycle
+    # PII and calendar titles never reach fuse_turn.
+    try:
+        from routes.aria import sanitize_inbound_chat_payload
+
+        payload = sanitize_inbound_chat_payload(payload)
+    except Exception:
+        pass
+    permissions = engine_mod.DataPermissions.allow_all()
+    fused = fusion_mod.fuse_turn(
+        "test-user-00000000",
+        payload,
+        permissions,
+        persist=False,
+        include_stored=False,
+        load_learner=True,
+    )
+    envelope = engine_mod.generate_response(
+        safe,
+        fused.context,
+        permissions=permissions,
+        persona=fused.persona,
+        baselines=fused.baselines,
+    )
+    envelope = _scrub_fused_speak(envelope)
+    sidecar = fused.fusion_sidecar()
+    existing = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
+    envelope["fusion"] = {**sidecar, **existing}
+    stance = envelope["fusion"].get("stance")
+
+    prose = envelope.get("prose_summary") or ""
+    diagnosis = voice_diagnostics.diagnose(prose)
+    orch_ms = _orchestration_latency_ms(message, seed, len(plan.workers))
+    brief = envelope.get("contextualization") if isinstance(envelope.get("contextualization"), dict) else None
+
+    row = {
+        **envelope,
+        "schema_version": envelope.get("schema_version") or "1.1",
+        "prose_summary": prose,
+        "message": envelope.get("message") or prose,
+        "suggested_actions": list(envelope.get("suggested_actions") or suggested_actions(plan)),
+        "card": envelope.get("card"),
+        "rich_card": envelope.get("rich_card"),
+        "restricted_domains": list(envelope.get("restricted_domains") or []),
+        "agent": plan.primary.kind,
+        "agents": plan.kinds,
+        "workers": [w.as_dict() for w in plan.workers],
+        "reasoning_source": LAMBDA_REASONING_SOURCE,
+        "test_ready": True,
+        "model": LAMBDA_MODEL,
+        "user_id": "test-user-00000000",
+        "voice_diagnosis": diagnosis.as_dict(),
+        "thinking": (
+            f"Heard {', '.join(h.kind for h in intents[:3]) or plan.primary.kind}. "
+            f"Fused {stance or 'stance'} via BodyModel ({fused.source}); Bedrock off."
+        ),
+        "scenario": str(envelope.get("guidance_band") or stance or envelope.get("response_type") or ""),
+        "stub_prose": None,
+        "session": envelope.get("session"),
+        "orchestration": {
+            "engine": ENGINE_LAMBDA,
+            "stages": list(ORCH_STAGES),
+            "intents": [
+                {"kind": h.kind, "weight": h.weight, "cues": list(h.cues)}
+                for h in intents
+            ],
+            "primary": plan.primary.kind,
+            "fusion_source": fused.source,
+            "owned_domains": list(fused.owned_domains),
+            "observation_count": fused.observation_count,
+            "stance": stance,
+            "persona": {
+                "occupation": getattr(ctx, "occupation", None),
+                "chronotype": getattr(ctx, "chronotype", None),
+                "season": getattr(ctx, "life_season", None),
+                "experience": getattr(ctx, "experience_level", None),
+            },
+            "latency_ms": orch_ms,
+            "engine_latency_ms": 0,
+            "prior_turns": len(prior_turns or []),
+            "day_index": day_index,
+        },
+    }
+    if brief is not None:
+        row["contextualization"] = brief
+    return row
+
+
 def _orchestration_latency_ms(message: str, seed: int, worker_count: int) -> int:
     """Fake-but-stable overhead: scoring + fan-out, not a wall-clock sleep."""
     return 40 + (_fnv(message) ^ (seed * 16777619) ^ (worker_count * 31)) % 90
@@ -1204,11 +1488,14 @@ def respond(
     cycle_subjects: list[str] | None = None,
     prior_turns: list[str] | None = None,
     day_index: int = 29,
+    engine: str = ENGINE_STUB,
+    lifestyle_tags: list[str] | None = None,
 ) -> dict:
-    """One SimRunner stub call for the primary agent; supporting briefs in-process.
+    """One SimRunner turn. ``engine="stub"`` is the matrix path; ``engine="lambda"``
+    hypertunes against fused product speak (``fuse_turn`` + ``generate_response``).
 
-    Pipeline (always local, always stub):
-      ingest → route specialists → reason (stub) → specialize → synthesize → voice.
+    Pipeline (always local, Bedrock off):
+      ingest → route specialists → reason → specialize → synthesize → voice.
 
     Never calls Bedrock, AWS, or any other cloud.
     """
@@ -1236,6 +1523,17 @@ def respond(
     profile = model["behavioral_profile"]
     stream = generate_stream(profile, seed)
     ctx = build_context(stream, profile, day_index)
+    if (engine or ENGINE_STUB).strip().lower() == ENGINE_LAMBDA:
+        return _respond_via_lambda(
+            message,
+            ctx,
+            plan,
+            intents,
+            seed=seed,
+            day_index=day_index,
+            prior_turns=prior_turns,
+            lifestyle_tags=lifestyle_tags,
+        )
     stub = _offline_stub(message, ctx, seed)
     signals = read_signals(ctx)
 
