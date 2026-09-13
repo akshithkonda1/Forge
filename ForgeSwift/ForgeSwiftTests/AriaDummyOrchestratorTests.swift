@@ -576,6 +576,91 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
     }
 
+    /// Dummy praise/coach lines must not dump HRV/bpm vitals or use flat praise.
+    /// Driven from the tip `FakeHealthPack` fixture (seed 41, stressed) that #264
+    /// already uses for lifestyle-tag reads.
+    func testOrdinaryPraiseAndCoachLinesStayOffVitalsAndFlatPraise() async throws {
+        let varietyKey = AriaReplyVariety.defaultsKey
+        let varietyPrevious = UserDefaults.standard.data(forKey: varietyKey)
+        let previousTags = AriaContextStore.shared.context.lifestyleTags
+        defer {
+            if let varietyPrevious {
+                UserDefaults.standard.set(varietyPrevious, forKey: varietyKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: varietyKey)
+            }
+            AriaContextStore.shared.context.lifestyleTags = previousTags
+        }
+        AriaReplyVariety.reset()
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        var parts = DateComponents()
+        parts.year = 2026
+        parts.month = 8
+        parts.day = 25
+        parts.hour = 15
+        let now = try XCTUnwrap(calendar.date(from: parts))
+        let pack = FakeHealthPack.generate(now: now, calendar: calendar, seed: 41, persona: "stressed")
+        let today = try XCTUnwrap(pack.today)
+
+        let store = makeStore()
+        store.apply(pack)
+        XCTAssertGreaterThan(store.dailyMetrics.hrv, 0, "tip pack must carry HRV so a dump is detectable")
+        XCTAssertGreaterThan(store.dailyMetrics.restingHR, 0, "tip pack must carry resting HR so a bpm dump is detectable")
+        XCTAssertEqual(store.dailyMetrics.hrv, today.hrvMs)
+        XCTAssertEqual(store.dailyMetrics.restingHR, today.restingHR)
+
+        let fixtures: [(text: String, agent: AriaCoachAgent, agents: [String])] = [
+            ("How did I sleep last night?", .sleep, ["sleep"]),
+            ("What should I train today?", .workout, ["workout"]),
+            ("I slept badly — what should I train and eat?", .workout, ["sleep", "workout", "lifestyle"]),
+            ("ok what should I train then", .workout, ["workout"]),
+            ("hype me up", .aria, ["aria"]),
+        ]
+
+        for fixture in fixtures {
+            let reply = await AriaDummyOrchestrator.reply(
+                text: fixture.text,
+                store: store,
+                agent: fixture.agent,
+                agents: fixture.agents
+            )
+            assertDummySpeakQuality(reply.message, prompt: fixture.text)
+            if let prose = reply.proseSummary {
+                assertDummySpeakQuality(prose, prompt: fixture.text)
+            }
+        }
+    }
+
+    private func assertDummySpeakQuality(_ text: String, prompt: String, file: StaticString = #filePath, line: UInt = #line) {
+        let lower = text.lowercased()
+        XCTAssertFalse(
+            lower.contains("hrv"),
+            "Dummy must not dump HRV in ordinary praise/coach lines for '\(prompt)': \(text)",
+            file: file,
+            line: line
+        )
+        XCTAssertFalse(
+            lower.contains("bpm"),
+            "Dummy must not dump bpm-style vitals in ordinary praise/coach lines for '\(prompt)': \(text)",
+            file: file,
+            line: line
+        )
+        XCTAssertFalse(
+            text.range(of: "crushing it", options: .caseInsensitive) != nil,
+            "Dummy must not use flat praise 'crushing it' for '\(prompt)': \(text)",
+            file: file,
+            line: line
+        )
+        XCTAssertFalse(
+            text.range(of: "you got this", options: .caseInsensitive) != nil,
+            "Dummy must not use flat praise 'you got this' for '\(prompt)': \(text)",
+            file: file,
+            line: line
+        )
+    }
+
     private func makeStore() -> AppStore {
         let store = AppStore()
         store.chatMessages = []
