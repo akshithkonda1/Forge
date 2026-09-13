@@ -454,6 +454,22 @@ class DummyOrchestratorTests(unittest.TestCase):
             self._assert_no_vitals_speak(row)
             history.append(prompt)
 
+    def test_follow_up_does_not_repeat_the_prior_essay(self):
+        history = ["How did I sleep last night?"]
+        first = dummy.respond(history[0], seed=11)
+        second = dummy.respond("make it easier", seed=11, prior_turns=history)
+        self.assertNotEqual(first["prose_summary"], second["prose_summary"])
+        self.assertNotIn(first["prose_summary"].strip(), second["message"])
+
+    def test_dummy_speak_stays_a_friend_not_a_clinician(self):
+        row = dummy.respond("I slept badly — what should I train and eat?", seed=1)
+        blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}".lower()
+        for banned in ("diagnos", "prescrib", "cure", "treat this", "medical condition"):
+            self.assertNotIn(banned, blob, banned)
+        self.assertNotIn("\n\n", row["message"])
+        self.assertNotIn("fresh pass", blob)
+        self.assertNotIn("following on from", blob)
+
     def _assert_no_vitals_speak(self, row: dict) -> None:
         blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}".lower()
         for banned in (
