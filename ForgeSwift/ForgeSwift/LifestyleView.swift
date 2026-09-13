@@ -41,7 +41,9 @@ struct LifestyleView: View {
                                 Text("Apple Health offline")
                                     .font(.system(size: 13, weight: .bold))
                                     .foregroundColor(.textPrimary)
-                                Text(reconnectingHK ? "Reconnecting…" : "Tap to reconnect for live nutrition & recovery")
+                                Text(store.isHealthKitPulling
+                                    ? "Pulling…"
+                                    : (reconnectingHK ? "Reconnecting…" : "Tap to reconnect for live nutrition & recovery"))
                                     .font(.system(size: 11, weight: .medium))
                                     .foregroundColor(.textTertiary)
                             }

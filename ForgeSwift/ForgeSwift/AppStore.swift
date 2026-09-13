@@ -142,6 +142,8 @@ final class AppStore: ObservableObject {
     @Published var pendingIntimacySession: IntimacyChatSession? = nil
     @Published var lastSuggestedActions: [String] = []
     @Published var healthKitLive: Bool = false
+    /// First Health sync after connect — You / Home show “Pulling…”, not a blank Home.
+    @Published var isHealthKitPulling: Bool = false
     /// Last successful metrics refresh (Home status pill).
     @Published var lastMetricsRefresh: Date? = nil
     /// True when today's numbers came from ForgeCore's Test-Ready Health pack

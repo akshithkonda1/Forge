@@ -262,7 +262,9 @@ struct SettingsPageView: View {
                         icon: "heart.text.square.fill",
                         iconColor: store.healthKitLive ? .success : .warning,
                         label: "Apple Health",
-                        trailingText: store.healthKitLive ? "Connected" : "Offline"
+                        trailingText: store.isHealthKitPulling
+                            ? "Pulling…"
+                            : (store.healthKitLive ? "Connected" : "Offline")
                     )
                     Divider().background(Color.borderColor)
                     Button {
@@ -287,6 +289,15 @@ struct SettingsPageView: View {
                         label: "Cycle quiet sync",
                         trailingText: "Weekly"
                     )
+                }
+                if let ingestError = store.lastLifeIngestError, !ingestError.isEmpty {
+                    Text(ingestError)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                        .accessibilityLabel(ingestError)
                 }
 
                 // Cycle privacy (Home opens the full Cycle surface)
