@@ -46,6 +46,9 @@ assert(ARIA_MARK.tiltDeg.length === ARIA_MARK.ringCount, "tiltDeg match ringCoun
 assert(ARIA_MARK.phaseOffsets.length === ARIA_MARK.ringCount, "phaseOffsets match ringCount");
 assert(ARIA_MARK.opacity.length === ARIA_MARK.ringCount, "opacity match ringCount");
 assert(ARIA_MARK.idleSpinHz < ARIA_MARK.speakingSpinHz, "speaking spins faster than idle");
+assert(ARIA_MARK.strokeWidthCompact === 1.5, "compact stroke meets cove floor (~3 CSS px at 1×)");
+assert(ARIA_MARK.strokeWidthHero === 1.85, "hero stroke stays 1.85");
+assert(ARIA_MARK.opacity.filter((o) => o >= 0.7).length >= 2, "at least two rings are legal single-stroke reads");
 assert(JSON.stringify(ARIA_MARK) === JSON.stringify(contract), "web ARIA_MARK matches shared/aria-mark.json");
 assert(!("webPath" in ARIA_MARK) && !("sharedPath" in contract), "PNG is not the brand runtime");
 

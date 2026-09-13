@@ -5,20 +5,20 @@ export const ARIA_MARK = {
   brandHue: "#FF4D00",
   brandHueLight: "#FF6B2B",
   ringCount: 5,
-  strokeWidthCompact: 1.35,
+  strokeWidthCompact: 1.5,
   strokeWidthHero: 1.85,
   radii: [0.38, 0.48, 0.58, 0.68, 0.78],
   eccentricity: [0.1, 0.14, 0.08, 0.16, 0.11],
   tiltDeg: [14, -22, 28, -10, 18],
   phaseOffsets: [0, 0.18, 0.41, 0.63, 0.88],
-  opacity: [0.32, 0.42, 0.55, 0.38, 0.48],
+  opacity: [0.40, 0.72, 0.78, 0.45, 0.55],
   idleSpinHz: 0.04,
   speakingSpinHz: 0.075,
   stillPoseAngleDeg: 18,
   heroMinimumSize: 90,
   compactRecommend: 28,
   notes:
-    "Brand mark = kinetic overlapping ellipses in Forge orange. Not gooey ember. Not readiness progress trim or score label. Reduce Motion freezes at stillPoseAngleDeg. No PNG runtime.",
+    "Brand mark = kinetic overlapping ellipses in Forge orange. Not gooey ember. Not readiness progress trim or score label. Reduce Motion freezes at stillPoseAngleDeg. No PNG runtime. Cove contrast: strokeWidthCompact 1.5 (never below ~3 CSS px at 1×). Compact 3-ring subset should prefer the two ≥0.70 rings + one supporting ring.",
 } as const;
 
 /**
