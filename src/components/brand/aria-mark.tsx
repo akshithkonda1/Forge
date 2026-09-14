@@ -3,11 +3,11 @@
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { ARIA_MARK, ariaMarkShouldSpin } from "@/lib/aria-mark";
-import { drawAriaRingField } from "@/lib/aria-ring-field";
+import { drawAriaRingField } from "@/lib/aria-soft-hex-field";
 
 /**
  * Adaptive Recovery Interactive Assistant.
- * Living mark is the kinetic ring-field (Watch nest ellipses) in `ARIA_MARK` / `shared/aria-mark.json`.
+ * Living mark is the kinetic soft-hex-field (rounded hexagons) in `ARIA_MARK` / `shared/aria-mark.json`.
  * Procedural canvas only — no PNG runtime, no ember, no readiness chrome.
  */
 export function AriaMark({

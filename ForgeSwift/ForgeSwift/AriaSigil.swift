@@ -1,19 +1,20 @@
 import Foundation
 import SwiftUI
 
-/// Kinetic orange/pearl ellipse nest + smart-metal pearl core (iOS Aria logo).
-/// Three stroked ellipses — same wirefield language as the Watch Home readiness
-/// nest (tilted eccentric rings) — around a white orb. Soft spin while alive;
-/// Reduce Motion / `forgeMinimalAnimation` freeze at `stillPoseAngleDeg`.
-/// Speaking adds a liquid-metal waveform on the orb and a soft breathe on the rings.
+/// Kinetic orange/pearl soft-hex nest + smart-metal pearl core (iOS Aria logo).
+/// Three stroked **rounded hexagons** — Watch Home nest tilts/radii, soft corners
+/// so they read as rounded hex / soft ellipse hybrids — around a white orb.
+/// Soft spin while alive; Reduce Motion / `forgeMinimalAnimation` freeze at
+/// `stillPoseAngleDeg`. Speaking adds a liquid-metal waveform on the orb and a
+/// soft breathe on the rings.
 enum AriaSigilGeometry: Sendable {
 
-    static let kind = "ring-field"
+    static let kind = "soft-hex-field"
     static let assetName = "AriaMark"
     static let ringCount: Int = 3
-    /// Legacy aliases — mark is the Watch-style ellipse nest (not hexagons).
     static let hexCount: Int = ringCount
-    static let ellipseCount: Int = ringCount
+    /// Legacy alias — shapes are rounded hexagons (soft corners), not sharp hex or pure ellipses.
+    static let ellipseCount: Int = hexCount
     static let forgeOrangeHex = "FF4D00"
     static let brandHueLightHex = "FF6B2B"
     /// Soft pearl core — glows; never readiness chrome.
@@ -36,11 +37,13 @@ enum AriaSigilGeometry: Sendable {
     static let strokeWidthCompact: CGFloat = 1.5
     static let strokeWidthHero: CGFloat = 1.85
     static let contrastFloor: Double = 0.70
+    /// Corner softness as a fraction of circumradius (0 = sharp hex, ~0.35 = near-ellipse).
+    static let cornerRoundness: Double = 0.28
 
     /// Watch Home nest compact subset (indices 1, 2, 4 of the 5-ring field).
-    /// High eccentricity + strong tilts = the kinetic wirefield look.
+    /// Soft eccentricity + strong tilts; corners rounded via `cornerRoundness`.
     static let radii: [Double] = [0.48, 0.58, 0.78]
-    static let eccentricity: [Double] = [0.14, 0.08, 0.11]
+    static let eccentricity: [Double] = [0.10, 0.07, 0.09]
     static let tiltDeg: [Double] = [-22, 28, 18]
     static let phaseOffsets: [Double] = [0.18, 0.41, 0.88]
     static let ringOpacities: [Double] = [0.72, 0.78, 0.55]

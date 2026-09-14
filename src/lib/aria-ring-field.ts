@@ -6,7 +6,7 @@ import {
   visibleRingIndices,
 } from "./aria-mark";
 
-/** Lockstep export for the three-ellipse Watch nest (Swift `AriaSigilGeometry`). */
+/** Lockstep export for the three soft-hex nest (Swift `AriaSigilGeometry`). */
 export const ARIA_RING_FIELD = {
   kind: ARIA_MARK.kind,
   shape: ARIA_MARK.shape,
@@ -15,9 +15,10 @@ export const ARIA_RING_FIELD = {
   eccentricity: ARIA_MARK.eccentricity,
   tiltDeg: ARIA_MARK.tiltDeg,
   opacity: ARIA_MARK.opacity,
+  cornerRoundness: ARIA_MARK.cornerRoundness,
 } as const;
 
-/** @deprecated Prefer `ARIA_RING_FIELD` — mark is ellipses matching Watch Home. */
+/** @deprecated Prefer `ARIA_RING_FIELD`. */
 export const ARIA_HEX_FIELD = {
   kind: ARIA_MARK.kind,
   shape: ARIA_MARK.shape,
@@ -62,9 +63,50 @@ function hexAlpha(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/** Flat-top rounded-hexagon path in local coords (center origin). */
+function strokeRoundedHexagon(
+  ctx: CanvasRenderingContext2D,
+  rx: number,
+  ry: number,
+  roundness: number
+): void {
+  const verts = Array.from({ length: 6 }, (_, i) => {
+    const angle = (i * Math.PI) / 3;
+    return { x: Math.cos(angle) * rx, y: Math.sin(angle) * ry };
+  });
+  const corner = Math.min(Math.min(rx, ry) * Math.max(0, Math.min(0.42, roundness)), Math.min(rx, ry) * 0.42);
+
+  ctx.beginPath();
+  for (let i = 0; i < 6; i += 1) {
+    const prev = verts[(i + 5) % 6]!;
+    const curr = verts[i]!;
+    const next = verts[(i + 1) % 6]!;
+    const toPrev = { x: prev.x - curr.x, y: prev.y - curr.y };
+    const toNext = { x: next.x - curr.x, y: next.y - curr.y };
+    const lenPrev = Math.hypot(toPrev.x, toPrev.y);
+    const lenNext = Math.hypot(toNext.x, toNext.y);
+    if (lenPrev < 0.001 || lenNext < 0.001) continue;
+    const dPrev = Math.min(corner, lenPrev * 0.45);
+    const dNext = Math.min(corner, lenNext * 0.45);
+    const p1 = {
+      x: curr.x + (toPrev.x / lenPrev) * dPrev,
+      y: curr.y + (toPrev.y / lenPrev) * dPrev,
+    };
+    const p2 = {
+      x: curr.x + (toNext.x / lenNext) * dNext,
+      y: curr.y + (toNext.y / lenNext) * dNext,
+    };
+    if (i === 0) ctx.moveTo(p1.x, p1.y);
+    else ctx.lineTo(p1.x, p1.y);
+    ctx.quadraticCurveTo(curr.x, curr.y, p2.x, p2.y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+}
+
 /**
- * Procedural kinetic orange/pearl ellipse nest — Watch Home wirefield language.
- * Three stroked ellipses around the mark center; white orb in the middle.
+ * Procedural kinetic orange/pearl soft-hex nest — Watch Home wirefield language
+ * with rounded hexagon strokes around a white orb.
  */
 export function drawAriaRingField(
   ctx: CanvasRenderingContext2D,
@@ -108,7 +150,6 @@ export function drawAriaRingField(
 
   for (const index of visibleRingIndices(cssSize)) {
     const pose = ringEllipse(index, input.time, input.speaking, input.reduceMotion);
-    // Watch hue rhythm: pearl → orange-light → orange.
     const hue =
       index === 0
         ? "#FFFFFF"
@@ -119,9 +160,12 @@ export function drawAriaRingField(
     ctx.translate(cx, cy);
     ctx.rotate(pose.rotation);
     ctx.strokeStyle = hexAlpha(hue, pose.opacity);
-    ctx.beginPath();
-    ctx.ellipse(0, 0, (pose.rx * size) / 2, (pose.ry * size) / 2, 0, 0, Math.PI * 2);
-    ctx.stroke();
+    strokeRoundedHexagon(
+      ctx,
+      (pose.rx * size) / 2,
+      (pose.ry * size) / 2,
+      ARIA_MARK.cornerRoundness
+    );
     ctx.restore();
   }
 

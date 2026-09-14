@@ -28,14 +28,15 @@ function main(): void {
     "src/lib/aria-mark.ts must match shared/aria-mark.json",
   );
 
-  assert.equal(ARIA_MARK.kind, "ring-field");
-  assert.equal(ARIA_MARK.shape, "ellipse");
+  assert.equal(ARIA_MARK.kind, "soft-hex-field");
+  assert.equal(ARIA_MARK.shape, "rounded-hexagon");
   assert.equal(ARIA_MARK.ringCount, 3);
+  assert.equal(ARIA_MARK.cornerRoundness, 0.28);
   assert.equal(ARIA_RINGS.length, 3);
   assert.equal(ARIA_RING_FIELD.ringCount, 3);
-  assert.deepEqual(ARIA_MARK.radii, [0.48, 0.58, 0.78]);
-  assert.deepEqual(ARIA_MARK.eccentricity, [0.14, 0.08, 0.11]);
-  assert.deepEqual(ARIA_MARK.tiltDeg, [-22, 28, 18]);
+  assert.deepEqual([...ARIA_MARK.radii], [0.48, 0.58, 0.78]);
+  assert.deepEqual([...ARIA_MARK.eccentricity], [0.1, 0.07, 0.09]);
+  assert.deepEqual([...ARIA_MARK.tiltDeg], [-22, 28, 18]);
   assert.equal(ARIA_ORB_CORE.kind, "smart-metal");
   assert.ok(ARIA_ORB_CORE.radius > 0.2);
   assert.ok(ARIA_ORB_CORE.radius < 0.4);

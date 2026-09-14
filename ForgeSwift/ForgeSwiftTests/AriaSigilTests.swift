@@ -5,7 +5,8 @@ import XCTest
 final class AriaSigilTests: XCTestCase {
 
     func testThreeEllipsesOrangeAndStillPose() {
-        XCTAssertEqual(AriaSigilGeometry.kind, "ring-field")
+        XCTAssertEqual(AriaSigilGeometry.kind, "soft-hex-field")
+        XCTAssertEqual(AriaSigilGeometry.cornerRoundness, 0.28, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.assetName, "AriaMark")
         XCTAssertEqual(AriaSigilGeometry.ringCount, 3)
         XCTAssertEqual(AriaSigilGeometry.ellipseCount, 3)
@@ -85,12 +86,12 @@ final class AriaSigilTests: XCTestCase {
     }
 
     func testRingFieldContractMatchesWatchNest() {
-        XCTAssertEqual(AriaSigilGeometry.kind, "ring-field")
+        XCTAssertEqual(AriaSigilGeometry.kind, "soft-hex-field")
         XCTAssertEqual(AriaSigilGeometry.assetName, "AriaMark")
         XCTAssertEqual(AriaSigilGeometry.ringCount, 3)
         // Watch Home compact subset (indices 1, 2, 4 of the 5-ring field).
         XCTAssertEqual(AriaSigilGeometry.radii, [0.48, 0.58, 0.78])
-        XCTAssertEqual(AriaSigilGeometry.eccentricity, [0.14, 0.08, 0.11])
+        XCTAssertEqual(AriaSigilGeometry.eccentricity, [0.10, 0.07, 0.09])
         XCTAssertEqual(AriaSigilGeometry.tiltDeg, [-22, 28, 18])
         XCTAssertEqual(AriaSigilGeometry.phaseOffsets, [0.18, 0.41, 0.88])
         XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.72, 0.78, 0.55])

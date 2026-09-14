@@ -1,25 +1,25 @@
-/** Shared ARIA ring-field — lockstep with `shared/aria-mark.json`. No PNG runtime. */
+/** Shared ARIA soft-hex field — lockstep with `shared/aria-mark.json`. No PNG runtime. */
 export const ARIA_MARK = {
   assetName: "AriaMark",
-  kind: "ring-field",
-  shape: "ellipse",
+  kind: "soft-hex-field",
+  shape: "rounded-hexagon",
   brandHue: "#FF4D00",
   brandHueLight: "#FF6B2B",
   ringCount: 3,
   strokeWidthCompact: 1.5,
   strokeWidthHero: 1.85,
   radii: [0.48, 0.58, 0.78],
-  eccentricity: [0.14, 0.08, 0.11],
+  eccentricity: [0.1, 0.07, 0.09],
   tiltDeg: [-22, 28, 18],
   phaseOffsets: [0.18, 0.41, 0.88],
   opacity: [0.72, 0.78, 0.55],
+  cornerRoundness: 0.28,
   idleSpinHz: 0.04,
   speakingSpinHz: 0.075,
   stillPoseAngleDeg: 18,
   heroMinimumSize: 90,
   compactRecommend: 28,
-  notes:
-    "Brand mark = three kinetic ellipses (Watch Home nest compact subset) around a white smart-metal orb. Not gooey ember. Not readiness progress trim or score label. Reduce Motion freezes at stillPoseAngleDeg. No PNG runtime. Always draw all three rings.",
+  notes: "Brand mark = three rounded hexagons (Watch Home nest tilts/radii, soft corners) around a white smart-metal orb. Not sharp hex. Not gooey ember. Not readiness progress trim. Reduce Motion freezes at stillPoseAngleDeg. No PNG runtime. Always draw all three."
 } as const;
 
 /** Web compact ceiling. Contract recommends 28; slots ≤32 stay still-pose. */
@@ -53,7 +53,7 @@ export function contrastRingIndices(
   );
 }
 
-/** All three rings — compact and hero share the same nest. */
+/** All three soft hexes — compact and hero share the same nest. */
 export function compactRingIndices(
   _opacities: readonly number[] = ARIA_MARK.opacity
 ): number[] {
@@ -76,7 +76,7 @@ export function ringSpinHz(speaking: boolean): number {
   return speaking ? ARIA_MARK.speakingSpinHz : ARIA_MARK.idleSpinHz;
 }
 
-/** Lockstep with Swift `AriaSigilGeometry.ellipse` (Watch nest language). */
+/** Lockstep with Swift `AriaSigilGeometry.ellipse` / rounded-hex pose. */
 export function ringEllipse(
   index: number,
   time: number,
@@ -98,11 +98,11 @@ export function ringEllipse(
   };
 }
 
-/** @deprecated Prefer `ringEllipse` — mark matches Watch kinetic ellipses. */
+/** @deprecated Prefer `ringEllipse` — pose is shared; stroke is rounded hex. */
 export const ringHex = ringEllipse;
 
 /**
- * Legacy gooey-ember motion. Unused by brand slots — ring-field is the living mark.
+ * Legacy gooey-ember motion. Unused by brand slots — soft-hex-field is the living mark.
  * Kept so the retired hearth can be deleted in one place.
  */
 export const LEGACY_EMBER = {
@@ -112,7 +112,7 @@ export const LEGACY_EMBER = {
   maxGaze: 0.14,
 } as const;
 
-/** @deprecated Living mark is ring-field (`ARIA_MARK`). Kept for the ember canvas. */
+/** @deprecated Living mark is soft-hex-field (`ARIA_MARK`). Kept for the ember canvas. */
 export const ARIA_LOBES = [
   { angle: 0.62, dist: 0.26, r: 0.44, phase: 0.0 },
   { angle: 2.18, dist: 0.24, r: 0.41, phase: 1.1 },
@@ -122,12 +122,12 @@ export const ARIA_LOBES = [
 
 export type AriaMarkState = "idle" | "listening" | "processing" | "speaking";
 
-/** @deprecated Gaze is ember-canvas only. Ring-field does not use pointer gaze. */
+/** @deprecated Gaze is ember-canvas only. Soft-hex-field does not use pointer gaze. */
 export function clampGaze(value: number): number {
   return Math.min(LEGACY_EMBER.maxGaze, Math.max(-LEGACY_EMBER.maxGaze, value));
 }
 
-/** @deprecated Living mark is ring-field. Ember lobes stay for the legacy canvas. */
+/** @deprecated Living mark is soft-hex-field. Ember lobes stay for the legacy canvas. */
 export function emberLobe(
   index: number,
   time: number,
@@ -150,7 +150,7 @@ export function emberLobe(
   return { x: Math.cos(ang) * dist, y: Math.sin(ang) * dist, r };
 }
 
-/** @deprecated Living mark is ring-field. Ember core stays for the legacy canvas. */
+/** @deprecated Living mark is soft-hex-field. Ember core stays for the legacy canvas. */
 export function emberCoreRadius(time: number, speaking: boolean, reduceMotion: boolean): number {
   if (reduceMotion) return 0.22;
   const hz = speaking ? LEGACY_EMBER.speakingBreathHz : LEGACY_EMBER.idleBreathHz;

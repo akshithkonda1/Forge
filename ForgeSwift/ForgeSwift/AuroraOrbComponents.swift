@@ -29,7 +29,7 @@ struct ARIAIdentityMark: View {
     }
 }
 
-/// Procedural ARIA logo: three kinetic ellipses (Watch Home nest language)
+/// Procedural ARIA logo: three rounded hexagons (Watch Home nest language)
 /// around a glowing white smart-metal orb. Soft spin at idle; speaking
 /// amplitude drives a waveform feel. No PNG, no gooey hearth, no readiness
 /// chrome. Reduce Motion and `forgeMinimalAnimation` freeze at
@@ -90,8 +90,8 @@ struct AuroraOrbView: View {
     }
 }
 
-/// Three kinetic ellipses around a white smart-metal orb — same wirefield
-/// language as the Watch Home nest (tilted eccentric rings). Shape strokes —
+/// Three rounded hexagons around a white smart-metal orb — same wirefield
+/// language as the Watch Home nest (tilted soft hexes). Shape strokes —
 /// not Canvas + `.plusLighter`.
 private struct AriaRingFieldView: View {
     let time: TimeInterval
@@ -145,7 +145,7 @@ private struct AriaRingFieldView: View {
                 // Watch hue rhythm: pearl → orange-light → orange.
                 let stroke = pearlRing ? pearlHot : (index == 1 ? orangeLight : orange)
                 let line = AriaSigilGeometry.strokeWidth(size: size, index: index)
-                Ellipse()
+                AriaRoundedHexagon(roundness: AriaSigilGeometry.cornerRoundness)
                     .stroke(
                         stroke.opacity(pose.opacity),
                         lineWidth: line
@@ -167,6 +167,58 @@ private struct AriaRingFieldView: View {
         .shadow(color: orange.opacity(0.18 + drive * 0.12), radius: max(3, size * 0.06))
         .shadow(color: pearlHot.opacity(0.16 + core.glow * 0.20), radius: max(4, size * 0.05))
         .allowsHitTesting(false)
+    }
+}
+
+
+/// Flat-top hexagon with rounded corners — reads as soft hex / rounded ellipse.
+private struct AriaRoundedHexagon: Shape {
+    /// Corner softness as a fraction of circumradius (0…~0.4).
+    var roundness: Double = 0.28
+
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2
+        guard radius > 0.5 else { return Path() }
+
+        let verts: [CGPoint] = (0..<6).map { i in
+            let angle = CGFloat(i) * (.pi / 3) // flat-top
+            return CGPoint(
+                x: center.x + radius * cos(angle),
+                y: center.y + radius * sin(angle)
+            )
+        }
+
+        let corner = min(radius * CGFloat(max(0, min(0.42, roundness))), radius * 0.42)
+        var path = Path()
+        for i in 0..<6 {
+            let prev = verts[(i + 5) % 6]
+            let curr = verts[i]
+            let next = verts[(i + 1) % 6]
+            let toPrev = CGPoint(x: prev.x - curr.x, y: prev.y - curr.y)
+            let toNext = CGPoint(x: next.x - curr.x, y: next.y - curr.y)
+            let lenPrev = hypot(toPrev.x, toPrev.y)
+            let lenNext = hypot(toNext.x, toNext.y)
+            guard lenPrev > 0.001, lenNext > 0.001 else { continue }
+            let dPrev = min(corner, lenPrev * 0.45)
+            let dNext = min(corner, lenNext * 0.45)
+            let p1 = CGPoint(
+                x: curr.x + toPrev.x / lenPrev * dPrev,
+                y: curr.y + toPrev.y / lenPrev * dPrev
+            )
+            let p2 = CGPoint(
+                x: curr.x + toNext.x / lenNext * dNext,
+                y: curr.y + toNext.y / lenNext * dNext
+            )
+            if i == 0 {
+                path.move(to: p1)
+            } else {
+                path.addLine(to: p1)
+            }
+            path.addQuadCurve(to: p2, control: curr)
+        }
+        path.closeSubpath()
+        return path
     }
 }
 
