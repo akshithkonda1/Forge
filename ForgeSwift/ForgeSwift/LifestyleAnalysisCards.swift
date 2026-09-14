@@ -97,7 +97,7 @@ struct AILifeAnalysisCard: View {
     private var fullAnalysisSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: "sparkles").font(.system(size: 13)).foregroundColor(.ember)
+                ARIAIdentityMark(state: .idle, mood: .energized, size: 18, amplitude: 0.22)
                 Text(isLive ? "ARIA's analysis" : "Summary")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.textPrimary)
@@ -214,7 +214,7 @@ struct AIRecommendationsCard: View {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: "sparkles")
+                    ARIAIdentityMark(state: .idle, mood: .energized, size: 16, amplitude: 0.22)
                     Text("Ask ARIA to optimize")
                         .font(.system(size: 13, weight: .semibold))
                 }

@@ -10,14 +10,7 @@ struct ProactiveCardView: View {
     var body: some View {
         Button(action: onTap) {
             HStack(alignment: .top, spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(Color.steel.opacity(0.15))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.steel)
-                }
+                ARIAIdentityMark(state: .idle, mood: .focused, size: 44, amplitude: 0.22)
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
