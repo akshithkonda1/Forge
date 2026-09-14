@@ -44,7 +44,7 @@ export const ARIA_HEXES = ARIA_RINGS;
 /** Web stand-in for the Swift smart-metal orb core. */
 export const ARIA_ORB_CORE = {
   kind: "smart-metal",
-  radius: 0.32,
+  radius: 0.28,
   pearl: "#F7F4F0",
   pearlHot: "#FFFFFF",
 } as const;
@@ -135,14 +135,14 @@ export function drawAriaRingField(
   ctx.fill();
 
   // Soft white orb core (web canvas stand-in for the smart-metal orb).
-  const orb = ctx.createRadialGradient(cx, cy, size * 0.02, cx, cy, size * 0.17);
+  const orb = ctx.createRadialGradient(cx, cy, size * 0.02, cx, cy, size * 0.145);
   orb.addColorStop(0, "rgba(255,255,255,0.98)");
   orb.addColorStop(0.4, "rgba(232,238,244,0.82)");
   orb.addColorStop(0.75, "rgba(247,244,240,0.35)");
   orb.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = orb;
   ctx.beginPath();
-  ctx.arc(cx, cy, size * 0.17, 0, Math.PI * 2);
+  ctx.arc(cx, cy, size * 0.145, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.save();

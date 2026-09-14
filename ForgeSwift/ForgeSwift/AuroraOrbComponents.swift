@@ -265,7 +265,7 @@ private struct AriaSmartMetalOrb: View {
     private var metalMid: Color { Color(hex: "C9D2DC") }
 
     var body: some View {
-        let diameter = size * (size < AriaSigilGeometry.heroMinimumSize ? 0.30 : 0.34)
+        let diameter = size * (size < AriaSigilGeometry.heroMinimumSize ? 0.26 : 0.29)
         let sheen = core.sheenAngle
         ZStack {
             Circle()
